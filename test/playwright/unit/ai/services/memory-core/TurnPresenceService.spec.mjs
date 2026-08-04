@@ -13,10 +13,10 @@ setup({
     }
 });
 
-import {test, expect}        from '@playwright/test';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
-import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {test, expect}         from '@playwright/test';
+import Neo                    from '../../../../../../src/Neo.mjs';
+import * as core              from '../../../../../../src/core/_export.mjs';
+import RequestContextService  from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import fs                     from 'fs';
 import path                   from 'path';
 import * as yaml              from 'js-yaml';
@@ -195,6 +195,89 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
             action       : 'terminal',
             agentIdentity: '@agent-turn'
         });
+    });
+
+    test('progress without turnId joins the newest active interval instead of refusing', async () => {
+        // A harness hook reaching this over MCP holds no turn id — it stopped querying a database to get
+        // one. Requiring the id from a client that cannot know it is precisely what pushed the hook into
+        // opening the store directly, so this widening is what removes the incentive for that bypass.
+        await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'start',
+            turnId: 'hookless-older',
+            now   : '2026-06-19T02:00:00.000Z'
+        }));
+        await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'start',
+            turnId: 'hookless-newer',
+            now   : '2026-06-19T02:05:00.000Z'
+        }));
+
+        const result = await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'progress',
+            source: 'claude-post-tool-use',
+            now   : '2026-06-19T02:06:00.000Z'
+        }));
+
+        expect(result.turnId).toBe('hookless-newer');
+        expect(result.startedAt).toBe('2026-06-19T02:05:00.000Z');
+        expect(result.lastProgressAt).toBe('2026-06-19T02:06:00.000Z');
+        // It must JOIN an interval, never mint a second one for the same turn.
+        expect(getNode('hookless-older').properties.lastProgressAt).toBe('2026-06-19T02:00:00.000Z');
+    });
+
+    test('progress with no open interval is a no-op, not an error', async () => {
+        const result = await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'progress',
+            now   : '2026-06-19T03:00:00.000Z'
+        }));
+
+        // The turn it would refresh has already expired or closed. Refusing the call would turn an
+        // ordinary race into a failed write on a path that must never break a session.
+        expect(result).toEqual({
+            status       : 'noop',
+            reason       : 'no-active-turn',
+            action       : 'progress',
+            agentIdentity: '@agent-turn'
+        });
+    });
+
+    test('wakeSubmitNonce persists, survives a later progress, and is rejected when malformed', async () => {
+        const nonce = '7ac7f929-0e77-4f61-92d2-1f078e871fe4';
+
+        await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action         : 'start',
+            turnId         : 'turn-nonce',
+            wakeSubmitNonce: nonce,
+            now            : '2026-06-19T04:00:00.000Z'
+        }));
+
+        expect(getNode('turn-nonce').properties.wakeSubmitNonce).toBe(nonce);
+
+        await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'progress',
+            turnId: 'turn-nonce',
+            now   : '2026-06-19T04:01:00.000Z'
+        }));
+
+        // The wake daemon's delivery proof matches on this exact value. A progress event that omitted the
+        // nonce must not erase the correlation mid-turn, or the proof degrades to `wake-submit-unknown`
+        // for a delivery that demonstrably happened.
+        expect(getNode('turn-nonce').properties.wakeSubmitNonce).toBe(nonce);
+
+        // Rejected rather than dropped: a stored-but-unmatchable nonce is indistinguishable from an
+        // absent one, so silently normalising it away would report correlation that can never fire.
+        // Synchronous throw — asserted through a thunk, because `asAgent(...)` would raise before
+        // `expect` ever received a promise to reject.
+        expect(() => asAgent(() => TurnPresenceService.recordTurnPresence({
+            action         : 'start',
+            turnId         : 'turn-bad-nonce',
+            wakeSubmitNonce: 'not-a-uuid',
+            now            : '2026-06-19T04:02:00.000Z'
+        }))).toThrow(/Invalid wakeSubmitNonce/);
+
+        // And nothing was persisted for the rejected call — the validation runs BEFORE the upsert, so a
+        // malformed nonce cannot leave a half-written interval behind.
+        expect(getNode('turn-bad-nonce')).toBeFalsy();
     });
 
     test('successful add_memory terminalizes the active turn interval', async () => {

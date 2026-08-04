@@ -1,9 +1,6 @@
 import {test, expect}  from '@playwright/test';
-import Database        from 'better-sqlite3';
 import {spawnSync}     from 'node:child_process';
 import fs              from 'node:fs';
-import os              from 'node:os';
-import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 import {
@@ -15,48 +12,33 @@ import {
 const
     configPath = fileURLToPath(new URL('../../../../.kimi-code/hooks/turn-presence.example.toml', import.meta.url)),
     hookPath   = fileURLToPath(new URL('../../../../.kimi-code/hooks/turnPresenceHook.mjs', import.meta.url)),
-    rootDir    = fileURLToPath(new URL('../../../..', import.meta.url));
+    PLANE      = Object.freeze({baseUrl: 'http://plane.test/mc/mcp', credential: 'test-bearer'});
 
 /**
- * @summary Creates the minimal graph fixture consumed by the fail-soft hook writer.
- * @param {String} prefix Temporary-directory prefix.
- * @returns {{db: Database, dbPath: String, dir: String}}
+ * @summary Captures every call the adapter routes to the transport, standing in for the served store.
+ *
+ * The predecessor of this fixture was a temporary SQLite file, and the assertions read rows back out of
+ * it. That shape could not fail on the defect it was meant to guard: writing to a local file is exactly
+ * what the hook used to do wrong, so a green suite proved only that *some* store received the beacon —
+ * never that the deployment's store did. Recording the outbound call instead pins the contract at the
+ * boundary the beacon actually has to cross.
+ * @returns {{calls: Object[], record: Function}}
  */
-function createGraphFixture(prefix='kimi-turn-presence-hook-') {
-    const dir    = fs.mkdtempSync(path.join(os.tmpdir(), prefix)),
-          dbPath = path.join(dir, 'graph.sqlite'),
-          db     = new Database(dbPath);
+function createTransportRecorder() {
+    const calls = [];
 
-    db.exec(`
-        CREATE TABLE Nodes (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            data TEXT
-        )
-    `);
+    return {
+        calls,
+        record: async args => {
+            calls.push(args);
 
-    return {db, dbPath, dir}
-}
-
-/**
- * @summary Closes and removes one temporary graph fixture.
- * @param {{db: Database, dir: String}} fixture Graph fixture.
- * @returns {void}
- */
-function destroyGraphFixture({db, dir}) {
-    db.close();
-    fs.rmSync(dir, {recursive: true, force: true})
-}
-
-/**
- * @summary Reads every persisted turn-presence node from a fixture database.
- * @param {Database} db SQLite database.
- * @returns {Object[]}
- */
-function readTurnPresenceNodes(db) {
-    return db.prepare('SELECT data FROM Nodes WHERE id LIKE ? ORDER BY id')
-        .all('AGENT_TURN_PRESENCE:%')
-        .map(({data}) => JSON.parse(data))
+            return {
+                agentIdentity: args.identity,
+                turnId       : 'turn-under-test',
+                status       : 'recorded'
+            }
+        }
+    }
 }
 
 test.describe('Kimi Code turn-presence hook adapter', () => {
@@ -135,176 +117,158 @@ test.describe('Kimi Code turn-presence hook adapter', () => {
         })
     });
 
-    test('records start, progress, and completed terminal state on one active turn', async () => {
-        const fixture = createGraphFixture();
-        const env     = {
-            NEO_AGENT_IDENTITY        : '@test-kimi',
-            NEO_MEMORY_DB_PATH        : fixture.dbPath,
-            NEO_TURN_PRESENCE_FRESH_MS: '60000',
-            NEO_TURN_PRESENCE_TTL_MS  : '600000'
-        };
+    test('each mapped event reaches the served store with its own action, source and terminal state', async () => {
+        const {calls, record} = createTransportRecorder(),
+              env             = {NEO_AGENT_IDENTITY: '@test-kimi'};
 
-        try {
+        for (const [hook_event_name, extra] of [
+            ['UserPromptSubmit', {session_id: 'session-test'}],
+            ['PostToolUse',      {tool_name: 'Shell'}],
+            ['Stop',             {}]
+        ]) {
             await recordKimiTurnPresence({
                 env,
-                hookPayload: {hook_event_name: 'UserPromptSubmit', session_id: 'session-test'},
-                now        : '2026-07-19T20:00:00.000Z',
-                rootDir
-            });
-            await recordKimiTurnPresence({
-                env,
-                hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Shell'},
-                now        : '2026-07-19T20:01:00.000Z',
-                rootDir
-            });
-            const result = await recordKimiTurnPresence({
-                env,
-                hookPayload: {hook_event_name: 'Stop'},
-                now        : '2026-07-19T20:02:00.000Z',
-                rootDir
-            });
-
-            expect(result).toMatchObject({
-                action       : 'terminal',
-                agentIdentity: '@test-kimi',
-                source       : 'kimi-stop',
-                status       : 'recorded',
-                terminalState: 'completed'
-            });
-
-            const nodes = readTurnPresenceNodes(fixture.db);
-            expect(nodes).toHaveLength(1);
-            expect(nodes[0].properties).toMatchObject({
-                agentIdentity : '@test-kimi',
-                lastProgressAt: '2026-07-19T20:02:00.000Z',
-                note          : 'kimi Stop',
-                source        : 'kimi-stop',
-                startedAt     : '2026-07-19T20:00:00.000Z',
-                status        : 'terminal',
-                terminalState : 'completed'
+                hookPayload: {hook_event_name, ...extra},
+                plane      : PLANE,
+                record
             })
-        } finally {
-            destroyGraphFixture(fixture)
         }
+
+        expect(calls.map(({action, source, note}) => ({action, source, note}))).toEqual([
+            {action: 'start',    source: 'kimi-user-prompt-submit', note: 'kimi UserPromptSubmit'},
+            {action: 'progress', source: 'kimi-post-tool-use',      note: 'kimi PostToolUse Shell'},
+            {action: 'terminal', source: 'kimi-stop',               note: 'kimi Stop'}
+        ]);
+
+        // Only the terminal call carries a terminalState — sending one on start/progress would assert a
+        // close that did not happen.
+        expect(calls.map(({terminalState}) => terminalState)).toEqual([undefined, undefined, 'completed']);
+
+        // Every call must name THIS seat and THIS plane. Without the identity the server records the
+        // beacon against the credential's owner, publishing the wrong agent as mid-turn.
+        calls.forEach(call => {
+            expect(call.identity).toBe('@test-kimi');
+            expect(call.baseUrl).toBe(PLANE.baseUrl);
+            expect(call.credential).toBe(PLANE.credential)
+        });
+
+        // No turnId is sent: the hook holds none, and the server resolves the open interval. Sending a
+        // locally-invented id is what would fork a second turn per event.
+        expect(calls.every(({turnId}) => turnId === undefined)).toBe(true)
     });
 
-    for (const eventName of ['StopFailure', 'Interrupt']) {
-        test(`${eventName} terminates the active turn as aborted`, async () => {
-            const fixture = createGraphFixture();
-            const env     = {
-                NEO_AGENT_IDENTITY: '@test-kimi',
-                NEO_MEMORY_DB_PATH: fixture.dbPath
-            };
+    for (const [eventName, source] of [['StopFailure', 'kimi-stop-failure'], ['Interrupt', 'kimi-interrupt']]) {
+        test(`${eventName} closes the turn as aborted`, async () => {
+            const {calls, record} = createTransportRecorder();
 
-            try {
-                await recordKimiTurnPresence({
-                    env,
-                    hookPayload: {hook_event_name: 'UserPromptSubmit'},
-                    now        : '2026-07-19T20:00:00.000Z',
-                    rootDir
-                });
-                await recordKimiTurnPresence({
-                    env,
-                    hookPayload: {hook_event_name: eventName},
-                    now        : '2026-07-19T20:01:00.000Z',
-                    rootDir
-                });
+            await recordKimiTurnPresence({
+                env        : {NEO_AGENT_IDENTITY: '@test-kimi'},
+                hookPayload: {hook_event_name: eventName},
+                plane      : PLANE,
+                record
+            });
 
-                expect(readTurnPresenceNodes(fixture.db)[0].properties).toMatchObject({
-                    source       : eventName === 'Interrupt' ? 'kimi-interrupt' : 'kimi-stop-failure',
-                    status       : 'terminal',
-                    terminalState: 'aborted'
-                })
-            } finally {
-                destroyGraphFixture(fixture)
-            }
+            expect(calls).toHaveLength(1);
+            expect(calls[0]).toMatchObject({action: 'terminal', source, terminalState: 'aborted'})
         })
     }
 
-    test('session events and missing identity fail soft without writing', async () => {
-        const fixture = createGraphFixture();
+    test('an unsupported event, a missing identity, and an unconfigured plane each skip WITHOUT reaching the transport', async () => {
+        const {calls, record} = createTransportRecorder();
 
-        try {
-            await expect(recordKimiTurnPresence({
-                env        : {NEO_AGENT_IDENTITY: '@test-kimi', NEO_MEMORY_DB_PATH: fixture.dbPath},
-                hookPayload: {hook_event_name: 'SessionStart'},
-                rootDir
-            })).resolves.toEqual({
-                eventName: 'SessionStart',
-                reason   : 'unsupported-hook-event',
-                status   : 'noop'
-            });
+        await expect(recordKimiTurnPresence({
+            env        : {NEO_AGENT_IDENTITY: '@test-kimi'},
+            hookPayload: {hook_event_name: 'SessionStart'},
+            plane      : PLANE,
+            record
+        })).resolves.toEqual({eventName: 'SessionStart', reason: 'unsupported-hook-event', status: 'noop'});
 
-            await expect(recordKimiTurnPresence({
-                env        : {NEO_MEMORY_DB_PATH: fixture.dbPath},
-                hookPayload: {hook_event_name: 'UserPromptSubmit'},
-                rootDir
-            })).resolves.toBeUndefined();
+        await expect(recordKimiTurnPresence({
+            env        : {},
+            hookPayload: {hook_event_name: 'UserPromptSubmit'},
+            plane      : PLANE,
+            record
+        })).resolves.toMatchObject({status: 'skipped'});
 
-            expect(readTurnPresenceNodes(fixture.db)).toHaveLength(0)
-        } finally {
-            destroyGraphFixture(fixture)
-        }
+        // The load-bearing case: an unconfigured plane must NAME the skip, never fall back to writing
+        // somewhere reachable. A beacon in a store nobody reads makes an unmeasured state look measured,
+        // which is the defect this whole path was repaired for.
+        const unconfigured = await recordKimiTurnPresence({
+            env        : {NEO_AGENT_IDENTITY: '@test-kimi'},
+            hookPayload: {hook_event_name: 'UserPromptSubmit'},
+            plane      : {baseUrl: ''},
+            record
+        });
+
+        expect(unconfigured.status).toBe('skipped');
+        expect(unconfigured.reason).toContain('no Memory Core plane is configured');
+        expect(calls).toHaveLength(0)
     });
 
     test('missing identity warns once on UserPromptSubmit, never on PostToolUse, always fail-open', async () => {
-        const fixture       = createGraphFixture();
-        const writes        = [];
-        const originalWrite = process.stderr.write;
+        const {calls, record} = createTransportRecorder(),
+              writes          = [],
+              originalWrite   = process.stderr.write;
 
         process.stderr.write = chunk => { writes.push(String(chunk)); return true };
 
         try {
             await expect(recordKimiTurnPresence({
-                env        : {NEO_MEMORY_DB_PATH: fixture.dbPath},
+                env        : {},
                 hookPayload: {hook_event_name: 'UserPromptSubmit'},
-                rootDir
-            })).resolves.toBeUndefined();
+                plane      : PLANE,
+                record
+            })).resolves.toMatchObject({status: 'skipped'});
             expect(writes).toHaveLength(1);
             expect(writes[0]).toContain('NEO_AGENT_IDENTITY unresolved');
             expect(writes[0]).toContain('--env-file-if-exists');
 
             writes.length = 0;
             await expect(recordKimiTurnPresence({
-                env        : {NEO_MEMORY_DB_PATH: fixture.dbPath},
+                env        : {},
                 hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Shell'},
-                rootDir
-            })).resolves.toBeUndefined();
+                plane      : PLANE,
+                record
+            })).resolves.toMatchObject({status: 'skipped'});
             expect(writes).toHaveLength(0);
 
             await expect(recordKimiTurnPresence({
-                env        : {NEO_AGENT_IDENTITY: '@test-kimi', NEO_MEMORY_DB_PATH: fixture.dbPath},
+                env        : {NEO_AGENT_IDENTITY: '@test-kimi'},
                 hookPayload: {hook_event_name: 'UserPromptSubmit'},
-                rootDir
+                plane      : PLANE,
+                record
             })).resolves.toMatchObject({status: 'recorded'});
-            expect(writes).toHaveLength(0)
+            expect(writes).toHaveLength(0);
+            expect(calls).toHaveLength(1)
         } finally {
-            process.stderr.write = originalWrite;
-            destroyGraphFixture(fixture)
+            process.stderr.write = originalWrite
         }
     });
 
-    test('the executable adapter exits cleanly when the local writer rejects', () => {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kimi-turn-presence-process-'));
+    test('the executable adapter survives an unreachable plane and SAYS SO on stderr', () => {
+        const result = spawnSync(process.execPath, [hookPath], {
+            encoding: 'utf8',
+            env     : {
+                ...process.env,
+                NEO_AGENT_IDENTITY: '@test-kimi',
+                // A port nothing is listening on: the write cannot land, which must surface rather than
+                // pass silently. The predecessor of this test asserted EMPTY stderr here — it encoded the
+                // silence as the contract, so the failure it should have caught was the behaviour it pinned.
+                NEO_FLEET_PLANE_BASE: 'http://127.0.0.1:1'
+            },
+            input  : JSON.stringify({hook_event_name: 'UserPromptSubmit'}),
+            timeout: 20000
+        });
 
-        try {
-            const result = spawnSync(process.execPath, [hookPath], {
-                encoding: 'utf8',
-                env     : {
-                    ...process.env,
-                    NEO_AGENT_IDENTITY: '@test-kimi',
-                    NEO_MEMORY_DB_PATH: path.join(dir, 'missing.sqlite')
-                },
-                input  : JSON.stringify({hook_event_name: 'UserPromptSubmit'}),
-                timeout: 5000
-            });
+        expect(result.error).toBeUndefined();
+        expect(result.status).toBe(0);
+        expect(result.stdout).toBe('');
 
-            expect(result.error).toBeUndefined();
-            expect(result.status).toBe(0);
-            expect(result.stdout).toBe('');
-            expect(result.stderr).toBe('')
-        } finally {
-            fs.rmSync(dir, {recursive: true, force: true})
-        }
+        // Discriminated deliberately: 'not recorded' alone would ALSO be printed by the unconfigured-plane
+        // skip, so asserting it would let this test pass without the transport ever being attempted. The
+        // throw text can only come from a plane that was configured, reached for, and failed.
+        expect(result.stderr).toContain('not recorded');
+        expect(result.stderr).toContain('threw');
+        expect(result.stderr).not.toContain('no Memory Core plane is configured')
     })
 });

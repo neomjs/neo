@@ -80,6 +80,7 @@ export async function readPlaneConfig() {
  * @param {*} [options.hookPayload] Parsed Claude Code hook payload.
  * @param {String|Date|Number} [options.now] Clock override for tests.
  * @param {Object} [options.plane] Injected `{baseUrl, credential}`; read from `AiConfig` when absent.
+ * @param {Function} [options.record] Transport seam.
  * @returns {Promise<Object>} `{status}` — `recorded`, or `skipped` with a reason.
  */
 export async function recordClaudeTurnPresence({
@@ -87,7 +88,8 @@ export async function recordClaudeTurnPresence({
     env = process.env,
     hookPayload,
     now,
-    plane
+    plane,
+    record
 } = {}) {
     const action = resolveAction({actionArg, hookPayload});
 
@@ -98,7 +100,8 @@ export async function recordClaudeTurnPresence({
         note  : resolveNote({action, hookPayload}),
         now,
         plane : plane ?? await readPlaneConfig(),
-        source: resolveSource({action, hookPayload})
+        source: resolveSource({action, hookPayload}),
+        ...(record ? {record} : {})
     });
 }
 

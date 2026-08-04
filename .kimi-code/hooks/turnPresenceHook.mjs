@@ -92,13 +92,15 @@ export async function readPlaneConfig() {
  * @param {*} [options.hookPayload] Parsed Kimi hook payload.
  * @param {String|Date|Number} [options.now] Clock override for tests.
  * @param {Object} [options.plane] Injected `{baseUrl, credential}`; read from `AiConfig` when absent.
+ * @param {Function} [options.record] Transport seam.
  * @returns {Promise<Object|undefined>}
  */
 export async function recordKimiTurnPresence({
     env = process.env,
     hookPayload,
     now,
-    plane
+    plane,
+    record
 } = {}) {
     const event = resolveKimiTurnPresenceEvent(hookPayload);
 
@@ -135,7 +137,8 @@ export async function recordKimiTurnPresence({
         now,
         plane: plane ?? await readPlaneConfig(),
         source,
-        terminalState
+        terminalState,
+        ...(record ? {record} : {})
     })
 }
 
