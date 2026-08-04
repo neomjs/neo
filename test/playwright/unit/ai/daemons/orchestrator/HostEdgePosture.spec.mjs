@@ -59,7 +59,8 @@ const DECLARED_LAUNCHERS = Object.freeze([
 /**
  * @summary Files that name the daemon entry WITHOUT launching it — the generic image entrypoint
  * (its role comes from the Compose service that sets `SERVICE_ENTRYPOINT`), sibling daemons that
- * reference the path for singleton self-detection, and the lint that reads it as data.
+ * reference the path for singleton self-detection, the lint that reads it as data, and modules whose
+ * documentation cites the daemon as the consumer whose behaviour they exist to explain.
  * @type {ReadonlyArray<String>}
  */
 const NON_LAUNCHER_REFERENCES = Object.freeze([
@@ -69,7 +70,10 @@ const NON_LAUNCHER_REFERENCES = Object.freeze([
     'ai/daemons/wake/daemon.mjs',
     'ai/deploy/Dockerfile',
     'ai/deploy/hostEdgeProfile.mjs',
-    'ai/scripts/lint/lint-config-template-ssot.mjs'
+    'ai/scripts/lint/lint-config-template-ssot.mjs',
+    // Cites the four fail-closed daemons in prose to explain WHY a cohort can be inadmissible.
+    // Reads only; it spawns nothing and resolves no entrypoint.
+    'ai/scripts/setup/cohortAdmissibility.mjs'
 ]);
 
 /**
