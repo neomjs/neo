@@ -377,6 +377,31 @@ export function buildMigrationPlan({
         }))
     }
 
+    // 2c. The transport constraint, surfaced at plan time rather than discovered at apply time. Desired
+    // values reach the plane through Compose interpolation, which is GLOBAL: one key carries one value
+    // for the whole project. A per-service carrier can therefore express a transition the transaction
+    // cannot perform, and picking one of the two values would apply a config the operator never named.
+    const desiredByKey = {};
+
+    Object.entries(desiredEnv || {}).forEach(([service, entries]) => {
+        Object.entries(entries || {}).forEach(([key, value]) => {
+            desiredByKey[key] ||= new Map();
+            desiredByKey[key].set(service, value)
+        })
+    });
+
+    Object.entries(desiredByKey).forEach(([key, byService]) => {
+        if (new Set(byService.values()).size > 1) {
+            blockers.push({
+                kind  : 'desired-value-conflict',
+                key,
+                reason: `services disagree on the desired value for '${key}' (` +
+                        `${[...byService.keys()].join(', ')}) — Compose interpolation carries one value per ` +
+                        'key for the whole project, so this transition cannot be applied as declared'
+            })
+        }
+    });
+
     const contractDelta = {optionalPresent: [...optionalPresent]};
 
     contractDelta.optionalPresent.forEach(key => notes.push(`optional override set: ${key}`));

@@ -396,15 +396,51 @@ async function resolveServiceScopes(parity, profile, services) {
  * @param {Object} composeIdentity
  * @returns {Promise<Number>} The pipeline's exit code.
  */
-async function invokePipeline(plan, composeIdentity) {
-    const pipelineEnv = {
-        NEO_REF                : plan.revisionDelta.to,
-        NEO_DEPLOY_PROJECT_NAME: composeIdentity.project,
-        NEO_DEPLOY_COMPOSE_FILE: composeIdentity.configFiles.join(path.delimiter)
-    };
+/**
+ * @summary Builds the exact environment handed to the pipeline — the invocation boundary, as a pure value.
+ *
+ * Extracted so the boundary is assertable without spawning the pipeline: the property under test is that
+ * a declared repair actually crosses into the transaction, and a test that only proved `invokePipeline`
+ * was called would pass while the values were dropped. That was the defect this function exists to close.
+ * @param {Object} plan            Output of `buildMigrationPlan`.
+ * @param {Object} composeIdentity `{project, configFiles}` discovered off the running plane.
+ * @param {Object} [desiredEnv]    Service name → `{KEY: value}`.
+ * @returns {Object} `{pipelineEnv, forwarded}` — the env map, and the keys contributed by the repair.
+ */
+export function buildPipelineEnv(plan, composeIdentity, desiredEnv = {}) {
+    const desiredFlat = {};
+
+    Object.values(desiredEnv || {}).forEach(entries => Object.assign(desiredFlat, entries || {}));
+
+    return {
+        pipelineEnv: {
+            NEO_REF                : plan.revisionDelta.to,
+            NEO_DEPLOY_PROJECT_NAME: composeIdentity.project,
+            NEO_DEPLOY_COMPOSE_FILE: composeIdentity.configFiles.join(path.delimiter),
+            ...desiredFlat
+        },
+        forwarded  : Object.keys(desiredFlat)
+    }
+}
+
+async function invokePipeline(plan, composeIdentity, desiredEnv = {}) {
+    // The declared repair has to reach the actual transaction, or `plan` records a transition `apply`
+    // cannot perform. Compose interpolation is the transport: the profile parameterises these leaves as
+    // `${NEO_*}`, so forwarding them as environment is what makes the recreate carry the new config.
+    // The plan already refuses when two services disagree on one key, because this transport is global.
+    const {pipelineEnv, forwarded: forwardedKeys} = buildPipelineEnv(plan, composeIdentity, desiredEnv);
 
     console.log(`[migrate] invoking ${PIPELINE_REL}`);
-    Object.entries(pipelineEnv).forEach(([key, value]) => console.log(`[migrate]   ${key}=${value}`));
+
+    // Keys only for the forwarded repair. A required input's VALUE is operator-supplied config and may be
+    // a host, a path or a credential-adjacent string; echoing it into a build log would persist it.
+    Object.entries(pipelineEnv)
+        .filter(([key]) => !forwardedKeys.includes(key))
+        .forEach(([key, value]) => console.log(`[migrate]   ${key}=${value}`));
+
+    if (forwardedKeys.length) {
+        console.log(`[migrate]   forwarding ${forwardedKeys.length} declared config value(s): ${forwardedKeys.join(', ')}`)
+    }
 
     const child = await run('bash', [path.join(repoRoot, PIPELINE_REL)], pipelineEnv);
 
@@ -510,7 +546,7 @@ async function main() {
     console.log('');
     console.log('[migrate] plan is clean — applying');
 
-    const pipelineCode = await invokePipeline(plan, composeIdentity);
+    const pipelineCode = await invokePipeline(plan, composeIdentity, options.desiredEnv);
 
     if (pipelineCode !== 0) {
         console.error(`[migrate] FATAL: pipeline exited ${pipelineCode}; the transition did not complete.`);

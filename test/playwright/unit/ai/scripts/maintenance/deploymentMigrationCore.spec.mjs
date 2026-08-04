@@ -9,7 +9,7 @@ import {
     parseObservedEnv,
     resolveCensus
 } from '../../../../../../ai/scripts/maintenance/deploymentMigrationCore.mjs';
-import {parseArgs} from '../../../../../../ai/scripts/maintenance/migrateDeployment.mjs';
+import {buildPipelineEnv, parseArgs} from '../../../../../../ai/scripts/maintenance/migrateDeployment.mjs';
 
 const repoRoot   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..'),
       PARITY_REL = 'ai/scripts/lint/config-leaf-parity.json',
@@ -432,6 +432,62 @@ test.describe('formatPlan', () => {
 
         expect(report).toContain('NOT VERIFIED');
         expect(report).toContain('overlay drift: not evaluated')
+    });
+});
+
+test.describe('the invocation boundary carries the repair into the transaction', () => {
+    const identity = {project: 'neo-local-agent-os', configFiles: ['/x/base.yml', '/x/overlay.yml']};
+
+    test('a declared desired value CROSSES into the pipeline env, not merely into the plan', () => {
+        // The defect this closes, caught by @neo-gpt-emmy: --set reached desiredEnv and configTransition
+        // in the plan while invokePipeline built its env from revision and identity only, so `apply`
+        // recreated containers with the OLD config and the plan recorded a transition it never performed.
+        const plan                     = buildMigrationPlan(createPlanInput()),
+              {pipelineEnv, forwarded} = buildPipelineEnv(plan, identity, {orchestrator: {NEO_CHROMA_HOST: 'chroma'}});
+
+        expect(pipelineEnv.NEO_CHROMA_HOST).toBe('chroma');
+        expect(forwarded).toEqual(['NEO_CHROMA_HOST'])
+    });
+
+    test('the pinned revision and discovered identity survive alongside a forwarded repair', () => {
+        // A desired key must never be able to overwrite the pinning that makes the transaction exact.
+        const plan          = buildMigrationPlan(createPlanInput()),
+              {pipelineEnv} = buildPipelineEnv(plan, identity, {orchestrator: {NEO_CHROMA_HOST: 'chroma'}});
+
+        expect(pipelineEnv.NEO_REF).toBe(TARGET_SHA);
+        expect(pipelineEnv.NEO_DEPLOY_PROJECT_NAME).toBe('neo-local-agent-os');
+        expect(pipelineEnv.NEO_DEPLOY_COMPOSE_FILE).toContain('/x/overlay.yml')
+    });
+
+    test('no repair declared forwards nothing — apply never carries config the operator did not name', () => {
+        const {pipelineEnv, forwarded} = buildPipelineEnv(buildMigrationPlan(createPlanInput()), identity);
+
+        expect(forwarded).toEqual([]);
+        expect(Object.keys(pipelineEnv).sort()).toEqual(['NEO_DEPLOY_COMPOSE_FILE', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_REF'])
+    });
+
+    test('two services disagreeing on one key BLOCKS at plan time, because the transport is global', () => {
+        // Compose interpolation carries one value per key for the whole project, so a per-service carrier
+        // can express a transition the transaction cannot perform. Picking either value would apply a
+        // config the operator never named for one of the two services.
+        const plan = buildMigrationPlan(createPlanInput({
+            desiredEnv: {orchestrator: {NEO_CHROMA_HOST: 'chroma'}, 'mc-server': {NEO_CHROMA_HOST: 'localhost'}}
+        }));
+
+        expect(plan.clean).toBe(false);
+
+        const blocker = plan.blockers.find(entry => entry.kind === 'desired-value-conflict');
+
+        expect(blocker.key).toBe('NEO_CHROMA_HOST');
+        expect(blocker.reason).toContain('one value per key')
+    });
+
+    test('agreeing services do NOT block — an identical value is expressible by the global transport', () => {
+        const plan = buildMigrationPlan(createPlanInput({
+            desiredEnv: {orchestrator: {NEO_CHROMA_HOST: 'chroma'}, 'mc-server': {NEO_CHROMA_HOST: 'chroma'}}
+        }));
+
+        expect(plan.blockers.filter(entry => entry.kind === 'desired-value-conflict')).toEqual([])
     });
 });
 
