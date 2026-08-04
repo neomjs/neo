@@ -1312,6 +1312,50 @@ test.describe('restart churn reaches the deployment record', () => {
         expect(withLedger.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
     });
 
+    /**
+     * The test above proves the alarm stays quiet; it does NOT prove the arithmetic, and cannot.
+     * With 5 observed and 5 planned it passes on a correct subtraction AND on the paired-row
+     * double-count that `9795dee622` repaired, because `Math.max(0, ...)` clamps 5 - 10 to the same
+     * 0. A suppression test is satisfied by over-suppression.
+     *
+     * This one is positioned so the two answers disagree. 4 observed restarts against ONE
+     * attempt/outcome pair leaves exactly the threshold and must FIRE. Count that pair as two
+     * restarts and the delta drops to 2, the alarm goes quiet, and this test goes red — which is the
+     * property the suppression test cannot have, since quiet is its passing state.
+     */
+    test('a single attempt/outcome pair subtracts ONE restart, not two — churn still fires at the boundary', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        await appendHealEvent(
+            {type: 'restart', collection: 'orchestrator', status: 'attempt', detail: {}},
+            {dir, now: OBSERVED_AT + 30000}
+        );
+        await appendHealEvent(
+            {type: 'restart', collection: 'orchestrator', status: 'healed', detail: {}},
+            {dir, now: OBSERVED_AT + 30001}
+        );
+
+        const onePair = await readHealLedger({dir});
+
+        // The specimen must contain the over-counting hazard, or the test proves nothing about it.
+        expect(onePair.length).toBe(2);
+
+        const atBoundary = await bridgeFor('c1', 4, () => onePair)
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(atBoundary.diagnosis.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
+
+        // Read the magnitude off the published evidence fact, not the classification `details`,
+        // which carries only the reason. This is the surface a consumer of `inspect_deployment`
+        // actually sees, so asserting here pins the number where it is legible rather than where it
+        // was convenient.
+        const churnFact = atBoundary.diagnosis.diagnosis.evidenceFacts
+            .find(fact => fact.type === 'restart-churn');
+
+        expect(churnFact.details.unplannedRestarts).toBe(3);
+        expect(churnFact.details.threshold).toBe(3);
+    });
+
     /** Unknown provenance must not raise churn: we cannot prove those restarts were not ours. */
     test('an unreadable ledger suppresses the alarm rather than guessing', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});

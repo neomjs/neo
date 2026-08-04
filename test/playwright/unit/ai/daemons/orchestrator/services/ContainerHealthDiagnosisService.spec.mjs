@@ -454,6 +454,50 @@ test.describe('restart churn', () => {
         expect(result.churning).toBe(false);
     });
 
+    /**
+     * The EXACT boundary, which the 4-and-2 pair above leaves open. `>=` and `>` agree on both of
+     * those and disagree only here, so without this case an off-by-one in either direction is
+     * invisible: the alarm would sit one restart away from where the config says it does. The
+     * comparison is `>=`, so a delta equal to the threshold IS churn.
+     */
+    test('a delta exactly equal to the threshold is churn — the boundary is inclusive', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 3),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.churning).toBe(true);
+        expect(result.unplannedRestarts).toBe(3);
+    });
+
+    /**
+     * Planned-restart subtraction, asserted by MAGNITUDE rather than by verdict.
+     *
+     * A verdict-only test cannot see this: `unplannedRestarts` is clamped with `Math.max(0, ...)`,
+     * so over-subtracting lands on the same `churning: false` as subtracting correctly. The pair
+     * below straddles the boundary, so the arithmetic is pinned from both sides — 4 observed minus
+     * 1 planned is exactly the threshold and must fire; minus 2 is one below and must not. Counting
+     * a restart twice, or not at all, breaks one of the two.
+     */
+    test('one planned restart subtracts exactly one, measured at the boundary', () => {
+        const args = {
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 4),
+            observedAt: OBSERVED_AT + 60000
+        };
+
+        const one = evaluateRestartChurn({...args, plannedRestarts: 1});
+
+        expect(one.unplannedRestarts).toBe(3);
+        expect(one.churning).toBe(true);
+
+        const two = evaluateRestartChurn({...args, plannedRestarts: 2});
+
+        expect(two.unplannedRestarts).toBe(2);
+        expect(two.churning).toBe(false);
+    });
+
     /** A recreate is the most common reason to see a jump, and it must never read as a fault. */
     test('a recreate resets the generation instead of reporting churn', () => {
         const result = evaluateRestartChurn({
