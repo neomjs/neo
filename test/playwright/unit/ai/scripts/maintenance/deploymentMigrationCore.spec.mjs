@@ -607,8 +607,13 @@ test.describe('parseArgs', () => {
         const options = parseArgs(['plan']);
 
         expect(options.services).toEqual(['mc-server', 'orchestrator', 'kb-server']);
-        expect(options.configServices).toEqual(['mc-server', 'orchestrator', 'kb-server', 'ingress']);
-        expect(options.configServices.length).toBeGreaterThan(options.services.length)
+
+        // `null` means DISCOVER from the plane's Compose labels. An earlier revision defaulted this to
+        // `[...DEFAULT_SERVICES, 'ingress']`, which hardcodes one profile's topology into a tool whose whole
+        // job is addressing a plane it did not build — a differently-named proxy or a fourth
+        // config-bearing service would fall outside the contract again. Verified live: the discovered
+        // cohort is `chroma, ingress, kb-server, mc-server, orchestrator`.
+        expect(options.configServices).toBeNull()
     });
 
     test('--config-services narrows the config cohort independently of --services', () => {

@@ -79,16 +79,20 @@ const execFileAsync = promisify(execFile),
       /**
        * The config cohort is WIDER than the revision cohort, and conflating them was a defect.
        *
-       * `/app/.neo-revision` is written by the Neo image, so only the three Neo services can produce a
-       * revision receipt — `ingress` is Caddy and has no such file. But the deployment contract spans
-       * services the receipt cannot: Compose owns `NEO_DEPLOY_HOSTNAME` on `ingress` with a localhost
-       * fallback, and the census classifies it as a required deployment input. Observing only the receipt
-       * cohort left that key owned by nobody, so it refused every plane as unattributable — measured, and
-       * it made `apply` unauthorizable everywhere. Disposition by @neo-gpt-emmy: widen the config cohort
-       * rather than demote the key.
+       * `/app/.neo-revision` is written by the Neo image, so only Neo services can produce a revision
+       * receipt — an ingress proxy has no such file. But the deployment contract spans services the receipt
+       * cannot: Compose owns `NEO_DEPLOY_HOSTNAME` on the ingress service with a localhost fallback, and the
+       * census classifies it as a required deployment input. Observing only the receipt cohort left that key
+       * owned by nobody, so it refused every plane as unattributable — measured, and it made `apply`
+       * unauthorizable everywhere.
+       *
+       * The cohort is DISCOVERED from the plane's own Compose labels rather than named here. An earlier
+       * revision appended `'ingress'` as a literal, which hardcodes one profile's topology into a tool whose
+       * whole point is to address a plane it did not build: a deployment with a differently-named proxy, or
+       * a fourth config-bearing service, would silently fall outside the contract again.
        * @type {String[]}
        */
-      DEFAULT_CONFIG_SERVICES = [...DEFAULT_SERVICES, 'ingress'];
+      CONFIG_COHORT_DISCOVERED = null;
 
 /**
  * @summary Runs a command, returning `{ok, stdout, stderr, code}` instead of throwing.
@@ -130,9 +134,10 @@ export function parseArgs(argv) {
               profile: 'ai/deploy/docker-compose.yml',
               // The cohort whose revision receipt must move. `--services` narrows it.
               services      : DEFAULT_SERVICES,
-              // The cohort whose config is observed and repaired — wider, because the contract spans
-              // services that cannot produce a revision receipt. `--config-services` narrows it.
-              configServices: DEFAULT_CONFIG_SERVICES,
+              // The cohort whose config is observed and repaired. `null` means DISCOVER it from the plane's
+              // Compose labels; `--config-services` pins it explicitly. Never a literal service name here,
+              // because the plane's topology is a property of the deployment, not of this tool.
+              configServices: CONFIG_COHORT_DISCOVERED,
               repoUrl       : process.env.NEO_REPO_URL || DEFAULT_REPO,
               omitted       : null,
               // Service name → `{KEY: value}`, populated by repeatable `--set`. Empty by default, so a
@@ -391,6 +396,39 @@ async function loadCensus(profile) {
 }
 
 /**
+ * @summary Discovers the plane's config cohort from its own Compose service labels.
+ *
+ * The authority for "which services does this deployment consist of" is the deployment, not this tool. A
+ * literal list would encode one profile's topology and silently exclude a differently-named proxy or a
+ * fourth config-bearing service — the same class of defect as defaulting the Compose project name.
+ *
+ * Stopped containers count: a dead service is exactly the case this tool exists for, and omitting it would
+ * drop its config from the contract at the moment it matters most.
+ * @param {String} project The discovered Compose project name.
+ * @returns {Promise<Object>} `{services, error}` — sorted service names, or a named failure.
+ */
+async function discoverConfigCohort(project) {
+    const listed = await run('docker', [
+        'ps', '-a', '--filter', `label=com.docker.compose.project=${project}`,
+        // `.Label` and not `index .Labels`: in `docker ps` templates `.Labels` is a comma-joined STRING,
+        // so indexing it errors — unlike `docker inspect`, where `.Config.Labels` is a map.
+        '--format', '{{.Label "com.docker.compose.service"}}'
+    ]);
+
+    if (!listed.ok) {
+        return {services: [], error: `could not list services for project '${project}': ${listed.stderr || 'no detail'}`}
+    }
+
+    const services = [...new Set(listed.stdout.split('\n').map(entry => entry.trim()).filter(Boolean))].sort();
+
+    if (services.length === 0) {
+        return {services: [], error: `project '${project}' reported no services, so no config cohort could be derived`}
+    }
+
+    return {services, error: null}
+}
+
+/**
  * @summary Resolves each service's declared env surface, so the census is judged per service.
  *
  * The census classifies keys per **profile**; the profile block names which config template governs each
@@ -465,7 +503,58 @@ async function resolveServiceScopes(parity, profile, services, observedEnvByServ
  * @returns {Promise<Number>} The pipeline's exit code.
  */
 /**
- * @summary Renders the declared per-service repair as a Compose overlay fragment, or `null` if none.
+ * @summary Carries forward the values a compose-owned service already has, so a repair does not revert them.
+ *
+ * `NEO_DEPLOY_HOSTNAME` is the worked case and the reason this exists. Compose declares it as
+ * `${NEO_DEPLOY_HOSTNAME:-localhost}` on the ingress service, so it is supplied by INTERPOLATION at deploy
+ * time rather than stored in the compose file. A repair run whose environment lacks it therefore re-renders
+ * the fallback and silently resets a plane that had a real hostname — config loss inside a repair tool, and
+ * invisible on any plane whose hostname already equals the fallback. Ours does, which is exactly why this
+ * needed an assertion rather than an inspection.
+ *
+ * Only compose-owned services are preserved. A Neo service's config comes from its image and its own
+ * declared leaves, so carrying its observed env forward would pin today's values across an upgrade that
+ * intends to change them.
+ * @param {Object}   options
+ * @param {Object}   options.observedEnvByService Service name → observed env Map.
+ * @param {String[]} options.composeOwnedServices Services with no Neo config template.
+ * @param {Object}   options.census               Output of `resolveCensus`.
+ * @param {Object}   [options.desiredEnv]         Operator-declared repairs, which take precedence.
+ * @returns {Object} Service name → `{KEY: value}` to carry forward.
+ */
+export function buildPreservedEnv({observedEnvByService = {}, composeOwnedServices = [], census, desiredEnv = {}} = {}) {
+    const preserved = {};
+
+    if (!census) {
+        return preserved
+    }
+
+    const classified = [...census.requiredDeploymentInputs, ...census.optionalOverrides, ...census.secrets];
+
+    composeOwnedServices.forEach(service => {
+        const observed = observedEnvByService[service];
+
+        if (!(observed instanceof Map)) {
+            return
+        }
+
+        classified.forEach(key => {
+            // An operator-declared repair WINS. Preservation exists so a value the plane already carries is
+            // not silently reverted, not to override an explicit fix.
+            if (desiredEnv?.[service]?.[key] !== undefined || !observed.has(key)) {
+                return
+            }
+
+            preserved[service] ||= {};
+            preserved[service][key] = observed.get(key)
+        })
+    });
+
+    return preserved
+}
+
+/**
+ * @summary Renders the per-service env transition as a Compose overlay fragment, or `null` if none.
  *
  * The consumer-owned carrier. Parent environment does NOT work here and the measurement is unambiguous:
  * the profile declares its env as literals, so `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=host-edge` in the
@@ -473,7 +562,7 @@ async function resolveServiceScopes(parity, profile, services, observedEnvByServ
  * does interpolate — renders correctly under the same command. A fragment merged in last is what the
  * containers actually consume, and it is service-scoped, so two services may carry different values for
  * one key. Found by @neo-gpt-emmy; the positive control is hers.
- * @param {Object} [desiredEnv] Service name → `{KEY: value}`.
+ * @param {Object} [desiredEnv] Service name → `{KEY: value}`; repairs and preserved values alike.
  * @returns {String|null} Fragment contents, or `null` when nothing is declared.
  */
 export function buildComposeFragment(desiredEnv = {}) {
@@ -601,8 +690,24 @@ async function main() {
         return 2
     }
 
+    // The config cohort is the plane's own service list unless the operator pinned it. Discovered, never
+    // a literal, so a differently-named proxy or a fourth config-bearing service stays inside the contract.
+    let configServices = options.configServices;
+
+    if (!configServices) {
+        const {services: discovered, error: cohortError} = await discoverConfigCohort(project);
+
+        if (cohortError) {
+            console.error(`[migrate] FATAL: ${cohortError}`);
+            return 2
+        }
+
+        configServices = discovered;
+        console.log(`[migrate] config cohort (discovered): ${configServices.join(', ')}`)
+    }
+
     const [{composeIdentity, deployedRevisions, unchecked, observedEnvByService}, {revision: targetRevision, error: targetError}] = await Promise.all([
-        inspectPlane(project, options.configServices, options.services),
+        inspectPlane(project, configServices, options.services),
         resolveTargetRevision(options.repoUrl, options.target)
     ]);
 
@@ -628,7 +733,7 @@ async function main() {
     );
 
     const {serviceScopes, errors: scopeErrors} = await resolveServiceScopes(
-        parity, options.profile, options.configServices, observedEnvByService, census
+        parity, options.profile, configServices, observedEnvByService, census
     );
 
     // A scope that failed to resolve is reported, never defaulted. The plan gate blocks on the missing
@@ -662,7 +767,18 @@ async function main() {
     console.log('');
     console.log('[migrate] plan is clean — applying');
 
-    const pipelineCode = await invokePipeline(plan, composeIdentity, options.desiredEnv);
+    // Preservation merged UNDER the operator's repairs: a compose-owned value the plane already carries is
+    // carried forward, and an explicit --set for the same key wins. Without this, apply re-renders
+    // `${NEO_DEPLOY_HOSTNAME:-localhost}` from an environment that lacks it and resets the plane's hostname.
+    const composeOwned = configServices.filter(service => !(parity?.$composeDefaultParity?.profiles?.[options.profile]?.services || {})[service]),
+          preserved    = buildPreservedEnv({observedEnvByService, composeOwnedServices: composeOwned, census, desiredEnv: options.desiredEnv}),
+          transition   = {...preserved};
+
+    Object.entries(options.desiredEnv).forEach(([service, entries]) => {
+        transition[service] = {...(transition[service] || {}), ...entries}
+    });
+
+    const pipelineCode = await invokePipeline(plan, composeIdentity, transition);
 
     if (pipelineCode !== 0) {
         console.error(`[migrate] FATAL: pipeline exited ${pipelineCode}; the transition did not complete.`);
@@ -675,7 +791,7 @@ async function main() {
     console.log('');
     console.log('[migrate] verifying /app/.neo-revision moved on every service...');
 
-    const after   = await inspectPlane(project, options.configServices, options.services),
+    const after   = await inspectPlane(project, configServices, options.services),
           unmoved = Object.entries(after.deployedRevisions).filter(([, revision]) => revision !== plan.revisionDelta.to);
 
     Object.entries(after.deployedRevisions).forEach(([service, revision]) => {

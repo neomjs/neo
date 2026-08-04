@@ -62,7 +62,15 @@ async function runApply({dirty}) {
 printf 'docker %s\\n' "$*" >> "${callLog}"
 case "$1" in
   ps)
-    if [[ "$*" == *'.Names'* ]]; then echo "probe-\${RANDOM}-1"; else echo "probe-project"; fi ;;
+    if [[ "$*" == *'.Names'* ]]; then
+      echo "probe-\${RANDOM}-1"
+    elif [[ "$*" == *'com.docker.compose.service'* ]]; then
+      # The config cohort is DISCOVERED from these labels, so the stub must answer as a real plane does:
+      # the Neo services plus a compose-owned proxy that carries the ingress-owned hostname.
+      printf '%s\\n' mc-server orchestrator kb-server ingress
+    else
+      echo "probe-project"
+    fi ;;
   inspect)
     cat "${inspectJson}" ;;
   exec)
@@ -84,8 +92,12 @@ exit 0
     // PATH, so with a `bash` stub on PATH each stub's own interpreter became this stub: it logged its own
     // invocation and exited without ever running the stub body, the driver got empty output from `docker`,
     // and all three tests timed out at 30s. The stub set has to not intercept itself.
+    // The stub also records NEO_DEPLOY_COMPOSE_FILE, because the repair fragment reaches the transaction
+    // through that env var rather than through argv. Without it, "the fragment was generated" is the most a
+    // test could assert; with it, the test can read what the transaction would actually merge.
     await fs.writeFile(path.join(binDir, 'bash'), `#!/bin/bash
 printf 'bash %s\\n' "$*" >> "${callLog}"
+printf 'compose-files %s\\n' "$NEO_DEPLOY_COMPOSE_FILE" >> "${callLog}"
 exit 0
 `);
 
@@ -147,6 +159,27 @@ test.describe('migrateDeployment apply refuses a dirty plan BEFORE touching cont
         // apply path, so this asserts the same call log CAN be non-empty.
         const {calls, stdout} = await runApply({dirty: false});
 
-        expect(calls.some(line => line.includes('deploy-pipeline.sh')), `calls:\n${calls.join('\n')}\n---\n${stdout.slice(-1200)}`).toBe(true)
+        expect(calls.some(line => line.includes('deploy-pipeline.sh')), `calls:\n${calls.join('\n')}\n---\n${stdout.slice(-1200)}`).toBe(true);
+        expect(calls.filter(line => line.includes('deploy-pipeline.sh'))).toHaveLength(1)
+    });
+
+    test('the established ingress hostname is PRESERVED into the transaction, not reset to the fallback', async () => {
+        // The defect this closes: Compose supplies NEO_DEPLOY_HOSTNAME by interpolation
+        // (`${NEO_DEPLOY_HOSTNAME:-localhost}`), so a repair run whose environment lacks it re-renders the
+        // FALLBACK and silently resets a plane that had a real hostname. It is invisible on any plane whose
+        // hostname already equals the fallback — ours does, which is why this needs an assertion and not an
+        // inspection. Read from the fragment the transaction would actually merge, not from a log line.
+        const {calls}  = await runApply({dirty: false}),
+              recorded = calls.find(line => line.startsWith('compose-files '));
+
+        expect(recorded, `no compose-file env recorded; calls:\n${calls.join('\n')}`).toBeTruthy();
+
+        const fragmentPath = recorded.replace('compose-files ', '').trim().split(':').at(-1);
+
+        expect(fragmentPath).toMatch(/repair\.compose\.json$/);
+
+        const fragment = await fs.readJson(fragmentPath);
+
+        expect(fragment.services.ingress.environment.NEO_DEPLOY_HOSTNAME).toBe('fixture-value')
     })
 });
