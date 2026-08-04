@@ -323,12 +323,19 @@ test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liven
     });
 
     /**
-     * A refusal whose holder identity is byte-identical to the requester's is self-succession: the
-     * same slot restarted inside the freshness window and is refused against its own predecessor.
-     * The refusal is correct; the "stop the duplicate" remediation is not, and it sent an operator
-     * hunting for a second process that did not exist while the real cause — a crash loop — scrolled
-     * past above it. Containers make this the common case: hostname is the container id and the
-     * entrypoint is always pid 1, so every restart reproduces the previous identity exactly.
+     * A refusal whose holder identity is byte-identical to the requester's is EVIDENCE of
+     * self-succession, not proof of it — the field is named `holderIdentityMatchesRequester` for
+     * that reason, and the guidance says "may be" rather than "is".
+     *
+     * The distinction is load-bearing, because the same byte-identical identity is exactly what a
+     * genuine duplicate produces. Containers make both cases collide: hostname is the container id
+     * and the entrypoint is always pid 1, so a restart of the same slot AND a second container
+     * started from the same image reproduce the previous identity equally well. Nothing in the
+     * refusal can separate them, so the message must not pick one.
+     *
+     * What it replaces is worse than imprecise: "stop the duplicate" sent an operator hunting for a
+     * second process that did not exist while the real cause — a crash loop — scrolled past above
+     * it. Asserting self-succession instead would fail the same way in the other direction.
      */
     test('#16459 — an identical holder identity reports the identity match instead of telling you to stop a duplicate', () => {
         const holder = {owner: 'orchestrator@21ccb536bbb9', pid: 1, startedAt: '2026-08-03T18:09:24.177Z'},
