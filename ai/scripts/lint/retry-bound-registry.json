@@ -20,6 +20,126 @@
         "regenerate": "node ai/scripts/lint/lint-retry-bounds.mjs --list"
     },
     "sites": {
+        "ai/scripts/benchmark/setupClass-cold-start.mjs#roundMetric:1a518c5e": {
+            "kind": "not-a-retry",
+            "witness": "`10 ** decimals` is decimal-place rounding: the exponent is a formatting precision argument, not an attempt counter. No loop encloses it.",
+            "note": "Classified because every growth expression is gated, not because it was suspected."
+        },
+        "apps/devindex/services/Spider.mjs#pickStrategy:af20cfdb": {
+            "kind": "not-a-retry",
+            "witness": "`Math.pow(Math.random(), 3)` is a cubic-bias power-law over [0,1) shaping a jitter offset; the exponent is the constant 3 and cannot grow.",
+            "note": "The nearest true-positive shape in the tree — a random offset in a crawler — and still not a retry series: nothing re-attempts on it."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#drawNetwork:3d84b270": {
+            "kind": "not-a-retry",
+            "witness": "Euclidean distance from a wave origin — `(posX - wave.x)**2`; squares a coordinate delta with a literal exponent.",
+            "note": "First of two exponentiations on this line; the second is keyed `#1`."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#drawNetwork:3d84b270#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same Euclidean distance — `(posY - wave.y)**2`.",
+            "note": "Represented separately because occurrence multiplicity is what the key ordinal exists to preserve."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#drawShockwaves:085f4fbe": {
+            "kind": "not-a-retry",
+            "witness": "`1 - Math.pow(1 - progress, 3)` is a cubic ease-out over a normalized 0..1 animation progress; the exponent is the literal 3.",
+            "note": "Progress is bounded by the animation, not by an attempt budget."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updateAgents:9d5b2f14": {
+            "kind": "not-a-retry",
+            "witness": "Vector magnitude of an agent velocity — `agents[idx + 2]**2`; squares a velocity component.",
+            "note": "First of two exponentiations on this line."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updateAgents:9d5b2f14#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same velocity magnitude — `agents[idx + 3]**2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:085f4fbe": {
+            "kind": "not-a-retry",
+            "witness": "The same cubic ease-out expression as `drawShockwaves`, in the physics tick; identical text, different enclosing symbol, so a distinct key.",
+            "note": "Shares a fingerprint with the drawShockwaves site — the symbol component of the key is what separates them."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:9e2d05f4": {
+            "kind": "not-a-retry",
+            "witness": "Euclidean distance to a buffered point — `(px - buffer[idx])**2`.",
+            "note": "First of two exponentiations on this line."
+        },
+        "apps/portal/canvas/HomeCanvas.mjs#updatePhysics:9e2d05f4#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same distance — `(py - buffer[idx + 1])**2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNearestNode:173ce0f0": {
+            "kind": "not-a-retry",
+            "witness": "Squared-distance comparison — `(nx - x) ** 2`; kept squared to avoid a sqrt in the nearest-node scan.",
+            "note": "First of two exponentiations on this line."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNearestNode:173ce0f0#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same squared distance — `(ny - y) ** 2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNeighbors:822f999b": {
+            "kind": "not-a-retry",
+            "witness": "Euclidean distance in the neighbour scan — `(x - cx) ** 2`.",
+            "note": "First of two exponentiations on this line."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#findNeighbors:822f999b#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same distance — `(y - cy) ** 2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#updatePhysics:a46dec3a": {
+            "kind": "not-a-retry",
+            "witness": "`Math.pow(active, 2)` squares a normalized activation for a falloff curve; the exponent is the literal 2.",
+            "note": "Reassigns its own input, which is the shape `mutate` exists to catch — but the multiplier is a constant square, not a growth factor."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#updateRunners:4255fb33": {
+            "kind": "not-a-retry",
+            "witness": "Squared cursor distance — `(tx - me.mouse.x) ** 2`.",
+            "note": "First of two exponentiations on this line."
+        },
+        "apps/portal/canvas/ServicesCanvas.mjs#updateRunners:4255fb33#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same squared distance — `(ty - me.mouse.y) ** 2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "src/canvas/Header.mjs#getStreamOffset:08d3b17b": {
+            "kind": "not-a-retry",
+            "witness": "`Math.pow((1 + Math.cos(...)) / 2, 3)` cubes a raised-cosine envelope for a sharper falloff; the source comment says so and the exponent is the literal 3.",
+            "note": "Input is a cosine, bounded to [0,1] before the exponentiation."
+        },
+        "src/canvas/Sparkline.mjs#renderLoop:649bd37d": {
+            "kind": "not-a-retry",
+            "witness": "`1 - Math.pow(1 - progress, 3)` — cubic ease-out on a 0..1 render progress.",
+            "note": "Same easing shape as the HomeCanvas sites."
+        },
+        "src/dashboard/DockDropIndicators.mjs#getCandidateHitPoint:47d9a25f": {
+            "kind": "not-a-retry",
+            "witness": "Squared hit-test distance — `(pointX - center.x) ** 2`; squared to rank candidates without a sqrt.",
+            "note": "First of two exponentiations on this line."
+        },
+        "src/dashboard/DockDropIndicators.mjs#getCandidateHitPoint:47d9a25f#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same squared distance — `(pointY - center.y) ** 2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
+        "src/form/field/FileUpload.mjs#formatSize:38dbd980": {
+            "kind": "not-a-retry",
+            "witness": "`bytes / (1000 ** i)` converts to an SI magnitude; `i` is an index into the `sizes` unit array, bounded by that array's length.",
+            "note": "The candidate the discovery patterns were first tuned against — it survives inside a template literal, which is why stripLiterals retains substitutions."
+        },
+        "src/main/DomEvents.mjs#getDistance:841a9de1": {
+            "kind": "not-a-retry",
+            "witness": "Euclidean distance between two pointer positions — `(x2 - x1) ** 2`.",
+            "note": "First of two exponentiations on this line."
+        },
+        "src/main/DomEvents.mjs#getDistance:841a9de1#1": {
+            "kind": "not-a-retry",
+            "witness": "Second term of the same distance — `(y2 - y1) ** 2`.",
+            "note": "Represented separately for occurrence multiplicity."
+        },
         "ai/agent/Loop.mjs#processEvent:e3df926d": {
             "kind": "retry-growth",
             "lifetime": "process-local",

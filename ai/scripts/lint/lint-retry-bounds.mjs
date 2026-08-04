@@ -31,11 +31,26 @@
  * Non-retry matches are classified too (`kind: 'not-a-retry'`) with the same witness requirement, so
  * the false-positive family is RECORDED rather than silently dropped by a regex nobody can audit.
  *
+ * ## What admits a candidate, and what only annotates one
+ *
+ * EVERY growth expression under the scan roots must be classified. Retry vocabulary
+ * (`isRetryContext`) orders the failure report so the plausible retries are read first; it decides
+ * nothing about whether a candidate is gated.
+ *
+ * A previous revision made vocabulary the admission rule and merely printed the rest, reasoning that
+ * a canvas physics loop should not have to declare a backoff cap. The reasoning was sound and the
+ * mechanism was not: a census on stdout is not a gate. A retry added under neutral names —
+ * `schedule() { const d = base * 2 ** n }` — printed one more line in a list nobody reads and the
+ * build stayed green. The geometry rows cost one classification each, once; the hole was permanent.
+ *
  * ## Why sites are keyed by symbol, not line
  *
  * A `file:line` registry drifts on every unrelated edit above the site, so it would be re-baselined
  * constantly and the re-baseline is exactly where a real regression slips through. Sites are keyed
- * `<relPath>#<enclosingSymbol>`; the line is carried as informational drift-detection only.
+ * `<relPath>#<enclosingSymbol>:<expressionFingerprint>`, with a `#<n>` ordinal appended for the
+ * second and later occurrences of one fingerprint inside the same symbol. The ordinal is what lets
+ * two identical expressions — on one line or on two — carry two obligations instead of collapsing
+ * into one. The line number is carried as informational drift-detection only.
  *
  * ## Scope
  *
@@ -90,10 +105,11 @@ const
      * camelCase is the dominant identifier style here, so `\b` anchoring is precisely wrong for
      * matching identifiers, and its failure mode is silent omission of the highest-value sites.
      *
-     * **Known false-negative:** a retry whose symbol, expression line, and filename all avoid this
-     * vocabulary — `schedule()` doing `d = base * 2 ** n` — is invisible here. That is a real gap and
-     * the honest bound on what this gate certifies: it proves the retries it can NAME are bounded,
-     * not that every retry in the tree is.
+     * **No longer a false-negative source.** A retry whose symbol, expression line and filename all
+     * avoid this vocabulary — `schedule()` doing `d = base * 2 ** n` — is invisible to THIS predicate,
+     * and that used to make it invisible to the gate. It no longer does: every growth expression is
+     * gated regardless, and this predicate only orders the report. The residual gap is now the
+     * discovery PATTERNS, not the vocabulary — a growth syntax none of them match is still unseen.
      */
     RETRY_VOCABULARY = /(retry|retries|retried|backoff|attempt|reconnect|redeliver|requeue|resend|failure|failing|consecutive|throttle|cooldown|reprobe)/i,
 
@@ -321,6 +337,42 @@ export function isRetryContext({file, line, symbol}) {
            RETRY_VOCABULARY.test(path.basename(file || ''))
 }
 
+/**
+ * Finds EVERY growth match on one stripped code line.
+ *
+ * @summary `PATTERNS.find` answered "does this line contain a growth expression", which is a
+ * different question from "which growth expressions does it contain". A Euclidean distance holds two
+ * exponentiations and produced one obligation; the second was absorbed with nothing recording that a
+ * site had been merged away. Matches are returned in source order and de-duplicated by start index,
+ * so two patterns describing the same token (`Math.pow(a ** b)`) do not double-count one site.
+ *
+ * @param {String} code Stripped code line.
+ * @returns {Object[]} `[{id, index}]` in source order.
+ */
+export function findGrowthMatches(code) {
+    const byIndex = new Map();
+
+    for (const pattern of PATTERNS) {
+        const flags = pattern.re.flags.includes('g') ? pattern.re.flags : `${pattern.re.flags}g`,
+              re    = new RegExp(pattern.re.source, flags);
+
+        let match;
+
+        while ((match = re.exec(code)) !== null) {
+            if (!byIndex.has(match.index)) {
+                byIndex.set(match.index, {id: pattern.id, index: match.index});
+            }
+
+            // A zero-length match would spin `exec` forever on the same index.
+            if (match.index === re.lastIndex) {
+                re.lastIndex++;
+            }
+        }
+    }
+
+    return [...byIndex.values()].sort((a, b) => a.index - b.index)
+}
+
 export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
     const candidates = [],
           seenKeys   = new Map();
@@ -349,36 +401,43 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
                 // A continuation line inside a template is prose, not code, whatever it looks like.
                 if (wasOpen) return;
 
-                const hit = PATTERNS.find(p => p.re.test(stripped.code));
+                // Every match, not the first. `PATTERNS.find` returned one hit per line, so
+                // `(px - a) ** 2 + (py - b) ** 2` — two growth expressions — produced ONE obligation
+                // and the second was silently absorbed. Multiplicity has to be represented before
+                // the registry can claim to cover the tree.
+                const matches = findGrowthMatches(stripped.code);
 
-                if (!hit) return;
+                if (matches.length === 0) return;
 
-                const symbol = findEnclosingSymbol(lines, index);
+                // `retryContext` ANNOTATES, it no longer admits (@neo-gpt-emmy). See `diffRegistry`.
+                const symbol       = findEnclosingSymbol(lines, index),
+                      retryContext = isRetryContext({file: rel, line, symbol});
 
-                // PARTITION, never exclusion (@neo-gpt-emmy). An earlier revision `return`ed here,
-                // which made a neutral-vocabulary retry — `schedule() { const d = base * 2 ** n }` —
-                // silently invisible: the gate went green with fewer candidates and nothing said why.
-                // Every growth expression is now discovered and reported; `retryContext` decides only
-                // whether classification is REQUIRED, so completeness and signal stop competing.
-                const retryContext = isRetryContext({file: rel, line, symbol});
+                for (const hit of matches) {
+                    // The occurrence ordinal distinguishes two IDENTICAL expressions in one symbol,
+                    // which share a fingerprint by construction — whether they sit on one line or on
+                    // two. Without it the second collapses onto the first and `diffRegistry`'s Set
+                    // reports no drift for a site nobody classified.
+                    //
+                    // The fingerprint stays keyed on the whole stripped LINE rather than the matched
+                    // substring, deliberately: re-basing it would have rotated every existing key and
+                    // forced a full re-baseline, which is precisely the moment a real regression slips
+                    // through unnoticed.
+                    const baseKey    = `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
+                          occurrence = seenKeys.get(baseKey) || 0;
 
-                // The occurrence ordinal distinguishes two IDENTICAL expressions in one symbol, which
-                // share a fingerprint by construction. Without it the second collapses onto the first
-                // and `diffRegistry`'s Set reports no drift for a site nobody classified.
-                const baseKey    = `${rel}#${symbol}:${expressionFingerprint(stripped.code)}`,
-                      occurrence = seenKeys.get(baseKey) || 0;
+                    seenKeys.set(baseKey, occurrence + 1);
 
-                seenKeys.set(baseKey, occurrence + 1);
-
-                candidates.push({
-                    key    : occurrence === 0 ? baseKey : `${baseKey}#${occurrence}`,
-                    file   : rel,
-                    line   : index + 1,
-                    symbol,
-                    pattern: hit.id,
-                    retryContext,
-                    snippet: line.trim().slice(0, 120)
-                });
+                    candidates.push({
+                        key    : occurrence === 0 ? baseKey : `${baseKey}#${occurrence}`,
+                        file   : rel,
+                        line   : index + 1,
+                        symbol,
+                        pattern: hit.id,
+                        retryContext,
+                        snippet: line.trim().slice(0, 120)
+                    });
+                }
             });
         }
     }
@@ -479,13 +538,23 @@ export function validateEntry(key, entry) {
 export function diffRegistry({candidates, registry}) {
     const discovered = new Set(candidates.map(c => c.key)),
           registered = Object.keys(registry),
-          // Only retry-context candidates are REQUIRED to be classified. The rest are still
-          // discovered, still reported, and may still be registered — they simply do not fail the
-          // gate. Asking a canvas physics loop to declare a backoff cap is how a gate gets routed
-          // around; hiding the loop entirely is how a real retry goes missing. The partition is the
-          // only arrangement that refuses both.
-          unclassified = candidates.filter(c => c.retryContext && !registry[c.key]),
-          uncontexted  = candidates.filter(c => !c.retryContext && !registry[c.key]),
+          // EVERY scoped candidate must be classified. Vocabulary annotates; it does not admit.
+          //
+          // A previous revision gated only retry-vocabulary candidates and merely PRINTED the rest,
+          // reasoning that a canvas physics loop should not have to declare a backoff cap. The
+          // reasoning was sound and the mechanism was not: a census on stdout is not a gate. A retry
+          // added tomorrow under neutral names — `schedule() { const d = base * 2 ** n }` — prints one
+          // more line in a list nobody reads, and the build stays green. The 16 geometry rows are a
+          // one-time cost; the hole was permanent, and it sat exactly where the highest-value misses
+          // live (@neo-gpt-emmy's falsification, which I first argued against and which holds).
+          //
+          // `not-a-retry` keeps the cost honest: those rows carry a witness naming what the expression
+          // IS, so the false-positive family is recorded rather than suppressed by a regex nobody can
+          // audit.
+          unclassified = candidates.filter(c => !registry[c.key]),
+          // Retained for REPORTING only — it orders review toward the plausible retries first, and no
+          // longer decides whether anything is gated.
+          uncontexted  = unclassified.filter(c => !c.retryContext),
           stale        = registered.filter(key => !discovered.has(key)),
           invalid      = registered.flatMap(key => validateEntry(key, registry[key]));
 
@@ -519,25 +588,17 @@ export function runLint() {
           registry                                    = loadRegistry(),
           {unclassified, uncontexted, stale, invalid} = diffRegistry({candidates, registry});
 
-    // The census prints on EVERY run, pass or fail. It is the record of what was examined — the
-    // property the partition must not cost. A growth expression outside retry vocabulary is visible
-    // here, so a retry whose naming this gate cannot recognise is under a reader's eye rather than
-    // silently absent, and can be registered deliberately if it turns out to be one.
-    if (uncontexted.length > 0) {
-        console.log(`[lint-retry-bounds] ${uncontexted.length} growth expression(s) outside retry vocabulary — reported, NOT gated:`);
-        uncontexted.forEach(c => console.log(`  ${c.file}:${c.line}  ${c.snippet}`));
-        console.log('  If one of these IS a retry, register it: the gate cannot see it by naming alone.\n');
-    }
-
     if (unclassified.length === 0 && stale.length === 0 && invalid.length === 0) {
-        console.log(`[lint-retry-bounds] ${candidates.length - uncontexted.length} retry-context candidate(s), all classified; ${uncontexted.length} reported ungated.`);
+        console.log(`[lint-retry-bounds] ${candidates.length} candidate(s), all classified.`);
         return {exitCode: 0};
     }
 
     if (unclassified.length > 0) {
         console.error(`\n[lint-retry-bounds] ${unclassified.length} UNCLASSIFIED candidate(s) — this is not an assertion that they are unbounded:\n`);
-        unclassified.forEach(c => {
-            console.error(`  ${c.key}`);
+        // Retry-vocabulary candidates first: same gate, but a reviewer's attention is not uniform,
+        // and the plausible retries are what a long list buries.
+        [...unclassified].sort((a, b) => Number(b.retryContext) - Number(a.retryContext)).forEach(c => {
+            console.error(`  ${c.key}${c.retryContext ? '   <- retry vocabulary' : ''}`);
             console.error(`      ${c.file}:${c.line}  (${c.pattern})  ${c.snippet}`);
         });
         console.error(`\n  Classify each in ${REGISTRY_REL}. If it is an easing curve, a random distribution, or any`);

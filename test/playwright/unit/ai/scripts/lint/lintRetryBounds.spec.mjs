@@ -6,6 +6,7 @@ import {
     diffRegistry,
     discoverCandidates,
     findEnclosingSymbol,
+    findGrowthMatches,
     isRetryContext,
     stripLiterals,
     unresolvedWitnessPaths,
@@ -126,17 +127,91 @@ test.describe('lint-retry-bounds — discovery + explicit bound classification (
     });
 
     /**
-     * Supersedes an earlier test asserting the non-retry family is recorded rather than filtered.
-     * That design collapsed on measurement: a full-tree run produced 62 candidates of which 34 sat
-     * outside `ai/` and only 3 of those were retries — the rest were `(x2 - x1) ** 2`,
-     * `Math.pow(1 - progress, 3)` and `1000 ** i`. Asking a canvas physics loop to declare its
-     * backoff cap makes a gate developers route around, and 14 registry rows saying "Euclidean
-     * distance is not a retry" record nothing worth reading.
+     * The control @neo-gpt-emmy asked for, and the one I argued against before conceding.
      *
-     * The exclusion is SEMANTIC, not a path filter — which is what the superseded test was really
-     * protecting against, and that property is asserted directly below.
+     * The argument I lost, recorded because the measurement in it was real and only the conclusion
+     * was wrong: a full-tree run produces candidates that are overwhelmingly NOT retries — Euclidean
+     * distances, easing curves, `1000 ** i` — and I read that as "do not gate them", since a registry
+     * row saying "Euclidean distance is not a retry" reads as recording nothing. What the measurement
+     * actually supports is only that the rows are low-VALUE, not that they are optional. They are
+     * paid once; the hole they leave is permanent, and it sits exactly where the highest-value misses
+     * live.
+     *
+     * A real backoff whose file, symbol AND variable names all avoid retry vocabulary must still be
+     * GATED, not merely printed. An earlier revision gated only retry-vocabulary candidates and
+     * console.logged the rest, on the reasoning that a canvas physics loop should not have to declare
+     * a backoff cap. The reasoning was fine; the mechanism was not — a census on stdout is not a gate,
+     * so this exact shape stayed green forever. Vocabulary now orders review and admits nothing.
      */
-    test('the discriminator excludes non-retries by vocabulary, never by path', () => {
+    test('a neutral-named retry is UNCLASSIFIED, not merely reported — vocabulary annotates, it does not admit', () => {
+        const neutral = {
+            key         : 'src/time/Clock.mjs#schedule:deadbeef',
+            file        : 'src/time/Clock.mjs',
+            line        : 12,
+            symbol      : 'schedule',
+            pattern     : 'exponent',
+            retryContext: isRetryContext({file: 'src/time/Clock.mjs', symbol: 'schedule', line: 'const d = base * 2 ** n;'}),
+            snippet     : 'const d = base * 2 ** n;'
+        };
+
+        // The premise of the control: this site is invisible to the vocabulary. If that ever becomes
+        // true-by-vocabulary the control stops testing what it claims, so it is asserted, not assumed.
+        expect(neutral.retryContext).toBe(false);
+
+        const {unclassified} = diffRegistry({candidates: [neutral], registry: {}});
+
+        expect(unclassified.map(c => c.key)).toEqual([neutral.key]);
+    });
+
+    /**
+     * Occurrence multiplicity, including identical text. Two identical growth expressions in one
+     * enclosing symbol share a fingerprint by construction, so without an ordinal the second collapses
+     * onto the first and `diffRegistry`'s Set reports no drift for a site nobody classified.
+     */
+    test('two identical expressions in one symbol create TWO obligations', () => {
+        const lines = [
+            'function schedule() {',
+            '    const a = base * 2 ** n;',
+            '    const b = base * 2 ** n;',
+            '}'
+        ];
+
+        expect(findEnclosingSymbol(lines, 1)).toBe('schedule');
+        expect(findEnclosingSymbol(lines, 2)).toBe('schedule');
+
+        const first  = {key: 'f.mjs#schedule:abc',    retryContext: true},
+              second = {key: 'f.mjs#schedule:abc#1',  retryContext: true};
+
+        // Distinct keys, so registering one leaves the other outstanding.
+        const {unclassified} = diffRegistry({
+            candidates: [first, second],
+            registry  : {'f.mjs#schedule:abc': {kind: 'not-a-retry', witness: 'w'}}
+        });
+
+        expect(unclassified.map(c => c.key)).toEqual([second.key]);
+    });
+
+    /**
+     * Multiple matches on ONE source line. `PATTERNS.find` answered "does this line contain a growth
+     * expression"; a Euclidean distance contains two, and the second was absorbed with nothing
+     * recording that a site had been merged away.
+     */
+    test('a line holding two growth expressions yields two matches, de-duplicated by position', () => {
+        expect(findGrowthMatches('dist = (nx - x) ** 2 + (ny - y) ** 2;')).toHaveLength(2);
+        expect(findGrowthMatches('const d = base * 2 ** n;')).toHaveLength(1);
+        expect(findGrowthMatches('const plain = a + b;')).toHaveLength(0);
+
+        // Overlapping patterns describing one token must not double-count it.
+        const overlapping = findGrowthMatches('Math.pow(a, 2)');
+
+        expect(overlapping).toHaveLength(1);
+        expect(overlapping[0].id).toBe('pow');
+
+        // Source order, so the registry ordinal is stable rather than pattern-declaration dependent.
+        expect(findGrowthMatches('x = (a) ** 2 + Math.pow(b, 2);').map(m => m.id)).toEqual(['exponent', 'pow']);
+    });
+
+    test('vocabulary still separates the plausible retries from the geometry, for review ordering', () => {
         // Same scan roots, opposite verdicts — so the exclusion cannot be a path rule.
         expect(isRetryContext({file: 'src/main/DomEvents.mjs',        line: 'return Math.sqrt((x2 - x1) ** 2)', symbol: 'getDistance'})).toBe(false);
         expect(isRetryContext({file: 'src/canvas/Sparkline.mjs',      line: 'progress = 1 - Math.pow(1 - progress, 3);', symbol: 'renderLoop'})).toBe(false);
