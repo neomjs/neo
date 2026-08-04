@@ -1,4 +1,4 @@
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {pathToFileURL} from 'node:url';
 import {
     readHookPayload,
     recordTurnPresenceFromHook
@@ -61,19 +61,44 @@ export function resolveKimiTurnPresenceEvent(hookPayload) {
 }
 
 /**
- * @summary Records fail-soft Kimi Code turn presence through Memory Core's existing local writer.
+ * @summary Reads the plane leaves from `AiConfig`, the one config read in this process.
+ *
+ * Imported lazily so the module stays loadable — and its pure helpers unit-testable — without booting
+ * the Neo state Provider. The hook process is an entrypoint, so reading the config singleton here is
+ * the sanctioned shape; the writer it feeds is not one, and deliberately resolves nothing itself.
+ * @returns {Promise<Object>} `{baseUrl, credential}`
+ */
+export async function readPlaneConfig() {
+    await import('../../src/Neo.mjs');
+    await import('../../src/core/_export.mjs');
+
+    const {default: AiConfig} = await import('../../ai/config.mjs'),
+          planeBase           = String(AiConfig.fleet.planeBase ?? '').trim().replace(/\/+$/, '');
+
+    return {
+        baseUrl   : planeBase ? `${planeBase}/mc/mcp` : '',
+        credential: AiConfig.fleet.planeBearer ?? ''
+    };
+}
+
+/**
+ * @summary Records Kimi Code turn presence into the store the deployment serves.
+ *
+ * **This is the entrypoint, and the only place config is resolved.** It injects the plane leaves into
+ * a writer that resolves nothing — replacing a path the writer used to derive from its own module
+ * location, which sent every beacon to a private checkout no reader queries.
  * @param {Object} options
  * @param {Object} [options.env=process.env] Environment inherited by the hook command.
  * @param {*} [options.hookPayload] Parsed Kimi hook payload.
- * @param {String|Date|Number} [options.now=new Date()] Clock override for tests.
- * @param {String} [options.rootDir] Repository root.
+ * @param {String|Date|Number} [options.now] Clock override for tests.
+ * @param {Object} [options.plane] Injected `{baseUrl, credential}`; read from `AiConfig` when absent.
  * @returns {Promise<Object|undefined>}
  */
 export async function recordKimiTurnPresence({
     env = process.env,
     hookPayload,
-    now = new Date(),
-    rootDir = fileURLToPath(new URL('../../', import.meta.url))
+    now,
+    plane
 } = {}) {
     const event = resolveKimiTurnPresenceEvent(hookPayload);
 
@@ -106,9 +131,9 @@ export async function recordKimiTurnPresence({
         action,
         env,
         hookPayload,
-        note: `kimi ${eventName}${toolSuffix}`,
+        note : `kimi ${eventName}${toolSuffix}`,
         now,
-        rootDir,
+        plane: plane ?? await readPlaneConfig(),
         source,
         terminalState
     })
@@ -121,7 +146,15 @@ export async function recordKimiTurnPresence({
 async function main() {
     const hookPayload = parseKimiHookPayload(await readHookPayload());
 
-    await recordKimiTurnPresence({hookPayload})
+    // Fail-open at the session boundary, but never silent: `unsupported-hook-event` is a deliberate
+    // no-op and stays quiet, while anything else says why it did not record. A presence write that
+    // reports nothing and stores nowhere is the exact failure this path is being repaired for.
+    const result = await recordKimiTurnPresence({hookPayload})
+        .catch(error => ({status: 'failed', reason: `turn-presence threw: ${error?.message || error}`}));
+
+    if (result?.status && !['recorded', 'noop'].includes(result.status)) {
+        process.stderr.write(`kimi turnPresenceHook: not recorded — ${result.reason || result.status}\n`)
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

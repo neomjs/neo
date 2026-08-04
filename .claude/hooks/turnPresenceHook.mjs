@@ -1,4 +1,4 @@
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {pathToFileURL} from 'node:url';
 import {
     readHookPayload,
     recordTurnPresenceFromHook
@@ -44,21 +44,50 @@ function resolveNote({action, hookPayload} = {}) {
 }
 
 /**
- * @summary Records fail-soft Claude Code turn-presence from hook input.
+ * @summary Reads the plane leaves from `AiConfig`, the one config read in this process.
+ *
+ * Imported lazily so the module stays loadable — and its pure helpers unit-testable — without booting
+ * the Neo state Provider. The hook process is an entrypoint, so reading the config singleton here is
+ * the sanctioned shape; the writer it feeds is not one, and deliberately resolves nothing itself.
+ * @returns {Promise<Object>} `{baseUrl, credential}`
+ */
+export async function readPlaneConfig() {
+    // Namespace bootstrap before the config import, the entry-point invariant `devFleetServer.mjs`
+    // documents: without them `ai/config.mjs` throws `Neo is not defined` at module-load.
+    await import('../../src/Neo.mjs');
+    await import('../../src/core/_export.mjs');
+
+    const {default: AiConfig} = await import('../../ai/config.mjs'),
+          planeBase           = String(AiConfig.fleet.planeBase ?? '').trim().replace(/\/+$/, '');
+
+    return {
+        baseUrl   : planeBase ? `${planeBase}/mc/mcp` : '',
+        credential: AiConfig.fleet.planeBearer ?? ''
+    };
+}
+
+/**
+ * @summary Records Claude Code turn-presence into the store the deployment serves.
+ *
+ * **This is the entrypoint, and the only place config is resolved.** It reads the plane leaves and
+ * injects them into a writer that resolves nothing — the same split `wakeArmingHook` uses. The
+ * previous shape let the writer derive a filesystem path from its own module location, which is how
+ * every beacon ended up in a private checkout that no reader queries.
+ *
  * @param {Object} options
  * @param {'start'|'progress'|'terminal'} [options.actionArg] Optional action override.
  * @param {Object} [options.env=process.env] Environment source.
  * @param {*} [options.hookPayload] Parsed Claude Code hook payload.
- * @param {String|Date|Number} [options.now=new Date()] Clock override for tests.
- * @param {String} [options.rootDir] Repository root.
- * @returns {Promise<Object>|undefined}
+ * @param {String|Date|Number} [options.now] Clock override for tests.
+ * @param {Object} [options.plane] Injected `{baseUrl, credential}`; read from `AiConfig` when absent.
+ * @returns {Promise<Object>} `{status}` — `recorded`, or `skipped` with a reason.
  */
 export async function recordClaudeTurnPresence({
     actionArg,
     env = process.env,
     hookPayload,
-    now = new Date(),
-    rootDir = fileURLToPath(new URL('../../', import.meta.url))
+    now,
+    plane
 } = {}) {
     const action = resolveAction({actionArg, hookPayload});
 
@@ -68,7 +97,7 @@ export async function recordClaudeTurnPresence({
         hookPayload,
         note  : resolveNote({action, hookPayload}),
         now,
-        rootDir,
+        plane : plane ?? await readPlaneConfig(),
         source: resolveSource({action, hookPayload})
     });
 }
@@ -76,10 +105,17 @@ export async function recordClaudeTurnPresence({
 async function main() {
     const hookPayload = parseHookPayload(await readHookPayload());
 
-    await recordClaudeTurnPresence({
+    // Never fails the session — presence is an enhancement, not a precondition for working. But it is
+    // never silent either: a skip or a throw says so on stderr, where the harness captures it. The
+    // failure this replaces was invisible precisely because it reported nothing and wrote anyway.
+    const result = await recordClaudeTurnPresence({
         actionArg: process.argv[2],
         hookPayload
-    }).catch(() => {});
+    }).catch(error => ({status: 'failed', reason: `turn-presence threw: ${error?.message || error}`}));
+
+    if (result?.status && result.status !== 'recorded') {
+        console.error(`[WARN] [turn-presence] not recorded — ${result.reason || result.status}`);
+    }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

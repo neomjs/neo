@@ -1,162 +1,14 @@
-import {randomUUID}    from 'node:crypto';
-import {fileURLToPath} from 'node:url';
-import {
-    resolveMemoryCoreGraphPath,
-    resolveTurnPresenceRuntimeConfig
-} from './TurnPresenceConfig.mjs';
-import {normalizeAgentIdentityNodeId} from '../../../../graph/normalizeAgentIdentityNodeId.mjs';
+import {recordTurnPresenceOverMcp}        from './recordTurnPresenceOverMcp.mjs';
+import {resolveTurnPresenceRuntimeConfig} from './TurnPresenceConfig.mjs';
+import {normalizeAgentIdentityNodeId}     from '../../../../graph/normalizeAgentIdentityNodeId.mjs';
 
 const WAKE_SUBMIT_NONCE_PATTERN = /NEO_WAKE_SUBMIT_NONCE:([0-9a-fA-F-]{36})/;
-
-function coerceDate(value) {
-    const date = value instanceof Date ? value : new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        throw new Error(`Invalid turn presence timestamp: ${value}`);
-    }
-    return date;
-}
 
 function normalizeWakeSubmitNonce(value) {
     if (!value || typeof value !== 'string') return null;
 
     const trimmed = value.trim();
     return /^[0-9a-fA-F-]{36}$/.test(trimmed) ? trimmed.toLowerCase() : null;
-}
-
-function buildTurnPresenceId(agentIdentity, turnId) {
-    return `AGENT_TURN_PRESENCE:${agentIdentity}:${turnId}`;
-}
-
-function getTurnPresenceProperties(db, nodeId) {
-    const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(nodeId);
-    if (!row?.data) return null;
-
-    try {
-        return JSON.parse(row.data).properties || null;
-    } catch {
-        return null;
-    }
-}
-
-function findNewestActiveTurnId(db, agentIdentity, nowIso) {
-    const row = db.prepare(`
-        SELECT data FROM Nodes
-        WHERE (
-            json_extract(data, '$.label') = 'AGENT_TURN_PRESENCE'
-            OR json_extract(data, '$.type') = 'AGENT_TURN_PRESENCE'
-        )
-          AND json_extract(data, '$.properties.agentIdentity') = ?
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
-          AND (
-            json_extract(data, '$.properties.expiresAt') IS NULL
-            OR json_extract(data, '$.properties.expiresAt') > ?
-          )
-        ORDER BY json_extract(data, '$.properties.lastProgressAt') DESC
-        LIMIT 1
-    `).get(agentIdentity, nowIso);
-
-    if (!row?.data) return null;
-
-    try {
-        return JSON.parse(row.data).properties?.turnId || null;
-    } catch {
-        return null;
-    }
-}
-
-async function withTimeout(promise, timeoutMs) {
-    let timer;
-    try {
-        return await Promise.race([
-            promise,
-            new Promise((_, reject) => {
-                timer = setTimeout(() => reject(new Error('turn presence hook timed out')), timeoutMs);
-                timer.unref?.();
-            })
-        ]);
-    } finally {
-        if (timer) clearTimeout(timer);
-    }
-}
-
-async function writeTurnPresenceEvent({
-    action,
-    agentIdentity,
-    dbPath,
-    freshMs,
-    note,
-    noteMaxChars,
-    now,
-    source,
-    terminalState,
-    ttlMs,
-    turnId,
-    wakeSubmitNonce
-}) {
-    const {default: Database} = await import('better-sqlite3');
-    const db                  = new Database(dbPath, {fileMustExist: true});
-
-    try {
-        const hasNodesTable = db.prepare(`
-            SELECT name FROM sqlite_master
-            WHERE type = 'table' AND name = 'Nodes'
-            LIMIT 1
-        `).get();
-        if (!hasNodesTable) return {status: 'noop', reason: 'missing-nodes-table', action, agentIdentity};
-
-        const nowDate      = coerceDate(now),
-              nowIso       = nowDate.toISOString(),
-              targetTurnId = turnId || (action === 'start'
-                  ? randomUUID()
-                  : findNewestActiveTurnId(db, agentIdentity, nowIso));
-
-        if (!targetTurnId) {
-            return {status: 'noop', reason: 'no-active-turn', action, agentIdentity};
-        }
-
-        const nodeId     = buildTurnPresenceId(agentIdentity, targetTurnId),
-              current    = getTurnPresenceProperties(db, nodeId) || {},
-              startedAt  = current.startedAt || nowIso,
-              properties = {
-                  ...current,
-                  agentIdentity,
-                  turnId        : targetTurnId,
-                  startedAt,
-                  lastProgressAt: nowIso,
-                  freshUntil    : new Date(nowDate.getTime() + freshMs).toISOString(),
-                  expiresAt     : new Date(nowDate.getTime() + ttlMs).toISOString(),
-                  terminalState : action === 'terminal' ? terminalState : null,
-                  status        : action === 'terminal' ? 'terminal' : 'active',
-                  source,
-                  note          : typeof note === 'string' ? note.slice(0, noteMaxChars) : null,
-                  updatedAt     : nowIso,
-                  userId        : agentIdentity,
-                  sharedEntity  : false,
-                  ...(wakeSubmitNonce ? {wakeSubmitNonce} : {})
-              },
-              node       = {
-                  id   : nodeId,
-                  label: 'AGENT_TURN_PRESENCE',
-                  type : 'AGENT_TURN_PRESENCE',
-                  name : `TurnPresence ${agentIdentity}`,
-                  properties
-              };
-
-        db.prepare(`
-            INSERT INTO Nodes (id, user_id, data)
-            VALUES (?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET data = excluded.data, user_id = excluded.user_id
-        `).run(nodeId, agentIdentity, JSON.stringify(node));
-
-        return {
-            ...properties,
-            status: 'recorded',
-            action,
-            id    : nodeId
-        };
-    } finally {
-        db.close();
-    }
 }
 
 /**
@@ -211,55 +63,100 @@ export function readHookPayload({stdin = process.stdin} = {}) {
 }
 
 /**
- * @summary Emits a fail-soft turn-presence hook write without importing Neo singletons.
+ * @summary Emits a turn-presence beacon into the store the deployment serves, without importing Neo
+ * singletons.
+ *
+ * ## Why this goes over the service instead of opening the store
+ *
+ * The earlier implementation resolved `rootDir` from `import.meta.url` and opened the resulting path
+ * with `better-sqlite3`. Both halves were wrong together: the path followed whichever *checkout* the
+ * hook file physically lived in, and the write **succeeded** there. In a containerized deployment the
+ * served graph is a Docker named volume with no host-visible path, so every beacon landed in a private
+ * file no reader ever queries — and nothing failed, because a writable SQLite file accepts writes
+ * happily. Measured before this changed: 6,000+ intervals across four seats in a single day, none of
+ * them readable, one orphaned store per checkout.
+ *
+ * That is why an unreachable plane must produce a **named skip** here rather than any fallback write.
+ * A beacon in a store nobody reads is strictly worse than no beacon at all: it makes an unmeasured
+ * state look measured, which is the failure this whole path is being repaired for.
+ *
+ * ## The freshness policy deliberately does not live here any more
+ *
+ * `freshMs` / `ttlMs` / `noteMaxChars` were previously resolved hook-side and written into the node.
+ * The service owns those bounds, so computing them again here was a second copy of a policy that only
+ * one party is authoritative for. It now sends the event and lets the server stamp the interval.
+ *
  * @param {Object} options
+ * @param {Object} options.plane Injected `{baseUrl, credential}` for the deployment's Memory Core. The
+ * hook adapter is the entrypoint that resolves these; this module reads no config of its own.
  * @param {'start'|'progress'|'terminal'} [options.action='start'] Event kind.
  * @param {Object} [options.env=process.env] Environment source.
  * @param {*} [options.hookPayload] Raw hook payload, used for optional wake nonce extraction.
  * @param {String} [options.note] Bounded diagnostic note.
- * @param {String|Date|Number} [options.now=new Date()] Clock override for tests.
- * @param {String} [options.rootDir] Repository root.
+ * @param {String|Date|Number} [options.now] Clock override for tests.
+ * @param {Function} [options.record=recordTurnPresenceOverMcp] Transport seam.
  * @param {String} [options.source='harness-hook'] Hook source identifier.
  * @param {'completed'|'blocked'|'aborted'|'stale'} [options.terminalState='completed'] Terminal state.
- * @param {String} [options.turnId] Stable active-turn identifier.
+ * @param {String} [options.turnId] Stable active-turn identifier; the server resolves it when omitted.
  * @param {String} [options.wakeSubmitNonce] Optional explicit wake-submit nonce.
- * @returns {Promise<Object>|undefined}
+ * @returns {Promise<Object>} `{status}` — `recorded`, or `skipped` with a `reason` naming what was
+ * missing. Never a silent success.
  */
 export async function recordTurnPresenceFromHook({
+    plane,
     action = 'start',
     env = process.env,
     hookPayload,
     note,
-    now = new Date(),
-    rootDir = fileURLToPath(new URL('../../../../../', import.meta.url)),
+    now,
+    record = recordTurnPresenceOverMcp,
     source = 'harness-hook',
     terminalState = 'completed',
     turnId,
     wakeSubmitNonce = extractWakeSubmitNonce(hookPayload)
 } = {}) {
     const agentIdentity = normalizeAgentIdentityNodeId(env.NEO_AGENT_IDENTITY);
-    if (!agentIdentity) return;
+
+    if (!agentIdentity) {
+        return {status: 'skipped', reason: 'no NEO_AGENT_IDENTITY in the hook environment', action};
+    }
 
     const validActions = ['start', 'progress', 'terminal'];
     if (!validActions.includes(action)) {
         throw new Error(`Invalid turn presence action '${action}'. Must be one of: ${validActions.join(', ')}.`);
     }
 
-    const {freshMs, ttlMs, noteMaxChars, hookWriteTimeoutMs: timeoutMs} = resolveTurnPresenceRuntimeConfig({env});
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return;
+    const baseUrl = String(plane?.baseUrl ?? '').trim();
 
-    return withTimeout(writeTurnPresenceEvent({
+    // A named skip, never a guessed endpoint: an unconfigured plane is a state the caller can express,
+    // and guessing localhost would either fail obscurely or publish against whatever is listening.
+    if (!baseUrl) {
+        return {
+            status: 'skipped',
+            reason: 'no Memory Core plane is configured, so there is no served store to record presence in',
+            action,
+            agentIdentity
+        };
+    }
+
+    const {hookWriteTimeoutMs: timeoutMs} = resolveTurnPresenceRuntimeConfig({env});
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        return {status: 'skipped', reason: 'turn-presence hook write timeout is not configured', action, agentIdentity};
+    }
+
+    const recorded = await record({
+        baseUrl,
+        identity  : agentIdentity,
+        credential: plane?.credential ?? '',
+        deadlineMs: timeoutMs,
         action,
-        agentIdentity,
-        dbPath: resolveMemoryCoreGraphPath({env, rootDir}),
-        freshMs,
         note,
-        noteMaxChars,
-        now,
         source,
-        terminalState,
-        ttlMs,
-        turnId,
-        wakeSubmitNonce
-    }), timeoutMs);
+        wakeSubmitNonce,
+        ...(now           !== undefined ? {now}           : {}),
+        ...(turnId        !== undefined ? {turnId}        : {}),
+        ...(action === 'terminal'       ? {terminalState} : {})
+    });
+
+    return {...recorded, status: recorded?.status ?? 'recorded', action};
 }
