@@ -33,6 +33,8 @@ import {fileURLToPath} from 'node:url';
 import Database        from 'better-sqlite3';
 import {test, expect}  from '@playwright/test';
 
+import {terminateDaemon} from '../../helpers/terminateDaemon.mjs';
+
 const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const repoRoot     = path.resolve(__dirname, '../../../../..');
@@ -40,7 +42,6 @@ const DAEMON_ENTRY = path.join(repoRoot, 'ai/daemons/orchestrator/daemon.mjs');
 
 const BOOT_TIMEOUT_MS  = 30000;
 const PULSE_TIMEOUT_MS = 30000;
-const SIGTERM_GRACE_MS = 5000;
 
 /**
  * @summary Returns true when the path exists.
@@ -192,37 +193,6 @@ async function waitForLogContent(logPath, predicate, timeoutMs, {
     }
 }
 
-/**
- * @summary Sends SIGTERM and waits for the child process to exit, force-killing on timeout.
- * @param {import('node:child_process').ChildProcess} daemonProcess
- * @returns {Promise<{code:Number|null, signal:String|null}>}
- */
-async function terminateDaemon(daemonProcess) {
-    if (!daemonProcess || daemonProcess.exitCode !== null) {
-        return {code: daemonProcess?.exitCode ?? null, signal: null};
-    }
-
-    return new Promise(resolve => {
-        const timeout = setTimeout(() => {
-            try {
-                daemonProcess.kill('SIGKILL');
-            } catch {}
-            resolve({code: daemonProcess.exitCode, signal: 'SIGKILL'});
-        }, SIGTERM_GRACE_MS);
-
-        daemonProcess.once('exit', (code, signal) => {
-            clearTimeout(timeout);
-            resolve({code, signal});
-        });
-
-        try {
-            daemonProcess.kill('SIGTERM');
-        } catch {
-            clearTimeout(timeout);
-            resolve({code: daemonProcess.exitCode, signal: null});
-        }
-    });
-}
 
 test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of #11837)', () => {
     // Long-running daemon boot + isolation tests run sequentially.
@@ -256,10 +226,31 @@ test.describe('Orchestrator workspace-safety integration (#11948 / Sub-5 AC5 of 
 
     test.afterEach(async () => {
         if (daemonProcess) {
-            await terminateDaemon(daemonProcess);
+            const {outcome, reaped, signal} = await terminateDaemon(daemonProcess);
+
+            // Asserted rather than assumed, and read off the RESULT rather than off the child:
+            // a signal-terminated process reports `exitCode === null`, so any check of `exitCode`
+            // alone would fail this healthy path. `reaped` is true only where terminal state was
+            // observed — a bounded timeout and an undeliverable signal both report false, because
+            // neither establishes that the child is gone.
+            //
+            // What is proven is the ordering defect: the old helper returned while the child was
+            // still alive, 25/25. That it is what produced the intermittent ENOTEMPTY is the
+            // plausible mechanism and NOT established — see the reproduction note below. Either
+            // way an unreaped child must stop the removal, deterministically here rather than as a
+            // flake on an unrelated PR.
+            expect(reaped, `daemon not reaped before workspace removal (outcome=${outcome}, signal=${signal})`)
+                .toBe(true);
         }
         if (workspaceDir) {
-            await fs.rm(workspaceDir, {recursive: true, force: true});
+            // `force` only swallows ENOENT — it does not retry ENOTEMPTY, which is the reported
+            // failure. Bounded retries are a SECOND layer: the reap repair fixes a defect that is
+            // proven (a resolve-on-kill returns while the child is alive) but whose link to the
+            // observed ENOTEMPTY could not be reproduced locally — 25/25 unreaped returns yet 0/25
+            // ENOTEMPTY on APFS, against a CI failure seen on Linux under a far heavier writer.
+            // Tolerance covers that gap and cannot mask a regression of the repair, because the
+            // assertion above fails first.
+            await fs.rm(workspaceDir, {recursive: true, force: true, maxRetries: 5, retryDelay: 50});
         }
     });
 
