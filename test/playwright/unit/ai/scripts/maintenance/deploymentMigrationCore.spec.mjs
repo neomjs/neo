@@ -34,17 +34,36 @@ function createCensus(overrides = {}) {
     }
 }
 
+const COHORT = ['mc-server', 'orchestrator', 'kb-server'];
+
+/**
+ * Every service observing the same satisfied env. Per service, never unioned: a union reports a key set
+ * on one container as satisfied for all of them, which is the misconfiguration the gate exists to catch.
+ */
+function createObserved(entries = ['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'PATH=/usr/bin'], services = COHORT) {
+    return Object.fromEntries(services.map(service => [service, parseObservedEnv(entries)]))
+}
+
+/**
+ * Declared scopes covering the whole fixture census, so a test that does not care about attribution does
+ * not accidentally trip the unattributable refusal.
+ */
+function createScopes(keys = ['NEO_REQ_ONE', 'NEO_REQ_TWO', 'NEO_OPT', 'NEO_BANNED', 'NEO_SECRET', AUTHORITY], services = COHORT) {
+    return Object.fromEntries(services.map(service => [service, new Set(keys)]))
+}
+
 /**
  * A plan input whose every field is valid, so each test perturbs one thing and the resulting blocker is
  * attributable to that perturbation.
  */
 function createPlanInput(overrides = {}) {
     return {
-        observedEnv      : parseObservedEnv(['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'PATH=/usr/bin']),
-        census           : createCensus(),
-        composeIdentity  : {project: 'neo-local-agent-os', configFiles: ['/x/base.yml', '/x/overlay.yml']},
-        deployedRevisions: {'mc-server': OLD_SHA, orchestrator: OLD_SHA, 'kb-server': OLD_SHA},
-        targetRevision   : TARGET_SHA,
+        observedEnvByService: createObserved(),
+        serviceScopes       : createScopes(),
+        census              : createCensus(),
+        composeIdentity     : {project: 'neo-local-agent-os', configFiles: ['/x/base.yml', '/x/overlay.yml']},
+        deployedRevisions   : {'mc-server': OLD_SHA, orchestrator: OLD_SHA, 'kb-server': OLD_SHA},
+        targetRevision      : TARGET_SHA,
         ...overrides
     }
 }
@@ -144,11 +163,29 @@ test.describe('deriveContractDelta — the single resolver', () => {
         expect(byKey.NEO_REQ_ONE).toBe(false)
     });
 
-    test('a set-but-empty required key counts as PRESENT — the contract is declaration, not validity', () => {
-        // Deliberate scope boundary: the census declares which keys must be DECLARED. Whether a declared
-        // value is sensible is a different question this tool does not claim to answer, and silently
-        // treating empty as missing would over-report while looking thorough.
-        expect(deriveContractDelta(parseObservedEnv(['NEO_REQ_ONE=', 'NEO_REQ_TWO=b']), createCensus()).missingRequired).toEqual([])
+    test('a set-but-empty required key is its OWN finding — present, unusable, and a different repair', () => {
+        // Reversed from the original position ("the contract is declaration, not validity") on review:
+        // a required input set to an empty value satisfies every presence check and still configures
+        // nothing, so collapsing it into either bucket loses the operator's actual fix. It stays out of
+        // `missingRequired` — it is not absent — and lands in `setButEmpty`.
+        const delta = deriveContractDelta(parseObservedEnv(['NEO_REQ_ONE=', 'NEO_REQ_TWO=b']), createCensus());
+
+        expect(delta.missingRequired).toEqual([]);
+        expect(delta.setButEmpty.map(entry => entry.key)).toEqual(['NEO_REQ_ONE'])
+    });
+
+    test('whitespace is not a value — a key set to spaces is unusable, not satisfied', () => {
+        expect(deriveContractDelta(parseObservedEnv(['NEO_REQ_ONE=   ', 'NEO_REQ_TWO=b']), createCensus())
+            .setButEmpty.map(entry => entry.key)).toEqual(['NEO_REQ_ONE'])
+    });
+
+    test('a declared scope narrows which required keys this service is held to', () => {
+        // The census classifies per PROFILE; the profile's required list is not uniform across its
+        // services. Judging every key against every service invents obligations it never declared.
+        const delta = deriveContractDelta(new Map([['NEO_REQ_ONE', 'a']]), createCensus(), new Set(['NEO_REQ_ONE']));
+
+        expect(delta.missingRequired).toEqual([]);
+        expect(delta.setButEmpty).toEqual([])
     });
 
     test('optional overrides that are set are reported separately from blockers', () => {
@@ -171,20 +208,110 @@ test.describe('buildMigrationPlan gates apply', () => {
     test('an EMPTY observation blocks rather than deriving a spectacular false delta', () => {
         // The failure this prevents: with nothing read, every required key derives as "missing" and the
         // plan reports a huge contract delta whose real cause is that the target was never inspected.
-        for (const observedEnv of [new Map(), null, undefined]) {
-            const plan = buildMigrationPlan(createPlanInput({observedEnv}));
+        for (const observed of [{}, null, undefined]) {
+            const plan = buildMigrationPlan(createPlanInput({observedEnvByService: observed}));
 
-            expect(plan.clean, String(observedEnv)).toBe(false);
-            expect(plan.blockers.some(blocker => blocker.kind === 'no-observed-env')).toBe(true)
+            expect(plan.clean, String(observed)).toBe(false);
+            expect(plan.blockers.some(blocker => blocker.kind === 'no-observed-service')).toBe(true)
         }
+    });
+
+    test('a service observed as empty blocks per service — silence from an unreachable container is not absence', () => {
+        // The failure this encodes: `docker exec` against a stopped container emits nothing and exits
+        // non-zero, so an empty observation means "not measured", never "no config set".
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {...createObserved(), orchestrator: new Map()}
+        }));
+
+        expect(plan.clean).toBe(false);
+
+        const blocker = plan.blockers.find(entry => entry.kind === 'no-observed-env');
+
+        expect(blocker.key).toBe('orchestrator');
+        expect(blocker.reason).toContain('not be running')
+    });
+
+    test('observations are NOT unioned: a key set on one service does not satisfy another', () => {
+        // Measured on the canonical profile, four of thirteen required inputs are declared by a single
+        // service. A union reports the key as satisfied cohort-wide and the real gap disappears.
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {
+                ...createObserved(),
+                orchestrator: parseObservedEnv(['NEO_REQ_ONE=a'])
+            }
+        }));
+
+        expect(plan.clean).toBe(false);
+
+        const missing = plan.blockers.filter(entry => entry.kind === 'missing-required-input');
+
+        expect(missing.map(entry => entry.key)).toEqual(['orchestrator.NEO_REQ_TWO'])
+    });
+
+    test('a required key no observed service declares blocks as unattributable, never assigned to a default', () => {
+        // `NEO_DEPLOY_HOSTNAME` is the live instance: declared required by the profile census and declared
+        // by none of the three service templates. Picking an owner for it would be a guess reading as a
+        // verdict.
+        const plan = buildMigrationPlan(createPlanInput({
+            census       : createCensus({requiredDeploymentInputs: ['NEO_REQ_ONE', 'NEO_REQ_TWO', 'NEO_ORPHAN']}),
+            serviceScopes: createScopes(['NEO_REQ_ONE', 'NEO_REQ_TWO'])
+        }));
+
+        expect(plan.clean).toBe(false);
+
+        const blocker = plan.blockers.find(entry => entry.kind === 'required-input-unattributable');
+
+        expect(blocker.key).toBe('NEO_ORPHAN');
+        expect(plan.blockers.some(entry => entry.key.endsWith('.NEO_ORPHAN'))).toBe(false)
+    });
+
+    test('a service whose declared scope is unresolved blocks rather than being judged or skipped', () => {
+        const {orchestrator, ...partialScopes} = createScopes(),
+              plan                             = buildMigrationPlan(createPlanInput({serviceScopes: partialScopes}));
+
+        expect(plan.clean).toBe(false);
+        expect(plan.blockers.find(entry => entry.kind === 'service-scope-unresolved').key).toBe('orchestrator')
+    });
+
+    test('a supplied desired value turns a missing required input into a declared transition, not a blocker', () => {
+        // The point of the whole carrier: without it a plane missing a required input is refused from its
+        // own observation and the operator must repair it by another path — the manual intervention this
+        // tool exists to remove.
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {...createObserved(), orchestrator: parseObservedEnv(['NEO_REQ_ONE=a'])},
+            desiredEnv          : {orchestrator: {NEO_REQ_TWO: 'supplied'}}
+        }));
+
+        expect(plan.clean).toBe(true);
+        expect(plan.blockers).toEqual([]);
+        expect(plan.configTransition.orchestrator).toEqual([{key: 'NEO_REQ_TWO', from: '<unset>', declared: true}])
+    });
+
+    test('a desired value that is itself empty blocks — the repair must be usable, not merely present', () => {
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {...createObserved(), orchestrator: parseObservedEnv(['NEO_REQ_ONE=a'])},
+            desiredEnv          : {orchestrator: {NEO_REQ_TWO: '   '}}
+        }));
+
+        expect(plan.clean).toBe(false);
+        expect(plan.blockers.find(entry => entry.kind === 'desired-value-unusable').key).toBe('orchestrator.NEO_REQ_TWO')
+    });
+
+    test('a set-but-empty required input reports its own blocker kind, distinct from missing', () => {
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {...createObserved(), orchestrator: parseObservedEnv(['NEO_REQ_ONE=a', 'NEO_REQ_TWO='])}
+        }));
+
+        expect(plan.blockers.find(entry => entry.kind === 'required-input-set-but-empty').key)
+            .toBe('orchestrator.NEO_REQ_TWO')
     });
 
     test('a missing required input blocks; the boot-blocking one gets its own kind and sorts FIRST', () => {
         // A refused launch is a different triage priority from a degraded one, and it is the key an
         // operator reading a long list must see first.
         const plan = buildMigrationPlan(createPlanInput({
-            observedEnv: parseObservedEnv(['NEO_OTHER=1']),
-            census     : createCensus({requiredDeploymentInputs: ['NEO_REQ_ONE', AUTHORITY]})
+            observedEnvByService: createObserved(['NEO_OTHER=1']),
+            census              : createCensus({requiredDeploymentInputs: ['NEO_REQ_ONE', AUTHORITY]})
         }));
 
         expect(plan.clean).toBe(false);
@@ -197,8 +324,8 @@ test.describe('buildMigrationPlan gates apply', () => {
 
     test('a present forbidden key and a missing secret each block', () => {
         const plan = buildMigrationPlan(createPlanInput({
-            observedEnv: parseObservedEnv(['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'NEO_BANNED=1']),
-            census     : createCensus({secrets: ['NEO_SECRET']})
+            observedEnvByService: createObserved(['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'NEO_BANNED=1']),
+            census              : createCensus({secrets: ['NEO_SECRET']})
         }));
 
         expect(plan.blockers.find(blocker => blocker.kind === 'forbidden-env-present').reason).toBe('retired; the orchestrator owns it');
@@ -207,8 +334,8 @@ test.describe('buildMigrationPlan gates apply', () => {
 
     test('satisfied secrets are NOT VERIFIED, because key presence is weaker than a valid value', () => {
         const plan = buildMigrationPlan(createPlanInput({
-            observedEnv: parseObservedEnv(['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'NEO_SECRET=x']),
-            census     : createCensus({secrets: ['NEO_SECRET']})
+            observedEnvByService: createObserved(['NEO_REQ_ONE=a', 'NEO_REQ_TWO=b', 'NEO_SECRET=x']),
+            census              : createCensus({secrets: ['NEO_SECRET']})
         }));
 
         expect(plan.clean).toBe(true);
@@ -253,21 +380,28 @@ test.describe('buildMigrationPlan adds the plane-side facts the census cannot su
         // The pairing that matters, and why a revision-only trigger is insufficient: revision-current
         // and contract-invalid at the same time.
         const plan = buildMigrationPlan(createPlanInput({
-            deployedRevisions: {'mc-server': TARGET_SHA, orchestrator: TARGET_SHA, 'kb-server': TARGET_SHA},
-            observedEnv      : parseObservedEnv(['NEO_REQ_ONE=a'])
+            deployedRevisions   : {'mc-server': TARGET_SHA, orchestrator: TARGET_SHA, 'kb-server': TARGET_SHA},
+            observedEnvByService: createObserved(['NEO_REQ_ONE=a'])
         }));
 
         expect(plan.revisionDelta.alreadyTarget).toBe(true);
         expect(plan.clean).toBe(false)
     });
 
-    test('one unreadable service is UNCHECKED — neither a pass nor a blocker', () => {
+    test('one unreadable revision BLOCKS — an unestablished before-state cannot coexist with CLEAN', () => {
+        // Reversed from the original position on review. Reporting it and passing over it meant a plan
+        // could authorise apply while one service had no baseline, so a successful-looking apply was
+        // indistinguishable from one that stranded that service.
         const plan = buildMigrationPlan(createPlanInput({
             deployedRevisions: {'mc-server': OLD_SHA, orchestrator: OLD_SHA, 'kb-server': null}
         }));
 
-        expect(plan.clean).toBe(true);
-        expect(plan.unchecked.some(item => item.includes('kb-server'))).toBe(true)
+        expect(plan.clean).toBe(false);
+
+        const blocker = plan.blockers.find(entry => entry.kind === 'revision-unreadable');
+
+        expect(blocker.key).toBe('kb-server:/app/.neo-revision');
+        expect(blocker.reason).toContain('stranded')
     });
 
     test('entrypoint-supplied unchecked notes survive into the plan', () => {
@@ -327,6 +461,34 @@ test.describe('parseArgs', () => {
 
     test('refuses a flag with no value', () => {
         expect(() => parseArgs(['plan', '--target'])).toThrow(/requires a value/)
+    });
+
+    test('--set is repeatable and nests by service, so two services can carry the same key', () => {
+        const options = parseArgs(['plan',
+            '--set', 'orchestrator.NEO_CHROMA_HOST=chroma',
+            '--set', 'mc-server.NEO_CHROMA_HOST=chroma',
+            '--set', 'orchestrator.NEO_TRANSPORT=streamable-http'
+        ]);
+
+        expect(options.desiredEnv).toEqual({
+            orchestrator: {NEO_CHROMA_HOST: 'chroma', NEO_TRANSPORT: 'streamable-http'},
+            'mc-server' : {NEO_CHROMA_HOST: 'chroma'}
+        })
+    });
+
+    test('--set splits on the FIRST = so a value containing = survives, and defaults to no desired env', () => {
+        // Same reason `parseObservedEnv` splits on the first `=`: DSNs, base64 and query strings carry it,
+        // and truncating the value would silently write a wrong config rather than failing.
+        expect(parseArgs(['plan', '--set', 'kb-server.NEO_KB_ASK_BASE_URL=https://x/y?a=1&b=2']).desiredEnv)
+            .toEqual({'kb-server': {NEO_KB_ASK_BASE_URL: 'https://x/y?a=1&b=2'}});
+
+        expect(parseArgs(['plan']).desiredEnv).toEqual({})
+    });
+
+    test('--set refuses a malformed assignment rather than half-parsing it', () => {
+        for (const bad of ['NEO_NO_SERVICE=1', 'orchestrator.NEO_NO_VALUE']) {
+            expect(() => parseArgs(['plan', '--set', bad]), bad).toThrow(/--set expects/)
+        }
     });
 
     test('--services splits, trims and drops empties', () => {

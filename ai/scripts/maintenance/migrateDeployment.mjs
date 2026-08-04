@@ -109,7 +109,10 @@ export function parseArgs(argv) {
               profile : 'ai/deploy/docker-compose.yml',
               services: DEFAULT_SERVICES,
               repoUrl : process.env.NEO_REPO_URL || DEFAULT_REPO,
-              omitted : null
+              omitted : null,
+              // Service name → `{KEY: value}`, populated by repeatable `--set`. Empty by default, so a
+              // deployment is never silently reconfigured by a value the operator did not name.
+              desiredEnv: {}
           };
 
     if (mode !== 'plan' && mode !== 'apply') {
@@ -130,6 +133,27 @@ export function parseArgs(argv) {
             case '--profile'      : options.profile      = value; break;
             case '--repo-url'     : options.repoUrl      = value; break;
             case '--services'     : options.services     = value.split(',').map(entry => entry.trim()).filter(Boolean); break;
+
+            // The repair carrier. `--set <service>.<KEY>=<value>`, repeatable: a required input the target
+            // is missing becomes a declared transition instead of a terminal blocker, which is the whole
+            // difference between a tool that diagnoses a broken plane and one that can fix it. Splitting on
+            // the FIRST `=` only, because values legitimately contain `=`.
+            case '--set': {
+                const separator = value.indexOf('='),
+                      lhs       = separator === -1 ? value : value.slice(0, separator),
+                      dot       = lhs.indexOf('.');
+
+                if (separator === -1 || dot === -1) {
+                    throw new Error(`--set expects <service>.<KEY>=<value>, received: ${value}`)
+                }
+
+                const service = lhs.slice(0, dot),
+                      key     = lhs.slice(dot + 1);
+
+                options.desiredEnv[service] ||= {};
+                options.desiredEnv[service][key] = value.slice(separator + 1);
+                break
+            }
             default               : throw new Error(`unknown flag: ${flag}`)
         }
     }
@@ -183,12 +207,12 @@ async function discoverProject(services, declaredProject) {
  * `/app/.neo-revision`.
  * @param {String}   project
  * @param {String[]} services
- * @returns {Promise<Object>} `{composeIdentity, deployedRevisions, unchecked, observedEnv}`
+ * @returns {Promise<Object>} `{composeIdentity, deployedRevisions, unchecked, observedEnvByService}`
  */
 async function inspectPlane(project, services) {
-    const deployedRevisions = {},
-          unchecked         = [],
-          observedEntries   = [];
+    const deployedRevisions    = {},
+          unchecked            = [],
+          observedEnvByService = {};
 
     let composeIdentity = null;
 
@@ -220,12 +244,14 @@ async function inspectPlane(project, services) {
             }
         }
 
-        // Env from EVERY service, not just the first: a cohort can disagree, and a key present on one
-        // container but missing on another is a real misconfiguration that reading only one would hide.
-        // Union is the conservative direction here — it can only make the delta smaller, so a key this
-        // reports as missing is missing everywhere.
+        // Env is kept PER SERVICE. A union was the earlier shape and it is fail-open, not conservative:
+        // it only ever shrinks the delta, so a key set on one container and absent from another reports
+        // as satisfied for both and the real misconfiguration disappears. Measured on the canonical
+        // profile, four of thirteen required inputs are declared by a single service and one more by two
+        // of three, so a union both credits a service with configuration it does not carry and holds it
+        // to keys it never declares.
         if (parsedConfig) {
-            observedEntries.push(...(parsedConfig.Env || []))
+            observedEnvByService[service] = parseObservedEnv(parsedConfig.Env || [])
         }
 
         if (parsedConfig && !composeIdentity) {
@@ -256,7 +282,7 @@ async function inspectPlane(project, services) {
         }
     }
 
-    return {composeIdentity, deployedRevisions, unchecked, observedEnv: parseObservedEnv(observedEntries)}
+    return {composeIdentity, deployedRevisions, unchecked, observedEnvByService}
 }
 
 /**
@@ -301,20 +327,64 @@ async function resolveTargetRevision(repoUrl, selector) {
 /**
  * @summary Loads the classified census for one profile, returning a named failure rather than throwing.
  * @param {String} profile Repo-relative Compose path.
- * @returns {Promise<Object>} `{census, error}`
+ * @returns {Promise<Object>} `{census, parity, error}` — `parity` carries the raw document so the
+ * per-service scope resolver reads the same authority without a second filesystem round-trip.
  */
 async function loadCensus(profile) {
     const parityPath = path.join(repoRoot, PARITY_REL);
 
     if (!await fs.pathExists(parityPath)) {
-        return {census: null, error: `${PARITY_REL} is absent — it is this tool's contract authority`}
+        return {census: null, parity: null, error: `${PARITY_REL} is absent — it is this tool's contract authority`}
     }
 
     try {
-        return {census: resolveCensus(await fs.readJson(parityPath), profile), error: null}
+        const parity = await fs.readJson(parityPath);
+
+        return {census: resolveCensus(parity, profile), parity, error: null}
     } catch (error) {
-        return {census: null, error: error.message}
+        return {census: null, parity: null, error: error.message}
     }
+}
+
+/**
+ * @summary Resolves each service's declared env surface, so the census is judged per service.
+ *
+ * The census classifies keys per **profile**; the profile block names which config template governs each
+ * service, and that template is the per-service authority. `buildConfigEnvDefaultsForTemplate` is the
+ * same resolver the parity lint used to compute the census, so this derives the scope from the existing
+ * authority rather than introducing a second mapping free to drift from it.
+ *
+ * A service whose scope cannot be resolved is returned absent rather than defaulted to the whole census:
+ * the plan gate refuses on that, because evaluating every profile key against one service invents
+ * obligations it never declared.
+ * @param {Object}   parity  The parsed parity document.
+ * @param {String}   profile Repo-relative Compose path.
+ * @param {String[]} services Service names to resolve.
+ * @returns {Promise<Object>} `{serviceScopes, errors}` — scopes keyed by service, unresolved names in `errors`.
+ */
+async function resolveServiceScopes(parity, profile, services) {
+    const declared      = parity?.$composeDefaultParity?.profiles?.[profile]?.services || {},
+          serviceScopes = {},
+          errors        = [];
+
+    for (const service of services) {
+        const template = declared[service];
+
+        if (!template) {
+            errors.push(`service '${service}' is not declared under $composeDefaultParity.profiles['${profile}'].services`);
+            continue
+        }
+
+        try {
+            const {buildConfigEnvDefaultsForTemplate} = await import('../lint/lint-config-template-ssot.mjs');
+
+            serviceScopes[service] = new Set(Object.keys(await buildConfigEnvDefaultsForTemplate({template})))
+        } catch (error) {
+            errors.push(`service '${service}': could not resolve declared env from '${template}' — ${error.message}`)
+        }
+    }
+
+    return {serviceScopes, errors}
 }
 
 /**
@@ -357,7 +427,7 @@ async function main() {
         options = parseArgs(process.argv.slice(2))
     } catch (error) {
         console.error(`[migrate] FATAL: ${error.message}`);
-        console.error('[migrate] usage: migrateDeployment.mjs plan|apply [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c]');
+        console.error('[migrate] usage: migrateDeployment.mjs plan|apply [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c] [--set <service>.<KEY>=<value> ...]');
         return 2
     }
 
@@ -365,7 +435,7 @@ async function main() {
     console.log(`[migrate] profile:  ${options.profile}`);
     console.log(`[migrate] selector: ${options.target}`);
 
-    const {census, error: censusError} = await loadCensus(options.profile);
+    const {census, parity, error: censusError} = await loadCensus(options.profile);
 
     if (censusError) {
         console.error(`[migrate] FATAL: ${censusError}`);
@@ -381,7 +451,7 @@ async function main() {
         return 2
     }
 
-    const [{composeIdentity, deployedRevisions, unchecked, observedEnv}, {revision: targetRevision, error: targetError}] = await Promise.all([
+    const [{composeIdentity, deployedRevisions, unchecked, observedEnvByService}, {revision: targetRevision, error: targetError}] = await Promise.all([
         inspectPlane(project, options.services),
         resolveTargetRevision(options.repoUrl, options.target)
     ]);
@@ -407,9 +477,17 @@ async function main() {
         'different repair (overlay migration) from a missing key, and a clean env delta does not rule it out'
     );
 
+    const {serviceScopes, errors: scopeErrors} = await resolveServiceScopes(parity, options.profile, options.services);
+
+    // A scope that failed to resolve is reported, never defaulted. The plan gate blocks on the missing
+    // scope itself, so this only needs to carry the reason an operator would otherwise have to guess at.
+    scopeErrors.forEach(message => unchecked.push(`declared-scope resolution: ${message}`));
+
     const plan = buildMigrationPlan({
-        observedEnv,
+        observedEnvByService,
+        serviceScopes,
         census,
+        desiredEnv    : options.desiredEnv,
         composeIdentity,
         deployedRevisions,
         targetRevision,

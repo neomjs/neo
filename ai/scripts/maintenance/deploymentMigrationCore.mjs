@@ -139,18 +139,45 @@ export function resolveCensus(parity, profile) {
 }
 
 /**
- * @summary Derives the config-contract delta by comparing the observed env against the census.
+ * @summary Decides whether an observed value satisfies a required key, or is present-but-unusable.
  *
- * The single resolver. Reason text for a forbidden key is taken **verbatim from the census**, which
- * already declares each one's replacement guidance — re-authoring it here would create a second copy
- * free to drift from the authority it paraphrases.
- * @param {Map<String,String>} observedEnv Output of {@link parseObservedEnv}.
- * @param {Object}             census      Output of {@link resolveCensus}.
- * @returns {Object} `{missingRequired, presentForbidden, missingSecrets, optionalPresent}`
+ * `parseObservedEnv` records a bare `KEY` and `KEY=` alike as an empty string, because Docker permits
+ * both and treating either as absent would hide a key that was set-but-empty. That distinction is only
+ * worth recording if something downstream acts on it: a required input whose value is empty or
+ * whitespace satisfies a presence check and still cannot configure anything, which is a different
+ * defect from unset and a different fix for the operator.
+ * @param {String|undefined} value Observed value, or `undefined` when the key is absent.
+ * @returns {Boolean} `true` when the key is present and carries a usable value.
  */
-export function deriveContractDelta(observedEnv, census) {
+function isUsableValue(value) {
+    return typeof value === 'string' && value.trim() !== ''
+}
+
+/**
+ * @summary Derives one service's config-contract delta by comparing its observed env against the census.
+ *
+ * The single resolver, evaluated **per service**. Reason text for a forbidden key is taken **verbatim
+ * from the census**, which already declares each one's replacement guidance — re-authoring it here
+ * would create a second copy free to drift from the authority it paraphrases.
+ *
+ * `declaredScope` is the set of env keys that service's own config template declares. The census
+ * classifies keys per *profile*, not per service, and the profile's required list is not uniform across
+ * its services: four of the canonical profile's thirteen required inputs are declared by one service
+ * only. Judging every key against every service therefore invents obligations — and unioning the
+ * observations across services invents satisfactions. A key outside the scope is not this service's to
+ * carry and is skipped; a key inside no service's scope is reported by {@link buildMigrationPlan} as
+ * unattributable rather than assigned to a default.
+ * @param {Map<String,String>} observedEnv     Output of {@link parseObservedEnv} for ONE service.
+ * @param {Object}             census          Output of {@link resolveCensus}.
+ * @param {Set<String>|null}   [declaredScope] Env keys the service declares; `null` evaluates the whole census.
+ * @returns {Object} `{missingRequired, setButEmpty, presentForbidden, missingSecrets, optionalPresent}`
+ */
+export function deriveContractDelta(observedEnv, census, declaredScope = null) {
+    const inScope = key => !(declaredScope instanceof Set) || declaredScope.has(key),
+          scoped  = census.requiredDeploymentInputs.filter(inScope);
+
     return {
-        missingRequired : census.requiredDeploymentInputs
+        missingRequired : scoped
             .filter(key => !observedEnv.has(key))
             .map(key => ({
                 key,
@@ -159,10 +186,19 @@ export function deriveContractDelta(observedEnv, census) {
                     ? 'declared required with no leaf default, so a launch that does not declare it is refused rather than degraded'
                     : 'declared in the census as a required deployment input and absent from the observed deployment'
             })),
+        setButEmpty     : scoped
+            .filter(key => observedEnv.has(key) && !isUsableValue(observedEnv.get(key)))
+            .map(key => ({
+                key,
+                bootBlocking: key === BOOT_BLOCKING_KEY,
+                reason      : 'declared required and present but carrying an empty value, which satisfies a presence ' +
+                              'check and still configures nothing — a different repair from an absent key'
+            })),
         presentForbidden: Object.keys(census.forbiddenEnv)
             .filter(key => observedEnv.has(key))
             .map(key => ({key, reason: String(census.forbiddenEnv[key])})),
         missingSecrets  : census.secrets
+            .filter(inScope)
             .filter(key => !observedEnv.has(key))
             .map(key => ({key, reason: 'declared as a required secret and absent from the observed deployment'})),
         optionalPresent : census.optionalOverrides.filter(key => observedEnv.has(key))
@@ -191,68 +227,164 @@ function normalizeFinding(finding) {
  * failure, and collapsing it into either is how a partial plan reads as complete. `unchecked` never
  * blocks; it travels into the apply receipt so the operator sees exactly what was not proven.
  *
- * @param {Object}             config
- * @param {Map<String,String>} config.observedEnv        Guarded env observed on the target's containers.
- * @param {Object}             config.census             Output of {@link resolveCensus}.
- * @param {Object}             config.composeIdentity    `{project, configFiles}` read off the running plane; `null` when undiscoverable.
- * @param {Object}             config.deployedRevisions  Service name → revision string, or `null` for unreadable.
- * @param {String|null}        config.targetRevision     The resolved 40-hex target, or `null` when resolution failed.
- * @param {String[]}           [config.uncheckedNotes]   Entrypoint-supplied items it could not evaluate.
- * @returns {Object} `{clean, blockers, unchecked, notes, revisionDelta, contractDelta}`
+ * A fourth property matters more than the buckets: the plan must carry the **repair**, not merely
+ * describe the damage. A deployment missing a required input is refused from its own observation, so if
+ * nothing can supply the corrected value the operator has to fix the plane by another path — which is
+ * the manual intervention this tool exists to remove. `desiredEnv` is that carrier: a supplied value
+ * turns a missing input from a terminal blocker into a declared transition the apply step performs.
+ *
+ * @param {Object}   config
+ * @param {Object}   config.observedEnvByService Service name → Map from {@link parseObservedEnv}. Observations
+ *                                              stay **per service**; a union credits one service with another's
+ *                                              configuration and blames it for keys it never declares.
+ * @param {Object}   config.serviceScopes        Service name → Set of env keys that service's config template declares.
+ * @param {Object}   config.census               Output of {@link resolveCensus}.
+ * @param {Object}   [config.desiredEnv]         Service name → `{KEY: value}` the operator declares for the transition.
+ * @param {Object}   config.composeIdentity      `{project, configFiles}` read off the running plane; `null` when undiscoverable.
+ * @param {Object}   config.deployedRevisions    Service name → revision string, or `null` for unreadable.
+ * @param {String|null} config.targetRevision    The resolved 40-hex target, or `null` when resolution failed.
+ * @param {String[]} [config.uncheckedNotes]     Entrypoint-supplied items it could not evaluate.
+ * @returns {Object} `{clean, blockers, unchecked, notes, revisionDelta, contractDelta, configTransition}`
  */
-export function buildMigrationPlan({observedEnv, census, composeIdentity, deployedRevisions, targetRevision, uncheckedNotes = []}) {
-    const blockers  = [],
-          unchecked = [...uncheckedNotes],
-          notes     = [];
+export function buildMigrationPlan({
+    observedEnvByService, serviceScopes, census, desiredEnv = {}, composeIdentity, deployedRevisions,
+    targetRevision, uncheckedNotes = []
+}) {
+    const blockers         = [],
+          unchecked        = [...uncheckedNotes],
+          notes            = [],
+          configTransition = {},
+          services         = Object.keys(observedEnvByService || {}).sort(),
+          optionalPresent  = new Set(),
+          attributed       = new Set();
 
-    // 1. An unreadable target cannot be compared to any contract. Refused before deriving anything,
-    // because an EMPTY observed set would otherwise derive "every required key is missing" — a
-    // spectacular-looking delta whose real cause is that nothing was read.
-    if (!(observedEnv instanceof Map) || observedEnv.size === 0) {
+    // 1. Nothing observed at all. Refused before deriving anything, because an EMPTY observation would
+    // otherwise derive "every required key is missing" — a spectacular-looking delta whose real cause is
+    // that nothing was read.
+    if (services.length === 0) {
         blockers.push({
-            kind  : 'no-observed-env',
+            kind  : 'no-observed-service',
             key   : 'Config.Env',
-            reason: 'no guarded env was read from the target, so the contract delta would be derived from an empty ' +
+            reason: 'no service was observed on the target, so any contract delta would be derived from an empty ' +
                     'observation and every required key would appear missing for the wrong reason'
         })
     }
 
-    const contractDelta   = deriveContractDelta(observedEnv instanceof Map ? observedEnv : new Map(), census),
-          missingRequired = contractDelta.missingRequired.map(normalizeFinding),
-          forbiddenSet    = contractDelta.presentForbidden.map(normalizeFinding),
-          missingSecrets  = contractDelta.missingSecrets.map(normalizeFinding);
+    const aggregate = {missingRequired: [], setButEmpty: [], presentForbidden: [], missingSecrets: []};
 
-    // 2. The contract delta as blockers. Boot-blocking gets its own kind: a refused launch is a
-    // different triage priority from a degraded one, and it is the one key an operator reading a long
-    // list must see first.
-    missingRequired.forEach(({key, reason}) => {
-        const bootBlocking = contractDelta.missingRequired.some(entry => entry.key === key && entry.bootBlocking === true);
+    services.forEach(service => {
+        const observed = observedEnvByService[service],
+              scope    = serviceScopes?.[service];
 
-        blockers.push({
-            kind  : bootBlocking ? 'missing-required-input-boot-blocking' : 'missing-required-input',
-            key,
-            reason
+        // A service whose declared surface could not be resolved cannot be judged. Evaluating the whole
+        // census against it would invent obligations; skipping it would silently drop a service from the
+        // gate. Neither is admissible, so it blocks.
+        if (!(scope instanceof Set)) {
+            blockers.push({
+                kind  : 'service-scope-unresolved',
+                key   : service,
+                reason: `no declared env surface could be resolved for service '${service}', so its observed config ` +
+                        'can be neither satisfied nor faulted against the census'
+            });
+
+            return
+        }
+
+        scope.forEach(key => attributed.add(key));
+
+        if (!(observed instanceof Map) || observed.size === 0) {
+            blockers.push({
+                kind  : 'no-observed-env',
+                key   : service,
+                reason: `no guarded env was read from service '${service}' — its container may not be running, and ` +
+                        'silence from an unreachable service is not evidence that its config is absent'
+            });
+
+            return
+        }
+
+        const delta = deriveContractDelta(observed, census, scope);
+
+        delta.optionalPresent.forEach(key => optionalPresent.add(key));
+
+        // 2. The contract delta as blockers, keyed per service. A supplied desired value converts a
+        // missing or empty input into a recorded transition instead: that is the repair this tool owes.
+        [...delta.missingRequired, ...delta.setButEmpty].forEach(entry => {
+            const {key, reason, bootBlocking} = entry,
+                  supplied                    = desiredEnv?.[service]?.[key],
+                  wasEmpty                    = delta.setButEmpty.some(item => item.key === key);
+
+            if (isUsableValue(supplied)) {
+                configTransition[service] ||= [];
+                configTransition[service].push({key, from: wasEmpty ? '<empty>' : '<unset>', declared: true});
+
+                return
+            }
+
+            if (supplied !== undefined) {
+                blockers.push({
+                    kind  : 'desired-value-unusable',
+                    key   : `${service}.${key}`,
+                    reason: 'a desired value was supplied for this key but is empty or not a string, so the transition ' +
+                            'would replace an unusable value with another one'
+                });
+
+                return
+            }
+
+            blockers.push({
+                kind  : bootBlocking
+                    ? 'missing-required-input-boot-blocking'
+                    : wasEmpty ? 'required-input-set-but-empty' : 'missing-required-input',
+                key   : `${service}.${key}`,
+                reason: `${reason} — and no desired value was supplied, so apply cannot repair it`
+            })
+        });
+
+        aggregate.missingRequired.push(...delta.missingRequired.map(entry => `${service}.${entry.key}`));
+        aggregate.setButEmpty.push(...delta.setButEmpty.map(entry => `${service}.${entry.key}`));
+
+        delta.presentForbidden.map(normalizeFinding).forEach(({key, reason}) => {
+            aggregate.presentForbidden.push(`${service}.${key}`);
+
+            blockers.push({
+                kind  : 'forbidden-env-present',
+                key   : `${service}.${key}`,
+                reason: reason || 'declared retired or derived by the census and still set on the target'
+            })
+        });
+
+        delta.missingSecrets.map(normalizeFinding).forEach(({key, reason}) => {
+            aggregate.missingSecrets.push(`${service}.${key}`);
+
+            blockers.push({
+                kind  : 'missing-secret',
+                key   : `${service}.${key}`,
+                reason: reason || 'declared as a required secret and absent from the target'
+            })
         })
     });
 
-    forbiddenSet.forEach(({key, reason}) => blockers.push({
-        kind  : 'forbidden-env-present',
-        key,
-        reason: reason || 'declared retired or derived by the census and still set on the target'
-    }));
+    // 2b. A required key no observed service declares cannot be attributed by this instrument. It is
+    // neither satisfied nor faulted, and picking a service for it would be a guess that reads as a
+    // verdict — so it blocks rather than resolving to a default owner.
+    if (services.length) {
+        census.requiredDeploymentInputs.filter(key => !attributed.has(key)).forEach(key => blockers.push({
+            kind  : 'required-input-unattributable',
+            key,
+            reason: 'declared required by the profile census and declared by none of the observed services, so no ' +
+                    'service can be held to it and no service can satisfy it'
+        }))
+    }
 
-    missingSecrets.forEach(({key, reason}) => blockers.push({
-        kind  : 'missing-secret',
-        key,
-        reason: reason || 'declared as a required secret and absent from the target'
-    }));
+    const contractDelta = {optionalPresent: [...optionalPresent]};
 
     contractDelta.optionalPresent.forEach(key => notes.push(`optional override set: ${key}`));
 
     // Secrets are named in the census but their VALUES are not observable through container env in
     // every deployment shape, so a satisfied secret list is weaker evidence than a satisfied required
     // list. Say so rather than letting a clean secrets check read as a proof it is not.
-    if (census.secrets.length && missingSecrets.length === 0) {
+    if (census.secrets.length && aggregate.missingSecrets.length === 0) {
         unchecked.push(
             `secret presence was checked by env key only (${census.secrets.length} declared) — a key set to an ` +
             'empty or stale value reads as present'
@@ -287,9 +419,18 @@ export function buildMigrationPlan({observedEnv, census, composeIdentity, deploy
     const readableValues  = Object.values(deployedRevisions || {}).filter(Boolean),
           distinctRunning = new Set(readableValues);
 
+    // An unreadable revision was previously reported and passed over. It cannot be: the post-apply
+    // assertion for that service has no baseline to move from, so a successful-looking apply could not be
+    // distinguished from one that stranded it. An unestablished safety fact blocks rather than annotating
+    // a CLEAN verdict.
     Object.entries(deployedRevisions || {}).forEach(([service, revision]) => {
         if (!revision) {
-            unchecked.push(`service '${service}': /app/.neo-revision unreadable — its before-state is not established`)
+            blockers.push({
+                kind  : 'revision-unreadable',
+                key   : `${service}:/app/.neo-revision`,
+                reason: `service '${service}' reported no revision, so its before-state is not established and no ` +
+                        'post-apply assertion could prove it moved rather than being stranded'
+            })
         }
     });
 
@@ -318,19 +459,31 @@ export function buildMigrationPlan({observedEnv, census, composeIdentity, deploy
         notes.push(`already at target revision ${targetRevision} — apply would deliver no code change`)
     }
 
+    Object.entries(configTransition).forEach(([service, entries]) => notes.push(
+        `declared config transition on '${service}': ${entries.map(({key, from}) => `${key} (${from} -> declared)`).join(', ')}`
+    ));
+
     return {
         clean        : blockers.length === 0,
         blockers,
         unchecked,
         notes,
         revisionDelta: {from: singleRunning, to: targetRevision, alreadyTarget},
+        configTransition,
         contractDelta: {
-            profile         : census.profile,
-            missingRequired : missingRequired.map(({key}) => key),
-            presentForbidden: forbiddenSet.map(({key}) => key),
-            missingSecrets  : missingSecrets.map(({key}) => key),
-            optionalPresent : contractDelta.optionalPresent,
-            observedKeyCount: observedEnv instanceof Map ? observedEnv.size : 0
+            profile          : census.profile,
+            services,
+            missingRequired  : aggregate.missingRequired,
+            setButEmpty      : aggregate.setButEmpty,
+            presentForbidden : aggregate.presentForbidden,
+            missingSecrets   : aggregate.missingSecrets,
+            optionalPresent  : contractDelta.optionalPresent,
+            observedKeyCounts: Object.fromEntries(
+                services.map(service => [
+                    service,
+                    observedEnvByService[service] instanceof Map ? observedEnvByService[service].size : 0
+                ])
+            )
         }
     }
 }
