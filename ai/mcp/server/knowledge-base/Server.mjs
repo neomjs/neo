@@ -179,10 +179,41 @@ class Server extends BaseServer {
     logCollectionStats(health) {
         const knowledgeBase = health.database.connection.collections?.knowledgeBase;
 
-        if (knowledgeBase) {
-            const suffix = knowledgeBase.exists ? knowledgeBase.count : 'unavailable';
-            logger.info(`   - Knowledge Base: ${suffix}`);
+        if (!knowledgeBase) {
+            return
         }
+
+        if (!knowledgeBase.exists) {
+            logger.info('   - Knowledge Base: unavailable');
+            return
+        }
+
+        // An empty corpus printed as `info` under the success banner is how a six-day corpus outage
+        // stayed invisible. A dockerization migration recreated `neo-knowledge-base`, ~61,206
+        // documents stayed behind in the previous data root, and startup rendered
+        //
+        //     ✅ [Startup] Knowledge Base health check passed
+        //        - Knowledge Base: 0
+        //
+        // The count was never missing — it was framed as success. The correction belongs here, at the
+        // render, and NOT on `health.status`: that field is the container liveness gate, mcpHealthcheck
+        // accepts only `healthy` by default, and `ingress` + `orchestrator` both gate on
+        // `service_healthy` — so degrading an empty corpus stops a fresh plane from booting at all.
+        const {count} = knowledgeBase;
+
+        if (typeof count !== 'number') {
+            logger.warn('   - Knowledge Base: document count unreadable — corpus size unverified');
+            return
+        }
+
+        if (count === 0) {
+            logger.warn('   - Knowledge Base: 0 documents — retrieval cannot return a grounded result');
+            logger.warn('     A collection recreated by a migration presents exactly this way. Check whether the');
+            logger.warn('     corpus was left behind in a previous data root before assuming ingestion has not run.');
+            return
+        }
+
+        logger.info(`   - Knowledge Base: ${count}`);
     }
 }
 

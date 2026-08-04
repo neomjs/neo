@@ -10,8 +10,13 @@ import path                                     from 'path';
 
 const {queryScoreWeights} = aiConfig;
 
-const cwd                     = aiConfig.neoRootDir;
-const insideNeo               = process.env.npm_package_name?.includes('neo.mjs') ?? false;
+// `cwd`'s exact spacing is fingerprinted by AI_CONFIG_MODULE_SCOPE_BASELINE
+// in ai/scripts/lint/lint-config-template-ssot.mjs. Widening it to align with the longer names below
+// reads to that lint as "the baselined capture was removed" AND "a new capture appeared", failing
+// twice for a whitespace change. Keep this pair at its own width; new names get their own group.
+const cwd       = aiConfig.neoRootDir;
+const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
+
 const lexicalRescueExtensions = new Set(['.js', '.json', '.md', '.mjs', '.yaml', '.yml']);
 const lexicalRescueSkipDirs   = new Set([
     '.git',
