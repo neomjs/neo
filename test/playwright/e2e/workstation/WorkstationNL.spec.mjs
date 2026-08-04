@@ -1,6 +1,7 @@
-import {test, expect}          from '../../fixtures.mjs';
-import {workstationTourScript} from '../../../../apps/workstation/tour/denseWorkstation.mjs';
-import {isEngineProfile}       from '../utils/gpuIntent.mjs';
+import {test, expect}                                from '../../fixtures.mjs';
+import {workstationTourScript}                       from '../../../../apps/workstation/tour/denseWorkstation.mjs';
+import {placeNativeWindow, resolveFilmDisplayBounds} from '../utils/filmStage.mjs';
+import {isEngineProfile, isFilmTake}                 from '../utils/gpuIntent.mjs';
 
 /**
  * @summary Mounted L3 proof for Workstation's dense, living-data workstation.
@@ -510,6 +511,27 @@ test.describe('Workstation — dense living-data composition', () => {
         await page.goto('/apps/workstation/index.html');
         await page.waitForSelector('.workstation-tour-play', {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
+
+        // A film take records the physical display: front the window and place it on the capture
+        // display via the shared film-stage contract (`NEO_FILM_DISPLAY_BOUNDS` = the take-night
+        // rule). The dense tour is a SINGLE-window journey, so — unlike the five-beat multi-window
+        // stage — Playwright's emulated viewport stays on: content renders 1:1 once the operator's
+        // declared bounds match the emulated size, and the responsive segment keeps resizing the
+        // emulated page mid-take. Ordinary runs never enter this branch.
+        if (isFilmTake()) {
+            await page.bringToFront();
+
+            const filmBounds = resolveFilmDisplayBounds();
+
+            if (filmBounds) {
+                const placement = await placeNativeWindow(page, filmBounds);
+
+                console.log(`[film-stage] dense-tour window placed: ${JSON.stringify(placement.bounds)}` +
+                    ` (explicit NEO_FILM_DISPLAY_BOUNDS target; emulated viewport retained)`)
+            } else {
+                console.log('[film-stage] dense-tour window on natural landing (no NEO_FILM_DISPLAY_BOUNDS)')
+            }
+        }
 
         const app        = await neuralLink.connectToApp('Workstation'),
               workspaces = asArray(await app.findInstances(
