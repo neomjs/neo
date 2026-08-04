@@ -44,8 +44,10 @@ export function readToolJson(result) {
  * host path to point an env var at. A path-based write therefore lands in the maintainer's *checkout*
  * and **succeeds** — which is the whole failure mode, because a successful write to an unread file is
  * indistinguishable from a working beacon until someone reads liveness and finds `turnPresence: null`.
- * Measured before this module existed: 6,000+ beacons across four seats in one day, none of them
- * readable by `who_is_online`, one orphaned store per checkout.
+ * Measured before this module existed: 7192 accumulated intervals from 9 distinct agents sitting in a
+ * single maintainer checkout, none of them readable by `who_is_online`. Their newest timestamps land on
+ * four different days, which is the tell that each seat writes its own checkout rather than one shared
+ * wrong file — the store holds a frozen fragment of every seat that ever ran from it.
  *
  * ## Identity is required here, unlike in the read sibling
  *

@@ -73,8 +73,9 @@ export function readHookPayload({stdin = process.stdin} = {}) {
  * hook file physically lived in, and the write **succeeded** there. In a containerized deployment the
  * served graph is a Docker named volume with no host-visible path, so every beacon landed in a private
  * file no reader ever queries — and nothing failed, because a writable SQLite file accepts writes
- * happily. Measured before this changed: 6,000+ intervals across four seats in a single day, none of
- * them readable, one orphaned store per checkout.
+ * happily. Measured before this changed: 7192 accumulated intervals from 9 distinct agents in one
+ * maintainer checkout, none of them readable — and their newest timestamps spread across four separate
+ * days, because each seat writes the checkout its own hook file lives in.
  *
  * That is why an unreachable plane must produce a **named skip** here rather than any fallback write.
  * A beacon in a store nobody reads is strictly worse than no beacon at all: it makes an unmeasured
