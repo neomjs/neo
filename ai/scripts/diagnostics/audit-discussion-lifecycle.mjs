@@ -1,9 +1,13 @@
 import fs                                     from 'node:fs/promises';
 import path                                   from 'node:path';
 import process                                from 'node:process';
+import {execFile}                             from 'node:child_process';
+import {promisify}                            from 'node:util';
 import {fileURLToPath}                        from 'node:url';
 import {Command, InvalidArgumentError}        from 'commander';
 import {classifyDiscussionRoutingDisposition} from '../../services/github-workflow/shared/discussionRoutingDisposition.mjs';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Pre-Flight (structural fast-path): `ai/scripts/diagnostics/audit-discussion-lifecycle.mjs`
@@ -19,6 +23,17 @@ import {classifyDiscussionRoutingDisposition} from '../../services/github-workfl
 
 const DEFAULT_DISCUSSIONS_DIR = path.resolve(process.cwd(), 'resources/content/discussions');
 const DEFAULT_STALE_DAYS      = 90;
+
+/**
+ * How old the synced snapshot may be before its verdicts are labelled stale.
+ *
+ * The data-sync pipeline runs hourly, so six hours is roughly six consecutive missed runs — past
+ * the noise of one transient failure and comfortably short of the multi-day outages that make this
+ * guard actively misleading. It is a reporting threshold, never a refusal: the findings are still
+ * printed, they are just no longer presented as current.
+ * @type {Number}
+ */
+const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = 6;
 
 const CANDIDATE_ORDER = {
     'graduated-open'      : 0,
@@ -324,24 +339,112 @@ function groupCandidates(candidates) {
 }
 
 /**
- * @param {{scanned: Number, candidates: Object[]}} result
+ * @summary Determines when the local Discussion snapshot was last refreshed.
+ *
+ * **This guard reads a synced snapshot, not live GitHub, so every verdict it emits is only as
+ * current as that snapshot.** Close six Discussions on GitHub and re-run, and it still reports all
+ * six until the data-sync pipeline re-ingests — a stale verdict wearing the shape of a current
+ * finding. A maintainer who acts on one, discovers the work is already done, and concludes the tool
+ * is wrong has been taught to distrust it, which is worse than not having it.
+ *
+ * The commit that last touched the snapshot directory is the honest source. File mtimes are not:
+ * git does not preserve them, so on any fresh checkout they read as "just now" and would report a
+ * year-old snapshot as fresh — the exact failure this exists to prevent, arriving through the
+ * instrument.
+ *
+ * @param {Object} options
+ * @param {String} options.discussionsDir
+ * @param {Function} options.execFileFn Promise-returning `execFile` seam.
+ * @param {String} options.now ISO instant to measure age against.
+ * @returns {Promise<{ingestedAt: String|null, ageHours: Number|null, source: String, reason: String|null}>}
+ */
+async function resolveSnapshotFreshness({discussionsDir, execFileFn, now}) {
+    try {
+        const {stdout} = await execFileFn('git', ['log', '-1', '--format=%cI', '--', discussionsDir], {
+            encoding: 'utf8',
+            timeout : 5000
+        });
+
+        const ingestedAt = String(stdout ?? '').trim();
+
+        if (!ingestedAt) {
+            return {
+                ageHours  : null,
+                ingestedAt: null,
+                reason    : 'no commit touches the snapshot directory',
+                source    : 'git'
+            }
+        }
+
+        const ingestedMs = Date.parse(ingestedAt),
+              nowMs      = Date.parse(now);
+
+        if (!Number.isFinite(ingestedMs) || !Number.isFinite(nowMs)) {
+            return {ageHours: null, ingestedAt, reason: 'unparsable commit timestamp', source: 'git'}
+        }
+
+        return {
+            ageHours: Math.round((nowMs - ingestedMs) / 36e5 * 10) / 10,
+            ingestedAt,
+            reason  : null,
+            source  : 'git'
+        }
+    } catch (error) {
+        // Unknown is reported as unknown. Defaulting to "fresh" would let an unreadable history
+        // silently certify every verdict below it.
+        return {
+            ageHours  : null,
+            ingestedAt: null,
+            reason    : `snapshot age could not be determined (${error.message})`,
+            source    : 'unavailable'
+        }
+    }
+}
+
+/**
+ * @param {{scanned: Number, candidates: Object[], snapshot: Object}} result
  * @param {Object} options
  * @param {Boolean} options.json
+ * @param {Number} options.maxSnapshotAgeHours
  * @returns {String}
  */
-function formatReport(result, {json = false} = {}) {
+function formatReport(result, {json = false, maxSnapshotAgeHours = DEFAULT_MAX_SNAPSHOT_AGE_HOURS} = {}) {
     if (json) {
         return JSON.stringify(result, null, 2)
     }
 
-    const grouped = groupCandidates(result.candidates);
-    const lines   = [
+    const grouped  = groupCandidates(result.candidates),
+          snapshot = result.snapshot ?? {ageHours: null, ingestedAt: null, reason: 'not measured'},
+          lines    = [];
+
+    // Stated FIRST, before any finding. A reader who sees the candidate list before the freshness
+    // caveat has already begun acting on it.
+    if (snapshot.ingestedAt === null) {
+        lines.push(
+            `[discussion-lifecycle-audit] SNAPSHOT AGE UNKNOWN — ${snapshot.reason}.` +
+            ' Findings below may be arbitrarily stale and must be confirmed against GitHub.'
+        )
+    } else if (snapshot.ageHours !== null && snapshot.ageHours > maxSnapshotAgeHours) {
+        lines.push(
+            `[discussion-lifecycle-audit] STALE SNAPSHOT — last refreshed ${snapshot.ingestedAt}` +
+            ` (${snapshot.ageHours}h ago, bound ${maxSnapshotAgeHours}h).` +
+            ' Findings below describe that snapshot, NOT current GitHub state; a Discussion closed' +
+            ' since then still reports as open. Confirm before acting.'
+        )
+    } else {
+        lines.push(
+            `[discussion-lifecycle-audit] snapshot refreshed ${snapshot.ingestedAt}` +
+            ` (${snapshot.ageHours}h ago).`
+        )
+    }
+
+    lines.push(
         `[discussion-lifecycle-audit] scanned ${result.scanned} Ideas discussions.`,
         `[discussion-lifecycle-audit] candidates: ${result.candidates.length}` +
             ` (graduated-open=${grouped['graduated-open'] || 0},` +
             ` resolved-only-review=${grouped['resolved-only-review'] || 0},` +
             ` stale-open=${grouped['stale-open'] || 0})`
-    ];
+    );
 
     for (const candidate of result.candidates) {
         const age = candidate.ageDays === null ? 'age=unknown' : `age=${candidate.ageDays}d`;
@@ -426,6 +529,7 @@ function createArgParser({silent = false} = {}) {
         .option('--discussions-dir <path>', 'Synced Discussions corpus directory.', DEFAULT_DISCUSSIONS_DIR)
         .option('--fixture <path>', 'JSON fixture file to audit instead of the synced corpus.')
         .option('--stale-days <days>', 'Open-discussion age threshold.', parsePositiveNumber, DEFAULT_STALE_DAYS)
+        .option('--max-snapshot-age-hours <hours>', 'Snapshot age past which findings are labelled stale.', parsePositiveNumber, DEFAULT_MAX_SNAPSHOT_AGE_HOURS)
         .option('--fail-on <kind>', `Candidate kind that fails the run: ${FAIL_ON_CHOICES.join(', ')}.`, parseFailOn, 'graduated-open')
         .option('--today <date>', 'Reference date for age calculations.', parseDateOption, new Date())
         .option('--json', 'Emit the audit report as JSON.', false)
@@ -456,14 +560,15 @@ function parseArgs(argv, {silent = false} = {}) {
     const options = program.opts();
 
     return {
-        discussionsDir: path.resolve(options.discussionsDir),
-        failOn        : options.reportOnly ? 'none' : options.failOn,
-        fixture       : options.fixture ? path.resolve(options.fixture) : null,
-        json          : options.json,
-        now           : options.today,
-        reportOnly    : options.reportOnly,
-        selfTest      : options.selfTest,
-        staleDays     : options.staleDays
+        discussionsDir     : path.resolve(options.discussionsDir),
+        failOn             : options.reportOnly ? 'none' : options.failOn,
+        fixture            : options.fixture ? path.resolve(options.fixture) : null,
+        json               : options.json,
+        maxSnapshotAgeHours: options.maxSnapshotAgeHours,
+        now                : options.today,
+        reportOnly         : options.reportOnly,
+        selfTest           : options.selfTest,
+        staleDays          : options.staleDays
     }
 }
 
@@ -628,7 +733,20 @@ async function main() {
         staleDays: options.staleDays
     });
 
-    const report = formatReport(result, {json: options.json});
+    // A fixture run has no snapshot to be stale — its input IS the subject under test, so measuring
+    // repository history against it would report an age for something that was never ingested.
+    result.snapshot = options.fixture
+        ? {ageHours: null, ingestedAt: null, reason: 'fixture input — not a synced snapshot', source: 'fixture'}
+        : await resolveSnapshotFreshness({
+            discussionsDir: options.discussionsDir,
+            execFileFn    : execFileAsync,
+            now           : options.now
+        });
+
+    const report = formatReport(result, {
+        json               : options.json,
+        maxSnapshotAgeHours: options.maxSnapshotAgeHours
+    });
 
     if (shouldFail(result.candidates, options.failOn)) {
         console.error(report);
