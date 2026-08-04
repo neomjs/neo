@@ -75,6 +75,19 @@
         }
     }
 
+    // The overflow plugin bounds a degenerate over-wide active button (inline max-width) so its box —
+    // and the absolute per-button indicator spanning that box — ends where the floating overflow
+    // control begins. The box bound alone would let the label glyphs overflow the shrunken box; this
+    // turns the covered cut into an honest ellipsis.
+    &.neo-tab-overflow-capped {
+        .neo-button-text {
+            min-width    : 0;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+    }
+
     &:not(:last-child) {
         margin-right: var(--tab-button-gap);
     }
