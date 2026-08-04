@@ -71,6 +71,7 @@
         "ai:lint-identity-engine-coherence"    : "node ./ai/scripts/lint/lint-identity-engine-coherence.mjs",
         "ai:lint-identity-vocabulary"          : "node ./ai/scripts/lint/lint-identity-vocabulary.mjs",
         "ai:lint-mcp-test-locations"           : "node ./ai/scripts/lint/lint-mcp-test-locations.mjs",
+        "ai:lint-retry-bounds"                 : "node ./ai/scripts/lint/lint-retry-bounds.mjs",
         "ai:lint-skill-manifest"               : "node ./ai/scripts/lint/lint-skill-manifest.mjs",
         "ai:lint-tree-json"                    : "node ./ai/scripts/lint/lint-tree-json.mjs",
         "ai:skill-size-report"                 : "node ./ai/scripts/lint/lint-skill-manifest.mjs --report-sizes",
