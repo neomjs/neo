@@ -398,7 +398,25 @@ export function discoverCandidates({rootDir = ROOT_DIR} = {}) {
 
                 inTemplate = stripped.inTemplate;
 
-                // A continuation line inside a template is prose, not code, whatever it looks like.
+                // KNOWN FALSE NEGATIVE, retained deliberately (@neo-gpt-emmy's scanner escape).
+                //
+                // A growth expression inside a `${…}` substitution on a CONTINUATION line of a
+                // multi-line template is preserved by `stripLiterals` and then discarded here —
+                // discovered and dropped in the same pass. That is a real escape and it is not fixed.
+                //
+                // Removing this return does NOT fix it, which is the measured part. Doing so
+                // immediately surfaces `ai/demo-agents/dev.mjs:258` as a candidate whose match is
+                // `**AI Generated PR**` — markdown bold inside literal text, exactly what
+                // `stripLiterals` exists to blank. The cause is upstream: the template opened at
+                // dev.mjs:118 is never seen to close, so by 258 the scanner still believes it is
+                // inside a template; `stripLiterals(line, true)` then reads 258's OPENING backtick
+                // as a CLOSE and emits the whole literal as code.
+                //
+                // So this return is masking a `stripLiterals` state-tracking defect as well as the
+                // escape, and lifting it trades a known false negative for a false positive — which
+                // is the worse of the two, because a gate that cries wolf gets routed around. The
+                // real repair is multi-line template state tracking, which is outside the closure
+                // boundary set for this PR. Recorded rather than silently retained.
                 if (wasOpen) return;
 
                 // Every match, not the first. `PATTERNS.find` returned one hit per line, so
