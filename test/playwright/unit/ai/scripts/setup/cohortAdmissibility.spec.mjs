@@ -351,6 +351,48 @@ test.describe('cohortAdmissibility — may target T take cohort C? (#16453)', ()
         expect(formatAdmissibilityVerdict(verdict).join('\n')).toContain('FORBIDDEN NEO_AUTO_DREAM');
     });
 
+    /**
+     * THE CALLER CONTRACT, and the only failure direction this module cannot tolerate: a FALSE
+     * INADMISSIBLE refuses a migration that would have succeeded — on exactly the lagging plane the
+     * predicate exists to unblock.
+     *
+     * The reference profile writes `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE` as a LITERAL rather than
+     * interpolating it, so a caller passing the deployment's hand-authored `.env` sees it absent while
+     * the daemon would have booted. The census is only as true as the environment it is handed.
+     *
+     * Premise anchored against the shipped Compose file below: if someone later templates that value,
+     * this test fails and the caller-contract note in the module header needs revisiting. That is the
+     * correct thing to be told, not a brittle assertion.
+     */
+    test('providedEnv must be the RENDERED env — the declared-only case is a false inadmissible', () => {
+        const composeSrc = readFileSync(new URL('../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8');
+
+        // The premise: pinned literally, NOT as `${NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE...}`.
+        expect(composeSrc).toContain('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=container-plane');
+        expect(composeSrc).not.toContain('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=${');
+
+        const target = {entrypoint: 'orchestrator-daemon', mode: 'none', consumerClaims: ['readiness']};
+
+        // Declared-only: the operator's .env carries nothing for a key their profile hardcodes.
+        const fromDeclared = evaluateCohortAdmissibility({
+            cohortData: ConfigBase.config.data,
+            target    : {...target, providedEnv: {}}
+        });
+
+        // Rendered: `docker compose config` resolves the literal the service pins.
+        const fromRendered = evaluateCohortAdmissibility({
+            cohortData: ConfigBase.config.data,
+            target    : {...target, providedEnv: {NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane'}}
+        });
+
+        expect(fromDeclared.admissible).toBe(false);
+        expect(fromRendered.admissible).toBe(true);
+
+        // Same cohort, same target, opposite verdicts — the difference is ONLY which environment the
+        // caller resolved, which is why the module header makes it a contract rather than a hint.
+        expect(fromDeclared.blocking[0].env).toBe('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+    });
+
     test('isLeafDescriptor separates leaves from namespace nodes', () => {
         expect(isLeafDescriptor({default: '', env: 'X'})).toBe(true);
         expect(isLeafDescriptor({default: 1, type: 'number'})).toBe(true);

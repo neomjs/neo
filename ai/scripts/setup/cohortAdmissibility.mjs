@@ -36,6 +36,27 @@
  * about. So this module does NOT reuse that matcher: an unspecified axis that some requirement
  * constrains is reported as INDETERMINATE and the verdict is not admissible. Absence of evidence is
  * never admissibility.
+ *
+ * ## `providedEnv` MUST be the RENDERED environment, not the declared one
+ *
+ * This is a caller contract and getting it wrong produces the one failure direction this module
+ * cannot tolerate: a FALSE INADMISSIBLE that refuses a migration which would have succeeded.
+ *
+ * The reference Compose profile does not template every required value. `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE`
+ * is written as a literal — `ai/deploy/docker-compose.yml:270` and `docker-compose.dev.yml:318` both
+ * pin `container-plane` directly rather than interpolating `${...}`. A caller that reads the
+ * deployment's `.env` file and passes that as `providedEnv` therefore sees the key as absent, and this
+ * predicate correctly reports the input it was given as missing — while the daemon it is asked about
+ * would have booted fine.
+ *
+ * So resolve the target's environment the way the daemon will actually see it (`docker compose config`
+ * against the target's own ordered profile set, or the container's inspected env), never the
+ * hand-authored overlay alone.
+ *
+ * The same hardcoding defeats an env-based override in the other direction: exporting this key into a
+ * parent process does not change the rendered service either. A `docker compose config` render shows
+ * it staying `container-plane` while an interpolated control such as `NEO_DEPLOY_HOSTNAME` picks up
+ * its override normally — so the render, not the export, is the boundary that settles both questions.
  */
 
 /**
