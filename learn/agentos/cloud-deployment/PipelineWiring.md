@@ -160,8 +160,39 @@ A deploy job that does not gate on health reports success while serving a broken
 | Backup bundles missing after redeploy | `NEO_HOST_BACKUP_ROOT` changed, or it was left at its `${HOME}`-derived default and the job ran as a different user | set `NEO_HOST_BACKUP_ROOT` to a fixed absolute path on persistent storage; recover bundles from the prior host directory. Bundles from before the relocation may still sit at the old in-tree `.neo-ai-data/backups` — the backup CLI emits a one-time notice naming that path and never moves them |
 | TLS cert re-issued / ACME rate-limited each deploy | `caddy-data` removed by `down -v` | stop using `-v` so the issued certs persist |
 
+## Repairing a plane that is already behind
+
+Everything above describes a pipeline running *forward* from a known-good state. A plane that has drifted needs the opposite: the pipeline has to be *pointed at* a deployment nobody is currently maintaining, and the reason a rebuild alone does not fix it is a configuration contract, not a revision gap.
+
+The worked case is the orchestrator's authority role. Its config leaf carries **no default** — requiredness is armed by that emptiness — so a plane that never declares `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE` produces a *refused launch* that writes no state directory, no PID file and no log. Rebuilding it at a newer revision reproduces the refusal at a newer revision. There are thirteen such required inputs.
+
+[`ai/scripts/maintenance/migrateDeployment.mjs`](../../../ai/scripts/maintenance/migrateDeployment.mjs) is the supervised bootstrap for that case. It is operator-invoked, never scheduled, and never mutates on its own judgement:
+
+```bash
+# What would change, and why apply is refused. Mutates nothing.
+node ai/scripts/maintenance/migrateDeployment.mjs plan --project <compose-project>
+
+# Repair a missing or empty required input, then apply. Repeatable per service.
+node ai/scripts/maintenance/migrateDeployment.mjs apply \
+  --project <compose-project> \
+  --set orchestrator.NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=container-plane
+```
+
+Four properties are worth knowing before running it, because each was a defect first.
+
+**It refuses by default, and it refuses per service.** The census classifies keys per *profile*, but a profile's required list is not uniform across its services: on the canonical profile four of the thirteen required inputs are declared by one service only. Observations are therefore kept per service and never unioned — a union only ever shrinks the delta, so a key set on one container and absent from another would report as satisfied for both. Anything the tool could not establish blocks rather than annotating an authorizing verdict.
+
+**The config cohort is wider than the revision cohort.** `/app/.neo-revision` is written by the Neo image, so only Neo services can produce a revision receipt. But the deployment contract spans services that cannot: Compose owns `NEO_DEPLOY_HOSTNAME` on the ingress service. Both cohorts are derived — the config cohort from the plane's own Compose service labels, never a hardcoded list — so a deployment with a differently-named proxy stays inside the contract.
+
+**`--set` reaches the containers through a Compose overlay fragment, not through the pipeline's environment.** The profile declares its env as *literals* (`NEO_CHROMA_HOST=chroma`), not `${VAR}`, so exporting a value into the pipeline's environment changes nothing that the containers consume. The bootstrap generates a per-service fragment and appends it **last** in the compose-file list, where merge order makes it win. This is why the pipeline accepting an *ordered* `NEO_DEPLOY_COMPOSE_FILE` list matters: a single-`-f` caller cannot express a repair at all.
+
+**Values the plane already carries are preserved.** `NEO_DEPLOY_HOSTNAME` is supplied by interpolation (`${NEO_DEPLOY_HOSTNAME:-localhost}`) rather than stored, so a repair run whose environment lacks it would re-render the *fallback* and silently reset a plane that had a real hostname. Compose-owned observed values are carried forward, with an explicit `--set` for the same key taking precedence.
+
+Two bounds, stated because they are real. Compose-owned obligation is read from observed env, so it cannot detect a compose-owned key Compose *forgot* to set. And the compose file paths are discovered from the plane's own labels, which on a multi-clone host may point outside the checkout running the tool.
+
 ## Out of scope
 
+- **Cadence, kill-switch and unattended activation.** The bootstrap above is supervised and one-shot by design; it must not become a resident updater. The unattended path is a separate authority.
 - The MVP backup/persistence *implementation* — owned by Sub C [#11724](https://github.com/neomjs/neo/issues/11724); this guide documents how a pipeline *preserves* it.
 - A turnkey, vendor-specific CI workflow — CI systems differ; this guide plus the reference script are the CI-neutral substrate a team adapts.
 - Multi-instance / blue-green / zero-downtime deploy topologies — a later evolution; the reference shape is single-instance recreate-in-place.
@@ -172,4 +203,5 @@ A deploy job that does not gate on health reports success while serving a broken
 - [Day-0 Cloud Deployment Tutorial](./Day0Tutorial.md) — the first-run path; Milestone 7 is the redeploy-survival check this pipeline automates.
 - [Hook Wiring](./HookWiring.md) — the *content* pipeline (tenant repo content into the KB), distinct from this *deployment* pipeline.
 - [`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) — the runnable, CI-neutral reference deploy/redeploy script.
+- [`ai/scripts/maintenance/migrateDeployment.mjs`](../../../ai/scripts/maintenance/migrateDeployment.mjs) — the supervised `plan`/`apply` bootstrap for a plane that is already behind.
 - [ADR 0014](../decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) — the cloud topology + scheduler taxonomy this deployment implements.
