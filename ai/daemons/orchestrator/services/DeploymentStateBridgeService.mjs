@@ -1,4 +1,5 @@
 import {createHash}                         from 'node:crypto';
+import fs                                   from 'fs-extra';
 import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
@@ -389,16 +390,44 @@ export class DeploymentStateBridgeService extends Base {
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
 
+        const churnBaseline = this.readChurnBaseline(serviceKey);
+
+        // A failed runtime read must not reach `diagnose()` as a silent `inspect: null`. Absent
+        // input yields no lifecycle facts, so the decision returns `healthy` — a read FAILURE
+        // reported as health, which is the same shape as every other green-on-an-unmeasured-axis
+        // defect this ticket exists to close. `collectAndDiagnose` already emits
+        // `runtime-read-failed` on this path; the bridge calls `diagnose()` directly and did not.
+        const inspectReadFailed = inspect === null &&
+            errors.some(entry => entry?.operation === 'inspect' || entry?.detail?.operation === 'inspect');
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
+                inspectReadFailed,
                 serviceKey,
                 inspect,
                 stats,
-                statsSamples: this.getStatsSamples(serviceKey),
+                statsSamples   : this.getStatsSamples(serviceKey),
                 providerResidency,
+                churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
+                plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
                 observedAt
             })
             : null;
+
+        // Persist the baseline BEFORE returning. A restart-churn baseline held in process memory
+        // could never work: the orchestrator is itself the process that churns, so an in-memory
+        // anchor resets on every restart and the count can never reach a threshold — the same
+        // reasoning ADR-0025 rejects in-memory anti-thrash state on. // ticket-ref-ok: names the decision this durability requirement inherits
+        // An unjudgeable baseline must not be overwritten by a fresh anchor derived from it —
+        // that is the silent-reset path. Leave it and let the ERROR log carry the degradation.
+        if (diagnosis?.churnBaseline && !churnBaseline?.unreadable) {
+            this.writeChurnBaseline(serviceKey, diagnosis.churnBaseline);
+        }
+
+        // `churnBaseline` is INTERNAL scheduling state, not part of the published contract. The
+        // decision carries it back so this service can persist it; publishing it would add an
+        // undocumented field to `inspect_deployment` that no Contract Ledger row admits.
+        const {churnBaseline: _internalBaseline, ...publishedDiagnosis} = diagnosis || {};
 
         return {
             schemaVersion : 1,
@@ -411,7 +440,7 @@ export class DeploymentStateBridgeService extends Base {
             stats         : summarizeStats(stats),
             logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
             providerResidency,
-            diagnosis,
+            diagnosis     : diagnosis ? publishedDiagnosis : null,
             proofs,
             errors
         };
@@ -534,6 +563,129 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         return AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices.filter(isSafeServiceKey);
+    }
+
+    /**
+     * @summary Reads the durable restart-churn baseline for one service.
+     *
+     * On disk, never in memory. The orchestrator is the process this signal watches, so an
+     * in-process anchor would reset on the very event being counted and the threshold could never
+     * be reached — a check that is green precisely when it matters most.
+     *
+     * @param {String} serviceKey
+     * @returns {Object|null} `{containerId, restartCount, observedAt}` or null when unset/unreadable.
+     */
+    readChurnBaseline(serviceKey) {
+        try {
+            const baseline = fs.readJsonSync(this.churnBaselinePath(serviceKey));
+
+            // A structurally invalid baseline is UNJUDGEABLE, not absent. Collapsing it to null
+            // would re-anchor the counter, and a counter that re-anchors whenever its own state is
+            // damaged can never reach a threshold — the failure mode disk persistence exists to
+            // prevent, reintroduced through the error path.
+            if (!baseline || typeof baseline.containerId !== 'string' ||
+                !Number.isFinite(baseline.restartCount) || !Number.isFinite(baseline.observedAt)
+            ) {
+                return {unreadable: true}
+            }
+
+            return baseline
+        } catch (error) {
+            // ENOENT is genuinely "no baseline yet" — the first observation of a generation, and the
+            // only case that may legitimately re-anchor.
+            if (error?.code === 'ENOENT') return null;
+
+            this.writeLog?.('WARN', `[DeploymentStateBridge] churn baseline unreadable for ${serviceKey}: ${error.message}`);
+
+            return {unreadable: true}
+        }
+    }
+
+    /**
+     * @summary Persists the restart-churn baseline for one service.
+     * @param {String} serviceKey
+     * @param {Object} baseline
+     * @returns {void}
+     */
+    writeChurnBaseline(serviceKey, baseline) {
+        const target  = this.churnBaselinePath(serviceKey),
+              staging = `${target}.${process.pid}.tmp`;
+
+        try {
+            // Write-then-rename: a direct write torn by a crash leaves a half-written baseline, which
+            // the reader above must then treat as unjudgeable — turning a crash into a silently
+            // reset counter. `rename` within a directory is atomic, so a reader sees the old
+            // baseline or the new one, never a fragment.
+            fs.outputJsonSync(staging, baseline);
+            fs.renameSync(staging, target)
+        } catch (error) {
+            // ERROR, not WARN: a baseline that stops advancing means churn stops accumulating, and
+            // the signal dies without the record ever going unhealthy.
+            this.writeLog?.('ERROR', `[DeploymentStateBridge] churn baseline write FAILED for ${serviceKey}: ${error.message}. Churn detection is degraded until this succeeds.`);
+            fs.removeSync(staging)
+        }
+    }
+
+    /**
+     * @summary Resolves the on-disk baseline path for one service.
+     * @param {String} serviceKey
+     * @returns {String}
+     */
+    churnBaselinePath(serviceKey) {
+        return path.join(this.healLedgerDir, 'churn-baselines', `${String(serviceKey).replace(/[^\w.-]/g, '_')}.json`)
+    }
+
+    /**
+     * @summary Counts restarts this system itself initiated for one service inside the churn window.
+     *
+     * Subtracted from the observed delta so a deploy or an actuator restart cannot raise churn. The
+     * heal-event ledger is the record of what we did, which makes it the only honest source: this
+     * frame cannot otherwise distinguish an actuator restart from a crash, and guessing would fire
+     * the alarm on every deploy — after which it gets disabled and the blind spot returns with a
+     * dead alarm on top.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey
+     * @param {Number} options.observedAt
+     * @returns {Number}
+     */
+    async countPlannedRestarts({serviceKey, observedAt}) {
+        const baseline = this.readChurnBaseline(serviceKey);
+
+        if (!baseline) return 0;
+
+        try {
+            // Same injection seam the snapshot fold uses (`healLedgerReader || readHealLedger`),
+            // rather than a second direct reader — one source of ledger truth, and testable.
+            // AWAITED: `readHealLedger` is async, and the snapshot fold awaits it too. An earlier
+            // revision did not, so `queryHealLedger` received a Promise, matched nothing, and planned
+            // restarts counted 0 — every deploy would have raised false churn.
+            const reader = this.healLedgerReader || readHealLedger,
+                  events = await reader({dir: this.healLedgerDir});
+
+            return queryHealLedger(events, {collections: [serviceKey]})
+                // Filter on status too, or one recovery action counts TWICE: `recordRun` writes
+                // `status: 'attempt'` and `recordHealOutcome` writes a second row with the SAME
+                // type and collection. Double-counting over-subtracts, which suppresses genuine
+                // churn — a false negative on the whole signal, and one that only became reachable
+                // once the async/epoch defects above were fixed and real events started matching.
+                .filter(event => event?.type === 'restart' && event?.status === 'attempt')
+                .filter(event => {
+                    // `appendHealEvent` stamps `at` as EPOCH MS (healEventLedgerStore: `at:
+                    // Number.isFinite(entry.at) ? entry.at : now`). An earlier revision ran
+                    // `Date.parse(event.at)` — `Date.parse` of a number is NaN, so every REAL event
+                    // was filtered out, planned restarts counted 0, and a deploy would have raised
+                    // false churn. It passed its test only because the test fabricated ISO strings.
+                    const at = typeof event.at === 'number' ? event.at : Date.parse(event.at ?? '');
+
+                    return Number.isFinite(at) && at >= baseline.observedAt && at <= observedAt;
+                })
+                .length
+        } catch {
+            // Unknown provenance must not raise churn: an unreadable ledger means we cannot prove a
+            // restart was ours, and a false churn alarm costs more than a missed one.
+            return Number.MAX_SAFE_INTEGER
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     CONTAINER_HEALTH_FACT_TYPES,
     ContainerHealthDiagnosisService,
+    evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
@@ -411,5 +412,222 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(failed.facts[0]).toMatchObject({
             type: CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed
         });
+    });
+});
+
+/**
+ * Restart-churn detect signal.
+ *
+ * The gap: a plane observed at 977 restarts reported `running` + `healthy` with a 28-second-old
+ * process and NO diagnostic facts. Churn is a property ACROSS container incarnations, so no
+ * point-in-time probe can express it — every incarnation genuinely was alive.
+ */
+test.describe('restart churn', () => {
+    const inspect = (Id, RestartCount, State = {Status: 'running'}) => ({Id, RestartCount, State});
+
+    test('the first observation adopts a baseline and reports nothing', () => {
+        const result = evaluateRestartChurn({inspect: inspect('c1', 7), observedAt: OBSERVED_AT});
+
+        expect(result.churning).toBe(false);
+        expect(result.generationReset).toBe(true);
+        expect(result.nextBaseline).toEqual({containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 7});
+    });
+
+    test('restarts crossing the threshold inside the window report churn', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 4),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.churning).toBe(true);
+        expect(result.unplannedRestarts).toBe(4);
+    });
+
+    test('below the threshold is not churn — one restart is a transient, not a loop', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 2),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.churning).toBe(false);
+    });
+
+    /**
+     * The EXACT boundary, which the 4-and-2 pair above leaves open. `>=` and `>` agree on both of
+     * those and disagree only here, so without this case an off-by-one in either direction is
+     * invisible: the alarm would sit one restart away from where the config says it does. The
+     * comparison is `>=`, so a delta equal to the threshold IS churn.
+     */
+    test('a delta exactly equal to the threshold is churn — the boundary is inclusive', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 3),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.churning).toBe(true);
+        expect(result.unplannedRestarts).toBe(3);
+    });
+
+    /**
+     * Planned-restart subtraction, asserted by MAGNITUDE rather than by verdict.
+     *
+     * A verdict-only test cannot see this: `unplannedRestarts` is clamped with `Math.max(0, ...)`,
+     * so over-subtracting lands on the same `churning: false` as subtracting correctly. The pair
+     * below straddles the boundary, so the arithmetic is pinned from both sides — 4 observed minus
+     * 1 planned is exactly the threshold and must fire; minus 2 is one below and must not. Counting
+     * a restart twice, or not at all, breaks one of the two.
+     */
+    test('one planned restart subtracts exactly one, measured at the boundary', () => {
+        const args = {
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 4),
+            observedAt: OBSERVED_AT + 60000
+        };
+
+        const one = evaluateRestartChurn({...args, plannedRestarts: 1});
+
+        expect(one.unplannedRestarts).toBe(3);
+        expect(one.churning).toBe(true);
+
+        const two = evaluateRestartChurn({...args, plannedRestarts: 2});
+
+        expect(two.unplannedRestarts).toBe(2);
+        expect(two.churning).toBe(false);
+    });
+
+    /** A recreate is the most common reason to see a jump, and it must never read as a fault. */
+    test('a recreate resets the generation instead of reporting churn', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c2', 40),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.churning).toBe(false);
+        expect(result.generationReset).toBe(true);
+        expect(result.nextBaseline.containerId).toBe('c2');
+    });
+
+    test('planned restarts are subtracted, so a deploy sequence raises nothing', () => {
+        const result = evaluateRestartChurn({
+            baseline       : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect        : inspect('c1', 4),
+            observedAt     : OBSERVED_AT + 60000,
+            plannedRestarts: 4
+        });
+
+        expect(result.churning).toBe(false);
+        expect(result.unplannedRestarts).toBe(0);
+    });
+
+    /** Churn is a RATE. An old anchor would let long-past restarts accumulate into a verdict on today. */
+    test('past the window the baseline re-anchors rather than accumulating', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 99),
+            observedAt: OBSERVED_AT + 900001
+        });
+
+        expect(result.churning).toBe(false);
+        expect(result.nextBaseline.observedAt).toBe(OBSERVED_AT + 900001);
+    });
+
+    /** Inside the window the anchor is HELD — re-anchoring every tick could never reach a threshold. */
+    test('inside the window the anchor is held, so restarts accumulate against it', () => {
+        const result = evaluateRestartChurn({
+            baseline  : {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            inspect   : inspect('c1', 1),
+            observedAt: OBSERVED_AT + 60000
+        });
+
+        expect(result.nextBaseline.observedAt).toBe(OBSERVED_AT);
+    });
+
+    test('an unreadable inspect is unknown, never "no churn"', () => {
+        const result = evaluateRestartChurn({inspect: {State: {}}, observedAt: OBSERVED_AT});
+
+        expect(result.readable).toBe(false);
+        expect(result.churning).toBe(false);
+    });
+
+    test('a churning container is diagnosed and RECORDED, never restarted', () => {
+        const decision = createService().diagnose({
+            serviceKey   : 'orchestrator',
+            inspect      : inspect('c1', 4),
+            churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            observedAt   : OBSERVED_AT + 60000
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.record);
+        expect(decision.actionClass).not.toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        // `ambiguous` is the established record-never-auto-restart class (taskOutcomeDiagnosis).
+        // `crash` would route to a restart under the reactive controller — that is why it is excluded.
+        expect(decision.diagnosis.recoveryClass).toBe('ambiguous');
+        expect(decision.diagnosis.recoveryClass).not.toBe('crash');
+        expect(decision.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
+    });
+
+    /**
+     * The hazard this pins: `countAuthoritativeFacts` counts EVERY authoritative fact regardless of
+     * type, and `hasAuthoritativeEvidence` admits a lifecycle-crash restart at `minAuthoritativeFacts`.
+     * An authoritative churn fact could combine with one `container-unhealthy` fact to restart a
+     * container whose own history proves restarting does not work.
+     */
+    test('the churn fact is non-authoritative, so it cannot tip another class into a restart', () => {
+        const decision = createService().diagnose({
+            serviceKey   : 'orchestrator',
+            inspect      : inspect('c1', 4, {Status: 'running', Health: {Status: 'unhealthy'}}),
+            churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            observedAt   : OBSERVED_AT + 60000
+        });
+
+        const churnFact = decision.facts.find(f => f.type === CONTAINER_HEALTH_FACT_TYPES.restartChurn);
+
+        expect(churnFact.authoritative).toBe(false);
+        expect(decision.facts.filter(f => f.authoritative).length).toBeLessThan(2);
+    });
+
+    test('a failed runtime read is never reported as healthy', () => {
+        const decision = createService().diagnose({
+            serviceKey       : 'orchestrator',
+            inspect          : null,
+            inspectReadFailed: true,
+            observedAt       : OBSERVED_AT
+        });
+
+        expect(decision.status).not.toBe('healthy');
+        expect(decision.facts.some(f => f.type === CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed)).toBe(true);
+    });
+
+    test('an absent inspect with no read failure stays quiet — absence alone is not a fault', () => {
+        const decision = createService().diagnose({serviceKey: 'orchestrator', inspect: null, observedAt: OBSERVED_AT});
+
+        expect(decision.facts.some(f => f.type === CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed)).toBe(false);
+    });
+
+    test('a quiet container yields no churn fact and no diagnosis', () => {
+        const decision = createService().diagnose({
+            serviceKey   : 'orchestrator',
+            inspect      : inspect('c1', 0),
+            churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
+            observedAt   : OBSERVED_AT + 60000
+        });
+
+        expect(decision.facts.some(f => f.type === CONTAINER_HEALTH_FACT_TYPES.restartChurn)).toBe(false);
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('the decision carries the next baseline so the caller can persist it', () => {
+        const decision = createService().diagnose({
+            serviceKey: 'orchestrator',
+            inspect   : inspect('c1', 3),
+            observedAt: OBSERVED_AT
+        });
+
+        expect(decision.churnBaseline).toEqual({containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 3});
     });
 });

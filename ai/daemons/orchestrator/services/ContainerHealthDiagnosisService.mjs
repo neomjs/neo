@@ -14,6 +14,7 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
     memorySaturation   : 'memory-saturation',
     providerResidency  : 'provider-residency-degraded',
     resourceSaturation : 'resource-saturation',
+    restartChurn       : 'restart-churn',
     runtimeReadFailed  : 'runtime-read-failed'
 });
 
@@ -29,7 +30,14 @@ export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     memorySaturationPercent: 90,
     minAuthoritativeFacts  : 2,
     minResourceSamples     : 2,
-    sampleWindowMs         : 30000
+    // Restarts within the window, on one container generation, before churn is reported. Three is
+    // chosen to sit above ordinary transients (one restart is noise; two can be a slow dependency
+    // coming up) and far below a real loop, which reached 977. The window bounds it to RECENT churn:
+    // a container that restarted repeatedly last month and has been stable since is not sick now.
+    restartChurnSeverity : 'critical',
+    restartChurnThreshold: 3,
+    restartChurnWindowMs : 900000,
+    sampleWindowMs       : 30000
 });
 
 const RUNNING_STATES = new Set(['created', 'restarting', 'running', 'paused']);
@@ -104,11 +112,35 @@ export class ContainerHealthDiagnosisService extends Base {
         configCheck = null,
         ollamaEvalAttribution = null,
         providerResidency = null,
+        churnBaseline = null,
+        inspectReadFailed = false,
+        plannedRestarts = 0,
         observedAt = this.now()
     } = {}) {
         this.validateServiceKey(serviceKey);
 
+        const churn = evaluateRestartChurn({
+            inspect,
+            baseline : churnBaseline,
+            observedAt,
+            plannedRestarts,
+            threshold: this.configValues.restartChurnThreshold,
+            windowMs : this.configValues.restartChurnWindowMs
+        });
+
         const facts = [
+            // A caller that could not READ the runtime says so explicitly. Without this, an absent
+            // inspect produces no facts and the decision reads `healthy` — the failure reported as
+            // health.
+            ...(inspectReadFailed ? [this.createFact({
+                type         : CONTAINER_HEALTH_FACT_TYPES.runtimeReadFailed,
+                serviceKey,
+                observedAt,
+                severity     : 'warning',
+                authoritative: false,
+                details      : {operation: 'inspect'}
+            })] : []),
+            ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
             ...this.collectLifecycleFacts({serviceKey, inspect, observedAt}),
             ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
@@ -119,12 +151,15 @@ export class ContainerHealthDiagnosisService extends Base {
 
         const classification = this.classifyFacts({facts});
         if (!classification) {
-            return this.createDecision({
-                serviceKey,
-                observedAt,
-                facts,
-                status: facts.length > 0 ? 'advisory' : 'healthy'
-            });
+            return {
+                ...this.createDecision({
+                    serviceKey,
+                    observedAt,
+                    facts,
+                    status: facts.length > 0 ? 'advisory' : 'healthy'
+                }),
+                churnBaseline: churn.nextBaseline
+            };
         }
 
         const diagnosis = createRecoveryDiagnosisEvent({
@@ -145,14 +180,55 @@ export class ContainerHealthDiagnosisService extends Base {
             }
         });
 
-        return this.createDecision({
+        return {
+            ...this.createDecision({
+                serviceKey,
+                observedAt,
+                facts,
+                status     : 'diagnosed',
+                diagnosis,
+                actionClass: classification.actionClass
+            }),
+            churnBaseline: churn.nextBaseline
+        };
+    }
+
+    /**
+     * Collects the restart-churn fact.
+     *
+     * @summary Deliberately **non-authoritative**, following the precedent ADR-0025 §2.4 sets for the // ticket-ref-ok: the ADR is the governing authority for this safety property, not background reading
+     * data-integrity coverage-drift fact: *"a record is non-authoritative: the multi-fact requirement
+     * gates authoritative actions, not records."*
+     *
+     * Non-authoritative is load-bearing here rather than merely conventional. `countAuthoritativeFacts`
+     * counts every authoritative fact regardless of type, and `hasAuthoritativeEvidence` admits a
+     * lifecycle-crash classification at `minAuthoritativeFacts`. An authoritative churn fact could
+     * therefore combine with one `container-unhealthy` fact to reach that threshold and classify a
+     * *churning* container as a crash needing a **restart** — which is the one action already proven
+     * ineffective on it.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey
+     * @param {Object} options.churn From {@link evaluateRestartChurn}.
+     * @param {Number} options.observedAt
+     * @returns {Object[]}
+     */
+    collectRestartChurnFacts({serviceKey, churn, observedAt}) {
+        if (!churn?.churning) return [];
+
+        return [this.createFact({
+            type         : CONTAINER_HEALTH_FACT_TYPES.restartChurn,
             serviceKey,
             observedAt,
-            facts,
-            status     : 'diagnosed',
-            diagnosis,
-            actionClass: classification.actionClass
-        });
+            severity     : this.configValues.restartChurnSeverity,
+            authoritative: false,
+            details      : {
+                unplannedRestarts: churn.unplannedRestarts,
+                elapsedMs        : churn.elapsedMs,
+                windowMs         : this.configValues.restartChurnWindowMs,
+                threshold        : this.configValues.restartChurnThreshold
+            }
+        })];
     }
 
     /**
@@ -532,6 +608,34 @@ export class ContainerHealthDiagnosisService extends Base {
             };
         }
 
+        // LAST on purpose. The gap this closes is that a churning container produced NO diagnosis at
+        // all — a plane at 977 restarts reported `healthy` with zero facts. It is not that some other
+        // class was diagnosed wrongly, so this branch only ever speaks where nothing else did, and no
+        // existing classification changes shape.
+        //
+        // The action class is `record`, never `restart`. ADR-0026 §2.5 already hard-transitions a // ticket-ref-ok: the envelope this classification must not contradict
+        // rate-exhausted service to alarm-only; churn is that same situation occurring OUTSIDE our
+        // envelope, driven by the runtime's own restart policy. Restarting a container that has
+        // already restarted past the threshold is the one action its own history proves ineffective,
+        // and AC-6's record-with-diagnosis is the correct terminal for a class we cannot heal.
+        const churnFacts = facts.filter(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.restartChurn);
+        if (churnFacts.length > 0) {
+            return {
+                // `ambiguous`, not a new class. `RECOVERY_CLASSES` is a frozen shared enum read by
+                // seven consumers and persisted into heal-event records, and `taskOutcomeDiagnosis`
+                // already established `ambiguous` as the record-never-auto-restart class for exactly
+                // this reasoning: "blindly restarting a failed backup neither knows nor fixes the
+                // cause." Restarting a container that has already restarted past the threshold is the
+                // same move against the same logic. `crash` would be actively wrong — ADR-0026 §2.4's // ticket-ref-ok: names the mapping that makes `crash` unsafe here
+                // reactive controller maps transient-crash to restart.
+                recoveryClass: 'ambiguous',
+                actionClass  : CONTAINER_HEALTH_ACTION_CLASSES.record,
+                confidence   : 0.9,
+                evidenceFacts: this.selectEvidenceFacts(facts, churnFacts),
+                reason       : 'restart-churn-recorded'
+            };
+        }
+
         return null;
     }
 
@@ -745,6 +849,84 @@ export class ContainerHealthDiagnosisService extends Base {
         if (!fact) return null;
 
         return this.readProviderTargetIdentity(fact.details?.targetIdentity);
+    }
+}
+
+/**
+ * @summary Evaluates recent restart churn for one container generation.
+ *
+ * **Why this is not a healthcheck.** A Docker healthcheck evaluates the *current incarnation*, and
+ * during a restart loop every incarnation is genuinely alive — a plane observed at 977 restarts was
+ * reporting `running` and `healthy` with a 28-second-old process. No point-in-time probe of any kind
+ * can express churn, because churn is a property *across* incarnations. That is why this reads a
+ * counter against a persisted baseline instead.
+ *
+ * **Generation semantics.** `RestartCount` is per container and resets when a container is recreated,
+ * so the baseline is keyed to the container id. A recreate starts a new generation and reports no
+ * churn — which is correct, and is also what stops a deploy from looking like a fault. The inverse
+ * matters just as much: without the id key, a stale baseline from a previous container would make a
+ * healthy new one look like it had churned the moment it started.
+ *
+ * **Planned restarts are subtracted, not detected.** A lifecycle `restart` action increments the same
+ * container's count legitimately. This function cannot tell an actuator-initiated restart from a
+ * crash, so the caller passes how many it caused. Guessing here would produce exactly the false
+ * positive that retires a signal: an alarm that fires on every deploy is disabled within a week, and
+ * then the blind spot is back with an alarm on top of it.
+ *
+ * @param {Object} options
+ * @param {Object} [options.inspect] Docker inspect payload.
+ * @param {Object} [options.baseline] Prior `{containerId, restartCount, observedAt}`, or null on first look.
+ * @param {Number} [options.plannedRestarts] Restarts the caller itself initiated since the baseline.
+ * @param {Number} [options.threshold] Restarts within the window before churn is reported.
+ * @param {Number} [options.windowMs] Window length.
+ * @param {Number} [options.observedAt] Observation timestamp.
+ * @returns {Object} `{churning, unplannedRestarts, elapsedMs, generationReset, readable, nextBaseline}`
+ */
+export function evaluateRestartChurn({
+    inspect,
+    baseline = null,
+    plannedRestarts = 0,
+    threshold = DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG.restartChurnThreshold,
+    windowMs = DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG.restartChurnWindowMs,
+    observedAt = Date.now()
+} = {}) {
+    const containerId  = typeof inspect?.Id === 'string' ? inspect.Id : null,
+          restartCount = Number.isFinite(inspect?.RestartCount) ? inspect.RestartCount : null,
+          unreadable   = {churning: false, elapsedMs: 0, generationReset: false, nextBaseline: baseline, readable: false, unplannedRestarts: 0};
+
+    // An unreadable inspect is unknown, never "no churn" — the caller routes it to the existing
+    // runtime-read-failed path rather than letting absence read as health.
+    if (!containerId || restartCount === null) return unreadable;
+
+    const nextBaseline = {containerId, observedAt, restartCount};
+
+    // A new generation: adopt it as the baseline and report nothing. There is no history to compare
+    // against yet, and the recreate that produced it is the most common reason to be here.
+    if (!baseline || baseline.containerId !== containerId) {
+        return {churning: false, elapsedMs: 0, generationReset: true, nextBaseline, readable: true, unplannedRestarts: 0};
+    }
+
+    const elapsedMs = observedAt - baseline.observedAt;
+
+    // Past the window, re-anchor. Churn is a rate, so an old baseline would let long-ago restarts
+    // accumulate into a verdict about today.
+    if (elapsedMs > windowMs) {
+        return {churning: false, elapsedMs, generationReset: false, nextBaseline, readable: true, unplannedRestarts: 0};
+    }
+
+    const observed          = Math.max(0, restartCount - baseline.restartCount),
+          unplannedRestarts = Math.max(0, observed - Math.max(0, plannedRestarts));
+
+    return {
+        churning       : unplannedRestarts >= threshold,
+        elapsedMs,
+        generationReset: false,
+        // Hold the baseline inside the window so restarts accumulate against a fixed anchor.
+        // Re-anchoring on every observation would reset the count faster than it could ever reach
+        // the threshold, and the check would be green forever.
+        nextBaseline: baseline,
+        readable    : true,
+        unplannedRestarts
     }
 }
 
