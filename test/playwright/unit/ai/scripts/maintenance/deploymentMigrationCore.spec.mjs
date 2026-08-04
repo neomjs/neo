@@ -598,6 +598,26 @@ test.describe('parseArgs', () => {
         }
     });
 
+    test('the config cohort is WIDER than the revision cohort, and ingress is in it', () => {
+        // Conflating them was the defect: `/app/.neo-revision` is written by the Neo image, so Caddy can
+        // never produce a receipt — but Compose owns NEO_DEPLOY_HOSTNAME on ingress and the census
+        // classifies it required. Observing only the receipt cohort left that key owned by nobody, which
+        // refused every real plane as unattributable. Measured before and after: 13 blockers -> 12, with
+        // `required-input-unattributable` gone.
+        const options = parseArgs(['plan']);
+
+        expect(options.services).toEqual(['mc-server', 'orchestrator', 'kb-server']);
+        expect(options.configServices).toEqual(['mc-server', 'orchestrator', 'kb-server', 'ingress']);
+        expect(options.configServices.length).toBeGreaterThan(options.services.length)
+    });
+
+    test('--config-services narrows the config cohort independently of --services', () => {
+        const options = parseArgs(['plan', '--services', 'mc-server', '--config-services', 'mc-server,ingress']);
+
+        expect(options.services).toEqual(['mc-server']);
+        expect(options.configServices).toEqual(['mc-server', 'ingress'])
+    });
+
     test('--services splits, trims and drops empties', () => {
         expect(parseArgs(['plan', '--services', ' a , b ,, c ']).services).toEqual(['a', 'b', 'c'])
     });

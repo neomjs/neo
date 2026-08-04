@@ -75,7 +75,20 @@ const execFileAsync = promisify(execFile),
        * narrows the proof rather than widening the pass.
        * @type {String[]}
        */
-      DEFAULT_SERVICES = ['mc-server', 'orchestrator', 'kb-server'];
+      DEFAULT_SERVICES = ['mc-server', 'orchestrator', 'kb-server'],
+      /**
+       * The config cohort is WIDER than the revision cohort, and conflating them was a defect.
+       *
+       * `/app/.neo-revision` is written by the Neo image, so only the three Neo services can produce a
+       * revision receipt — `ingress` is Caddy and has no such file. But the deployment contract spans
+       * services the receipt cannot: Compose owns `NEO_DEPLOY_HOSTNAME` on `ingress` with a localhost
+       * fallback, and the census classifies it as a required deployment input. Observing only the receipt
+       * cohort left that key owned by nobody, so it refused every plane as unattributable — measured, and
+       * it made `apply` unauthorizable everywhere. Disposition by @neo-gpt-emmy: widen the config cohort
+       * rather than demote the key.
+       * @type {String[]}
+       */
+      DEFAULT_CONFIG_SERVICES = [...DEFAULT_SERVICES, 'ingress'];
 
 /**
  * @summary Runs a command, returning `{ok, stdout, stderr, code}` instead of throwing.
@@ -112,12 +125,16 @@ export function parseArgs(argv) {
     const [mode, ...rest] = argv,
           options         = {
               mode,
-              target  : 'dev',
-              project : null,
-              profile : 'ai/deploy/docker-compose.yml',
-              services: DEFAULT_SERVICES,
-              repoUrl : process.env.NEO_REPO_URL || DEFAULT_REPO,
-              omitted : null,
+              target : 'dev',
+              project: null,
+              profile: 'ai/deploy/docker-compose.yml',
+              // The cohort whose revision receipt must move. `--services` narrows it.
+              services      : DEFAULT_SERVICES,
+              // The cohort whose config is observed and repaired — wider, because the contract spans
+              // services that cannot produce a revision receipt. `--config-services` narrows it.
+              configServices: DEFAULT_CONFIG_SERVICES,
+              repoUrl       : process.env.NEO_REPO_URL || DEFAULT_REPO,
+              omitted       : null,
               // Service name → `{KEY: value}`, populated by repeatable `--set`. Empty by default, so a
               // deployment is never silently reconfigured by a value the operator did not name.
               desiredEnv: {}
@@ -140,7 +157,8 @@ export function parseArgs(argv) {
             case '--project'      : options.project      = value; break;
             case '--profile'      : options.profile      = value; break;
             case '--repo-url'     : options.repoUrl      = value; break;
-            case '--services'     : options.services     = value.split(',').map(entry => entry.trim()).filter(Boolean); break;
+            case '--services'       : options.services       = value.split(',').map(entry => entry.trim()).filter(Boolean); break;
+            case '--config-services': options.configServices = value.split(',').map(entry => entry.trim()).filter(Boolean); break;
 
             // The repair carrier. `--set <service>.<KEY>=<value>`, repeatable: a required input the target
             // is missing becomes a declared transition instead of a terminal blocker, which is the whole
@@ -228,7 +246,7 @@ async function discoverProject(services, declaredProject) {
  * @param {String[]} services
  * @returns {Promise<Object>} `{composeIdentity, deployedRevisions, unchecked, observedEnvByService}`
  */
-async function inspectPlane(project, services) {
+async function inspectPlane(project, services, revisionServices = services) {
     const deployedRevisions    = {},
           unchecked            = [],
           observedEnvByService = {};
@@ -290,6 +308,13 @@ async function inspectPlane(project, services) {
                     }
                 }
             }
+        }
+
+        // Only the receipt cohort is asked for a revision. `/app/.neo-revision` is written by the Neo
+        // image, so asking Caddy for one would record a permanent `null` and refuse every plane on a
+        // baseline that service can never have.
+        if (!revisionServices.includes(service)) {
+            continue
         }
 
         const revision = await run('docker', ['exec', containerName, 'cat', '/app/.neo-revision']);
@@ -381,7 +406,7 @@ async function loadCensus(profile) {
  * @param {String[]} services Service names to resolve.
  * @returns {Promise<Object>} `{serviceScopes, errors}` — scopes keyed by service, unresolved names in `errors`.
  */
-async function resolveServiceScopes(parity, profile, services) {
+async function resolveServiceScopes(parity, profile, services, observedEnvByService = {}, census = null) {
     const declared      = parity?.$composeDefaultParity?.profiles?.[profile]?.services || {},
           serviceScopes = {},
           errors        = [];
@@ -390,7 +415,31 @@ async function resolveServiceScopes(parity, profile, services) {
         const template = declared[service];
 
         if (!template) {
-            errors.push(`service '${service}' is not declared under $composeDefaultParity.profiles['${profile}'].services`);
+            // A service with no Neo config template is COMPOSE-owned. `ingress` is Caddy, and Compose
+            // declares its `NEO_DEPLOY_HOSTNAME` directly, so its obligation is what Compose sets on it —
+            // read from its observed env narrowed to census-classified keys.
+            //
+            // Bound, stated because it is real: this cannot detect a compose-owned key Compose FORGOT to
+            // set, since an absent key is simply out of scope. It holds for the keys at issue because
+            // Compose supplies them with fallbacks, so absence is unreachable. The stronger source is a
+            // `docker compose config` render of the discovered files, giving obligation independent of the
+            // observation; that needs the plane's own compose files, whose discovered paths can live in a
+            // different agent's checkout than the one running this tool.
+            const observed = observedEnvByService[service];
+
+            if (observed instanceof Map && census) {
+                serviceScopes[service] = new Set([
+                    ...census.requiredDeploymentInputs, ...census.optionalOverrides, ...census.secrets
+                ].filter(key => observed.has(key)));
+
+                continue
+            }
+
+            errors.push(
+                `service '${service}' has no config template under $composeDefaultParity.profiles['${profile}'].services ` +
+                'and no observed env to attribute from'
+            );
+
             continue
         }
 
@@ -528,7 +577,7 @@ async function main() {
         options = parseArgs(process.argv.slice(2))
     } catch (error) {
         console.error(`[migrate] FATAL: ${error.message}`);
-        console.error('[migrate] usage: migrateDeployment.mjs plan|apply [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c] [--set <service>.<KEY>=<value> ...]');
+        console.error('[migrate] usage: migrateDeployment.mjs plan|apply [--target <selector>] [--project <name>] [--profile <compose-path>] [--services a,b,c] [--config-services a,b,c] [--set <service>.<KEY>=<value> ...]');
         return 2
     }
 
@@ -553,7 +602,7 @@ async function main() {
     }
 
     const [{composeIdentity, deployedRevisions, unchecked, observedEnvByService}, {revision: targetRevision, error: targetError}] = await Promise.all([
-        inspectPlane(project, options.services),
+        inspectPlane(project, options.configServices, options.services),
         resolveTargetRevision(options.repoUrl, options.target)
     ]);
 
@@ -578,7 +627,9 @@ async function main() {
         'different repair (overlay migration) from a missing key, and a clean env delta does not rule it out'
     );
 
-    const {serviceScopes, errors: scopeErrors} = await resolveServiceScopes(parity, options.profile, options.services);
+    const {serviceScopes, errors: scopeErrors} = await resolveServiceScopes(
+        parity, options.profile, options.configServices, observedEnvByService, census
+    );
 
     // A scope that failed to resolve is reported, never defaulted. The plan gate blocks on the missing
     // scope itself, so this only needs to carry the reason an operator would otherwise have to guess at.
@@ -624,7 +675,7 @@ async function main() {
     console.log('');
     console.log('[migrate] verifying /app/.neo-revision moved on every service...');
 
-    const after   = await inspectPlane(project, options.services),
+    const after   = await inspectPlane(project, options.configServices, options.services),
           unmoved = Object.entries(after.deployedRevisions).filter(([, revision]) => revision !== plan.revisionDelta.to);
 
     Object.entries(after.deployedRevisions).forEach(([service, revision]) => {
