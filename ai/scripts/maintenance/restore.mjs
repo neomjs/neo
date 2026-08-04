@@ -1020,7 +1020,37 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
               //
               // Vector-collection rows are the measure because they ARE the recovery payload. A
               // bundle whose corpus is empty cannot restore a corpus, whatever else it contains.
-              rowTotal = Object.values(meta?.streamedCounts ?? {}).reduce((sum, count) => sum + count, 0);
+              collectionCounts = meta?.streamedCounts ?? {},
+              rowTotal         = Object.values(collectionCounts).reduce((sum, count) => sum + count, 0),
+              // A SUM cannot distinguish complete from partial. `rowTotal` clears the zero test on
+              // ANY single populated collection, so a KB-only export vouches for five collections it
+              // says nothing about — measured live: a 112MB KB-export-only artifact reported
+              // RESTORABLE. The per-collection facts are reported alongside the aggregate so
+              // a consumer can ask the question the total cannot answer.
+              //
+              // `restorable` deliberately still keys on the aggregate, and NOT because the question is
+              // merely unsettled: making a partially-empty bundle non-`RESTORABLE` would break a
+              // safety interlock. `evaluateRedeployPreconditions` reads this verdict in TWO
+              // incompatible roles — as PROOF OF PRIOR STATE (any populated collection shows the plane
+              // existed; it is one of the `priorEvidence` items that REFUSE `--initialize`), and as
+              // AUTHORIZATION TO PROCEED with a container-affecting redeploy (which does want
+              // completeness). Tightening the shared boolean breaks the first to serve the second: a
+              // host with a KB-only bundle and no marker would fall through to
+              // REFUSE_NO_VERIFIED_BUNDLE, whose message instructs the operator to pass
+              // `--initialize` — and `--initialize` would then PROCEED, because the bundle no longer
+              // counts as prior evidence, discarding a plane that had a real backup.
+              //
+              // So completeness is published as its OWN fact rather than folded into the boolean.
+              // Consumers that need a recovery source read `emptyCollections`; the interlock keeps
+              // reading `restorable`. Splitting the verdict's two roles is the real repair — it
+              // changes a consumed surface and does not belong under an incident-time additive
+              // change. Until that split lands, `emptyCollections` is a REPORTING fact only: a
+              // consumer that treats it as an authorization signal recreates the same interlock
+              // break from the outside.
+              emptyCollections = Object.entries(collectionCounts)
+                  .filter(([, count]) => !(count > 0))
+                  .map(([collection]) => collection)
+                  .sort();
 
         if (rowTotal === 0) {
             return {
@@ -1029,12 +1059,24 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
                 bundleRoot,
                 reason             : `bundle parses but carries zero recoverable rows: ${bundleRoot}`,
                 checkedAt,
+                collectionCounts,
+                emptyCollections,
                 rowTotal,
                 embeddingAdvisories: meta?.embeddingAdvisories ?? []
             }
         }
 
-        return {restorable: true, code: 'RESTORABLE', bundleRoot, reason: null, checkedAt, rowTotal, embeddingAdvisories: meta?.embeddingAdvisories ?? []};
+        return {
+            restorable         : true,
+            code               : 'RESTORABLE',
+            bundleRoot,
+            reason             : null,
+            checkedAt,
+            collectionCounts,
+            emptyCollections,
+            rowTotal,
+            embeddingAdvisories: meta?.embeddingAdvisories ?? []
+        };
     } catch (error) {
         // Two different answers, and only one of them is a judgement about the bundle.
         //
