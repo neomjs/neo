@@ -212,7 +212,12 @@ class HealthService extends Base {
                 return {
                     ...base,
                     exists: true,
-                    count : await collection.count()
+                    count : await collection.count(),
+                    // The collection IDENTITY, reported because `exists` cannot distinguish a preserved
+                    // collection from a fresh one that took its name. Dockerization recreated this collection
+                    // (`a9637b4c…` → `ab75f86b…`, 61,206 rows → 0) and every health surface stayed green,
+                    // because a recreated collection exists exactly as convincingly as a preserved one.
+                    id    : collection.id ?? null
                 };
             } catch (error) {
                 if (attempt > 0 || !ChromaManager.isCollectionNotFoundError(error)) {
@@ -328,7 +333,7 @@ class HealthService extends Base {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
             database : {
-                process: DatabaseLifecycleService.getDatabaseStatus(),
+                process   : DatabaseLifecycleService.getDatabaseStatus(),
                 connection: {
                     connected  : false,
                     collections: null
@@ -337,9 +342,9 @@ class HealthService extends Base {
             features: {
                 embedding: false
             },
-            details: [],
-            version: process.env.npm_package_version || '1.0.0',
-            uptime : process.uptime(),
+            details         : [],
+            version         : process.env.npm_package_version || '1.0.0',
+            uptime          : process.uptime(),
             runtimeFreshness: await this.resolveRuntimeFreshness()
         };
 
@@ -362,6 +367,37 @@ class HealthService extends Base {
         if (collectionsCheck.error || !collectionsCheck.knowledgeBase?.exists) {
             payload.status = 'degraded';
             payload.details.push(collectionsCheck.error || 'The required knowledge base collection is missing');
+        } else {
+            // `exists` is the wrong predicate on its own, and the right one was already in this payload.
+            //
+            // A dockerization migration recreated this collection — a fresh, empty `neo-knowledge-base` took
+            // the name while ~61,206 documents stayed behind in the previous data root. `exists` was true
+            // throughout, `count` was gathered and attached below, and nothing read it: the service reported
+            // "All features are operational" for six days over an empty corpus, while queries answered from
+            // the lexical-rescue supplement alone.
+            //
+            // An empty corpus is not a healthy one. Retrieval against it cannot return a single grounded
+            // result, so this degrades rather than reporting success.
+            const {count} = collectionsCheck.knowledgeBase;
+
+            if (typeof count !== 'number') {
+                // Unknown corpus size is not health either. An unreadable count is the state a partially
+                // migrated or mid-swap collection presents, and blessing it is how the previous failure
+                // stayed invisible.
+                payload.status = 'degraded';
+                payload.details.push(
+                    `Knowledge base collection '${collectionsCheck.knowledgeBase.name}' exists but its document ` +
+                    'count could not be read — corpus size unknown, so retrieval groundedness is unverified'
+                )
+            } else if (count === 0) {
+                payload.status = 'degraded';
+                payload.details.push(
+                    `Knowledge base collection '${collectionsCheck.knowledgeBase.name}' exists but holds 0 documents ` +
+                    '— retrieval cannot return a grounded result. A collection recreated by a migration presents ' +
+                    'exactly this way; check whether the corpus was left behind in a previous data root rather ' +
+                    'than assuming ingestion has not run yet.'
+                )
+            }
         }
 
         // Step 3: Check embedding provider readiness (provider-aware; only 'gemini' needs a key)

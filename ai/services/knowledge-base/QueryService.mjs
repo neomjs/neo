@@ -1,17 +1,17 @@
-import fs                   from 'fs-extra';
-import TextEmbeddingService from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig             from '../../mcp/server/memory-core/config.mjs';
-import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
-import Base                 from '../../../src/core/Base.mjs';
-import ChromaManager        from './ChromaManager.mjs';
+import fs                                       from 'fs-extra';
+import TextEmbeddingService                     from '../memory-core/TextEmbeddingService.mjs';
+import mcConfig                                 from '../../mcp/server/memory-core/config.mjs';
+import aiConfig                                 from '../../mcp/server/knowledge-base/config.mjs';
+import Base                                     from '../../../src/core/Base.mjs';
+import ChromaManager                            from './ChromaManager.mjs';
 import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
-import dotenv               from 'dotenv';
-import path                 from 'path';
+import dotenv                                   from 'dotenv';
+import path                                     from 'path';
 
 const {queryScoreWeights} = aiConfig;
 
-const cwd       = aiConfig.neoRootDir;
-const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
+const cwd                     = aiConfig.neoRootDir;
+const insideNeo               = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 const lexicalRescueExtensions = new Set(['.js', '.json', '.md', '.mjs', '.yaml', '.yml']);
 const lexicalRescueSkipDirs   = new Set([
     '.git',
@@ -25,7 +25,7 @@ const lexicalRescueSkipDirs   = new Set([
 ]);
 const codeTermRescueRoots     = ['ai/services', 'ai/mcp/server', 'ai/graph'];
 const codeTermRescueFileLimit = 500;
-const sourceLikeTypeAliases = {
+const sourceLikeTypeAliases   = {
     src: ['src', 'ai-infrastructure']
 };
 
@@ -88,7 +88,7 @@ class QueryService extends Base {
 
         // If a root is specified, find all subclasses recursively
         const subtree = {};
-        const queue = [root];
+        const queue   = [root];
 
         // Include the root itself if it exists (parent is the value)
         if (Object.hasOwn(hierarchy, root)) {
@@ -137,17 +137,17 @@ class QueryService extends Base {
         // `tenantId` query arg is therefore ignored). No request context (stdio single-tenant
         // / offline daemon) → no tenant filter, byte-equivalent with the legacy behavior.
         const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
-        const queryOptions    = this.createQueryOptions({queryEmbeddingValues, requesterTenantId, type});
-        const queryResults    = await Promise.all(queryOptions.map(options => collection.query(options)));
-        const sourceScores   = {};
-        const sourceMetadata = {};
-        const metadatas      = this.dedupeCandidateMetadatas(queryResults.flatMap(result => result.metadatas?.[0] || []));
-        const queryWords     = this.getQueryWords(queryLower);
+        const queryOptions      = this.createQueryOptions({queryEmbeddingValues, requesterTenantId, type});
+        const queryResults      = await Promise.all(queryOptions.map(options => collection.query(options)));
+        const sourceScores      = {};
+        const sourceMetadata    = {};
+        const metadatas         = this.dedupeCandidateMetadatas(queryResults.flatMap(result => result.metadatas?.[0] || []));
+        const queryWords        = this.getQueryWords(queryLower);
 
         metadatas.forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
 
-            let score             = (metadatas.length - index) * queryScoreWeights.baseIncrement;
+            let   score           = (metadatas.length - index) * queryScoreWeights.baseIncrement;
             const sourcePath      = metadata.source;
             const sourcePathLower = sourcePath.toLowerCase();
             const fileName        = sourcePath.split('/').pop().toLowerCase();
@@ -161,7 +161,7 @@ class QueryService extends Base {
             }
 
             queryWords.forEach(queryWord => {
-                const keyword = queryWord;
+                const keyword         = queryWord;
                 const keywordSingular = keyword.endsWith('s') ? keyword.slice(0, -1) : keyword;
 
                 if (keywordSingular.length > 2) {
@@ -195,7 +195,7 @@ class QueryService extends Base {
             sourceScores[sourcePath] = (sourceScores[sourcePath] || 0) + score;
 
             const inheritanceChain = JSON.parse(metadata.inheritanceChain || '[]');
-            let boost = queryScoreWeights.inheritanceBoost;
+            let   boost            = queryScoreWeights.inheritanceBoost;
             inheritanceChain.forEach(parent => {
                 if (parent.source) {
                     sourceScores[parent.source] = (sourceScores[parent.source] || 0) + boost;
@@ -203,6 +203,12 @@ class QueryService extends Base {
                 boost = Math.floor(boost * queryScoreWeights.inheritanceDecay);
             });
         });
+
+        // How many sources vector retrieval contributed, captured BEFORE the rescue runs. Rescue both adds
+        // new sources and boosts existing ones, so after the fact the two are indistinguishable — and that
+        // indistinguishability is the defect: with an empty collection this method still returned results,
+        // scores and a topResult, from rescue alone, in a response shape identical to a grounded answer.
+        const vectorSourceCount = Object.keys(sourceScores).length;
 
         await this.addLexicalRescueScores({
             query,
@@ -218,12 +224,12 @@ class QueryService extends Base {
         }
 
         const sortedSources = Object.entries(sourceScores).sort(([, a], [, b]) => b - a);
-        const finalScores = {};
+        const finalScores   = {};
         const topSourceDirs = sortedSources.slice(0, 5).map(([source]) => path.dirname(source));
 
         sortedSources.forEach(([source, score]) => {
-            let finalScore = score;
-            const sourceDir = path.dirname(source);
+            let   finalScore = score;
+            const sourceDir  = path.dirname(source);
             if (topSourceDirs.includes(sourceDir)) {
                 finalScore *= 1.1;
             }
@@ -244,10 +250,29 @@ class QueryService extends Base {
             });
 
         if (finalSorted.length > 0) {
-            return {
+            const response = {
                 topResult: finalSorted[0].source,
-                results  : finalSorted
+                results  : finalSorted,
+                // Aggregate provenance. Per-row `lexicalRescueReasons` was already correct and was already
+                // there — but a caller reading `topResult` and a score has no reason to inspect every row's
+                // metadata, so a supplement standing in for the entire primary read as a grounded answer for
+                // six days. This states it once, where it cannot be missed.
+                retrieval: {vectorSources: vectorSourceCount}
             };
+
+            if (vectorSourceCount === 0) {
+                // Not an error and not empty results: the rescue is a designed capability and its hits may be
+                // exactly what the caller wanted. But semantic retrieval contributed NOTHING, so these results
+                // are filename and path matches over local sources — never evidence of what the corpus holds.
+                response.retrieval.rescueOnly = true;
+                response.retrieval.warning    =
+                    'Vector retrieval returned 0 sources — every result below comes from the local lexical ' +
+                    'rescue path (path/filename matching over on-disk sources), not from the ingested corpus. ' +
+                    'Treat these as unsourced: an empty or unreachable knowledge-base collection presents ' +
+                    'exactly this way. Check the knowledge-base healthcheck before relying on them.'
+            }
+
+            return response;
         }
 
         return {message: 'No relevant source files found after scoring.'};
@@ -301,12 +326,12 @@ class QueryService extends Base {
             ];
         }
 
-        const total = Math.max(1, Number(aiConfig.nResults) || 1);
-        let allocated = 0;
+        const total     = Math.max(1, Number(aiConfig.nResults) || 1);
+        let   allocated = 0;
 
         return activePools
             .map((pool, index) => {
-                const isLast = index === activePools.length - 1;
+                const isLast     = index === activePools.length - 1;
                 const rawResults = pool.nResults ?? (
                     isLast ? total - allocated : Math.floor(total * (pool.share ?? 0))
                 );
@@ -384,7 +409,7 @@ class QueryService extends Base {
      * @returns {Object} Chroma query options.
      */
     createQueryOption({queryEmbeddingValues, requesterTenantId, typeFilter, nResults}) {
-        const where = this.createWhereClause({requesterTenantId, typeFilter});
+        const where  = this.createWhereClause({requesterTenantId, typeFilter});
         const option = {
             queryEmbeddings: [queryEmbeddingValues],
             nResults
@@ -812,7 +837,7 @@ class QueryService extends Base {
         if (source.startsWith('resources/content/release-notes/') || source.startsWith('.github/RELEASE_NOTES/')) return 'release';
 
         const apiSourceMap = aiConfig.sourcePaths.ApiSource || {};
-        const match = Object.entries(apiSourceMap).find(([sourceRoot]) =>
+        const match        = Object.entries(apiSourceMap).find(([sourceRoot]) =>
             source === sourceRoot || source.startsWith(`${sourceRoot}/`)
         );
 
