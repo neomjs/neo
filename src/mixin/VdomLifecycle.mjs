@@ -6,6 +6,9 @@ import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
+// Load-time binding: safe ONLY for per-process environment constants (e.g. `isSharedWorker`).
+// Mutable worker state (counters, event registration) must read `Neo.currentWorker` live — test
+// runners reuse worker processes across spec files and reassign the world between them.
 const {currentWorker} = Neo;
 
 /**
@@ -559,9 +562,14 @@ class VdomLifecycle extends Base {
         // any caller-side single-flight latch — tracks the REAL mount attempt instead of a
         // wrapper that resolves before the work begins. Rejections propagate through the chain
         // for the same reason.
-        if (!unitTestMode && autoMount && currentWorker.countLoadingThemeFiles !== 0) {
+        // Read `Neo.currentWorker` LIVE, never the module-load binding: this gate consults MUTABLE
+        // worker state, and under test-runner worker-process reuse a later spec file's setup builds
+        // a fresh app world and reassigns `Neo.currentWorker` — a load-time binding then reads the
+        // PREVIOUS world's counter (0) while the live world is mid-load, silently skipping the
+        // deferral. One worker world per real runtime process makes both reads identical there.
+        if (!unitTestMode && autoMount && Neo.currentWorker.countLoadingThemeFiles !== 0) {
             return new Promise((resolve, reject) => {
-                currentWorker.on('themeFilesLoaded', function() {
+                Neo.currentWorker.on('themeFilesLoaded', function() {
                     me.mounted ? resolve() : me.initVnode(mount).then(resolve, reject)
                 }, me, {once: true})
             })
@@ -1021,9 +1029,10 @@ class VdomLifecycle extends Base {
                     //     me.updateDepth = adjustedDepth;
                     // }
 
-                    // Verify that the critical rendering path => CSS files for the new tree is in place
-                    if (!config.isMiddleware && !config.unitTestMode && currentWorker.countLoadingThemeFiles !== 0) {
-                        currentWorker.on('themeFilesLoaded', function() {
+                    // Verify that the critical rendering path => CSS files for the new tree is in place.
+                    // Live `Neo.currentWorker` read — mutable state; see the initVnode deferral gate.
+                    if (!config.isMiddleware && !config.unitTestMode && Neo.currentWorker.countLoadingThemeFiles !== 0) {
+                        Neo.currentWorker.on('themeFilesLoaded', function() {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})
                     } else {
