@@ -53,6 +53,10 @@ test.describe('authorizeActivation — two states, never three', () => {
                 ['notObject', 'a string'],
                 ['emptyObj',  {}],
                 ['badClock',  {...goodReceipt(), observedAt: 'not-a-date'}],
+                // Not merely unparsable — a value `Date.parse` NORMALIZES into a real instant. It
+                // belongs in the closure rather than only in its own witness, because that is the
+                // shape that reached `authorize`.
+                ['normalized', {...goodReceipt(), observedAt: '2026-02-30T10:00:00.000Z'}],
                 ['noStageId', {...goodReceipt(), stageReceiptId: ''}],
                 ['noDigest',  {...goodReceipt(), targetConfigDigest: ''}],
                 ['notRestorable', buildActivationReceipt({
@@ -112,7 +116,7 @@ test.describe('authorizeActivation — two states, never three', () => {
             }
         }
 
-        expect(caseCount).toBe(9 * 4 * 3 * 2 * 2);
+        expect(caseCount).toBe(10 * 4 * 3 * 2 * 2);
 
         // No third state: the decision vocabulary is closed over the entire input space.
         expect([...decisions].sort()).toEqual([ACTIVATION_DECISION.authorize, ACTIVATION_DECISION.refuse]);
@@ -228,6 +232,78 @@ test.describe('authorizeActivation — two states, never three', () => {
         for (const value of ['', 'not-a-date', null, undefined, 42, {}]) {
             expect(parseInstant(value)).toBeNull()
         }
+    });
+
+    test('STRICT INSTANT: every value Date.parse would normalize is refused AT THE AUTHORIZATION LEVEL', () => {
+        // `Date.parse` answers "can this engine normalize the string", not "is this a portable
+        // instant". Each of these reached `authorize` before the grammar was enforced — asserted here
+        // through authorizeActivation rather than through parseInstant, because the escape that
+        // matters is the one that ends in a mutated plane, not the one that ends in a null.
+        const escapes = {
+            'impossible calendar day': '2026-02-30T10:00:00.000Z',  // normalized to Mar 2, then fresh
+            'zone-less (local time)' : '2026-08-04T10:00:00',       // decision depended on host TZ
+            'locale form'            : 'August 4, 2026 10:00:00 UTC',
+            'bare year'              : '2026',
+            'date only'              : '2026-08-04',
+            'leap second'            : '2026-08-04T10:00:60.000Z',  // Date rolls :60 into the next minute
+            'hour 24'                : '2026-08-04T24:00:00.000Z',
+            'month 13'               : '2026-13-04T10:00:00.000Z',
+            'offset hour 99'         : '2026-08-04T10:00:00.000+99:00'
+        };
+
+        for (const [label, observedAt] of Object.entries(escapes)) {
+            const result = call({
+                receipt: buildActivationReceipt({
+                    observedAt,
+                    stageReceiptId    : STAGE_ID,
+                    targetConfigDigest: CONFIG_DIGEST,
+                    verdictCode       : RESTORABLE_VERDICT
+                }),
+                // A clock the normalized value would have looked fresh against, so a pass here cannot
+                // be an accident of the default `now` being far away.
+                now: '2026-03-02T10:01:00.000Z'
+            });
+
+            expect(result.decision, `${label} must not authorize`).toBe(ACTIVATION_DECISION.refuse);
+            expect(result.reason,   `${label} must be malformed, not stale`).toBe(REFUSAL_REASON.receiptMalformed);
+        }
+    });
+
+    test('a zone-less instant is refused, which is what makes the decision host-independent', () => {
+        // Measured before the fix: the identical receipt returned `authorize` under TZ=UTC and
+        // `refuse` under TZ=Europe/Berlin, because Date.parse reads a zone-less string as LOCAL time.
+        // A mutation-authority decision that depends on the consumer's TZ is not a decision. Rejecting
+        // the zone-less form outright is what removes the dependency, so this pins the cause.
+        expect(parseInstant('2026-08-04T10:00:00')).toBeNull();
+        expect(parseInstant('2026-08-04T10:00:00.000')).toBeNull();
+    });
+
+    test('valid portable instants still parse — Z, offsets, and fractional seconds', () => {
+        // Positive control for the grammar. Without it, "reject everything" passes every assertion
+        // above and the module becomes a gate nothing can open.
+        for (const value of [
+            '2026-08-04T10:00:00Z',
+            '2026-08-04T10:00:00.000Z',
+            '2026-08-04T10:00:00.123456Z',
+            '2026-08-04T10:00:00+02:00',
+            '2026-08-04T10:00:00.500-08:00',
+            '2024-02-29T10:00:00.000Z'      // a leap day that DOES exist
+        ]) {
+            expect(parseInstant(value), value).toBe(Date.parse(value))
+        }
+
+        // And the offset forms carry an authorization, so the grammar did not merely stop rejecting.
+        const result = call({
+            receipt: buildActivationReceipt({
+                observedAt        : '2026-08-04T12:00:00+02:00',   // === 10:00:00Z
+                stageReceiptId    : STAGE_ID,
+                targetConfigDigest: CONFIG_DIGEST,
+                verdictCode       : RESTORABLE_VERDICT
+            })
+        });
+
+        expect(result.decision).toBe(ACTIVATION_DECISION.authorize);
+        expect(result.receiptAgeMs).toBe(60_000);
     });
 });
 

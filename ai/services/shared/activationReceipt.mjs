@@ -1,14 +1,19 @@
 /**
  * @module ai/services/shared/activationReceipt
  * @summary The closure that decides whether a plane may be mutated: an activation is authorized only
- * by a durable receipt proving a fresh restorable result was observed BEFORE the first mutation, and
- * every other input refuses.
+ * by a receipt proving a fresh restorable result was observed BEFORE the first mutation, and every
+ * other input refuses.
  *
  * **A guard that is merely reachable is bypassable.** `redeployPreflight` already decides correctly,
  * but it decides and returns — it leaves behind no artifact, so nothing downstream can tell "the
  * preflight passed" from "the preflight was never run". Any mutation path that simply does not call
  * it inherits no refusal. This module supplies the missing half: a receipt that must be produced and
  * presented, so the absence of proof is itself a refusal rather than a silence.
+ *
+ * **Scope boundary — this is enforceable, not yet enforced.** Everything here is a pure predicate
+ * over values handed in. It does not write a receipt, store one, read a clock, or compel any caller
+ * to consult it. Emission, durable storage and mandatory consumption live in the deploy path that
+ * calls this; nothing in this module should be read as providing durability or provenance.
  *
  * **Two states, never three.** {@link authorizeActivation} returns `authorize` or `refuse` and
  * nothing else. Malformed receipts, unparsable timestamps, missing bindings and unrecognised verdicts
@@ -63,7 +68,53 @@ export const REFUSAL_REASON = Object.freeze({
 export const RESTORABLE_VERDICT = 'RESTORABLE';
 
 /**
- * @summary Parses an ISO timestamp into epoch milliseconds, or `null` when it is not a timestamp.
+ * A complete ISO-8601 instant: full calendar date, full time, and an EXPLICIT zone designator.
+ * Optional fractional seconds. Nothing shorter and nothing locale-shaped.
+ * @type {RegExp}
+ */
+const INSTANT_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+/**
+ * @summary Whether these calendar fields describe a day that exists.
+ *
+ * Checked arithmetically rather than by round-tripping through `Date`, because the thing being
+ * defended against is precisely `Date`'s willingness to normalize — and a validator built from the
+ * normalizer inherits its blind spot.
+ *
+ * @param {Number} year
+ * @param {Number} month 1-12.
+ * @param {Number} day
+ * @returns {Boolean}
+ */
+function isRealCalendarDay(year, month, day) {
+    if (month < 1 || month > 12 || day < 1) {
+        return false
+    }
+
+    const leap      = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0,
+          monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    return day <= monthDays[month - 1]
+}
+
+/**
+ * @summary Parses a PORTABLE ISO-8601 instant into epoch milliseconds, or `null` when the value is
+ * not one.
+ *
+ * **`Date.parse` is not an instant validator and must not be used as one here.** It answers "can this
+ * engine normalize the string", which is a different and much weaker question, and it fails this
+ * module's contract in three ways that all end in `authorize`:
+ *
+ * - **It normalizes impossible dates rather than rejecting them.** `2026-02-30T10:00:00.000Z` — a day
+ *   that does not exist — becomes `2026-03-02T10:00:00.000Z`, which is fresh against a March 2 clock.
+ * - **It accepts locale and partial forms.** `'August 4, 2026 10:00:00 UTC'` parses; so does the bare
+ *   string `'2026'`.
+ * - **It reads a zone-less string as LOCAL time**, so the identical receipt authorizes on a UTC host
+ *   and refuses on a UTC+2 one. Measured. A mutation-authority decision that depends on the
+ *   consumer's `TZ` is not a decision.
+ *
+ * So the grammar is enforced first, the calendar day is verified arithmetically, and `Date.parse` is
+ * used only to convert a value already proven well-formed.
  *
  * `null` rather than `NaN` or `0`, because both of those compare as numbers and would let an
  * unparsable timestamp participate in a freshness or ordering comparison instead of failing it.
@@ -72,13 +123,44 @@ export const RESTORABLE_VERDICT = 'RESTORABLE';
  * @returns {Number|null}
  */
 export function parseInstant(value) {
-    const parsed = typeof value === 'string' ? Date.parse(value) : NaN;
+    if (typeof value !== 'string') {
+        return null
+    }
+
+    const match = INSTANT_PATTERN.exec(value);
+
+    if (!match) {
+        return null
+    }
+
+    const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] = match;
+
+    if (!isRealCalendarDay(Number(year), Number(month), Number(day))) {
+        return null
+    }
+
+    // Leap seconds are rejected rather than normalized: `Date` silently rolls `:60` into the next
+    // minute, which would make two distinct written instants compare equal.
+    if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) {
+        return null
+    }
+
+    if (offsetHour !== undefined && (Number(offsetHour) > 23 || Number(offsetMinute) > 59)) {
+        return null
+    }
+
+    const parsed = Date.parse(value);
 
     return Number.isFinite(parsed) ? parsed : null
 }
 
 /**
- * @summary Assembles the durable receipt from what was actually observed.
+ * @summary Assembles the receipt payload from what was actually observed.
+ *
+ * **In-memory only.** This constructs and shapes a value; it does not write, store, or timestamp
+ * anything. Durability, provenance, and the clock that supplies `observedAt` belong to the emitting
+ * caller, so calling this payload "durable" here would claim a guarantee no code in this module
+ * provides.
  *
  * Takes no decision argument, for the same reason {@link module:ai/services/shared/captureReceipt}
  * does not: callers report observations, and the single derivation stays here so a second consumer
