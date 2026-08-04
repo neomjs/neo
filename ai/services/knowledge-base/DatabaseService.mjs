@@ -1,10 +1,11 @@
-import aiConfig                        from '../../mcp/server/knowledge-base/config.mjs';
-import {partitionRowsByVectorValidity} from '../memory-core/helpers/vectorWriteInvariant.mjs';
-import {validateJsonlSourceFile}       from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
-import Base                            from '../../../src/core/Base.mjs';
-import ChromaManager                   from './ChromaManager.mjs';
-import DestructiveOperationGuard       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import VectorService                   from './VectorService.mjs';
+import aiConfig                                          from '../../mcp/server/knowledge-base/config.mjs';
+import {classifyExportCompleteness, EXPORT_COMPLETENESS} from '../memory-core/helpers/exportCompleteness.mjs';
+import {partitionRowsByVectorValidity}                   from '../memory-core/helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                         from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
+import Base                                              from '../../../src/core/Base.mjs';
+import ChromaManager                                     from './ChromaManager.mjs';
+import DestructiveOperationGuard                         from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import VectorService                                     from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
@@ -115,12 +116,15 @@ class DatabaseService extends Base {
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
      * @returns {Promise<{message: String, count: Number, collectionId: String|null}>} `count` is the
-     *          numeric export row count, consumed by the backup orchestrator's `verifyBundleIntegrity`
-     *          for KB row-count parity (without it the verifier reads a non-numeric source count and
-     *          skips KB parity). `collectionId` is the source's identity at capture time — the axis
-     *          that lets a `count: 0` receipt distinguish "this source was empty" from "a different
-     *          source is here now"; `null` degrades that axis to `unknown` rather than asserting
-     *          continuity. See `ai/services/shared/captureReceipt.mjs`.
+     *          number of rows actually WRITTEN to the artifact — not the pre-pass collection snapshot.
+     *          It is consumed by the backup orchestrator's `verifyBundleIntegrity` for KB row-count
+     *          parity (without it the verifier reads a non-numeric source count and skips KB parity),
+     *          so returning the snapshot made the verifier compare it against itself and an export
+     *          that dropped rows in the per-id rescue path verified clean. `collectionId` is the
+     *          source's identity at capture time — the axis that lets a `count: 0` receipt
+     *          distinguish "this source was empty" from "a different source is here now"; `null`
+     *          degrades that axis to `unknown` rather than asserting continuity.
+     *          See `ai/services/shared/captureReceipt.mjs`.
      */
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
@@ -147,10 +151,20 @@ class DatabaseService extends Base {
      * subsystems. Pagination cap + surgical per-id rescue mode make this robust against
      * partially corrupted HNSW segments.
      *
+     * Completeness is classified through the shared {@link module:ai/services/memory-core/helpers/exportCompleteness}
+     * predicate rather than a local comparison: the duplication above is deliberate for the export
+     * *logic*, but the three-way verdict is not — a two-way inequality here left the plane with zero
+     * backups, and the per-path accuracy caveat stays local while the predicate does not diverge.
+     *
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<Number>} The number of exported documents.
+     * @returns {Promise<Number>} The number of rows actually written to the artifact. An empty
+     *          source short-circuits to `0` before any file is created, preserving the receipt
+     *          substrate's "this source was empty" semantic.
+     * @throws {Error} `PARTIAL_COLLECTION_EXPORT` when rows the snapshot counted are missing from
+     *          the artifact, or when either count is unreadable — an absent measurement must never
+     *          certify a bundle.
      * @private
      */
     async #exportCollection(collection, backupPath, filePrefix) {
@@ -169,8 +183,10 @@ class DatabaseService extends Base {
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
-        const limit  = 2000;
-        let   offset = 0;
+        const limit    = 2000;
+        let   exported = 0,
+              offset   = 0,
+              skipped  = 0;
 
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
@@ -203,6 +219,7 @@ class DatabaseService extends Base {
                             batch.embeddings.push(single.embeddings[0]);
                         }
                     } catch (singleErr) {
+                        skipped++;
                         logger.error(`Skipping corrupted vector ID during export: ${id}`);
                     }
                 }
@@ -218,14 +235,44 @@ class DatabaseService extends Base {
                     document : batch.documents[i]
                 };
                 writeStream.write(JSON.stringify(record) + '\n');
+                exported++;
             }
 
             offset += limit;
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
-        return count;
+
+        // This used to `return count` — the PRE-PASS snapshot — and log it as the exported total,
+        // so the receipt restated the input instead of measuring the bundle. The backup
+        // orchestrator's `verifyBundleIntegrity` consumes this number for KB row-count parity, so
+        // it was comparing the snapshot against itself: an export that silently dropped rows in the
+        // per-id rescue path above passed integrity verification. Count what was WRITTEN.
+        const verdict = classifyExportCompleteness(exported, count);
+
+        if (verdict === EXPORT_COMPLETENESS.partial || verdict === EXPORT_COMPLETENESS.indeterminate) {
+            const error = new Error(
+                `PARTIAL_COLLECTION_EXPORT: ${collection.name} exported ${exported}/${count} ` +
+                `records to ${backupFile}; skipped ${skipped} corrupted vector id(s). Verdict: ${verdict}.`
+            );
+            error.code    = 'PARTIAL_COLLECTION_EXPORT';
+            error.details = {collection: collection.name, backupFile, expected: count, exported, skipped, verdict};
+            throw error
+        }
+
+        if (verdict === EXPORT_COMPLETENESS.grew) {
+            // Complete-or-better: every snapshotted row was captured plus late arrivals. Not an
+            // abort — that is what left the whole plane with zero backups — and not a clean capture
+            // either, because this loop pages by offset.
+            logger.warn(
+                `[DatabaseService] ${collection.name} grew during export: ${exported}/${count} ` +
+                `(+${exported - count}). Every snapshotted row was captured; because this path pages ` +
+                'by offset, the bundle is complete-or-better but not provably exact.'
+            );
+        }
+
+        logger.log(`Successfully exported ${exported}/${count} documents to: ${backupFile}`);
+        return exported;
     }
 
     /**
