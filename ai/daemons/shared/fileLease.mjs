@@ -59,14 +59,45 @@ export class FileLeaseHeldError extends Error {
             ? `${holder.owner} pid ${holder.pid} (since ${holder.startedAt})`
             : 'an unverifiable holder (corrupt or unreadable lease state — refusing rather than guessing)';
 
+        // The holder's identity being byte-identical to the requester's is an OBSERVATION, not a
+        // conclusion: it is consistent with the same slot restarting inside the freshness window and
+        // meeting its own predecessor's lease, and it is also consistent with two genuinely distinct
+        // processes that are simply indistinguishable by this identity. Containers make the second
+        // case unfalsifiable from here — hostname is the container id and the entrypoint is always
+        // pid 1 — which is exactly why the message reports what was measured and lets the reader draw
+        // the conclusion.
+        //
+        // It matters because the caller's remediation ("stop the duplicate") is actively misleading
+        // in the restart-loop case: an operator hunts for a second process that does not exist while
+        // the loop's real cause scrolls past above it in the same log.
+        const holderIdentityMatchesRequester = Boolean(holder) &&
+            holder.owner === requester.owner && holder.pid === requester.pid;
+
+        const guidance = holderIdentityMatchesRequester
+            ? `The holder's identity is indistinguishable from yours, so this may be your own previous ` +
+              `instance inside the lease freshness window rather than a second live process — check ` +
+              `whether the previous instance stopped before hunting for a duplicate.`
+            : remediation;
+
         super(`${lockLabel} lease ${lockPath} is held by ${who}; ${requester.owner} pid ${requester.pid} ` +
-            `refuses to start a duplicate (single-owner invariant). ${remediation}`.trim());
+            `refuses to start a duplicate (single-owner invariant). ${guidance}`.trim());
 
         this.name      = 'FileLeaseHeldError';
         this.code      = 'FILE_LEASE_HELD';
         this.lockPath  = lockPath;
         this.holder    = holder;
         this.requester = requester;
+
+        /**
+         * Whether the recorded holder's `owner` and `pid` are byte-identical to the requester's.
+         *
+         * Strictly the measured comparison — it does NOT assert that the holder is a dead
+         * predecessor, because this frame cannot distinguish that from two live processes with
+         * indistinguishable identities. A consumer wanting that stronger claim must corroborate it
+         * with something this error does not carry, such as restart count or process liveness.
+         * @type {Boolean}
+         */
+        this.holderIdentityMatchesRequester = holderIdentityMatchesRequester;
     }
 }
 
