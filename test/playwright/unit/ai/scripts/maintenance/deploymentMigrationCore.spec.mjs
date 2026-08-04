@@ -9,7 +9,7 @@ import {
     parseObservedEnv,
     resolveCensus
 } from '../../../../../../ai/scripts/maintenance/deploymentMigrationCore.mjs';
-import {buildPipelineEnv, parseArgs} from '../../../../../../ai/scripts/maintenance/migrateDeployment.mjs';
+import {buildComposeFragment, buildPipelineEnv, parseArgs} from '../../../../../../ai/scripts/maintenance/migrateDeployment.mjs';
 
 const repoRoot   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..'),
       PARITY_REL = 'ai/scripts/lint/config-leaf-parity.json',
@@ -438,41 +438,88 @@ test.describe('formatPlan', () => {
 test.describe('the invocation boundary carries the repair into the transaction', () => {
     const identity = {project: 'neo-local-agent-os', configFiles: ['/x/base.yml', '/x/overlay.yml']};
 
-    test('a declared desired value CROSSES into the pipeline env, not merely into the plan', () => {
-        // The defect this closes, caught by @neo-gpt-emmy: --set reached desiredEnv and configTransition
-        // in the plan while invokePipeline built its env from revision and identity only, so `apply`
-        // recreated containers with the OLD config and the plan recorded a transition it never performed.
-        const plan                     = buildMigrationPlan(createPlanInput()),
-              {pipelineEnv, forwarded} = buildPipelineEnv(plan, identity, {orchestrator: {NEO_CHROMA_HOST: 'chroma'}});
+    test('the repair travels as a fragment appended LAST, because merge order decides which value wins', () => {
+        // Two defects behind this, both @neo-gpt-emmy's. First: --set reached the plan and never reached
+        // invokePipeline. Second, after I "fixed" it by forwarding parent env: the profile declares these
+        // leaves as LITERALS, not ${VAR}, so parent env never reached the consumer either. Her positive
+        // control is what settled it — NEO_DEPLOY_HOSTNAME renders while AUTHORITY_PROFILE does not, same
+        // command. The fragment is what the containers actually consume.
+        const plan                        = buildMigrationPlan(createPlanInput()),
+              {pipelineEnv, composeFiles} = buildPipelineEnv(plan, identity, '/tmp/x/repair.compose.json');
 
-        expect(pipelineEnv.NEO_CHROMA_HOST).toBe('chroma');
-        expect(forwarded).toEqual(['NEO_CHROMA_HOST'])
+        expect(composeFiles).toEqual(['/x/base.yml', '/x/overlay.yml', '/tmp/x/repair.compose.json']);
+        expect(pipelineEnv.NEO_DEPLOY_COMPOSE_FILE.split(':').at(-1)).toBe('/tmp/x/repair.compose.json')
     });
 
-    test('the pinned revision and discovered identity survive alongside a forwarded repair', () => {
+    test('the fragment is service-scoped, so two services CAN carry different values for one key', () => {
+        // The refusal that used to live here is gone. It blocked differing per-service values on the
+        // premise that the transport was global interpolation — a premise that was false, and whose
+        // refusal would now reject a transition the fragment can express.
+        const fragment = JSON.parse(buildComposeFragment({
+            orchestrator: {NEO_CHROMA_HOST: 'chroma'},
+            'mc-server' : {NEO_CHROMA_HOST: 'localhost'}
+        }));
+
+        expect(fragment.services.orchestrator.environment.NEO_CHROMA_HOST).toBe('chroma');
+        expect(fragment.services['mc-server'].environment.NEO_CHROMA_HOST).toBe('localhost');
+
+        expect(buildMigrationPlan(createPlanInput({
+            desiredEnv: {orchestrator: {NEO_CHROMA_HOST: 'chroma'}, 'mc-server': {NEO_CHROMA_HOST: 'localhost'}}
+        })).blockers.filter(entry => entry.kind === 'desired-value-conflict')).toEqual([])
+    });
+
+    test('a literal $ is escaped, or Compose interpolation silently rewrites the operator\'s value', () => {
+        // Measured through a real `docker compose config`: `p@ss${x}w$1` renders as `p@ssw$1` — the value
+        // replaced by a different one with no error and only a warning on stderr. A generated password or
+        // a DSN would be corrupted. `$$` is Compose's own escape for a literal `$`.
+        const fragment = JSON.parse(buildComposeFragment({orchestrator: {NEO_SECRETISH: 'p@ss${x}w$1'}}));
+
+        expect(fragment.services.orchestrator.environment.NEO_SECRETISH).toBe('p@ss$${x}w$$1')
+    });
+
+    test('the fragment is valid JSON, which is valid YAML — no hand-rolled quoting to get wrong', () => {
+        const fragment = buildComposeFragment({orchestrator: {NEO_TRICKY: 'a: b #c "q"\n1'}});
+
+        expect(() => JSON.parse(fragment)).not.toThrow();
+        expect(JSON.parse(fragment).services.orchestrator.environment.NEO_TRICKY).toBe('a: b #c "q"\n1')
+    });
+
+    test('nothing declared yields NO fragment, so apply never appends a file it did not need', () => {
+        expect(buildComposeFragment()).toBeNull();
+        expect(buildComposeFragment({})).toBeNull();
+        expect(buildComposeFragment({orchestrator: {}})).toBeNull()
+    });
+
+    test('the pinned revision and discovered identity survive alongside a repair fragment', () => {
         const plan          = buildMigrationPlan(createPlanInput()),
-              {pipelineEnv} = buildPipelineEnv(plan, identity, {orchestrator: {NEO_CHROMA_HOST: 'chroma'}});
+              {pipelineEnv} = buildPipelineEnv(plan, identity, '/tmp/x/repair.compose.json');
 
         expect(pipelineEnv.NEO_REF).toBe(TARGET_SHA);
         expect(pipelineEnv.NEO_DEPLOY_PROJECT_NAME).toBe('neo-local-agent-os');
         expect(pipelineEnv.NEO_DEPLOY_COMPOSE_FILE).toContain('/x/overlay.yml')
     });
 
-    test('a repair value CANNOT shadow a transaction key — adversarially, with the key it would redirect', () => {
-        // The prior version of the test above passed while the defect was live, because its fixture never
-        // contained a transaction key: the control could not fail for the reason the target might, so it
-        // certified nothing. @neo-gpt-emmy found that `--set orchestrator.NEO_REF=<other>` emitted the
-        // other SHA, because the repair spread AFTER the pinning. Named by the key it would have hijacked.
+    test('shadowing a transaction key is now impossible BY CONSTRUCTION, not by spread ordering', () => {
+        // History worth keeping. @neo-gpt-emmy found `--set orchestrator.NEO_REF=<other>` emitted the other
+        // SHA, because the repair spread AFTER the pinning; the test that was supposed to catch it passed
+        // throughout, because its fixture never contained a transaction key — the control could not fail
+        // for the reason the target might. The first fix reordered the spread. Moving the repair into a
+        // fragment removed the class instead: `buildPipelineEnv` no longer accepts desired values at all,
+        // so the three transaction keys can only come from the plan and the discovered identity.
         const plan = buildMigrationPlan(createPlanInput());
 
+        // A fragment path is the ONLY third argument; a desired-env object cannot be smuggled through it.
+        const {pipelineEnv} = buildPipelineEnv(plan, identity, '/tmp/x/repair.compose.json');
+
+        expect(pipelineEnv.NEO_REF).toBe(TARGET_SHA);
+        expect(pipelineEnv.NEO_DEPLOY_PROJECT_NAME).toBe('neo-local-agent-os');
+        expect(Object.keys(pipelineEnv).sort()).toEqual(['NEO_DEPLOY_COMPOSE_FILE', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_REF']);
+
+        // And the parser still refuses the keys by name, so a fragment cannot set them on a container
+        // either — belt and braces, since the fragment writes real container env.
         for (const key of ['NEO_REF', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_DEPLOY_COMPOSE_FILE']) {
-            const {pipelineEnv, forwarded} = buildPipelineEnv(plan, identity, {orchestrator: {[key]: 'HIJACKED'}});
-
-            expect(pipelineEnv[key], key).not.toBe('HIJACKED');
-            expect(forwarded, key).not.toContain(key)
+            expect(() => parseArgs(['plan', '--set', `orchestrator.${key}=HIJACKED`]), key).toThrow(/defines the transaction/)
         }
-
-        expect(buildPipelineEnv(plan, identity, {orchestrator: {NEO_REF: 'HIJACKED'}}).pipelineEnv.NEO_REF).toBe(TARGET_SHA)
     });
 
     test('parseArgs refuses a reserved transaction key by NAME, not by losing a precedence contest', () => {
@@ -487,35 +534,11 @@ test.describe('the invocation boundary carries the repair into the transaction',
             .toEqual({orchestrator: {NEO_CHROMA_HOST: 'chroma'}})
     });
 
-    test('no repair declared forwards nothing — apply never carries config the operator did not name', () => {
-        const {pipelineEnv, forwarded} = buildPipelineEnv(buildMigrationPlan(createPlanInput()), identity);
+    test('no repair declared appends no file — apply never carries config the operator did not name', () => {
+        const {pipelineEnv, composeFiles} = buildPipelineEnv(buildMigrationPlan(createPlanInput()), identity);
 
-        expect(forwarded).toEqual([]);
+        expect(composeFiles).toEqual(['/x/base.yml', '/x/overlay.yml']);
         expect(Object.keys(pipelineEnv).sort()).toEqual(['NEO_DEPLOY_COMPOSE_FILE', 'NEO_DEPLOY_PROJECT_NAME', 'NEO_REF'])
-    });
-
-    test('two services disagreeing on one key BLOCKS at plan time, because the transport is global', () => {
-        // Compose interpolation carries one value per key for the whole project, so a per-service carrier
-        // can express a transition the transaction cannot perform. Picking either value would apply a
-        // config the operator never named for one of the two services.
-        const plan = buildMigrationPlan(createPlanInput({
-            desiredEnv: {orchestrator: {NEO_CHROMA_HOST: 'chroma'}, 'mc-server': {NEO_CHROMA_HOST: 'localhost'}}
-        }));
-
-        expect(plan.clean).toBe(false);
-
-        const blocker = plan.blockers.find(entry => entry.kind === 'desired-value-conflict');
-
-        expect(blocker.key).toBe('NEO_CHROMA_HOST');
-        expect(blocker.reason).toContain('one value per key')
-    });
-
-    test('agreeing services do NOT block — an identical value is expressible by the global transport', () => {
-        const plan = buildMigrationPlan(createPlanInput({
-            desiredEnv: {orchestrator: {NEO_CHROMA_HOST: 'chroma'}, 'mc-server': {NEO_CHROMA_HOST: 'chroma'}}
-        }));
-
-        expect(plan.blockers.filter(entry => entry.kind === 'desired-value-conflict')).toEqual([])
     });
 });
 

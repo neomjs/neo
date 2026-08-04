@@ -377,31 +377,12 @@ export function buildMigrationPlan({
         }))
     }
 
-    // 2c. The transport constraint, surfaced at plan time rather than discovered at apply time. Desired
-    // values reach the plane through Compose interpolation, which is GLOBAL: one key carries one value
-    // for the whole project. A per-service carrier can therefore express a transition the transaction
-    // cannot perform, and picking one of the two values would apply a config the operator never named.
-    const desiredByKey = {};
-
-    Object.entries(desiredEnv || {}).forEach(([service, entries]) => {
-        Object.entries(entries || {}).forEach(([key, value]) => {
-            desiredByKey[key] ||= new Map();
-            desiredByKey[key].set(service, value)
-        })
-    });
-
-    Object.entries(desiredByKey).forEach(([key, byService]) => {
-        if (new Set(byService.values()).size > 1) {
-            blockers.push({
-                kind  : 'desired-value-conflict',
-                key,
-                reason: `services disagree on the desired value for '${key}' (` +
-                        `${[...byService.keys()].join(', ')}) — Compose interpolation carries one value per ` +
-                        'key for the whole project, so this transition cannot be applied as declared'
-            })
-        }
-    });
-
+    // 2c. There is deliberately NO cross-service value-conflict refusal. An earlier revision blocked when
+    // two services declared different values for one key, on the premise that the repair travelled as
+    // parent environment and Compose interpolation is global. That premise was false — the profile
+    // declares these leaves as literals, so parent env never reached the consumer at all. The repair now
+    // travels as a Compose fragment nested under each service, which makes differing per-service values
+    // expressible, so a refusal here would reject a transition the transaction can perform.
     const contractDelta = {optionalPresent: [...optionalPresent]};
 
     contractDelta.optionalPresent.forEach(key => notes.push(`optional override set: ${key}`));

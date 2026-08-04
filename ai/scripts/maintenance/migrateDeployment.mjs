@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs              from 'fs-extra';
+import os              from 'node:os';
 import path            from 'path';
 import {execFile}      from 'node:child_process';
 import {promisify}     from 'node:util';
@@ -415,54 +416,95 @@ async function resolveServiceScopes(parity, profile, services) {
  * @returns {Promise<Number>} The pipeline's exit code.
  */
 /**
+ * @summary Renders the declared per-service repair as a Compose overlay fragment, or `null` if none.
+ *
+ * The consumer-owned carrier. Parent environment does NOT work here and the measurement is unambiguous:
+ * the profile declares its env as literals, so `NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=host-edge` in the
+ * pipeline's environment still renders `container-plane`, while `NEO_DEPLOY_HOSTNAME` — which the profile
+ * does interpolate — renders correctly under the same command. A fragment merged in last is what the
+ * containers actually consume, and it is service-scoped, so two services may carry different values for
+ * one key. Found by @neo-gpt-emmy; the positive control is hers.
+ * @param {Object} [desiredEnv] Service name → `{KEY: value}`.
+ * @returns {String|null} Fragment contents, or `null` when nothing is declared.
+ */
+export function buildComposeFragment(desiredEnv = {}) {
+    const services = {};
+
+    Object.entries(desiredEnv || {}).forEach(([service, entries]) => {
+        const environment = {};
+
+        Object.entries(entries || {}).forEach(([key, value]) => {
+            // Compose runs `${...}` interpolation over this fragment, so an unescaped `$` is silently
+            // rewritten: measured, `p@ss${x}w$1` renders as `p@ssw$1` — the operator's value replaced by a
+            // different one with no error. `$$` is Compose's own escape for a literal `$`.
+            environment[key] = String(value).replace(/\$/g, '$$$$')
+        });
+
+        if (Object.keys(environment).length) {
+            services[service] = {environment}
+        }
+    });
+
+    // JSON, not hand-written YAML: JSON is a YAML 1.2 subset, so `JSON.stringify` buys correct quoting
+    // for values carrying `:`, `#`, quotes or newlines instead of a hand-rolled escaper to get wrong.
+    // Verified by rendering an adversarial value through `docker compose config`.
+    return Object.keys(services).length ? JSON.stringify({services}, null, 2) : null
+}
+
+/**
  * @summary Builds the exact environment handed to the pipeline — the invocation boundary, as a pure value.
  *
- * Extracted so the boundary is assertable without spawning the pipeline: the property under test is that
- * a declared repair actually crosses into the transaction, and a test that only proved `invokePipeline`
- * was called would pass while the values were dropped. That was the defect this function exists to close.
- * @param {Object} plan            Output of `buildMigrationPlan`.
- * @param {Object} composeIdentity `{project, configFiles}` discovered off the running plane.
- * @param {Object} [desiredEnv]    Service name → `{KEY: value}`.
- * @returns {Object} `{pipelineEnv, forwarded}` — the env map, and the keys contributed by the repair.
+ * Extracted so the boundary is assertable without spawning the pipeline. Its earlier shape forwarded
+ * desired values as parent environment, which does not work: the profile declares these leaves as
+ * literals (`NEO_CHROMA_HOST=chroma`), not `${VAR}`, so nothing downstream consumed them. The repair now
+ * travels as a Compose fragment appended in merge order, which is service-scoped by construction.
+ * @param {Object}      plan            Output of `buildMigrationPlan`.
+ * @param {Object}      composeIdentity `{project, configFiles}` discovered off the running plane.
+ * @param {String|null} [fragmentPath]  Absolute path to the generated repair fragment, appended LAST.
+ * @returns {Object} `{pipelineEnv, composeFiles}`
  */
-export function buildPipelineEnv(plan, composeIdentity, desiredEnv = {}) {
-    const desiredFlat = {};
+export function buildPipelineEnv(plan, composeIdentity, fragmentPath = null) {
+    // Appended last because Compose merge order decides which value wins, and the repair must override
+    // the profile's literal rather than be overridden by it. This requires the pipeline to accept an
+    // ORDERED list of compose files; a single-file caller cannot express a repair at all.
+    const composeFiles = fragmentPath ? [...composeIdentity.configFiles, fragmentPath] : [...composeIdentity.configFiles];
 
-    Object.values(desiredEnv || {}).forEach(entries => Object.assign(desiredFlat, entries || {}));
-
-    // Spread the repair FIRST so the transaction keys always win. Ordering was the defect: with the
-    // repair spread last, `--set orchestrator.NEO_REF=<other>` emitted the other SHA and the run applied
-    // a revision the operator never selected. `parseArgs` also rejects these keys outright, so this is
-    // the second of two independent guards rather than the only one — a caller constructing desiredEnv
-    // programmatically never reaches the parser.
     return {
         pipelineEnv: {
-            ...desiredFlat,
             NEO_REF                : plan.revisionDelta.to,
             NEO_DEPLOY_PROJECT_NAME: composeIdentity.project,
-            NEO_DEPLOY_COMPOSE_FILE: composeIdentity.configFiles.join(path.delimiter)
+            NEO_DEPLOY_COMPOSE_FILE: composeFiles.join(path.delimiter)
         },
-        forwarded  : Object.keys(desiredFlat).filter(key => !RESERVED_TRANSACTION_KEYS.has(key))
+        composeFiles
     }
 }
 
 async function invokePipeline(plan, composeIdentity, desiredEnv = {}) {
-    // The declared repair has to reach the actual transaction, or `plan` records a transition `apply`
-    // cannot perform. Compose interpolation is the transport: the profile parameterises these leaves as
-    // `${NEO_*}`, so forwarding them as environment is what makes the recreate carry the new config.
-    // The plan already refuses when two services disagree on one key, because this transport is global.
-    const {pipelineEnv, forwarded: forwardedKeys} = buildPipelineEnv(plan, composeIdentity, desiredEnv);
+    // The repair travels as a Compose fragment, not as parent environment. Written to a temp dir rather
+    // than into the repo or the target: it is derived state for one invocation, and a stray fragment left
+    // in a checkout would silently join the NEXT operator's merge order.
+    const fragment = buildComposeFragment(desiredEnv);
+
+    let fragmentPath = null;
+
+    if (fragment) {
+        const fragmentDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-migrate-'));
+
+        fragmentPath = path.join(fragmentDir, 'repair.compose.json');
+        await fs.writeFile(fragmentPath, fragment)
+    }
+
+    const {pipelineEnv} = buildPipelineEnv(plan, composeIdentity, fragmentPath);
 
     console.log(`[migrate] invoking ${PIPELINE_REL}`);
+    Object.entries(pipelineEnv).forEach(([key, value]) => console.log(`[migrate]   ${key}=${value}`));
 
-    // Keys only for the forwarded repair. A required input's VALUE is operator-supplied config and may be
-    // a host, a path or a credential-adjacent string; echoing it into a build log would persist it.
-    Object.entries(pipelineEnv)
-        .filter(([key]) => !forwardedKeys.includes(key))
-        .forEach(([key, value]) => console.log(`[migrate]   ${key}=${value}`));
-
-    if (forwardedKeys.length) {
-        console.log(`[migrate]   forwarding ${forwardedKeys.length} declared config value(s): ${forwardedKeys.join(', ')}`)
+    if (fragmentPath) {
+        // KEYS only, per service. A required input's VALUE is operator-supplied config and may be a host,
+        // a path or a credential-adjacent string; echoing it into a build log would persist it.
+        Object.entries(desiredEnv).forEach(([service, entries]) => console.log(
+            `[migrate]   repair fragment sets on '${service}': ${Object.keys(entries || {}).join(', ')}`
+        ))
     }
 
     const child = await run('bash', [path.join(repoRoot, PIPELINE_REL)], pipelineEnv);
