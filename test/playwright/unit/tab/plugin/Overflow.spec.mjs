@@ -253,7 +253,9 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        plugin.control = {theme: 'neo-theme-neo-dark'};
+        // The theme-change handler re-projects (render-truth edge); the all-fit stub extents then
+        // reach syncControl's teardown, which destroys the control — the stub honors that contract.
+        plugin.control = {destroy() {}, theme: 'neo-theme-neo-dark'};
         plugin.owner.theme = 'neo-theme-neo-light';
         plugin.onOwnerThemeChange();
 
@@ -865,7 +867,7 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       items          : [{id: 'b1'}, {id: 'b2'}],
                       parent,
                       getTheme       : function () { return this.theme },
-                      getDomRect     : async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
+                      getDomRect     : async ids => ids[0] === 'wired-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
                       add            : () => ({}),
                       addDomListeners: () => {},
                       remove         : () => {},
