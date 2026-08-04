@@ -2333,9 +2333,16 @@ test.describe('replay probe transaction (prototype-call)', () => {
         const result = await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
 
         expect(result.completed, 'the structured failure reaches the caller').toBe(false);
-        expect(result.errors.length, 'the runner forensics survive the restore').toBeGreaterThan(0);
+        expect(
+            result.errors.some(error => !error.includes('restore projection failed')),
+            'the runner forensics survive the restore'
+        ).toBe(true);
+        expect(
+            result.errors.some(error => error.includes('restore projection failed: restore projection rejected')),
+            'the suppressed restore failure is recorded on the structured result'
+        ).toBe(true);
         expect(host.dockModel, 'the displaced document is still restored').toBe(liveDocument);
-        expect(refreshCalls, 'the rejecting restore projection ran and was suppressed').toHaveLength(2)
+        expect(refreshCalls, 'the rejecting restore projection ran and was recorded').toHaveLength(2)
     });
 
     test('a rejecting entry projection leaves the driver default without a restore', async () => {

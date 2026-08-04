@@ -2312,7 +2312,8 @@ class Workspace extends Container {
         // service, and must still restore the probe's displaced document. Both projections are
         // full — the swap and the restore can each change topology, so neither may declare a
         // geometry-only projection over the transition.
-        let completed = false;
+        let completed = false,
+            out       = null;
 
         try {
             me.dockModel = DockZoneModel.clone(initialDocument);
@@ -2322,7 +2323,7 @@ class Workspace extends Container {
 
             await me.refreshPromise;
 
-            const out = {...result, document: DockZoneModel.clone(me.dockModel)};
+            out = {...result, document: DockZoneModel.clone(me.dockModel)};
 
             // A structured runner failure is a primary outcome the caller must receive intact —
             // only a genuinely clean replay may let a restore failure replace the return.
@@ -2336,13 +2337,16 @@ class Workspace extends Container {
             if (restoreDocument && !me.isDestroyed) {
                 me.dockModel = liveDocument;
 
-                // The document assignment IS the restore. On a clean replay a rejecting restore
-                // projection must surface (a probe may not report success over an un-projected
-                // surface); while a primary outcome is in flight — a thrown transaction error OR
-                // a structured runner failure — it must not be masked by the restore's own failure.
+                // The document assignment IS the restore. Restore-projection failure precedence:
+                // a clean replay propagates it (a probe may not report success over an
+                // un-projected surface); a structured primary keeps its result and RECORDS the
+                // restore failure as a namespaced entry in the returned errors; a thrown primary
+                // owns the return channel and the restore failure stays suppressed.
                 completed
                     ? await me.refreshDockWorkspace()
-                    : await me.refreshDockWorkspace().catch(() => null)
+                    : await me.refreshDockWorkspace().catch(error => {
+                        out?.errors?.push(`restore projection failed: ${error.message}`)
+                    })
             }
         }
     }
