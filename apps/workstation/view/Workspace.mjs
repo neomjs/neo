@@ -827,6 +827,17 @@ class Workspace extends Container {
 
                 me.cueReceipts.push({cue: {...cue}, receipt});
 
+                // Settlement is the cue's EFFECT, not its promise: executors report `errors`
+                // and `applied` (a cancel terminal settles legitimately un-applied). The
+                // receipt stays pushed either way, so a failure carries its own forensics.
+                if (receipt.errors?.length) {
+                    throw new Error(receipt.errors.join('; '))
+                }
+
+                if (receipt.applied === false && !receipt.cancelled) {
+                    throw new Error('terminal effect did not apply')
+                }
+
                 return receipt
             }).catch(error => {
                 const message = `${cue.type}: ${error.message}`;
@@ -2269,31 +2280,74 @@ class Workspace extends Container {
     /**
      * Replays one script's document tier from a fresh document in spec mode. Runtime-only
      * cues remain the visible tour's responsibility and are verified through its receipt.
-     * @param {Object} [script=workstationTourScript]
+     * By default the replay result stays live (the driver contract journey specs and the film
+     * pipeline continue from); `restoreDocument: true` turns the replay into a pure probe that
+     * restores the displaced live document afterwards.
+     * @param {Object} [script=workstationTourScript] `null` also resolves to the default script.
+     * @param {Object} [opts]
+     * @param {Boolean} [opts.restoreDocument=false] Restore the pre-replay live document after the run.
      * @returns {Promise<Object>}
      */
-    async runTourSpec(script=workstationTourScript) {
-        let me          = this,
-            dockService = Neo.create(DockService, {}),
-            runner      = Neo.create(TourRunner, {
-                componentId: me.id,
-                dockService,
-                mode       : 'spec',
-                script
-            });
+    async runTourSpec(script=workstationTourScript, {restoreDocument=false}={}) {
+        let me           = this,
+            dockService  = Neo.create(DockService, {}),
+            liveDocument = me.dockModel,
+            runner;
 
-        me.dockModel = DockZoneModel.clone(initialDocument);
-        await me.refreshDockWorkspace({geometryOnly: true});
+        // Transport callers can only deliver `null` for "use the default script".
+        script ??= workstationTourScript;
+
+        runner = Neo.create(TourRunner, {
+            componentId: me.id,
+            dockService,
+            mode       : 'spec',
+            script
+        });
+
+        // Two consumer contracts share this front door. As a DRIVER (default), the replay's
+        // resulting document stays live — the film pipeline and journey specs continue from it.
+        // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
+        // the replay, so a replay can never edit the surface it measures. The transaction owns
+        // the baseline swap too: a rejecting entry projection must still destroy the runner and
+        // service, and must still restore the probe's displaced document. Both projections are
+        // full — the swap and the restore can each change topology, so neither may declare a
+        // geometry-only projection over the transition.
+        let completed = false,
+            out       = null;
 
         try {
+            me.dockModel = DockZoneModel.clone(initialDocument);
+            await me.refreshDockWorkspace();
+
             const result = await runner.start();
 
             await me.refreshPromise;
 
-            return {...result, document: DockZoneModel.clone(me.dockModel)}
+            out = {...result, document: DockZoneModel.clone(me.dockModel)};
+
+            // A structured runner failure is a primary outcome the caller must receive intact —
+            // only a genuinely clean replay may let a restore failure replace the return.
+            completed = result?.completed === true && !result?.errors?.length;
+
+            return out
         } finally {
             runner.destroy();
-            dockService.destroy()
+            dockService.destroy();
+
+            if (restoreDocument && !me.isDestroyed) {
+                me.dockModel = liveDocument;
+
+                // The document assignment IS the restore. Restore-projection failure precedence:
+                // a clean replay propagates it (a probe may not report success over an
+                // un-projected surface); a structured primary keeps its result and RECORDS the
+                // restore failure as a namespaced entry in the returned errors; a thrown primary
+                // owns the return channel and the restore failure stays suppressed.
+                completed
+                    ? await me.refreshDockWorkspace()
+                    : await me.refreshDockWorkspace().catch(error => {
+                        out?.errors?.push(`restore projection failed: ${error.message}`)
+                    })
+            }
         }
     }
 
