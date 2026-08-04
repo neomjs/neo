@@ -146,12 +146,13 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             callCount  = 0;
 
         // first pass gates on getDomRect; the second project() call must queue rather than drop.
-        // A wide extent (button-id calls → per-button rects; the no-arg extent call → one wide rect)
-        // keeps nothing overflowing, so the pass completes cleanly through applySplit.
+        // A wide extent (button-id calls → per-button rects; the extent call — an array led by the
+        // owner id, optionally trailing the mounted control id — → one wide rect) keeps nothing
+        // overflowing, so the pass completes cleanly through applySplit.
         const plugin = createPlugin(async ids => {
             callCount++;
             if (callCount === 1) { await gate }
-            return ids ? [{width: 10}, {width: 10}] : {width: 1000}
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]
         });
 
         const first = plugin.project(false); // enters, latches, awaits the gate
@@ -187,7 +188,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
                 vdom: {removeDom: true}
             }),
             buttons = [makeButton('b1'), makeButton('b2')],
-            plugin  = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+            plugin  = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -207,7 +208,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     test('all-fit teardown: syncControl destroys and nulls the control when the overflow set empties (so a later overflow recreates a fresh one, not a dead instance)', async () => {
         // A wide extent keeps nothing overflowing, so the create-time auto-project (onOwnerMounted) settles
         // cleanly with no control; await a tick so it does not race the direct syncControl call below.
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         let destroyed = false;
@@ -220,7 +221,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     test('an owner theme change is carried onto the live out-of-tree control', async () => {
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         plugin.control = {theme: 'neo-theme-neo-dark'};
@@ -270,7 +271,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         let   shouldThrow = false;
         const plugin      = createPlugin(async ids => {
             if (shouldThrow) { shouldThrow = false; throw new Error('transient measure failure') }
-            return ids ? [{width: 10}, {width: 10}] : {width: 1000}
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]
         });
         await new Promise(resolve => setTimeout(resolve, 0)); // auto-project settles (no throw)
 
@@ -292,7 +293,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     test('recreation: after an all-fit teardown, a subsequent overflow enters the CREATE branch (fresh instance, not a reused reference)', async () => {
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0)); // settle the create-time auto-project
 
         plugin.control = {destroy: () => {}};
@@ -329,7 +330,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // a tour reset) previously ratcheted into a permanent wedge: the update branch only
         // mutated menu items on the unmounted instance, and no path ever re-attempted the
         // mount. The re-arm makes the surface self-healing; this pins its full lifecycle.
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         const hiddenMeta = [{text: 'Agents', iconCls: 'fa fa-users', index: 0}];
@@ -382,7 +383,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
     });
 
     test('re-arm skips a control whose own initVnode is still in flight (#16434)', async () => {
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         let initCalls = 0;
@@ -411,7 +412,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // WHOLE deferral: repeated syncs must not register overlapping themeFilesLoaded
         // callbacks. Pre-repair the wrapper resolved early, the latch released, and every
         // sync stacked another listener (reviewer falsifier: registrations 1 → 2).
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         const
@@ -474,7 +475,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // guard skipped every later sync and the promised retry never ran (reviewer
         // falsifier: create calls 1 → 1). The catch now releases the flag; this drives the
         // REAL initVnode through a rejecting Neo.vdom.Helper.create and proves the retry.
-        const plugin = createPlugin(async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000});
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
         await new Promise(resolve => setTimeout(resolve, 0));
 
         // The Helper registers Neo.vdom.Helper at import time; this spec's own module graph
@@ -664,7 +665,7 @@ test.describe('Neo.tab.plugin.Overflow (tab-set mutation invalidation)', () => {
                       items          : [{id: 'b1'}, {id: 'b2'}],
                       parent,
                       getTheme       : function () { return this.theme },
-                      getDomRect     : async ids => ids ? [{width: 10}, {width: 10}] : {width: 1000},
+                      getDomRect     : async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}],
                       add            : () => ({}),
                       addDomListeners: () => {},
                       remove         : () => {},
