@@ -37,6 +37,12 @@
  * constrains is reported as INDETERMINATE and the verdict is not admissible. Absence of evidence is
  * never admissibility.
  *
+ * That rule holds at TWO levels, and the second is easy to miss because the first one reads as though
+ * it covered everything. Missing evidence about the TARGET is handled by the matcher above; missing
+ * evidence about the COHORT ITSELF is handled by {@link assessCohortSource}, which runs BEFORE any
+ * finding is drawn. Without it, an unreadable cohort produces an empty census, an empty census reads
+ * as "nothing blocked", and the weakest possible evidence yields the strongest possible verdict.
+ *
  * ## `providedEnv` MUST be the RENDERED environment, not the declared one
  *
  * This is a caller contract and getting it wrong produces the one failure direction this module
@@ -303,6 +309,63 @@ export function collectForbiddenKeysInUse({providedEnv = {}, forbiddenEnv = null
 }
 
 /**
+ * @summary Whether the cohort evidence was actually OBSERVED, before any finding is drawn from it.
+ *
+ * **"No blockers found" and "no cohort was observed" are different states, and only the first is a
+ * permission.** Folding them together is the failure this guard exists to prevent: an empty finding
+ * set read as a clean bill, so a loader that returned nothing, an import that failed, or a path that
+ * pointed at the wrong tree all render as ADMISSIBLE — the strongest possible verdict produced by the
+ * weakest possible evidence.
+ *
+ * That inversion is worse here than anywhere else in this module. Every other branch refuses when it
+ * cannot decide; this one would grant permission precisely when it knows least, on a predicate whose
+ * whole purpose is to keep a plane out of a fail-closed boot.
+ *
+ * ## The discriminator is leaf descriptors, NOT requirements
+ *
+ * A cohort that carries descriptors but none with `requiredFor` is a legitimate, fully-observed cohort
+ * with nothing that can block a boot — it must stay admissible. A cohort with no descriptors at all is
+ * not a permissive cohort, it is a failed reading. Counting requirements conflates the two; counting
+ * descriptors separates them, because a real `config.data` tree carries hundreds of leaves whether or
+ * not any of them constrain anything.
+ *
+ * @param {*} cohortData The value handed in as the cohort's `config.data` tree.
+ * @returns {{observed: Boolean, leafCount: Number, reason: String|null}}
+ */
+export function assessCohortSource(cohortData) {
+    if (cohortData === undefined || cohortData === null) {
+        return {
+            observed : false,
+            leafCount: 0,
+            reason   : 'No cohort data was supplied. This is a failed observation, not an empty ' +
+                'cohort — resolve the candidate\'s config tree and re-run rather than reading this as a pass.'
+        }
+    }
+
+    if (typeof cohortData !== 'object' || Array.isArray(cohortData)) {
+        return {
+            observed : false,
+            leafCount: 0,
+            reason   : `Cohort data is ${Array.isArray(cohortData) ? 'an array' : `a ${typeof cohortData}`}, ` +
+                'not a config tree. Something upstream returned the wrong shape; a verdict drawn from it would be meaningless.'
+        }
+    }
+
+    const leafCount = collectLeafPaths(cohortData).size;
+
+    if (leafCount === 0) {
+        return {
+            observed : false,
+            leafCount: 0,
+            reason   : 'The cohort tree carries no leaf descriptors at all. A real config tree carries ' +
+                'hundreds regardless of what they require, so zero means the tree was not read — not that it demands nothing.'
+        }
+    }
+
+    return {observed: true, leafCount, reason: null}
+}
+
+/**
  * @summary Answers "may target T take cohort C?".
  *
  * @param {Object} options
@@ -320,6 +383,23 @@ export function collectForbiddenKeysInUse({providedEnv = {}, forbiddenEnv = null
  *   readiness check, so gating on them would refuse a migration for an input that is merely inert.
  */
 export function evaluateCohortAdmissibility({cohortData, currentCohortData = null, forbiddenEnv = null, target = {}} = {}) {
+    // FIRST, and before any finding is drawn: was the cohort observed at all? An unreadable source
+    // must never reach the census loop, because an empty census is indistinguishable from a clean one
+    // once it gets there — and "nothing blocked" would then be reported as permission.
+    const source = assessCohortSource(cohortData);
+
+    if (!source.observed) {
+        return {
+            admissible   : false,
+            sourceError  : source,
+            blocking     : [],
+            indeterminate: [],
+            retired      : [],
+            forbidden    : [],
+            evaluated    : 0
+        }
+    }
+
     const census        = collectRequirednessCensus(cohortData),
           providedEnv   = target.providedEnv ?? {},
           blocking      = [],
@@ -374,7 +454,10 @@ export function evaluateCohortAdmissibility({cohortData, currentCohortData = nul
     const retiredEnvNames = new Set(retired.map(row => row.env));
 
     return {
-        admissible: blocking.length === 0 && indeterminate.length === 0,
+        admissible : blocking.length === 0 && indeterminate.length === 0,
+        // Explicitly null rather than absent: a consumer checking `verdict.sourceError` must be able to
+        // distinguish "observed, no source problem" from a verdict shape that predates this guard.
+        sourceError: null,
         blocking,
         indeterminate,
         retired,
@@ -395,6 +478,18 @@ export function evaluateCohortAdmissibility({cohortData, currentCohortData = nul
  * @returns {String[]}
  */
 export function formatAdmissibilityVerdict(verdict) {
+    // Rendered as its own verdict, never as "0 blocking". An operator shown "NOT ADMISSIBLE — 0
+    // blocking, 0 indeterminate" would reasonably read it as a bug in the tool and re-run; the
+    // actionable fact is that the cohort was never read, and the fix is upstream of this predicate.
+    if (verdict.sourceError) {
+        return [
+            'NOT ADMISSIBLE — the cohort could not be observed.',
+            `  UNREADABLE  ${verdict.sourceError.reason}`,
+            '              No requirement was evaluated, so this is not a finding about the target. ' +
+                '"Nothing blocked" and "nothing was read" are different states and only the first is a pass.'
+        ]
+    }
+
     // Retired keys are reported on BOTH verdicts. An admissible move still leaves the operator holding
     // inputs that no longer mean anything, and a verdict that says only "ADMISSIBLE" sends them into
     // the migration still carrying them.

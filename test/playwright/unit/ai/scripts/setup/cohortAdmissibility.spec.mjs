@@ -4,6 +4,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import ConfigBase      from '../../../../../../ai/configBase.mjs';
 import {
+    assessCohortSource,
     classifyRequirement,
     collectForbiddenKeysInUse,
     collectLeafPaths,
@@ -391,6 +392,111 @@ test.describe('cohortAdmissibility — may target T take cohort C? (#16453)', ()
         // Same cohort, same target, opposite verdicts — the difference is ONLY which environment the
         // caller resolved, which is why the module header makes it a contract rather than a hint.
         expect(fromDeclared.blocking[0].env).toBe('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE');
+    });
+
+    /**
+     * THE EVIDENCE-SOURCE GUARD. Every other branch of this module refuses when it cannot decide; this
+     * one would have GRANTED permission when it knew least — the strongest verdict from the weakest
+     * evidence, on a predicate whose whole purpose is keeping a plane out of a fail-closed boot.
+     *
+     * A loader returning nothing, a failed import, or a path aimed at the wrong tree all arrive here as
+     * an empty census, and an empty census read as "nothing blocked" is a pass. Caught in review by
+     * @neo-gpt-emmy against the shipped head, not by this suite — the suite had no source-absence case
+     * at all, so it could not have failed on it.
+     *
+     * The positive control is carried INSIDE this test on purpose: without it, every assertion below
+     * would still pass if the predicate simply refused everything.
+     */
+    test('an unobserved cohort FAILS CLOSED — "nothing blocked" and "nothing was read" are different states', () => {
+        // Positive control first: the predicate must still be capable of a real, specific refusal,
+        // otherwise "refuses on bad input" proves nothing.
+        const control = evaluateCohortAdmissibility({
+            cohortData: ConfigBase.config.data,
+            target    : {entrypoint: 'orchestrator-daemon', mode: 'none', consumerClaims: ['readiness'], providedEnv: {}}
+        });
+
+        expect(control.admissible).toBe(false);
+        expect(control.blocking).toHaveLength(1);
+        expect(control.evaluated).toBeGreaterThan(0);
+        expect(control.sourceError).toBeNull();
+
+        // …and a fully-supplied target on the same real tree is admissible, so the module is not
+        // simply refusing everything handed to it.
+        expect(evaluateCohortAdmissibility({
+            cohortData: ConfigBase.config.data,
+            target    : {
+                entrypoint    : 'orchestrator-daemon',
+                mode          : 'none',
+                consumerClaims: ['readiness'],
+                providedEnv   : {NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane'}
+            }
+        }).admissible).toBe(true);
+
+        // Now the failed observations. Each is a DIFFERENT way the evidence never arrived.
+        const unobserved = {
+            'omitted'        : undefined,
+            'null'           : null,
+            'a scalar'       : 'oops',
+            'a number'       : 7,
+            'an array'       : [],
+            'an empty object': {},
+            'namespaces only': {a: {b: {}}, c: {}}
+        };
+
+        for (const [label, cohortData] of Object.entries(unobserved)) {
+            const verdict = evaluateCohortAdmissibility({
+                cohortData,
+                target: {entrypoint: 'orchestrator-daemon', mode: 'none', providedEnv: {}}
+            });
+
+            expect(verdict.admissible, `${label} must never certify admissible`).toBe(false);
+            expect(verdict.sourceError, `${label} must name a source problem`).toBeTruthy();
+            expect(verdict.evaluated).toBe(0);
+
+            // Rendered as its own verdict, not as "0 blocking" — which an operator would read as a
+            // tool bug and re-run, instead of fixing the upstream read.
+            const rendered = formatAdmissibilityVerdict(verdict).join('\n');
+
+            expect(rendered).toContain('could not be observed');
+            expect(rendered).not.toContain('0 blocking');
+        }
+    });
+
+    /**
+     * The distinction the guard turns on, and the reason it counts DESCRIPTORS rather than
+     * REQUIREMENTS: a cohort can be completely observed and legitimately demand nothing. Counting
+     * requirements would collapse that into the failure case and refuse every migration to a cohort
+     * that happens to constrain nothing — a false inadmissible manufactured by the fix itself.
+     */
+    test('a cohort with descriptors but ZERO requiredFor is legitimately admissible, not a failed read', () => {
+        const observedButUndemanding = {group: {a: leafOf({env: 'NEO_A'}), b: leafOf({env: 'NEO_B'})}};
+
+        const source = assessCohortSource(observedButUndemanding);
+
+        expect(source.observed).toBe(true);
+        expect(source.leafCount).toBe(2);
+
+        const verdict = evaluateCohortAdmissibility({
+            cohortData: observedButUndemanding,
+            target    : {entrypoint: 'anything', mode: 'none', providedEnv: {}}
+        });
+
+        expect(verdict.admissible).toBe(true);
+        expect(verdict.sourceError).toBeNull();
+        expect(verdict.evaluated).toBe(0);
+
+        // The same ZERO evaluated count as a failed read — which is exactly why `evaluated` cannot be
+        // the discriminator, and why the guard exists upstream of the census rather than inside it.
+        expect(evaluateCohortAdmissibility({cohortData: {}, target: {}}).evaluated).toBe(0);
+        expect(evaluateCohortAdmissibility({cohortData: {}, target: {}}).admissible).toBe(false);
+    });
+
+    test('assessCohortSource names WHICH way the read failed, not merely that it did', () => {
+        expect(assessCohortSource(undefined).reason).toContain('No cohort data was supplied');
+        expect(assessCohortSource([]).reason).toContain('an array');
+        expect(assessCohortSource('x').reason).toContain('a string');
+        expect(assessCohortSource({}).reason).toContain('no leaf descriptors');
+        expect(assessCohortSource({a: leafOf({env: 'NEO_A'})}).reason).toBeNull();
     });
 
     test('isLeafDescriptor separates leaves from namespace nodes', () => {
