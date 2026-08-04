@@ -19,6 +19,41 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
 
 /**
+ * @summary Env parser for the supervised-child heap ceiling — fails closed on anything that is not
+ * a positive integer.
+ *
+ * A permissive parser is not merely untidy here, it inverts the safety property the ceiling exists
+ * for: `-1` passes `Number(v) || fallback`, reaches Node as `--max-old-space-size=-1`, and Node
+ * reports the flag out of bounds, **exits 0**, and continues with a ~4.5 GB heap limit — above a
+ * 3 GiB cgroup. The invalid value therefore produces a LARGER ceiling than the valid one, and
+ * trades a catchable `FATAL ERROR: heap limit` for an uncatchable kernel OOM kill that leaves no
+ * diagnostic at all.
+ *
+ * @param {String} value Raw env value.
+ * @returns {Number}
+ * @throws {TypeError} When the override is not a positive integer.
+ */
+function parseSupervisedTaskHeapMb(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+
+    // Unset returns undefined so the LEAF DEFAULT applies. Throwing here instead would fail boot on
+    // every deployment that never set the override — the parse hook receives the env var NAME and
+    // reads the value itself (see `parsePlaneIdEnv`, the sibling this follows).
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+
+    const parsed = Number(rawValue);
+
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new TypeError(
+            `configBase: ${envVarName}="${rawValue}" must be a positive integer (MiB). ` +
+            'Refusing rather than falling back: a rejected ceiling lets Node continue with a heap larger than the container.'
+        );
+    }
+
+    return parsed;
+}
+
+/**
  * @summary The extendable Tier-1 configuration BASE — every default leaf and formula of the Agent OS
  * config plane, carried by a non-singleton class so overlays inherit instead of copying.
  *
@@ -931,6 +966,26 @@ class ConfigBase extends ConfigProvider {
                         entrypoints: ['orchestrator-daemon'],
                         reason     : 'A role is declared, never inherited. Declare `container-plane` on the containerized Orchestrator (its Compose service sets it), or start the machine-local one with `npm run ai:host-edge`, which declares `host-edge` and its full posture.'
                     }]
+                }),
+                /**
+                 * V8 old-space ceiling, in MiB, for each supervised child process.
+                 *
+                 * A container memory limit budgets a process TREE; a heap ceiling is PER PROCESS.
+                 * Children are spawned with `{...process.env}`, so a ceiling carried at the service
+                 * level is re-spent by every concurrent child rather than once. The inverse is why
+                 * the container cannot be sized alone: with no explicit ceiling Node derives its
+                 * default old-space from the cgroup, so raising the limit silently raises every
+                 * unbounded child's implicit ceiling. Explicit-per-process is the only arrangement
+                 * where the limit and the ceilings can be reasoned about together.
+                 *
+                 * The `parse` hook FAILS CLOSED on a non-positive or non-integer override. Without
+                 * it, `-1` reaches Node, which reports the flag out of bounds, **exits 0**, and
+                 * continues with a ~4.5 GB heap limit — above the cgroup, converting a catchable
+                 * heap error into an uncatchable kernel OOM kill with no diagnostic.
+                 * @type {Number}
+                 */
+                supervisedTaskHeapMb: leaf(384, 'NEO_SUPERVISED_TASK_HEAP_MB', 'number', {
+                    parse: parseSupervisedTaskHeapMb
                 }),
                 /**
                  * Filesystem root under which tenant-repo mirrors are stored. The

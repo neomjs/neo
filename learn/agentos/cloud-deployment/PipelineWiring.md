@@ -148,6 +148,29 @@ A redeploy is not "done" when `docker compose up` returns — it is done when th
 
 A deploy job that does not gate on health reports success while serving a broken stack. See [Deployment Cookbook §8](../DeploymentCookbook.md) for the healthcheck/readiness contract.
 
+## Targeting a real plane: a compose-file list, not a path
+
+The script is CI-neutral: it is meant to be invoked by a deployment's own job, and this repository contains no in-repo caller for it (no npm target, no CI job). That bounds what can be said here — it says nothing about how any particular deployment has been redeployed in practice.
+
+What *is* verifiable is a capability gap: until the change below, **no correct invocation against a multi-file plane existed at all.**
+
+`NEO_DEPLOY_COMPOSE_FILE` accepts a `:`-delimited list (Docker's own `COMPOSE_FILE` convention) and expands to repeated `-f` in merge order — later files override earlier ones, so reordering them changes the result. A single path behaves exactly as before; a value resolving to zero paths aborts before Docker runs.
+
+This is not a convenience. A real plane is rarely one file — the canonical local Agent OS runs `docker-compose.yml` plus `docker-compose.local-agent-os.yml` under project `neo-local-agent-os` — and a single `-f` drops the overlay **silently**. Measured read-only on that plane, the two renderings differ by 80 lines: without the overlay, `NEO_AUTH_MODE` is absent, `NEO_MODEL_PROVIDER` is empty rather than `openAiCompatible`, and `NEO_MCP_HEALTHCHECK_TOKEN_FILE` is gone — under a *different* project name, so on fresh volumes.
+
+So a caller must pass three things, and the script infers none of them:
+
+```bash
+NEO_DEPLOY_PROJECT_NAME=<project> \
+NEO_DEPLOY_COMPOSE_FILE="<base>.yml:<overlay>.yml" \
+NEO_REF=$(git ls-remote https://github.com/neomjs/neo.git dev | cut -f1) \
+  ai/examples/cloud-deployment/deploy-pipeline.sh
+```
+
+**Discover those values rather than hardcoding them.** A running plane already records its own identity in `com.docker.compose.project` and `com.docker.compose.project.config_files` on every container, and the deploy home may be a checkout other than the one the caller runs from — so reading the labels is both less brittle and the only way to be certain which plane is being addressed.
+
+Confirming delivery is a separate step from the health gate: `up --wait` proves the containers are up, not that they carry the intended code. Compare each member's `/app/.neo-revision` against the pinned revision for that.
+
 ## Failure signatures
 
 | Signature | Likely cause | Pipeline response |

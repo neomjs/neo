@@ -205,8 +205,21 @@ services:
     # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
+    #
+    # `degraded` counts as ALIVE here, and that is a deliberate agreement with the server rather
+    # than a relaxation. Memory Core treats its non-WAL dependencies as best-effort on purpose
+    # (Server.mjs `prepareStartupDependency`): a provider-dependent canary must never veto MCP
+    # startup, or the mandatory end-of-turn save disappears exactly when a degraded deployment most
+    # needs lossless WAL capture. This probe defaulted to `healthy` only, so a server that was
+    # serving correctly with one provider unreachable was marked unhealthy — and because `ingress`
+    # and `orchestrator` both gate on `service_healthy`, a cold host whose embedding provider was
+    # not yet up lost its entire loopback plane, taking the Knowledge Base down with it despite
+    # `kb-server` being perfectly healthy.
+    #
+    # `unhealthy` is still failing, and is still the only failing verdict. The point is to
+    # distinguish the two, not to erase both.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck", "--expected-status", "healthy,degraded"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -243,6 +256,13 @@ services:
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       - NEO_CHROMA_HOST=chroma
+      # The child heap ceiling needs a WRITER here, not just a reader in the service: without this
+      # line the deployment override is unreachable — the parent knob renders while this one stays
+      # null, so the "explicit ceiling per child" claim would hold in code and not in deployment.
+      # Empty default keeps the leaf's own default authoritative; a non-positive value fails closed
+      # in the leaf's parse hook rather than reaching Node, which would accept the flag, exit 0, and
+      # continue with a heap larger than the cgroup.
+      - NEO_SUPERVISED_TASK_HEAP_MB=${NEO_SUPERVISED_TASK_HEAP_MB:-}
       # The role is DECLARED, never inherited (#16229). The leaf carries no default, so this line
       # is what makes the containerized Orchestrator startable at all — and stating it here is the
       # point: before the cut, a host `node ai/daemons/orchestrator/daemon.mjs` resolved the same
@@ -339,10 +359,41 @@ services:
       timeout: 5s
       retries: 3
       start_period: 90s
+    # Heap ceilings are PER PROCESS, so they are set on the command rather than in `environment`.
+    # `ProcessSupervisorService` spawns supervised tasks with `{...process.env}`, so a service-level
+    # NODE_OPTIONS is inherited by every child and the container budget is silently multiplied by
+    # the number of concurrent Node processes rather than spent once.
+    #
+    # The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
+    #
+    # The concurrent-process count is NOT established, and the budget below says so rather than
+    # implying precision it does not have. What WAS observed here is 2 concurrent Node processes
+    # with two task types ever started — from a plane dying every ~3 minutes, which never reaches
+    # steady state, so hourly and daily tasks had never started at all. An idle or crash-looping
+    # plane cannot show its maximum. #16463 owns measuring it.
+    #
+    # `$$SERVER_ENTRYPOINT` is escaped so Compose does NOT interpolate it. It is a CONTAINER env set
+    # by the Dockerfile, so config-time interpolation resolves it against the HOST environment, finds
+    # nothing, and renders `node --max-old-space-size=1024 ` — a node invocation with no script.
+    # `docker compose config` reports that as a warning and still exits 0, so an exit-code check
+    # passes while the rendered command is broken. `$$` defers expansion to the container's own sh.
+    # `${NEO_ORCHESTRATOR_HEAP_MB}` is deliberately NOT escaped: it is a deployment override and is
+    # meant to resolve from the operator's environment at config time.
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-1024} \"$$SERVER_ENTRYPOINT\""]
     deploy:
       resources:
+        # Budget, stated rather than inherited: parent 1024 + up to TWO concurrent children at 384 =
+        # 1792 MB of V8, leaving ~1.2g for native footprint across the tree. Deliberately provisional
+        # — the true concurrent maximum cannot be observed until the plane survives long enough to
+        # reach steady state, and establishing it is a gate on #16463 rather than a number guessed
+        # here. If it proves higher, the child ceiling comes down before the limit goes up.
+        #
+        # The container limit cannot be raised on its own. Node sizes its DEFAULT old-space from the
+        # cgroup, so a bigger container silently raises the implicit ceiling of every child that has
+        # no explicit one — which is the same leak in a different direction. The limit and both
+        # explicit ceilings only make sense together.
         limits:
-          memory: 1g
+          memory: 3g
           cpus: "1.0"
 
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS

@@ -43,7 +43,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 30,
+            "remainingUniqueKeys": 31,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_BACKUP_PATH",
@@ -74,7 +74,8 @@
                 "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
                 "NEO_OPENAI_COMPATIBLE_HOST",
                 "NEO_OPENAI_COMPATIBLE_KEEP_ALIVE",
-                "NEO_OPENAI_COMPATIBLE_MODEL"
+                "NEO_OPENAI_COMPATIBLE_MODEL",
+                "NEO_SUPERVISED_TASK_HEAP_MB"
             ],
             "secrets": [
                 "NEO_KB_ASK_API_KEY",
@@ -336,6 +337,7 @@
         "orchestrator.restartChurn.severity",
         "orchestrator.restartChurn.threshold",
         "orchestrator.restartChurn.windowMs",
+        "orchestrator.supervisedTaskHeapMb",
         "orchestrator.swarmHeartbeat",
         "orchestrator.swarmHeartbeat.allIdleIdentities",
         "orchestrator.swarmHeartbeat.idleThresholdMs",

@@ -412,6 +412,9 @@ export class Orchestrator extends Base {
      */
     beforeSetProcessSupervisorService(value) {
         return ClassSystemUtil.beforeSetInstance(value, ProcessSupervisorService, {
+            // Resolved at the use site and injected across the narrow construction seam (ADR-0019 // ticket-ref-ok: the ADR is the authority assigning env resolution to the leaf, not background reading
+            // §5.1/§5.5). The supervisor never reads the env var itself.
+            supervisedTaskHeapMb   : AiConfig.orchestrator.supervisedTaskHeapMb,
             dataDir                : this.dataDir,
             taskDefinitions        : this.getAuthorityScopedTaskDefinitions(),
             taskStateService       : this.taskStateService,

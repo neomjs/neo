@@ -17,6 +17,7 @@ import FleetGrid                   from './FleetGrid.mjs';
 import FleetRoster                 from '../../store/FleetRoster.mjs';
 import MemoriesPane                from './MemoriesPane.mjs';
 import OperatorMailbox             from './OperatorMailbox.mjs';
+import WakeRoutePane               from './WakeRoutePane.mjs';
 import StateProvider               from '../../../../src/state/Provider.mjs';
 import cockpitDockDocument         from './cockpitDockDocument.mjs';
 import cockpitPresetCollection     from './cockpitPresets.mjs';
@@ -549,6 +550,16 @@ class FleetCockpit extends Container {
      * @member {String|null} memoriesTarget=null
      */
     memoriesTarget = null
+    /**
+     * Latest wake-routes envelope, owner-held so rail re-projection rematerializes from current truth.
+     * @member {Object|null} wakeRoutesSnapshot=null
+     */
+    wakeRoutesSnapshot = null
+    /**
+     * Read-generation fence for {@link #loadWakeRoutes} — a slow older read never overwrites a newer one.
+     * @member {Number} wakeRoutesReadGeneration=0
+     */
+    wakeRoutesReadGeneration = 0
     /**
      * Detached-detail bookkeeping — `null` while the inspector is docked. While detached it holds
      * `{homeTabsNodeId, homeTabIndex, windowId, windowName, connectTimer}`: the tabs node + EXACT
@@ -1248,6 +1259,16 @@ class FleetCockpit extends Container {
                     agentOptions: me.buildMemoriesAgentOptions(),
                     listeners   : {memoriesRequest: 'onMemoriesRequest'},
                     reference   : 'memories'
+                };
+            case 'wakeRoutes':
+                // The snapshot travels with rematerialization like the memories sibling: a torn or
+                // re-projected pane reopens on the last ACCEPTED envelope, never a blank claim.
+                return {
+                    module   : WakeRoutePane,
+                    cls      : [marker],
+                    snapshot : me.wakeRoutesSnapshot,
+                    listeners: {wakeRoutesRequest: 'onWakeRoutesRequest'},
+                    reference: 'wakeRoutes'
                 };
             default:
                 // perspectives arrives with its own leaf — an honest labelled placeholder, never a
@@ -2444,6 +2465,50 @@ class FleetCockpit extends Container {
             // the accepted truth into the DESTROYED instance and leave the live pane pending
             // forever. The owner state above plus this live-resolve keep both variants coherent.
             const livePane = me.getReference('memories');
+
+            livePane && (livePane.snapshot = snapshot)
+        }
+
+        return snapshot
+    }
+
+    /**
+     * @summary Read the decomposed per-seat wake-route envelope through the cockpit-owned
+     * authenticated bridge — the memories sibling, same discipline end to end: generation-fenced
+     * (a slow older read never overwrites a newer one), fail-honest (an unwired verb or a throwing
+     * bridge lands as a typed unavailable envelope, never fabricated seats), and the pane resolves
+     * at WRITE time so a removed-and-rematerialized pane receives the accepted truth instead of a
+     * destroyed instance swallowing it.
+     * @param {Object} [params]
+     * @returns {Promise<Object>}
+     */
+    async loadWakeRoutes(params = {}) {
+        const me         = this,
+              bridge     = globalThis.AgentOS?.fleet?.registryBridge,
+              generation = ++me.wakeRoutesReadGeneration,
+              fallback   = reason => ({
+                  capability: {state: 'unavailable', reason},
+                  viewer    : null,
+                  count     : 0,
+                  seats     : []
+              });
+
+        let snapshot;
+
+        if (typeof bridge?.fleetWakeRoutes !== 'function') {
+            snapshot = fallback('fleet wake-routes verb not wired')
+        } else {
+            try {
+                snapshot = await bridge.fleetWakeRoutes(params)
+            } catch (error) {
+                snapshot = fallback('fleet wake-routes read failed')
+            }
+        }
+
+        if (generation === me.wakeRoutesReadGeneration && !me.isDestroyed) {
+            me.wakeRoutesSnapshot = snapshot;
+
+            const livePane = me.getReference('wakeRoutes');
 
             livePane && (livePane.snapshot = snapshot)
         }

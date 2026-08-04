@@ -321,4 +321,54 @@ test.describe('#16230 — file lease: claim, refuse, reclaim, release (TTL-liven
         fs.removeSync(guardDir);
         handle.release();
     });
+
+    /**
+     * A refusal whose holder identity is byte-identical to the requester's is self-succession: the
+     * same slot restarted inside the freshness window and is refused against its own predecessor.
+     * The refusal is correct; the "stop the duplicate" remediation is not, and it sent an operator
+     * hunting for a second process that did not exist while the real cause — a crash loop — scrolled
+     * past above it. Containers make this the common case: hostname is the container id and the
+     * entrypoint is always pid 1, so every restart reproduces the previous identity exactly.
+     */
+    test('#16459 — an identical holder identity reports the identity match instead of telling you to stop a duplicate', () => {
+        const holder = {owner: 'orchestrator@21ccb536bbb9', pid: 1, startedAt: '2026-08-03T18:09:24.177Z'},
+              error  = new FileLeaseHeldError({
+                  holder,
+                  lockLabel  : 'authority',
+                  lockPath   : '/x/.authority-lease-container-plane',
+                  remediation: 'stop the duplicate.',
+                  requester  : {owner: 'orchestrator@21ccb536bbb9', pid: 1}
+              });
+
+        expect(error.holderIdentityMatchesRequester).toBe(true);
+        expect(error.message).toMatch(/may be your own previous instance/);
+        expect(error.message).not.toMatch(/stop the duplicate/);
+    });
+
+    test('#16459 — a genuinely different holder keeps the caller remediation intact', () => {
+        const error = new FileLeaseHeldError({
+            holder     : {owner: 'orchestrator@21ccb536bbb9', pid: 1, startedAt: '2026-08-03T18:09:24.177Z'},
+            lockLabel  : 'authority',
+            lockPath   : '/x/.authority-lease-container-plane',
+            remediation: 'stop the duplicate.',
+            requester  : {owner: 'orchestrator@other-host', pid: 4711}
+        });
+
+        expect(error.holderIdentityMatchesRequester).toBe(false);
+        expect(error.message).toMatch(/stop the duplicate/);
+        expect(error.message).not.toMatch(/may be your own previous instance/);
+    });
+
+    test('#16459 — an unverifiable holder never reports an identity match', () => {
+        const error = new FileLeaseHeldError({
+            holder     : null,
+            lockLabel  : 'authority',
+            lockPath   : '/x/.authority-lease-container-plane',
+            remediation: 'stop the duplicate.',
+            requester  : {owner: 'orchestrator@21ccb536bbb9', pid: 1}
+        });
+
+        expect(error.holderIdentityMatchesRequester).toBe(false);
+        expect(error.message).toMatch(/unverifiable holder/);
+    });
 });

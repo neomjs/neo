@@ -56,11 +56,14 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
+import {createPlaneWhoIsOnlineReader}         from './planeWhoIsOnlineReader.mjs';
 import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
+import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
 import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
 import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
 import {wireFleetMemoriesSource}              from './wireFleetMemoriesSource.mjs';
+import {wireFleetWakeRoutesSource}            from './wireFleetWakeRoutesSource.mjs';
 import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.mjs';
 import path                                   from 'node:path';
 import {fileURLToPath, pathToFileURL}         from 'node:url';
@@ -142,7 +145,7 @@ async function boot() {
             // — the reader consumes them directly; a second parse here would reject every healthy
             // answer and silently blind the whole axis.
             listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
-            resolveDeliveryLiveness: () => ({
+            resolveDeliveryLiveness         : () => ({
                 alive : 'unknown',
                 reason: 'delivery-lane liveness is not exposed by the containerized plane yet'
             }),
@@ -166,6 +169,27 @@ async function boot() {
 
         console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
     }
+
+    // The decomposed wake-routes verb rides the SAME per-mode truth the fused wake axis was bound
+    // to above — one authority per axis, never a second source. Presence joins plane-side over the
+    // proven client; host mode wraps the daemon PID-file liveness read and leaves presence and
+    // terminal receipts honestly unbound until host surfaces exist for them.
+    wireFleetWakeRoutesSource({
+        listAgents                      : () => FleetManager.getLifecycleService().getRegistry().listAgents(),
+        resolveViewerIdentity           : () => RequestContextService.getAgentIdentityNodeId(),
+        listActiveSubscriptionIdentities: FleetManager.wakeStateOptions.listActiveSubscriptionIdentities ?? null,
+        resolveDeliveryLiveness         : FleetManager.wakeStateOptions.resolveDeliveryLiveness ??
+            (FleetManager.wakeStateOptions.pidFilePath
+                ? () => resolveDaemonLiveness({pidFilePath: FleetManager.wakeStateOptions.pidFilePath})
+                : null),
+        resolveTerminalDeliveryFailures: FleetManager.wakeStateOptions.resolveTerminalDeliveryFailures ??
+            (FleetManager.wakeStateOptions.deliveryFailureFilePath
+                ? createTerminalDeliveryFailuresFileReader({
+                    deliveryFailureFilePath: FleetManager.wakeStateOptions.deliveryFailureFilePath
+                })
+                : null),
+        readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
+    });
 
     // Wire the composed activitySource onto FleetControlBridge. The memory-core mailbox + graph
     // singletons are imported lazily at this boot use site (mirroring readActiveWakeSubscriptionIdentities's
