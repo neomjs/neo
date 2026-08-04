@@ -127,6 +127,15 @@ class Overflow extends Plugin {
     }
 
     /**
+     * Plugin-owned active-button caps: button id → the caller's own `maxWidth` config value at
+     * cap time (`null` when the consumer had none). Property presence on the button is NOT
+     * provenance — a consumer may legitimately configure `maxWidth` — so this ledger is the one
+     * source of truth for "the plugin installed this cap", and clearing always restores the exact
+     * recorded caller value through the same public config channel.
+     * @member {Map|null} appliedCaps=null
+     */
+    appliedCaps = null
+    /**
      * The overflow control (a menu button), created on first overflow and torn down when everything fits.
      * @member {Neo.button.Base|null} control=null
      */
@@ -138,11 +147,29 @@ class Overflow extends Plugin {
      */
     measuring = false
     /**
+     * The control's RENDERED width, measured while it is mounted (same round-trip as the extent read).
+     * The `controlWidth` config is only the pre-creation estimate — the first overflow decision runs
+     * before any control exists to measure. Once render truth is available, the reservation uses
+     * `max(config, measured)`, so a skin that renders the control wider than the estimate can never
+     * let packed buttons underlap it. `null` until the control has been measured; cleared with the control.
+     * @member {Number|null} measuredControlWidth=null
+     */
+    measuredControlWidth = null
+    /**
      * Natural (un-hidden) header widths keyed by tab-button id — see the class note on natural-width
      * discipline. `null` until the first capture.
      * @member {Object|null} naturalWidths=null
      */
     naturalWidths = null
+    /**
+     * Signature of the hidden set the control currently reflects (`index:text:iconCls` per entry).
+     * Projections fire on many no-op events (resize, activation, the render-truth edges), and
+     * rewriting identical menu items is not free: it rebuilds the dropdown list and closes an OPEN
+     * menu mid-interaction. The signature makes syncControl's menu mutation idempotent — only a
+     * changed partition touches the menu; re-arm and re-align stay unconditional.
+     * @member {String|null} hiddenSignature=null
+     */
+    hiddenSignature = null
     /**
      * A project() call arrived while a measure pass was in flight; drained once the pass releases the
      * latch, so a coalesced resize / activation / tab-set change still applies against current extents.
@@ -265,6 +292,9 @@ class Overflow extends Plugin {
 
     /**
      * Re-resolves the source toolbar's nearest active theme onto the out-of-tree overflow embodiment.
+     * A theme flip can change the control's rendered width (fonts, paddings), so the reservation
+     * re-projects through the ordinary measure pass — the getDomRect round-trip queues behind the
+     * theme update on the same channel, so it observes the re-skinned control.
      */
     onOwnerThemeChange() {
         let me        = this,
@@ -272,7 +302,8 @@ class Overflow extends Plugin {
             value     = me.owner.getTheme();
 
         if (control && control.theme !== value) {
-            control.theme = value
+            control.theme = value;
+            me.project(false)
         }
     }
 
@@ -303,13 +334,26 @@ class Overflow extends Plugin {
         try {
             // 1. Natural widths — measured once while every button is visible, then cached.
             if (recapture || !me.naturalWidths) {
-                const removedButtons = buttons.filter(button => button.hidden);
+                const removedButtons = buttons.filter(button => button.hidden),
+                      cappedButtons  = buttons.filter(button => me.appliedCaps?.has(button.id));
+
+                // A plugin-installed cap (applySplit) bounds the live rect below the natural width, so
+                // measuring through it would poison the cache with the capped value. Restore the CALLER's
+                // recorded maxWidth (reactively — the config's afterSet owns the vdom key; a silent write
+                // would leave the capped vdom in place and measure the cap anyway) under the same latch
+                // that restores hidden buttons. Ledger entries stay: the split right after re-caps against
+                // fresh numbers (the recorded caller value stays authoritative) or clears via its ordinary
+                // restore branch. Only ledger members are touched — a consumer-configured maxWidth is not
+                // plugin residue and measures as part of the button's real constraint set.
+                cappedButtons.forEach(button => {
+                    button.maxWidth = me.appliedCaps.get(button.id)
+                });
 
                 // A prior split removes overflowing buttons from DOM. Restore them under this method's
                 // measuring latch, then reconcile their closest common parent once so getDomRect observes
                 // natural geometry. Any resize raised by that update queues behind the latch and drains as
                 // an extent-only pass after this authoritative capture.
-                if (removedButtons.length > 0) {
+                if (removedButtons.length > 0 || cappedButtons.length > 0) {
                     removedButtons.forEach(button => {
                         button.setSilent({hidden: false});
                         // setSilent intentionally bypasses Component#show(). Keep the config and VDOM
@@ -336,23 +380,37 @@ class Overflow extends Plugin {
                 })
             }
 
-            // 2. The strip extent — the toolbar itself never hides, so it is always measurable.
-            let extentRect   = await owner.getDomRect(),
-                extent       = Math.floor(extentRect?.width || 0),
+            // 2. The strip extent — the toolbar itself never hides, so it is always measurable. When the
+            //    control is mounted, its rendered width rides the same round-trip: render truth for the
+            //    reservation costs no extra latency.
+            let controlId    = me.control?.mounted ? me.control.id : null,
+                rects        = await owner.getDomRect(controlId ? [owner.id, controlId] : [owner.id]),
+                extent       = Math.floor(rects[0]?.width || 0),
                 tabContainer = me.getTabContainer(),
                 activeButton = buttons[tabContainer?.activeIndex] || null,
-                items        = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]})),
+                items        = buttons.map(button => ({id: button.id, headerWidth: me.naturalWidths[button.id]}));
 
-                // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
-                //    The pure core is this plugin's own static (below) — no adapter namespace-reach, no cycle.
-                {hidden} = Overflow.computeOverflow({
+            if (controlId && rects[1]?.width > 0) {
+                me.measuredControlWidth = Math.ceil(rects[1].width)
+            }
+
+            // 3. The pure decision: active-never-hidden packing, overflow-only control reservation.
+            //    The pure core is this plugin's own static (below) — no adapter namespace-reach, no cycle.
+            let controlWidth = Math.max(me.controlWidth, me.measuredControlWidth || 0),
+                {hidden}     = Overflow.computeOverflow({
                     activeItemId: activeButton?.id,
-                    controlWidth: me.controlWidth,
+                    controlWidth,
                     extent,
                     items
                 });
 
-            me.applySplit(hidden, buttons, tabContainer)
+            me.applySplit(hidden, buttons, tabContainer, {
+                activeButton,
+                // The degenerate branch keeps an over-wide active visible past `usable` — cap its box so
+                // every geometry derived from the button (the persistent per-button indicator, the strip's
+                // crossfade indicator, the label itself) ends where the control begins.
+                usable: hidden.length > 0 ? Math.max(0, extent - controlWidth) : null
+            })
         } catch (error) {
             // getDomRect losing a race with teardown (owner unmounting mid-measure) is the ONE expected
             // failure: it must neither reject a fire-and-forget handler nor skip the drain below, and the
@@ -380,19 +438,29 @@ class Overflow extends Plugin {
     }
 
     /**
-     * Applies the computed hidden set: hides the overflowing header buttons and reflects the remainder
-     * through the overflow control.
+     * Applies the computed hidden set: hides the overflowing header buttons, bounds the degenerate
+     * over-wide active button to the usable extent, and reflects the remainder through the overflow
+     * control.
+     *
+     * The cap is horizontal-only by design: this plugin packs widths against a horizontal strip extent
+     * (`tabBarPosition: 'top'` / `'bottom'` compositions); a vertical tab bar never mounts it, so the
+     * vertical indicator branch has no overflow control to collide with.
      * @param {String[]} hidden  Overflowing button ids, in header order.
      * @param {Neo.tab.header.Button[]} buttons
      * @param {Neo.tab.Container} tabContainer
+     * @param {Object}  activeCap
+     * @param {Neo.tab.header.Button|null} activeCap.activeButton
+     * @param {Number|null} activeCap.usable  Cap for the active button while overflowing; `null` clears.
      */
-    applySplit(hidden, buttons, tabContainer) {
+    applySplit(hidden, buttons, tabContainer, {activeButton, usable} = {}) {
         let me         = this,
             hiddenSet  = new Set(hidden),
             hiddenMeta = [];
 
         buttons.forEach((button, index) => {
-            let isHidden = hiddenSet.has(button.id);
+            let isHidden = hiddenSet.has(button.id),
+                needsCap = button === activeButton && usable !== null && usable !== undefined
+                    && me.naturalWidths?.[button.id] > usable;
 
             // Neo's built-in `hidden` (removeDom) rather than a cls needing an external stylesheet rule —
             // the natural-width cache (captured while every button was visible) survives the DOM removal,
@@ -404,6 +472,27 @@ class Overflow extends Plugin {
                 // removeDom still exists; assigning false again is then a reactive no-op, whereas
                 // show() clears the marker and schedules the toolbar update which remounts the header.
                 button.show()
+            }
+
+            // Degenerate-branch bound: `computeOverflow` keeps an active wider than `usable` visible
+            // (active-never-hidden), so its box would run beneath the floating control — and with it every
+            // geometry derived from the box: the persistent `.neo-tab-button-indicator` child, the strip's
+            // crossfade indicator (sized from this rect), and the label glyphs the opaque control would
+            // otherwise cover instead of an honest ellipsis. The cap rides the PUBLIC `maxWidth` config
+            // (one channel, one vdom owner — the consumer's `style.maxWidth` is never touched), and the
+            // `appliedCaps` ledger carries provenance: only a plugin-installed cap is ever cleared, and
+            // clearing restores the exact caller value recorded at cap time.
+            if (needsCap) {
+                if (!me.appliedCaps?.has(button.id)) {
+                    (me.appliedCaps ??= new Map()).set(button.id, button.maxWidth ?? null);
+                    button.addCls('neo-tab-overflow-capped')
+                }
+
+                button.maxWidth = usable
+            } else if (me.appliedCaps?.has(button.id)) {
+                button.removeCls('neo-tab-overflow-capped');
+                button.maxWidth = me.appliedCaps.get(button.id);
+                me.appliedCaps.delete(button.id)
             }
 
             if (isHidden) {
@@ -433,12 +522,16 @@ class Overflow extends Plugin {
         if (hiddenMeta.length < 1) {
             if (me.control) {
                 me.control.destroy(true);
-                me.control = null
+                me.control              = null;
+                me.hiddenSignature      = null;
+                // The measurement belongs to the torn-down embodiment; the next control re-measures.
+                me.measuredControlWidth = null
             }
             return
         }
 
-        let menuItems = hiddenMeta.map(meta => ({
+        let signature = hiddenMeta.map(meta => `${meta.index}:${meta.text}:${meta.iconCls}`).join('|'),
+            menuItems = hiddenMeta.map(meta => ({
                 handler: () => {tabContainer.activeIndex = meta.index},
                 iconCls: meta.iconCls,
                 text   : meta.text
@@ -451,10 +544,15 @@ class Overflow extends Plugin {
             };
 
         if (me.control) {
-            if (me.control.menuList) {
-                me.control.menuList.items = menuItems
-            } else {
-                me.control.menu = menuConfig
+            // Idempotence gate: a projection that did not change the partition must not touch the
+            // menu — rewriting identical items rebuilds the dropdown and closes it mid-interaction
+            // (the render-truth edges made no-op projections routine, so this is load-bearing).
+            if (signature !== me.hiddenSignature) {
+                if (me.control.menuList) {
+                    me.control.menuList.items = menuItems
+                } else {
+                    me.control.menu = menuConfig
+                }
             }
 
             // Re-arm a transiently unmounted control. A floating instance mounts once at
@@ -513,8 +611,21 @@ class Overflow extends Plugin {
                 parentId     : 'document.body',
                 theme        : me.owner.getTheme(),
                 windowId     : me.owner.windowId
-            })
+            });
+
+            // The reservation's render-truth EDGE: the pass that creates the control computed its split
+            // with the pre-creation estimate — the rendered width does not exist yet, and no external
+            // event is owed. Re-project when the mount lands (and on any later re-mount — idempotent, and
+            // a fresh embodiment deserves a fresh measurement), so the estimate→rendered convergence is
+            // this plugin's own lifecycle, never a wait for an unrelated resize/activation/mutation.
+            if (Neo.typeOf(me.control) === 'NeoInstance') {
+                me.observeConfig(me.control, 'mounted', value => {
+                    value && !me.isDestroyed && me.project(false)
+                })
+            }
         }
+
+        me.hiddenSignature = signature;
 
         // RA-13: re-align against the CURRENT owner rect. A floating component aligns once at mount and does
         // NOT re-align when its target moves — and a sync-driven projection change (tabs hidden/shown) moves
@@ -529,8 +640,22 @@ class Overflow extends Plugin {
      * @override
      */
     destroy(...args) {
-        this.control?.destroy(true);
-        this.control = null;
+        let me = this;
+
+        // A dying plugin must not strand its caps (a dock rebuild replaces the plugin, not the
+        // buttons): restore each recorded caller value through the same channel the cap used.
+        me.appliedCaps?.forEach((priorMaxWidth, buttonId) => {
+            const button = me.getTabButtons().find(item => item.id === buttonId);
+
+            if (button && !button.isDestroyed) {
+                button.removeCls?.('neo-tab-overflow-capped');
+                button.maxWidth = priorMaxWidth
+            }
+        });
+
+        me.appliedCaps = null;
+        me.control?.destroy(true);
+        me.control = null;
         super.destroy(...args)
     }
 }
