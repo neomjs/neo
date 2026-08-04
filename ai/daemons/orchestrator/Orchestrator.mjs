@@ -441,7 +441,17 @@ export class Orchestrator extends Base {
      * @returns {Neo.ai.daemons.services.ContainerHealthDiagnosisService}
      */
     beforeSetContainerHealthDiagnosisService(value) {
-        return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService);
+        // Resolved at the use site and injected — the service holds no env reader of its own.
+        // ticket-ref-ok: the config SSOT decision assigns env/default resolution to the leaf
+        const {restartChurn} = AiConfig.orchestrator;
+
+        return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService, {
+            diagnosisConfig: {
+                restartChurnSeverity : restartChurn.severity,
+                restartChurnThreshold: restartChurn.threshold,
+                restartChurnWindowMs : restartChurn.windowMs
+            }
+        });
     }
 
     /**

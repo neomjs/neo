@@ -930,6 +930,37 @@ class ConfigBase extends ConfigProvider {
                  * runs both before any plane state is written.
                  * @type {''|'legacy-mixed'|'host-edge'|'container-plane'}
                  */
+                /**
+                 * Restart-churn detection thresholds.
+                 *
+                 * Under the config SSOT rather than a local default object: a threshold deciding
+                 * whether a deployment reports degraded is deployment POLICY, and an operator whose
+                 * plane legitimately restarts more often than ours cannot say so if the number lives
+                 * in a frozen literal.
+                 * @type {Object}
+                 */
+                restartChurn: {
+                    /**
+                     * Unplanned restarts within the window, on ONE container generation, before
+                     * churn is reported. Three sits above ordinary transients — one restart is
+                     * noise, two can be a slow dependency coming up — and far below a real loop,
+                     * which reached 977 on the maintainer plane.
+                     * @type {Number}
+                     */
+                    threshold: leaf(3, 'NEO_RESTART_CHURN_THRESHOLD', 'number'),
+                    /**
+                     * Window bounding the count to RECENT churn: a container that restarted
+                     * repeatedly last month and has been stable since is not sick now.
+                     * @type {Number}
+                     */
+                    windowMs: leaf(900000, 'NEO_RESTART_CHURN_WINDOW_MS', 'number'),
+                    /**
+                     * Severity carried by the emitted fact — declared rather than literal so a
+                     * deployment can down-rank churn without patching the diagnosis service.
+                     * @type {'critical'|'warning'}
+                     */
+                    severity: leaf('critical', 'NEO_RESTART_CHURN_SEVERITY', 'string')
+                },
                 authorityProfile: leaf('', 'NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE', 'string', {
                     requiredFor: [{
                         entrypoints: ['orchestrator-daemon'],
