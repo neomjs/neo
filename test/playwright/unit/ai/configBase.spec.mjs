@@ -54,22 +54,33 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
         const envName  = 'NEO_SUPERVISED_TASK_HEAP_MB',
               original = process.env[envName];
 
-        const build = className => createOverlayFixture(className, null);
+        // ONE retained instance, refreshed per case, destroyed in `finally`.
+        //
+        // An earlier revision constructed a fresh fixture per branch, which left every successful one
+        // registered and — because the invalid branch throws DURING construction — leaked a
+        // half-built provider that no `destroy()` could reach (@neo-gpt-emmy measured registered
+        // instances moving 0 -> 1 and staying there after the expected TypeError). `refreshEnv()`
+        // re-applies the env layer on a live instance, so the same four branches are exercised with
+        // one object whose lifecycle a `finally` can actually own.
+        let fixture = null;
 
         try {
             delete process.env[envName];
-            // Unset resolves the leaf default — the branch a value-signature parser would have thrown on.
-            expect(build('Neo.ai.unittest.HeapCeilingUnsetFixture').proxy.orchestrator.supervisedTaskHeapMb).toBe(384);
+            fixture = createOverlayFixture('Neo.ai.unittest.HeapCeilingFixture', null);
+
+            // Unset resolves the leaf default — the branch a value-signature parser would have
+            // thrown on, which is how the backwards first draft was caught.
+            expect(fixture.proxy.orchestrator.supervisedTaskHeapMb).toBe(384);
 
             process.env[envName] = '512';
-            expect(build('Neo.ai.unittest.HeapCeilingOverrideFixture').proxy.orchestrator.supervisedTaskHeapMb).toBe(512);
+            fixture.instance.refreshEnv();
+            expect(fixture.proxy.orchestrator.supervisedTaskHeapMb).toBe(512);
 
-            // Refusal, not fallback. Falling back to 384 here would be silent, and the operator would
-            // be running a 4.5 GB child under a 3 GiB cap with nothing saying so.
+            // Refusal, not fallback. Falling back to 384 here would be silent, and the operator
+            // would be running a ~4.5 GB child under a 3 GiB cap with nothing saying so.
             for (const bad of ['-1', '0', '1.5', 'abc']) {
                 process.env[envName] = bad;
-                expect(() => build(`Neo.ai.unittest.HeapCeilingRejects${bad.replace(/\W/g, '')}Fixture`), `${bad} must be refused`)
-                    .toThrow(TypeError);
+                expect(() => fixture.instance.refreshEnv(), `${bad} must be refused`).toThrow(TypeError);
             }
         } finally {
             if (original === undefined) {
@@ -77,6 +88,8 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
             } else {
                 process.env[envName] = original;
             }
+
+            fixture?.instance?.destroy();
         }
     });
 

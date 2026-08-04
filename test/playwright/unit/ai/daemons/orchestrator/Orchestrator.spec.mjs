@@ -2577,16 +2577,51 @@ test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling inj
         expect(orchestrator.processSupervisorService.supervisedTaskHeapMb).toBe(INJECTED);
     });
 
-    test('the injected member is what the child env builder consumes, not the module fallback', () => {
+    /**
+     * SECOND HOP, driven rather than replayed.
+     *
+     * The previous revision of this test called `buildSupervisedTaskEnv({defaultHeapMb: <member>})`
+     * itself — it hand-fed the value across the very boundary it claimed to cover, so it asserted
+     * that a pure function formats a number it was given. @neo-gpt-emmy mutated `runTask`'s read to
+     * the module fallback and BOTH tests stayed green; the service-to-child hop had no coverage at
+     * all while its test name claimed otherwise.
+     *
+     * This drives the real `runTask` on the orchestrator-constructed service and reads the ceiling
+     * off the spawn arguments, so the assertion depends on the production expression rather than on
+     * a copy of it.
+     */
+    test('the injected ceiling reaches the SPAWNED child env — driven through runTask, not replayed', () => {
         const orchestrator = createTestOrchestrator(),
-              // The exact expression the spawn path evaluates
-              // (`ProcessSupervisorService.runSupervisedTask`).
-              env          = buildSupervisedTaskEnv({
-                  baseEnv      : {},
-                  defaultHeapMb: orchestrator.processSupervisorService.supervisedTaskHeapMb
-              });
+              supervisor   = orchestrator.processSupervisorService;
 
-        // The member is only worth injecting if it lands on the child's actual NODE_OPTIONS.
-        expect(env.NODE_OPTIONS).toBe(`--max-old-space-size=${INJECTED}`);
+        let spawnedEnv = null;
+
+        const probeDefinition = {
+            heapCeilingProbe: {
+                label          : 'Heap Ceiling Probe',
+                command        : 'node',
+                args           : ['--version'],
+                pidFileName    : 'heap-ceiling-probe.pid',
+                expectedCommand: 'node'
+            }
+        };
+
+        supervisor.taskDefinitions = {...supervisor.taskDefinitions, ...probeDefinition};
+
+        // `taskState` is seeded from the definitions the harness constructed with, so a definition
+        // added afterwards has none and `runTask` reads `state.running` off undefined. Seeded with
+        // the same factory rather than a hand-shaped literal, so the probe cannot drift from the
+        // real initial shape.
+        Object.assign(TaskStateService.taskState, createInitialTaskState(probeDefinition));
+
+        supervisor.spawnFn = (command, args, options) => {
+            spawnedEnv = options.env;
+            return {pid: 4711, on: () => {}, stderr: {on: () => {}}};
+        };
+
+        expect(supervisor.runTask('heapCeilingProbe', 'heap-ceiling-witness')).toBe(true);
+
+        // Read off the spawn call, which is the only surface a real child ever sees.
+        expect(spawnedEnv.NODE_OPTIONS).toBe(`--max-old-space-size=${INJECTED}`);
     });
 });
