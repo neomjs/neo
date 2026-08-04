@@ -1678,9 +1678,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(paneSkin.paneRadius, 'the pane must carry its own corner radius').toBeGreaterThan(0);
 
         // Responsive values are asserted as a RANGE, never byte-equal against the main window. The
-        // padding is `clamp(12px, 2vw, 24px)`, so a vessel and its parent legitimately differ by
-        // viewport width — pinning the number would make the suite fail on a resized window while
-        // still passing on a pane with no rules at all, which is the wrong test in both directions.
+        // padding is `clamp(12px, 2px + 5cqh, 24px)` against the pane container, so a vessel and its
+        // parent legitimately differ by pane height — pinning the number would make the suite fail on
+        // a resized window while still passing on a pane with no rules at all, which is the wrong
+        // test in both directions.
         expect(paneSkin.cardPadding, 'padding must resolve inside the declared clamp, not to the unstyled 0')
             .toBeGreaterThanOrEqual(12);
         expect(paneSkin.cardPadding).toBeLessThanOrEqual(24);

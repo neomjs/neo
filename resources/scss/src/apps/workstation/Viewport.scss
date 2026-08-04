@@ -215,15 +215,23 @@
 
 // The resident pane — the class the reported vessel actually hosts. Its root and its card
 // children are the skin whose absence read as "raw stacked text" on the operator's frame.
+//
+// The pane is also the card's size-query container. The card sizes its type and padding from
+// container units, and the card cannot query itself — its own padding needs an ancestor
+// container, so the reference lives here. `size` (not `inline-size`) because the defect axis
+// is height: the dock hands short panes MORE width than tall ones, so width-keyed units would
+// invert the correction. Size containment is safe — the dock (or a tear-out vessel) imposes
+// the pane's box; it never auto-sizes from content.
 .workstation-placeholder {
     background:
         radial-gradient(circle at 82% 16%, color-mix(in srgb, var(--workstation-signal) 16%, transparent), transparent 38%),
         linear-gradient(145deg, var(--workstation-panel), color-mix(in srgb, var(--workstation-signal) 5%, var(--workstation-panel-2)));
     border        : 1px solid var(--workstation-line-soft);
     border-radius : 8px;
-    overflow: hidden;
-    padding : 0;
-    position: relative;
+    container: workstation-pane / size;
+    overflow : hidden;
+    padding  : 0;
+    position : relative;
 
     &::after {
         background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--workstation-signal) 55%, transparent), transparent);
@@ -236,13 +244,19 @@
     }
 }
 
+// Card sizing is keyed to the PANE (cqh against `.workstation-placeholder`), never the viewport:
+// two panes of different height in one window must resolve different type sizes. Each fluid
+// track is calibrated so a 436px pane reproduces the pre-container rendered values (the design
+// reference the tall cards already had) while a 188px pane walks toward the clamp minimum.
+// Without a container ancestor the units fall back to small-viewport units, which is the old
+// behavior — degradation, not breakage.
 .workstation-resident-card {
     box-sizing    : border-box;
     display       : flex;
     flex-direction: column;
     height        : 100%;
     min-height    : 0;
-    padding : clamp(12px, 2vw, 24px);
+    padding : clamp(12px, 2px + 5cqh, 24px);
     position: relative;
 }
 
@@ -267,7 +281,7 @@
 
 .workstation-resident-icon {
     color    : color-mix(in srgb, var(--workstation-signal) 72%, var(--workstation-ink));
-    font-size: clamp(18px, 2vw, 30px);
+    font-size: clamp(18px, 12px + 2.6cqh, 30px);
     margin : auto 0 8px;
     opacity: .82;
 }
@@ -275,7 +289,7 @@
 .workstation-resident-metric {
     color         : var(--workstation-ink);
     font-family   : var(--workstation-font-mono);
-    font-size     : clamp(24px, 4vw, 58px);
+    font-size     : clamp(24px, 12px + 8cqh, 58px);
     font-weight   : 800;
     letter-spacing: -.06em;
     line-height   : .95;
@@ -285,7 +299,7 @@
 .workstation-resident-title {
     color         : var(--workstation-ink);
     font-family   : var(--workstation-font-sans);
-    font-size     : clamp(11px, 1.2vw, 16px);
+    font-size     : clamp(11px, 9px + 1.2cqh, 16px);
     font-weight   : 650;
     letter-spacing: .02em;
     margin-top    : 8px;
@@ -314,6 +328,10 @@
 .workstation-resident-wave {
     align-items: end;
     display: flex;
+    // A declared 15px element must never silently resolve to 0 — with negative slack, flex
+    // shrinks the only shrinkable child to nothing. The floor makes a too-short card overflow
+    // loudly instead; the disclosure thresholds below keep that state unreachable.
+    flex-shrink: 0;
     gap    : 3px;
     height : 15px;
     margin-top : 9px;
@@ -330,6 +348,19 @@
         &:nth-child(4) {height: 62%}
         &:nth-child(6) {height: 28%}
     }
+}
+
+// Progressive disclosure: a genuinely short pane DROPS trim, by rule, instead of letting flex
+// shrink it toward invisibility. Thresholds come from the card's fit arithmetic at clamp
+// minimums — wave visible needs ~167px (padding 24 + fixed rows 78.5 + minimum fluid type
+// ~64.5), footer-without-wave needs ~141px — each threshold sits a guard band above its
+// break-even so the flex-shrink floor above can never be asked to absorb negative slack.
+@container workstation-pane (max-height: 170px) {
+    .workstation-resident-wave {display: none}
+}
+
+@container workstation-pane (max-height: 145px) {
+    .workstation-resident-footer {display: none}
 }
 
 // ScalePane's grid CELL classes — they ride the pane's own grid, so they travel with it.
