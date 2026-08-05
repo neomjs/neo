@@ -14,6 +14,8 @@ import path from 'path';
 
 const URL_WITH_USERINFO_RE   = /^[a-z][a-z0-9+.-]*:\/\/[^/\s@]+@/iu;
 const SCP_LIKE_USERINFO_RE   = /^[^/\s@:]+@[^/\s@:]+:/u;
+const URL_SCHEME_RE          = /^[a-z][a-z0-9+.-]*:\/\//iu;
+const SCP_LIKE_ENDPOINT_RE   = /^[^/\s:]{2,}:(?!\/\/)/u;
 const ENV_CREDENTIAL_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const SSH_USERNAME_RE        = /^[A-Za-z0-9._-]+$/u;
 const SECRET_REPLACEMENT     = '[REDACTED]';
@@ -191,6 +193,35 @@ export function hasCloneUrlUserInfo(cloneUrl) {
     const value = String(cloneUrl || '').trim();
 
     return URL_WITH_USERINFO_RE.test(value) || SCP_LIKE_USERINFO_RE.test(value);
+}
+
+/**
+ * @summary Returns true when a clone URL is fetched over a transport rather than copied from a local path.
+ *
+ * The distinction is not cosmetic: git applies `--filter` only over a transport, and **ignores it silently
+ * for local path clones** — so anything asserting a filter took effect must ask this question, and must ask
+ * it about transport-ness rather than about a `://` scheme. `git@host:org/repo.git` carries no scheme and is
+ * a documented tenant `cloneUrl` form; a scheme test excludes it and, with it, the assertion.
+ *
+ * Two accepted transport shapes, matching what config normalization already admits:
+ * - scheme-qualified — `https://…`, `ssh://…`, `file://…`
+ * - SCP-like — a colon appearing before any slash, with or without `user@`. A colon-before-slash is
+ *   git's own SCP test; the `{2,}` guard keeps a single-character prefix out, so a Windows drive
+ *   (`C:\repos\mirror`) stays a path rather than becoming a host.
+ *
+ * A single-character prefix is deliberately NOT transport: `C:\repos\mirror` is a Windows drive letter, and
+ * git resolves the same ambiguity the same way. Everything else without a colon-before-slash is a path.
+ *
+ * Found by @neo-opus-grace, whose review showed the scheme test skipped the guard on the one URL form where
+ * nothing else looks.
+ *
+ * @param {String} cloneUrl Candidate clone URL.
+ * @returns {Boolean}
+ */
+export function isTransportCloneUrl(cloneUrl) {
+    const value = String(cloneUrl || '').trim();
+
+    return URL_SCHEME_RE.test(value) || SCP_LIKE_ENDPOINT_RE.test(value);
 }
 
 /**
