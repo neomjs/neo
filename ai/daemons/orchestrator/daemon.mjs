@@ -32,7 +32,7 @@ import path                                                              from 'p
 import {execSync}                                                        from 'child_process';
 import AiConfig                                                          from '../../config.mjs';
 import Orchestrator, {rotateLogFileIfNewDay}                             from './Orchestrator.mjs';
-import {acquireAuthorityLease}                                           from './authorityLease.mjs';
+import {acquireAuthorityLease, AUTHORITY_LEASE_TTL_MS}                   from './authorityLease.mjs';
 import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
 import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
@@ -307,6 +307,78 @@ export function requiresOrchestratorPlane(
  * @param {Object} [options] Test-injection seams (scriptDir, dbPath, taskDefinitions, ...).
  * @returns {Promise<void>}
  */
+/**
+ * @summary Claims the authority lease, waiting out a self-succession refusal instead of exiting.
+ *
+ * A container restart meets its own predecessor's lease. The entrypoint is always pid 1 and the
+ * hostname is the container id, so the recorded holder is byte-identical to the requester and the
+ * lease is still inside its freshness window — the claim is refused, the boot throws, Docker restarts,
+ * and the cycle repeats. Measured on the local plane at **720 restarts**: ExitCode 0, OOMKilled false,
+ * 25% heap. A clean-exit loop with no resource signal, which is why it read as a mystery; the earlier
+ * heap work fixed a real but different cause sitting underneath it.
+ *
+ * **Waiting is the corroboration, and it is why this belongs here rather than in the lease core.**
+ * `fileLease.mjs` is explicit that identity cannot settle this — *"pid-equality cannot mean ours"*,
+ * because numeric pids collide across namespaces — and `FileLeaseHeldError` says a consumer wanting
+ * the dead-predecessor claim must corroborate it with something the error does not carry. Elapsed time
+ * is that something: **a dead predecessor stops pulsing, so its lease goes stale; a live holder keeps
+ * pulsing, so it stays fresh.** One TTL of patience separates them without relaxing the single-owner
+ * invariant by a single condition. Relaxing the core instead — reclaiming on pid equality — would let a
+ * container evict a live host holder, the exact duplicate the module exists to refuse.
+ *
+ * A second refusal after the wait means the holder kept its lease alive, so it IS a live duplicate:
+ * that rethrows and the boot fails loud, unchanged.
+ * @param {Object} options            Passed through to {@link acquireAuthorityLease}.
+ * @param {String} options.dir        Lease directory.
+ * @param {String} options.profile    Authority profile.
+ * @param {Function} [options.sleep]  Injectable delay, for tests.
+ * @param {Number} [options.ttlMs]    Freshness window; defaults to the authority lease TTL.
+ * @returns {Promise<Object>} The acquired lease handle.
+ */
+export async function acquireAuthorityLeaseSurvivingSelfSuccession({
+    dir,
+    profile,
+    sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
+    ttlMs = AUTHORITY_LEASE_TTL_MS
+}) {
+    try {
+        return acquireAuthorityLease({dir, profile, ttlMs})
+    } catch (error) {
+        // Only self-succession waits. Any other refusal is a genuine second claimant and must still
+        // fail immediately — a blanket retry would convert every duplicate-start into a slow one.
+        if (error.code !== 'FILE_LEASE_HELD' || !error.holderIdentityMatchesRequester) {
+            throw error
+        }
+
+        const heldSince = Date.parse(error.holder?.lastPulse ?? error.holder?.startedAt),
+              // Wait out the remaining freshness window rather than a flat TTL: a predecessor that died
+              // most of a window ago should cost us the remainder, not a fresh 60s.
+              remaining = Number.isFinite(heldSince)
+                  ? Math.max(0, ttlMs - (Date.now() - heldSince)) + 1_000
+                  : ttlMs + 1_000;
+
+        console.warn(
+            `[orchestrator] authority lease held by an identity indistinguishable from ours ` +
+            `(${error.holder?.owner} pid ${error.holder?.pid}, since ${error.holder?.startedAt}). ` +
+            `In a container this is our own predecessor: pid 1 and the hostname both survive a restart. ` +
+            `Waiting ${Math.round(remaining / 1000)}s for the lease to go stale rather than exiting into ` +
+            `a restart loop. If the holder is genuinely alive it will keep pulsing and this boot will then ` +
+            `fail loud.`
+        );
+
+        await sleep(remaining);
+
+        // Second attempt. A dead predecessor's lease is now stale and reclaimable; a live holder has
+        // pulsed and this throws again — fail-closed, and the message names it as a real duplicate.
+        //
+        // `ttlMs` MUST reach both claims. Omitting it here left the retry on the 60s default while the wait
+        // was computed from the injected window, so the dead-predecessor case still refused — and the
+        // live-holder control passed VACUOUSLY, refusing because of the default TTL rather than because the
+        // holder pulsed. One missing argument made the guard's own witness meaningless in both directions.
+        return acquireAuthorityLease({dir, profile, ttlMs})
+    }
+}
+
 export async function startOrchestrator(options = {}) {
     const dataDir = daemonDataDir();
 
@@ -316,7 +388,7 @@ export async function startOrchestrator(options = {}) {
     // The role authority lease is claimed AHEAD of the legacy PID singleton: a refused boot must
     // leave the incumbent unsignaled and the plane untouched — enforceSingleton() can SIGTERM
     // whatever holds the PID file, so nothing that might refuse may run after it.
-    const authorityLease = acquireAuthorityLease({
+    const authorityLease = await acquireAuthorityLeaseSurvivingSelfSuccession({
         dir    : dataDir,
         profile: AiConfig.orchestrator.authorityProfile
     });
