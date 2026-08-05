@@ -407,7 +407,7 @@ class BaseServer extends Base {
                 const dispatch = () => toolService.callTool(name, args, {toolProjection});
                 const result   = await this.wrapDispatch(dispatch);
 
-                return this.formatToolResult(result);
+                return this.formatToolResult(this.attachAdvertisedSurface({name, result, toolProjection}));
             } catch (error) {
                 if (error?.code === 'POLICY_REFUSED') {
                     this.logger?.warn?.(`[MCP] Policy refused tool ${name}:`, error.reason || error.message);
@@ -417,6 +417,46 @@ class BaseServer extends Base {
                 return this.formatToolError(name, error);
             }
         });
+    }
+
+    /**
+     * @summary Adds the server's live advertised-surface descriptor to the carrier tool's result.
+     *
+     * The result-side half of the schema-staleness comparison. The descriptor half rides the
+     * carrier tool's DESCRIPTION and is therefore frozen in the client's cache at attach; this half is
+     * computed per call, so a client that changed nothing holds both an old token and a current one and
+     * can tell them apart. `advertisedSurface` is deliberately a separate key from `runtimeFreshness`:
+     * that block answers "did my OpenAPI change since I booted", server-against-its-own-disk. This one
+     * answers "is the caller holding the surface I currently advertise", which is a different axis and
+     * was the one nothing measured.
+     *
+     * Never throws into the call. A digest that cannot be computed must degrade to a result with no
+     * token — which the procedure reads as `unknown` — rather than failing a healthcheck a stale seat
+     * may be depending on to diagnose itself.
+     * @param {Object}        context
+     * @param {String}        context.name Tool name that was called.
+     * @param {*}             context.result Dispatch result.
+     * @param {Object|String} [context.toolProjection] Projection the call was dispatched under.
+     * @returns {*} The result, augmented when it is the carrier tool's.
+     * @protected
+     */
+    attachAdvertisedSurface({name, result, toolProjection}) {
+        const toolService = this.getToolService();
+
+        if (!Neo.isObject(result) || 'error' in result || !toolService?.describeAdvertisedSurface) {
+            return result;
+        }
+
+        if (name !== toolService.surfaceDigestCarrierTool) {
+            return result;
+        }
+
+        try {
+            return {...result, advertisedSurface: toolService.describeAdvertisedSurface(toolProjection)};
+        } catch (error) {
+            this.logger?.warn?.('[MCP] Could not describe the advertised surface:', error.message);
+            return result;
+        }
     }
 
     /**
