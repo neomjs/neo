@@ -433,6 +433,14 @@ class BaseServer extends Base {
      * Never throws into the call. A digest that cannot be computed must degrade to a result with no
      * token — which the procedure reads as `unknown` — rather than failing a healthcheck a stale seat
      * may be depending on to diagnose itself.
+     *
+     * **Stated bound.** The guard tests for the PRESENCE of an `error` key, because that is what
+     * `formatToolResult` routes to an error envelope — stamping a surface claim onto a payload about to
+     * be rendered as a failure would publish it inside an error. No health service's success path
+     * carries that key, so the happy path always stamps. But a service that RETURNS rather than throws
+     * a degraded verdict yields no token, and a seat asking a degraded server therefore reads
+     * `unknown`. Fail-closed, never a false `current` — and written here rather than left for the next
+     * reader to rediscover, because it is the one case where the intent above is only partly served.
      * @param {Object}        context
      * @param {String}        context.name Tool name that was called.
      * @param {*}             context.result Dispatch result.
