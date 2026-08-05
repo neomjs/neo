@@ -44,19 +44,41 @@ class TurnPresenceService extends Base {
     validTerminalStates = ['completed', 'blocked', 'aborted', 'stale']
 
     /**
+     * Shape of a wake-submit correlation id. Matched here rather than trusted because this value is now
+     * supplied by a client over the tool surface, and the daemon that consumes it matches on equality —
+     * a nonce that is merely *stored* but never matchable is indistinguishable from an absent one.
+     * @member {RegExp} wakeSubmitNoncePattern
+     * @protected
+     */
+    wakeSubmitNoncePattern = /^[0-9a-fA-F-]{36}$/
+
+    /**
      * Records a turn-presence event for the request-bound AgentIdentity.
      *
-     * The caller may provide `turnId` on progress/terminal updates. When it is omitted for a
-     * terminal update, the newest active turn for the bound identity is terminalized. This lets
-     * completed-turn signals such as `add_memory` close the interval without inheriting
-     * `add_memory` as the liveness primary.
+     * The caller may provide `turnId` on progress/terminal updates. When it is omitted, the newest
+     * active turn for the bound identity is used. This lets completed-turn signals such as
+     * `add_memory` close the interval without inheriting `add_memory` as the liveness primary — and
+     * it is what allows a harness hook to emit progress at all: a hook that reaches this service over
+     * MCP holds no turn id of its own, and the server is the only party that can answer which turn is
+     * the caller's. Requiring the id from a client that cannot know it forces the client to open the
+     * store directly, which is precisely the bypass this surface exists to remove.
+     *
+     * A `progress` or `terminal` event with no open interval is a **no-op, not an error**: the turn it
+     * would refresh has already expired or closed, and refusing the call would turn an ordinary race
+     * into a failed write.
      *
      * @param {Object} options
      * @param {'start'|'progress'|'terminal'} [options.action='start'] Event kind.
-     * @param {String} [options.turnId] Stable active-turn identifier.
+     * @param {String} [options.turnId] Stable active-turn identifier. Optional throughout: `start`
+     * mints one, `progress` and `terminal` resolve the newest active interval when it is omitted.
      * @param {'completed'|'blocked'|'aborted'|'stale'} [options.terminalState] Terminal state.
      * @param {String} [options.source] Harness/source emitting the event.
      * @param {String} [options.note] Optional bounded diagnostic note.
+     * @param {String} [options.wakeSubmitNonce] Per-submit correlation id linking this interval back to
+     * the wake submit that caused it. The wake daemon's delivery proof matches on this exact value, so a
+     * malformed one is rejected rather than dropped — a silently discarded nonce degrades every
+     * subsequent proof to `wake-submit-unknown`, which reads as "delivery unverifiable" rather than
+     * "correlation key was malformed".
      * @param {String|Date|Number} [options.now=new Date()] Clock override for tests.
      * @returns {Object} Persisted turn-presence payload.
      */
@@ -66,6 +88,7 @@ class TurnPresenceService extends Base {
         terminalState = 'completed',
         source = 'mcp-client',
         note,
+        wakeSubmitNonce,
         now = new Date()
     } = {}) {
         GraphService.requireDb('TurnPresenceService.recordTurnPresence');
@@ -82,8 +105,8 @@ class TurnPresenceService extends Base {
         if (action === 'terminal' && !this.validTerminalStates.includes(terminalState)) {
             throw new Error(`Invalid terminalState '${terminalState}'. Must be one of: ${this.validTerminalStates.join(', ')}.`);
         }
-        if (action === 'progress' && !turnId) {
-            throw new Error('turnId is required when action is progress.');
+        if (wakeSubmitNonce !== undefined && wakeSubmitNonce !== null && !this.wakeSubmitNoncePattern.test(String(wakeSubmitNonce).trim())) {
+            throw new Error(`Invalid wakeSubmitNonce '${wakeSubmitNonce}'. Must be a 36-character UUID.`);
         }
 
         const nowDate = this._coerceDate(now),
@@ -98,7 +121,11 @@ class TurnPresenceService extends Base {
             throw new Error(`turnPresence.ttlMs must be a positive finite number, got ${ttlMs}`);
         }
 
-        const targetTurnId = turnId || (action === 'terminal' ? this._findNewestActiveTurnId(agentIdentity, nowDate) : crypto.randomUUID());
+        // `start` mints an interval; everything else joins the newest open one. A null result here is the
+        // no-op path below, not a failure — see the contract note on this method.
+        const targetTurnId = turnId || (action === 'start'
+            ? crypto.randomUUID()
+            : this._findNewestActiveTurnId(agentIdentity, nowDate));
         if (!targetTurnId) {
             return {
                 status: 'noop',
@@ -125,7 +152,10 @@ class TurnPresenceService extends Base {
                   note          : typeof note === 'string' ? note.slice(0, aiConfig.turnPresence.noteMaxChars) : null,
                   updatedAt     : nowIso,
                   userId        : normalizeUserId(agentIdentity),   // canonical isolation key (no @-form); agentIdentity above stays the @-form label
-                  sharedEntity  : false
+                  sharedEntity  : false,
+                  // Spread last and only when supplied, so a later progress event without a nonce keeps the
+                  // one its `start` carried (via `...current`) instead of erasing the correlation mid-turn.
+                  ...(wakeSubmitNonce ? {wakeSubmitNonce: String(wakeSubmitNonce).trim().toLowerCase()} : {})
               };
 
         GraphService.upsertNode({

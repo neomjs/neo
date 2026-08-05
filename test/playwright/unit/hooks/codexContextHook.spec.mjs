@@ -1,5 +1,4 @@
 import {test, expect} from '@playwright/test';
-import Database       from 'better-sqlite3';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
@@ -48,42 +47,36 @@ test.describe('codex-context hook - wake submit nonce', () => {
         })).toBe(nonce);
     });
 
-    test('records wakeSubmitNonce on the turn-presence row when present', async () => {
-        const dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-context-hook-')),
-              dbPath = path.join(dir, 'graph.sqlite'),
-              db     = new Database(dbPath),
-              nonce  = '123e4567-e89b-12d3-a456-426614174001';
-
-        db.exec(`
-            CREATE TABLE Nodes (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                data TEXT
-            )
-        `);
+    test('carries wakeSubmitNonce to the served store, because the delivery proof matches on it', async () => {
+        const dir   = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-context-hook-')),
+              nonce = '123e4567-e89b-12d3-a456-426614174001',
+              calls = [];
 
         try {
             await recordTurnStarted({
                 env: {
                     NEO_AGENT_IDENTITY: '@test-codex',
-                    NEO_MEMORY_DB_PATH: dbPath,
                     NEO_AI_DAEMON_DIR : dir
                 },
                 hookPayload: {
                     prompt: `[WAKE]\n<!-- NEO_WAKE_SUBMIT_NONCE:${nonce} -->`
                 },
-                rootDir: path.resolve(new URL('../../../..', import.meta.url).pathname)
+                plane : {baseUrl: 'http://plane.test/mc/mcp', credential: 'test-bearer'},
+                record: async args => { calls.push(args); return {agentIdentity: args.identity, status: 'recorded'} }
             });
 
-            const row = db.prepare('SELECT data FROM Nodes WHERE id LIKE ?').get('AGENT_TURN_PRESENCE:%');
-            expect(row).toBeTruthy();
-
-            const node = JSON.parse(row.data);
-            expect(node.properties.agentIdentity).toBe('@test-codex');
-            expect(node.properties.source).toBe('codex-user-prompt-submit');
-            expect(node.properties.wakeSubmitNonce).toBe(nonce);
+            // Asserted at the transport boundary rather than against a local SQLite file. The previous
+            // shape wrote to a temp database and read the row back — which is the very thing the hook
+            // used to do wrong, so it could go green while no beacon ever reached the deployment.
+            expect(calls).toHaveLength(1);
+            expect(calls[0]).toMatchObject({
+                baseUrl        : 'http://plane.test/mc/mcp',
+                identity       : '@test-codex',
+                source         : 'codex-user-prompt-submit',
+                action         : 'start',
+                wakeSubmitNonce: nonce
+            });
         } finally {
-            db.close();
             fs.rmSync(dir, {recursive: true, force: true});
         }
     });
@@ -166,94 +159,57 @@ test.describe('codex-context hook - wake submit nonce', () => {
 });
 
 test.describe('turn-presence hook writer', () => {
-    test('Claude UserPromptSubmit starts and PostToolUse refreshes the active turn', async () => {
-        const dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-turn-presence-hook-')),
-              dbPath  = path.join(dir, 'graph.sqlite'),
-              db      = new Database(dbPath),
-              rootDir = path.resolve(new URL('../../../..', import.meta.url).pathname),
-              env     = {
-                  NEO_AGENT_IDENTITY        : '@test-claude',
-                  NEO_MEMORY_DB_PATH        : dbPath,
-                  NEO_AI_DAEMON_DIR         : dir,
-                  NEO_TURN_PRESENCE_FRESH_MS: '60000',
-                  NEO_TURN_PRESENCE_TTL_MS  : '600000'
-              },
-              startedAt = '2026-06-25T00:00:00.000Z',
-              progressAt = '2026-06-25T00:05:00.000Z';
+    const PLANE = Object.freeze({baseUrl: 'http://plane.test/mc/mcp', credential: 'test-bearer'});
 
-        db.exec(`
-            CREATE TABLE Nodes (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                data TEXT
-            )
-        `);
+    test('Claude UserPromptSubmit starts and PostToolUse refreshes the SAME turn, without inventing an id', async () => {
+        const calls = [];
 
-        try {
-            await recordClaudeTurnPresence({
-                env,
-                hookPayload: {hook_event_name: 'UserPromptSubmit'},
-                now        : startedAt,
-                rootDir
-            });
+        const record = async args => { calls.push(args); return {agentIdentity: args.identity, status: 'recorded'} };
 
-            await recordClaudeTurnPresence({
-                env,
-                hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Bash'},
-                now        : progressAt,
-                rootDir
-            });
+        await recordClaudeTurnPresence({
+            env        : {NEO_AGENT_IDENTITY: '@test-claude'},
+            hookPayload: {hook_event_name: 'UserPromptSubmit'},
+            plane      : PLANE,
+            record
+        });
 
-            const rows = db.prepare('SELECT data FROM Nodes WHERE id LIKE ?').all('AGENT_TURN_PRESENCE:%');
-            expect(rows).toHaveLength(1);
+        await recordClaudeTurnPresence({
+            env        : {NEO_AGENT_IDENTITY: '@test-claude'},
+            hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Bash'},
+            plane      : PLANE,
+            record
+        });
 
-            const node = JSON.parse(rows[0].data);
-            expect(node.properties.agentIdentity).toBe('@test-claude');
-            expect(node.properties.source).toBe('claude-post-tool-use');
-            expect(node.properties.note).toBe('claude PostToolUse Bash');
-            expect(node.properties.startedAt).toBe(startedAt);
-            expect(node.properties.lastProgressAt).toBe(progressAt);
-            expect(node.properties.freshUntil).toBe('2026-06-25T00:06:00.000Z');
-            expect(node.properties.status).toBe('active');
-        } finally {
-            db.close();
-            fs.rmSync(dir, {recursive: true, force: true});
-        }
+        expect(calls.map(({action, source, note}) => ({action, source, note}))).toEqual([
+            {action: 'start',    source: 'claude-user-prompt-submit', note: 'claude UserPromptSubmit'},
+            {action: 'progress', source: 'claude-post-tool-use',      note: 'claude PostToolUse Bash'}
+        ]);
+
+        calls.forEach(call => {
+            expect(call.identity).toBe('@test-claude');
+            expect(call.baseUrl).toBe(PLANE.baseUrl);
+            // Neither call may carry a locally-minted turnId. The hook holds none and the server owns
+            // interval identity; sending one would fork a second turn on every tool call. The freshness
+            // bounds this test used to assert are the server's to stamp, not the hook's to compute.
+            expect(call.turnId).toBeUndefined();
+        });
     });
 
-    test('Claude PostToolUse progress is a no-op without an active turn', async () => {
-        const dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-turn-presence-hook-')),
-              dbPath = path.join(dir, 'graph.sqlite'),
-              db     = new Database(dbPath);
+    test('an unconfigured plane skips by NAME and never reaches the transport', async () => {
+        const calls = [];
 
-        db.exec(`
-            CREATE TABLE Nodes (
-                id TEXT PRIMARY KEY,
-                user_id TEXT,
-                data TEXT
-            )
-        `);
+        const result = await recordClaudeTurnPresence({
+            env        : {NEO_AGENT_IDENTITY: '@test-claude'},
+            hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Bash'},
+            plane      : {baseUrl: ''},
+            record     : async args => { calls.push(args); return {status: 'recorded'} }
+        });
 
-        try {
-            const result = await recordClaudeTurnPresence({
-                env: {
-                    NEO_AGENT_IDENTITY: '@test-claude',
-                    NEO_MEMORY_DB_PATH: dbPath,
-                    NEO_AI_DAEMON_DIR : dir
-                },
-                hookPayload: {hook_event_name: 'PostToolUse', tool_name: 'Bash'},
-                rootDir    : path.resolve(new URL('../../../..', import.meta.url).pathname)
-            });
-
-            expect(result).toMatchObject({
-                action: 'progress',
-                reason: 'no-active-turn',
-                status: 'noop'
-            });
-            expect(db.prepare('SELECT COUNT(*) AS count FROM Nodes').get().count).toBe(0);
-        } finally {
-            db.close();
-            fs.rmSync(dir, {recursive: true, force: true});
-        }
+        // The replaced behaviour wrote to whatever path it computed and reported success. A skip that
+        // says why is the whole point: a beacon in a store nobody reads makes an unmeasured state look
+        // measured.
+        expect(result.status).toBe('skipped');
+        expect(result.reason).toContain('no Memory Core plane is configured');
+        expect(calls).toHaveLength(0);
     });
 });

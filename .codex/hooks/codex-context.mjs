@@ -152,17 +152,49 @@ export function writePromptContextFromHookPayload({
 }
 
 /**
- * @summary Emits a fail-soft Codex turn-start beacon without importing Neo singletons.
+ * @summary Reads the plane leaves from `AiConfig`, the one config read in this process.
+ *
+ * Imported lazily so the module stays loadable — and its pure helpers unit-testable — without booting
+ * the Neo state Provider. The hook process is an entrypoint, so reading the config singleton here is
+ * the sanctioned shape; the writer it feeds is not one, and deliberately resolves nothing itself.
+ * @returns {Promise<Object>} `{baseUrl, credential}`
+ */
+export async function readPlaneConfig() {
+    await import('../../src/Neo.mjs');
+    await import('../../src/core/_export.mjs');
+
+    const {default: AiConfig} = await import('../../ai/config.mjs'),
+          planeBase           = String(AiConfig.fleet.planeBase ?? '').trim().replace(/\/+$/, '');
+
+    return {
+        baseUrl   : planeBase ? `${planeBase}/mc/mcp` : '',
+        credential: AiConfig.fleet.planeBearer ?? ''
+    };
+}
+
+/**
+ * @summary Emits a Codex turn-start beacon into the store the deployment serves.
+ *
+ * **This is the entrypoint, and the only place config is resolved.** It injects the plane leaves into
+ * a writer that resolves nothing — replacing a path the writer derived from its own module location,
+ * which sent every beacon to a private checkout that no reader queries.
+ *
+ * The wake-submit nonce matters more on this seat than on the others: the wake daemon's Codex
+ * delivery proof correlates a submit to the interval it produced by matching that exact value, so it
+ * travels with the event rather than being recomputed anywhere downstream.
+ *
  * @param {Object} options
  * @param {Object} [options.env=process.env] Environment source.
- * @param {String} [options.rootDir] Repository root.
  * @param {*} [options.hookPayload] Codex hook payload used to extract a wake-submit nonce.
- * @returns {Promise<void>|undefined}
+ * @param {Object} [options.plane] Injected `{baseUrl, credential}`; read from `AiConfig` when absent.
+ * @param {Function} [options.record] Transport seam.
+ * @returns {Promise<Object>} `{status}` — `recorded`, or `skipped` with a reason.
  */
 export async function recordTurnStarted({
     env = process.env,
-    rootDir = fileURLToPath(new URL('../../', import.meta.url)),
-    hookPayload
+    hookPayload,
+    plane,
+    record
 } = {}) {
     try {
         writePromptContextFromHookPayload({env, hookPayload});
@@ -174,8 +206,9 @@ export async function recordTurnStarted({
         env,
         hookPayload,
         note  : 'codex UserPromptSubmit',
-        rootDir,
-        source: 'codex-user-prompt-submit'
+        plane : plane ?? await readPlaneConfig(),
+        source: 'codex-user-prompt-submit',
+        ...(record ? {record} : {})
     });
 }
 

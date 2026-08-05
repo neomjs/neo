@@ -2412,8 +2412,14 @@ paths:
 
         The caller identity is server-derived; do not pass an identity field. `start` emits
         the primary active-turn beacon, `progress` refreshes `lastProgressAt` and freshness
-        bounds for the same `turnId`, and `terminal` closes the interval. When a terminal event
-        omits `turnId`, the newest active turn for the bound identity is closed.
+        bounds for the same `turnId`, and `terminal` closes the interval. When `progress` or
+        `terminal` omits `turnId`, the newest active turn for the bound identity is used — and
+        when no interval is open, the call is a no-op rather than an error.
+
+        This is the surface a harness hook writes through. A hook cannot open the served store
+        itself: in a containerized deployment the graph lives on a Docker named volume with no
+        host-visible path, so a path-based write silently lands in the caller's checkout and
+        succeeds, producing beacons that no reader ever sees.
       tags: [TurnPresence]
       requestBody:
         required: false
@@ -3172,7 +3178,7 @@ components:
           description: Event kind. `start` creates/refreshes the interval, `progress` refreshes it, and `terminal` closes it.
         turnId:
           type: string
-          description: Stable active-turn id. Optional on `start` (generated if omitted); required for progress; optional for terminal, which then closes the newest active turn.
+          description: Stable active-turn id. Optional throughout — `start` generates one, while `progress` and `terminal` resolve the newest active turn when it is omitted. A harness hook reaching this surface over MCP holds no turn id of its own, so requiring one would force it to read the store directly.
           example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
         terminalState:
           type: string
@@ -3186,6 +3192,10 @@ components:
         note:
           type: string
           description: Optional bounded diagnostic note.
+        wakeSubmitNonce:
+          type: string
+          description: Per-submit correlation id linking this interval to the wake submit that caused it. The wake daemon's delivery proof matches on this exact value, so a malformed one is rejected rather than silently dropped.
+          example: "7ac7f929-0e77-4f61-92d2-1f078e871fe4"
         now:
           description: Optional clock override for tests.
           oneOf:
