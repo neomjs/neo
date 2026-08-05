@@ -99,21 +99,28 @@ export function buildHostEdgeEnv({stateDir = resolveHostEdgeStateDir()} = {}) {
         // 3. Lane closure — the one elected host-edge lane…
         NEO_ORCHESTRATOR_LMS_ENABLED            : 'true',
 
-        // …and everything else off. Container-plane + shared-primitive lanes (Docker owns them):
-        NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED : 'false',
-        NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED  : 'false',
-        NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED: 'false',
+        // …and everything else off. Container-plane + shared-primitive lanes (Docker owns them).
+        //
+        // `KB_SYNC` and `TEMPORAL_SUMMARY` sit in THIS group rather than the host-edge-class one
+        // below, and they stay listed. The closure declares what a GRAPHLESS process must not start
+        // — a statement about CAPABILITY, not about ownership — which is why `CHROMA_DAEMON` has
+        // always been here despite being container-plane too. A container-plane classification says
+        // who SHOULD run a lane; it does not say this role safely CAN, and only the second question
+        // is what this fragment answers.
+        NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED   : 'false',
+        NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED    : 'false',
+        NEO_ORCHESTRATOR_KB_SYNC_ENABLED         : 'false',
+        NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED  : 'false',
+        NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED: 'false',
 
         // Host-edge-class lanes this topology does not elect for the host edge:
         NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED       : 'false',
         NEO_ORCHESTRATOR_DEV_SERVER_ENABLED          : 'false',
         NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED: 'false',
-        NEO_ORCHESTRATOR_KB_SYNC_ENABLED             : 'false',
         NEO_ORCHESTRATOR_MLX_ENABLED                 : 'false',
         NEO_ORCHESTRATOR_NL_BRIDGE_ENABLED           : 'false',
         NEO_ORCHESTRATOR_OLLAMA_ENABLED              : 'false',
         NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED    : 'false',
-        NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED     : 'false',
-        NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED    : 'false'
+        NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED     : 'false'
     }
 }

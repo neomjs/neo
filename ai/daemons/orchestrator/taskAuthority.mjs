@@ -67,6 +67,22 @@ export const AUTHORITY_CLASSES_BY_PROFILE = Object.freeze({
  * from this map, so adding a task without classifying it fails during construction or
  * boot instead of silently inheriting the current process.
  *
+ * **`kbSync` and `temporal-summary` are container-plane, not host-edge**, even though both scan the
+ * Neo repo's own corpus — the classification that would once have made them local-only. The
+ * container IS the checkout: it is built from the repo and carries `learn/`, `src/`,
+ * `resources/content/` and `.git` at the built revision, which is every source both lanes read, and
+ * no non-containerized scheduler exists to run them instead.
+ *
+ * Classing them host-edge leaves the Knowledge Base with no producer at all: the container declines
+ * the lanes to an owner whose own posture fragment declines them too, and the ownership audit passes
+ * throughout, because class-ownership and enablement are different axes and it only checks the
+ * first. A lane whose decliner names itself as owner is the shape to watch for.
+ *
+ * This does **not** re-point `kbSync` at TENANT content — that remains `tenant-repo-sync`'s job on
+ * its own GitMirror primitive, and conflating the two re-couples tenant ingestion to a
+ * checkout-scan model. What moved is where the Neo-corpus scan RUNS, not what it reads. The lane
+ * taxonomy and that anti-pattern are both governed by the decision record linked below.
+ *
  * @type {Readonly<Object<String, String>>}
  * @see learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md
  * @see learn/agentos/decisions/0019-aiconfig-reactive-provider-ssot.md
@@ -83,11 +99,11 @@ export const TASK_AUTHORITY_BY_NAME = Object.freeze({
     lms                                  : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
     summary                              : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     'memory-summary-backfill'            : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
-    kbSync                               : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    kbSync                               : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     githubWorkflowSync                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
     backup                               : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     'graphlog-compaction'                : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
-    'temporal-summary'                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
+    'temporal-summary'                   : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
     chromaDefrag                         : ORCHESTRATOR_AUTHORITY_CLASS.sharedPrimitive,
     'primary-dev-sync'                   : ORCHESTRATOR_AUTHORITY_CLASS.hostEdge,
     'tenant-repo-sync'                   : ORCHESTRATOR_AUTHORITY_CLASS.containerPlane,
