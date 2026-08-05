@@ -20,6 +20,15 @@ process.env.NEO_E2E_PORT = String(PORT);
 export default defineConfig({
     testDir      : __dirname,
     testMatch    : /.*\.spec\.mjs/,
+    // The update-chain goal bar is DELIBERATELY red until its legs land, and it is opt-in via its own
+    // config. Without this ignore it is collected here too, because `testDir` is the whole tree and
+    // `testMatch` takes every spec — so the repo's headline local command would run a scenario built to
+    // fail, which is exactly how a permanently-red check gets routed around within a week.
+    //
+    // Enforced rather than incidental: the aggregate runner also sets `retries` below, which would defeat
+    // that project's deliberate `retries: 0` invariant — a goal bar passing on attempt two has already
+    // told you the chain is unreliable.
+    testIgnore   : /update-chain\//,
     outputDir    : path.join(__dirname, 'test-results/all'),
     fullyParallel: false,
     forbidOnly   : !!process.env.CI,
