@@ -250,4 +250,60 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
             knowledgeBaseCollection: 'knowledge-base-test'
         });
     });
+
+    // The disposable path shares the canonical path's restart tolerance, and this asserts it rather
+    // than trusting that the helper is called. Flagged in review by @neo-opus-ada: the method's
+    // docblock argued three deliberate differences from the canonical resolver while the retry
+    // policy was a silent fourth, and Chroma demonstrably restarts — so without this the one
+    // resolution path used to DIAGNOSE a restore is the only one that cannot survive the event under
+    // investigation, and a transient connection error would surface as "the restore failed".
+    test('getDisposableCollection retries transient ChromaConnectionError, with the SAME policy as the canonical path', async () => {
+        const delays = [];
+        let   calls  = 0;
+
+        ChromaManager.collectionResolveRetrySleepFn = async delayMs => { delays.push(delayMs); };
+        ChromaManager.client = {
+            // `getOrCreateCollection`, not `getCollection` — a disposable target must be created on
+            // first use. Stubbing only this verb also proves the disposable path does not fall back
+            // to the canonical one: were it wired to `getCollection`, this test would fail on an
+            // undefined function rather than pass for the wrong reason.
+            getOrCreateCollection: async options => {
+                calls++;
+
+                if (calls < 3) {
+                    const error = new Error('Failed to connect to chromadb');
+                    error.name  = 'ChromaConnectionError';
+                    throw error;
+                }
+
+                return {name: options.name};
+            }
+        };
+
+        const collection = await ChromaManager.getDisposableCollection({name: 'kb-probe-disposable-retry'});
+
+        expect(collection.name).toBe('kb-probe-disposable-retry');
+        expect(calls).toBe(3);
+        // Identical backoff shape to the canonical retry test above. Asserting the delays rather than
+        // just the call count is what makes this a shared-policy claim instead of a has-a-loop claim:
+        // a second hand-rolled retry with different timings would pass on `calls` alone.
+        expect(delays).toEqual([
+            aiConfig.collectionResolveRetry.initialDelayMs,
+            aiConfig.collectionResolveRetry.initialDelayMs * 2
+        ]);
+    });
+
+    test('getDisposableCollection still refuses a canonical target, retry wiring notwithstanding', async () => {
+        // The control on the change above: threading the guard through a retry helper must not make
+        // the refusal reachable-but-retried. A canonical name fails BEFORE any client call.
+        let calls = 0;
+
+        ChromaManager.client = {
+            getOrCreateCollection: async () => { calls++; return {name: 'should-not-happen'} }
+        };
+
+        await expect(ChromaManager.getDisposableCollection({name: aiConfig.collectionName}))
+            .rejects.toThrow(/DISPOSABLE_RESTORE_TARGET_REQUIRED/);
+        expect(calls).toBe(0);
+    });
 });

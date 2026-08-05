@@ -295,6 +295,7 @@ class DatabaseService extends Base {
      * @param {String} [options.file]       Forwarded to `importDatabase` when action is `'import'`. Path to a JSONL file or directory.
      * @param {String} [options.mode]       Forwarded to `importDatabase` when action is `'import'`. `'merge'` (default) or `'replace'`.
      * @param {String|Object} [options.confirmation] Forwarded to `importDatabase` (`replace` mode) or `truncateDatabase` for the destructive-operation guard.
+     * @param {String} [options.targetCollection] Forwarded to `importDatabase`. Redirects the import into a disposable collection; refuses canonical names and requires `mode: 'merge'`.
      * @returns {Promise<Object>}
      */
     async manageDatabaseBackup({action, ...config}) {
@@ -320,16 +321,30 @@ class DatabaseService extends Base {
      * Peer-symmetric counterpart of `exportDatabase`. Called by the canonical restore
      * orchestrator (`ai/scripts/maintenance/restore.mjs`).
      *
+     * ## Target selection (`targetCollection`)
+     *
+     * By default the import lands in the canonical KB collection resolved from config. Passing
+     * `targetCollection` redirects it to a **disposable** collection instead, which is what makes
+     * a restore defect reproducible without writing to the live corpus. The name is guarded, so a
+     * canonical collection is unreachable through the override rather than merely discouraged.
+     *
+     * **The override is merge-only, and that is a correctness constraint rather than a limitation.**
+     * `replace` mode calls `truncateDatabase`, which targets the *canonical* collection. Honouring
+     * both at once would truncate production while writing the rows somewhere else — strictly worse
+     * than either operation alone, and precisely the confusion a diagnostic flag must not enable.
+     * Making `replace` semantics target-aware is a separate change and deliberately not attempted here.
+     *
      * @param {Object}        options
      * @param {String}        options.file               Absolute path to a JSONL file OR a directory containing `.jsonl` files.
      * @param {String}       [options.mode='merge']      `'merge'` upserts on top of existing data; `'replace'` truncates the collection first via the destructive-operation guard.
      * @param {String|Object} [options.confirmation]     Explicit production confirmation token (forwarded to `truncateDatabase` when mode is `'replace'`).
+     * @param {String}       [options.targetCollection]  Disposable collection to import into instead of the canonical one. Refuses canonical names; requires `mode: 'merge'`.
      * Parsing and Chroma writes share the existing 500-row bound: a source file is
      * never materialized in full before its first write.
      *
-     * @returns {Promise<{message: String, imported: Number, mode: String}>}
+     * @returns {Promise<{message: String, imported: Number, mode: String, targetCollection: String|null}>}
      */
-    async importDatabase({file, mode = 'merge', confirmation} = {}) {
+    async importDatabase({file, mode = 'merge', confirmation, targetCollection = null} = {}) {
         try {
             if (!file) {
                 throw new Error('importDatabase requires a `file` argument (path to a JSONL file or directory of JSONL files)');
@@ -339,6 +354,17 @@ class DatabaseService extends Base {
             }
             if (mode !== 'merge' && mode !== 'replace') {
                 throw new Error(`Unknown mode: ${mode}. Must be 'merge' or 'replace'.`);
+            }
+            // Refuse the combination BEFORE the guard runs, so the error names the real conflict.
+            // Validating the target first would reject `replace` + a canonical target as a target
+            // problem, hiding that the mode is what makes it unsatisfiable.
+            if (targetCollection !== null && mode === 'replace') {
+                throw new Error(
+                    `--mode replace cannot be combined with a disposable target collection ` +
+                    `("${targetCollection}"): replace truncates the CANONICAL collection, so honouring both ` +
+                    `would empty production while importing the rows elsewhere. Use --mode merge; a ` +
+                    `freshly created disposable collection starts empty, which is what replace was for.`
+                );
             }
 
             const stat        = await fs.stat(file);
@@ -376,8 +402,14 @@ class DatabaseService extends Base {
 
             logger.log(`Starting Knowledge Base import. Discovered ${sourceFiles.length} backup file(s) (mode: ${mode})...`);
 
-            const collection = await ChromaManager.getKnowledgeBaseCollection();
+            const collection = targetCollection === null
+                ? await ChromaManager.getKnowledgeBaseCollection()
+                : await ChromaManager.getDisposableCollection({name: targetCollection});
             let   imported   = 0;
+
+            if (targetCollection !== null) {
+                logger.log(`Importing into DISPOSABLE collection '${targetCollection}' — the canonical KB collection is untouched.`);
+            }
 
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
@@ -448,12 +480,22 @@ class DatabaseService extends Base {
             }
 
             return {
-                message : `Import complete. Ingested ${imported} chunks across ${sourceFiles.length} file(s).`,
+                message : `Import complete. Ingested ${imported} chunks across ${sourceFiles.length} file(s)${targetCollection === null ? '' : ` into disposable collection '${targetCollection}'`}.`,
                 imported,
-                mode
+                mode,
+                targetCollection
             };
         } catch (error) {
             logger.error('[DatabaseService] Error importing knowledge base:', error);
+
+            // A target refusal keeps its own identity. Re-wrapping it as DATABASE_IMPORT_ERROR
+            // would discard the `code` that distinguishes "you aimed a diagnostic restore at
+            // production" from any other import failure, and a collapsed error code makes that
+            // refusal impossible to assert on precisely.
+            if (error.code === 'DISPOSABLE_RESTORE_TARGET_REQUIRED') {
+                throw error;
+            }
+
             const importError = new Error(`DATABASE_IMPORT_ERROR: ${error.message}`);
             importError.code  = 'DATABASE_IMPORT_ERROR';
             throw importError;
