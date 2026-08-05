@@ -1,14 +1,15 @@
-import aiConfig                                                   from '../../mcp/server/memory-core/config.mjs';
-import fs                                                         from 'fs-extra';
-import logger                                                     from '../../mcp/server/memory-core/logger.mjs';
-import path                                                       from 'path';
-import readline                                                   from 'readline';
-import Base                                                       from '../../../src/core/Base.mjs';
-import StorageRouter                                              from './managers/StorageRouter.mjs';
-import DestructiveOperationGuard                                  from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import {partitionRowsByVectorValidity, summarizeVectorRejections} from './helpers/vectorWriteInvariant.mjs';
-import {validateJsonlSourceFile}                                  from './helpers/vectorJsonlSourceValidation.mjs';
-import {importGraphJsonl}                                         from './helpers/graphJsonlImport.mjs';
+import aiConfig                                                              from '../../mcp/server/memory-core/config.mjs';
+import fs                                                                    from 'fs-extra';
+import logger                                                                from '../../mcp/server/memory-core/logger.mjs';
+import path                                                                  from 'path';
+import readline                                                              from 'readline';
+import Base                                                                  from '../../../src/core/Base.mjs';
+import StorageRouter                                                         from './managers/StorageRouter.mjs';
+import DestructiveOperationGuard                                             from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {classifyExportCompleteness, EXPORT_COMPLETENESS, recordExportGrowth} from './helpers/exportCompleteness.mjs';
+import {partitionRowsByVectorValidity, summarizeVectorRejections}            from './helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                                             from './helpers/vectorJsonlSourceValidation.mjs';
+import {importGraphJsonl}                                                    from './helpers/graphJsonlImport.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -157,14 +158,34 @@ class DatabaseService extends Base {
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        if (stats.exported !== stats.expected) {
+
+        const verdict = classifyExportCompleteness(stats.exported, stats.expected);
+
+        // An unreadable count cannot certify a bundle, and a collection that GREW is not a loss.
+        // Treating every inequality as a partial export aborted the entire backup on `32272/32271`
+        // — one row MORE than expected — because a live agent wrote a memory mid-export.
+        if (verdict === EXPORT_COMPLETENESS.partial || verdict === EXPORT_COMPLETENESS.indeterminate) {
             const error = new Error(
                 `PARTIAL_COLLECTION_EXPORT: ${collectionName} exported ${stats.exported}/${stats.expected} ` +
-                `records to ${backupFile}; skipped ${stats.skipped} corrupted vector id(s).`
+                `records to ${backupFile}; skipped ${stats.skipped} corrupted vector id(s). Verdict: ${verdict}.`
             );
             error.code    = 'PARTIAL_COLLECTION_EXPORT';
-            error.details = stats;
+            error.details = {...stats, verdict};
             throw error
+        }
+
+        if (verdict === EXPORT_COMPLETENESS.grew) {
+            // Every row the snapshot knew about was written, plus late arrivals — aborting here
+            // destroys a usable bundle. It is NOT provable completeness either: this loop pages by
+            // offset, so an insert landing in an already-walked page shifts later rows, and a
+            // concurrent write can skip one row while duplicating another and still finish high.
+            recordExportGrowth(stats);
+
+            logger.warn(
+                `[DatabaseService] ${collectionName} grew during export: ${stats.exported}/${stats.expected} ` +
+                `(+${stats.growthDelta}). Every snapshotted row was captured; because this path pages by ` +
+                'offset, the bundle is complete-or-better but not provably exact.'
+            );
         }
 
         logger.log(`Successfully exported ${stats.exported}/${stats.expected} documents from ${collectionName} to: ${backupFile}`);
@@ -276,14 +297,32 @@ class DatabaseService extends Base {
         }
 
         await new Promise(resolve => writeStream.end(resolve));
-        if (stats.exported !== stats.expected) {
+
+        const verdict = classifyExportCompleteness(stats.exported, stats.expected);
+
+        if (verdict === EXPORT_COMPLETENESS.partial || verdict === EXPORT_COMPLETENESS.indeterminate) {
             const error = new Error(
                 `PARTIAL_COLLECTION_EXPORT: ${collectionName} exported ${stats.exported}/${stats.expected} ` +
-                `records to ${backupFile}; skipped ${stats.skipped} unreadable graph row(s).`
+                `records to ${backupFile}; skipped ${stats.skipped} unreadable graph row(s). Verdict: ${verdict}.`
             );
             error.code    = 'PARTIAL_COLLECTION_EXPORT';
-            error.details = stats;
+            error.details = {...stats, verdict};
             throw error
+        }
+
+        if (verdict === EXPORT_COMPLETENESS.grew) {
+            // The graph grew between the count and the scan. Nothing holds the source still across
+            // that window — the two counts, the `await`ed directory/stream setup, and the two
+            // iterations are all separate reads, and a second connection (another daemon writing one
+            // memory) lands in it. Nodes and Edges are also read as two statements, so the tables can
+            // come from different instants: complete-or-better, not a single-instant snapshot.
+            recordExportGrowth(stats);
+
+            logger.warn(
+                `[DatabaseService] ${collectionName} grew during export: ${stats.exported}/${stats.expected} ` +
+                `(+${stats.growthDelta}). Every counted row was captured; because Nodes and Edges are read ` +
+                'as separate statements, the bundle is complete-or-better but not a single-instant snapshot.'
+            );
         }
 
         logger.log(`Successfully exported ${stats.exported}/${stats.expected} graph elements to: ${backupFile}`);
