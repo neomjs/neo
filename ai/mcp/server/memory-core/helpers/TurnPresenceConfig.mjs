@@ -1,5 +1,3 @@
-import path from 'node:path';
-
 export const MEMORY_CORE_GRAPH_DB_ENV = 'NEO_MEMORY_DB_PATH';
 
 export const TURN_PRESENCE_ENV = Object.freeze({
@@ -15,18 +13,6 @@ export const TURN_PRESENCE_DEFAULTS = Object.freeze({
     noteMaxChars      : 512,
     hookWriteTimeoutMs: 1500
 });
-
-/**
- * @summary Resolves the Memory Core graph SQLite path without importing Neo singletons.
- * @param {Object} options
- * @param {Object} [options.env=process.env] Environment source.
- * @param {String} options.rootDir Repository root.
- * @returns {String}
- */
-export function resolveMemoryCoreGraphPath({env = process.env, rootDir} = {}) {
-    const override = env[MEMORY_CORE_GRAPH_DB_ENV];
-    return override ? override : path.resolve(rootDir, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
-}
 
 function resolveNumber({env, key, fallback}) {
     const envName = TURN_PRESENCE_ENV[key],
