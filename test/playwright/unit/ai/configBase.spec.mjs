@@ -70,7 +70,12 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
 
             // Unset resolves the leaf default — the branch a value-signature parser would have
             // thrown on, which is how the backwards first draft was caught.
-            expect(fixture.proxy.orchestrator.supervisedTaskHeapMb).toBe(384);
+            //
+            // Deliberately NOT `FALLBACK_SUPERVISED_TASK_HEAP_MB`. The two were both 384, and
+            // `Orchestrator.spec.mjs`'s injection test documents why that collision is a hazard:
+            // an assertion on the shared value passes with the injection deleted. They now differ,
+            // so this pins the leaf and only the leaf.
+            expect(fixture.proxy.orchestrator.supervisedTaskHeapMb).toBe(1024);
 
             process.env[envName] = '512';
             fixture.instance.refreshEnv();

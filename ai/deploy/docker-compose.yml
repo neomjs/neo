@@ -364,36 +364,50 @@ services:
     # NODE_OPTIONS is inherited by every child and the container budget is silently multiplied by
     # the number of concurrent Node processes rather than spent once.
     #
-    # The daemon died at ~500 MB of heap, so 1024 is 2x its observed need.
-    #
-    # The concurrent-process count is NOT established, and the budget below says so rather than
-    # implying precision it does not have. What WAS observed here is 2 concurrent Node processes
-    # with two task types ever started — from a plane dying every ~3 minutes, which never reaches
-    # steady state, so hourly and daily tasks had never started at all. An idle or crash-looping
-    # plane cannot show its maximum. #16463 owns measuring it.
+    # The ceiling is NOT sized to the observed minimum. The previous 1024 was "2x the ~500 MB the
+    # daemon died at" — a sample taken while the plane crash-looped every ~3 minutes and never
+    # reached steady state, so hourly and daily tasks had never started at all. An idle or
+    # crash-looping plane cannot show its maximum, which makes that observation unable to bound the
+    # thing it was used to bound. The concurrent-process count remains unestablished; the budget
+    # below is headroom, not precision, and says so.
     #
     # `$$SERVER_ENTRYPOINT` is escaped so Compose does NOT interpolate it. It is a CONTAINER env set
     # by the Dockerfile, so config-time interpolation resolves it against the HOST environment, finds
-    # nothing, and renders `node --max-old-space-size=1024 ` — a node invocation with no script.
+    # nothing, and renders a bare `node --max-old-space-size=<n> ` — an invocation with no script.
     # `docker compose config` reports that as a warning and still exits 0, so an exit-code check
     # passes while the rendered command is broken. `$$` defers expansion to the container's own sh.
     # `${NEO_ORCHESTRATOR_HEAP_MB}` is deliberately NOT escaped: it is a deployment override and is
     # meant to resolve from the operator's environment at config time.
-    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-1024} \"$$SERVER_ENTRYPOINT\""]
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_ORCHESTRATOR_HEAP_MB:-6144} \"$$SERVER_ENTRYPOINT\""]
     deploy:
       resources:
-        # Budget, stated rather than inherited: parent 1024 + up to TWO concurrent children at 384 =
-        # 1792 MB of V8, leaving ~1.2g for native footprint across the tree. Deliberately provisional
-        # — the true concurrent maximum cannot be observed until the plane survives long enough to
-        # reach steady state, and establishing it is a gate on #16463 rather than a number guessed
-        # here. If it proves higher, the child ceiling comes down before the limit goes up.
+        # Budget, stated rather than inherited: parent 6144 + up to TWO concurrent children at 1024 =
+        # 8192 MB of V8, leaving ~3.8g for native footprint across the tree.
         #
-        # The container limit cannot be raised on its own. Node sizes its DEFAULT old-space from the
-        # cgroup, so a bigger container silently raises the implicit ceiling of every child that has
-        # no explicit one — which is the same leak in a different direction. The limit and both
-        # explicit ceilings only make sense together.
+        # These three numbers move TOGETHER and cannot be tuned independently. Node sizes its DEFAULT
+        # old-space from the cgroup, so raising the container alone silently raises the implicit
+        # ceiling of every child that has no explicit one — the same leak in a different direction.
+        # The limit, the parent ceiling, and `NEO_SUPERVISED_TASK_HEAP_MB` are one decision.
+        #
+        # ## Why these are sized for headroom rather than for the observed minimum
+        #
+        # The previous budget (3g / 1024 / 384) was derived as "2x the ~500 MB the daemon died at."
+        # That sample came from a plane crash-looping every ~3 minutes, which never reached steady
+        # state — hourly and daily tasks had never started at all, so the observation could not
+        # contain the maximum it was used to bound. A ceiling derived from a plane too broken to
+        # generate load is not a measurement of load.
+        #
+        # Deliberately generous while stability is the priority. Under-provisioning costs a crash
+        # loop, and a crash loop WIPES the orchestrator logs that would diagnose it — the failure
+        # destroys its own evidence, which is why the previous number could never be corrected from
+        # its own incidents. Over-provisioning costs reserved RAM on a host that has it: the Docker
+        # VM is 47g and the entire plane's caps summed to 7.2g against ~1.6g in actual use.
+        #
+        # Reducing these is an OPTIMIZATION, and it is gated on the plane running unbroken long
+        # enough to show a real steady-state maximum — not on the next incident. #16463 owns that
+        # measurement and now, for the first time, has a plane that can produce it.
         limits:
-          memory: 3g
+          memory: 12g
           cpus: "1.0"
 
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
