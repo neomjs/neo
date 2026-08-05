@@ -328,7 +328,7 @@ class HealthService extends Base {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
             database : {
-                process: DatabaseLifecycleService.getDatabaseStatus(),
+                process   : DatabaseLifecycleService.getDatabaseStatus(),
                 connection: {
                     connected  : false,
                     collections: null
@@ -337,9 +337,9 @@ class HealthService extends Base {
             features: {
                 embedding: false
             },
-            details: [],
-            version: process.env.npm_package_version || '1.0.0',
-            uptime : process.uptime(),
+            details         : [],
+            version         : process.env.npm_package_version || '1.0.0',
+            uptime          : process.uptime(),
             runtimeFreshness: await this.resolveRuntimeFreshness()
         };
 

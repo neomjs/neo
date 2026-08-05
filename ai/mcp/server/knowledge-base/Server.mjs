@@ -1,11 +1,12 @@
-import BaseServer                       from '../BaseServer.mjs';
-import aiConfig                         from './config.mjs';
-import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
-import logger                           from './logger.mjs';
-import DatabaseService                  from '../../../services/knowledge-base/DatabaseService.mjs';
-import HealthService                    from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService                from '../../../services/knowledge-base/KBRecorderService.mjs';
-import {listTools, callTool}            from './toolService.mjs';
+import BaseServer                             from '../BaseServer.mjs';
+import aiConfig                               from './config.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS}       from './configBase.mjs';
+import logger                                 from './logger.mjs';
+import DatabaseService                        from '../../../services/knowledge-base/DatabaseService.mjs';
+import HealthService                          from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService                      from '../../../services/knowledge-base/KBRecorderService.mjs';
+import {listTools, callTool}                  from './toolService.mjs';
+import {describeCollectionStats, STATS_LEVEL} from './describeCollectionStats.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.
@@ -177,12 +178,13 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logCollectionStats(health) {
-        const knowledgeBase = health.database.connection.collections?.knowledgeBase;
+        // The decision lives in `describeCollectionStats` so it can be witnessed without standing up
+        // an MCP server; this method owns only the forwarding. Reviewers asked for proof that the
+        // replacement instrument fires, and a decision reachable only through a class boot is a
+        // decision nothing asserts.
+        const {level, lines} = describeCollectionStats(health.database.connection.collections?.knowledgeBase);
 
-        if (knowledgeBase) {
-            const suffix = knowledgeBase.exists ? knowledgeBase.count : 'unavailable';
-            logger.info(`   - Knowledge Base: ${suffix}`);
-        }
+        lines.forEach(line => level === STATS_LEVEL.warn ? logger.warn(line) : logger.info(line));
     }
 }
 
