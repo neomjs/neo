@@ -349,6 +349,11 @@ test.describe('corpus lanes are owned by the role that can run them (#16554)', (
 
         expect(onEdge.scheduled).toHaveLength(0);
 
+        // Length-asserted BEFORE the loop, or the loop below is vacuous: a `disabled: []` would
+        // delete the assertion while the suite stayed green — which is this PR's own defect class
+        // (a check that passes because it never ran) reproduced inside its own guard.
+        expect(onEdge.disabled).toHaveLength(CORPUS_LANES.length);
+
         // The load-bearing half. host-edge declining is fine ONLY while the owner it names is a
         // different, live role — if this ever resolves back to `host-edge`, the lane is declined by
         // its own declared owner and nothing runs it.

@@ -301,10 +301,20 @@ heartbeat redundant).
 `orchestrator.localOnly` to `orchestrator.cloudOnly`, so `null` resolves to the deployment-profile
 default on the role that now owns them. Env names are unchanged.
 
-**Revalidation trigger:** if a durable non-containerized maintainer scheduler is reinstated, or the
-container ceases to be built from the repo (e.g. a slim runtime image without `resources/content`),
-re-derive both classifications — the container-as-checkout premise is what this rests on, and it is
-as mortal as the one it replaced.
+**What actually enables the lanes, which is not the classification.** `cloudOnly` + `leaf(null)`
+resolves through `resolveCloudOnlyDefault(configValue, deploymentMode)`, and on the container plane
+`NEO_AI_DEPLOYMENT_MODE` is **unset** — so enablement rests on `deploymentMode`'s own leaf default
+being `'cloud'`. Setting that variable explicitly to a non-cloud value on a containerized plane
+takes both corpus lanes dark again, silently, with every ownership gate green. Found by
+`@neo-opus-vega` while trying to prove the reclassification inert; it is a property of the
+resolution chain, not of the class map, and no spec on the class map can see it.
+
+**Revalidation trigger:** re-derive both classifications if any of these change — (a) a durable
+non-containerized maintainer scheduler is reinstated; (b) the container ceases to be built from the
+repo (e.g. a slim runtime image without `resources/content`); (c) `deploymentMode`'s leaf default
+stops being `'cloud'`, or a containerized deployment sets `NEO_AI_DEPLOYMENT_MODE` explicitly. The
+container-as-checkout premise is what (a) and (b) rest on and it is as mortal as the one it
+replaced; (c) is the quieter one, because it disables the lanes without contradicting anything.
 
 ## 9. Status / Lifecycle
 
