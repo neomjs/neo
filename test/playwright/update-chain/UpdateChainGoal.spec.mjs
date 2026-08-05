@@ -148,14 +148,19 @@ test.describe('the Epic goal bar: a plane reaches the exact merged cohort with n
     test('the chain is not yet composable, and the failure names which legs are missing', async () => {
         const {missing, present} = await surveyLegs();
 
-        // Red-first bookkeeping, asserted rather than assumed. Set-equality on the KEYS, not a count, so a
-        // leg landing flips this assertion and names itself rather than sliding past a number. The baseline
-        // is three because three surfaces are on `dev` today — the previous baseline of one was produced by
-        // a short-circuited survey that could not have observed the other two, both of which had already
-        // merged when this scenario was written.
-        expect(present.map(leg => leg.key)).toEqual([
-            'admissibility-answerable',
+        // Red-first bookkeeping, asserted rather than assumed. SORTED before comparison, because `toEqual`
+        // on an array is ORDERED equality — the previous version claimed set-equality in this very comment
+        // and delivered positional equality, so reordering `CHAIN_LEGS` for readability would have failed a
+        // test whose subject is WHICH legs ship, not what order they are declared in. Proved by reordering,
+        // in review by @neo-opus-ada.
+        //
+        // Keys rather than a count, so a landing leg names itself instead of sliding past a number. The
+        // baseline is three because three surfaces are on `dev` today — the previous baseline of one came
+        // from a short-circuited survey that could not have observed the other two, both of which had
+        // already merged when this scenario was written.
+        expect(present.map(leg => leg.key).sort()).toEqual([
             'activation-sole-path',
+            'admissibility-answerable',
             'exact-revision-arrived'
         ]);
 
