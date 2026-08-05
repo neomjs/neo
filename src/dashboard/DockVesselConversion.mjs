@@ -22,10 +22,13 @@
  *   convert-out is its inverse. The design record's source-hook pair (`suspendWindowDrag` /
  *   `resumeWindowDrag`) is the contract-named actuator set a host binds the two seams to — the
  *   record's outcome machine gains NO state and needs NO amendment for this capability.
- * - **The pointer gate holds in BOTH directions.** Rect overlap alone never converts (intent stays
- *   pointer-owned: convert-in requires the pointer inside the target's dock-accepting region, the
- *   claim-protocol feed) — and rect overlap alone never HOLDS a conversion: the pointer leaving
- *   the target reverts at any ratio, so a stale claim can never pin a converted vessel.
+ * - **The pointer gate is asymmetric, deliberately.** Rect overlap alone never converts: intent
+ *   stays pointer-owned, so convert-in requires a LIVE claim on the target's dock-accepting region.
+ *   Convert-OUT is different — it requires an OBSERVED exit or a geometric retreat, never the mere
+ *   absence of a claim. A claim expires 300ms after its last refresh, and a stationary pointer
+ *   refreshes nothing, so an ordinary pause over the drop target used to un-convert a vessel that
+ *   had not moved at all. An un-converted vessel still cannot be pinned by a stale claim, because
+ *   convert-in kept its live-claim requirement.
  * - **The dead band IS the Schmitt trigger.** `convertThreshold` (in) sits strictly above
  *   `revertThreshold` (out), validated fail-loud; a decision fires only on crossing its OWN
  *   threshold, so the convert-in moment lies above the revert band by construction — the false-flip
@@ -221,15 +224,27 @@ export function createVesselConversionSensor(config = {}) {
          * convert-out on crossing below `revertThreshold` OR the pointer leaving the target.
          * Samples inside the dead band (gate unchanged) fire nothing — the hysteresis hold.
          * @param {Object} data
-         * @param {Boolean} data.pointerInTarget The claim-protocol feed: pointer inside the
-         *     target's dock-accepting region. Gates conversion in BOTH directions.
+         * @param {Boolean} data.pointerInTarget The claim-protocol feed: a LIVE claim on the
+         *     target's dock-accepting region. It answers "is there a live claim?", NOT "is the
+         *     pointer inside?" — a claim expires 300ms after its last refresh, and a stationary
+         *     pointer refreshes nothing. Gates convert-IN unconditionally; gates convert-OUT only
+         *     when `pointerExitedTarget` is absent.
+         * @param {Boolean} [data.pointerExitedTarget] TRI-STATE observed departure, and absence
+         *     fails SAFE. `true` is an observed exit and reverts at any ratio. `false` is an
+         *     observed still-inside and HOLDS the conversion through a lapsed claim — the only
+         *     state that suppresses the pause flicker. ABSENT (`undefined`/`null`) means the host
+         *     cannot distinguish a real exit from an expired claim, and falls back to the landed
+         *     contract where losing the claim reverts. Absence must never buy the permissive
+         *     reading: defaulting it to "not exited" would let rect overlap alone HOLD a
+         *     conversion for every caller not yet taught this signal, deleting the
+         *     both-directions gate by omission rather than by decision.
          * @param {Object} data.sourceRect Live `{x, y, width, height}` of the dragged vessel
          * @param {Object} data.targetRect Live `{x, y, width, height}` of the target vessel
          * @returns {Object} The sample record `{composed, converted, pointerInTarget, rx, ry,
          *     sourceRect, targetRect}`. While strict async admission is pending it additionally
          *     carries `transitioning: true`, and `converted` remains the prior admitted state.
          */
-        sample({pointerInTarget, sourceRect, targetRect} = {}) {
+        sample({pointerExitedTarget, pointerInTarget, sourceRect, targetRect} = {}) {
             // Invalid geometry DOMINATES: a missing, degenerate, or non-finite rect forces the
             // whole sample to zero WITHOUT consulting the composition seam — a degenerate axis
             // produces a valid-looking 0 ratio, and a non-min injected composer could elevate it
@@ -237,6 +252,33 @@ export function createVesselConversionSensor(config = {}) {
             const
                 measurable = isMeasurableRect(sourceRect) && isMeasurableRect(targetRect),
                 pointer    = pointerInTarget === true,
+                // A CONVERTED vessel reverts on a genuine exit, never on mere claim absence — but
+                // ONLY when the host can actually tell those apart.
+                //
+                // `pointerInTarget` is the claim arbiter's live resolution, and a claim expires
+                // `claimTtlMs` (300ms) after its last refresh. A stationary pointer fires no move
+                // events, so an ordinary human pause over the drop target lets the claim lapse
+                // while the vessel sits fully inside the target — measured: `composed` stays at
+                // 1.000 while `converted` flips true→false→true per pause. That is a user-visible
+                // convert/revert flicker on every hover, not a stale claim. `pointerInTarget`
+                // answers "is there a live claim?" while this decision needs "did the pointer
+                // leave?", and a lapsed timer is not a departure.
+                //
+                // So `pointerExitedTarget` is TRI-STATE, and absence fails SAFE rather than
+                // permissive. `true` is an observed exit and reverts. `false` is an observed
+                // still-inside — the flicker fix, and the only state that holds a conversion
+                // through a lapsed claim. ABSENT means the host cannot distinguish the two, and
+                // must never silently buy the permissive reading: it falls back to the landed
+                // contract where losing the claim reverts. Defaulting absence to "not exited"
+                // would let rect overlap alone HOLD a conversion for every caller that has not
+                // been taught the new signal — deleting the documented both-directions gate by
+                // omission rather than by decision.
+                //
+                // Convert-IN is deliberately unchanged and still demands a live claim, so a stale
+                // claim can never pin a vessel that was never converted.
+                exitObserved = pointerExitedTarget === true,
+                exitUnknown  = pointerExitedTarget === undefined || pointerExitedTarget === null,
+                exited       = exitObserved || (exitUnknown && !pointer),
                 rx         = measurable ? axisRatio(sourceRect, targetRect, 'x', 'width')  : 0,
                 ry         = measurable ? axisRatio(sourceRect, targetRect, 'y', 'height') : 0,
                 composed   = measurable ? clampRatio(composeRatios({rx, ry})) : 0;
@@ -244,12 +286,14 @@ export function createVesselConversionSensor(config = {}) {
             let event = null,
                 next  = converted;
 
+            // Convert-IN still requires a live claim: an un-converted vessel must never be pinned
+            // by a claim that is not currently valid.
             if (!transition && !converted) {
                 if (pointer && composed >= convertThreshold) {
                     event = onConvertIn;
                     next  = true
                 }
-            } else if (!transition && (!pointer || composed < revertThreshold)) {
+            } else if (!transition && (exited || composed < revertThreshold)) {
                 event = onConvertOut;
                 next  = false
             }
