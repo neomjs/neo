@@ -33,6 +33,15 @@
         }
     }
 
+    // Scoped to the ITEM, not the container, unlike its siblings above. `neo-transition-100` and
+    // `-1000` are added to the Helix element and cascade down; `neo-transition-600` is added to a
+    // single expanded clone (`Helix.applyItemTransitions` vs the clone paths in `Helix.mjs`), so a
+    // container-scoped `&.neo-transition-600` copy of the pattern above would match nothing — which
+    // is how this class stayed a silent no-op while looking like it had a rule.
+    .neo-helix-item.neo-transition-600 {
+        transition: all .6s ease-in-out;
+    }
+
     .container {
         display: flex;
     }

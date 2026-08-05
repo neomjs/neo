@@ -26,7 +26,7 @@ class Helix extends Component {
         ntype: 'helix',
         /**
          * The background color of the helix container
-         * @member {String} backgroundColor_='#000000'
+         * @member {String} backgroundColor_='#000000' ticket-ref-ok: hex colour, not an issue ref
          * @reactive
          */
         backgroundColor_: '#000000',
@@ -479,8 +479,14 @@ class Helix extends Component {
                     remove: []
                 }
             }).then(() => {
-                callback.apply(me, [callbackParam]);
-
+                // Awaited, not fire-and-forget. A transition can only START once the transform is
+                // applied, and the callback's work is unbounded — so a timer started here measures
+                // from the wrong event. Anchoring the window to the callback's completion means the
+                // class outlives the transform by construction rather than by winning a race: before
+                // the per-move layout heal was batched, the transform landed at 6780ms and the class
+                // was removed 13ms later, so the animation never ran.
+                return Promise.resolve(callback.apply(me, [callbackParam]))
+            }).then(() => {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
@@ -599,11 +605,11 @@ class Helix extends Component {
      * @protected
      */
     createItems(startIndex) {
-        let me    = this,
+        let me                                                                                           = this,
             {deltaY, itemAngle, matrix, radius, rotationAngle, translateX, translateY, translateZ, vdom} = me,
-            group = me.getItemsRoot(),
-            i     = startIndex || 0,
-            len   = Math.min(me.maxItems, me.store.count),
+            group                                                                                        = me.getItemsRoot(),
+            i                                                                                            = startIndex || 0,
+            len                                                                                          = Math.min(me.maxItems, me.store.count),
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
         if (!me.mounted) {
@@ -975,12 +981,12 @@ class Helix extends Component {
      * @protected
      */
     refresh() {
-        let me     = this,
-            deltas = [],
-            {deltaY, flipped, itemAngle, matrix, radius, rotationAngle, rotationMatrix, translateX, translateY, translateZ, vdom} = me,
-            index  = 0,
-            len    = Math.min(me.maxItems, me.store.getCount()),
-            angle, item, opacity, rotateY, transformStyle, vdomItem, c, s, x, y, z;
+        let me                                                                                                              = this,
+            deltas                                                                                                          = [],
+            {deltaY, flipped, itemAngle, matrix, radius, rotationAngle, rotationMatrix, translateX, translateY, translateZ} = me,
+            index                                                                                                           = 0,
+            len                                                                                                             = Math.min(me.maxItems, me.store.getCount()),
+            angle, item, opacity, rotateY, transformStyle, c, s, x, y, z;
 
         if (flipped) {
             rotateY = Matrix.rotateY(180 * Math.PI / 180);
@@ -995,8 +1001,7 @@ class Helix extends Component {
         }
 
         for (; index < len; index++) {
-            item     = me.store.getAt(index);
-            vdomItem = vdom.cn[0].cn[0].cn[index];
+            item = me.store.getAt(index);
 
             angle = -rotationAngle + index * itemAngle;
 
@@ -1043,7 +1048,10 @@ class Helix extends Component {
             })
         }
 
-        Neo.applyDeltas(me.windowId, deltas)
+        // Returned so callers can anchor work to the transform actually being applied. `sortItems`
+        // relies on this to hold the transition window open past the transform rather than past a
+        // wall-clock timer started before it.
+        return Neo.applyDeltas(me.windowId, deltas)
     }
 
     /**
@@ -1056,34 +1064,33 @@ class Helix extends Component {
     /**
      *
      */
+    /**
+     * @summary Applies the post-sort transforms. Reordering is NOT done here.
+     *
+     * `data.Store` re-fires a sort as a `load` (`Store.onCollectionSort`), and this component binds
+     * both events — so a single sort already drives {@link Helix#onStoreLoad}, which rebuilds the item
+     * vdom in the new order and lets the differ reorder the DOM. This method used to hand-write one
+     * `moveNode` delta per item on top of that, giving every sort two independent reorder passes over
+     * the same nodes: ~1176 moves where 590 suffice, on 590 items. Node reordering is the expensive
+     * operation in this component; the transform updates below are not.
+     *
+     * The manual pass was also the reason the vdom and the real DOM diverged across a sort — it moved
+     * nodes through `Neo.applyDeltas`, which the differ never sees.
+     *
+     * @returns {Promise<*>} Resolves once the transform deltas have been applied — the caller uses this
+     * to anchor the transition window to the transform, not to a wall-clock guess.
+     */
     sortItems() {
-        let me       = this,
-            deltas   = [],
-            parentId = me.vdom.cn[0].cn[0].id,
-            i        = 0,
-            len      = Math.min(me.maxItems, me.store.getCount());
-
-        for (; i < len; i++) {
-            deltas.push({
-                action: 'moveNode',
-                id    : me.getItemVnodeId(me.getRecordId(me.store.getAt(i))),
-                index : i,
-                parentId
-            })
-        }
-
-        Neo.applyDeltas(me.windowId, deltas).then(() => {
-            me.refresh()
-        });
+        return this.refresh()
     }
 
     /**
      * @protected
      */
     updateCloneTranslate() {
-        let me           = this,
-            afterDeltas  = [],
-            deltas       = [],
+        let me          = this,
+            afterDeltas = [],
+            deltas      = [],
             timeoutId, transform;
 
         if (me.clonedItems.length > 0) {
