@@ -296,6 +296,24 @@ export const STAGE_FAILURE_CLASS = Object.freeze({
 });
 
 /**
+ * @summary Auth-failure evidence inside a child process's combined output.
+ *
+ * The numeric codes carry an HTTP-ish context requirement. A bare `\b(401|403)\b` also matches the
+ * LINE NUMBER of a stack frame — `at run (/repo/buildScripts/dataSyncPipeline.mjs:401:9)` — because
+ * `:` is a non-word character on both sides. stderr folds into `error.message` at the spawn site, so
+ * a stack trace is the ORDINARY content of this string rather than an edge case, and the misread would
+ * land on the one class this classifier exists to stop over-claiming. Found in review by
+ * @neo-opus-vega.
+ *
+ * The word forms carry the observed GitHub and git failures — `Bad credentials` from the API and
+ * `permission denied` from a push. Anything outside both sets stays `unrecognized`, which remains the
+ * honest verdict: a wrong lead costs more than an absent one.
+ * @type {RegExp}
+ */
+const AUTH_FAILURE_PATTERN =
+    /\bHTTP\/?\d(?:\.\d)?\s+(?:401|403)\b|\bstatus(?:\s+code)?\s*[:=]?\s*(?:401|403)\b|\b(?:401|403)\s+(?:Unauthorized|Forbidden)\b|authentication|credentials|unauthorized|permission denied|Bad credentials/iu;
+
+/**
  * @summary Classifies a failed stage's error from what it actually reports — never from the
  * stage's declared scope, which says what the stage was ENTITLED to and nothing about why it died.
  *
@@ -316,7 +334,7 @@ export function classifyStageFailure(error) {
     if (code === 'ENOENT') {
         return STAGE_FAILURE_CLASS.entrypoint;
     }
-    if (/\b(401|403)\b|authentication|credentials|unauthorized|permission denied|Bad credentials/iu.test(text)) {
+    if (AUTH_FAILURE_PATTERN.test(text)) {
         return STAGE_FAILURE_CLASS.authentication;
     }
 

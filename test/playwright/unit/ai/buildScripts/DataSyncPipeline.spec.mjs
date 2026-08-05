@@ -637,6 +637,36 @@ test.describe('tokenScope validation fails closed', () => {
 
         expect(classifyStageFailure(mixed)).toBe(STAGE_FAILURE_CLASS.dependency)
     });
+
+    test('a stack-frame LINE NUMBER of 401 or 403 is not an auth failure', () => {
+        // stderr folds into `error.message` at the spawn site, so a stack trace is the ordinary
+        // content of the classified string. A bare `\b(401|403)\b` matches `:401:` — `:` is a
+        // non-word character on both sides — so an unrelated crash deep in a long file would have
+        // led with AUTHENTICATION, which is the exact over-claim this classifier exists to end.
+        // Found in review by @neo-opus-vega.
+        const lineNumbered = new Error(
+            'TypeError: Cannot read properties of undefined (reading \'push\')\n' +
+            '    at emitCorpus (/repo/buildScripts/dataSyncPipeline.mjs:401:9)\n' +
+            '    at async run (/repo/buildScripts/dataSyncPipeline.mjs:403:5)'
+        );
+
+        expect(classifyStageFailure(lineNumbered)).toBe(STAGE_FAILURE_CLASS.unrecognized);
+        expect(describeStageFailure(lineNumbered)).not.toContain('AUTHENTICATION')
+    });
+
+    test('a 401 or 403 in HTTP context IS still auth — the narrowing did not delete the capability', () => {
+        // Positive control for the test above. Without it, deleting the numeric half entirely would
+        // pass the line-number witness while silently dropping every code-only auth failure.
+        const codes = [
+            new Error('request failed: HTTP/1.1 401'),
+            new Error('github api responded with status: 403'),
+            new Error('remote returned 403 Forbidden')
+        ];
+
+        for (const error of codes) {
+            expect(classifyStageFailure(error), error.message).toBe(STAGE_FAILURE_CLASS.authentication)
+        }
+    });
 });
 
 /**
