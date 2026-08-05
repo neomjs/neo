@@ -402,11 +402,15 @@ test.describe('Tier 1 Config Immutability', () => {
             swarmHeartbeatMs                 : 20 * 60 * 1000,
             embedDrainLivenessWatchdogCheckMs: 60 * 60 * 1000
         });
+        // `kbSyncEnabled` and `temporalSummaryEnabled` are deliberately ABSENT here and asserted
+        // under `cloudOnly` below. Both scan the Neo repo's own corpus, which used to mean the
+        // maintainer's local checkout and now means the container image — so a `localOnly` leaf
+        // resolved to disabled on the only role left that can run them, and the Knowledge Base sat
+        // with no producer. This exhaustive `toEqual` is what caught the move, which is the reason
+        // to keep it exhaustive rather than relax it to `toMatchObject`.
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled          : null,
-            kbSyncEnabled                  : null,
             githubWorkflowSyncEnabled      : false,
-            temporalSummaryEnabled         : null,
             chromaDaemonEnabled            : null,
             bridgeDaemonEnabled            : false,
             neuralLinkBridgeEnabled        : null,
@@ -416,6 +420,11 @@ test.describe('Tier 1 Config Immutability', () => {
             swarmHeartbeatEnabled          : false,
             wakeDispatchEnabled            : null
         });
+        // The corpus-producing lanes. `null` here resolves to the deployment-profile default the
+        // OPPOSITE way from `localOnly` — cloud enables, local opts in — which is what puts them on
+        // the role that owns them.
+        expect(Config.orchestrator.cloudOnly.kbSyncEnabled).toBe(null);
+        expect(Config.orchestrator.cloudOnly.temporalSummaryEnabled).toBe(null);
         expect(Config.orchestrator.devServer).toEqual({
             enabled               : null,
             port                  : 8080,
