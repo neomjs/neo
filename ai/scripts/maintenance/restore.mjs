@@ -176,6 +176,7 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox', 'ledgers'];
  * @param {String[]}[options.filterLabels=[]]              Per-incident customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
  * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
  * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox','ledgers']`). Null = all (existing behavior).
+ * @param {String}  [options.targetCollection=null]        **Disposable KB target.** Null (default) restores the KB substrate into the CANONICAL collection resolved from config — the production corpus. A name redirects it into a disposable collection instead, which is what makes a restore observable without writing to live data. The name is guarded: canonical collections are UNREACHABLE through it, with no confirmation token, because a bypass would rebuild the hazard the override removes. Redirects the `kb` substrate ONLY, so `parseArgs` requires `--only-substrate=kb` alongside it and refuses `--mode replace` (replace truncates the canonical collection). **Do not assume a wider capability than this line states** — assuming a target override already existed, when none did, is what made a restore defect unreproducible without writing to production.
  * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
  * @param {Boolean} [options.preserveReadState=false]      Selects the read-state policy for a `'replace'` graph restore, because the two operations that share this CLI need opposite ones. `false` (default) is DISASTER RECOVERY: the bundle is reproduced exactly, and mailbox read receipts committed after the bundle was captured are discarded with everything else. `true` is an OPERATIONAL RE-SEED: committed `DELIVERED_TO` `readAt`/`archivedAt` are captured inside the truncate transaction and re-applied wherever the bundle left them null, so acknowledged `mark_read` writes survive rebuilding the graph from a lagged snapshot. Only null-in-bundle rows are touched, so a fresher bundle is never regressed. No-op under `'merge'`, which never truncates. Forwarded as `preserveDeliveryReadState`.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
@@ -196,6 +197,7 @@ export async function runRestore({
     onlySubstrate           = null,
     postRestoreHook         = null,
     preserveReadState       = false,
+    targetCollection        = null,
     expectedDimension       = AiConfig.vectorDimension,
     logger                  = console
 } = {}) {
@@ -281,11 +283,16 @@ export async function runRestore({
     logger.log('[4/6] Restoring embedded substrates (KB, MC memories+summaries, MC graph)...');
 
     if (shouldRestore('kb') && await fs.pathExists(layout.kb)) {
+        if (targetCollection !== null) {
+            logger.log(`[4/6] KB target redirected to disposable collection '${targetCollection}' — the canonical collection is not written.`);
+        }
+
         subsystems.kb = await KB_DatabaseService.manageDatabaseBackup({
             action: 'import',
             file  : layout.kb,
             mode,
-            confirmation
+            confirmation,
+            targetCollection
         });
     }
 
@@ -1639,6 +1646,12 @@ const NAMED_OPERATIONS = {
  *
  * Shape: `node ./ai/scripts/maintenance/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]`
  *
+ * Diagnostic shape: `<bundle-path> --mode merge --only-substrate=kb --target-collection=<disposable-name>`
+ * — restores KB into a throwaway collection so a restore can be exercised without writing to the
+ * live corpus. The three arguments are co-required by construction: the override refuses canonical
+ * names, refuses `replace`, and refuses to run without the substrate restriction, so a
+ * half-diagnostic run that quietly writes production is not expressible.
+ *
  * @param {String[]} argv `process.argv.slice(2)`-style.
  * @returns {Object}
  */
@@ -1658,6 +1671,7 @@ export function parseArgs(argv) {
     let   onlySubstrate         = null;
     let   postRestoreHook       = null;
     let   preserveReadState     = false;
+    let   targetCollection      = null;
 
     const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 
@@ -1691,6 +1705,10 @@ export function parseArgs(argv) {
             postRestoreHook = arg.slice('--post-restore-hook='.length);
         } else if (arg === '--preserve-read-state') {
             preserveReadState = true;
+        } else if (arg === '--target-collection') {
+            targetCollection = argv[++i];
+        } else if (arg.startsWith('--target-collection=')) {
+            targetCollection = arg.slice('--target-collection='.length);
         } else if (arg.startsWith('--')) {
             throw new Error(`Unknown flag: ${arg}`);
         } else {
@@ -1703,6 +1721,34 @@ export function parseArgs(argv) {
     }
     if (positional.length > 1) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
+    }
+
+    // `--target-collection` redirects the KB substrate ONLY — no other substrate has a
+    // collection-target override. Left unrestricted, `restore.mjs <bundle> --target-collection=x`
+    // would send KB somewhere disposable while MC, the graph, concepts and trajectories all
+    // landed in PRODUCTION, under a flag whose whole purpose is to avoid touching production.
+    // That is a worse failure than the missing capability this flag closes, because the operator
+    // has been told the run is diagnostic. Requiring the substrate restriction makes the partial
+    // redirect inexpressible rather than merely documented.
+    if (targetCollection !== null) {
+        if (targetCollection.startsWith('--') || targetCollection.trim() === '') {
+            throw new Error('--target-collection requires a collection name.');
+        }
+        if (onlySubstrate === null || onlySubstrate.length !== 1 || onlySubstrate[0] !== 'kb') {
+            throw new Error(
+                `--target-collection only redirects the 'kb' substrate, so it requires ` +
+                `--only-substrate=kb. Without that restriction the other substrates would still ` +
+                `be restored into PRODUCTION while KB went to '${targetCollection}' — a partial ` +
+                `redirect under a flag that implies the run touches nothing live.`
+            );
+        }
+        if (stated.mode === 'replace' || mode === 'replace') {
+            throw new Error(
+                `--target-collection cannot be combined with --mode replace: replace truncates the ` +
+                `CANONICAL collection, so the run would empty production while importing into ` +
+                `'${targetCollection}'. A freshly created disposable collection is already empty.`
+            );
+        }
     }
 
     // A named operation PINS its defining arguments and refuses contradiction. It does not merely
@@ -1731,7 +1777,7 @@ export function parseArgs(argv) {
         ({mode = mode, onlySubstrate = onlySubstrate, preserveReadState = preserveReadState} = {...op.pins});
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState, operation}
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook, preserveReadState, operation, targetCollection}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

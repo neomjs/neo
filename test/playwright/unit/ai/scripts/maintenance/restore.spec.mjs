@@ -379,8 +379,14 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('parseArgs: positional bundle path + --mode + --force + --force-topology-mismatch', () => {
-        // parseArgs return shape grew over time: filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook.
-        // Defaults preserved when those flags are absent (covered separately in restore-filters.spec.mjs).
+        // parseArgs return shape grew over time: filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook,
+        // and targetCollection. Defaults preserved when those flags are absent (covered separately in
+        // restore-filters.spec.mjs and restoreDisposableTarget.spec.mjs).
+        //
+        // Kept as exhaustive `toEqual` rather than relaxed to `toMatchObject` when targetCollection was
+        // added: this assertion going red on a new key is the feature. `targetCollection` defaulting to
+        // anything but null would silently redirect every restore, so a shape pin that CANNOT notice a
+        // new default is exactly the wrong trade here.
         expect(parseArgs(['/some/bundle'])).toEqual({
             bundleRoot           : '/some/bundle',
             mode                 : 'merge',
@@ -391,7 +397,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             onlySubstrate        : null,
             postRestoreHook      : null,
             preserveReadState    : false,
-            operation            : null
+            operation            : null,
+            targetCollection     : null
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -403,7 +410,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             onlySubstrate        : null,
             postRestoreHook      : null,
             preserveReadState    : false,
-            operation            : null
+            operation            : null,
+            targetCollection     : null
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
@@ -415,7 +423,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             onlySubstrate        : null,
             postRestoreHook      : null,
             preserveReadState    : false,
-            operation            : null
+            operation            : null,
+            targetCollection     : null
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);

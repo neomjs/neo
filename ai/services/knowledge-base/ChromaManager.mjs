@@ -3,6 +3,7 @@ import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs
 import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
 import Base                     from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import {assertDisposableRestoreTarget} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -118,6 +119,43 @@ class ChromaManager extends Base {
      * @private
      */
     #executeSilently = createSilentExecutor()
+
+    /**
+     * @summary Resolves a DISPOSABLE (non-canonical) collection, creating it if absent.
+     *
+     * Exists so a restore can be exercised against something throwaway. Every property worth
+     * testing about a restore requires performing one, and until this path existed the only
+     * reachable target was the live canonical collection, which made the restore tool unusable
+     * for diagnosing itself.
+     *
+     * Three deliberate differences from {@link ChromaManager#getKnowledgeBaseCollection}:
+     *
+     * 1. **Guarded.** The name is passed through `assertDisposableRestoreTarget`, so a canonical
+     *    collection is unreachable through this method rather than merely discouraged.
+     * 2. **Not cached.** `_knowledgeBaseCollectionPromise` memoizes the one canonical collection
+     *    for the process; a disposable target is per-experiment and caching it would hand a later
+     *    caller a handle to a collection named for an earlier run.
+     * 3. **No swap-window resolver.** `#resolveKnowledgeBaseCollection`'s `KB_COLLECTION_SWAP_IN_PROGRESS`
+     *    logic protects the canonical name while a shadow promotion holds it. A disposable name is
+     *    never a promotion target, so that machinery would be dead weight here.
+     *
+     * Uses the same `dummyEmbeddingFunction` as the canonical collection, because a restore
+     * carries its own vectors and must not trigger re-embedding — a disposable target that
+     * re-embedded would measure a different write path than the one under investigation.
+     *
+     * @param {Object} options
+     * @param {String} options.name Disposable collection name; must not be canonical.
+     * @returns {Promise<Object>} The Chroma collection handle.
+     * @throws {DisposableRestoreTargetError} When `name` is a canonical collection.
+     */
+    async getDisposableCollection({name} = {}) {
+        const targetName = assertDisposableRestoreTarget({name});
+
+        return await this.client.getOrCreateCollection({
+            name             : targetName,
+            embeddingFunction: aiConfig.dummyEmbeddingFunction
+        })
+    }
 
     /**
      * @returns {Promise<Object>}
