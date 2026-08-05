@@ -189,12 +189,18 @@ export function resolveHeavyMaintenanceLeasePath({heavyMaintenanceLeasePath, dat
 /**
  * @summary Clears all dedupe keys for a task once it is no longer deferred.
  *
+ * Also ends the task's deferral STREAK, because "no longer deferred" is exactly the streak
+ * boundary — a task that ran is a task that was not starved.
+ *
  * @param {Object} options
  * @param {Set<String>} options.deferralLogKeys Caller-owned dedup Set.
+ * @param {Map<String,String>} [options.deferralStreakStarts] Caller-owned `taskName -> ISO` streak map.
  * @param {String} options.taskName Stable orchestrator task name.
  * @returns {void}
  */
-export function clearDeferralLogState({deferralLogKeys, taskName}) {
+export function clearDeferralLogState({deferralLogKeys, deferralStreakStarts, taskName}) {
+    deferralStreakStarts?.delete(taskName);
+
     if (!deferralLogKeys) return;
     const prefix = `${taskName}:`;
     for (const key of deferralLogKeys) {
@@ -230,6 +236,7 @@ export function clearDeferralLogState({deferralLogKeys, taskName}) {
  */
 export function recordDeferral({
     deferralLogKeys,
+    deferralStreakStarts = null,
     taskName,
     reasonCode,
     reasonText,
@@ -266,11 +273,32 @@ export function recordDeferral({
         deferralLogKeys.add(dedupKey);
     }
 
+    // `deferredAt` is THIS poll. `deferredSince` is the start of the unbroken streak, and the two
+    // answer different questions — which is why an 8.5-hour backup starvation was invisible: every
+    // poll truthfully reported a deferral seconds old, and nothing accumulated them.
+    //
+    // ⚠️ Keyed on the STARVED TASK, deliberately NOT on `dedupKey`. The dedup key carries the
+    // holder (`lease-held-by-<owner>`), so a streak keyed on it restarts whenever the holder
+    // rotates — and rotation is exactly what happened: tenant-repo-sync → summary →
+    // tenant-repo-sync, three "fresh" deferrals covering one continuous 8.5-hour starvation. The
+    // streak must survive a change of blocker, because the consumer is asking how long THIS task
+    // has been unable to run, not who most recently prevented it.
+    if (deferralStreakStarts && !deferralStreakStarts.has(taskName)) {
+        deferralStreakStarts.set(taskName, new Date().toISOString());
+    }
+
     const outcomePayload = {
         reason    : reasonText,
         reasonCode,
         deferredAt: new Date().toISOString()
     };
+
+    // Absent map (direct pure-function callers that pass no streak state) reports no streak rather
+    // than a falsely-fresh one — an unmeasured streak must not read as a just-started one.
+    const deferredSince = deferralStreakStarts?.get(taskName);
+    if (deferredSince) {
+        outcomePayload.deferredSince = deferredSince;
+    }
     if (isLeaseHeld) {
         outcomePayload.holdingOwner = holderOwner;
         outcomePayload.holdingPid   = holdingLease?.pid;
@@ -377,6 +405,18 @@ export class MaintenanceBackpressureService extends Base {
      * @member {Set<String>} deferralLogKeys
      */
     deferralLogKeys = new Set()
+
+    /**
+     * Per-instance `taskName -> ISO timestamp` map recording when each task's CURRENT unbroken
+     * deferral streak began. Entries are created on a task's first deferral and removed by
+     * {@link MaintenanceBackpressureService#clearDeferralLogState} when it runs.
+     *
+     * Separate from {@link MaintenanceBackpressureService#deferralLogKeys} because that Set is keyed
+     * per blocker (`<task>:lease-held-by-<owner>`) for log dedup, and a streak must survive the
+     * blocker changing — see the note in `recordDeferral`.
+     * @member {Map<String,String>} deferralStreakStarts
+     */
+    deferralStreakStarts = new Map()
 
     /**
      * Epoch ms until which heavy-maintenance is shed (deferred). `0` = no active window. Set by the `throttle-shed`
@@ -508,7 +548,11 @@ export class MaintenanceBackpressureService extends Base {
      * @returns {void}
      */
     clearDeferralLogState(taskName) {
-        clearDeferralLogState({deferralLogKeys: this.deferralLogKeys, taskName});
+        clearDeferralLogState({
+            deferralLogKeys     : this.deferralLogKeys,
+            deferralStreakStarts: this.deferralStreakStarts,
+            taskName
+        });
     }
 
     /**
@@ -522,15 +566,16 @@ export class MaintenanceBackpressureService extends Base {
      */
     recordDeferral({taskName, reasonCode, reasonText, blockingTaskName = null, holdingLease = null}) {
         recordDeferral({
-            deferralLogKeys: this.deferralLogKeys,
+            deferralLogKeys     : this.deferralLogKeys,
+            deferralStreakStarts: this.deferralStreakStarts,
             taskName,
             reasonCode,
             reasonText,
             blockingTaskName,
             holdingLease,
-            taskDefinitions: this.taskDefinitions,
-            writeLog       : this.writeLog,
-            healthService  : this.healthService
+            taskDefinitions     : this.taskDefinitions,
+            writeLog            : this.writeLog,
+            healthService       : this.healthService
         });
     }
 

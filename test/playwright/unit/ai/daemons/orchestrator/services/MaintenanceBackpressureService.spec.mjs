@@ -778,4 +778,136 @@ test.describe('MaintenanceBackpressureService — shed-window (#14284 throttle-s
         expect(called).toBe(true);    // light task ran despite the active shed-window
         expect(result).toBe('ran');
     });
+
+    // ====================================================================
+    // A deferral STREAK is measurable, and survives the blocker changing
+    //
+    // The defect: an 8.5-hour backup starvation reported `healthy` throughout, because every poll
+    // truthfully recorded a `deferredAt` seconds old and nothing accumulated them. `deferredAt`
+    // answers "when was the most recent deferral"; the consumer needs "how long has this task been
+    // unable to run". The second question had no answer anywhere in the daemon.
+    // ====================================================================
+
+    test('recordDeferral stamps deferredSince on the first deferral and holds it across polls', () => {
+        const deferralLogKeys      = new Set(),
+              deferralStreakStarts = new Map(),
+              outcomeCalls         = [],
+              healthService        = {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})};
+
+        const defer = () => recordDeferral({
+            deferralLogKeys, deferralStreakStarts, healthService,
+            taskName    : 'backup',
+            reasonCode  : 'heavy-maintenance-lease-held',
+            reasonText  : 'periodic-sweep:60000',
+            holdingLease: {owner: 'tenant-repo-sync', pid: 1}
+        });
+
+        defer();
+        const first = outcomeCalls[0].p.deferredSince;
+        expect(first).toBeTruthy();
+
+        defer();
+        defer();
+
+        // Same streak start on every later poll — otherwise the value is just `deferredAt` again
+        // under a different name, which is precisely the bug.
+        expect(outcomeCalls).toHaveLength(3);
+        expect(outcomeCalls[1].p.deferredSince).toBe(first);
+        expect(outcomeCalls[2].p.deferredSince).toBe(first);
+    });
+
+    test('the streak SURVIVES a change of blocker — the property that made 8.5h invisible', () => {
+        const deferralLogKeys      = new Set(),
+              deferralStreakStarts = new Map(),
+              outcomeCalls         = [],
+              healthService        = {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})};
+
+        const deferHeldBy = owner => recordDeferral({
+            deferralLogKeys, deferralStreakStarts, healthService,
+            taskName    : 'backup',
+            reasonCode  : 'heavy-maintenance-lease-held',
+            reasonText  : 'periodic-sweep:60000',
+            holdingLease: {owner, pid: 1}
+        });
+
+        // The real rotation: tenant-repo-sync -> summary -> tenant-repo-sync, one continuous
+        // starvation. `dedupKey` embeds the holder, so a streak keyed on it would restart three
+        // times and report three fresh deferrals — which is what actually happened.
+        deferHeldBy('tenant-repo-sync');
+        const streakStart = outcomeCalls[0].p.deferredSince;
+
+        deferHeldBy('summary');
+        deferHeldBy('tenant-repo-sync');
+
+        expect(outcomeCalls[1].p.deferredSince).toBe(streakStart);
+        expect(outcomeCalls[2].p.deferredSince).toBe(streakStart);
+        // Control: the holder really did change, so this is not passing because the rotation was a no-op.
+        expect(outcomeCalls.map(c => c.p.holdingOwner)).toEqual(['tenant-repo-sync', 'summary', 'tenant-repo-sync']);
+        // And the dedup keys really did diverge, which is what a dedupKey-based streak would have split on.
+        expect(deferralLogKeys.size).toBe(2);
+    });
+
+    test('running the task ENDS the streak, so a later deferral starts a new one', () => {
+        const deferralLogKeys      = new Set(),
+              deferralStreakStarts = new Map(),
+              outcomeCalls         = [],
+              healthService        = {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})};
+
+        const defer = () => recordDeferral({
+            deferralLogKeys, deferralStreakStarts, healthService,
+            taskName    : 'backup',
+            reasonCode  : 'heavy-maintenance-lease-held',
+            reasonText  : 'periodic-sweep:60000',
+            holdingLease: {owner: 'tenant-repo-sync', pid: 1}
+        });
+
+        defer();
+        expect(deferralStreakStarts.has('backup')).toBe(true);
+
+        // The streak boundary is "the task ran", which is exactly what clearDeferralLogState marks.
+        clearDeferralLogState({deferralLogKeys, deferralStreakStarts, taskName: 'backup'});
+        expect(deferralStreakStarts.has('backup')).toBe(false);
+
+        defer();
+
+        // A task that ran and is later deferred again is NOT still starved from before — otherwise a
+        // resolved starvation reports forever and the signal gets ignored.
+        //
+        // Asserted as a STATE transition rather than timestamp inequality: two deferrals inside one
+        // millisecond produce identical `toISOString()` values, so `not.toBe` on the strings fails
+        // for a clock-resolution reason that has nothing to do with the property. (It did, on the
+        // first run of this spec.) What matters is that the entry was deleted and RE-CREATED, and
+        // that the emitted value is read live from the map rather than carried over in a payload.
+        expect(deferralStreakStarts.has('backup')).toBe(true);
+        expect(outcomeCalls[1].p.deferredSince).toBe(deferralStreakStarts.get('backup'));
+        expect(outcomeCalls).toHaveLength(2);
+    });
+
+    test('clearDeferralLogState scopes the streak reset to its own task', () => {
+        const deferralStreakStarts = new Map([['backup', 'A'], ['kbSync', 'B']]);
+
+        clearDeferralLogState({deferralLogKeys: new Set(), deferralStreakStarts, taskName: 'backup'});
+
+        // Positive control on the same call: clearing one task must not clear a co-starved sibling.
+        expect(deferralStreakStarts.has('backup')).toBe(false);
+        expect(deferralStreakStarts.get('kbSync')).toBe('B');
+    });
+
+    test('no streak map ⇒ NO deferredSince, rather than a falsely-fresh one', () => {
+        const outcomeCalls  = [],
+              healthService = {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})};
+
+        recordDeferral({
+            deferralLogKeys: new Set(), healthService,
+            taskName       : 'backup',
+            reasonCode     : 'heavy-maintenance-lease-held',
+            reasonText     : 'periodic-sweep:60000',
+            holdingLease   : {owner: 'tenant-repo-sync', pid: 1}
+        });
+
+        // An unmeasured streak must be absent, never stamped with `now` — a consumer reading a
+        // just-started streak would conclude the task is fine, which is worse than no field.
+        expect(outcomeCalls[0].p.deferredSince).toBeUndefined();
+        expect(outcomeCalls[0].p.deferredAt).toBeTruthy();
+    });
 });
