@@ -993,6 +993,11 @@ export async function verifyLatestBackupRestorable({
  * @param {Function}  options.validateFn Bundle validator seam.
  * @param {String}    options.checkedAt Shared ISO timestamp for the whole walk.
  * @returns {Promise<Object>} `RESTORABLE`, `BUNDLE_EMPTY`, or `BUNDLE_INVALID` for this bundle alone.
+ *     `collectionCounts` and `emptyCollections` are present on EVERY return, and are `null` on the
+ *     paths where nothing could be measured (`BUNDLE_INVALID` / `BUNDLE_UNVERIFIABLE`). `null` and
+ *     `[]` are different answers: `[]` means the collections were counted and none were empty,
+ *     `null` means the question was never answered. Omitting them on the unmeasured paths made
+ *     `result.emptyCollections?.length > 0` read false for a bundle nobody could read.
  */
 async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedAt}) {
     const bundleRoot = path.join(backupRoot, bundleName);
@@ -1095,11 +1100,21 @@ async function probeBundle({backupRoot, bundleName, logger, validateFn, checkedA
                   : `bundle verdict could not be established: ${error?.message ?? String(error)}`;
 
         return {
-            restorable         : false,
-            code               : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
+            restorable: false,
+            code      : contentJudged ? 'BUNDLE_INVALID' : 'BUNDLE_UNVERIFIABLE',
             bundleRoot,
             reason,
             checkedAt,
+            // NOT measured, and said so rather than omitted. Leaving these off this path made absence
+            // indistinguishable from "measured, none empty" for any consumer that optional-chains:
+            // `result.emptyCollections?.length > 0` reads FALSE on a bundle nobody could read — falsely
+            // reassuring, and on the fail-closed path where that costs most.
+            //
+            // `null` is the third state, distinct from `[]`. Empty array means measured and none were
+            // empty; `null` means the question was never answered. A consumer that treats them alike is
+            // making the same mistake this whole verdict exists to remove.
+            collectionCounts   : null,
+            emptyCollections   : null,
             embeddingAdvisories: error.embeddingAdvisories ?? [],
             // Structured, so a consumer distinguishes the two states without matching English.
             // `errorCode` carries the syscall errno when the platform supplied one (EACCES, EMFILE…).
