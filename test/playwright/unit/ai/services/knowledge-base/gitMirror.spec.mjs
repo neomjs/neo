@@ -19,6 +19,10 @@ import GitMirror, {
     resolveHead
 } from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
 
+// Imported from the contract rather than re-exported through GitMirror: the clone-URL grammar has an
+// owner, and this predicate is a member of it. Re-exporting it only for a test would blur that.
+import {isTransportCloneUrl} from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -320,6 +324,27 @@ exit 1
         const source = await createSourceRepo();
 
         await expect(cloneIfMissing(mirrorOptions(source))).resolves.toMatchObject({cloned: true})
+    });
+
+    test('the guard is scoped by TRANSPORT, not by scheme — an SCP-style URL is still held to it', () => {
+        // The gap this pins: `git@host:org/repo.git` carries no `://`, so a scheme test skipped the
+        // assertion on the one documented tenant URL form that has no scheme — and therefore the one
+        // form where a full mirror would pass every config-shaped check unchallenged. Found in review
+        // by @neo-opus-grace. Both directions are asserted, because a predicate that answered `true`
+        // for everything would satisfy the first three rows alone.
+        [
+            ['https://github.com/neomjs/neo.git',  true],
+            ['ssh://git@github.com/neomjs/neo.git', true],
+            ['file:///tmp/fixture.git',            true],
+            ['git@github.com:neomjs/neo.git',      true],
+            ['github.com:neomjs/neo.git',          true],
+            ['/var/lib/mirrors/repo.git',          false],
+            ['./relative/path.git',                false],
+            // A Windows drive letter is a path, not a host. git resolves the same ambiguity the same way.
+            ['C:\\repos\\mirror',                  false]
+        ].forEach(([cloneUrl, expected]) => {
+            expect(isTransportCloneUrl(cloneUrl), cloneUrl).toBe(expected)
+        })
     });
 
     test('throws stable errors for missing refs and invalid mirrors', async () => {

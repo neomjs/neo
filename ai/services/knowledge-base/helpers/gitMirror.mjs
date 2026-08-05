@@ -9,6 +9,7 @@ import {
     assertCleanCloneUrl,
     classifyTenantRepoAccessFailure,
     deriveTenantRepoMirrorPath,
+    isTransportCloneUrl,
     normalizeTenantRepoCredentialRef,
     redactTenantRepoSecrets,
     TenantRepoAccessCode,
@@ -945,9 +946,14 @@ export async function cloneIfMissing({mirrorRoot, tenantId, repoSlug, cloneUrl, 
     // Scoped to transport clones on purpose. `git clone --filter` over a bare local PATH is ignored by
     // git's own design ("--filter is ignored in local clones; use file:// instead"), and a local clone
     // hardlinks its object store rather than copying it — so there is no history to save and nothing
-    // to assert. The 4.9 GB this exists to prevent is a network clone. Enforcing here would fail every
-    // path-based caller for a condition git guarantees.
-    if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(cleanCloneUrl)) {
+    // to assert. The 4.9 GB this exists to prevent is a network clone.
+    //
+    // The question is TRANSPORT-ness, not scheme. An earlier cut tested for `://`, which silently
+    // skipped `git@host:org/repo.git` — a documented tenant `cloneUrl` shape — so the one URL form
+    // that carries no scheme was also the one form where nothing verified the filter took effect.
+    // Found by @neo-opus-grace. The predicate lives with the rest of the clone-URL grammar rather
+    // than becoming a third inline regex in a third file.
+    if (isTransportCloneUrl(cleanCloneUrl)) {
         await assertBloblessClone(mirrorPath);
     }
 
@@ -984,24 +990,26 @@ async function assertBloblessClone(mirrorPath) {
         return;
     }
 
-    const listed    = await runGit(['ls-tree', '-r', '--object-only', revision], {
-              cwd           : mirrorPath,
-              failureCode   : 'KB_GITMIRROR_CLONE_FAILED',
-              failureMessage: 'GitMirror could not inspect the cloned tree'
-          }),
-          [blobOid] = String(listed.stdout ?? '').split('\n').filter(Boolean);
+    const listed = await runGit(['ls-tree', '-r', '--object-only', revision], {
+        cwd           : mirrorPath,
+        failureCode   : 'KB_GITMIRROR_CLONE_FAILED',
+        failureMessage: 'GitMirror could not inspect the cloned tree'
+    });
+
+    const [blobOid] = String(listed.stdout ?? '').split('\n').filter(Boolean);
 
     // A tree with no blobs at all cannot witness the filter either way.
     if (!blobOid) {
         return;
     }
 
+    // `acceptedExitCodes` includes 1 because exit 1 is the ANSWER here, not a failure: it is how git
+    // reports the object is absent. `GIT_NO_LAZY_FETCH` is what makes the probe honest — without it the
+    // promisor machinery fetches the object being probed and every clone, filtered or not, reports the
+    // blob present. Verified both ways against a fixture remote.
     const probe = await runGit(['cat-file', '-e', blobOid], {
-        // Exit 1 is the ANSWER here, not a failure: it is how git reports the object is absent.
         acceptedExitCodes: [0, 1],
         cwd              : mirrorPath,
-        // Without this the promisor machinery fetches the object being probed and every clone,
-        // filtered or not, reports the blob present. Verified both ways against a fixture remote.
         extraEnv         : {GIT_NO_LAZY_FETCH: '1'},
         failureCode      : 'KB_GITMIRROR_CLONE_FAILED',
         failureMessage   : 'GitMirror could not probe the cloned blob'
