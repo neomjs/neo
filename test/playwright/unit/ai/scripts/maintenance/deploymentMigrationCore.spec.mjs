@@ -56,9 +56,19 @@ function createScopes(keys = ['NEO_REQ_ONE', 'NEO_REQ_TWO', 'NEO_OPT', 'NEO_BANN
  * A plan input whose every field is valid, so each test perturbs one thing and the resulting blocker is
  * attributable to that perturbation.
  */
+/**
+ * Provenance for a fully-measured cohort. Supplied by default because its ABSENCE is a refusal: an empty
+ * guarded set means "not measured" or "carries no Neo config" depending on whether the read succeeded, and
+ * a caller that omits the discriminator must not be able to authorize by omission.
+ */
+function createObservation(services = COHORT, overrides = {}) {
+    return {...Object.fromEntries(services.map(service => [service, {inspected: true, configRead: true}])), ...overrides}
+}
+
 function createPlanInput(overrides = {}) {
     return {
         observedEnvByService: createObserved(),
+        observationByService: createObservation(),
         serviceScopes       : createScopes(),
         census              : createCensus(),
         composeIdentity     : {project: 'neo-local-agent-os', configFiles: ['/x/base.yml', '/x/overlay.yml']},
@@ -216,19 +226,80 @@ test.describe('buildMigrationPlan gates apply', () => {
         }
     });
 
-    test('a service observed as empty blocks per service — silence from an unreachable container is not absence', () => {
-        // The failure this encodes: `docker exec` against a stopped container emits nothing and exits
-        // non-zero, so an empty observation means "not measured", never "no config set".
+    test('an UNREAD service blocks — silence from an unreachable container is not absence', () => {
+        // The failure this encodes: `docker exec`/`inspect` against a stopped container emits nothing, so an
+        // empty observation from a failed read means "not measured", never "no config set". I published three
+        // false facts off exactly that silence.
         const plan = buildMigrationPlan(createPlanInput({
-            observedEnvByService: {...createObserved(), orchestrator: new Map()}
+            observedEnvByService: {...createObserved(), orchestrator: new Map()},
+            observationByService: createObservation(COHORT, {orchestrator: {inspected: true, configRead: false}})
         }));
 
         expect(plan.clean).toBe(false);
 
-        const blocker = plan.blockers.find(entry => entry.kind === 'no-observed-env');
+        const blocker = plan.blockers.find(entry => entry.kind === 'service-unmeasured');
 
         expect(blocker.key).toBe('orchestrator');
-        expect(blocker.reason).toContain('not be running')
+        expect(blocker.reason).toContain('not evidence of absence')
+    });
+
+    test('a READ service with a legitimately empty guarded set owes nothing, and says so', () => {
+        // Chroma is the live instance: `docker inspect` succeeds and the guarded set is empty, because it is a
+        // third-party image with no Neo configuration surface. Conflating this with an unread container refused
+        // every real plane for a service behaving correctly. Measured before/after: 13 blockers -> 12.
+        const plan = buildMigrationPlan(createPlanInput({
+            observedEnvByService: {...createObserved(), chroma: new Map()},
+            observationByService: createObservation([...COHORT, 'chroma']),
+            serviceScopes       : {...createScopes(), chroma: new Set()}
+        }));
+
+        expect(plan.blockers.filter(entry => entry.key === 'chroma')).toEqual([]);
+
+        // Visible, not silent: an operator must see the service was inspected and found irrelevant.
+        expect(plan.notes.some(note => note.includes("service 'chroma'") && note.includes('nothing owed'))).toBe(true)
+    });
+
+    test('the same empty Map yields OPPOSITE verdicts depending only on provenance', () => {
+        // The state the prior fixtures could not represent, which is why this class was missed: they always
+        // populated every observed service, so observed-and-empty had no representation at all. Both cases
+        // below pass an IDENTICAL empty Map; only the discriminator differs.
+        const observedEnvByService = {...createObserved(), chroma: new Map()},
+              scopes               = {...createScopes(), chroma: new Set()},
+              read                 = buildMigrationPlan(createPlanInput({
+                  observedEnvByService, serviceScopes: scopes,
+                  observationByService: createObservation([...COHORT, 'chroma'])
+              })),
+              unread               = buildMigrationPlan(createPlanInput({
+                  observedEnvByService, serviceScopes: scopes,
+                  observationByService: createObservation([...COHORT, 'chroma'], {chroma: {inspected: true, configRead: false}})
+              }));
+
+        expect(read.blockers.filter(entry => entry.key === 'chroma')).toEqual([]);
+        expect(unread.blockers.find(entry => entry.key === 'chroma').kind).toBe('service-unmeasured')
+    });
+
+    test('the discriminator is provenance, not an image allowlist — no third-party name in the source', async () => {
+        // Deliberately a STRUCTURAL claim, which is all a source-text guard can carry: allowlisting `chroma`
+        // would fix this plane and mis-handle the next third-party service, the same hardcode that cohort
+        // discovery removed one layer up. The behavioural claims are the specs above.
+        for (const rel of ['ai/scripts/maintenance/deploymentMigrationCore.mjs', 'ai/scripts/maintenance/migrateDeployment.mjs']) {
+            const source = await fs.readFile(path.join(repoRoot, rel), 'utf8'),
+                  code   = source.split('\n').filter(line => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n');
+
+            expect(code, `${rel} must not name a third-party service`).not.toMatch(/['"`]chroma['"`]/);
+            expect(code, `${rel} must not name the proxy service`).not.toMatch(/['"`]ingress['"`]/)
+        }
+    });
+
+    test('ABSENT provenance fails closed — a caller cannot authorize by omission', () => {
+        const plan = buildMigrationPlan(createPlanInput({observationByService: null}));
+
+        expect(plan.clean).toBe(false);
+
+        const blockers = plan.blockers.filter(entry => entry.kind === 'service-unmeasured');
+
+        expect(blockers.length).toBe(COHORT.length);
+        expect(blockers[0].reason).toContain('no observation provenance')
     });
 
     test('observations are NOT unioned: a key set on one service does not satisfy another', () => {
