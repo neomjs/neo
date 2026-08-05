@@ -960,6 +960,69 @@ test.describe('verifyLatestBackupRestorable — read-only restorability probe (#
         expect(populated.rowTotal).toBeGreaterThan(0);
     });
 
+    test('the per-collection fields are present on EVERY verdict, and `null` means unmeasured — not "none empty"', async () => {
+        // Found in review by @neo-opus-vega. The fields shipped on RESTORABLE and BUNDLE_EMPTY but were
+        // ABSENT from the catch path, which made absence indistinguishable from "measured, none empty":
+        // `verdict.emptyCollections?.length > 0` reads FALSE for a bundle nobody could read — falsely
+        // reassuring, on the fail-closed path where that costs most.
+        //
+        // Set-equality rather than a count, so a legitimate collection change never needs a pin bumped.
+        // Three sibling roots under the per-test `probeRoot`, since each needs its own newest bundle.
+        const caseRoot = name => path.join(probeRoot, name),
+              // Mirrors the describe-level `writeBundle` layout, but into a caller-supplied root and
+              // carrying the `streamedCounts` this test is actually about.
+              writeMeta = (root, bundle, meta) => {
+                  const dir = path.join(root, bundle);
+
+                  for (const sub of ['kb', 'mc', 'graph', 'concepts', 'trajectories']) {
+                      fs.mkdirSync(path.join(dir, sub), {recursive: true});
+                  }
+
+                  fs.writeFileSync(path.join(dir, 'mc', 'memory-backup.jsonl'),
+                      JSON.stringify({id: 'm-1', embedding: new Array(4096).fill(0.1), metadata: {t: 'prompt'}}) + '\n');
+                  fs.writeFileSync(path.join(dir, 'bundle-meta.json'), meta);
+
+                  return dir
+              },
+              withCounts = counts => JSON.stringify({
+                  streamedCounts: counts,
+                  topology      : {chromaUnified: true, shared_topology: true}
+              });
+
+        // MEASURED, some empty -> both fields populated, emptyCollections names WHICH.
+        const measuredRoot = caseRoot('per-collection-measured');
+
+        writeMeta(measuredRoot, 'backup-2026-07-10T00-00-00',
+            withCounts({'neo-knowledge-base': 5, 'neo-agent-memory': 0}));
+
+        const populated = await verifyLatestBackupRestorable({backupRoot: measuredRoot, logger: silent});
+
+        // The counts come from the validator's own streaming pass, not from the fixture's meta — so
+        // this pins the SHAPE contract rather than a collection roster the validator owns.
+        expect(populated.code).toBe('RESTORABLE');
+        expect(populated.collectionCounts, 'measured must be an object, never null').not.toBe(null);
+        expect(Object.keys(populated.collectionCounts).length).toBeGreaterThan(0);
+
+        // MEASURED, none empty -> emptyCollections is [], which is NOT the same answer as null.
+        expect(Array.isArray(populated.emptyCollections), 'measured must be an array, never null').toBe(true);
+        expect(populated.emptyCollections).toEqual([]);
+        expect(populated.emptyCollections).not.toBe(null);
+
+        // UNMEASURED -> both `null`. This is the assertion the omission would have failed, and the one
+        // that makes the optional-chain read honest: `null?.length > 0` and `[]?.length > 0` are both
+        // false, so a consumer MUST gate on null rather than on truthiness.
+        const brokenRoot = caseRoot('per-collection-unmeasured');
+
+        writeMeta(brokenRoot, 'backup-2026-07-12T00-00-00', '{ this is not json');
+
+        const unmeasured = await verifyLatestBackupRestorable({backupRoot: brokenRoot, logger: silent});
+
+        expect(unmeasured.restorable).toBe(false);
+        expect(['BUNDLE_INVALID', 'BUNDLE_UNVERIFIABLE']).toContain(unmeasured.code);
+        expect(unmeasured.collectionCounts, 'unmeasured must be null, never {}').toBe(null);
+        expect(unmeasured.emptyCollections, 'unmeasured must be null, never []').toBe(null);
+    });
+
     test('the probe validates the LEDGER members it attests, including the non-JSONL and nested ones', async () => {
         // The probe vouched for a member it never looked at. `ledgers` was absent from its layout, and
         // even with it present the streaming scan reaches only top-level `*.jsonl` — so
