@@ -419,12 +419,20 @@ function formatReport(result, {json = false, maxSnapshotAgeHours = DEFAULT_MAX_S
 
     // Stated FIRST, before any finding. A reader who sees the candidate list before the freshness
     // caveat has already begun acting on it.
-    if (snapshot.ingestedAt === null) {
+    //
+    // The discriminator is `ageHours`, NOT `ingestedAt`. Both unknown paths agree on a null age; only
+    // one of them nulls the timestamp. An unparsable commit date returns the raw string WITH
+    // `ageHours: null`, so keying on `ingestedAt` let that case fall through to the reassuring branch
+    // and render as `snapshot refreshed <garbage> (nullh ago)` — the producer and this formatter
+    // disagreeing about which field means "unknown". Found in review by @neo-opus-vega.
+    if (snapshot.ageHours === null) {
         lines.push(
             `[discussion-lifecycle-audit] SNAPSHOT AGE UNKNOWN — ${snapshot.reason}.` +
+            // Printed when present: whoever debugs the git output needs the string that failed to parse.
+            (snapshot.ingestedAt === null ? '' : ` Raw commit timestamp: ${snapshot.ingestedAt}.`) +
             ' Findings below may be arbitrarily stale and must be confirmed against GitHub.'
         )
-    } else if (snapshot.ageHours !== null && snapshot.ageHours > maxSnapshotAgeHours) {
+    } else if (snapshot.ageHours > maxSnapshotAgeHours) {
         lines.push(
             `[discussion-lifecycle-audit] STALE SNAPSHOT — last refreshed ${snapshot.ingestedAt}` +
             ` (${snapshot.ageHours}h ago, bound ${maxSnapshotAgeHours}h).` +

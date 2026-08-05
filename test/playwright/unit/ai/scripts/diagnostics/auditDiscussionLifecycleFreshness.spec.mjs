@@ -12,6 +12,11 @@ import {formatReport} from '../../../../../../ai/scripts/diagnostics/audit-discu
  * Three states and no fourth: fresh, stale past a stated bound, and UNKNOWN. Unknown must never
  * collapse into fresh — a default of "fresh" lets an unreadable history silently certify every
  * verdict beneath it.
+ *
+ * "No fourth" is a property of the DISCRIMINATOR, not of the state list. The producer signals unknown
+ * with `ageHours: null` on every path, and nulls `ingestedAt` on only one of them; a formatter keying
+ * on `ingestedAt` therefore reads the second unknown as fresh. Three states in the producer plus the
+ * wrong field in the consumer is still four outcomes.
  */
 const report = (snapshot, options = {}) => formatReport(
     {candidates: [{kind: 'graduated-open', number: 10137, title: 'a candidate'}], scanned: 1, snapshot},
@@ -34,14 +39,38 @@ test.describe('audit-discussion-lifecycle — the snapshot states its own age', 
     test('an UNKNOWN age is reported as unknown — it never collapses into fresh', () => {
         // The whole point of the three-state discipline. An absent measurement must not certify
         // the findings beneath it.
-        for (const reason of ['no commit touches the snapshot directory', 'unparsable commit timestamp']) {
-            const output = report({ageHours: null, ingestedAt: null, reason, source: 'git'});
+        //
+        // Each case carries the shape its PRODUCER actually returns. The unparsable branch returns the
+        // raw string WITH `ageHours: null`, and pinning both cases to `ingestedAt: null` was what made
+        // this assertion unable to fail: the one shape that broke was the one the fixture could not
+        // express. Found in review by @neo-opus-vega.
+        const producerShapes = [
+            {ageHours: null, ingestedAt: null,                reason: 'no commit touches the snapshot directory'},
+            {ageHours: null, ingestedAt: 'Mon Aug 4 not-a-date', reason: 'unparsable commit timestamp'}
+        ];
+
+        for (const shape of producerShapes) {
+            const output = report({...shape, source: 'git'});
 
             expect(output).toContain('SNAPSHOT AGE UNKNOWN');
-            expect(output).toContain(reason);
+            expect(output).toContain(shape.reason);
             expect(output).toContain('must be confirmed against GitHub');
-            expect(output, 'an unknown age must never read as a fresh one').not.toContain('snapshot refreshed')
+            expect(output, 'an unknown age must never read as a fresh one').not.toContain('snapshot refreshed');
+            expect(output, '"nullh ago" is the tell that the formatter took the fresh branch')
+                .not.toContain('nullh')
         }
+    });
+
+    test('an unparsable timestamp is surfaced in the caveat, not swallowed', () => {
+        // The raw string is what whoever debugs the git output actually needs. Dropping it would make
+        // the unknown honest and useless at the same time.
+        const output = report({
+            ageHours: null, ingestedAt: 'Mon Aug 4 not-a-date', source: 'git',
+            reason  : 'unparsable commit timestamp'
+        });
+
+        expect(output).toContain('SNAPSHOT AGE UNKNOWN');
+        expect(output).toContain('Mon Aug 4 not-a-date')
     });
 
     test('an unreachable git history is UNKNOWN, not fresh — the instrument cannot certify itself', () => {
