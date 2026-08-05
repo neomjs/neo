@@ -275,6 +275,37 @@ Revalidation trigger: if the selected model provider moves fully into Compose, o
 host supervisor replaces the host-edge role, re-evaluate whether this second scheduler invocation
 still owns any enabled lane.
 
+### 2026-08-05 — `kbSync` + `temporal-summary` reclassified local-only → container-plane (#16554)
+
+**The §2.1 classification was correct and its premise expired.** Both lanes were classed local-only
+because they scan the Neo repo's own corpus *"from the local checkout"*. The non-dockerized local
+Agent OS has since been retired **deliberately**, so no local checkout runs a scheduler. The
+checkout did not disappear — it moved: the container is built from the repo and carries `learn/`,
+`src/`, `resources/content/` and `.git` at the built revision, which is every source both lanes
+read.
+
+**Measured consequence of leaving them unmoved.** The container plane declined both lanes to
+`host-edge`; `ai/deploy/hostEdgeProfile.mjs` declined the same lanes as *"lanes this topology does
+not elect for the host edge"*. Five lanes ended up with no owner and `lastRunAt = NEVER`, and the
+Knowledge Base ran to **0 documents** with no producer. `auditAuthorityTopology` passed throughout,
+correctly: it audits **class ownership**, and enablement is a different axis.
+
+**What did not change.** §5.2's anti-pattern stands unweakened: this does **not** re-point `kbSync`
+at tenant content, which remains `tenant-repo-sync`'s job on its own GitMirror primitive. Only the
+*where it runs* moved, not the *what it reads*. `primary-dev-sync` stays host-edge — it mutates a
+working tree, which is a genuine host effect. `githubWorkflowSync` and `swarm-heartbeat` stay
+host-edge-classed and remain deliberately disabled (CI owns corpus publication; the Stop hook makes
+heartbeat redundant).
+
+**Config move that follows:** `kbSyncEnabled` and `temporalSummaryEnabled` move from
+`orchestrator.localOnly` to `orchestrator.cloudOnly`, so `null` resolves to the deployment-profile
+default on the role that now owns them. Env names are unchanged.
+
+**Revalidation trigger:** if a durable non-containerized maintainer scheduler is reinstated, or the
+container ceases to be built from the repo (e.g. a slim runtime image without `resources/content`),
+re-derive both classifications — the container-as-checkout premise is what this rests on, and it is
+as mortal as the one it replaced.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

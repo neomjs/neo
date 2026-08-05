@@ -1429,15 +1429,10 @@ class ConfigBase extends ConfigProvider {
                  */
                 localOnly: {
                     primaryDevSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED', 'boolean'),
-                    kbSyncEnabled        : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     // Scheduled corpus emission belongs to CI's read-only/Publisher split. Local
                     // checkouts retain the manual CLI but must not regenerate the corpus every two
                     // hours and accumulate changes they cannot publish through the dev ruleset.
                     githubWorkflowSyncEnabled: leaf(false, 'NEO_ORCHESTRATOR_GITHUB_WORKFLOW_SYNC_ENABLED', 'boolean'),
-                    // Temporal-pyramid aggregation reads checkout-bound sources (resources/content, git log
-                    // origin/dev, learn/agentos/decisions) → local-only. Cloud tenants get their corpus via
-                    // push-ingest, not this local scan.
-                    temporalSummaryEnabled   : leaf(null, 'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
                     // Local profile may supervise a child Chroma process; cloud profile
                     // reaches the compose-owned `chroma` peer container instead.
                     chromaDaemonEnabled    : leaf(null, 'NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED', 'boolean'),
@@ -1482,6 +1477,14 @@ class ConfigBase extends ConfigProvider {
                     // when tenant repos are configured; local Neo-maintainer profile defaults
                     // disabled unless explicitly opted in.
                     tenantRepoSyncEnabled: leaf(null, 'NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED', 'boolean'),
+                    // Both scan the Neo repo's own corpus. That used to mean "the maintainer's local
+                    // checkout" and now means the container image, which is built FROM the repo and
+                    // carries `learn/`, `src/`, `resources/content/` and `.git`. They live here rather
+                    // than in `localOnly` because no non-containerized scheduler exists to run them: a
+                    // `localOnly` leaf resolves to disabled on the only role left that can, which
+                    // leaves the Knowledge Base with no producer at all.
+                    kbSyncEnabled         : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
+                    temporalSummaryEnabled: leaf(null, 'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
                     // B1 docker-socket sibling-container recovery (the immune system's privileged tier).
                     // Cloud profile defaults enabled (no operator present to manually restart a wedged
                     // sibling); local profile defaults disabled (the operator IS present + autonomously

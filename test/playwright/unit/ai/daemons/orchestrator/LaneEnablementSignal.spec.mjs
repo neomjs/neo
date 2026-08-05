@@ -8,9 +8,11 @@ import {TASK_REGISTRY}            from '../../../../../../ai/daemons/orchestrato
 import {
     AUTHORITY_CLASSES_BY_PROFILE,
     ORCHESTRATOR_AUTHORITY_PROFILE,
+    getTaskAuthorityClass,
     partitionRegistryByAuthority,
     resolveAuthorityClassOwner
 } from '../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
+import {buildHostEdgeEnv} from '../../../../../../ai/deploy/hostEdgeProfile.mjs';
 
 /**
  * Lane enablement is a DERIVATION, not seven per-lane flags — authored falsifier-first.
@@ -306,5 +308,67 @@ test.describe("#16197 — a child's own level survives the supervisor, timestamp
         // The outer logger stamps its own timestamp and level, so repeating the child's is noise —
         // but the PID identifies WHICH child, which the outer logger cannot know.
         expect(logs[0].message).toBe('[ProcessSupervisor] [PID:27004] [Orchestrator] Started.');
+    });
+});
+
+/**
+ * The corpus-producing lanes must be owned by the role that can actually run them.
+ *
+ * The failure this pins is not a wrong class — it is TWO roles both declining the same lane, which
+ * no single-role check can see. The container plane deferred `kbSync` to `host-edge`; the host-edge
+ * posture fragment declared it a lane "this topology does not elect for the host edge". Neither
+ * statement is wrong on its own, `auditAuthorityTopology` passed throughout (it audits class
+ * ownership, and enablement is a different axis), and the Knowledge Base ran to zero documents with
+ * no producer.
+ *
+ * So the assertions below are deliberately two-sided: owned-and-active on one role is only half the
+ * property. The other half is that the role which declines it names a DIFFERENT owner — a lane whose
+ * decliner names itself as owner is the shape that cost the corpus.
+ */
+test.describe('corpus lanes are owned by the role that can run them (#16554)', () => {
+    const CORPUS_LANES = ['kbSync', 'temporal-summary'];
+
+    test('container-plane owns and activates them; host-edge declines them to container-plane', () => {
+        const registry = CORPUS_LANES.map(taskName => ({
+            taskName,
+            authorityClass: getTaskAuthorityClass(taskName)
+        }));
+
+        const onPlane = partitionRegistryByAuthority({
+            profile : ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane,
+            registry
+        });
+
+        expect(onPlane.scheduled.map(d => d.taskName).sort()).toEqual([...CORPUS_LANES].sort());
+        expect(onPlane.disabled).toHaveLength(0);
+
+        const onEdge = partitionRegistryByAuthority({
+            profile : ORCHESTRATOR_AUTHORITY_PROFILE.hostEdge,
+            registry
+        });
+
+        expect(onEdge.scheduled).toHaveLength(0);
+
+        // The load-bearing half. host-edge declining is fine ONLY while the owner it names is a
+        // different, live role — if this ever resolves back to `host-edge`, the lane is declined by
+        // its own declared owner and nothing runs it.
+        for (const descriptor of onEdge.disabled) {
+            expect(resolveAuthorityClassOwner({authorityClass: descriptor.authorityClass}))
+                .toBe(ORCHESTRATOR_AUTHORITY_PROFILE.containerPlane);
+        }
+    });
+
+    test('the host-edge posture fragment does not disable a lane host-edge no longer owns', () => {
+        const posture = buildHostEdgeEnv({stateDir: '/tmp/neo-host-edge-spec'});
+
+        // Env names for the container-plane corpus lanes. Named explicitly because no task→env
+        // derivation exists yet; until one does, this is the guard that a re-added closure line trips.
+        expect(posture.NEO_ORCHESTRATOR_KB_SYNC_ENABLED).toBeUndefined();
+        expect(posture.NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED).toBeUndefined();
+
+        // POSITIVE CONTROL: the fragment still closes the lanes host-edge genuinely does not elect,
+        // so the two assertions above are reading a deliberate absence and not an empty object.
+        expect(posture.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED).toBe('false');
+        expect(posture.NEO_ORCHESTRATOR_LMS_ENABLED).toBe('true');
     });
 });

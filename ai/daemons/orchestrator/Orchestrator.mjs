@@ -916,7 +916,7 @@ export class Orchestrator extends Base {
         return list.length > 0 ? list : null;
     }
 
-    get kbSyncEnabled()                  { return resolveDeploymentEnabled('kbSyncEnabled');                  }
+    get kbSyncEnabled()                  { return resolveCloudOnlyEnabled('kbSyncEnabled');                   }
     get githubWorkflowSyncEnabled()      { return resolveDeploymentEnabled('githubWorkflowSyncEnabled');      }
     get primaryDevSyncEnabled()          { return resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
@@ -977,10 +977,11 @@ export class Orchestrator extends Base {
     get swarmHeartbeatEnabled()          { return resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
     get graphLogCompactionEnabled()      { return AiConfig.orchestrator.graphLogCompaction.enabled;      }
-    // local-only lane: the aggregation reads checkout-bound sources (resources/content, git log origin/dev,
-    // learn/agentos/decisions), so it is disabled in a cloud profile. Runs only when the deployment allows it
-    // AND the opt-in is set — both resolved leaves read at the use site.
-    get temporalSummaryEnabled()         { return resolveDeploymentEnabled('temporalSummaryEnabled') && AiConfig.temporalSummary.aggregationEnabled; }
+    // container-plane lane: the aggregation reads checkout-bound sources (resources/content, git log
+    // origin/dev, learn/agentos/decisions) and the container IS the checkout — it is built from the repo
+    // and carries all three. Runs only when the deployment allows it AND the opt-in is set — both
+    // resolved leaves read at the use site.
+    get temporalSummaryEnabled()         { return resolveCloudOnlyEnabled('temporalSummaryEnabled') && AiConfig.temporalSummary.aggregationEnabled; }
     get neuralLinkBridgeLivenessTimeoutMs() { return AiConfig.orchestrator.neuralLinkBridge.livenessProbeTimeoutMs; }
 
     /**
