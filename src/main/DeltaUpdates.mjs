@@ -668,6 +668,9 @@ class DeltaUpdates extends Base {
      * for a 590-item reorder against 18ms without it. Deferring is safe because no paint happens
      * between deltas inside one `update()` task, so every intermediate box tree was already invisible.
      *
+     * Skipped entirely for a parent whose subtree is mid-transition, because `display: none` cancels
+     * running transitions rather than pausing them — see the gate's own reasoning below.
+     *
      * The toggle zeroes the parent's own scroll position and can drop focus, so both are captured
      * immediately before it and restored after. Boundary, unchanged from the per-move form: scrolled
      * DESCENDANTS inside the parent also reset and are not walked here, since that would reintroduce a
@@ -691,6 +694,20 @@ class DeltaUpdates extends Base {
                 containsFocus           = activeElement && parentNode.contains(activeElement),
                 displayValue            = parentNode.style.display,
                 {scrollLeft, scrollTop} = parentNode;
+
+            // Setting `display: none` CANCELS every running CSS transition and animation in the subtree
+            // — an element with no box has no running transitions to resume. So a parent whose children
+            // are mid-flight cannot be healed this way without destroying the motion outright, which is
+            // exactly what it did: a sorted 590-item helix reordered and snapped instead of animating.
+            //
+            // The two harms are not symmetric. The cancellation is certain and plainly visible; the
+            // staleness this heals is a Chromium sibling-chain artifact that has never been reported
+            // under animation, and a subtree that is animating is being repainted every frame anyway.
+            // Skipping while animating therefore trades a guaranteed regression for a hypothetical one.
+            //
+            // It also costs the grid case nothing, which is where the heal came from: a column drag
+            // reorders siblings that carry no transitions, so this gate never fires there.
+            if (parentNode.getAnimations?.({subtree: true}).length > 0) return;
 
             parentNode.style.display = 'none';
             void parentNode.offsetHeight;
