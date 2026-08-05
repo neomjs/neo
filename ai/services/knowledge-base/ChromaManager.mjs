@@ -3,6 +3,7 @@ import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs
 import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
 import Base                     from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import {assertDisposableRestoreTarget} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -120,6 +121,52 @@ class ChromaManager extends Base {
     #executeSilently = createSilentExecutor()
 
     /**
+     * @summary Resolves a DISPOSABLE (non-canonical) collection, creating it if absent.
+     *
+     * Exists so a restore can be exercised against something throwaway. Every property worth
+     * testing about a restore requires performing one, and until this path existed the only
+     * reachable target was the live canonical collection, which made the restore tool unusable
+     * for diagnosing itself.
+     *
+     * Three deliberate differences from {@link ChromaManager#getKnowledgeBaseCollection}:
+     *
+     * 1. **Guarded.** The name is passed through `assertDisposableRestoreTarget`, so a canonical
+     *    collection is unreachable through this method rather than merely discouraged.
+     * 2. **Not cached.** `_knowledgeBaseCollectionPromise` memoizes the one canonical collection
+     *    for the process; a disposable target is per-experiment and caching it would hand a later
+     *    caller a handle to a collection named for an earlier run.
+     * 3. **No swap-window resolver.** `#resolveKnowledgeBaseCollection`'s `KB_COLLECTION_SWAP_IN_PROGRESS`
+     *    logic protects the canonical name while a shadow promotion holds it. A disposable name is
+     *    never a promotion target, so that machinery would be dead weight here.
+     *
+     * Uses the same `dummyEmbeddingFunction` as the canonical collection, because a restore
+     * carries its own vectors and must not trigger re-embedding — a disposable target that
+     * re-embedded would measure a different write path than the one under investigation.
+     *
+     * **And one deliberate SAMENESS, which matters more than the differences.** It shares the
+     * canonical path's bounded connection-retry rather than calling the client directly. Chroma
+     * restarts — that is the event this whole investigation is about — so the one resolution path
+     * used to diagnose a restore must tolerate exactly what the canonical path tolerates. Without
+     * it a transient connection error surfaces as *"the restore failed"*, which is the worst failure
+     * mode an instrument can have: harness noise read as a result. Flagged in review by
+     * @neo-opus-ada, who noted the three differences above were each argued while this one was
+     * silent — an unlisted difference reads as an omission rather than a decision.
+     *
+     * @param {Object} options
+     * @param {String} options.name Disposable collection name; must not be canonical.
+     * @returns {Promise<Object>} The Chroma collection handle.
+     * @throws {DisposableRestoreTargetError} When `name` is a canonical collection.
+     */
+    async getDisposableCollection({name} = {}) {
+        const targetName = assertDisposableRestoreTarget({name});
+
+        return await this.#getCollectionWithConnectionRetry(
+            {name: targetName, embeddingFunction: aiConfig.dummyEmbeddingFunction},
+            options => this.client.getOrCreateCollection(options)
+        )
+    }
+
+    /**
      * @returns {Promise<Object>}
      */
     async getKnowledgeBaseCollection() {
@@ -185,18 +232,26 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @summary Resolves the canonical collection with bounded retries for transient Chroma restarts.
-     * @param {Object} options Chroma getCollection options.
+     * @summary Resolves a collection with bounded retries for transient Chroma restarts.
+     *
+     * The resolver is injectable so the disposable-target path shares this exact retry policy rather
+     * than carrying a second copy of it. Those two callers need different Chroma verbs — the canonical
+     * path must NOT create (an absent canonical collection is a swap-window signal, handled by
+     * {@link ChromaManager##resolveKnowledgeBaseCollection}), while a disposable target must create on
+     * first use — but the restart-tolerance question is identical for both, and duplicating the loop
+     * would let the two drift apart on a property whose whole point is surviving the same event.
+     * @param {Object} options Chroma collection options.
+     * @param {Function} [resolveCollection] Verb to retry; defaults to a non-creating `getCollection`.
      * @returns {Promise<Object>}
      * @throws {Error}
      */
-    async #getCollectionWithConnectionRetry(options) {
+    async #getCollectionWithConnectionRetry(options, resolveCollection = opts => this.client.getCollection(opts)) {
         const retry        = this.#getCollectionResolveRetryPolicy();
         let   totalDelayMs = 0;
 
         for (let attempt = 1; attempt <= retry.maxAttempts; attempt++) {
             try {
-                return await this.client.getCollection(options);
+                return await resolveCollection(options);
             } catch (error) {
                 if (!this.#isChromaConnectionError(error) || attempt >= retry.maxAttempts) {
                     throw this.#createCollectionResolveError(error, {attempt, retry, totalDelayMs});
