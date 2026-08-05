@@ -100,6 +100,40 @@ test.describe('syncGithubWorkflow SDK-boundary exception — self-expiring', () 
         expect(chain.at(-1)).toBe('chromadb');
     });
 
+    test('THE PRODUCTION PROPERTY: the stage entry does NOT reach chromadb', () => {
+        // The assertion this file was missing, found in review by @neo-gpt.
+        //
+        // Every other test here protects the exception's EXPIRY and its carried invariants. None of
+        // them protected the property that actually broke: 20 consecutive Data Sync runs died on
+        //
+        //   ERR_MODULE_NOT_FOUND: Cannot find package 'chromadb'
+        //     imported from ai/services/knowledge-base/ChromaManager.mjs
+        //
+        // The barrel walk above proves the exception is still NEEDED. It says nothing about whether
+        // the exception still WORKS. A future static import from any module this stage already
+        // depends on back to `chromadb` would turn the hourly stage red again while every assertion
+        // in this file stayed green — a guard covering the retirement path but not the failure it
+        // was built for.
+        const {reached, chain, walked} = reachesPackage(EXCEPTION_SITE, 'chromadb');
+
+        // Positive control FIRST: an empty walk would make `reached === false` vacuously true, so a
+        // moved or unreadable entry file would read as "clean" — the shape this whole file exists to
+        // reject. The same guard the barrel test uses, for the same reason.
+        expect(
+            walked,
+            'the stage-entry walk found almost nothing, so a `false` below would prove nothing — ' +
+            'check that ai/scripts/maintenance/syncGithubWorkflow.mjs still resolves'
+        ).toBeGreaterThan(50);
+
+        expect(
+            reached,
+            'ai/scripts/maintenance/syncGithubWorkflow.mjs now reaches chromadb again through ' +
+            `${chain.join(' -> ')}. The SDK-boundary exception no longer buys what it exists for: ` +
+            'the hourly Data Sync "GitHub Workflow corpus" stage will fail with ERR_MODULE_NOT_FOUND ' +
+            'on the next scheduled run. Break the new edge — do NOT widen the exception.'
+        ).toBe(false);
+    });
+
     test('the exception still carries BOTH guarantees the barrel used to supply', () => {
         // Half-deleting the exception is the quiet failure: an import cleanup that removes the
         // bootstrap or the override leaves a script that either throws on Neo or silently gains a
