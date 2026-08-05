@@ -27,7 +27,7 @@ import {load}         from 'js-yaml';
 const yamlLoad = (source, {compose = false} = {}) => load(compose ? source.replace(/!override/g, '') : source);
 
 /**
- * Guards the tracked N=1 tenant bootstrap (`ai/deploy/kb-config.yaml`) through the PRODUCTION
+ * Guards the tracked tenant bootstrap (`ai/deploy/kb-config.yaml`) through the PRODUCTION
  * read and normalization paths — not a schema the test invents.
  *
  * The deployment mounts this file at `<neoRootDir>/kb-config.yaml`, where the tenant-config
@@ -43,7 +43,7 @@ const
     overlayRel   = 'ai/deploy/docker-compose.local-agent-os.yml',
     MOUNT_ENTRY  = './kb-config.yaml:/app/kb-config.yaml:ro';
 
-test.describe('ai/deploy/kb-config.yaml — N=1 tenant bootstrap contract', () => {
+test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
     let IngestionService, normalizeTenantRepoEntry;
 
     test.beforeAll(async () => {
@@ -67,20 +67,55 @@ test.describe('ai/deploy/kb-config.yaml — N=1 tenant bootstrap contract', () =
         expect(Object.keys(result.document.tenants)).toEqual(['neo-shared'])
     });
 
-    test('the neo entry normalizes through the production contract to exactly one neo-shared/neo repo', () => {
+    test('both entries normalize through the production contract under one neo-shared tenant', () => {
         const
             document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
             repos    = document.tenants['neo-shared'].tenantRepos;
 
-        expect(repos).toHaveLength(1);
+        expect(repos).toHaveLength(2);
 
-        const normalized = normalizeTenantRepoEntry(repos[0]);
+        const normalized = repos.map(normalizeTenantRepoEntry);
 
-        expect(normalized.tenantId).toBe('neo-shared');
-        expect(normalized.repoSlug).toBe('neo');
-        expect(normalized.cloneUrl).toBe('https://github.com/neomjs/neo.git');
-        expect(normalized.credentialRef).toBe('none');
-        expect(normalized.branchRef).toBe('dev')
+        expect(normalized[0].tenantId).toBe('neo-shared');
+        expect(normalized[0].repoSlug).toBe('neo');
+        expect(normalized[0].cloneUrl).toBe('https://github.com/neomjs/neo.git');
+        expect(normalized[0].credentialRef).toBe('none');
+        expect(normalized[0].branchRef).toBe('dev');
+
+        expect(normalized[1].tenantId).toBe('neo-shared');
+        expect(normalized[1].repoSlug).toBe('create-app');
+        expect(normalized[1].cloneUrl).toBe('https://github.com/neomjs/create-app.git');
+        expect(normalized[1].credentialRef).toBe('none');
+        expect(normalized[1].branchRef).toBe('main')
+    });
+
+    test('repo identity is unique per tenantId/repoSlug, which is what keeps the two corpora apart', () => {
+        // The chunk id is sha256 over {tenantId, repoSlug, hash, type, name, source}, so two entries
+        // sharing a tenantId are only safe while their repoSlug differs. A duplicate pair would
+        // silently collapse two repos into one identity namespace instead of failing loudly.
+        const
+            document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
+            keys     = document.tenants['neo-shared'].tenantRepos
+                .map(normalizeTenantRepoEntry)
+                .map(repo => `${repo.tenantId}/${repo.repoSlug}`);
+
+        expect(new Set(keys).size).toBe(keys.length);
+        expect(keys).toEqual(['neo-shared/neo', 'neo-shared/create-app'])
+    });
+
+    test('branchRef is declared per repo and never inherited from a sibling', () => {
+        // create-app has no `dev` branch at all (verified against the remote), so inheriting neo's
+        // `dev` would make its clone fail. This pins that the two differ ON PURPOSE — a future
+        // normalization that defaults a missing branchRef from a sibling breaks this.
+        const
+            document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
+            bySlug   = Object.fromEntries(document.tenants['neo-shared'].tenantRepos
+                .map(normalizeTenantRepoEntry)
+                .map(repo => [repo.repoSlug, repo.branchRef]));
+
+        expect(bySlug.neo).toBe('dev');
+        expect(bySlug['create-app']).toBe('main');
+        expect(bySlug.neo).not.toBe(bySlug['create-app'])
     });
 
     test('exactly the two consuming services mount the bootstrap read-only in the local-agent-os overlay', () => {
