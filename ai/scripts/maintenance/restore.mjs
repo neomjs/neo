@@ -1742,6 +1742,20 @@ export function parseArgs(argv) {
                 `redirect under a flag that implies the run touches nothing live.`
             );
         }
+        // NOTE on what actually guards a NAMED OPERATION, because this check does not.
+        //
+        // This runs BEFORE `op.pins` is applied, so it reads the pre-pin default and cannot see a
+        // pin about to set `mode: 'replace'`. `ai:reseed -- <bundle> --target-collection=x` is
+        // nonetheless refused — by the substrate requirement above, since `reseed` pins
+        // `onlySubstrate: ['graph']`, which fails the exact-match check or the pin-contradiction
+        // refusal. Requiring `['kb']` EXACTLY rather than inclusively is what makes every named
+        // operation structurally unreachable through this flag; found in review by @neo-opus-ada,
+        // who went looking for the ordering hole and found the property that closes it instead.
+        //
+        // The bound: that holds only while no named operation pins `['kb']`. One pinning
+        // `onlySubstrate: ['kb'], mode: 'replace'` would pass here and be caught solely by
+        // `importDatabase`'s own refusal. Defence-in-depth holds, so this stays a note rather than
+        // a reordering — but do not read this check as the thing protecting that case.
         if (stated.mode === 'replace' || mode === 'replace') {
             throw new Error(
                 `--target-collection cannot be combined with --mode replace: replace truncates the ` +
