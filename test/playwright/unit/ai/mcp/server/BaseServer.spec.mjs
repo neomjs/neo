@@ -919,3 +919,120 @@ test.describe('Neo.ai.mcp.server.BaseServer — plane-member boundary (#15799)',
         }
     });
 });
+
+/**
+ * Covers the result-side half of the advertised-surface staleness signal.
+ *
+ * The descriptor half is proven in `ai/mcp/advertisedSurfaceDigest.spec.mjs`; nothing there proves the
+ * server actually publishes the live value, which is the half a stale seat fetches. Without a witness
+ * here the instrument could stop firing and every other test stays green — the same shape the digest
+ * exists to remove, one layer up.
+ */
+test.describe('Neo.ai.mcp.server.BaseServer — advertised-surface descriptor on results', () => {
+    /**
+     * @summary Builds a tool service whose surface describer is observable.
+     * @param {Object} [options]
+     * @returns {Object}
+     */
+    function surfaceAwareToolService({describe, carrier = 'healthcheck', result} = {}) {
+        return {
+            surfaceDigestCarrierTool : carrier,
+            describeAdvertisedSurface: describe || (toolProjection => ({
+                carrierTool: carrier,
+                digest     : toolProjection ? 'projected0000' : 'abcdef012345',
+                toolCount  : 2
+            })),
+            listTools: () => ({tools: [], nextCursor: null}),
+            callTool : async () => result ?? {status: 'healthy'}
+        }
+    }
+
+    /**
+     * @summary Invokes the registered CallTool handler for a tool name.
+     * @param {Object} server
+     * @param {String} name
+     * @returns {Promise<Object>}
+     */
+    async function callTool(server, name) {
+        const mockMcp = makeMockMcpServer();
+
+        server.setupRequestHandlers(mockMcp);
+
+        return mockMcp.getCallToolHandler()({params: {name, arguments: {}}})
+    }
+
+    test('the carrier tool result carries the live advertised surface', async () => {
+        const toolService = surfaceAwareToolService();
+        const server      = Neo.create(makeTestServerClass({getToolService: () => toolService}));
+
+        const response = await callTool(server, 'healthcheck');
+
+        expect(response.structuredContent.advertisedSurface)
+            .toEqual({carrierTool: 'healthcheck', digest: 'abcdef012345', toolCount: 2});
+        // The pre-existing payload must survive untouched.
+        expect(response.structuredContent.status).toBe('healthy')
+    });
+
+    test('a non-carrier tool result is untouched', async () => {
+        const toolService = surfaceAwareToolService();
+        const server      = Neo.create(makeTestServerClass({getToolService: () => toolService}));
+
+        const response = await callTool(server, 'add_memory');
+
+        // The control. Without it, an implementation that decorates EVERY result satisfies the
+        // assertion above while publishing a surface token on tools that never carry one.
+        expect(response.structuredContent.advertisedSurface).toBeUndefined()
+    });
+
+    test('the digest is computed for the projection the call ran under', async () => {
+        const toolService = surfaceAwareToolService();
+        const server      = Neo.create(makeTestServerClass({
+            getToolService            : () => toolService,
+            buildToolProjectionContext: () => ({mode: 'harness'})
+        }));
+
+        const response = await callTool(server, 'healthcheck');
+
+        // A profiled seat compares against the surface it was OFFERED. Publishing the unfiltered
+        // digest would report every profiled seat permanently stale.
+        expect(response.structuredContent.advertisedSurface.digest).toBe('projected0000')
+    });
+
+    test('a describer that throws degrades to no token instead of failing the call', async () => {
+        const toolService = surfaceAwareToolService({
+            describe: () => { throw new Error('surface unreadable') }
+        });
+        const server = Neo.create(makeTestServerClass({getToolService: () => toolService}));
+
+        const response = await callTool(server, 'healthcheck');
+
+        // A stale seat may be calling healthcheck precisely to diagnose itself. Failing that call to
+        // report a freshness problem would remove the one surface it can still reach.
+        expect(response.isError).toBeFalsy();
+        expect(response.structuredContent.status).toBe('healthy');
+        expect(response.structuredContent.advertisedSurface).toBeUndefined()
+    });
+
+    test('an error result is not decorated', async () => {
+        const toolService = surfaceAwareToolService({result: {error: 'nope'}});
+        const server      = Neo.create(makeTestServerClass({getToolService: () => toolService}));
+
+        const response = await callTool(server, 'healthcheck');
+
+        expect(response.isError).toBe(true);
+        expect(JSON.stringify(response)).not.toContain('advertisedSurface')
+    });
+
+    test('a tool service without a describer still answers', async () => {
+        const server = Neo.create(makeTestServerClass({
+            getToolService: () => ({
+                listTools: () => ({tools: [], nextCursor: null}),
+                callTool : async () => ({status: 'healthy'})
+            })
+        }));
+
+        const response = await callTool(server, 'healthcheck');
+
+        expect(response.structuredContent).toEqual({status: 'healthy'})
+    })
+});
