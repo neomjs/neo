@@ -1,3 +1,4 @@
+import crypto    from 'node:crypto';
 import fs        from 'fs';
 import * as yaml from 'js-yaml';
 import {buildZodSchema,
@@ -5,6 +6,16 @@ import {buildZodSchema,
         resolveRef,
         toOpenApiJsonSchema}                              from './validation/openApiValidator.mjs';
 import Base                                               from '../../src/core/Base.mjs';
+
+/**
+ * Label prefixing the advertised-surface digest inside the carrier tool's description.
+ *
+ * Exported because it is the anchor the documented comparison procedure tells a reader to look for,
+ * and the same literal the result side reports back. A second copy of this string anywhere would let
+ * the two halves drift apart while both still look correct.
+ * @type {String}
+ */
+export const ADVERTISED_SURFACE_DIGEST_LABEL = 'Advertised-surface digest at attach:';
 
 /**
  * Shared service for managing, listing, calling, and validating MCP tools.
@@ -35,7 +46,15 @@ class ToolService_tmp extends Base {
          * Maximum description length emitted through compact `tools/list`.
          * @member {Number} toolListDescriptionMaxLength=160
          */
-        toolListDescriptionMaxLength: 160
+        toolListDescriptionMaxLength: 160,
+        /**
+         * Tool whose DESCRIPTION carries the advertised-surface digest a client caches at attach.
+         *
+         * `healthcheck` is the carrier because it is the one tool every server exposes and the one
+         * an unhealthy server still answers — a seat holding a stale surface can always reach it.
+         * @member {String} surfaceDigestCarrierTool='healthcheck'
+         */
+        surfaceDigestCarrierTool: 'healthcheck'
     }
 
     /**
@@ -369,6 +388,10 @@ class ToolService_tmp extends Base {
 
     /**
      * Provides a paginated list of available tools.
+     *
+     * The carrier tool's description is stamped with {@link ToolService#getAdvertisedSurfaceDigest}
+     * so the value travels into the client's schema cache at attach. See
+     * {@link ToolService#stampSurfaceDigest} for why the descriptor is the right place to put it.
      * @param {Object} [options]
      * @param {Number} [options.cursor=0]
      * @param {Number} [options.limit]
@@ -382,7 +405,7 @@ class ToolService_tmp extends Base {
 
         if (!limit) {
             return {
-                tools     : toolsForListing,
+                tools     : me.stampSurfaceDigest(toolsForListing, toolProjection),
                 nextCursor: undefined
             };
         }
@@ -393,9 +416,73 @@ class ToolService_tmp extends Base {
         const nextCursor = end < toolsForListing.length ? String(end) : undefined;
 
         return {
-            tools: toolsSlice,
+            tools: me.stampSurfaceDigest(toolsSlice, toolProjection),
             nextCursor
         };
+    }
+
+    /**
+     * @summary Stamps the advertised-surface digest into the carrier tool's description.
+     *
+     * ## Why the descriptor, and not a new tool
+     *
+     * The staleness this measures is invisible precisely because a stale client never asks again. A
+     * new tool would be unreachable to exactly the seats that need it — they attached before it
+     * existed. The descriptor is the one surface a stale attachment provably still holds, because
+     * holding it is what makes the attachment stale. Pairing it with the live value on the
+     * `healthcheck` RESULT gives both halves of the comparison to a client that changed nothing.
+     *
+     * Returns copies. `allToolsForListing` is a shared cache and the digest is projection-dependent,
+     * so stamping in place would leak one projection's digest into another's listing.
+     *
+     * **Paging is out of scope, deliberately.** The digest covers the whole advertised surface for the
+     * projection, but it only rides the page that contains the carrier. A client paging past that page
+     * sees no token and must read the absence as `unknown` — never as `current`.
+     * @param {Object[]} tools Tools about to be listed.
+     * @param {Object|String} [toolProjection] Projection context, as passed to `listTools`.
+     * @returns {Object[]}
+     * @protected
+     */
+    stampSurfaceDigest(tools, toolProjection) {
+        const me      = this,
+              carrier = me.surfaceDigestCarrierTool;
+
+        if (!carrier || !tools.some(tool => tool?.name === carrier)) {
+            return tools;
+        }
+
+        const digest = me.getAdvertisedSurfaceDigest(toolProjection);
+
+        return tools.map(tool => tool?.name === carrier ? {
+            ...tool,
+            description: `${tool.description || ''}\n\n${ADVERTISED_SURFACE_DIGEST_LABEL} ${digest}`.trim()
+        } : tool)
+    }
+
+    /**
+     * @summary Reports the surface this server advertises RIGHT NOW for a projection.
+     *
+     * The result-side half of the comparison. A client compares this against the token its cached
+     * `healthcheck` descriptor carries: equal means the attachment was provisioned from this same
+     * advertised-surface generation, different means it was not, and **either one missing means
+     * `unknown` — never `current`**, because an absent token is indistinguishable from a server that
+     * predates the instrument.
+     *
+     * Equality claims that and nothing more. It is not a guarantee against host-side truncation or
+     * paging, which no server-side value can see.
+     * @param {Object|String} [toolProjection] Projection context, as passed to `listTools`.
+     * @returns {{digest: String, toolCount: Number, carrierTool: String}}
+     */
+    describeAdvertisedSurface(toolProjection) {
+        const me = this;
+
+        me.initializeToolMapping();
+
+        return {
+            carrierTool: me.surfaceDigestCarrierTool,
+            digest     : me.getAdvertisedSurfaceDigest(toolProjection),
+            toolCount  : me.getToolsForProjection(toolProjection).filter(Boolean).length
+        }
     }
 
     /**
@@ -405,6 +492,72 @@ class ToolService_tmp extends Base {
     getToolProjectionPolicy() {
         this.initializeToolMapping();
         return this.harnessToolProjection;
+    }
+
+    /**
+     * @summary Serializes a value with deterministic object-key ordering.
+     *
+     * `JSON.stringify` preserves insertion order, so two structurally identical schemas built by
+     * different code paths serialize differently and would digest differently. That would report a
+     * seat as stale for a surface it actually holds — a false positive on the one axis this exists to
+     * measure, and the kind that trains readers to ignore the signal.
+     * @param {*} value
+     * @returns {String}
+     * @protected
+     */
+    canonicalize(value) {
+        if (Array.isArray(value)) {
+            return `[${value.map(item => this.canonicalize(item)).join(',')}]`
+        }
+
+        if (value && typeof value === 'object') {
+            return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${this.canonicalize(value[key])}`).join(',')}}`
+        }
+
+        return JSON.stringify(value ?? null)
+    }
+
+    /**
+     * @summary Digests the tool surface this server ADVERTISES for a given projection.
+     *
+     * The staleness axis it serves is **capability reachability**: can the caller reach the tools and
+     * argument shapes this server currently exposes? A client caches the advertised set at connect and
+     * never revalidates, so a capability shipped after that connect is rejected client-side before the
+     * call leaves — and the rejection names the stale enum as authoritative, which is how a seat
+     * concludes a shipped capability does not exist and reports that as fact.
+     *
+     * ## What is digested, and why the rest is deliberately excluded
+     *
+     * **Tool names plus input schemas only.** Descriptions, titles and output schemas are excluded,
+     * and that exclusion is load-bearing twice over:
+     *
+     * 1. **It makes the digest non-recursive.** The digest is published *inside* a tool description,
+     *    so digesting descriptions would make the value an input to itself.
+     * 2. **It keeps the axis honest.** A reworded description does not make a capability unreachable;
+     *    treating that as staleness would cry wolf until seats ignore the signal entirely.
+     *
+     * Computed over {@link #getToolsForProjection}'s result rather than the raw OpenAPI file, because a
+     * profile legitimately advertises a subset — digesting the unfiltered set would report every
+     * projected seat as permanently stale.
+     *
+     * Equality claims exactly one thing: **this attachment was provisioned from the same
+     * advertised-surface generation.** It does not claim the host delivered the full list; truncation
+     * and paging are a separate, explicitly out-of-scope concern.
+     *
+     * @param {Object|String} [toolProjection] Projection context, as passed to `listTools`.
+     * @returns {String} Short hex digest of the advertised surface.
+     */
+    getAdvertisedSurfaceDigest(toolProjection) {
+        const me = this;
+
+        me.initializeToolMapping();
+
+        const canonicalSurface = me.getToolsForProjection(toolProjection)
+            .filter(Boolean)
+            .map(tool => ({name: tool.name, inputSchema: tool.inputSchema ?? null}))
+            .sort((lhs, rhs) => lhs.name < rhs.name ? -1 : lhs.name > rhs.name ? 1 : 0);
+
+        return crypto.createHash('sha256').update(me.canonicalize(canonicalSurface)).digest('hex').slice(0, 12)
     }
 
     /**
