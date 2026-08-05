@@ -363,17 +363,49 @@ test.describe('corpus lanes are owned by the role that can run them (#16554)', (
         }
     });
 
-    test('the host-edge posture fragment does not disable a lane host-edge no longer owns', () => {
+    test('the host-edge closure keeps the corpus lanes disabled — ownership moved, capability did not', () => {
         const posture = buildHostEdgeEnv({stateDir: '/tmp/neo-host-edge-spec'});
 
-        // Env names for the container-plane corpus lanes. Named explicitly because no task→env
-        // derivation exists yet; until one does, this is the guard that a re-added closure line trips.
-        expect(posture.NEO_ORCHESTRATOR_KB_SYNC_ENABLED).toBeUndefined();
-        expect(posture.NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED).toBeUndefined();
+        // This asserted `toBeUndefined()` first, on the reasoning that naming a container-plane lane
+        // in a host-edge closure re-creates the two-authors-one-fact split. That was wrong, and
+        // `ParityPlaneVolumeScoping` — which pins this same key set as *"the graphless closure, the
+        // load-bearing half of 'the host edge cannot open the Docker plane'"* — is what caught it.
+        //
+        // The refutation is already in the key set: `CHROMA_DAEMON` and `EMBED_DAEMON` are
+        // container-plane too and have always been listed. So the closure never meant "lanes
+        // host-edge owns but does not elect" — it means "lanes a graphless process must not start",
+        // which is a CAPABILITY claim and survives any reclassification.
+        //
+        // The original defect was never that the closure named these lanes. It was that the
+        // CLASSIFICATION pointed them at host-edge while the closure disabled them. Fixing the
+        // classification fixed it; removing them here was a second change that broke a different
+        // invariant, and it would have handed a future reclassification a silent path to starting
+        // a graph lane on a graphless process.
+        expect(posture.NEO_ORCHESTRATOR_KB_SYNC_ENABLED).toBe('false');
+        expect(posture.NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED).toBe('false');
 
-        // POSITIVE CONTROL: the fragment still closes the lanes host-edge genuinely does not elect,
-        // so the two assertions above are reading a deliberate absence and not an empty object.
+        // POSITIVE CONTROL: the fragment is a real closure and not a blanket 'false' map — the one
+        // elected lane is still on, so the assertions above distinguish disabled from absent.
         expect(posture.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED).toBe('false');
         expect(posture.NEO_ORCHESTRATOR_LMS_ENABLED).toBe('true');
+    });
+
+    test('the production compose does NOT restate the enablement — the leaf group carries it', () => {
+        const compose = readFileSync(
+            new URL('../../../../../../ai/deploy/docker-compose.yml', import.meta.url),
+            'utf8'
+        );
+
+        // Owning a lane and starting it are separate facts, and pinning the second one in compose was
+        // tried and rejected: `mcpHealthcheck.spec.mjs` refuses a production compose that sets
+        // `NEO_ORCHESTRATOR_KB_SYNC_ENABLED`, on the grounds that a deployment restating an AiConfig
+        // default silently freezes today's value. Moving the leaf to `cloudOnly` is what makes the
+        // default correct for the role that owns the lane, so compose inherits it and stays silent.
+        expect(compose).not.toContain('NEO_ORCHESTRATOR_KB_SYNC_ENABLED');
+        expect(compose).not.toContain('NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED');
+
+        // POSITIVE CONTROL: this really is the orchestrator's compose surface, so the two absences
+        // above are a deliberate silence rather than a mistyped path matching nothing.
+        expect(compose).toContain('NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE=container-plane');
     });
 });

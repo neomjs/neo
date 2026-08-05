@@ -114,7 +114,11 @@ function createTestOrchestrator(config = {}) {
     if (config.pollIntervalMs !== undefined) AiConfig.orchestrator.intervals.pollMs = config.pollIntervalMs;
     if (config.deploymentMode !== undefined) AiConfig.orchestrator.deploymentMode = config.deploymentMode;
 
-    AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
+    // `cloudOnly`, not `localOnly`: kbSync is container-plane classed, so its leaf lives in the
+    // group whose null-default enables on the cloud profile. This fixture is the reason that move is
+    // not free — kbSync is the canonical "schedulable heavy lane" across the specs below, so the
+    // group flip inverts it for every local-mode case that uses it as a stand-in.
+    AiConfig.orchestrator.cloudOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
     // Default-disabled like primaryDevSyncEnabled: githubWorkflowSync is a heavy lane with its own
     // dedicated coverage (registry.spec getDueTask). Keeping it off by default scopes every other
     // test's scheduling to the lanes under test, so the new lane never competes in the picker.
@@ -261,11 +265,17 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             expect(hostContinuous).not.toContain(taskName);
         }
         expect(hostScheduled).toEqual(expect.arrayContaining([
-            'kbSync', 'githubWorkflowSync', 'primary-dev-sync', 'swarm-heartbeat', 'temporal-summary'
+            'githubWorkflowSync', 'primary-dev-sync', 'swarm-heartbeat'
         ]));
         expect(hostScheduled).not.toContain('summary');
         expect(hostScheduled).not.toContain('dream');
         expect(hostScheduled).not.toContain('data-integrity-sweep');
+        // `kbSync` and `temporal-summary` left this set when they were reclassified container-plane:
+        // both scan the Neo repo's own corpus, and the container IS that checkout now. Asserted as an
+        // explicit absence rather than by deletion from the list above, because silently shrinking an
+        // arrayContaining is indistinguishable from never having covered them.
+        expect(hostScheduled).not.toContain('kbSync');
+        expect(hostScheduled).not.toContain('temporal-summary');
         expect(hostRecovery).toContain('bridgeDaemon');
         expect(hostRecovery).not.toContain('summary');
         expect(hostRecovery).not.toContain('chroma');
@@ -289,12 +299,15 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         for (const taskName of ['bridgeDaemon', 'devServer', 'neuralLinkBridge']) {
             expect(containerContinuous).not.toContain(taskName);
         }
+        // `kbSync` and `temporal-summary` are in this list, and their arrival is the other half of
+        // the host-edge absence asserted above. Both sides are stated because a reclassification that
+        // only removed them from one role would leave them owned by nobody — which is the defect the
+        // move exists to fix, and it is invisible from either role alone.
         expect(containerScheduled).toEqual(expect.arrayContaining([
             'summary', 'dream', 'graphlog-compaction', 'message-concept-harvest',
             'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog',
-            'data-integrity-sweep'
+            'data-integrity-sweep', 'kbSync', 'temporal-summary'
         ]));
-        expect(containerScheduled).not.toContain('kbSync');
         expect(containerScheduled).not.toContain('primary-dev-sync');
         expect(containerScheduled).not.toContain('swarm-heartbeat');
         expect(containerRecovery).toContain('summary');

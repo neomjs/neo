@@ -1480,9 +1480,14 @@ class ConfigBase extends ConfigProvider {
                     // Both scan the Neo repo's own corpus. That used to mean "the maintainer's local
                     // checkout" and now means the container image, which is built FROM the repo and
                     // carries `learn/`, `src/`, `resources/content/` and `.git`. They live here rather
-                    // than in `localOnly` because no non-containerized scheduler exists to run them: a
-                    // `localOnly` leaf resolves to disabled on the only role left that can, which
-                    // leaves the Knowledge Base with no producer at all.
+                    // than in `localOnly` because no non-containerized scheduler exists to run them:
+                    // a `localOnly` leaf resolves to disabled on the only role left that can, leaving
+                    // the Knowledge Base with no producer at all.
+                    //
+                    // The group is what makes the default right, so the production compose inherits it
+                    // and does not restate it — `mcpHealthcheck.spec.mjs` refuses a compose that pins
+                    // `NEO_ORCHESTRATOR_KB_SYNC_ENABLED`, because a deployment restating an AiConfig
+                    // default silently freezes today's value.
                     kbSyncEnabled         : leaf(null, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED', 'boolean'),
                     temporalSummaryEnabled: leaf(null, 'NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED', 'boolean'),
                     // B1 docker-socket sibling-container recovery (the immune system's privileged tier).

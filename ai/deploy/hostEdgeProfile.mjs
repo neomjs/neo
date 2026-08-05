@@ -99,10 +99,19 @@ export function buildHostEdgeEnv({stateDir = resolveHostEdgeStateDir()} = {}) {
         // 3. Lane closure — the one elected host-edge lane…
         NEO_ORCHESTRATOR_LMS_ENABLED            : 'true',
 
-        // …and everything else off. Container-plane + shared-primitive lanes (Docker owns them):
-        NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED : 'false',
-        NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED  : 'false',
-        NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED: 'false',
+        // …and everything else off. Container-plane + shared-primitive lanes (Docker owns them).
+        //
+        // `KB_SYNC` and `TEMPORAL_SUMMARY` sit in THIS group rather than the host-edge-class one
+        // below, and they stay listed. The closure declares what a GRAPHLESS process must not start
+        // — a statement about CAPABILITY, not about ownership — which is why `CHROMA_DAEMON` has
+        // always been here despite being container-plane too. A container-plane classification says
+        // who SHOULD run a lane; it does not say this role safely CAN, and only the second question
+        // is what this fragment answers.
+        NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED   : 'false',
+        NEO_ORCHESTRATOR_EMBED_DAEMON_ENABLED    : 'false',
+        NEO_ORCHESTRATOR_KB_SYNC_ENABLED         : 'false',
+        NEO_ORCHESTRATOR_MESSAGE_DAEMON_ENABLED  : 'false',
+        NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED: 'false',
 
         // Host-edge-class lanes this topology does not elect for the host edge:
         NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED       : 'false',
@@ -113,11 +122,5 @@ export function buildHostEdgeEnv({stateDir = resolveHostEdgeStateDir()} = {}) {
         NEO_ORCHESTRATOR_OLLAMA_ENABLED              : 'false',
         NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED    : 'false',
         NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED     : 'false'
-        // `KB_SYNC` and `TEMPORAL_SUMMARY` are deliberately absent: both carry container-plane
-        // authority, so naming them here would be a host-edge closure over lanes this role does not
-        // class. Their absence is the closure staying honest, not an omission — the authority filter
-        // drops a foreign lane regardless, and stating it re-creates the two-authors-one-fact split
-        // where the container defers a lane to this role while this role declines it, leaving it
-        // owned by nobody and silently unrun.
     }
 }

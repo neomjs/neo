@@ -297,24 +297,33 @@ working tree, which is a genuine host effect. `githubWorkflowSync` and `swarm-he
 host-edge-classed and remain deliberately disabled (CI owns corpus publication; the Stop hook makes
 heartbeat redundant).
 
-**Config move that follows:** `kbSyncEnabled` and `temporalSummaryEnabled` move from
-`orchestrator.localOnly` to `orchestrator.cloudOnly`, so `null` resolves to the deployment-profile
-default on the role that now owns them. Env names are unchanged.
+**Ownership does not start a lane, and the enablement is declared separately.** Both leaves stay
+under `orchestrator.localOnly`, whose `null` default resolves local-enables / cloud-disables — so on
+a cloud-mode plane the new owner would never start what it owns. `ai/deploy/docker-compose.yml`
+therefore declares `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=true` and
+`NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED=true` as deployment inputs, the same class of artifact as
+`hostEdgeProfile`'s closure.
 
-**What actually enables the lanes, which is not the classification.** `cloudOnly` + `leaf(null)`
-resolves through `resolveCloudOnlyDefault(configValue, deploymentMode)`, and on the container plane
-`NEO_AI_DEPLOYMENT_MODE` is **unset** — so enablement rests on `deploymentMode`'s own leaf default
-being `'cloud'`. Setting that variable explicitly to a non-cloud value on a containerized plane
-takes both corpus lanes dark again, silently, with every ownership gate green. Found by
-`@neo-opus-vega` while trying to prove the reclassification inert; it is a property of the
-resolution chain, not of the class map, and no spec on the class map can see it.
+**Why not relocate the leaves to `cloudOnly`,** which is semantically tidier: `kbSync` is the
+canonical example lane across the orchestrator scheduling fixtures, so flipping its default group
+inverts it for every local-mode consumer and every spec using it as a stand-in for "a schedulable
+heavy lane" — **measured at 13 specs** against a clean-`dev` control. The leaf group encodes default
+policy; a deployment declaring its own lanes is the narrower change and leaves local behaviour
+untouched.
+
+**The host-edge closure keeps both keys.** `hostEdgeProfile` still sets them `'false'`, alongside
+`CHROMA_DAEMON` and `EMBED_DAEMON`, which are container-plane classed and have always been listed
+there. That closure declares what a **graphless** process must not start — a capability claim, not
+an ownership one — and it survives reclassification unchanged. Removing the keys was tried and
+reverted; `ParityPlaneVolumeScoping` caught it.
 
 **Revalidation trigger:** re-derive both classifications if any of these change — (a) a durable
 non-containerized maintainer scheduler is reinstated; (b) the container ceases to be built from the
-repo (e.g. a slim runtime image without `resources/content`); (c) `deploymentMode`'s leaf default
-stops being `'cloud'`, or a containerized deployment sets `NEO_AI_DEPLOYMENT_MODE` explicitly. The
-container-as-checkout premise is what (a) and (b) rest on and it is as mortal as the one it
-replaced; (c) is the quieter one, because it disables the lanes without contradicting anything.
+repo (e.g. a slim runtime image without `resources/content`); (c) the compose enablement lines are
+dropped, or the leaves are relocated to `cloudOnly` without re-basing the fixtures that use `kbSync`
+as their example lane. The container-as-checkout premise is what (a) and (b) rest on and it is as
+mortal as the one it replaced; (c) is the quieter one, because it disables the lanes while
+contradicting nothing.
 
 ## 9. Status / Lifecycle
 
