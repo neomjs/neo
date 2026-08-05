@@ -238,6 +238,11 @@ function normalizeFinding(finding) {
  *                                              stay **per service**; a union credits one service with another's
  *                                              configuration and blames it for keys it never declares.
  * @param {Object}   config.serviceScopes        Service name → Set of env keys that service's config template declares.
+ * @param {Object}   [config.observationByService] Service name → `{inspected, configRead}` provenance. An empty
+ *                                              guarded set is ambiguous on its own: a container that could not be
+ *                                              read and one that legitimately carries no Neo config both yield an
+ *                                              empty Map. Provenance is the discriminator, and its ABSENCE is
+ *                                              treated as unmeasured so a caller cannot authorize by omission.
  * @param {Object}   config.census               Output of {@link resolveCensus}.
  * @param {Object}   [config.desiredEnv]         Service name → `{KEY: value}` the operator declares for the transition.
  * @param {Object}   config.composeIdentity      `{project, configFiles}` read off the running plane; `null` when undiscoverable.
@@ -248,7 +253,7 @@ function normalizeFinding(finding) {
  */
 export function buildMigrationPlan({
     observedEnvByService, serviceScopes, census, desiredEnv = {}, composeIdentity, deployedRevisions,
-    targetRevision, uncheckedNotes = []
+    targetRevision, uncheckedNotes = [], observationByService = null
 }) {
     const blockers         = [],
           unchecked        = [...uncheckedNotes],
@@ -292,13 +297,41 @@ export function buildMigrationPlan({
 
         scope.forEach(key => attributed.add(key));
 
-        if (!(observed instanceof Map) || observed.size === 0) {
+        // An empty guarded set is TWO different observations wearing one value, and the discriminator is
+        // provenance rather than the value itself:
+        //
+        //   the container was never read      -> not measured; blocks, and this is the case the refusal
+        //                                        exists for (a stopped container emits nothing, and silence
+        //                                        is not evidence that config is absent)
+        //   the container was read, set empty -> the service carries no Neo config; owes nothing
+        //
+        // Chroma is the live instance of the second: `docker inspect` succeeds and its guarded set is empty,
+        // because it is a third-party image with no Neo configuration surface. Conflating the two refused
+        // every real plane for a service behaving correctly.
+        //
+        // Provenance ABSENT is treated as not-measured, never as empty-by-design — a caller that omits the
+        // discriminator must not be able to authorize by omission.
+        const provenance = observationByService?.[service],
+              wasRead    = provenance?.configRead === true;
+
+        if (!wasRead) {
             blockers.push({
-                kind  : 'no-observed-env',
+                kind  : 'service-unmeasured',
                 key   : service,
-                reason: `no guarded env was read from service '${service}' — its container may not be running, and ` +
-                        'silence from an unreachable service is not evidence that its config is absent'
+                reason: provenance
+                    ? `service '${service}' was not read (container found: ${provenance.inspected === true}), so its ` +
+                      'config is unestablished — silence from an unreachable service is not evidence of absence'
+                    : `no observation provenance was supplied for service '${service}', so whether its config was ` +
+                      'read cannot be established; treated as unmeasured rather than assumed empty'
             });
+
+            return
+        }
+
+        if (!(observed instanceof Map) || observed.size === 0) {
+            // Read and legitimately empty. Reported so an operator sees the service was inspected and found
+            // irrelevant, rather than it silently vanishing from the plan.
+            notes.push(`service '${service}': read, carries no guarded NEO_/MCP_ config — nothing owed`);
 
             return
         }

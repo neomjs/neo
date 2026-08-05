@@ -254,7 +254,8 @@ async function discoverProject(services, declaredProject) {
 async function inspectPlane(project, services, revisionServices = services) {
     const deployedRevisions    = {},
           unchecked            = [],
-          observedEnvByService = {};
+          observedEnvByService = {},
+          observationByService = {};
 
     let composeIdentity = null;
 
@@ -270,6 +271,7 @@ async function inspectPlane(project, services, revisionServices = services) {
 
         if (!containerName) {
             deployedRevisions[service] = null;
+            observationByService[service] = {inspected: false, configRead: false};
             unchecked.push(`service '${service}': no container under project '${project}' — not inspected`);
             continue
         }
@@ -295,6 +297,12 @@ async function inspectPlane(project, services, revisionServices = services) {
         if (parsedConfig) {
             observedEnvByService[service] = parseObservedEnv(parsedConfig.Env || [])
         }
+
+        // Provenance, reported rather than discarded. These two facts are already known here and nowhere
+        // else: an empty guarded set means "not measured" when the read failed and "carries no Neo config"
+        // when it succeeded, and the pure core cannot tell them apart from the Map alone. Chroma is the live
+        // case — inspect succeeds, guarded set is empty, and conflating the two refused every real plane.
+        observationByService[service] = {inspected: true, configRead: Boolean(parsedConfig)};
 
         if (parsedConfig && !composeIdentity) {
             // The first service that yields labels establishes the plane's identity: every service in
@@ -331,7 +339,7 @@ async function inspectPlane(project, services, revisionServices = services) {
         }
     }
 
-    return {composeIdentity, deployedRevisions, unchecked, observedEnvByService}
+    return {composeIdentity, deployedRevisions, unchecked, observedEnvByService, observationByService}
 }
 
 /**
@@ -706,7 +714,7 @@ async function main() {
         console.log(`[migrate] config cohort (discovered): ${configServices.join(', ')}`)
     }
 
-    const [{composeIdentity, deployedRevisions, unchecked, observedEnvByService}, {revision: targetRevision, error: targetError}] = await Promise.all([
+    const [{composeIdentity, deployedRevisions, unchecked, observedEnvByService, observationByService}, {revision: targetRevision, error: targetError}] = await Promise.all([
         inspectPlane(project, configServices, options.services),
         resolveTargetRevision(options.repoUrl, options.target)
     ]);
@@ -742,6 +750,7 @@ async function main() {
 
     const plan = buildMigrationPlan({
         observedEnvByService,
+        observationByService,
         serviceScopes,
         census,
         desiredEnv    : options.desiredEnv,
