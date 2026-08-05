@@ -286,6 +286,69 @@ export function isGeneratedDataPath(filePath) {
 }
 
 /**
+ * @summary The failure classes a stage's child process can be recognized as, stable for reporting.
+ */
+export const STAGE_FAILURE_CLASS = Object.freeze({
+    authentication: 'authentication',
+    dependency    : 'dependency',
+    entrypoint    : 'entrypoint',
+    unrecognized  : 'unrecognized'
+});
+
+/**
+ * @summary Classifies a failed stage's error from what it actually reports — never from the
+ * stage's declared scope, which says what the stage was ENTITLED to and nothing about why it died.
+ *
+ * Order matters: module resolution and a missing entrypoint are checked before the auth heuristic,
+ * because an auth-shaped substring ("permission") can appear inside an unrelated stack trace, while
+ * `ERR_MODULE_NOT_FOUND` is unambiguous.
+ *
+ * @param {Error} error The child process failure.
+ * @returns {String} A class from {@link STAGE_FAILURE_CLASS}.
+ */
+export function classifyStageFailure(error) {
+    const code = error?.code ?? '',
+          text = String(error?.message ?? '');
+
+    if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND' || /Cannot find package|Cannot find module/u.test(text)) {
+        return STAGE_FAILURE_CLASS.dependency;
+    }
+    if (code === 'ENOENT') {
+        return STAGE_FAILURE_CLASS.entrypoint;
+    }
+    if (/\b(401|403)\b|authentication|credentials|unauthorized|permission denied|Bad credentials/iu.test(text)) {
+        return STAGE_FAILURE_CLASS.authentication;
+    }
+
+    return STAGE_FAILURE_CLASS.unrecognized
+}
+
+/**
+ * @summary The one-line lead for a stage failure, stating the OBSERVED class rather than a cause
+ * the annotation cannot know.
+ *
+ * The declared scope is still reported by the caller as context — it is genuinely useful — but it
+ * no longer leads, because in an operator-visible log tail the lead is the only line read.
+ *
+ * @param {Error} error The child process failure.
+ * @returns {String}
+ */
+export function describeStageFailure(error) {
+    switch (classifyStageFailure(error)) {
+        case STAGE_FAILURE_CLASS.dependency:
+            return 'failed to LOAD: a package it imports is not installed in this environment. ' +
+                'This is a packaging/import-graph failure, NOT an authentication one — no credential change fixes it.';
+        case STAGE_FAILURE_CLASS.entrypoint:
+            return 'could not start: its entrypoint or working directory is missing.';
+        case STAGE_FAILURE_CLASS.authentication:
+            return 'failed with an AUTHENTICATION-shaped error. A stage must be granted a scope ' +
+                'that permits the call — never an ambient credential.';
+        default:
+            return 'failed with an UNRECOGNIZED error class; the cause is not established below.';
+    }
+}
+
+/**
  * @summary Executes one git argv sequence through the injected process boundary.
  * @param {Function} execute Child-process executor.
  * @param {String}   cwd Repository root.
@@ -540,13 +603,20 @@ export async function emitGeneratedData({
             // That misreading has already cost several scheduled runs, because a child's own
             // missing-auth message can advise an interactive login that CI cannot perform.
             //
+            // But the annotation knows the SCOPE, not the CAUSE — and prepending it unconditionally
+            // produced the mirror-image defect. Twenty consecutive runs failed on
+            // `ERR_MODULE_NOT_FOUND: Cannot find package 'chromadb'` while the operator-visible last
+            // line said "failed under declared credential scope `reader`", sending diagnosis toward
+            // auth. The `If this is an authentication failure` hedge is only readable by someone who
+            // already has the answer: in a log tail the annotation is last and the real error has
+            // scrolled away. So classify FIRST and let the observed class lead.
+            //
             // Deliberately NOT a per-stage `requiresCredential` flag: that would be a second
             // hand-maintained declaration beside `tokenScope`, free to drift from it, with nothing
-            // deriving either from what the stage actually does. Annotating the failure is derived
-            // from observed behaviour and cannot disagree with itself.
-            error.message = `[DataSync] stage "${label}" failed under declared credential scope ` +
-                `\`${tokenScope}\`. If this is an authentication failure, the stage requires a scope ` +
-                `that grants it — never an ambient credential.\n${error.message}`;
+            // deriving either from what the stage actually does. The classification below is derived
+            // from the observed error and keeps that same property.
+            error.message = `[DataSync] stage "${label}" ${describeStageFailure(error)} ` +
+                `Declared credential scope: \`${tokenScope}\`.\n${error.message}`;
 
             if (publishGeneratedProgressOnFailure) {
                 deferredError = error;

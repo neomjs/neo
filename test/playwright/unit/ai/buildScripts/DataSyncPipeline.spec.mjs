@@ -8,6 +8,8 @@ import process        from 'node:process';
 import {CREDENTIAL_FAMILIES} from '../../../../../ai/services/fleet/redactCredentials.mjs';
 
 import {
+    classifyStageFailure,
+    describeStageFailure,
     emitGeneratedData,
     executeCommand,
     GENERATED_DATA_PATHS,
@@ -15,7 +17,8 @@ import {
     gitAuthenticated,
     rawCredentialNames,
     runDataSyncPipeline,
-    scopedStageEnv
+    scopedStageEnv,
+    STAGE_FAILURE_CLASS
 } from '../../../../../buildScripts/dataSyncPipeline.mjs';
 
 const generatedFile = 'apps/devindex/resources/data/users.jsonl';
@@ -585,10 +588,54 @@ test.describe('tokenScope validation fails closed', () => {
             execute  : async () => { throw failure },
             log      : () => {},
             preflight: async () => {}
-        })).rejects.toThrow(/stage "install dependencies" failed under declared credential scope `none`/);
+        })).rejects.toThrow(/stage "install dependencies"[\s\S]*Declared credential scope: `none`/);
 
         // the child's own message is preserved, not replaced -- the annotation prefixes context
-        expect(failure.message).toContain('child exited with code 1')
+        expect(failure.message).toContain('child exited with code 1');
+
+        // ...and a generic child error is reported as UNRECOGNIZED rather than as a credential
+        // cause. The scope is context; it was never evidence about why the child died.
+        expect(failure.message).toContain('UNRECOGNIZED')
+    });
+
+    test('the failure lead states the OBSERVED class, never a cause the scope cannot establish', () => {
+        // Twenty consecutive Data Sync runs died on `Cannot find package 'chromadb'` while the
+        // operator-visible last line read "failed under declared credential scope `reader`". The
+        // annotation knows what the stage was ENTITLED to, not why it died, and led with the latter.
+        const dependency = Object.assign(new Error(
+                  "Cannot find package 'chromadb' imported from ai/services/knowledge-base/ChromaManager.mjs"
+              ), {code: 'ERR_MODULE_NOT_FOUND'}),
+              entrypoint = Object.assign(new Error('spawn node ENOENT'), {code: 'ENOENT'}),
+              auth       = new Error('HttpError: Bad credentials (401)'),
+              generic    = new Error('child exited with code 1');
+
+        expect(classifyStageFailure(dependency)).toBe(STAGE_FAILURE_CLASS.dependency);
+        expect(classifyStageFailure(entrypoint)).toBe(STAGE_FAILURE_CLASS.entrypoint);
+        expect(classifyStageFailure(auth)).toBe(STAGE_FAILURE_CLASS.authentication);
+        expect(classifyStageFailure(generic)).toBe(STAGE_FAILURE_CLASS.unrecognized);
+
+        // The regression witness: a packaging failure must say so, and must NOT read as auth.
+        expect(describeStageFailure(dependency)).toContain('NOT an authentication one');
+        expect(describeStageFailure(dependency)).toMatch(/packaging|not installed/);
+
+        // The case the annotation was originally built for must not regress.
+        expect(describeStageFailure(auth)).toContain('AUTHENTICATION');
+        expect(describeStageFailure(auth)).toContain('never an ambient credential');
+
+        // An unknown class states that it is unknown rather than asserting any cause.
+        expect(describeStageFailure(generic)).toContain('UNRECOGNIZED');
+        expect(describeStageFailure(generic)).not.toMatch(/AUTHENTICATION|packaging/)
+    });
+
+    test('module resolution is classified before the auth heuristic — a stack trace can contain "permission"', () => {
+        // Order guard: an auth-shaped substring inside an unrelated trace must not outrank an
+        // unambiguous ERR_MODULE_NOT_FOUND.
+        const mixed = Object.assign(
+            new Error("Cannot find package 'chromadb'\n    at checkPermission (/app/permission denied.mjs:1:1)"),
+            {code: 'ERR_MODULE_NOT_FOUND'}
+        );
+
+        expect(classifyStageFailure(mixed)).toBe(STAGE_FAILURE_CLASS.dependency)
     });
 });
 
