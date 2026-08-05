@@ -990,9 +990,17 @@ class ConfigBase extends ConfigProvider {
                  * it, `-1` reaches Node, which reports the flag out of bounds, **exits 0**, and
                  * continues with a ~4.5 GB heap limit — above the cgroup, converting a catchable
                  * heap error into an uncatchable kernel OOM kill with no diagnostic.
+                 *
+                 * Sized with the orchestrator container limit and the parent ceiling as one decision
+                 * — see `ai/deploy/docker-compose.yml`, the orchestrator `deploy.resources` block.
+                 * Raising this alone overruns the container; raising the container alone lifts the
+                 * implicit ceiling of any child that lacks an explicit one. Lowering it is an
+                 * optimization gated on a plane that has run unbroken long enough to show a real
+                 * steady-state maximum, not on the next incident: a crash loop wipes the logs that
+                 * would diagnose it, so an under-provisioned ceiling destroys its own evidence.
                  * @type {Number}
                  */
-                supervisedTaskHeapMb: leaf(384, 'NEO_SUPERVISED_TASK_HEAP_MB', 'number', {
+                supervisedTaskHeapMb: leaf(1024, 'NEO_SUPERVISED_TASK_HEAP_MB', 'number', {
                     parse: parseSupervisedTaskHeapMb
                 }),
                 /**
