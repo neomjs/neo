@@ -481,6 +481,10 @@ async function runGit(args, {
     cwd,
     credentialRef,
     credentialMaterial,
+    // Merged over the resolved execution environment. Exists so a probe can disable git behaviour
+    // that would otherwise defeat it — `GIT_NO_LAZY_FETCH=1` is the case that forced it, since a
+    // promisor repo silently fetches the very object a blob-presence check is asking about.
+    extraEnv = {},
     failureCode = 'KB_GITMIRROR_GIT_FAILED',
     failureMessage = 'GitMirror git command failed',
     knownHostsPath,
@@ -502,7 +506,7 @@ async function runGit(args, {
         const result = await new Promise((resolve, reject) => {
             const child = spawn('git', ['-c', 'credential.helper=', ...args], {
                 cwd,
-                env  : execution.env,
+                env  : {...execution.env, ...extraEnv},
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             let stdout = '';
@@ -877,7 +881,34 @@ function getChangedRefs(before, after) {
 }
 
 /**
- * @summary Clones a tenant repository as a persistent bare mirror if absent.
+ * @summary Clones a tenant repository as a persistent BLOBLESS bare mirror if absent.
+ *
+ * ## Why the mirror carries no historical blobs
+ *
+ * The ingestion never reads them. Every git read this module performs needs either the commit graph
+ * or a tree — `for-each-ref`, `rev-parse`, `merge-base --is-ancestor`, `diff --name-status`, and
+ * `ls-tree --name-only` — and the single content read, `show <revision>:<path>`, wants exactly the
+ * blobs of the paths being ingested at the revision being ingested. A plain `--mirror` downloaded
+ * every blob in history to serve that: one repository measured **4.9 GB** on the container plane,
+ * against an orchestrator whose default Node heap ceiling is 1728 MB, and the sync lane died on a
+ * large allocation roughly every 290 seconds. A polling multi-repo deployment pays that per repo.
+ *
+ * `--filter=blob:none` is shaped to that read profile: commits and trees stay complete, so every
+ * ref/graph/diff operation above is untouched, and blobs arrive lazily only when `show` asks for one.
+ *
+ * **NOT `--depth`.** A shallow clone makes the previous revision unreachable, which breaks
+ * `merge-base --is-ancestor` and the base-to-head `diff --name-status` that incremental sync is built
+ * on — trading a disk problem for re-ingesting the whole tree on every cycle.
+ *
+ * **The trade, stated here rather than discovered later:** `show` becomes a potentially NETWORKED
+ * read. The lane is already a network operation behind the same credential so this adds no new
+ * failure domain, but a `show` against an unreachable remote now fails where it previously read from
+ * disk. It fails loudly; it does not return empty content.
+ *
+ * A server without partial-clone support fails the clone as `KB_GITMIRROR_CLONE_FAILED`. That is
+ * deliberate — a silent fall back to a full clone would restore the 4.9 GB invisibly, with every
+ * test still green.
+ *
  * @param {Object} options
  * @returns {Promise<{mirrorPath: String, cloned: Boolean}>}
  */
@@ -901,14 +932,93 @@ export async function cloneIfMissing({mirrorRoot, tenantId, repoSlug, cloneUrl, 
     }
 
     await fs.ensureDir(path.dirname(mirrorPath));
-    await runGit(['clone', '--mirror', cleanCloneUrl, mirrorPath], {
+    // `--filter=blob:none` is recorded into the clone's own config as `remote.origin.promisor` +
+    // `remote.origin.partialclonefilter`, so the existing `fetch --all --prune` inherits it without a
+    // second change. See this function's JSDoc for why blobless and why not `--depth`.
+    await runGit(['clone', '--mirror', '--filter=blob:none', cleanCloneUrl, mirrorPath], {
         credentialRef,
         failureCode   : 'KB_GITMIRROR_CLONE_FAILED',
         failureMessage: 'GitMirror clone failed',
         knownHostsPath: getKnownHostsPath(mirrorRoot)
     });
 
+    // Scoped to transport clones on purpose. `git clone --filter` over a bare local PATH is ignored by
+    // git's own design ("--filter is ignored in local clones; use file:// instead"), and a local clone
+    // hardlinks its object store rather than copying it — so there is no history to save and nothing
+    // to assert. The 4.9 GB this exists to prevent is a network clone. Enforcing here would fail every
+    // path-based caller for a condition git guarantees.
+    if (/^[a-z][a-z0-9+.-]*:\/\//iu.test(cleanCloneUrl)) {
+        await assertBloblessClone(mirrorPath);
+    }
+
     return {mirrorPath, cloned: true};
+}
+
+/**
+ * @summary Fails a clone that recorded the blob filter without applying it.
+ *
+ * **A remote that does not advertise filter support makes git ignore `--filter` and exit 0.** It
+ * warns on stderr and then writes `remote.origin.promisor=true`, `remote.origin.partialclonefilter`,
+ * and a `.promisor` pack marker anyway — so every config-shaped check answers "this is a partial
+ * clone" over a mirror that holds every blob in history. Measured: against a remote without
+ * `uploadpack.allowFilter`, a filtered clone and a full clone of the same repo came out 2072 KB and
+ * 2068 KB with identical object counts, while both carried the promisor config.
+ *
+ * So this asserts the EFFECT, not the declaration: one blob reachable from a ref must be absent
+ * locally. `GIT_NO_LAZY_FETCH=1` is what makes the probe honest — without it the promisor machinery
+ * fetches the very object being tested and every clone looks complete.
+ *
+ * Bounded on purpose: one `ls-tree` and one `cat-file`, no history traversal, so the cost does not
+ * scale with the repository this exists to keep small.
+ *
+ * @param {String} mirrorPath Local mirror path.
+ * @returns {Promise<void>} Resolves when the mirror is verifiably blobless.
+ * @throws {Error} `KB_GITMIRROR_CLONE_FAILED` when the filter was ignored.
+ */
+async function assertBloblessClone(mirrorPath) {
+    // `listRefs` returns a Map of refname -> objectname.
+    const [revision] = [...(await listRefs(mirrorPath)).values()];
+
+    // An empty repository has no blob to probe and no blobs to save; it is vacuously fine.
+    if (!revision) {
+        return;
+    }
+
+    const listed    = await runGit(['ls-tree', '-r', '--object-only', revision], {
+              cwd           : mirrorPath,
+              failureCode   : 'KB_GITMIRROR_CLONE_FAILED',
+              failureMessage: 'GitMirror could not inspect the cloned tree'
+          }),
+          [blobOid] = String(listed.stdout ?? '').split('\n').filter(Boolean);
+
+    // A tree with no blobs at all cannot witness the filter either way.
+    if (!blobOid) {
+        return;
+    }
+
+    const probe = await runGit(['cat-file', '-e', blobOid], {
+        // Exit 1 is the ANSWER here, not a failure: it is how git reports the object is absent.
+        acceptedExitCodes: [0, 1],
+        cwd              : mirrorPath,
+        // Without this the promisor machinery fetches the object being probed and every clone,
+        // filtered or not, reports the blob present. Verified both ways against a fixture remote.
+        extraEnv         : {GIT_NO_LAZY_FETCH: '1'},
+        failureCode      : 'KB_GITMIRROR_CLONE_FAILED',
+        failureMessage   : 'GitMirror could not probe the cloned blob'
+    });
+
+    if (probe.exitCode === 0) {
+        // Leave no half-trusted mirror behind: `isUsableMirror` would accept it on the next run and
+        // the full clone would become permanent, silently.
+        await fs.remove(mirrorPath);
+
+        throw createGitMirrorError(
+            'KB_GITMIRROR_CLONE_FAILED',
+            'GitMirror clone recorded the blob filter but the remote ignored it — the mirror holds ' +
+            'every blob in history. Refusing a full mirror rather than accepting it silently; the ' +
+            'remote must advertise partial-clone support (`uploadpack.allowFilter`).'
+        );
+    }
 }
 
 /**

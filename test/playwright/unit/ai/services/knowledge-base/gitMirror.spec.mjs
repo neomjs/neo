@@ -14,6 +14,7 @@ import GitMirror, {
     inspectCredentialReadiness,
     isAncestor,
     probeRemoteAccess,
+    readRevisionFile,
     TenantRepoAccessCode,
     resolveHead
 } from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
@@ -203,6 +204,122 @@ exit 1
 
         expect(diff.addedOrChanged).toEqual(['renamed-alpha.txt']);
         expect(diff.deleted).toEqual(['alpha.txt']);
+    });
+
+    /**
+     * The mirror is blobless. A plain `--mirror` pulled every blob in history — 4.9 GB for one
+     * repository on the container plane — while the ingestion only ever reads the current tree plus the
+     * blobs of the paths it consumes.
+     *
+     * These use `file://` rather than a path, because git IGNORES `--filter` for local path clones, and
+     * the source sets `uploadpack.allowFilter` because a remote that does not advertise filter support
+     * makes git ignore it too — silently, with exit 0.
+     */
+    async function servesPartialClones(source) {
+        await git(['config', 'uploadpack.allowFilter', 'true'], source);
+
+        return `file://${source}`;
+    }
+
+    async function localObjectExists(mirrorPath, oid) {
+        // GIT_NO_LAZY_FETCH is what makes this honest: without it the promisor machinery fetches the
+        // very object under test and a full mirror is indistinguishable from a filtered one.
+        return await execFileAsync('git', ['cat-file', '-e', oid], {
+            cwd: mirrorPath,
+            env: {...process.env, GIT_NO_LAZY_FETCH: '1'}
+        }).then(() => true).catch(() => false);
+    }
+
+    test('a transport clone omits historical blobs, and the full-clone control proves the probe can see them', async () => {
+        const source = await createSourceRepo();
+
+        await commitSecondRevision(source);
+
+        const cloneUrl = await servesPartialClones(source),
+              head     = await git(['rev-parse', 'HEAD'], source),
+              blobOid  = (await git(['ls-tree', '-r', '--object-only', head], source)).split('\n')[0];
+
+        const {mirrorPath} = await cloneIfMissing({...mirrorOptions(source), cloneUrl});
+
+        expect(await localObjectExists(mirrorPath, blobOid),
+            'a blobless mirror must not hold the blob locally').toBe(false);
+
+        // The control. Without it, a probe that always answered "absent" would pass the assertion above
+        // while proving nothing — and every config-shaped check (promisor flag, partialclonefilter,
+        // .promisor pack marker) is set on an IGNORED filter too, so none of them can stand in for this.
+        const full = path.join(root, 'full-control');
+
+        await execFileAsync('git', ['clone', '--mirror', cloneUrl, full]);
+        expect(await localObjectExists(full, blobOid),
+            'the control must report the blob PRESENT, or the probe cannot distinguish anything').toBe(true)
+    });
+
+    test('an incremental diff is identical on a blobless mirror — base-to-head is unaffected', async () => {
+        // The reason this is `--filter=blob:none` and not `--depth`: a shallow clone makes the base
+        // revision unreachable and breaks exactly this, forcing a full re-ingest every sync.
+        const source = await createSourceRepo(),
+              base   = await git(['rev-parse', 'HEAD'], source);
+
+        await commitSecondRevision(source);
+
+        const head     = await git(['rev-parse', 'HEAD'], source),
+              cloneUrl = await servesPartialClones(source),
+              blobless = await cloneIfMissing({...mirrorOptions(source), cloneUrl}),
+              full     = path.join(root, 'full-diff-control');
+
+        await execFileAsync('git', ['clone', '--mirror', cloneUrl, full]);
+
+        const rawDiff = async cwd => (await execFileAsync(
+            'git', ['diff', '--name-status', '-M', base, head], {cwd}
+        )).stdout;
+
+        // Byte-identical is the claim: the filter must not perturb the diff at all.
+        expect(await rawDiff(blobless.mirrorPath)).toBe(await rawDiff(full));
+
+        // And the real API must work over the blobless mirror, not just raw git.
+        const {addedOrChanged, deleted} = await diffRevisions({...mirrorOptions(source), baseRevision: base, headRevision: head});
+
+        expect(addedOrChanged.length + deleted.length,
+            'the fixture must actually change paths, or the comparison above is two empty strings')
+            .toBeGreaterThan(0)
+    });
+
+    test('reading a file from a blobless mirror returns its real content', async () => {
+        // The lazy fetch, exercised rather than assumed. `show` is the one read that needs a blob, and
+        // it is the operation that makes the trade acceptable — content arrives on demand.
+        const source   = await createSourceRepo(),
+              cloneUrl = await servesPartialClones(source),
+              head     = await git(['rev-parse', 'HEAD'], source);
+
+        await cloneIfMissing({...mirrorOptions(source), cloneUrl});
+
+        expect(await readRevisionFile({...mirrorOptions(source), revision: head, sourcePath: 'alpha.txt'}))
+            .toBe('alpha v1\n')
+    });
+
+    test('a remote that IGNORES the filter is refused, and the half-trusted mirror is removed', async () => {
+        // git warns on stderr and exits 0, then records promisor config over a mirror holding every
+        // blob. Accepting that would restore the 4.9 GB invisibly with the suite still green.
+        const source = await createSourceRepo();
+
+        // Deliberately NOT setting uploadpack.allowFilter — this is the unsupported-remote case.
+        const cloneUrl = `file://${source}`,
+              options  = {...mirrorOptions(source), cloneUrl};
+
+        await expect(cloneIfMissing(options)).rejects.toThrow(/ignored it|blob filter/i);
+
+        const mirrorPath = path.join(root, 'mirrors', 'tenant-a', 'local', 'source');
+
+        expect(await fs.pathExists(mirrorPath),
+            'a rejected mirror must not survive, or isUsableMirror accepts the full clone forever').toBe(false)
+    });
+
+    test('a bare local path is not held to the filter — git ignores it there by design', async () => {
+        // Local path clones hardlink their object store, so there is no history to save and git
+        // documents that it ignores `--filter`. Enforcing there would break every path-based caller.
+        const source = await createSourceRepo();
+
+        await expect(cloneIfMissing(mirrorOptions(source))).resolves.toMatchObject({cloned: true})
     });
 
     test('throws stable errors for missing refs and invalid mirrors', async () => {
