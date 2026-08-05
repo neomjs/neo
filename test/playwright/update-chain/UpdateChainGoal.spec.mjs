@@ -35,36 +35,45 @@ const execFileAsync = promisify(execFile),
  * unmet one by name rather than reporting a single opaque red.
  * @type {Object[]}
  */
+// `surface` is the path whose existence is taken as evidence the leg has a shipped implementation.
+// `null` means no surface is known yet, and the leg reports missing on that basis — wrong by
+// OMISSION, which the next author corrects in one line, rather than wrong by construction.
 const CHAIN_LEGS = [
     {
-        key  : 'candidate-retained',
-        owner: '#16450',
-        what : 'a merged cohort produces a retained, addressable candidate carrying an exact digest'
+        key    : 'candidate-retained',
+        owner  : '#16450',
+        surface: null,
+        what   : 'a merged cohort produces a retained, addressable candidate carrying an exact digest'
     },
     {
-        key  : 'selection-bounded',
-        owner: '#16451',
-        what : 'selection takes the latest compatible staged cohort, or produces an explicit ineligibility record'
+        key    : 'selection-bounded',
+        owner  : '#16451',
+        surface: null,
+        what   : 'selection takes the latest compatible staged cohort, or produces an explicit ineligibility record'
     },
     {
-        key  : 'admissibility-answerable',
-        owner: '#16453',
-        what : 'a predicate answers whether the target may take the cohort, resolving unknown to NOT admissible'
+        key    : 'admissibility-answerable',
+        owner  : '#16453',
+        surface: 'ai/scripts/setup/cohortAdmissibility.mjs',
+        what   : 'a predicate answers whether the target may take the cohort, resolving unknown to NOT admissible'
     },
     {
-        key  : 'activation-sole-path',
-        owner: '#16452',
-        what : 'a durable receipt links a fresh RESTORABLE result before first mutation, or no mutation occurs'
+        key    : 'activation-sole-path',
+        owner  : '#16452',
+        surface: 'ai/services/shared/activationReceipt.mjs',
+        what   : 'a durable receipt links a fresh RESTORABLE result before first mutation, or no mutation occurs'
     },
     {
-        key  : 'exact-revision-arrived',
-        owner: '#16454',
-        what : 'every service in the cohort reports the EXACT resolved target at /app/.neo-revision'
+        key    : 'exact-revision-arrived',
+        owner  : '#16454',
+        surface: 'ai/scripts/maintenance/migrateDeployment.mjs',
+        what   : 'every service in the cohort reports the EXACT resolved target at /app/.neo-revision'
     },
     {
-        key  : 'consumers-observe',
-        owner: '#16320',
-        what : 'already-connected clients observe the transition as complete rather than staying pinned'
+        key    : 'consumers-observe',
+        owner  : '#16320',
+        surface: null,
+        what   : 'already-connected clients observe the transition as complete rather than staying pinned'
     }
 ];
 
@@ -81,11 +90,18 @@ async function surveyLegs() {
           present = [];
 
     for (const leg of CHAIN_LEGS) {
-        // The migration bootstrap is the only leg with a shipped executable surface today. The others are
-        // open tickets, so this survey is expected to report five missing legs until they land — that
-        // expectation is asserted below rather than assumed, so a leg landing silently cannot go unnoticed.
-        const shipped = leg.key === 'exact-revision-arrived' &&
-            await fs.pathExists(path.join(repoRoot, 'ai/scripts/maintenance/migrateDeployment.mjs'));
+        // Probe EVERY leg that names a surface. The first cut read
+        //
+        //     leg.key === 'exact-revision-arrived' && await fs.pathExists(<one hardcoded path>)
+        //
+        // whose `&&` short-circuits for every other leg, so their surfaces were never evaluated and the
+        // survey restated a hardcoded assumption instead of observing anything. It reported one shipped
+        // leg while three had landed — two of them surfaces this author had merged hours earlier. A
+        // survey that cannot notice a sibling landing is the opposite of the property this scenario
+        // exists to provide.
+        const shipped = leg.surface
+            ? await fs.pathExists(path.join(repoRoot, leg.surface))
+            : false;
 
         (shipped ? present : missing).push(leg)
     }
@@ -113,18 +129,35 @@ test.describe('the Epic goal bar: a plane reaches the exact merged cohort with n
     test('an unrunnable scenario reports INCONCLUSIVE and fails — it never reports pass', async () => {
         const {runnable, reason} = await checkRunnable();
 
-        // The assertion is on the REPORTING contract, not on Docker being present: if the harness cannot
-        // provision, the run must fail with a named cause. That is the property a green-when-broken harness
-        // would violate, and it is checkable whether or not Docker happens to be available here.
+        // HONEST BOUND, flagged in review by @neo-opus-ada: this test's NAME promises more than its body
+        // checks. The assertion IS the INCONCLUSIVE mechanism rather than a test of it — with Docker up it
+        // passes without exercising the failure path, and with Docker down it fails. There is no arrangement
+        // here in which the INCONCLUSIVE path is observed PRODUCING a failure.
+        //
+        // Defensible only while the assertion is two self-evident lines. The moment provisioning grows a
+        // real fixture, "unrunnable" becomes a state with several causes and this reporting contract becomes
+        // something that can regress silently — at which point this needs a case that arranges an
+        // unprovisionable harness and observes the named failure.
+        //
+        // Second known bound: `docker version` probes the LOCAL daemon, while the subject of this goal bar
+        // is a disposable plane. Fine while the scenario provisions nothing; it must become a probe of the
+        // plane it intends to create.
         expect(runnable, `INCONCLUSIVE — the scenario could not provision a plane: ${reason}`).toBe(true)
     });
 
     test('the chain is not yet composable, and the failure names which legs are missing', async () => {
         const {missing, present} = await surveyLegs();
 
-        // Red-first bookkeeping, asserted rather than assumed: exactly one leg ships today. When a sibling
-        // lands, this count moves and the scenario says so, instead of a leg appearing unnoticed.
-        expect(present.map(leg => leg.key)).toEqual(['exact-revision-arrived']);
+        // Red-first bookkeeping, asserted rather than assumed. Set-equality on the KEYS, not a count, so a
+        // leg landing flips this assertion and names itself rather than sliding past a number. The baseline
+        // is three because three surfaces are on `dev` today — the previous baseline of one was produced by
+        // a short-circuited survey that could not have observed the other two, both of which had already
+        // merged when this scenario was written.
+        expect(present.map(leg => leg.key)).toEqual([
+            'admissibility-answerable',
+            'activation-sole-path',
+            'exact-revision-arrived'
+        ]);
 
         const named = missing.map(leg => `${leg.key} (${leg.owner}) — ${leg.what}`).join('\n  · ');
 
