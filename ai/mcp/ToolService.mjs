@@ -1,3 +1,4 @@
+import crypto    from 'node:crypto';
 import fs        from 'fs';
 import * as yaml from 'js-yaml';
 import {buildZodSchema,
@@ -405,6 +406,72 @@ class ToolService_tmp extends Base {
     getToolProjectionPolicy() {
         this.initializeToolMapping();
         return this.harnessToolProjection;
+    }
+
+    /**
+     * @summary Serializes a value with deterministic object-key ordering.
+     *
+     * `JSON.stringify` preserves insertion order, so two structurally identical schemas built by
+     * different code paths serialize differently and would digest differently. That would report a
+     * seat as stale for a surface it actually holds — a false positive on the one axis this exists to
+     * measure, and the kind that trains readers to ignore the signal.
+     * @param {*} value
+     * @returns {String}
+     * @protected
+     */
+    canonicalize(value) {
+        if (Array.isArray(value)) {
+            return `[${value.map(item => this.canonicalize(item)).join(',')}]`
+        }
+
+        if (value && typeof value === 'object') {
+            return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${this.canonicalize(value[key])}`).join(',')}}`
+        }
+
+        return JSON.stringify(value ?? null)
+    }
+
+    /**
+     * @summary Digests the tool surface this server ADVERTISES for a given projection.
+     *
+     * The staleness axis it serves is **capability reachability**: can the caller reach the tools and
+     * argument shapes this server currently exposes? A client caches the advertised set at connect and
+     * never revalidates, so a capability shipped after that connect is rejected client-side before the
+     * call leaves — and the rejection names the stale enum as authoritative, which is how a seat
+     * concludes a shipped capability does not exist and reports that as fact.
+     *
+     * ## What is digested, and why the rest is deliberately excluded
+     *
+     * **Tool names plus input schemas only.** Descriptions, titles and output schemas are excluded,
+     * and that exclusion is load-bearing twice over:
+     *
+     * 1. **It makes the digest non-recursive.** The digest is published *inside* a tool description,
+     *    so digesting descriptions would make the value an input to itself.
+     * 2. **It keeps the axis honest.** A reworded description does not make a capability unreachable;
+     *    treating that as staleness would cry wolf until seats ignore the signal entirely.
+     *
+     * Computed over {@link #getToolsForProjection}'s result rather than the raw OpenAPI file, because a
+     * profile legitimately advertises a subset — digesting the unfiltered set would report every
+     * projected seat as permanently stale.
+     *
+     * Equality claims exactly one thing: **this attachment was provisioned from the same
+     * advertised-surface generation.** It does not claim the host delivered the full list; truncation
+     * and paging are a separate, explicitly out-of-scope concern.
+     *
+     * @param {Object|String} [toolProjection] Projection context, as passed to `listTools`.
+     * @returns {String} Short hex digest of the advertised surface.
+     */
+    getAdvertisedSurfaceDigest(toolProjection) {
+        const me = this;
+
+        me.initializeToolMapping();
+
+        const canonicalSurface = me.getToolsForProjection(toolProjection)
+            .filter(Boolean)
+            .map(tool => ({name: tool.name, inputSchema: tool.inputSchema ?? null}))
+            .sort((lhs, rhs) => lhs.name < rhs.name ? -1 : lhs.name > rhs.name ? 1 : 0);
+
+        return crypto.createHash('sha256').update(me.canonicalize(canonicalSurface)).digest('hex').slice(0, 12)
     }
 
     /**
