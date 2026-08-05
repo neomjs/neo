@@ -275,6 +275,56 @@ Revalidation trigger: if the selected model provider moves fully into Compose, o
 host supervisor replaces the host-edge role, re-evaluate whether this second scheduler invocation
 still owns any enabled lane.
 
+### 2026-08-05 — `kbSync` + `temporal-summary` reclassified local-only → container-plane (#16554)
+
+**The §2.1 classification was correct and its premise expired.** Both lanes were classed local-only
+because they scan the Neo repo's own corpus *"from the local checkout"*. The non-dockerized local
+Agent OS has since been retired **deliberately**, so no local checkout runs a scheduler. The
+checkout did not disappear — it moved: the container is built from the repo and carries `learn/`,
+`src/`, `resources/content/` and `.git` at the built revision, which is every source both lanes
+read.
+
+**Measured consequence of leaving them unmoved.** The container plane declined both lanes to
+`host-edge`; `ai/deploy/hostEdgeProfile.mjs` declined the same lanes as *"lanes this topology does
+not elect for the host edge"*. Five lanes ended up with no owner and `lastRunAt = NEVER`, and the
+Knowledge Base ran to **0 documents** with no producer. `auditAuthorityTopology` passed throughout,
+correctly: it audits **class ownership**, and enablement is a different axis.
+
+**What did not change.** §5.2's anti-pattern stands unweakened: this does **not** re-point `kbSync`
+at tenant content, which remains `tenant-repo-sync`'s job on its own GitMirror primitive. Only the
+*where it runs* moved, not the *what it reads*. `primary-dev-sync` stays host-edge — it mutates a
+working tree, which is a genuine host effect. `githubWorkflowSync` and `swarm-heartbeat` stay
+host-edge-classed and remain deliberately disabled (CI owns corpus publication; the Stop hook makes
+heartbeat redundant).
+
+**Ownership does not start a lane, and the enablement is declared separately.** Both leaves stay
+under `orchestrator.localOnly`, whose `null` default resolves local-enables / cloud-disables — so on
+a cloud-mode plane the new owner would never start what it owns. `ai/deploy/docker-compose.yml`
+therefore declares `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=true` and
+`NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED=true` as deployment inputs, the same class of artifact as
+`hostEdgeProfile`'s closure.
+
+**Why not relocate the leaves to `cloudOnly`,** which is semantically tidier: `kbSync` is the
+canonical example lane across the orchestrator scheduling fixtures, so flipping its default group
+inverts it for every local-mode consumer and every spec using it as a stand-in for "a schedulable
+heavy lane" — **measured at 13 specs** against a clean-`dev` control. The leaf group encodes default
+policy; a deployment declaring its own lanes is the narrower change and leaves local behaviour
+untouched.
+
+**The host-edge closure keeps both keys.** `hostEdgeProfile` still sets them `'false'`, alongside
+`CHROMA_DAEMON` and `EMBED_DAEMON`, which are container-plane classed and have always been listed
+there. That closure declares what a **graphless** process must not start — a capability claim, not
+an ownership one — and it survives reclassification unchanged. Removing the keys was tried and
+reverted; `ParityPlaneVolumeScoping` caught it.
+
+**Revalidation trigger:** re-derive both classifications if any of these change — (a) a durable
+non-containerized maintainer scheduler is reinstated; (b) the container ceases to be built from the
+repo (e.g. a slim runtime image without `resources/content`); (c) the compose enablement lines are
+dropped, or the leaves are relocated to `cloudOnly` without re-basing the fixtures that use `kbSync`
+as their example lane. The container-as-checkout premise is what (a) and (b) rest on and it is as
+mortal as the one it replaced; (c) is the quieter one, because it disables the lanes while
+contradicting nothing.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.

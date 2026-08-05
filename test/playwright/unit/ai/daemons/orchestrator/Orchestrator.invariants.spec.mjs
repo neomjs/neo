@@ -188,22 +188,43 @@ function restoreConfigObject(target, prior) {
 }
 
 test.describe('Orchestrator config getters delegate to AiConfig (data env/parse layer is the env-precedence SSOT)', () => {
+    // These two used `kbSyncEnabled` as their example leaf until it moved to `cloudOnly`.
+    // `primaryDevSyncEnabled` replaces it because it is still `localOnly` — it mutates a working
+    // tree, which is a genuine host effect no container classification changes.
     test('boolean enable getter reads AiConfig.orchestrator.localOnly verbatim when value is explicit', () => {
-        AiConfig.orchestrator.localOnly.kbSyncEnabled = false;
-        expect(createMinimalOrchestrator().kbSyncEnabled).toBe(false);
+        AiConfig.orchestrator.localOnly.primaryDevSyncEnabled = false;
+        expect(createMinimalOrchestrator().primaryDevSyncEnabled).toBe(false);
 
-        AiConfig.orchestrator.localOnly.kbSyncEnabled = true;
-        expect(createMinimalOrchestrator().kbSyncEnabled).toBe(true);
+        AiConfig.orchestrator.localOnly.primaryDevSyncEnabled = true;
+        expect(createMinimalOrchestrator().primaryDevSyncEnabled).toBe(true);
     });
 
     test('AiConfig.localOnly.X=null falls through to deployment-profile default (local enables, cloud disables)', () => {
-        AiConfig.orchestrator.localOnly.kbSyncEnabled = null;
+        AiConfig.orchestrator.localOnly.primaryDevSyncEnabled = null;
 
         AiConfig.orchestrator.deploymentMode = 'local';
-        expect(createMinimalOrchestrator().kbSyncEnabled).toBe(true);
+        expect(createMinimalOrchestrator().primaryDevSyncEnabled).toBe(true);
 
         AiConfig.orchestrator.deploymentMode = 'cloud';
+        expect(createMinimalOrchestrator().primaryDevSyncEnabled).toBe(false);
+    });
+
+    test('AiConfig.cloudOnly.kbSyncEnabled=null resolves the OPPOSITE way — cloud enables, local opts in', () => {
+        // The inverse of the case above, and the property the whole reclassification rests on: a
+        // container-plane lane must default ON for the role that owns it. Asserted here rather than
+        // trusted, because ownership and enablement are separate axes and the ownership specs cannot
+        // see this one.
+        AiConfig.orchestrator.cloudOnly.kbSyncEnabled = null;
+
+        AiConfig.orchestrator.deploymentMode = 'cloud';
+        expect(createMinimalOrchestrator().kbSyncEnabled).toBe(true);
+
+        AiConfig.orchestrator.deploymentMode = 'local';
         expect(createMinimalOrchestrator().kbSyncEnabled).toBe(false);
+
+        // Explicit still wins over the profile default, in the group it now lives in.
+        AiConfig.orchestrator.cloudOnly.kbSyncEnabled = true;
+        expect(createMinimalOrchestrator().kbSyncEnabled).toBe(true);
     });
 
     test('chromaDaemonEnabled follows deployment profile default + explicit override (#12019)', () => {
