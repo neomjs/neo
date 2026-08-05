@@ -1,5 +1,41 @@
-import {GH_Config, GH_SyncService} from '../../services.mjs';
-import AiConfig                    from '../../config.mjs';
+// ---------------------------------------------------------------------------------------------
+// DELIBERATE, TEMPORARY SDK-BOUNDARY EXCEPTION — retirement is enforced mechanically, see below.
+//
+// The canonical entry point is `ai/services.mjs` and this file's own SDK-boundary note still
+// describes the rule correctly. The barrel is an EAGER 65-import graph, and two of its leaves
+// (`services/knowledge-base/ChromaManager.mjs`, `services/memory-core/managers/ChromaManager.mjs`)
+// import `chromadb` at module scope. `chromadb` ships only in the Brain install tier, so merely
+// LOADING the barrel fails in the Body-tier CI this script runs in:
+//
+//   Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'chromadb'
+//     imported from ai/services/knowledge-base/ChromaManager.mjs
+//   [DataSync] stage "GitHub Workflow corpus" failed
+//
+// That freezes `resources/content/issues` AND `resources/content/discussions` — the corpus the
+// duplicate-sweep fallback and semantic retrieval both read — for as long as it stands.
+//
+// The correct fix defers those two leaf imports, which is a real initialization refactor of both
+// managers with ~20 external readers of `.client` plus a documented test seam. That is deliberately
+// NOT bundled into a pipeline restore. This exception is the bridge, and it is not trusted to a
+// comment: `syncGithubWorkflowImportException.spec.mjs` FAILS the moment the barrel becomes safe to
+// import, which is what makes this self-expiring rather than permanent.
+// ---------------------------------------------------------------------------------------------
+
+// Neo namespace bootstrap, normally supplied by the barrel. Both look unused and are not: they
+// populate `globalThis.Neo` before any service module body runs `Neo.setupClass`.
+import Neo       from '../../../src/Neo.mjs';
+import * as core from '../../../src/core/_export.mjs';
+
+import GH_Config      from '../../mcp/server/github-workflow/config.mjs';
+import GH_SyncService from '../../services/github-workflow/SyncService.mjs';
+import AiConfig       from '../../config.mjs';
+
+// Also normally supplied by the barrel, at `ai/services.mjs`. NOT redundant with the config leaf's
+// own `false` default: this is a forced override that holds regardless of env or overlay, and
+// `SyncService` branches on it (`if (aiConfig.syncOnStartup)`). Dropping it would let an overlay
+// turn a read-only emission run into a bi-directional sync — a behaviour change disguised as an
+// import cleanup.
+GH_Config.data.syncOnStartup = false;
 import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
