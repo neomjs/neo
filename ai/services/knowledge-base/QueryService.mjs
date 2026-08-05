@@ -4,6 +4,7 @@ import mcConfig                                 from '../../mcp/server/memory-co
 import aiConfig                                 from '../../mcp/server/knowledge-base/config.mjs';
 import Base                                     from '../../../src/core/Base.mjs';
 import ChromaManager                            from './ChromaManager.mjs';
+import {describeRetrievalProvenance}            from './retrievalProvenance.mjs';
 import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 import dotenv                                   from 'dotenv';
 import path                                     from 'path';
@@ -255,29 +256,15 @@ class QueryService extends Base {
             });
 
         if (finalSorted.length > 0) {
-            const response = {
+            // The provenance decision lives in `describeRetrievalProvenance` so it can be witnessed
+            // without a Chroma collection; this method owns capturing the count at the right moment
+            // and nothing else. `vectorSourceCount` was read BEFORE the rescue merge above, which is
+            // the ordering the whole signal depends on.
+            return {
                 topResult: finalSorted[0].source,
                 results  : finalSorted,
-                // Aggregate provenance. Per-row `lexicalRescueReasons` was already correct and was already
-                // there — but a caller reading `topResult` and a score has no reason to inspect every row's
-                // metadata, so a supplement standing in for the entire primary read as a grounded answer for
-                // six days. This states it once, where it cannot be missed.
-                retrieval: {vectorSources: vectorSourceCount}
+                retrieval: describeRetrievalProvenance(vectorSourceCount)
             };
-
-            if (vectorSourceCount === 0) {
-                // Not an error and not empty results: the rescue is a designed capability and its hits may be
-                // exactly what the caller wanted. But semantic retrieval contributed NOTHING, so these results
-                // are filename and path matches over local sources — never evidence of what the corpus holds.
-                response.retrieval.rescueOnly = true;
-                response.retrieval.warning    =
-                    'Vector retrieval returned 0 sources — every result below comes from the local lexical ' +
-                    'rescue path (path/filename matching over on-disk sources), not from the ingested corpus. ' +
-                    'Treat these as unsourced: an empty or unreachable knowledge-base collection presents ' +
-                    'exactly this way. Check the knowledge-base healthcheck before relying on them.'
-            }
-
-            return response;
         }
 
         return {message: 'No relevant source files found after scoring.'};

@@ -1,11 +1,12 @@
-import BaseServer                       from '../BaseServer.mjs';
-import aiConfig                         from './config.mjs';
-import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
-import logger                           from './logger.mjs';
-import DatabaseService                  from '../../../services/knowledge-base/DatabaseService.mjs';
-import HealthService                    from '../../../services/knowledge-base/HealthService.mjs';
-import KBRecorderService                from '../../../services/knowledge-base/KBRecorderService.mjs';
-import {listTools, callTool}            from './toolService.mjs';
+import BaseServer                             from '../BaseServer.mjs';
+import aiConfig                               from './config.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS}       from './configBase.mjs';
+import logger                                 from './logger.mjs';
+import DatabaseService                        from '../../../services/knowledge-base/DatabaseService.mjs';
+import HealthService                          from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService                      from '../../../services/knowledge-base/KBRecorderService.mjs';
+import {listTools, callTool}                  from './toolService.mjs';
+import {describeCollectionStats, STATS_LEVEL} from './describeCollectionStats.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.
@@ -177,43 +178,13 @@ class Server extends BaseServer {
      * @param {Object} health
      */
     logCollectionStats(health) {
-        const knowledgeBase = health.database.connection.collections?.knowledgeBase;
+        // The decision lives in `describeCollectionStats` so it can be witnessed without standing up
+        // an MCP server; this method owns only the forwarding. Reviewers asked for proof that the
+        // replacement instrument fires, and a decision reachable only through a class boot is a
+        // decision nothing asserts.
+        const {level, lines} = describeCollectionStats(health.database.connection.collections?.knowledgeBase);
 
-        if (!knowledgeBase) {
-            return
-        }
-
-        if (!knowledgeBase.exists) {
-            logger.info('   - Knowledge Base: unavailable');
-            return
-        }
-
-        // An empty corpus printed as `info` under the success banner is how a six-day corpus outage
-        // stayed invisible. A dockerization migration recreated `neo-knowledge-base`, ~61,206
-        // documents stayed behind in the previous data root, and startup rendered
-        //
-        //     ✅ [Startup] Knowledge Base health check passed
-        //        - Knowledge Base: 0
-        //
-        // The count was never missing — it was framed as success. The correction belongs here, at the
-        // render, and NOT on `health.status`: that field is the container liveness gate, mcpHealthcheck
-        // accepts only `healthy` by default, and `ingress` + `orchestrator` both gate on
-        // `service_healthy` — so degrading an empty corpus stops a fresh plane from booting at all.
-        const {count} = knowledgeBase;
-
-        if (typeof count !== 'number') {
-            logger.warn('   - Knowledge Base: document count unreadable — corpus size unverified');
-            return
-        }
-
-        if (count === 0) {
-            logger.warn('   - Knowledge Base: 0 documents — retrieval cannot return a grounded result');
-            logger.warn('     A collection recreated by a migration presents exactly this way. Check whether the');
-            logger.warn('     corpus was left behind in a previous data root before assuming ingestion has not run.');
-            return
-        }
-
-        logger.info(`   - Knowledge Base: ${count}`);
+        lines.forEach(line => level === STATS_LEVEL.warn ? logger.warn(line) : logger.info(line));
     }
 }
 
