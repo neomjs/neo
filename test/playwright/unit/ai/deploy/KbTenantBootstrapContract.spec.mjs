@@ -127,6 +127,13 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
         // from its `default_branch`, so nothing here currently exercises resolving a NON-default
         // branch. A future non-default-branch tenant should restore that, and this comment is the
         // pointer for whoever adds one.
+        //
+        // Note this is a DEPLOYMENT POLICY on top of the access contract, not a restatement of it:
+        // `tenantRepoAccessContract` documents `branchRef` as present only when configured, so an
+        // entry that omits it is contract-legal and fails this test on purpose. Silent inheritance
+        // from a sibling is the failure the config comment warns about, so this bootstrap requires
+        // what the contract merely permits. A future author hitting this is looking at a policy
+        // decision, not a contract break.
         const
             document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
             entries  = document.tenants['neo-shared'].tenantRepos;
