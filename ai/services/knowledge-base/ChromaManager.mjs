@@ -1,8 +1,8 @@
-import {ChromaClient}           from 'chromadb';
-import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
-import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import {ChromaClient}                  from 'chromadb';
+import aiConfig                        from '../../mcp/server/knowledge-base/config.mjs';
+import logger                          from '../../mcp/server/knowledge-base/logger.mjs';
+import Base                            from '../../../src/core/Base.mjs';
+import DatabaseLifecycleService        from './DatabaseLifecycleService.mjs';
 import {assertDisposableRestoreTarget} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {
     chromaConnect,
@@ -10,6 +10,7 @@ import {
     chromaListCollectionNames,
     createSilentExecutor,
     isChromaCollectionNotFoundError,
+    isChromaConnectionError,
     registerNeoChromaEmbeddingFunctions
 } from '../shared/vector/chromaClientPrimitives.mjs';
 
@@ -334,7 +335,7 @@ class ChromaManager extends Base {
      * @returns {Boolean}
      */
     #isChromaConnectionError(error) {
-        return error?.name === 'ChromaConnectionError' || error?.constructor?.name === 'ChromaConnectionError'
+        return isChromaConnectionError(error)
     }
 
     /**
