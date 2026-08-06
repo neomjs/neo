@@ -14,6 +14,8 @@ import {normalizeTenantRepoConfig}
                             from './helpers/tenantRepoAccessContract.mjs';
 import {createTenantRepoMaterializationDigest}
                             from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
+import {isChromaConnectionError}
+                            from '../shared/vector/chromaClientPrimitives.mjs';
 import VectorService   from './VectorService.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
@@ -271,7 +273,7 @@ class IngestionService extends Base {
             return summary;
         } catch (error) {
             summary.errors.push(this.createError({
-                code   : error.code || 'KB_INGEST_FAILED',
+                code   : this.classifyIngestionFailureCode(error),
                 message: error.message
             }));
             summary.durationMs = Date.now() - startedAt;
@@ -477,6 +479,41 @@ class IngestionService extends Base {
     }
 
     /**
+     * @summary Names a thrown ingestion failure with a bounded code instead of flattening it.
+     *
+     * `KB_INGEST_FAILED` was applied to every error that arrived without its own `code`, which
+     * made the most common real failure **unnameable**: the cause existed only in `error.message`,
+     * and downstream consumers deliberately refuse to copy messages because a clone URL or a
+     * provider response can carry a credential. So an operator saw `KB_INGEST_FAILED` and had no
+     * way to reach what it meant — observed live on the canonical plane, where the tenant
+     * lane reported exactly that while the store was restarting underneath it.
+     *
+     * Classification happens HERE, inside the service, where the message is legitimately visible.
+     * Only the resulting bounded code leaves — messages still never propagate, so this widens
+     * diagnosis without touching the credential boundary.
+     *
+     * Deliberately narrow: it preserves a code the error already carries, names the connection
+     * case via the shared predicate (`isChromaConnectionError` — the same one `ChromaManager` uses,
+     * not a second copy), and otherwise falls back unchanged. Growing this into a taxonomy of
+     * guessed causes would trade one unnameable code for several wrong ones.
+     *
+     * @param {Error} error Thrown ingestion failure.
+     * @returns {String} A bounded `KB_*` code.
+     * @protected
+     */
+    classifyIngestionFailureCode(error) {
+        if (typeof error?.code === 'string' && error.code.startsWith('KB_')) {
+            return error.code;
+        }
+
+        if (isChromaConnectionError(error)) {
+            return 'KB_INGEST_STORE_UNREACHABLE';
+        }
+
+        return 'KB_INGEST_FAILED';
+    }
+
+    /**
      * @summary Creates an empty ingestion summary.
      * @param {Object} options
      * @returns {Object}
@@ -556,20 +593,20 @@ class IngestionService extends Base {
             // snapshot (`tenantRepoSync`), which is where a wedged pull lane is actually visible.
             observedScope   : INGESTION_PROGRESS_OBSERVED_SCOPE,
             crossProcessHint: INGESTION_PROGRESS_CROSS_PROCESS_HINT,
-            startedAt     : null,
-            updatedAt     : lastRunSummary?.updatedAt ?? null,
-            lastProgressAt: null,
-            completedAt   : lastRunSummary?.completedAt ?? null,
-            durationMs    : 0,
+            startedAt       : null,
+            updatedAt       : lastRunSummary?.updatedAt ?? null,
+            lastProgressAt  : null,
+            completedAt     : lastRunSummary?.completedAt ?? null,
+            durationMs      : 0,
             staleAfterMs,
-            stalled       : false,
-            totalSources  : 0,
-            seenSources   : 0,
-            totalChunks   : 0,
-            embeddedChunks: 0,
-            skippedChunks : 0,
-            remaining     : 0,
-            deletedRows   : 0,
+            stalled         : false,
+            totalSources    : 0,
+            seenSources     : 0,
+            totalChunks     : 0,
+            embeddedChunks  : 0,
+            skippedChunks   : 0,
+            remaining       : 0,
+            deletedRows     : 0,
             // Carried from the last run rather than pinned to 0. A zero count beside a failed run is
             // the same false reassurance as the status was.
             errorCount    : lastRunSummary?.errorCount ?? 0,
