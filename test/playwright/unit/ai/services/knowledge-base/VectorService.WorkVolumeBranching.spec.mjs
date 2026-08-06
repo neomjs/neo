@@ -48,9 +48,47 @@ const __dirname  = path.dirname(__filename);
  */
 test.describe.configure({mode: 'serial'});
 
-function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {}) {
+/**
+ * Evaluates the `$and`-of-`$eq` filter shape `VectorService.buildOwnedScopeFilter` emits.
+ *
+ * Only honored by spies created with `honorWhere: true`. That is opt-in rather than default
+ * deliberately: the 20-odd existing spies here seed bare ids and assert add/delete volumes, not
+ * corpus scoping, so filtering their reads would silently change what every one of those
+ * expectations means. Two weaker designs were tried and rejected — a hardcoded default stamp
+ * (passed alone, failed in-file: siblings mutate the shared config singleton, so the default
+ * stamp is not constant across a run) and reading the stamp from the service per call (a sibling
+ * leaves config in a state where `resolveTenantStamp` throws). An opt-in flag with explicit
+ * per-row metadata depends on neither.
+ *
+ * Chroma rejects a multi-key `where` ("Expected 'where' to have exactly one operator, but got
+ * 2"), so honoring only this shape matches the store rather than being permissive beyond it.
+ *
+ * @param {Object} metadata Row metadata.
+ * @param {Object} [where] Chroma filter.
+ * @returns {Boolean} True when the row satisfies the filter.
+ */
+function matchesWhere(metadata = {}, where) {
+    if (!where) {
+        return true;
+    }
+
+    if (Array.isArray(where.$and)) {
+        return where.$and.every(clause => matchesWhere(metadata, clause));
+    }
+
+    return Object.entries(where).every(([field, condition]) => {
+        const expected = condition && typeof condition === 'object' && '$eq' in condition
+            ? condition.$eq
+            : condition;
+
+        return metadata[field] === expected;
+    });
+}
+
+function createSpyCollection({existingIds = [], name = 'spy-knowledge-base', honorWhere = false, stamp = {}, rowStamps = {}} = {}) {
     const rows = new Map();
-    existingIds.forEach(id => rows.set(id, {id, metadata: {}, document: ''}));
+
+    existingIds.forEach(id => rows.set(id, {id, metadata: {...stamp, ...(rowStamps[id] || {})}, document: ''}));
 
     const calls = {get: 0, upsert: 0, delete: 0, count: 0, modify: []};
 
@@ -61,11 +99,13 @@ function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {
 
         async get({ids, where, limit = 2000, offset = 0, include = []} = {}) {
             calls.get++;
-            const all   = Array.from(rows.keys());
+            const all = Array.from(rows.entries())
+                .filter(([, row]) => !honorWhere || matchesWhere(row.metadata, where))
+                .map(([id]) => id);
             const slice = all.slice(offset, offset + limit);
             return {
                 ids      : slice,
-                metadatas: include.includes('metadatas') ? slice.map(() => ({})) : [],
+                metadatas: include.includes('metadatas') ? slice.map(id => rows.get(id).metadata) : [],
                 documents: include.includes('documents') ? slice.map(() => '') : []
             };
         },
@@ -742,6 +782,110 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect('error' in result).toBe(false);
         expect(result.message).toContain('Embedding complete');
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
+    });
+
+    test('stale-id gathering is scoped: embedding one corpus never deletes another tenant repo (#16584)', async () => {
+        // The live specimen this pins: a sync pass over the `neo` corpus deleted a tenant repo's
+        // 50 rows, because `existingIds` was gathered across the WHOLE collection, so every row
+        // outside the corpus being embedded looked stale. It recurred on every sweep interval,
+        // which made kbSync and multi-tenant ingestion mutually exclusive.
+        const stamp   = {tenantId: 'neo-shared', repoSlug: 'neo'};
+        const foreign = 'tenant-row-create-app';
+
+        const spy = createSpyCollection({
+            existingIds: [foreign],
+            honorWhere : true,
+            rowStamps  : {[foreign]: {tenantId: 'neo-shared', repoSlug: 'create-app'}}
+        });
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, 2);
+
+        // Default stale handling (delete-bearing) against a corpus that shares the collection.
+        const result = await KB_VectorService.embed(fixturePath, {tenantContext: stamp});
+
+        expect('error' in result).toBe(false);
+
+        // The foreign row is untouched. This is the whole point: it is absent from the embedded
+        // corpus, so the unscoped implementation classified it stale and removed it.
+        expect(spy.rows.has(foreign)).toBe(true);
+        expect(result.deleted).toBe(0);
+
+        // Positive control — without it, `deleted: 0` could equally mean the delete path is
+        // simply unreachable in this fixture. An OWN orphan under the embedded corpus's stamp
+        // must still be deleted, or the fix has over-corrected into deleting nothing at all.
+        const ownOrphan = 'own-orphan-row';
+        const spy2      = createSpyCollection({
+            existingIds: [ownOrphan, foreign],
+            honorWhere : true,
+            stamp,
+            rowStamps  : {[foreign]: {tenantId: 'neo-shared', repoSlug: 'create-app'}}
+        });
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy2;
+
+        const scopedResult = await KB_VectorService.embed(fixturePath, {tenantContext: stamp});
+
+        expect(scopedResult.deleted).toBe(1);
+        expect(spy2.rows.has(ownOrphan)).toBe(false); // own orphan removed
+        expect(spy2.rows.has(foreign)).toBe(true);    // foreign row still safe
+    });
+
+    test('the work-volume gate counts deletions, and nothing is deleted above it (#16584)', async () => {
+        // Two defects in one branch: `workVolume` counted only ADDS, so a call adding almost
+        // nothing while deleting the corpus presented to the gate as tiny; and the no-adds
+        // branch deleted and returned BEFORE the gate was evaluated, so the largest possible
+        // deletion was the one case no guard ever saw.
+        const stamp   = {tenantId: 'neo-shared', repoSlug: 'neo'};
+        const orphans = Array.from({length: 12}, (_, i) => `stale-${i}`);
+
+        const spy = createSpyCollection({existingIds: orphans, honorWhere: true, stamp});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        // Zero adds (empty corpus file), 12 deletions, threshold below the deletion count.
+        writeFixtureJsonl(fixturePath, 0);
+        KB_Config.data.mcpSyncMaxChunks = 5;
+
+        const result = await KB_VectorService.embed(fixturePath, {viaMcp: true, tenantContext: stamp});
+
+        // Refused rather than executed.
+        expect(result.code).toBe('KB_SYNC_VOLUME_EXCEEDED');
+        expect(result.idsToDelete).toBe(12);
+
+        // And crucially: refused BEFORE deleting. A gate that fires after the delete would
+        // report the same payload while the rows were already gone.
+        expect(spy.calls.delete).toBe(0);
+        orphans.forEach(id => expect(spy.rows.has(id)).toBe(true));
+    });
+
+    test('a delete-bearing pass with no adds does not report "no changes" (#16584)', async () => {
+        // The report used to invert the effect: this branch returned
+        // "No changes detected. Knowledge base is up to date." beside a non-zero `deleted`
+        // count. A caller reading the message saw a no-op while rows were removed.
+        const stamp   = {tenantId: 'neo-shared', repoSlug: 'neo'};
+        const orphans = ['stale-a', 'stale-b'];
+
+        const spy = createSpyCollection({existingIds: orphans, honorWhere: true, stamp});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, 0);
+        KB_Config.data.mcpSyncMaxChunks = 500; // gate must not interfere
+
+        const result = await KB_VectorService.embed(fixturePath, {tenantContext: stamp});
+
+        expect(result.deleted).toBe(2);
+        expect(result.message).not.toContain('No changes detected');
+        expect(result.message).not.toContain('up to date');
+        expect(result.message).toContain('Collection now contains');
+
+        // A GENUINE no-op still reports as one — the message is only wrong when it contradicts
+        // the effect, so the honest case must keep its wording.
+        const emptySpy = createSpyCollection({existingIds: [], honorWhere: true, stamp});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => emptySpy;
+
+        const noop = await KB_VectorService.embed(fixturePath, {tenantContext: stamp});
+
+        expect(noop.deleted).toBe(0);
+        expect(noop.message).toContain('No changes detected');
     });
 
 });
