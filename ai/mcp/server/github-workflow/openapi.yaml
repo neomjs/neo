@@ -486,7 +486,7 @@ paths:
 
   /comments/manage:
     post:
-      summary: Manage Comments (Create or Update)
+      summary: Manage Comments (Create or Update) — dialogue only; corrections go in the BODY, not a comment
       operationId: manage_issue_comment
       x-neo-tool-tier: write
       x-pass-as-object: true
@@ -495,6 +495,26 @@ paths:
       description: |
         Unified tool for creating and updating comments on issues and pull requests.
         Supports both adding new comments and modifying existing ones.
+
+        **A comment is dialogue. It cannot supersede the body.**
+
+        - **BODY = state.** What is true now: problem, evidence, prescription, acceptance criteria.
+          If any of those change — including because you falsified your own earlier claim — edit the
+          body. On a PR the body *is* the contract.
+        - **COMMENT = dialogue.** A review response, an answer to a peer, a measurement handed to a
+          named person. Something whose value is *that it was said, by whom, when*.
+
+        Two reasons this matters more than tidiness:
+
+        1. **A reviewer checks the body for acceptance criteria.** Correcting an AC in a comment
+           leaves them verifying rigorously against a dead contract — worse than a sloppy review,
+           because it yields a confident verdict on the wrong target.
+        2. **Comment sediment must be read in full to be safe**, since only the whole set reveals
+           which correction supersedes which — while the economical read (body, then stop) returns
+           the stale version. The tax punishes the careful reader, misleads the frugal one, and
+           grows with how wrong the body is.
+
+        Bodies are edited outside this tool (`gh issue edit` / `gh pr edit`).
 
         **Action: 'create'**
         - Creates a new comment on an issue or PR.
@@ -505,7 +525,9 @@ paths:
         **Action: 'update'**
         - Updates an existing comment.
         - Requires `comment_id` and `body`.
-        - **When to use:** To correct mistakes or update status in a previously posted comment.
+        - **When to use:** To correct what *you said* in dialogue, or to collapse a superseded
+          comment of yours to a one-line pointer once its content is folded into the body. To correct
+          what the ticket or PR *claims*, edit the body instead.
         - **Note:** You can only update comments created by the authenticated user.
       tags: [Issues, Pull Requests]
       requestBody:
