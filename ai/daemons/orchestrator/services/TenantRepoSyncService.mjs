@@ -1299,7 +1299,7 @@ class TenantRepoSyncService extends Base {
                         !== priorState?.lastCommittedMaterializationAttemptId
                         ? existingManifest.materializationReceipt
                         : null,
-                    ingestResult = assertErrorFreeIngestionSummary(retryReceipt
+                    rawSummary = retryReceipt
                         ? {
                             ingested              : 0,
                             deleted               : 0,
@@ -1310,24 +1310,32 @@ class TenantRepoSyncService extends Base {
                             ...envelope,
                             ...(materializationAttempt ? {materializationAttempt} : {}),
                             viaMcp: false // operator-bulk path
-                        }));
+                        });
 
-                // Emitted BEFORE the effect assertion, so it survives the throw. The failure path
-                // used to log nothing between "Refreshing" and the error, which made an empty
-                // ENVELOPE (nothing matched a Source) indistinguishable from a dropped INGEST
-                // (files present, none materialized) — the two have opposite fixes, and neither
-                // could be told from the log. Measured live: 99 seconds of silence, then
-                // KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION with no way to say why.
+                // Emitted before BOTH guards on this path, which is what makes it useful:
+                // `assertErrorFreeIngestionSummary` throws on any error-bearing summary, and
+                // `assertFullMaterializationEffect` throws on a zero-effect one. Between them they
+                // cover the two live failure modes on this lane, and neither used to log anything
+                // between "Refreshing" and the error.
+                //
+                // Placed one statement higher than first written, on review: below the summary
+                // assertion, `errors=` could only ever be 0 (that guard throws when it is not, and
+                // the retry-receipt branch hardcodes an empty array), so the field had a single
+                // possible value AND the error-bearing failure mode — the one the other configured
+                // repo actually hits — still produced total silence.
                 //
                 // Counts only. Paths, file names, and repo content stay out — the same
                 // credential-boundary reasoning that keeps ingestion error messages unprojected.
+                // `repoLabel` is `tenantId/repoSlug`: operator-configured identifiers, not content.
                 writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} materialized: ` +
                     `envelopeFiles=${envelope?.files?.length ?? 0} ` +
                     `envelopeDeleted=${envelope?.deleted?.length ?? 0} ` +
-                    `ingested=${ingestResult?.ingested ?? 0} ` +
-                    `deleted=${ingestResult?.deleted ?? 0} ` +
-                    `embeddings=${ingestResult?.embeddingsGenerated ?? 0} ` +
-                    `errors=${ingestResult?.errors?.length ?? 0}`);
+                    `ingested=${rawSummary?.ingested ?? 0} ` +
+                    `deleted=${rawSummary?.deleted ?? 0} ` +
+                    `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
+                    `errors=${rawSummary?.errors?.length ?? 0}`);
+
+                const ingestResult = assertErrorFreeIngestionSummary(rawSummary);
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,

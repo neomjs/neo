@@ -1222,6 +1222,101 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         })
     }
 
+    test('an EMPTY envelope reads differently from a dropped ingest — the other arm of the discrimination', async () => {
+        // The sibling test pins files=2/ingested=0 (dropped ingest). This pins files=0, which is the
+        // arm the leading hypothesis predicts (a source-config gap yielding nothing to ingest) and
+        // therefore the one the next live run is most likely to produce. Pinning only the arm that
+        // already works would leave the claim "these two read differently" half-evidenced.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/empty-envelope',
+            logs             = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/empty-envelope.git'}
+            ]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [],
+                deleted         : [],
+                headRevision    : 'sha-empty-envelope',
+                manifestSnapshot: {pathsAfterPush: []}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 0, deleted: 0, embeddingsGenerated: 0, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            revisionsFilePath: revisionsFile,
+            writeLog         : (...args) => logs.push(args.join(' '))
+        });
+
+        const logText = logs.join('\n');
+
+        // The discriminating field, and the reason this arm needed its own fixture.
+        expect(logText).toContain('envelopeFiles=0');
+        expect(logText).toContain('ingested=0')
+    });
+
+    test('the diagnostic survives an ERROR-BEARING summary, which throws before the effect guard', async () => {
+        // `assertErrorFreeIngestionSummary` throws ahead of the effect guard, so a log placed below
+        // it could never describe this failure — and this is the mode the other configured repo hits
+        // live. Pinning it here is what keeps the line above BOTH guards; if someone moves it back
+        // down, this test goes red rather than the regression reaching a plane.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/error-bearing-diagnostic',
+            logs             = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/error-bearing.git'}
+            ]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [{sourcePath: 'a.txt', repoSlug: args.repoSlug, content: 'x'}],
+                deleted         : [],
+                headRevision    : 'sha-error-bearing',
+                manifestSnapshot: {pathsAfterPush: ['a.txt']}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({
+                    ingested           : 0,
+                    deleted            : 0,
+                    embeddingsGenerated: 0,
+                    errors             : [
+                        {code: 'KB_VECTOR_EMBED_FAILED', message: 'credential-must-not-project'},
+                        {code: 'KB_FILE_PARSE_FAILED', message: 'also-must-not-project'}
+                    ]
+                })
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            revisionsFilePath: revisionsFile,
+            writeLog         : (...args) => logs.push(args.join(' '))
+        });
+
+        const logText = logs.join('\n');
+
+        // The diagnostic ran even though the summary assertion threw immediately after it.
+        expect(logText).toContain('envelopeFiles=1');
+        // And `errors=` now has a real range — it was structurally 0 while the line sat lower.
+        expect(logText).toContain('errors=2');
+        // Messages still never project, on either the diagnostic or the failure line.
+        expect(logText).not.toContain('must-not-project')
+    });
+
     test('an empty materialization states envelope vs ingest counts, so the two causes are distinguishable (#16577)', async () => {
         // The failure path threw before any diagnostic was written, so an empty ENVELOPE (nothing
         // matched a Source) and a dropped INGEST (files present, none materialized) produced the
