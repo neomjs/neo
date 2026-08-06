@@ -521,7 +521,7 @@ parse(options)
         // Wait for all writes to complete in parallel
         await Promise.all(writePromises);
 
-        console.log('Generated docs/output/class-hierarchy.yaml');
+        console.log('Generated docs/output/class-hierarchy.json');
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`custom doclet parsing time: ${processTime}s`);

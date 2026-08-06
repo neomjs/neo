@@ -44,11 +44,20 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#getClassHierarchy', (
             .rejects.toThrow('The "root" parameter is required to prevent excessive context payload.');
     });
 
-    test('throws a sync guidance error when the hierarchy file is absent', async () => {
+    test('names the resolved path and the PRODUCER when the hierarchy file is absent', async () => {
         aiConfig.hierarchyPath = tmpHierarchyPath;
 
-        await expect(QueryService.getClassHierarchy({root: 'Neo.component.Base'}))
-            .rejects.toThrow('Class hierarchy file not found. Please sync the knowledge base first.');
+        // Was asserted as `'…Please sync the knowledge base first.'` — remediation that pointed at the
+        // wrong operation, since a KB sync CONSUMES this file and cannot produce it. Asserting the two
+        // load-bearing facts instead of the full sentence: WHICH path was read (the incident this
+        // guards was a plane mismatch, indistinguishable without it) and what actually rebuilds it.
+        const error = await QueryService.getClassHierarchy({root: 'Neo.component.Base'})
+            .then(() => null, e => e);
+
+        expect(error).not.toBeNull();
+        expect(error.message).toContain(tmpHierarchyPath);
+        expect(error.message).toContain('generate-docs-json');
+        expect(error.message).not.toContain('sync the knowledge base first');
     });
 
     test('returns the requested root and all recursive descendants', async () => {
