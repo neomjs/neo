@@ -1,7 +1,8 @@
-import {test, expect}       from '@playwright/test';
-import fs                   from 'fs';
-import path                 from 'path';
-import {loadClassHierarchy} from '../../../../../../ai/services/knowledge-base/helpers/classHierarchyContract.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs';
+import path           from 'path';
+
+import {classifyHierarchyCoverage, loadClassHierarchy} from '../../../../../../ai/services/knowledge-base/helpers/classHierarchyContract.mjs';
 
 /**
  * The class hierarchy is an IDENTITY input: `extends` is hashed into every chunk id, so a degraded
@@ -97,5 +98,54 @@ test.describe('loadClassHierarchy — fail-closed on a degraded identity input (
 
             expect(error?.code, `${name} must refuse`).toBe('CLASS_HIERARCHY_EMPTY');
         }
+    });
+});
+
+/**
+ * A non-empty map proves the artifact LOADED; it proves nothing about whether its domain covers the
+ * roots being indexed. These separate the two claims, because conflating them let a whole tree
+ * ingest with an empty `extends` while every existing guard passed.
+ */
+test.describe('classifyHierarchyCoverage — domain coverage is a separate claim from non-emptiness', () => {
+    const hierarchy = {'Neo.component.Base': 'Neo.component.Abstract'};
+
+    test('counts a class that declares a superclass AND resolves in the map', () => {
+        const result = classifyHierarchyCoverage({
+            source: `class Base extends Component {\n    static config = {\n        className: 'Neo.component.Base'\n    }\n}`,
+            hierarchy
+        });
+
+        expect(result).toEqual({className: 'Neo.component.Base', resolved: true});
+    });
+
+    test('counts a class that declares a superclass and does NOT resolve — the reported gap', () => {
+        // The live shape: `examples` declares 259 of these and resolves none of them, because the
+        // map is produced for the docs site and never covered that root.
+        const result = classifyHierarchyCoverage({
+            source: `class Viewport extends Container {\n    static config = {\n        className: 'Neo.examples.ConfigurationViewport'\n    }\n}`,
+            hierarchy
+        });
+
+        expect(result).toEqual({className: 'Neo.examples.ConfigurationViewport', resolved: false});
+    });
+
+    test('CONTROL — a class with NO extends clause is not a coverage data point', () => {
+        // Legitimately unresolved rather than a gap. Counting it would inflate the denominator and
+        // make full coverage unreachable, which would turn the metric into permanent noise.
+        const result = classifyHierarchyCoverage({
+            source: `class Root {\n    static config = {\n        className: 'Neo.core.Base'\n    }\n}`,
+            hierarchy
+        });
+
+        expect(result).toBeNull();
+    });
+
+    test('CONTROL — a module with no className is not a coverage data point', () => {
+        const result = classifyHierarchyCoverage({
+            source: `export function helper() { return 1 }\nclass Local extends Error {}`,
+            hierarchy
+        });
+
+        expect(result).toBeNull();
     });
 });

@@ -75,3 +75,43 @@ export async function loadClassHierarchy({hierarchyPath, sourcePathCount}) {
 
     return isPlainObject ? hierarchy : {}
 }
+
+/**
+ * @summary Classifies one source module against the hierarchy map, so per-root coverage can be
+ * measured during ingestion instead of assumed from a non-empty map.
+ *
+ * A non-empty hierarchy proves the artifact loaded; it proves nothing about whether the artifact's
+ * DOMAIN covers the roots being indexed. Those are different claims, and conflating them is what
+ * let a whole tree ingest with empty `extends` while every guard passed: the map is produced for
+ * the documentation site, and `sourcePaths.ApiSource` indexes roots that producer was never
+ * responsible for. Measured on the tracked map — `src` 403/405 and `apps` 336/358 resolve, while
+ * `examples` resolves **0 of 259** and `docs/app` 4 of 17.
+ *
+ * Those gaps are pre-existing and STABLE — the affected classes have carried an empty `extends` in
+ * every corpus built so far, so their ids do not move. That is why this reports rather than
+ * refuses: refusing on an absolute gap would block all ingestion and make the degraded corpus
+ * unrebuildable, while the hazard that actually caused the incident is a *regression* in a root
+ * that previously resolved. Making the number visible on every ingest is what turns the next
+ * regression into a loud one.
+ *
+ * @param {Object} options
+ * @param {String} options.source Raw module text.
+ * @param {Object} options.hierarchy The loaded `className -> superClassName` map.
+ * @returns {Object|null} `{className, resolved}` for a module that declares BOTH a `className` and
+ *     an `extends` clause; `null` for anything else, which is not a coverage data point either way.
+ */
+export function classifyHierarchyCoverage({source, hierarchy}) {
+    const
+        classNameMatch = source.match(/className\s*:\s*'([^']+)'/),
+        extendsMatch   = source.match(/^\s*class\s+\w+\s+extends\s+[\w.]+/m);
+
+    // A module without both is not evidence of a gap: a non-class module has no superclass to
+    // resolve, and a class with no `extends` clause is legitimately unresolved.
+    if (!classNameMatch || !extendsMatch) {
+        return null;
+    }
+
+    const className = classNameMatch[1];
+
+    return {className, resolved: !!hierarchy[className]}
+}

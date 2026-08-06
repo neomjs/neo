@@ -1,9 +1,11 @@
-import Base                 from './Base.mjs';
-import SourceParser         from '../parser/SourceParser.mjs';
-import fs                   from 'fs-extra';
-import path                 from 'path';
-import aiConfig             from '../../../mcp/server/knowledge-base/config.mjs';
-import {loadClassHierarchy} from '../helpers/classHierarchyContract.mjs';
+import Base         from './Base.mjs';
+import SourceParser from '../parser/SourceParser.mjs';
+import fs           from 'fs-extra';
+import logger       from '../../../mcp/server/knowledge-base/logger.mjs';
+import path         from 'path';
+import aiConfig     from '../../../mcp/server/knowledge-base/config.mjs';
+
+import {classifyHierarchyCoverage, loadClassHierarchy} from '../helpers/classHierarchyContract.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Neo.mjs source code.
@@ -56,8 +58,32 @@ class ApiSource extends Base {
 
         let count = 0;
 
+        // Per-root coverage, measured rather than inferred from the map being non-empty. Those are
+        // different claims: the map is produced for the docs site, and this source indexes roots that
+        // producer never covered, so a loaded map can still leave a whole tree with empty `extends`.
+        // Reported per root on every ingest so the next regression is loud — see the helper for why
+        // this reports instead of refusing.
+        const coverage = {};
+
         for (const [path, type] of Object.entries(sourceMap)) {
-            count += await this.indexRawDirectory(writeStream, createHashFn, path, type, hierarchy);
+            coverage[path] = {declared: 0, resolved: 0};
+
+            count += await this.indexRawDirectory(writeStream, createHashFn, path, type, hierarchy, coverage[path]);
+        }
+
+        for (const [root, {declared, resolved}] of Object.entries(coverage)) {
+            if (declared < 1) continue;
+
+            const percent = (resolved / declared * 100).toFixed(1);
+
+            // Short of total coverage means chunks in that root take an id derived from an empty
+            // `extends`. Stated at warn level with the arithmetic, so the gap is not readable as a
+            // healthy ingest the way it was during the incident.
+            if (resolved < declared) {
+                logger.warn?.(`[ApiSource] Class hierarchy covers ${resolved}/${declared} (${percent}%) of the classes declaring a superclass under '${root}'. The remainder ingest with an empty 'extends', which is part of their chunk id.`);
+            } else {
+                logger.log?.(`[ApiSource] Class hierarchy coverage for '${root}': ${resolved}/${declared} (100%).`);
+            }
         }
 
         return count;
@@ -73,7 +99,7 @@ class ApiSource extends Base {
      * @returns {Promise<Number>} The number of chunks created.
      * @private
      */
-    async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, hierarchy) {
+    async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, hierarchy, coverage) {
         let   count    = 0;
         const fullPath = path.resolve(aiConfig.neoRootDir, relativePath);
 
@@ -89,9 +115,20 @@ class ApiSource extends Base {
 
             if (entry.isDirectory()) {
                 if (entryName === 'node_modules') continue; // Safety check
-                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy);
+                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy, coverage);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
+
+                // Same read, so coverage costs no extra I/O.
+                if (coverage) {
+                    const classified = classifyHierarchyCoverage({source: content, hierarchy});
+
+                    if (classified) {
+                        coverage.declared++;
+                        classified.resolved && coverage.resolved++;
+                    }
+                }
+
                 // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
                 // Chroma zip shipped with each neo release stays portable across recipients'
                 // filesystems. SearchService resolves against its own neoRootDir at read time.
