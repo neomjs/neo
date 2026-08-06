@@ -72,21 +72,29 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
             document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
             repos    = document.tenants['neo-shared'].tenantRepos;
 
-        expect(repos).toHaveLength(2);
+        expect(repos).toHaveLength(3);
 
         const normalized = repos.map(normalizeTenantRepoEntry);
 
-        expect(normalized[0].tenantId).toBe('neo-shared');
-        expect(normalized[0].repoSlug).toBe('neo');
-        expect(normalized[0].cloneUrl).toBe('https://github.com/neomjs/neo.git');
-        expect(normalized[0].credentialRef).toBe('none');
-        expect(normalized[0].branchRef).toBe('dev');
+        const expected = [
+            {repoSlug: 'create-app',       cloneUrl: 'https://github.com/neomjs/create-app.git'},
+            {repoSlug: 'devindex-opt-in',  cloneUrl: 'https://github.com/neomjs/devindex-opt-in.git'},
+            {repoSlug: 'devindex-opt-out', cloneUrl: 'https://github.com/neomjs/devindex-opt-out.git'}
+        ];
 
-        expect(normalized[1].tenantId).toBe('neo-shared');
-        expect(normalized[1].repoSlug).toBe('create-app');
-        expect(normalized[1].cloneUrl).toBe('https://github.com/neomjs/create-app.git');
-        expect(normalized[1].credentialRef).toBe('none');
-        expect(normalized[1].branchRef).toBe('main')
+        expected.forEach((entry, index) => {
+            expect(normalized[index].tenantId).toBe('neo-shared');
+            expect(normalized[index].repoSlug).toBe(entry.repoSlug);
+            expect(normalized[index].cloneUrl).toBe(entry.cloneUrl);
+            expect(normalized[index].credentialRef).toBe('none');
+            expect(normalized[index].branchRef).toBe('main');
+        });
+
+        // The Neo repo is deliberately absent: `kbSync` already ingests it through the source
+        // extractors, and a pull-mode entry for the same repo declares no parser, so it produced a
+        // second untyped corpus under the same `{tenantId, repoSlug}` stamp `kbSync` defaults to —
+        // after which each lane deleted the other's rows as stale.
+        expect(normalized.some(repo => repo.repoSlug === 'neo')).toBe(false)
     });
 
     test('repo identity is unique per tenantId/repoSlug, which is what keeps the two corpora apart', () => {
@@ -100,22 +108,52 @@ test.describe('ai/deploy/kb-config.yaml — tenant bootstrap contract', () => {
                 .map(repo => `${repo.tenantId}/${repo.repoSlug}`);
 
         expect(new Set(keys).size).toBe(keys.length);
-        expect(keys).toEqual(['neo-shared/neo', 'neo-shared/create-app'])
+        expect(keys).toEqual([
+            'neo-shared/create-app',
+            'neo-shared/devindex-opt-in',
+            'neo-shared/devindex-opt-out'
+        ])
     });
 
-    test('branchRef is declared per repo and never inherited from a sibling', () => {
-        // create-app has no `dev` branch at all (verified against the remote), so inheriting neo's
-        // `dev` would make its clone fail. This pins that the two differ ON PURPOSE — a future
-        // normalization that defaults a missing branchRef from a sibling breaks this.
+    test('every repo declares its own branchRef rather than relying on a sibling or a default', () => {
+        // This asserts the actual invariant — each entry declares `branchRef` EXPLICITLY — rather
+        // than the older proxy for it, "neo says dev and create-app says main, so they differ".
+        //
+        // That proxy had to be replaced rather than updated. With the neo entry removed,
+        // `bySlug.neo` becomes undefined and `undefined !== 'main'` still passes, so the old
+        // assertion would have gone VACUOUS instead of red — a green test proving nothing.
+        //
+        // Coverage regression stated on purpose: neo was the only entry whose branchRef differed
+        // from its `default_branch`, so nothing here currently exercises resolving a NON-default
+        // branch. A future non-default-branch tenant should restore that, and this comment is the
+        // pointer for whoever adds one.
+        //
+        // Note this is a DEPLOYMENT POLICY on top of the access contract, not a restatement of it:
+        // `tenantRepoAccessContract` documents `branchRef` as present only when configured, so an
+        // entry that omits it is contract-legal and fails this test on purpose. Silent inheritance
+        // from a sibling is the failure the config comment warns about, so this bootstrap requires
+        // what the contract merely permits. A future author hitting this is looking at a policy
+        // decision, not a contract break.
         const
             document = yamlLoad(fs.readFileSync(path.join(repoRoot, bootstrapRel), 'utf8')),
-            bySlug   = Object.fromEntries(document.tenants['neo-shared'].tenantRepos
-                .map(normalizeTenantRepoEntry)
-                .map(repo => [repo.repoSlug, repo.branchRef]));
+            entries  = document.tenants['neo-shared'].tenantRepos;
 
-        expect(bySlug.neo).toBe('dev');
+        expect(entries.length).toBeGreaterThan(1);
+
+        entries.forEach(entry => {
+            // Read the RAW yaml entry, not the normalized one: a normalizer that defaults a
+            // missing branchRef would hide the omission this test exists to catch.
+            expect(typeof entry.branchRef, `${entry.repoSlug} declares branchRef`).toBe('string');
+            expect(entry.branchRef.trim().length).toBeGreaterThan(0);
+        });
+
+        const bySlug = Object.fromEntries(entries
+            .map(normalizeTenantRepoEntry)
+            .map(repo => [repo.repoSlug, repo.branchRef]));
+
         expect(bySlug['create-app']).toBe('main');
-        expect(bySlug.neo).not.toBe(bySlug['create-app'])
+        expect(bySlug['devindex-opt-in']).toBe('main');
+        expect(bySlug['devindex-opt-out']).toBe('main')
     });
 
     test('exactly the two consuming services mount the bootstrap read-only in the local-agent-os overlay', () => {
