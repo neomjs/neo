@@ -972,6 +972,75 @@ test.describe('IngestionService.ingestSourceFiles', () => {
     });
 });
 
+test.describe('IngestionService.persistManifestSnapshot receipt-absence diagnostic', () => {
+    let Service, logger, originalWarn, warnings;
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
+        logger  = (await import('../../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        warnings     = [];
+        originalWarn = logger.warn;
+        logger.warn  = (message, details) => warnings.push({message, details});
+    });
+
+    test.afterEach(() => {
+        logger.warn = originalWarn;
+    });
+
+    test('names WHY no receipt was produced when the attempt is absent', async () => {
+        // Every branch that skips receipt creation did so silently, so a manifest persisted WITHOUT
+        // a receipt — the shape that makes a fully successful ingest read as EMPTY_MATERIALIZATION
+        // downstream — was unattributable from any log. Observed live with ingested=50,
+        // embeddings=50, errors=0 and no receipt on either configured repo.
+        const summary = {ingested: 50, deleted: 0, errors: []};
+
+        await Service.persistManifestSnapshot({
+            manifestSnapshot: {repoSlug: 'diag-repo', pathsAfterPush: ['a.txt']},
+            files           : [{sourcePath: 'a.txt', repoSlug: 'diag-repo', content: 'x'}],
+            headRevision    : 'sha-diagnostic',
+            // No materializationAttempt: the branch that leaves `receipt` null while touching
+            // neither `summary.errors` nor any log.
+            tenantContext   : {tenantId: 'diag-tenant', repoSlug: 'diag-repo'},
+            summary
+        });
+
+        const hit = warnings.find(entry => entry.message.includes('without a materialization receipt'));
+
+        expect(hit).toBeTruthy();
+        expect(hit.details).toMatchObject({
+            attemptPresentAfterValidation: false,
+            attemptAccepted              : false,
+            ingested                     : 50,
+            errorCount                   : 0
+        });
+
+        // Counts and booleans only — no path, filename, or revision in the diagnostic.
+        const serialized = JSON.stringify(hit.details);
+        expect(serialized).not.toContain('a.txt');
+        expect(serialized).not.toContain('sha-diagnostic')
+    });
+
+    test('stays silent when a receipt IS produced', async () => {
+        // A diagnostic that fires on the healthy path becomes noise, and noise trains the reader to
+        // skip the line that matters.
+        const summary = {ingested: 3, deleted: 0, errors: []};
+
+        await Service.persistManifestSnapshot({
+            manifestSnapshot      : {repoSlug: 'diag-ok', pathsAfterPush: ['b.txt']},
+            files                 : [{sourcePath: 'b.txt', repoSlug: 'diag-ok', content: 'y'}],
+            headRevision          : 'sha-ok',
+            materializationAttempt: {attemptId: 'a'.repeat(32), ingestContractVersion: 2},
+            tenantContext         : {tenantId: 'diag-tenant', repoSlug: 'diag-ok'},
+            summary
+        });
+
+        expect(warnings.find(entry => entry.message.includes('without a materialization receipt'))).toBeFalsy()
+    });
+});
+
 test.describe('IngestionService.classifyIngestionFailureCode (#16566)', () => {
     let Service;
 
