@@ -241,14 +241,32 @@ function assertErrorFreeIngestionSummary(summary) {
     }
 
     if (summary.errors.length > 0) {
-        const error      = new Error('Knowledge Base ingestion returned an error-bearing summary.');
-        const sourceCode = summary.errors
-            .map(item => item?.code)
-            .find(code => typeof code === 'string' && BOUNDED_KB_ERROR_CODE_PATTERN.test(code));
+        const error = new Error('Knowledge Base ingestion returned an error-bearing summary.');
 
-        if (sourceCode) {
-            error.sourceErrorCode = sourceCode
+        // Every DISTINCT bounded code, not only the first. A failing ingest can carry several
+        // independent causes (an embed failure alongside a per-file parse failure, say), and
+        // reporting one of them made a multi-cause failure read as single-cause — the operator
+        // fixes the reported code and the lane fails identically on the next sweep.
+        //
+        // This stays inside the credential boundary by construction: BOUNDED_KB_ERROR_CODE_PATTERN
+        // admits only `KB_[A-Z0-9_]{1,120}`, so a code cannot carry a clone URL, a token, or
+        // stderr. That is exactly why the codes are safe to widen while the messages and details
+        // remain deliberately uncopied (see this function's docblock).
+        const sourceCodes = [...new Set(summary.errors
+            .map(item => item?.code)
+            .filter(code => typeof code === 'string' && BOUNDED_KB_ERROR_CODE_PATTERN.test(code)))];
+
+        if (sourceCodes.length > 0) {
+            // `sourceErrorCode` keeps its exact prior meaning (the first bounded code) so every
+            // existing consumer — `getSourceErrorCode`, `lastSourceErrorCode` — is unchanged.
+            error.sourceErrorCode  = sourceCodes[0];
+            error.sourceErrorCodes = sourceCodes
         }
+
+        // Total error count, INCLUDING entries whose code was unbounded or absent. Without it,
+        // "one reported code" is indistinguishable from "one error", so a partial ingest that
+        // failed 400 files looks like it failed one.
+        error.sourceErrorCount = summary.errors.length;
 
         throw error
     }
@@ -1375,7 +1393,17 @@ class TenantRepoSyncService extends Base {
                 const code            = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
                 const sourceErrorCode = getSourceErrorCode(e, code);
                 const sourceSuffix    = sourceErrorCode ? ` source=${sourceErrorCode}` : '';
-                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code}${sourceSuffix} (${e.message})`);
+                // Additional bounded codes and the total error count, so a multi-cause failure does
+                // not read as single-cause. Both are omitted when they would add nothing (one code,
+                // or a count that is not a useful number), keeping the single-cause line unchanged.
+                const otherCodes = Array.isArray(e?.sourceErrorCodes)
+                    ? e.sourceErrorCodes.filter(candidate => candidate !== sourceErrorCode)
+                    : [];
+                const alsoSuffix  = otherCodes.length > 0 ? ` also=${otherCodes.join(',')}` : '';
+                const countSuffix = Number.isInteger(e?.sourceErrorCount) && e.sourceErrorCount > 1
+                    ? ` errors=${e.sourceErrorCount}`
+                    : '';
+                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code}${sourceSuffix}${alsoSuffix}${countSuffix} (${e.message})`);
 
                 if (slotAcquired && !accessConfirmed) {
                     this.recordTenantRepoAccessOutcome({repo, ready: false, error: e, globalCadenceMs});
