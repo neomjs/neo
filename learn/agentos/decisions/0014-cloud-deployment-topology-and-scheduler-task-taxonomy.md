@@ -28,21 +28,51 @@ D0 is the **first** Epic workstream because the topology cannot be designed unti
 
 ### 2.1 Scheduler task taxonomy
 
-`Orchestrator.poll()` drives **nine** scheduler lanes (`buildTaskDefinitions()` + the `continuousTasks` set). Each is classified `cloud-deployable`, `local-only`, or `shared primitive`:
+`Orchestrator.poll()` drives its scheduler lanes under a **two-role authority topology**. Every lane
+carries exactly one authority class, and each role admits a fixed set of classes:
 
-| Lane | Kind | Classification | Rationale |
-|---|---|---|---|
-| `chroma` | continuous | **shared primitive** | The unified vector store (ADR 0003). Both profiles need it; in cloud it is a dedicated compose-managed container with its own `healthcheck:`, not an `Orchestrator`-supervised child. The `Orchestrator`'s `chroma` supervision is the local-dev substitute for compose. |
-| `bridgeDaemon` | continuous | **local-only** | `ai/daemons/wake/daemon.mjs` delivers A2A wake digests to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation. A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* via the MC server stays cloud-relevant — distinct from this wake-*delivery* daemon.) |
-| `mlx` | continuous (default off) | **local-only** | `mlx_lm.server` is macOS / Apple-Silicon local inference. Cloud model inference is a *provider-profile* decision (external API default; an optional self-hosted container is a D1 variant) — not an `Orchestrator` child. Already `NEO_ORCHESTRATOR_MLX_ENABLED`-gated, default `false`. |
-| `summary` | periodic, heavy | **cloud-deployable** | `summarize-sessions.mjs` digests agent sessions from the graph and writes summaries back. No local-checkout dependency (verified — no git / spawn). Needs a model-provider endpoint. Config-gated per deployment. |
-| `kbSync` | periodic, heavy | **local-only** | `syncKnowledgeBase.mjs` runs `KB_DatabaseService.syncDatabase()` — a full re-scan of the **Neo repo's own corpus** from the local checkout, also cascaded after a `dev` pull. A cloud tenant's KB content arrives via push-based `ingest_source_files` (Sub E #11726), not this local cascade. |
-| `backup` | periodic, heavy | **cloud-deployable** | Backup → external-volume → redeploy-survival is an explicit Epic AC. `backup.mjs` exports the Chroma + SQLite substrates; not local-checkout-bound. (Its best-effort `git rev-parse HEAD` bundle-meta stamp degrades to `null` without `.git` — graceful; a Sub C awareness note, not a blocker.) |
-| `primary-dev-sync` | periodic, heavy | **local-only** | `PrimaryRepoSyncService` is pure local-maintainer machinery: `git fetch` / `pull --ff-only origin/dev`, worktree discovery, `resources/content/.sync-metadata.json` reset, local `ai:sync-kb` cascade. The Epic's cloud-profile negative-behavior AC names exactly this lane's behaviors as forbidden. |
-| `dream` | periodic, heavy | **cloud-deployable** | DreamService REM-sleep graph extraction — Memory Core intelligence. No local-checkout dependency (verified — no git / spawn). Needs a provider endpoint. Config-gated per deployment. |
-| `golden-path` | periodic, light | **cloud-deployable** | The core Hybrid GraphRAG synthesis (Chroma semantic + SQLite structural scoring → the Computed Golden Path) is pure Memory Core graph/vector — cloud-correct. **Caveat:** two enrichment sections — "Active PR Cycle State" (`gh pr list`, hardcoded to the Neo swarm logins) and "Latest Priority Backlog" (a local `resources/content/issues` scan) — are Neo-maintainer-repo-specific. Both degrade gracefully (`try/catch` → empty section), so the lane *runs* correctly in cloud, but they are inert noise in a tenant deployment → deployment-mode-gate via Sub A #11722. |
+| Authority class | Meaning | Admitted by role |
+|---|---|---|
+| `host-edge` | Needs the maintainer host itself — a local checkout, a desktop harness to key into, or host-local inference. Cannot run inside the container plane. | host-edge only |
+| `container-plane` | Runs inside the dockerized deployment. Needs no host checkout and no desktop harness. | container-plane only |
+| `shared-primitive` | Infrastructure that lanes depend on and no lane owns. Admitted **only** by the container-plane role — a host-edge process does not run it. | container-plane |
 
-**Summary:** cloud-deployable = `{summary, backup, dream, golden-path}` · local-only = `{bridgeDaemon, mlx, kbSync, primary-dev-sync}` · shared primitive = `{chroma}`.
+**The per-lane assignment is NOT restated here.** It lives in
+`ai/daemons/orchestrator/taskAuthority.mjs` — `TASK_AUTHORITY_BY_NAME` for the lane→class map and
+`AUTHORITY_CLASSES_BY_PROFILE` for the role→classes map, both frozen and fail-closed. That file is the
+single source of truth; a table in this document would be a second copy free to disagree with it, which
+is exactly the drift that made this ADR dangerous to read (#16571).
+
+What a decision record owns, and the runtime map cannot express, is the **discriminator**: a lane is
+`host-edge` if and only if it requires the maintainer host — a local git checkout, `osascript` / `tmux`
+desktop-harness delivery, or host-local model inference. Everything else is `container-plane`. Apply
+that test when classifying a new lane, then record the result in the runtime map, not here.
+
+**Adding a lane is a decision, not a config change.** Classify it against the discriminator above
+before implementation — §9's re-review trigger fires on every new lane.
+
+#### Per-lane host dependency — the D0 findings
+
+These are the substantive audit results this ADR was written to record: for each lane D0 examined,
+**what** it needs and therefore whether it can leave the maintainer host. The findings are durable —
+they describe what the code requires, which does not change when the classification vocabulary does.
+The resulting authority class is deliberately absent; read it from `TASK_AUTHORITY_BY_NAME`.
+
+| Lane | Kind | Host dependency, and what it implies |
+|---|---|---|
+| `chroma` | compose-managed container | The unified vector store — ADR 0003, as amended by ADR 0017 (single flat `unified` store, dev/prod parity). It is a compose-managed container with its own `healthcheck:`, **not** an `Orchestrator`-supervised child: `hostEdgeProfile.mjs` sets `NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED: 'false'`, so the host-edge role does not supervise it either. No lane owns it and the lanes that use it are container-plane, which is why it is `shared-primitive` rather than a lane of its own. |
+| `bridgeDaemon` | continuous | `ai/daemons/wake/daemon.mjs` delivers A2A wake digests to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation. **Requires a desktop harness to key into.** (A2A *message storage* via the MC server is separate and has no host dependency — distinct from this wake-*delivery* daemon.) |
+| `mlx` | continuous (default off) | `mlx_lm.server` is macOS / Apple-Silicon local inference. **Requires host-local inference.** Model inference elsewhere is a *provider-profile* decision (external API default; a self-hosted container is a variant), not an `Orchestrator` child. Already `NEO_ORCHESTRATOR_MLX_ENABLED`-gated, default `false`. |
+| `summary` | periodic, heavy | `summarize-sessions.mjs` digests agent sessions from the graph and writes summaries back. **No host dependency** — verified, no git / spawn. Needs a model-provider endpoint. |
+| `kbSync` | periodic, heavy | `syncKnowledgeBase.mjs` runs `KB_DatabaseService.syncDatabase()` — a full re-scan of the Neo repo's own corpus. D0 recorded this as checkout-bound; it has since been made to run without the maintainer checkout (#16556), which is why its authority class today is not what D0 assumed. **The audit finding stands; the conclusion drawn from it moved.** |
+| `backup` | periodic, heavy | `backup.mjs` exports the Chroma + SQLite substrates. **No host dependency.** Its best-effort `git rev-parse HEAD` bundle-meta stamp degrades to `null` without `.git` — graceful, and an awareness note rather than a blocker. |
+| `primary-dev-sync` | periodic, heavy | `PrimaryRepoSyncService` is pure maintainer machinery: `git fetch` / `pull --ff-only origin/dev`, worktree discovery, `resources/content/.sync-metadata.json` reset, local `ai:sync-kb` cascade. **Requires a local checkout.** |
+| `dream` | periodic, heavy | DreamService REM-sleep graph extraction — Memory Core intelligence. **No host dependency** — verified, no git / spawn. Needs a provider endpoint. |
+| `golden-path` | periodic, light | The Hybrid GraphRAG synthesis (Chroma semantic + SQLite structural scoring → the Computed Golden Path) is pure graph/vector, **no host dependency**. **Caveat:** two enrichment sections — "Active PR Cycle State" (`gh pr list`, hardcoded to the Neo swarm logins) and "Latest Priority Backlog" (a local `resources/content/issues` scan) — are Neo-maintainer-repo-specific. Both degrade gracefully (`try/catch` → empty section), so the lane runs correctly either way, but they are inert noise outside the maintainer repo. Graceful degradation is not the same as belonging (§5.4). |
+
+The `Orchestrator` has since grown well past these lanes — `TASK_AUTHORITY_BY_NAME` carries **29** at the
+time of writing. Only the lanes D0 actually audited are listed here; a lane added later carries its
+rationale in the ticket that introduced it, per §9.
 
 ### 2.2 Target production deployment topology
 
@@ -152,7 +182,7 @@ After this ADR was accepted, [#11766](https://github.com/neomjs/neo/issues/11766
 
 | Lane | Kind | Classification | Rationale |
 |---|---|---|---|
-| `swarm-heartbeat` | periodic, light | **local-only** | `SwarmHeartbeatService.pulse()` delivers wake events to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation — the same wake-*delivery* dependency that makes `bridgeDaemon` local-only (§2.1). A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* + the TTL sweep stay cloud-relevant — distinct from this wake-*delivery* lane.) |
+| `swarm-heartbeat` | periodic, light | **Requires a desktop harness to key into.** | `SwarmHeartbeatService.pulse()` delivers wake events to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation — the same wake-*delivery* dependency that makes `bridgeDaemon` local-only (§2.1). A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* + the TTL sweep stay cloud-relevant — distinct from this wake-*delivery* lane.) |
 
 **Updated summary:** cloud-deployable = `{summary, backup, dream, golden-path}` · local-only = `{bridgeDaemon, mlx, kbSync, primary-dev-sync, swarm-heartbeat}` · shared primitive = `{chroma}`.
 
@@ -168,9 +198,9 @@ Epic [#11731](https://github.com/neomjs/neo/issues/11731) (*Server-side tenant-r
 
 | Lane | Kind | Classification | Rationale |
 |---|---|---|---|
-| `tenant-repo-sync` | periodic, heavy | **cloud-deployable** | Pulls tenant-repo content into the cloud deployment's KB via a credentialed persistent GitMirror (#11788) + diff-to-ingest envelope (#11789). It is the cloud deployment's tenant-ingestion path — cloud-correct by construction. It is the mirror image of the local-only lanes: config-disabled in the local Neo-maintainer profile (which has no tenant repos), exactly as the local-only lanes are config-disabled in cloud. Distinct from `kbSync` — see below. |
+| `tenant-repo-sync` | periodic, heavy | **No host dependency.** Pulls tenant-repo content into the KB via a credentialed persistent GitMirror (#11788) + diff-to-ingest envelope (#11789). It clones what it needs, so it requires no maintainer checkout and runs wherever the KB does. `TASK_AUTHORITY_BY_NAME` has it `container-plane`, and it is enabled on any plane that has tenant repos configured — including the canonical one. Distinct from `kbSync` — see below. |
 
-**`kbSync` is unchanged; §5.2 is reinforced, not weakened.** The existing `kbSync` lane keeps its §2.1 classification (**local-only** — the Neo-maintainer-checkout corpus scan). Tenant pull-ingestion is a **separate lane** (`tenant-repo-sync`) backed by a **separate primitive** (GitMirror, #11788) — *not* a re-pointed `kbSync`. §5.2's anti-pattern (*"Re-pointing the local `kbSync` lane at tenant content"*) stands and is reinforced: #11731 deliberately does not re-point `kbSync`; it adds the deliberate lane/service boundary §5.2 implied was the correct path. Maintainer-checkout `kbSync` and tenant pull-ingestion are two distinct concepts and must not be conflated.
+**`kbSync` stays a separate lane; §5.2 is reinforced, not weakened.** At the time of this amendment `kbSync` was understood as checkout-bound (the Neo-maintainer corpus scan). That is **no longer its authority class** — `TASK_AUTHORITY_BY_NAME` has both `kbSync` and `temporal-summary` as `container-plane`, because the container *is* the checkout: it is built from the repo and carries `learn/`, `src/`, `resources/content/` and `.git` at the built revision, which is every source those lanes read (`taskAuthority.mjs:70`). What this amendment decided — that tenant ingestion is a distinct lane — is unaffected. Tenant pull-ingestion is a **separate lane** (`tenant-repo-sync`) backed by a **separate primitive** (GitMirror, #11788) — *not* a re-pointed `kbSync`. §5.2's anti-pattern (*"Re-pointing the local `kbSync` lane at tenant content"*) stands and is reinforced: #11731 deliberately does not re-point `kbSync`; it adds the deliberate lane/service boundary §5.2 implied was the correct path. Maintainer-checkout `kbSync` and tenant pull-ingestion are two distinct concepts and must not be conflated.
 
 **Credential boundary — recorded, not yet blessed deployable.** This amendment blesses the *architectural shape* (a distinct cloud-deployable lane) — it does **not** mark the pull-ingestion path production-deployable. Per #11740 AC4, the credential / token / env-var contract — credentialed repo access that persists no secrets in `repoSlug`, logs, manifests, or graph-visible config — is specified by sub #11787 and is a hard prerequisite before `tenant-repo-sync` is marked production-ready.
 
@@ -184,7 +214,7 @@ Epic #12679's temporal-pyramid substrate (ADR 0028) adds a durable L1/L2 aggrega
 
 | Lane | Kind | Classification | Rationale |
 |---|---|---|---|
-| `temporal-summary` | periodic, heavy | **local-only** | The aggregation folds checkout-bound sources — the repo-tracked GitHub sync under `AiConfig.projectRoot/resources/content` (PRs, Discussions), `git log --first-parent origin/dev`, and `learn/agentos/decisions/` — into the durable `SUMMARY_SESSION` / `SUMMARY_DAILY` records. A cloud tenant deployment has neither the Neo-maintainer checkout nor `origin/dev`; its corpus arrives via push-ingest (the §2.1 `kbSync` / `tenant-repo-sync` boundary), not this local scan. Mirror of the other local-only heavy lanes. |
+| `temporal-summary` | periodic, heavy | **Reads checkout-bound sources, which the container provides.** The aggregation folds — the repo-tracked GitHub sync under `AiConfig.projectRoot/resources/content` (PRs, Discussions), `git log --first-parent origin/dev`, and `learn/agentos/decisions/` — into the durable `SUMMARY_SESSION` / `SUMMARY_DAILY` records. A cloud tenant deployment has neither the Neo-maintainer checkout nor `origin/dev`; its corpus arrives via push-ingest (the §2.1 `kbSync` / `tenant-repo-sync` boundary), not this local scan. Mirror of the other local-only heavy lanes. |
 
 **Cloud disable is a config default, not a hardcode.** The cloud profile disables the lane via `localOnly.temporalSummaryEnabled` (`NEO_ORCHESTRATOR_TEMPORAL_SUMMARY_ENABLED` env override), resolved by the same deployment-mode mechanism the other local-only lanes use. The `temporalSummaryEnabled` getter ANDs that deployment gate with the ADR 0028 opt-in (`AiConfig.temporalSummary.aggregationEnabled`), so the lane runs only in a local profile that has explicitly opted in. Forward-compat seam: a future container deployment with a mounted corpus could flip it back on with no code redesign.
 
