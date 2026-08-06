@@ -19,15 +19,38 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
 });
 
 export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
+    raiseCeiling: 'raise-ceiling',
     record      : 'record',
     restart     : 'restart',
     throttleShed: 'throttle-shed',
     warmProvider: 'warm-provider'
 });
 
+/**
+ * @summary Services whose memory footprint is a function of STORED data rather than arrival rate.
+ *
+ * The distinction decides which heal is coherent. For a transient-work process, memory pressure
+ * comes from what is arriving, so shedding load relieves it. For a store, the corpus IS the
+ * workload: resident memory is a near-deterministic function of rows already persisted, nothing
+ * can be shed, and a restart frees nothing durable — the pressure returns as soon as the data is
+ * reloaded. Prescribing `throttle-shed` to a store is therefore not merely ineffective; it is the
+ * one class of service for which no available action could have worked.
+ *
+ * Keyed by service key rather than by image so a deployment that swaps the store implementation
+ * keeps the classification. Unlisted services are treated as transient, which preserves the
+ * previous behaviour for everything that is not named here.
+ */
+export const STORE_BACKED_SERVICE_KEYS = Object.freeze(new Set(['chroma']));
+
 export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     cpuSaturationPercent   : 90,
     memorySaturationPercent: 90,
+    // Stores cross their ceiling by GROWING, monotonically and predictably, so the transient
+    // threshold is late for them: at sustained 90% the remaining headroom is smaller than one
+    // ingestion batch, and the store exits cleanly rather than being OOM-killed — no crash
+    // signature, no second chance. 80% leaves room to raise the ceiling before the next batch
+    // rather than after the corpus has already stopped being able to complete.
+    storeMemorySaturationPercent: 80,
     minAuthoritativeFacts  : 2,
     minResourceSamples     : 2,
     // Restarts within the window, on one container generation, before churn is reported. Three is
@@ -354,11 +377,17 @@ export class ContainerHealthDiagnosisService extends Base {
         if (samples.length < this.configValues.minResourceSamples) return [];
 
         const
-            facts          = [],
-            cpuPercents    = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
-            memoryPercents = samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
-            cpuWindow      = summarizeSustainedWindow(cpuPercents, this.configValues.cpuSaturationPercent, samples.length),
-            memoryWindow   = summarizeSustainedWindow(memoryPercents, this.configValues.memorySaturationPercent, samples.length);
+            facts           = [],
+            // A store crosses its ceiling by growing, so it needs the earlier threshold: see
+            // `storeMemorySaturationPercent`. CPU keeps the single threshold — compute pressure is
+            // not monotonic in stored data, so a store has no special claim on it.
+            memoryThreshold = STORE_BACKED_SERVICE_KEYS.has(serviceKey)
+                ? this.configValues.storeMemorySaturationPercent
+                : this.configValues.memorySaturationPercent,
+            cpuPercents     = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
+            memoryPercents  = samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
+            cpuWindow       = summarizeSustainedWindow(cpuPercents, this.configValues.cpuSaturationPercent, samples.length),
+            memoryWindow    = summarizeSustainedWindow(memoryPercents, memoryThreshold, samples.length);
 
         if (cpuWindow.sustained) {
             facts.push(this.createFact({
@@ -388,7 +417,10 @@ export class ContainerHealthDiagnosisService extends Base {
                 authoritative: true,
                 details      : {
                     metric        : 'memory',
-                    threshold     : this.configValues.memorySaturationPercent,
+                    // The threshold ACTUALLY applied, not the transient default — a store trips at
+                    // `storeMemorySaturationPercent`, and reporting the other number would put a
+                    // falsehood inside the evidence a heal decision is made from.
+                    threshold     : memoryThreshold,
                     sampleCount   : samples.length,
                     sampleWindowMs: this.configValues.sampleWindowMs,
                     minPercent    : memoryWindow.min,
@@ -587,6 +619,42 @@ export class ContainerHealthDiagnosisService extends Base {
             fact.type === CONTAINER_HEALTH_FACT_TYPES.resourceSaturation ||
             fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation
         );
+        // A store at its MEMORY ceiling is the one exhaustion case `throttle-shed` cannot serve: its
+        // footprint tracks rows already persisted, so there is no arrival rate to reduce and a restart
+        // frees nothing durable. Raising the ceiling is the only coherent heal, and the condition is
+        // derived from the evidence's own `serviceKey` rather than a caller-supplied hint, so a
+        // diagnosis cannot claim a class its facts do not support.
+        //
+        // Evaluated BEFORE `hasAuthoritativeEvidence` deliberately, and this is the half that made the
+        // condition undiagnosable rather than merely mis-healed. That gate needs
+        // `minAuthoritativeFacts` (2) corroborating facts, but a store crossing its ceiling saturates
+        // memory while its CPU sits idle — measured live at `mem=81.40% cpu=0.00%` — so it produces
+        // exactly ONE authoritative fact, forever. The floor suppressed the diagnosis entirely, which
+        // is why a store at its ceiling never surfaced at all.
+        //
+        // Single-fact sufficiency is safe HERE and nowhere else: the floor exists to stop action on one
+        // noisy signal, and a sustained-window ratio against a hard limit is not noisy. The window is
+        // already the corroboration the second fact was standing in for, so requiring a second one asks
+        // for a coincidence rather than evidence.
+        //
+        // Scoped to memory on purpose. CPU saturation on a store still routes through the normal
+        // exhaustion path — more room for resident data does not relieve compute pressure.
+        const storeMemoryFacts = resourceFacts.filter(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation &&
+            fact.authoritative &&
+            STORE_BACKED_SERVICE_KEYS.has(fact.serviceKey)
+        );
+
+        if (storeMemoryFacts.length > 0) {
+            return {
+                recoveryClass: 'exhaustion',
+                actionClass  : CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling,
+                confidence   : 0.8,
+                evidenceFacts: this.selectEvidenceFacts(facts, storeMemoryFacts),
+                reason       : 'store-ceiling-exhaustion'
+            };
+        }
+
         if (this.hasAuthoritativeEvidence(resourceFacts, facts)) {
             return {
                 recoveryClass: 'exhaustion',

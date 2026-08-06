@@ -5,6 +5,7 @@ import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     CONTAINER_HEALTH_FACT_TYPES,
     ContainerHealthDiagnosisService,
+    STORE_BACKED_SERVICE_KEYS,
     evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
@@ -629,5 +630,112 @@ test.describe('restart churn', () => {
         });
 
         expect(decision.churnBaseline).toEqual({containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 3});
+    });
+    test('a STORE at its memory ceiling gets raise-ceiling, not shed it cannot perform (#16596)', () => {
+        // The defect this pins: memory saturation routed uniformly to `throttle-shed`. For a store the
+        // corpus IS the workload — footprint tracks rows already persisted — so there is no arrival
+        // rate to reduce and a restart frees nothing durable. It was the one exhaustion case where no
+        // available action could have worked, which is why a store at its ceiling never recovered.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 5, memoryPercent: 85}),
+                statsSample({cpuPercent: 6, memoryPercent: 83})
+            ]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+        expect(decision.diagnosis).toMatchObject({
+            recoveryClass: 'exhaustion',
+            details      : {classificationReason: 'store-ceiling-exhaustion'}
+        });
+
+        // The evidence must be the MEMORY fact, not whatever resource fact happened to be first —
+        // a raise decision justified by a CPU fact would be unfalsifiable from the record.
+        expect(decision.diagnosis.evidenceFacts[0].type).toBe(CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        // And the fact must report the threshold ACTUALLY applied (80 for a store), not the transient
+        // default. Reporting 90 here would place a falsehood inside the evidence a heal is chosen from.
+        expect(decision.diagnosis.evidenceFacts[0].details.threshold).toBe(80);
+    });
+
+    test('the earlier store threshold is store-scoped: a transient service at the same load stays healthy (#16596)', () => {
+        // Negative control for the THRESHOLD. 85% trips a store (80) and must not trip a transient
+        // service (90) — otherwise the lower bar leaked globally and every service would now be
+        // diagnosed earlier, which is a different change from the one intended.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'model',
+            statsSamples: [
+                statsSample({cpuPercent: 5, memoryPercent: 85}),
+                statsSample({cpuPercent: 6, memoryPercent: 83})
+            ]
+        });
+
+        expect(decision.status).toBe('healthy');
+        expect(decision.facts).toHaveLength(0);
+    });
+
+    test('a transient service genuinely over its ceiling still sheds (#16596)', () => {
+        // Negative control for the ROUTING. Without it, `raise-ceiling` could have replaced
+        // `throttle-shed` everywhere and both this and the store test would still pass.
+        //
+        // CPU is saturated too, and it has to be: `hasAuthoritativeEvidence` needs
+        // `minAuthoritativeFacts` (2) corroborating facts, so a transient service with memory alone is
+        // not diagnosed at all. That floor is unchanged by this work and only the store branch is
+        // exempt from it.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'model',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 96}),
+                statsSample({cpuPercent: 360, memoryPercent: 94})
+            ]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.throttleShed);
+        expect(decision.diagnosis.details.classificationReason).toBe('resource-exhaustion');
+    });
+
+    test('a store saturating CPU still sheds — the raise is memory-scoped (#16596)', () => {
+        // The third control, and the one most likely to be missed: "a store's resource pressure
+        // raises the ceiling" would be wrong. More room for resident data does not relieve compute
+        // pressure, so only a MEMORY fact may justify a raise. Memory is held below the store
+        // threshold so CPU is the sole saturation present.
+        //
+        // The expectation is `advisory` rather than `throttle-shed`, and that is a pre-existing
+        // property rather than a regression: CPU alone is one authoritative fact, below
+        // `minAuthoritativeFacts`, so the fact is recorded without becoming a diagnosis. That makes it
+        // a sharper control than a silent `healthy` would be — the evidence IS present and the store
+        // branch still declines it. Had the branch keyed on service class rather than on a memory
+        // fact, this would have returned `raise-ceiling`.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 40}),
+                statsSample({cpuPercent: 360, memoryPercent: 42})
+            ]
+        });
+
+        expect(decision.actionClass).not.toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+        expect(decision.status).toBe('advisory');
+        // The CPU fact was seen — the branch declined on evidence type, not on absence of evidence.
+        expect(decision.facts.map(fact => fact.type)).toContain(CONTAINER_HEALTH_FACT_TYPES.resourceSaturation);
+    });
+
+    test('store classification is declared data, so a deployment can audit which services it covers (#16596)', () => {
+        // Guards against the classification drifting into an inline literal at a call site, where it
+        // would be unauditable and could disagree between the threshold and the routing branch.
+        expect(STORE_BACKED_SERVICE_KEYS.has('chroma')).toBe(true);
+        expect(STORE_BACKED_SERVICE_KEYS.has('model')).toBe(false);
+        expect(Object.isFrozen(STORE_BACKED_SERVICE_KEYS)).toBe(true);
     });
 });

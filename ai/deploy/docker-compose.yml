@@ -43,8 +43,26 @@ services:
       - neo-mcp-network
     deploy:
       resources:
+        # Parameterised so the ceiling is REACHABLE — a hardcoded literal cannot be raised by a
+        # controller, which is why a store at its limit had no available heal. Same form
+        # `local-model` already uses below.
+        #
+        # The default is derived, not preferred. Chroma holds its vectors resident (HNSW is a
+        # memory-resident index; sqlite keeps documents on disk), so the requirement is arithmetic:
+        # measured 2026-08-06 at 77,044 rows / 1.628 GiB resident with 4096-dim float32 vectors,
+        # giving `rows x 16 KiB x ~1.38` including index and runtime overhead. A complete store
+        # (Knowledge Base ~60k rows + Memory Core ~35k) therefore needs ~2.03 GiB.
+        #
+        # The previous 2g was over by roughly ONE PERCENT — which is why failures clustered near
+        # completion and left no crash signature: the container exits CLEANLY approaching the
+        # ceiling (OOMKilled=false, ExitCode=0), so a truncated restore or re-embed looks like an
+        # ordinary restart. 8g admits ~370k rows, about 4x the complete store.
+        #
+        # Reducing the 4096 dimension would cut this proportionally and is NOT the lever: below
+        # ~4k, `query_documents` retrieval quality degrades materially, and it would invalidate
+        # every stored vector.
         limits:
-          memory: 2g
+          memory: "${NEO_CHROMA_MEMORY_LIMIT:-8g}"
           cpus: "2.0"
 
   kb-server:
