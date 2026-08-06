@@ -24,7 +24,14 @@ on:
       - 'examples/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'docs/output/class-hierarchy.json'
+      # Every DIRECT producer input, not just the entrypoint. `generateDocsJson.mjs` delegates
+      # doclet parsing to `docletPipeline/**`, and reads the app manifest (`:40` falls back to
+      # `myApps.template.json`) to decide which app roots are walked at all — so either can change
+      # the output with the entrypoint untouched. Omitting them made this a guard that would not
+      # run on a whole class of edit it exists to catch.
       - 'buildScripts/docs/generateDocsJson.mjs'
+      - 'buildScripts/docs/docletPipeline/**'
+      - 'buildScripts/webpack/json/myApps.template.json'
       - '.github/workflows/class-hierarchy-freshness.yml'
   push:
     branches: [dev]
@@ -35,7 +42,14 @@ on:
       - 'examples/**/*.mjs'
       - 'docs/app/**/*.mjs'
       - 'docs/output/class-hierarchy.json'
+      # Every DIRECT producer input, not just the entrypoint. `generateDocsJson.mjs` delegates
+      # doclet parsing to `docletPipeline/**`, and reads the app manifest (`:40` falls back to
+      # `myApps.template.json`) to decide which app roots are walked at all — so either can change
+      # the output with the entrypoint untouched. Omitting them made this a guard that would not
+      # run on a whole class of edit it exists to catch.
       - 'buildScripts/docs/generateDocsJson.mjs'
+      - 'buildScripts/docs/docletPipeline/**'
+      - 'buildScripts/webpack/json/myApps.template.json'
       - '.github/workflows/class-hierarchy-freshness.yml'
 
 concurrency:
