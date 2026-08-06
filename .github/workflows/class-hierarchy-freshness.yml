@@ -10,9 +10,16 @@ name: Class Hierarchy Freshness
 # The copy found during the incident was 7 weeks old and missing 96 classes, which is the default
 # state of an untracked build output. This guard is what makes tracking safe rather than slower rot.
 #
+# SCOPE, stated narrowly because the earlier wording here overclaimed: this guards STALENESS of the
+# generator's output against its own inputs. It does NOT make the artifact authoritative over every
+# tree `ApiSource` indexes. A superclass change under `examples/` runs the generator, produces no map
+# delta (that root resolves 0 of 259 declaring classes), and passes this guard — correctly, because
+# the gap is a coverage defect rather than a freshness one. Coverage is enforced separately by the
+# interim per-root floors in `helpers/classHierarchyContract.mjs`.
+#
 # Paths follow the Substrate Size Guard's lesson that a guard which does not run on the edit it
-# exists to catch is not a guard: the hierarchy changes when a class is added, removed, or re-parented
-# in any tree `ApiSource` indexes (`configBase.mjs` -> `sourcePaths.ApiSource`).
+# exists to catch is not a guard — so they span the indexed trees plus every direct producer input,
+# while the guarantee stays limited to "the committed map matches what the generator produces now."
 
 on:
   pull_request:

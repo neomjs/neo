@@ -5,7 +5,7 @@ import logger       from '../../../mcp/server/knowledge-base/logger.mjs';
 import path         from 'path';
 import aiConfig     from '../../../mcp/server/knowledge-base/config.mjs';
 
-import {classifyHierarchyCoverage, loadClassHierarchy} from '../helpers/classHierarchyContract.mjs';
+import {assertCoverageBaseline, loadClassHierarchy} from '../helpers/classHierarchyContract.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Neo.mjs source code.
@@ -71,18 +71,18 @@ class ApiSource extends Base {
             count += await this.indexRawDirectory(writeStream, createHashFn, path, type, hierarchy, coverage[path]);
         }
 
-        for (const [root, {declared, resolved}] of Object.entries(coverage)) {
-            if (declared < 1) continue;
+        // Throws on a regression below the interim floor — the incident's actual shape, where `src`
+        // fell from 96.42% populated to 0% and every check passed. Standing gaps do NOT throw; see
+        // the helper for why refusing on those would make the degraded corpus unrebuildable.
+        for (const {root, declared, resolved, ratio, floor} of assertCoverageBaseline({coverage})) {
+            const percent = (ratio * 100).toFixed(1);
 
-            const percent = (resolved / declared * 100).toFixed(1);
-
-            // Short of total coverage means chunks in that root take an id derived from an empty
-            // `extends`. Stated at warn level with the arithmetic, so the gap is not readable as a
-            // healthy ingest the way it was during the incident.
             if (resolved < declared) {
-                logger.warn?.(`[ApiSource] Class hierarchy covers ${resolved}/${declared} (${percent}%) of the classes declaring a superclass under '${root}'. The remainder ingest with an empty 'extends', which is part of their chunk id.`);
+                // Named as DEBT, never as health: these chunks take an id derived from an empty
+                // `extends`, so the number is a defect description that happens to be within floor.
+                logger.warn?.(`[ApiSource] Class hierarchy resolves ${resolved}/${declared} (${percent}%) of the classes declaring a superclass under '${root}' — the remainder ingest with an empty 'extends', which is part of their chunk id. Known interim debt at floor ${floor === undefined ? 'unbaselined' : (floor * 100).toFixed(1) + '%'}; the generator's domain does not cover this root.`);
             } else {
-                logger.log?.(`[ApiSource] Class hierarchy coverage for '${root}': ${resolved}/${declared} (100%).`);
+                logger.log?.(`[ApiSource] Class hierarchy resolves ${resolved}/${declared} (100%) under '${root}'.`);
             }
         }
 
@@ -119,21 +119,11 @@ class ApiSource extends Base {
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
 
-                // Same read, so coverage costs no extra I/O.
-                if (coverage) {
-                    const classified = classifyHierarchyCoverage({source: content, hierarchy});
-
-                    if (classified) {
-                        coverage.declared++;
-                        classified.resolved && coverage.resolved++;
-                    }
-                }
-
                 // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
                 // Chroma zip shipped with each neo release stays portable across recipients'
                 // filesystems. SearchService resolves against its own neoRootDir at read time.
                 // Absolute paths would hard-code the local FS layout into the distributed zip.
-                const chunks = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
+                const chunks = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy, coverage);
 
                 chunks.forEach(chunk => {
                     chunk.hash = createHashFn(chunk);

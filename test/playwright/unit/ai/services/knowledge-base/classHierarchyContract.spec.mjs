@@ -2,7 +2,11 @@ import {test, expect} from '@playwright/test';
 import fs             from 'fs';
 import path           from 'path';
 
-import {classifyHierarchyCoverage, loadClassHierarchy} from '../../../../../../ai/services/knowledge-base/helpers/classHierarchyContract.mjs';
+import {
+    assertCoverageBaseline,
+    INTERIM_COVERAGE_BASELINE,
+    loadClassHierarchy
+} from '../../../../../../ai/services/knowledge-base/helpers/classHierarchyContract.mjs';
 
 /**
  * The class hierarchy is an IDENTITY input: `extends` is hashed into every chunk id, so a degraded
@@ -101,51 +105,91 @@ test.describe('loadClassHierarchy — fail-closed on a degraded identity input (
     });
 });
 
-/**
- * A non-empty map proves the artifact LOADED; it proves nothing about whether its domain covers the
- * roots being indexed. These separate the two claims, because conflating them let a whole tree
- * ingest with an empty `extends` while every existing guard passed.
- */
-test.describe('classifyHierarchyCoverage — domain coverage is a separate claim from non-emptiness', () => {
-    const hierarchy = {'Neo.component.Base': 'Neo.component.Abstract'};
+test.describe('assertCoverageBaseline — a regression fails, standing debt does not', () => {
+    // The measured live shape, spanning the three cases the reviewer required: a near-fully-covered
+    // root, a zero-coverage root, and an app root the generator's registry does not reach.
+    //
+    // These are the PARSER-CANONICAL numbers — a runtime walk of `sourcePaths.ApiSource` with class
+    // extraction taken from `SourceParser` (acorn's `ClassDeclaration.superClass`). An earlier draft
+    // of this fixture carried numbers from a separately reimplemented regex scan and disagreed on two
+    // roots (`src` 403 vs 404, `ai` /170 vs /171). Two independent implementations now agree on all
+    // five, which is the only reason these are safe to encode.
+    const liveShape = {
+        'src'     : {declared: 405, resolved: 404},
+        'apps'    : {declared: 358, resolved: 336},
+        'examples': {declared: 259, resolved: 0},
+        'docs/app': {declared: 17,  resolved: 4},
+        'ai'      : {declared: 171, resolved: 127}
+    };
 
-    test('counts a class that declares a superclass AND resolves in the map', () => {
-        const result = classifyHierarchyCoverage({
-            source: `class Base extends Component {\n    static config = {\n        className: 'Neo.component.Base'\n    }\n}`,
-            hierarchy
-        });
+    test('the live shape passes — standing debt is within floor, so recovery is not blocked', () => {
+        const rows = assertCoverageBaseline({coverage: liveShape});
 
-        expect(result).toEqual({className: 'Neo.component.Base', resolved: true});
+        expect(rows).toHaveLength(5);
+        expect(rows.find(r => r.root === 'examples')).toMatchObject({declared: 259, resolved: 0, ratio: 0});
     });
 
-    test('counts a class that declares a superclass and does NOT resolve — the reported gap', () => {
-        // The live shape: `examples` declares 259 of these and resolves none of them, because the
-        // map is produced for the docs site and never covered that root.
-        const result = classifyHierarchyCoverage({
-            source: `class Viewport extends Container {\n    static config = {\n        className: 'Neo.examples.ConfigurationViewport'\n    }\n}`,
-            hierarchy
-        });
+    test('src collapsing to zero FAILS — the incident that motivated all of this', () => {
+        // 96.42% -> 0% is exactly what happened when the artifact left the plane, and every check
+        // passed. This is the assertion that would have caught it.
+        const error = (() => {
+            try {
+                assertCoverageBaseline({coverage: {...liveShape, src: {declared: 405, resolved: 0}}});
+                return null;
+            } catch (e) { return e }
+        })();
 
-        expect(result).toEqual({className: 'Neo.examples.ConfigurationViewport', resolved: false});
+        expect(error?.code).toBe('CLASS_HIERARCHY_COVERAGE_REGRESSION');
+        expect(error.message).toContain('src 0/405');
+        expect(error.message).toContain('floor 99.0%');
     });
 
-    test('CONTROL — a class with NO extends clause is not a coverage data point', () => {
-        // Legitimately unresolved rather than a gap. Counting it would inflate the denominator and
-        // make full coverage unreachable, which would turn the metric into permanent noise.
-        const result = classifyHierarchyCoverage({
-            source: `class Root {\n    static config = {\n        className: 'Neo.core.Base'\n    }\n}`,
-            hierarchy
-        });
+    test('an OUTSIDE-REGISTRY app class dropping apps below floor FAILS', () => {
+        // `apps` is partially covered because the generator walks a registry-defined subset. A class
+        // outside that registry is the realistic regression vector for this root.
+        const error = (() => {
+            try {
+                assertCoverageBaseline({coverage: {...liveShape, apps: {declared: 358, resolved: 300}}});
+                return null;
+            } catch (e) { return e }
+        })();
 
-        expect(result).toBeNull();
+        expect(error?.code).toBe('CLASS_HIERARCHY_COVERAGE_REGRESSION');
+        expect(error.message).toContain('apps 300/358');
     });
 
-    test('CONTROL — a module with no className is not a coverage data point', () => {
-        const result = classifyHierarchyCoverage({
-            source: `export function helper() { return 1 }\nclass Local extends Error {}`,
-            hierarchy
-        });
+    test('CONTROL — examples staying at 0 does NOT fail, because its floor is 0 named debt', () => {
+        // Proves the guard is a regression detector rather than a quality gate. If this threw, the
+        // corpus could never be rebuilt.
+        expect(() => assertCoverageBaseline({coverage: {examples: {declared: 259, resolved: 0}}})).not.toThrow();
+    });
 
-        expect(result).toBeNull();
+    test('CONTROL — a root with zero declaring classes is omitted, not reported as 100%', () => {
+        // An empty measurement must not manufacture a reassuring number.
+        const rows = assertCoverageBaseline({coverage: {src: {declared: 0, resolved: 0}}});
+
+        expect(rows).toHaveLength(0);
+    });
+
+    test('an unbaselined root is surfaced in the rows rather than silently passing', () => {
+        const rows = assertCoverageBaseline({coverage: {'some/new/root': {declared: 10, resolved: 2}}});
+
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({root: 'some/new/root', floor: undefined});
+    });
+
+    test('the baseline is genuinely immutable — asserted by MUTATION, not by Object.isFrozen', () => {
+        // `Object.isFrozen` on a Set returns true while `add`/`delete` still mutate it, so asserting
+        // the predicate proves nothing on its own. A plain object does resist writes under freeze —
+        // this attempts the mutation and checks the value, which is the claim that actually matters.
+        expect(Object.isFrozen(INTERIM_COVERAGE_BASELINE)).toBe(true);
+
+        try { INTERIM_COVERAGE_BASELINE['examples'] = 1 } catch (e) { /* strict mode throws; both fine */ }
+        try { INTERIM_COVERAGE_BASELINE['injected'] = 1 } catch (e) { /* ditto */ }
+        try { delete INTERIM_COVERAGE_BASELINE['src'] }   catch (e) { /* ditto */ }
+
+        expect(INTERIM_COVERAGE_BASELINE.examples).toBe(0);
+        expect(INTERIM_COVERAGE_BASELINE.injected).toBeUndefined();
+        expect(INTERIM_COVERAGE_BASELINE.src).toBe(0.99);
     });
 });
