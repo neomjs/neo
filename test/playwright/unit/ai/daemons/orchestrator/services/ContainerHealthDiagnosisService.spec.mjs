@@ -5,7 +5,10 @@ import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     CONTAINER_HEALTH_FACT_TYPES,
     ContainerHealthDiagnosisService,
-    STORE_BACKED_SERVICE_KEYS,
+    SERVICE_CLASSES,
+    SERVICE_CLASS_BY_KEY,
+    classifyServiceKey,
+    isStoreBackedService,
     evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
@@ -741,9 +744,12 @@ test.describe('restart churn', () => {
     test('store classification is declared data, so a deployment can audit which services it covers (#16596)', () => {
         // Guards against the classification drifting into an inline literal at a call site, where it
         // would be unauditable and could disagree between the threshold and the routing branch.
-        expect(STORE_BACKED_SERVICE_KEYS.has('chroma')).toBe(true);
-        expect(STORE_BACKED_SERVICE_KEYS.has('model')).toBe(false);
-        expect(Object.isFrozen(STORE_BACKED_SERVICE_KEYS)).toBe(true);
+        // Real roster keys. The previous version asserted `.has('model') === false`, and `'model'`
+        // is not a production service key at all — `local-model` is — so that control could not
+        // fail and proved nothing.
+        expect(isStoreBackedService('chroma')).toBe(true);
+        expect(isStoreBackedService('local-model')).toBe(false);
+        expect(isStoreBackedService('kb-server')).toBe(false);
     });
 });
 
@@ -806,6 +812,41 @@ test.describe('sustained window is measured, not asserted', () => {
         expect(decision.status).toBe('healthy');
     });
 
+    test('an UNDECLARED service key is recorded as a guess, not silently classified', async () => {
+        // `validateServiceKey` accepts any safe string, so the key space is unbounded. An unrostered
+        // key still defaults to transient — refusing would break unrecognised deployments — but the
+        // emitted evidence must say the classification was not declared.
+        const service  = createService({cpuSaturationPercent: 90, memorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'some-unrostered-service',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]
+        });
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details).toMatchObject({
+            serviceClass        : SERVICE_CLASSES.transient,
+            serviceClassDeclared: false
+        });
+    });
+
+    test('CONTROL — a DECLARED key records declared:true, so the flag discriminates', () => {
+        const service  = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]
+        });
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details).toMatchObject({
+            serviceClass        : SERVICE_CLASSES.store,
+            serviceClassDeclared: true
+        });
+    });
+
     test('CONTROL — the same samples spanning the requirement DO qualify, and report the MEASURED span', () => {
         // The positive control. Without it the four refusals above could pass by breaking the path
         // entirely rather than by discriminating on elapsed time.
@@ -828,5 +869,54 @@ test.describe('sustained window is measured, not asserted', () => {
             requiredWindowMs: 30000,
             threshold       : 80
         });
+    });
+});
+
+/**
+ * The classification used to be a `Set` of store keys where absence meant transient, which made two
+ * different things indistinguishable: "declared transient" and "nobody classified this". These bind
+ * the declared map to the roster the bridge actually iterates, so adding a service without
+ * classifying it fails here rather than silently inheriting a threshold it may not survive.
+ */
+test.describe('service classification is exhaustive over the real roster and genuinely immutable', () => {
+    test('every allowedServices key has a DECLARED classification', async () => {
+        const AiConfig = (await import('../../../../../../../ai/config.mjs')).default;
+        const roster   = AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices;
+
+        expect(Array.isArray(roster)).toBe(true);
+        expect(roster.length).toBeGreaterThan(0);
+
+        const undeclared = roster.filter(key => !classifyServiceKey(key).declared);
+
+        expect(undeclared, `unclassified roster services: ${undeclared.join(', ')}`).toEqual([]);
+    });
+
+    test('the declared map does not classify keys that are NOT on the roster', async () => {
+        // Totality runs both ways: a stale entry for a removed service is drift too, and it would
+        // keep asserting a policy for something the deployment no longer runs.
+        const AiConfig = (await import('../../../../../../../ai/config.mjs')).default;
+        const roster   = new Set(AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices);
+        const orphaned = Object.keys(SERVICE_CLASS_BY_KEY).filter(key => !roster.has(key));
+
+        expect(orphaned, `classified but not on the roster: ${orphaned.join(', ')}`).toEqual([]);
+    });
+
+    test('the map is immutable — asserted by MUTATION, not by Object.isFrozen', () => {
+        // `Object.isFrozen` returns true for a frozen Set whose `add`/`delete` still work, so the
+        // predicate alone is a false assurance. A frozen plain object does resist writes; this
+        // attempts them and checks the values, which is the claim that matters.
+        expect(Object.isFrozen(SERVICE_CLASS_BY_KEY)).toBe(true);
+
+        try { SERVICE_CLASS_BY_KEY['chroma'] = SERVICE_CLASSES.transient } catch (e) { /* strict throws; both acceptable */ }
+        try { SERVICE_CLASS_BY_KEY['injected'] = SERVICE_CLASSES.store }    catch (e) { /* ditto */ }
+        try { delete SERVICE_CLASS_BY_KEY['kb-server'] }                    catch (e) { /* ditto */ }
+
+        expect(SERVICE_CLASS_BY_KEY.chroma).toBe(SERVICE_CLASSES.store);
+        expect(SERVICE_CLASS_BY_KEY.injected).toBeUndefined();
+        expect(SERVICE_CLASS_BY_KEY['kb-server']).toBe(SERVICE_CLASSES.transient);
+
+        // And the predicate cannot be subverted through the map.
+        expect(isStoreBackedService('chroma')).toBe(true);
+        expect(isStoreBackedService('injected')).toBe(false);
     });
 });

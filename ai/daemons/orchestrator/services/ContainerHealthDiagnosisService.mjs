@@ -27,20 +27,75 @@ export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
 });
 
 /**
- * @summary Services whose memory footprint is a function of STORED data rather than arrival rate.
+ * @summary The two service classes a heal decision can be reasoned about.
  *
- * The distinction decides which heal is coherent. For a transient-work process, memory pressure
- * comes from what is arriving, so shedding load relieves it. For a store, the corpus IS the
- * workload: resident memory is a near-deterministic function of rows already persisted, nothing
- * can be shed, and a restart frees nothing durable — the pressure returns as soon as the data is
- * reloaded. Prescribing `throttle-shed` to a store is therefore not merely ineffective; it is the
- * one class of service for which no available action could have worked.
- *
- * Keyed by service key rather than by image so a deployment that swaps the store implementation
- * keeps the classification. Unlisted services are treated as transient, which preserves the
- * previous behaviour for everything that is not named here.
+ * Keyed by service key rather than by image, so a deployment that swaps the store implementation
+ * keeps its classification.
  */
-export const STORE_BACKED_SERVICE_KEYS = Object.freeze(new Set(['chroma']));
+export const SERVICE_CLASSES = Object.freeze({store: 'store', transient: 'transient'});
+
+/**
+ * @summary EXHAUSTIVE service classification, declared per key rather than inferred from absence.
+ *
+ * Covers every key in `orchestrator.deploymentRuntimeAccess.allowedServices`, which is the roster
+ * the bridge actually iterates (`DeploymentStateBridgeService.getServiceKeys()` falls back to it).
+ * A spec asserts that coverage, so adding a service to the roster without classifying it fails a
+ * test instead of silently inheriting a policy.
+ *
+ * The previous shape was a `Set` of store keys, and absence meant transient. Two defects followed.
+ * **It was not total:** only `chroma` and a non-existent `'model'` were ever exercised, while
+ * `kb-server` and `mc-server` were unclassified, so a future store-backed service would silently
+ * receive the 90% transient threshold it cannot survive. **And it was not immutable:**
+ * `Object.freeze` on a `Set` locks own properties while `add`/`delete` mutate an internal slot, so
+ * `Object.isFrozen` returned `true` on a set whose membership was still writable — a
+ * false-assurance guarantee, which is worse than none. A frozen plain object genuinely resists
+ * writes, and the spec proves it by attempting them rather than by asserting the predicate.
+ */
+export const SERVICE_CLASS_BY_KEY = Object.freeze({
+    // The corpus IS the workload: resident memory tracks rows already persisted, so nothing can be
+    // shed and a restart frees nothing durable.
+    'chroma'     : SERVICE_CLASSES.store,
+    'kb-server'  : SERVICE_CLASSES.transient,
+    'mc-server'  : SERVICE_CLASSES.transient,
+    'local-model': SERVICE_CLASSES.transient
+});
+
+/**
+ * @summary Classifies a service key, reporting whether the classification was DECLARED.
+ *
+ * `validateServiceKey` accepts any safe string rather than a roster member, so the key space is
+ * unbounded and an unknown key must not silently acquire transient policy. It still defaults to
+ * transient — that preserves existing behaviour and refusing would make the diagnosis path fail on
+ * an unrecognised deployment — but `declared: false` travels with it so the guess is recorded in
+ * the emitted evidence instead of disappearing.
+ *
+ * @param {String} serviceKey
+ * @returns {Object} `{serviceClass, declared}`
+ */
+export function classifyServiceKey(serviceKey) {
+    const declaredClass = Object.hasOwn(SERVICE_CLASS_BY_KEY, serviceKey)
+        ? SERVICE_CLASS_BY_KEY[serviceKey]
+        : null;
+
+    return {
+        serviceClass: declaredClass ?? SERVICE_CLASSES.transient,
+        declared    : declaredClass !== null
+    };
+}
+
+/**
+ * @summary True when the service's memory footprint is a function of STORED data.
+ *
+ * The distinction decides which heal is coherent. For transient work, pressure comes from arrival
+ * rate, so shedding relieves it. For a store, prescribing `throttle-shed` is not merely
+ * ineffective — it is the one class of service for which no available action could have worked.
+ *
+ * @param {String} serviceKey
+ * @returns {Boolean}
+ */
+export function isStoreBackedService(serviceKey) {
+    return classifyServiceKey(serviceKey).serviceClass === SERVICE_CLASSES.store;
+}
 
 export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     cpuSaturationPercent   : 90,
@@ -381,7 +436,8 @@ export class ContainerHealthDiagnosisService extends Base {
             // A store crosses its ceiling by growing, so it needs the earlier threshold: see
             // `storeMemorySaturationPercent`. CPU keeps the single threshold — compute pressure is
             // not monotonic in stored data, so a store has no special claim on it.
-            memoryThreshold = STORE_BACKED_SERVICE_KEYS.has(serviceKey)
+            serviceClassification = classifyServiceKey(serviceKey),
+            memoryThreshold = serviceClassification.serviceClass === SERVICE_CLASSES.store
                 ? this.configValues.storeMemorySaturationPercent
                 : this.configValues.memorySaturationPercent,
             cpuPercents     = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
@@ -433,9 +489,14 @@ export class ContainerHealthDiagnosisService extends Base {
                     sampleCount     : samples.length,
                     observedWindowMs: memoryWindow.observedWindowMs,
                     requiredWindowMs: this.configValues.sampleWindowMs,
-                    minPercent      : memoryWindow.min,
-                    maxPercent      : memoryWindow.max,
-                    meanPercent     : memoryWindow.mean
+                    // The class the threshold came from, and whether it was DECLARED. An unrostered
+                    // key still defaults to transient, but recording the guess keeps it out of the
+                    // silent path: "unlisted" used to be indistinguishable from "classified".
+                    serviceClass        : serviceClassification.serviceClass,
+                    serviceClassDeclared: serviceClassification.declared,
+                    minPercent          : memoryWindow.min,
+                    maxPercent          : memoryWindow.max,
+                    meanPercent         : memoryWindow.mean
                 }
             }));
         }
@@ -652,7 +713,7 @@ export class ContainerHealthDiagnosisService extends Base {
         const storeMemoryFacts = resourceFacts.filter(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation &&
             fact.authoritative &&
-            STORE_BACKED_SERVICE_KEYS.has(fact.serviceKey)
+            isStoreBackedService(fact.serviceKey)
         );
 
         if (storeMemoryFacts.length > 0) {
