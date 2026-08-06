@@ -193,6 +193,32 @@ class VectorService extends Base {
     }
 
     /**
+     * @summary Builds the metadata filter naming the corpus one embed call owns.
+     *
+     * Every chunk a single `embed()` call writes carries the same `{tenantId, repoSlug}`
+     * stamp, so this tuple is the exact boundary of that call's authority. Stale-id
+     * gathering filters on it: without the filter, a lane embedding one corpus treats
+     * every other tenant's and repo's rows as stale and deletes them.
+     *
+     * The `$and` form is required, not stylistic. Chroma rejects a multi-key `where`
+     * with "Expected 'where' to have exactly one operator, but got 2", so the intuitive
+     * `{tenantId, repoSlug}` shape throws at query time rather than filtering.
+     *
+     * @param {Object} stamp Resolved tenant stamp.
+     * @param {String} stamp.tenantId Authoritative tenant id.
+     * @param {String} stamp.repoSlug Authoritative repo slug.
+     * @returns {Object} Chroma `where` filter selecting only this corpus.
+     */
+    buildOwnedScopeFilter({tenantId, repoSlug} = {}) {
+        return {
+            $and: [
+                {tenantId: {$eq: tenantId}},
+                {repoSlug: {$eq: repoSlug}}
+            ]
+        };
+    }
+
+    /**
      * Rejects or logs client-supplied identity fields that conflict with server context.
      *
      * @param {Object} chunk Parsed knowledge chunk.
@@ -1032,7 +1058,20 @@ class VectorService extends Base {
         const collection = await ChromaManager.getKnowledgeBaseCollection();
         logger.log(`Using collection: ${collection.name}`);
 
-        logger.log('Fetching existing documents from ChromaDB...');
+        // Scoped to the corpus THIS call owns. Unscoped, `existingIds` held every row in the
+        // collection, so `idsToDelete` below treated every other tenant's and repo's rows as
+        // stale and deleted them. Observed live: a sync pass over the `neo` corpus removed a
+        // tenant repo's 50 rows, and would have repeated on every sweep interval — the two
+        // could never coexist.
+        //
+        // The narrowing is exact rather than heuristic. `createTenantAwareChunkId` hashes
+        // `{tenantId, repoSlug, ...}` into the id, so an id written under one stamp cannot
+        // occur under another. The add-side delta (`chunksToProcess`) is therefore unchanged
+        // by scoping — only deletion is confined, to this corpus's own orphans. It also makes
+        // pagination cheaper on a shared collection.
+        const ownedScope = this.buildOwnedScopeFilter(tenantStamp);
+
+        logger.log(`Fetching existing documents for ${tenantStamp.tenantId}/${tenantStamp.repoSlug}...`);
         const existingIds = new Set();
         let   offset      = 0;
         const limit       = 2000;
@@ -1044,7 +1083,8 @@ class VectorService extends Base {
             batch = await collection.get({
                 include: [],
                 limit,
-                offset : offset
+                offset,
+                where  : ownedScope
             });
 
             batch.ids.forEach(id => existingIds.add(id));
@@ -1052,7 +1092,7 @@ class VectorService extends Base {
             logger.log(`Fetched ${existingIds.size} IDs so far...`);
         } while (batch.ids.length === limit);
 
-        logger.log(`Found ${existingIds.size} existing documents.`);
+        logger.log(`Found ${existingIds.size} existing documents in this corpus.`);
 
         const chunksToProcess = [];
         const allIds          = new Set();
@@ -1077,40 +1117,49 @@ class VectorService extends Base {
         logger.log(`${workVolume} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
 
-        if (!shouldShadowSwap && chunksToProcess.length === 0) {
-            if (idsToDelete.length > 0) {
-                await collection.delete({ ids: idsToDelete });
-                logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
-            }
-
-            const message = 'No changes detected. Knowledge base is up to date.';
-            logger.log(message);
-            return {message, embedded: 0, deleted: idsToDelete.length};
-        }
-
         // Work-volume gate: refuse synchronous embedding via MCP when the
         // post-delta queue exceeds the configured threshold. The threshold default
         // matches `batchSize` (one batch is the floor for "small enough to run
         // synchronously"); real latency is provider/tier/retry-state-dependent so
         // the threshold is empirically tunable rather than timing-derived.
         // CLI invocations pass viaMcp: false and bypass.
+        //
+        // Ordered ABOVE the no-adds branch below, and metered on deletions as well as adds.
+        // Both were required: `workVolume` counted only adds, so a call adding 3 rows and
+        // deleting 60,000 presented to the gate as "3"; and the no-adds branch deleted and
+        // returned before the gate was ever evaluated, which made the largest possible
+        // deletion the one case no guard saw. A mass delete is work.
         const mcpThreshold = aiConfig.mcpSyncMaxChunks;
-        if (viaMcp && workVolume > mcpThreshold) {
+        if (viaMcp && Math.max(workVolume, idsToDelete.length) > mcpThreshold) {
             // `logPath` is a Provider-owned leaf; read it directly so malformed config
             // shape fails loud instead of silently re-deriving a local default.
             const logDir       = aiConfig.logPath;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
-                message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
-                         `Synchronous embedding at this volume risks agent freeze. ` +
+                message: `${workVolume} chunks need re-embedding and ${idsToDelete.length} need deleting ` +
+                         `(threshold: ${mcpThreshold}). ` +
+                         `Synchronous work at this volume risks agent freeze. ` +
                          `Run via CLI: \`npm run ai:sync-kb\`. ` +
                          `Tail progress: \`tail -f ${logDir}/kb-server-$(date +%Y-%m-%d).log\`.`,
                 code           : 'KB_SYNC_VOLUME_EXCEEDED',
                 chunksToProcess: workVolume,
+                idsToDelete    : idsToDelete.length,
                 threshold      : mcpThreshold
             };
             logger.warn(`[VectorService] ${errorPayload.error}: ${errorPayload.message}`);
             return errorPayload;
+        }
+
+        // Genuine no-op: nothing to add AND nothing to delete. Reported as such because it is
+        // such. This branch previously fired whenever there was nothing to ADD, regardless of how
+        // many rows were about to be deleted — so a mass deletion returned
+        // "No changes detected. Knowledge base is up to date." beside a large `deleted` count, a
+        // success-shaped report for the opposite of no change. A delete-bearing pass now falls
+        // through to the path below, which deletes and then states the resulting collection size.
+        if (!shouldShadowSwap && chunksToProcess.length === 0 && idsToDelete.length === 0) {
+            const message = 'No changes detected. Knowledge base is up to date.';
+            logger.log(message);
+            return {message, embedded: 0, deleted: 0};
         }
 
         if (shouldShadowSwap) {

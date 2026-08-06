@@ -287,10 +287,28 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
                 return value;
             };
 
+            // Stamped with the corpus identity the embed below resolves to, read from the service
+            // rather than restated from config — \`resolveTenantStamp\` reads
+            // \`getTenantIsolationConfig()\`, so hardcoding the leaves could drift from it silently.
+            //
+            // Stale-id gathering is scoped to \`{tenantId, repoSlug}\`, so an unstamped row belongs
+            // to no corpus and is deliberately never swept. This hand-upsert bypasses
+            // \`applyTenantStamp\`, so without these two fields it stood for a shape production
+            // cannot produce (verified: every row in the live corpus carries both). The row must be
+            // stale WITHIN the corpus under test for "an old row is reported deleted" to be the
+            // assertion it reads as.
+            const oldRowStamp = KB_VectorService.resolveTenantStamp();
+
             await collection.upsert({
                 ids       : [process.env.NEO_TEST_KB_OLD_ID],
                 embeddings: [Array.from({length: vectorLength}, (_, dimension) => dimension === 0 ? 1 : 0)],
-                metadatas : [{kind: 'integration', source: 'kb-shadow-swap', sentinel: process.env.NEO_TEST_KB_OLD_SENTINEL}],
+                metadatas : [{
+                    kind    : 'integration',
+                    source  : 'kb-shadow-swap',
+                    sentinel: process.env.NEO_TEST_KB_OLD_SENTINEL,
+                    tenantId: oldRowStamp.tenantId,
+                    repoSlug: oldRowStamp.repoSlug
+                }],
                 documents : [process.env.NEO_TEST_KB_OLD_SENTINEL]
             });
 
@@ -372,7 +390,7 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
 
 /**
  * Drives the `ingest_source_files` MCP tool end-to-end inside the deployed KB container.
- * Exercises both the #10572 work-volume gate (an oversized batch refused up-front) and the
+ * Exercises both the work-volume gate (an oversized batch refused up-front) and the
  * within-threshold dispatch path (parsed chunks embedded into an isolated temp collection).
  * @param {Object} options
  * @param {String} options.collectionName Temporary Chroma collection name.
@@ -471,7 +489,7 @@ function ingestSourceFilesViaMcpTool({collectionName, repoSlug, tenantId}) {
  * (`IngestionService.ingestSourceFiles` with `viaMcp:false` — the bulk gate-bypass),
  * then verifies the isolated temp collection holds every embedded chunk. The ingestion service
  * is imported directly (not via `ai/services.mjs`) so the closure-injected `viaMcp:false` flag
- * survives the makeSafe Zod wrapper and reaches `VectorService.embed` as the explicit #10572
+ * survives the makeSafe Zod wrapper and reaches `VectorService.embed` as the explicit
  * work-volume-gate bypass: a 1k+-chunk corpus far exceeds `mcpSyncMaxChunks`, so a clean
  * full-count ingest is itself proof the gate was bypassed.
  * @param {Object} options
@@ -495,7 +513,7 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
         } = await import('./ai/services.mjs');
         // Direct import (not ai/services.mjs): the makeSafe Zod wrapper strips the
         // closure-injected viaMcp flag, and the bulk CLI relies on viaMcp:false reaching
-        // VectorService.embed as the explicit #10572 work-volume-gate bypass.
+        // VectorService.embed as the explicit work-volume-gate bypass.
         const {default: KB_IngestionService} = await import('./ai/services/knowledge-base/IngestionService.mjs');
         const {readJsonlRecords, runIngest}  = await import('./ai/scripts/maintenance/ingestTenant.mjs');
 
@@ -579,7 +597,7 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
 }
 
 /**
- * Drives the #11637 Phase 2E tenant-config-storage persistence path inside the deployed KB
+ * Drives the tenant-config-storage persistence path inside the deployed KB
  * container. Writes a tenant's config as a `KnowledgeBaseTenantConfig` graph node via
  * `setTenantConfig`, reads it back, then simulates a KB-server restart by dropping the
  * in-memory Native Edge Graph cache — forcing the next `getTenantConfig` to reload the node
@@ -783,7 +801,7 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
         expect(outcome.totals.parseErrors).toBe(0);
         expect(outcome.totals.errors).toEqual([]);
 
-        // viaMcp:false bypassed the #10572 work-volume gate — a 1024-chunk corpus far exceeds
+        // viaMcp:false bypassed the work-volume gate — a 1024-chunk corpus far exceeds
         // mcpSyncMaxChunks, so a clean full-count ingest is itself proof of the bulk bypass.
         expect(outcome.totals.ingested).toBe(recordCount);
         expect(outcome.totals.embeddingsGenerated).toBe(recordCount);
