@@ -1312,6 +1312,23 @@ class TenantRepoSyncService extends Base {
                             viaMcp: false // operator-bulk path
                         }));
 
+                // Emitted BEFORE the effect assertion, so it survives the throw. The failure path
+                // used to log nothing between "Refreshing" and the error, which made an empty
+                // ENVELOPE (nothing matched a Source) indistinguishable from a dropped INGEST
+                // (files present, none materialized) — the two have opposite fixes, and neither
+                // could be told from the log. Measured live: 99 seconds of silence, then
+                // KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION with no way to say why.
+                //
+                // Counts only. Paths, file names, and repo content stay out — the same
+                // credential-boundary reasoning that keeps ingestion error messages unprojected.
+                writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} materialized: ` +
+                    `envelopeFiles=${envelope?.files?.length ?? 0} ` +
+                    `envelopeDeleted=${envelope?.deleted?.length ?? 0} ` +
+                    `ingested=${ingestResult?.ingested ?? 0} ` +
+                    `deleted=${ingestResult?.deleted ?? 0} ` +
+                    `embeddings=${ingestResult?.embeddingsGenerated ?? 0} ` +
+                    `errors=${ingestResult?.errors?.length ?? 0}`);
+
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
                     ingestResult,

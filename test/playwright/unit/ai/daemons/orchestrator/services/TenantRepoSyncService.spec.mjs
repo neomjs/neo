@@ -1222,6 +1222,69 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         })
     }
 
+    test('an empty materialization states envelope vs ingest counts, so the two causes are distinguishable (#16577)', async () => {
+        // The failure path threw before any diagnostic was written, so an empty ENVELOPE (nothing
+        // matched a Source) and a dropped INGEST (files present, none materialized) produced the
+        // same silence and the same error code — with opposite fixes. Measured live: 99 seconds
+        // of no output, then KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION.
+        //
+        // This fixture is deliberately the DROPPED-INGEST arm: two envelope files, zero ingested.
+        // That is the combination the old log could not describe at all.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/empty-materialization',
+            logs             = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const failed = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/empty-materialization.git'}
+            ]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId: args.tenantId,
+                repoSlug: args.repoSlug,
+                files   : [
+                    {sourcePath: 'a.txt', repoSlug: args.repoSlug, content: 'x'},
+                    {sourcePath: 'b.txt', repoSlug: args.repoSlug, content: 'y'}
+                ],
+                deleted     : [],
+                headRevision: 'sha-empty',
+                // `pathsAfterPush` is required — materialization identity is derived from it, and a
+                // manifest without it is rejected as KB_INGEST_ENVELOPE_MANIFEST_INVALID before the
+                // effect guard is ever reached.
+                manifestSnapshot: {pathsAfterPush: ['a.txt', 'b.txt']}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 0, deleted: 0, embeddingsGenerated: 0, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            revisionsFilePath: revisionsFile,
+            writeLog         : (...args) => logs.push(args.join(' '))
+        });
+
+        const logText = logs.join('\n');
+
+        // The sync still fails — the diagnostic does not weaken any guard.
+        expect(failed.status).toBe('failed');
+
+        // Deliberately NOT asserting which code fired. A zero-effect materialization can be
+        // rejected by more than one guard depending on fixture shape, and the property under test
+        // is that the diagnostic survives the throw REGARDLESS of which one. Pinning a single code
+        // here would make this a test of guard-ordering rather than of the log line.
+        expect(logText).toContain('envelopeFiles=2');
+        expect(logText).toContain('ingested=0');
+        expect(logText).toContain('embeddings=0');
+
+        // Counts only — no paths, names, or repo content cross into the log, matching the same
+        // credential-boundary discipline that keeps ingestion error messages unprojected.
+        expect(logText).not.toContain('a.txt');
+        expect(logText).not.toContain('b.txt')
+    });
+
     test('a multi-cause ingest failure reports every distinct bounded code and the total count, still redacted (#16575)', async () => {
         // Reporting only the FIRST bounded code made a multi-cause failure read as single-cause: an
         // operator fixes the one code they were shown and the lane fails identically next sweep.
