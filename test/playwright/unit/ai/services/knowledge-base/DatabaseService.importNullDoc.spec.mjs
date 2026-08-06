@@ -46,7 +46,15 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
     test.beforeEach(() => {
         capturedUpsertCalls = [];
 
+        // `count` and `get` model the real Chroma surface, which a merge import reads BEFORE its
+        // first write to scan for natural-key divergence. An empty count is the honest answer for
+        // this double — these fixtures assert document-shape handling against a fresh collection —
+        // and it also exercises the skip-the-scan path, which is correct precisely because an empty
+        // target cannot diverge. Omitting them would make the double weaker than production and the
+        // service would fail on a method it is entitled to assume.
         const mockCollection = {
+            count : async () => 0,
+            get   : async () => ({ids: [], metadatas: []}),
             upsert: async (args) => { capturedUpsertCalls.push(args); }
         };
 
@@ -192,7 +200,13 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
             yield `${JSON.stringify(tailRecord)}\n`;
         })());
 
+        // An EMPTY target, which is what keeps this test measuring streaming. A merge into a
+        // non-empty collection deliberately completes a divergence scan before its first write, so
+        // pointing this gated fixture at a populated target would deadlock by design rather than by
+        // regression — see the companion assertion below.
         KB_ChromaManager.getKnowledgeBaseCollection = async () => ({
+            count : async () => 0,
+            get   : async () => ({ids: [], metadatas: []}),
             upsert: async args => {
                 capturedUpsertCalls.push(args);
                 if (capturedUpsertCalls.length === 1) releaseTail();
@@ -215,6 +229,38 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
             releaseTail();
             fsExtra.createReadStream = originalCreateReadStream;
         }
+    });
+
+    test('merge into a NON-EMPTY target completes the divergence scan before the first write', async () => {
+        // The companion to the streaming test above, and the reason that one had to be pinned to an
+        // empty target. These two properties genuinely trade against each other: "flush the first
+        // batch before EOF" and "refuse before any write" cannot both hold when the decision to
+        // refuse depends on rows that have not been read yet. The trade is resolved by target state
+        // — empty targets cannot diverge, so they keep streaming — and asserting it here means the
+        // choice is visible in the suite rather than discovered by whoever next reads the docblock.
+        const liveMetadata = {tenantId: 'neo-shared', repoSlug: 'neo', source: 'src/a.mjs', name: 'src/a.mjs - x()', type: 'method', content: 'x'};
+
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => ({
+            count : async () => 1,
+            get   : async () => ({ids: ['live-digest'], metadatas: [liveMetadata]}),
+            upsert: async args => { capturedUpsertCalls.push(args); }
+        });
+
+        // Same natural key, different id — a derivation divergence, which is what a content-digest
+        // id produces when a hashed field resolves on one side only.
+        const filePath = writeBackupFile('kb-divergent.jsonl', [
+            {id: 'bundle-digest', embedding: vec(0.2), metadata: {...liveMetadata}, document: null},
+            {id: 'fresh-row',     embedding: vec(0.4), metadata: {...liveMetadata, name: 'src/a.mjs - y()'}, document: null}
+        ]);
+
+        await expect(KB_DatabaseService.importDatabase({file: filePath, mode: 'merge'}))
+            .rejects.toThrow(/share a natural key with a live row/);
+
+        // The load-bearing assertion. `fresh-row` is a legitimate insert sitting in the same batch
+        // as the divergent row, so a per-batch guard would have written it before refusing — and a
+        // partial merge is worse than a refused one, because it leaves the corpus in a state no
+        // receipt describes.
+        expect(capturedUpsertCalls, 'refusal must precede every write, not just the divergent one').toHaveLength(0);
     });
 
     test('reproducer for the 2026-05-19 restore failure: real KB backup shape (24,418 records all-null docs) succeeds', async () => {

@@ -64,6 +64,20 @@ import {
  *       via `collection.get({ids})` and `collection.add()` only the missing subset
  *       to mirror the graph-side semantic. **Flat substrates** skip-if-target-non-empty
  *       (preserves operator additions). No `--force` required.
+ *
+ *       **Knowledge Base (Chroma)** is the fourth semantic, and it is NOT the Memory Core one
+ *       above — do not read across. Its chunk id is a **content digest**
+ *       (`KB DatabaseService.createContentHash` hashes content plus `extends`, `params`,
+ *       `returns` and more), so id-equality means *byte-identical content*, not *same entity*,
+ *       and no id-keyed strategy can distinguish "same chunk, changed content" from "different
+ *       chunk". Merge therefore keys identity on a **natural key**
+ *       (`{tenantId, repoSlug, source, name, type}`): a key present on both sides under
+ *       differing ids means the bundle and live code no longer derive identity the same way,
+ *       and the merge **refuses before any write** rather than upserting logical duplicates.
+ *       An empty target skips the scan, because divergence is impossible there — the receipt
+ *       says which. Giving this substrate the Memory Core's id-preflight would look like
+ *       diligence and still insert every divergent row as a duplicate; the two ids mean
+ *       opposite things, so symmetry between them is the trap.
  *       The graph-side preserve-live semantic used to be silently broken by
  *       `INSERT OR REPLACE`; the 2026-05-10 graph-wipe incident was the empirical anchor.
  *     - `--mode replace`: gated. Each embedded subsystem fires
