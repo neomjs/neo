@@ -51,8 +51,8 @@ export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     // signature, no second chance. 80% leaves room to raise the ceiling before the next batch
     // rather than after the corpus has already stopped being able to complete.
     storeMemorySaturationPercent: 80,
-    minAuthoritativeFacts  : 2,
-    minResourceSamples     : 2,
+    minAuthoritativeFacts       : 2,
+    minResourceSamples          : 2,
     // Restarts within the window, on one container generation, before churn is reported. Three is
     // chosen to sit above ordinary transients (one restart is noise; two can be a slow dependency
     // coming up) and far below a real loop, which reached 977. The window bounds it to RECENT churn:
@@ -386,8 +386,13 @@ export class ContainerHealthDiagnosisService extends Base {
                 : this.configValues.memorySaturationPercent,
             cpuPercents     = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
             memoryPercents  = samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
-            cpuWindow       = summarizeSustainedWindow(cpuPercents, this.configValues.cpuSaturationPercent, samples.length),
-            memoryWindow    = summarizeSustainedWindow(memoryPercents, memoryThreshold, samples.length);
+            // Per-sample observation times, stamped by `rememberStatsSample` when each sample was
+            // taken. The window is now MEASURED from these rather than asserted from config, so
+            // back-to-back samples cannot satisfy a sustained-window claim.
+            timestamps      = samples.map(sample => sample?.observedAtMs).filter(Number.isFinite),
+            minWindowMs     = this.configValues.sampleWindowMs,
+            cpuWindow       = summarizeSustainedWindow({values: cpuPercents, threshold: this.configValues.cpuSaturationPercent, expectedCount: samples.length, timestamps, minWindowMs}),
+            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps, minWindowMs});
 
         if (cpuWindow.sustained) {
             facts.push(this.createFact({
@@ -397,13 +402,17 @@ export class ContainerHealthDiagnosisService extends Base {
                 severity     : 'critical',
                 authoritative: true,
                 details      : {
-                    metric        : 'cpu',
-                    threshold     : this.configValues.cpuSaturationPercent,
-                    sampleCount   : samples.length,
-                    sampleWindowMs: this.configValues.sampleWindowMs,
-                    minPercent    : cpuWindow.min,
-                    maxPercent    : cpuWindow.max,
-                    meanPercent   : cpuWindow.mean
+                    metric     : 'cpu',
+                    threshold  : this.configValues.cpuSaturationPercent,
+                    sampleCount: samples.length,
+                    // The window as MEASURED, beside the minimum enforced. Reporting only the
+                    // configured value put an unobserved claim inside the evidence a heal decision
+                    // reads -- the same defect as reporting the wrong threshold, one field over.
+                    observedWindowMs: cpuWindow.observedWindowMs,
+                    requiredWindowMs: this.configValues.sampleWindowMs,
+                    minPercent      : cpuWindow.min,
+                    maxPercent      : cpuWindow.max,
+                    meanPercent     : cpuWindow.mean
                 }
             }));
         }
@@ -420,12 +429,13 @@ export class ContainerHealthDiagnosisService extends Base {
                     // The threshold ACTUALLY applied, not the transient default — a store trips at
                     // `storeMemorySaturationPercent`, and reporting the other number would put a
                     // falsehood inside the evidence a heal decision is made from.
-                    threshold     : memoryThreshold,
-                    sampleCount   : samples.length,
-                    sampleWindowMs: this.configValues.sampleWindowMs,
-                    minPercent    : memoryWindow.min,
-                    maxPercent    : memoryWindow.max,
-                    meanPercent   : memoryWindow.mean
+                    threshold       : memoryThreshold,
+                    sampleCount     : samples.length,
+                    observedWindowMs: memoryWindow.observedWindowMs,
+                    requiredWindowMs: this.configValues.sampleWindowMs,
+                    minPercent      : memoryWindow.min,
+                    maxPercent      : memoryWindow.max,
+                    meanPercent     : memoryWindow.mean
                 }
             }));
         }
@@ -1035,10 +1045,43 @@ function normalizeStatsSamples({stats, statsSamples}) {
     return stats && typeof stats === 'object' ? [stats] : [];
 }
 
-function summarizeSustainedWindow(values, threshold, expectedCount) {
+/**
+ * @summary Summarizes a sample window, requiring a MEASURED elapsed span rather than a sample count.
+ *
+ * This previously took no timestamps: `sustained` was `every(value >= threshold)` gated only on how
+ * MANY samples arrived, while the emitted evidence stamped `sampleWindowMs` from config as though it
+ * had been observed. Two samples collected milliseconds apart therefore satisfied a "sustained
+ * 30-second window" and the fact said so.
+ *
+ * That matters beyond tidiness because single-fact sufficiency for a store's memory saturation is
+ * justified by the window doing the corroboration a second fact would otherwise provide. An
+ * unenforced window cannot discharge that argument — the reasoning was sound and the implementation
+ * had not earned it.
+ *
+ * @param {Object}   options
+ * @param {Number[]} options.values Metric percentages, one per sample.
+ * @param {Number}   options.threshold Percentage every sample must meet.
+ * @param {Number}   options.expectedCount Sample count floor.
+ * @param {Number[]} [options.timestamps=[]] Per-sample observation times in epoch ms. Absent or
+ *     single-valued yields a zero span, which cannot satisfy a positive `minWindowMs` — unstamped
+ *     samples fail closed rather than inheriting a window they never demonstrated.
+ * @param {Number}   [options.minWindowMs=0] Minimum measured span. `0` preserves count-only
+ *     behaviour for callers that have no temporal claim to make.
+ * @returns {Object} `{sustained, min, max, mean, observedWindowMs}` — the span is returned so the
+ *     caller reports what was measured instead of what was configured.
+ */
+function summarizeSustainedWindow({values, threshold, expectedCount, timestamps = [], minWindowMs = 0}) {
     if (values.length < expectedCount || values.length === 0) {
-        return {sustained: false, min: null, max: null, mean: null};
+        return {sustained: false, min: null, max: null, mean: null, observedWindowMs: null};
     }
+
+    const finiteStamps = timestamps.filter(Number.isFinite);
+
+    // A span needs two distinct observations. One stamp (or none) is zero elapsed time, not an
+    // unknown one, so it must not pass a positive floor.
+    const observedWindowMs = finiteStamps.length > 1
+        ? Math.max(...finiteStamps) - Math.min(...finiteStamps)
+        : 0;
 
     const
         min  = Math.min(...values),
@@ -1046,10 +1089,11 @@ function summarizeSustainedWindow(values, threshold, expectedCount) {
         mean = values.reduce((sum, value) => sum + value, 0) / values.length;
 
     return {
-        sustained: values.every(value => value >= threshold),
+        sustained: values.every(value => value >= threshold) && observedWindowMs >= minWindowMs,
         min      : roundMetric(min),
         max      : roundMetric(max),
-        mean     : roundMetric(mean)
+        mean     : roundMetric(mean),
+        observedWindowMs
     };
 }
 

@@ -30,12 +30,19 @@ function runningInspect(overrides = {}) {
     };
 }
 
-function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
+/**
+ * `observedAtMs` is what `rememberStatsSample` stamps in production, and the sustained-window check
+ * measures the elapsed span across the window from it. A fixture that omits it asserts a sustained
+ * window nothing observed — which is precisely the defect these fixtures used to encode, so it is a
+ * required argument in spirit even though it defaults for the single-sample cases.
+ */
+function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs} = {}) {
     const systemDelta = 1_000_000_000,
           cpuDelta    = (cpuPercent / 100) * systemDelta / 4,
           memoryLimit = 1000;
 
     return {
+        ...(Number.isFinite(observedAtMs) ? {observedAtMs} : {}),
         cpu_stats: {
             online_cpus     : 4,
             system_cpu_usage: systemDelta,
@@ -151,8 +158,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const decision = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 380, memoryPercent: 85}),
-                statsSample({cpuPercent: 360, memoryPercent: 82})
+                statsSample({cpuPercent: 380, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 82, observedAtMs: 1_030_000})
             ]
         });
 
@@ -201,8 +208,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const diagnosed = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 390}),
-                statsSample({cpuPercent: 390})
+                statsSample({cpuPercent: 390, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 390, observedAtMs: 1_030_000})
             ],
             ollamaEvalAttribution: evalAttribution
         });
@@ -641,8 +648,8 @@ test.describe('restart churn', () => {
         const decision = service.diagnose({
             serviceKey  : 'chroma',
             statsSamples: [
-                statsSample({cpuPercent: 5, memoryPercent: 85}),
-                statsSample({cpuPercent: 6, memoryPercent: 83})
+                statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
             ]
         });
 
@@ -671,8 +678,8 @@ test.describe('restart churn', () => {
         const decision = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 5, memoryPercent: 85}),
-                statsSample({cpuPercent: 6, memoryPercent: 83})
+                statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
             ]
         });
 
@@ -693,8 +700,8 @@ test.describe('restart churn', () => {
         const decision = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 380, memoryPercent: 96}),
-                statsSample({cpuPercent: 360, memoryPercent: 94})
+                statsSample({cpuPercent: 380, memoryPercent: 96, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 94, observedAtMs: 1_030_000})
             ]
         });
 
@@ -720,8 +727,8 @@ test.describe('restart churn', () => {
         const decision = service.diagnose({
             serviceKey  : 'chroma',
             statsSamples: [
-                statsSample({cpuPercent: 380, memoryPercent: 40}),
-                statsSample({cpuPercent: 360, memoryPercent: 42})
+                statsSample({cpuPercent: 380, memoryPercent: 40, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 42, observedAtMs: 1_030_000})
             ]
         });
 
@@ -737,5 +744,89 @@ test.describe('restart churn', () => {
         expect(STORE_BACKED_SERVICE_KEYS.has('chroma')).toBe(true);
         expect(STORE_BACKED_SERVICE_KEYS.has('model')).toBe(false);
         expect(Object.isFrozen(STORE_BACKED_SERVICE_KEYS)).toBe(true);
+    });
+});
+
+/**
+ * The sustained window is now MEASURED from per-sample observation times, not counted. These are the
+ * controls that make that claim discriminating rather than decorative: before the change, every case
+ * below produced a `sustained` window and an emitted fact asserting a 30-second span nothing had
+ * observed.
+ *
+ * This matters specifically because single-fact sufficiency for a store's memory saturation is
+ * justified by the window supplying the corroboration a second fact would otherwise provide. If two
+ * back-to-back samples can earn it, that justification is unbacked.
+ */
+test.describe('sustained window is measured, not asserted', () => {
+    const saturated = observedAtMs => statsSample({cpuPercent: 380, memoryPercent: 95, observedAtMs});
+
+    test('BACK-TO-BACK samples do NOT qualify, even at full saturation', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_000_010)]   // 10ms apart
+        });
+
+        expect(decision.status).toBe('healthy');
+        expect(decision.diagnosis).toBeNull();
+        expect(decision.facts).toHaveLength(0);
+    });
+
+    test('IDENTICAL timestamps do NOT qualify — a duplicated sample is one observation', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_000_000)]
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('UNSTAMPED samples do NOT qualify — fails closed rather than inheriting a window', () => {
+        // The pre-change fixture shape. It must not earn an exemption it cannot demonstrate.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 95}),
+                statsSample({cpuPercent: 370, memoryPercent: 93})
+            ]
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('a span just SHORT of the requirement does not qualify', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_029_999)]   // 29.999s
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('CONTROL — the same samples spanning the requirement DO qualify, and report the MEASURED span', () => {
+        // The positive control. Without it the four refusals above could pass by breaking the path
+        // entirely rather than by discriminating on elapsed time.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]   // 45s
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        // The emitted evidence carries what was OBSERVED alongside what was required. Reporting only
+        // the configured value is what let an unmeasured window look measured.
+        expect(memoryFact.details).toMatchObject({
+            observedWindowMs: 45000,
+            requiredWindowMs: 30000,
+            threshold       : 80
+        });
     });
 });
