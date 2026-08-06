@@ -972,6 +972,60 @@ test.describe('IngestionService.ingestSourceFiles', () => {
     });
 });
 
+test.describe('IngestionService.classifyIngestionFailureCode (#16566)', () => {
+    let Service;
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
+    });
+
+    test('preserves a bounded code the error already carries', () => {
+        const error = new Error('anything at all');
+        error.code = 'KB_FILE_PARSE_FAILED';
+
+        expect(Service.classifyIngestionFailureCode(error)).toBe('KB_FILE_PARSE_FAILED')
+    });
+
+    test('names the store-unreachable case instead of flattening it', () => {
+        // The live shape: the tenant lane reported KB_INGEST_FAILED while the vector
+        // store was restarting underneath it. The cause was only ever in the message, which
+        // downstream deliberately refuses to copy — so the failure was unnameable.
+        const error = new Error('Failed to connect to chromadb');
+        error.name = 'ChromaConnectionError';
+
+        expect(Service.classifyIngestionFailureCode(error)).toBe('KB_INGEST_STORE_UNREACHABLE')
+    });
+
+    test('falls back unchanged for an unclassified error', () => {
+        // The fallback is deliberately preserved. Guessing a cause here would trade one
+        // unnameable code for a confidently wrong one.
+        expect(Service.classifyIngestionFailureCode(new Error('something else entirely')))
+            .toBe('KB_INGEST_FAILED')
+    });
+
+    test('a non-KB code is not mistaken for a bounded one', () => {
+        // ENOENT and friends must not leak through as if they were KB_* codes — the prefix test
+        // is what keeps the bounded vocabulary bounded.
+        const error = new Error('no such file');
+        error.code = 'ENOENT';
+
+        expect(Service.classifyIngestionFailureCode(error)).toBe('KB_INGEST_FAILED')
+    });
+
+    test('classification never projects the message', () => {
+        // The whole reason classification happens inside the service: the message may carry a
+        // clone URL with a credential. Only the bounded code leaves.
+        const error = new Error('https://user:TOKEN-must-not-project@host/x.git refused');
+        error.name = 'ChromaConnectionError';
+
+        const code = Service.classifyIngestionFailureCode(error);
+
+        expect(code).toBe('KB_INGEST_STORE_UNREACHABLE');
+        expect(code).not.toContain('TOKEN-must-not-project');
+        expect(code).toMatch(/^KB_[A-Z0-9_]{1,120}$/)
+    });
+});
+
 test.describe('IngestionService.readKbConfigBootstrapResult (#15749)', () => {
     let Service;
 

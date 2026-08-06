@@ -136,6 +136,26 @@ export function isChromaCollectionNotFoundError(error) {
 }
 
 /**
+ * @summary Classifies a Chroma transport failure — the store is unreachable, as opposed to
+ * answering that a collection is absent.
+ *
+ * Lives beside {@link isChromaCollectionNotFoundError} because the two are the pair every caller
+ * needs to tell apart: one means "ask again later", the other means "this collection does not
+ * exist". Promoted here from a private copy in the Knowledge Base `ChromaManager` so a second
+ * consumer cannot drift from it — the same one-value-two-definitions failure the collection-name
+ * resolver was cleaned of.
+ *
+ * Name-based rather than message-based on purpose: `ChromaConnectionError` is a stable type, while
+ * transport messages vary by runtime and are exactly the strings a credential can appear in.
+ *
+ * @param {Error} error
+ * @returns {Boolean}
+ */
+export function isChromaConnectionError(error) {
+    return error?.name === 'ChromaConnectionError' || error?.constructor?.name === 'ChromaConnectionError'
+}
+
+/**
  * @param {Object} embeddingFunction
  * @param {String} label
  * @returns {void}
