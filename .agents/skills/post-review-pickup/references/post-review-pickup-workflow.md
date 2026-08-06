@@ -80,8 +80,7 @@ live GitHub; wakes are hints:
 list_pull_requests({believedOpen: […]})   // -> belief.falsified
 ```
 
-Pass **every** PR the report is about to name — the parameter is the assumption,
-so it falsifies beliefs you did not know you carried.
+Pass **every** PR the report will name, not only the one in hand.
 
 A non-empty `reviewRequests` blocks even at `APPROVED`; name each seat. For
 stacked PRs name base readiness. Relay the review verdict, not the flattened
@@ -160,7 +159,7 @@ it.
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Naming a PR's merge state from a wake payload, a prior turn's summary, or your own earlier sentence instead of `believedOpen` | Wakes and recollection are both stale by construction; this is how false merge-ready claims reach the operator |
+| Naming a PR's merge state from a wake, a prior summary, or your own earlier sentence instead of `believedOpen` | Wakes and recollection are stale by construction; this is how false merge-ready claims reach the operator |
 | Claiming a review you were not assigned | Collides with the assigned reviewer and distorts cross-family seat accounting |
 | Fixup commits without the author-response comment + waking A2A | Leaves the reviewer unaware; the RC cycle silently stalls |
 | Treating operator-suppressed broadcast as work-stop | Confuses coordination visibility with implementation authority |
