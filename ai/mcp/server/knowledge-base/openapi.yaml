@@ -1197,6 +1197,30 @@ components:
         headRevision:
           type: string
           description: Current revision boundary (optional revision-range deletion signal).
+        viaMcp:
+          type: boolean
+          description: |
+            Work-volume-gate mode. Omitted or true keeps `VectorService.embed` MCP-safe,
+            refusing batches above `mcpSyncMaxChunks`. Explicit `false` is the in-process
+            bulk opt-in used by pull-mode tenant-repo sync and the `ai:ingest-tenant` CLI.
+            MCP dispatch overrides any caller value to `true`, so declaring it here cannot
+            widen the agent-facing gate.
+        materializationAttempt:
+          type: object
+          additionalProperties: true
+          description: |
+            Orchestrator-minted identity for one full pull materialization. Pull-mode only:
+            the ingestion service pairs it with the persisted manifest to emit the
+            `materializationReceipt` that proves a positive effect. MCP dispatch deletes
+            this field inbound and the receipt outbound, so a pushing agent can neither
+            supply nor observe it.
+          properties:
+            attemptId:
+              type: string
+              description: Opaque 32-character lowercase hex attempt identity.
+            ingestContractVersion:
+              type: integer
+              description: Checkpoint-contract version this attempt was minted under.
 
     IngestSourceFilesResponse:
       type: object

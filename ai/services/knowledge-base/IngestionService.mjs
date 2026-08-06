@@ -972,6 +972,10 @@ class IngestionService extends Base {
         }
 
         let receipt = null;
+        // Hoisted out of the `attempt` block purely so the no-receipt diagnostic below can state
+        // whether a prior receipt existed to fall back on — the branch that distinguishes
+        // "first materialization" from "retry whose prior proof did not match".
+        let priorReceiptPresent = false;
 
         if (attempt) {
             const
@@ -989,6 +993,8 @@ class IngestionService extends Base {
                     && [summary.ingested, summary.deleted]
                         .some(value => Number.isSafeInteger(value) && value > 0);
 
+            priorReceiptPresent = Boolean(existing?.materializationReceipt);
+
             if (hasEffect) {
                 receipt = {
                     attemptId            : attempt.attemptId,
@@ -1005,6 +1011,39 @@ class IngestionService extends Base {
                 // failure after KB mutation can settle idempotently on the retry.
                 receipt = existing.materializationReceipt;
             }
+        }
+
+        // A manifest that persists WITHOUT a receipt is the shape that rejects an otherwise
+        // successful ingest downstream: `assertFullMaterializationEffect` sees a real effect and no
+        // proof of it, and raises EMPTY_MATERIALIZATION — a message that reads as the opposite of
+        // what happened. Observed live with `ingested=50, embeddings=50, errors=0` and no receipt
+        // on either configured repo.
+        //
+        // Every branch above that skips receipt creation does so silently, so the absence was not
+        // attributable from any log: no attempt supplied, an attempt rejected as malformed, or a
+        // materialization with no positive effect all leave `receipt` null and look identical
+        // afterwards. This names which one happened.
+        //
+        // `attemptPresentAfterValidation` deliberately does NOT say the caller omitted the attempt.
+        // It is read after the OpenAPI/Zod gate in `ai/services.mjs`, which strips payload keys the
+        // contract does not declare — so `false` means "absent by the time the method ran", whether
+        // the caller omitted it or validation deleted it. Reading it as caller-omission is exactly
+        // how the first diagnosis on this lane was misrouted to a caller that was passing it
+        // correctly. Distinguishing the two arms requires comparing against the declared schema,
+        // which a mechanical contract-parity check owns rather than this log line.
+        //
+        // Counts and booleans only — no paths, filenames, or repo content, matching the credential
+        // discipline applied to ingestion error messages.
+        if (!receipt) {
+            logger.warn('[IngestionService] Manifest persisted without a materialization receipt.', {
+                repoSlug                     : normalized.repoSlug,
+                attemptPresentAfterValidation: materializationAttempt != null,
+                attemptAccepted              : Boolean(attempt),
+                ingested                     : summary.ingested,
+                deleted                      : summary.deleted,
+                errorCount                   : summary.errors.length,
+                priorReceiptPresent
+            });
         }
 
         const result = await this.setTenantManifest({
