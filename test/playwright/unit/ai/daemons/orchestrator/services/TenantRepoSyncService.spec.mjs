@@ -1222,6 +1222,83 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         })
     }
 
+    test('a multi-cause ingest failure reports every distinct bounded code and the total count, still redacted (#16575)', async () => {
+        // Reporting only the FIRST bounded code made a multi-cause failure read as single-cause: an
+        // operator fixes the one code they were shown and the lane fails identically next sweep.
+        // Widening to every distinct bounded code stays inside the credential boundary because
+        // BOUNDED_KB_ERROR_CODE_PATTERN admits only KB_[A-Z0-9_]{1,120} — a code cannot carry a URL,
+        // a token, or stderr. The unbounded code and every message/detail must still never project.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/multi-cause',
+            logs             = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const ingestionService = makeFakeIngestionService({
+            summaryFactory() {
+                return {
+                    ingested           : 0,
+                    deleted            : 0,
+                    embeddingsGenerated: 0,
+                    errors             : [
+                        {code: 'KB_VECTOR_EMBED_FAILED', message: 'https://user:TOKEN-must-not-project@host/x.git'},
+                        {code: 'KB_GITMIRROR_CLONE_FAILED', message: 'stderr-must-not-project'},
+                        {code: 'KB_VECTOR_EMBED_FAILED', message: 'duplicate-code-must-collapse'},
+                        {code: 'lowercase-unbounded', message: 'unbounded-must-not-project'}
+                    ]
+                }
+            }
+        });
+
+        const failed = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/multi-cause.git'}
+            ]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId    : args.tenantId,
+                repoSlug    : args.repoSlug,
+                files       : [{sourcePath: 'fake.txt', repoSlug: args.repoSlug, content: 'x'}],
+                deleted     : [],
+                headRevision: 'sha-multi'
+            }),
+            knowledgeBaseIngestionService: ingestionService,
+            onlyRepoSlugs                : [repoSlug],
+            revisionsFilePath            : revisionsFile,
+            writeLog                     : (...args) => logs.push(args.join(' '))
+        });
+
+        const logText = logs.join('\n');
+
+        expect(failed.status).toBe('failed');
+
+        // The stable outer code and the first bounded source code keep their exact prior meaning.
+        expect(failed.details.repos[0]).toMatchObject({
+            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED'
+        });
+
+        // The SECOND distinct bounded code is now visible — the whole point of the change.
+        expect(logText).toContain('source=KB_VECTOR_EMBED_FAILED');
+        expect(logText).toContain('also=KB_GITMIRROR_CLONE_FAILED');
+
+        // Total counts all four entries, including the unbounded one, so a partial failure cannot
+        // read as a single failure.
+        expect(logText).toContain('errors=4');
+
+        // Duplicate bounded codes collapse rather than repeating.
+        expect(logText.match(/KB_VECTOR_EMBED_FAILED/g)).toHaveLength(1);
+
+        // Redaction holds on every axis: unbounded codes, messages, credentials, stderr.
+        expect(logText).not.toContain('lowercase-unbounded');
+        expect(logText).not.toContain('must-not-project');
+        expect(JSON.stringify(failed)).not.toContain('must-not-project');
+        expect(JSON.stringify(failed)).not.toContain('lowercase-unbounded')
+    });
+
     test('mixed cycle counts an error-bearing summary as failed while preserving per-repo isolation (#15748)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),
