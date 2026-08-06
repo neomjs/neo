@@ -1,6 +1,20 @@
-# N=1 tenant bootstrap: registers neomjs/neo as its own pull-mode KB tenant, so the containerized
-# plane ingests the repo (docs, src, and the hourly datasync artifacts under resources/content/)
-# and `ask_knowledge_base` answers from the current head instead of the last restore snapshot.
+# Tenant bootstrap for the containerized plane's pull-mode KB ingestion. Two repos under one
+# tenant (`neo-shared`), keyed as `tenantId/repoSlug`:
+#
+#   neo-shared/neo         — the Neo repo itself (docs, src, and the hourly datasync artifacts under
+#                            resources/content/), so `ask_knowledge_base` answers from the current
+#                            head instead of the last restore snapshot.
+#   neo-shared/create-app  — the scaffolding repo. Small on purpose: first-ingest cost scales with
+#                            tracked-file count on a blobless mirror (~0.42 s/file cold, #16557), so
+#                            a tiny repo is the cheap end-to-end PROOF that pull-mode ingestion works
+#                            — `lastIngestedRev` going non-null is the artifact no unit test provides.
+#                            It is also the only tenant here that is genuinely EXTERNAL to the
+#                            maintainer checkout, so it exercises the lane's actual purpose rather
+#                            than re-ingesting the corpus `kbSync` already owns.
+#
+# `branchRef` is per-repo and NOT inheritable: neo integrates on `dev`, create-app has only `main`
+# (verified against the remote — it has no `dev` branch at all). Copying a sibling's `branchRef` is
+# a clone failure waiting to happen.
 #
 # Read fail-soft from `<neoRootDir>/kb-config.yaml` — tier 2 of the tenant-config resolution
 # (KnowledgeBaseTenantConfig graph node → THIS file → aiConfig defaults). The document root is a
@@ -21,3 +35,8 @@ tenants:
         cloneUrl     : https://github.com/neomjs/neo.git
         credentialRef: none
         branchRef    : dev
+      - tenantId: neo-shared
+        repoSlug     : create-app
+        cloneUrl     : https://github.com/neomjs/create-app.git
+        credentialRef: none
+        branchRef    : main
