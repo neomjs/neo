@@ -718,6 +718,16 @@ class Workspace extends Container {
     }
 
     /**
+     * The current projection shell's instance id — the discriminator between the reconciler's
+     * stable-topology fast path (shell retained) and the staged full path (shell replaced).
+     * Pane instances AND their DOM survive either path; only the shell identity flips.
+     * @returns {String|null}
+     */
+    getShellIdentity() {
+        return this.getReference('dock-host')?.items?.[0]?.id ?? null
+    }
+
+    /**
      * Returns one cached pane identity for Neural Link continuity receipts.
      * @param {String} itemId
      * @returns {String|null}
@@ -1747,7 +1757,7 @@ class Workspace extends Container {
                     receipt.phases.push('main-projected');
                     targetState.reconciling = false
                 } else {
-                    await me.refreshDockWorkspace();
+                    await me.refreshDockWorkspace({operation: descriptor?.operation});
                     receipt.phases.push('main-projected');
 
                     if (me.vesselWorkspaces.get(sourceWorkspaceId) === sourceState) {
@@ -2066,7 +2076,9 @@ class Workspace extends Container {
      * header text, FLIP motion, retained-indicator suppression, and the heavy Overflow menu witness.
      * @param {Object} [options={}]
      * @param {Boolean} [options.geometryOnly=false] Explicit stable-topology projection admission.
-     * @param {String|null} [options.operation=null] Committed reducer operation.
+     * @param {String|null} [options.operation=null] Committed reducer operation. `'detachItem'` and
+     *     `'transferNode'` admit the stable-topology fast path (in-place item reconciliation on the
+     *     retained shell) when the reconciler's structural validator proves the shell unchanged.
      * @param {String[]} [options.preserveItemIds=[]] Owner-held panes the reconciler must park
      *     instead of destroy (a terminal-first tear-out vessel owns its pane before it connects).
      * @returns {Promise<void>}
@@ -2111,7 +2123,10 @@ class Workspace extends Container {
             nextConfig,
             placeholders,
             preserveItemIds,
-            retainTopology: operation === 'detachItem',
+            // A transferNode adoption keeps the structural shell (one tabs node's items grow);
+            // the reconciler's stable-topology validator still rejects any transfer that does
+            // mutate structure, so non-stable placements keep the staged full path.
+            retainTopology: operation === 'detachItem' || operation === 'transferNode',
             resolveItem   : itemId => me.resolvePane(itemId, me.dockModel.items[itemId]),
             onProjectionStaged({plans}) {
                 const retainedTabBars = [...plans.values()]

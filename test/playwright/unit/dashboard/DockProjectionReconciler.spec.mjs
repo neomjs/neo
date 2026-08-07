@@ -402,6 +402,40 @@ test.describe('Neo.dashboard.DockProjectionReconciler', () => {
         }
     });
 
+    test('reconciles an explicit same-topology item arrival without replacing the shell', async () => {
+        // The stack-return adoption shape: the arriving pane exists as a live instance
+        // (it survived its previous workspace), the structural shell is unchanged, and one tabs
+        // node's item set grows. The catalog entry without a node placement models exactly that.
+        const model = createSplitModel();
+
+        model.items.gamma = {componentRef: 'gamma', kind: 'panel', title: 'Gamma'};
+
+        const receipt = await reconcileModel(model, nextModel => {
+            nextModel.nodes['alpha-tabs'].items.push('gamma')
+        }, {
+            retainTopology: true
+        });
+
+        try {
+            const
+                alphaTab = DockProjectionReconciler.collectProjectedTabs(receipt.oldShell)
+                    .get('alpha-tabs'),
+                body     = alphaTab.getCardContainer(),
+                bar      = alphaTab.getTabBar();
+
+            expect(receipt.result.nextShell).toBe(receipt.oldShell);
+            expect(receipt.host.items).toEqual([receipt.oldShell]);
+            expect(body.items).toEqual([receipt.panes.alpha, receipt.panes.gamma]);
+            expect(bar.items.map(button => button.text)).toEqual(['Alpha', 'Gamma']);
+            expect(bar.sortZoneConfig.dockItemIds).toEqual(['alpha', 'gamma']);
+            expect(receipt.panes.gamma.isDestroyed).toBeFalsy();
+            expect(receipt.result.reconciledItems).toBe(true);
+            expect(receipt.stagedCount).toBe(1)
+        } finally {
+            receipt.host.destroy()
+        }
+    });
+
     test('fails an explicit retained-topology admission closed when structure changes', async () => {
         const receipt = await reconcileModel(createSplitModel(), nextModel => {
             nextModel.nodes['root-split'].orientation = 'vertical'
