@@ -85,6 +85,42 @@ class Model extends Base {
     addDomListener() {}
 
     /**
+     * @summary Writes the selection annotations onto one resolved vdom node.
+     *
+     * The single place that knows what "selected" looks like in the vdom, so that
+     * {@link Neo.selection.Model#select select()} and {@link Neo.selection.Model#restoreSelection restoreSelection()}
+     * cannot drift apart. Tolerates a null node: an id can be tracked while its item is not currently rendered.
+     *
+     * @param {Object|null} node a vdom node resolved via `view.getVdomChild()`
+     * @param {String} [selectedCls]
+     * @protected
+     */
+    annotateItem(node, selectedCls) {
+        if (node) {
+            node.cls = NeoArray.add(node.cls || [], selectedCls || this.selectedCls);
+            node['aria-selected'] = true
+        }
+    }
+
+    /**
+     * @summary Removes the selection annotations from one resolved vdom node.
+     *
+     * The inverse of {@link Neo.selection.Model#annotateItem annotateItem}, and the other half of the
+     * single annotation owner: a subclass that adds the class through its own delta must remove it
+     * through this, or select and deselect drift into different notions of "selected".
+     *
+     * @param {Object|null} node a vdom node resolved via `view.getVdomChild()`
+     * @param {String} [selectedCls]
+     * @protected
+     */
+    deannotateItem(node, selectedCls) {
+        if (node) {
+            node.cls = NeoArray.remove(node.cls || [], selectedCls || this.selectedCls);
+            delete node['aria-selected']
+        }
+    }
+
+    /**
      * @param {Object} item
      * @param {Boolean} [silent] true to prevent a vdom update
      * @param {Object[]|String[]} itemCollection=this.items
@@ -92,19 +128,18 @@ class Model extends Base {
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
         let me     = this,
-            {view} = me,
-            node;
+            {view} = me;
 
         // We hold vdom ids for now, so all incoming selections must be converted.
         item = me.getSelectionItemId(item);
 
         if (itemCollection.includes(item)) {
-            node = view.getVdomChild(item);
-
-            if (node) {
-                node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
-                delete node['aria-selected']
-            }
+            // Through getItemVdomId, exactly as select() and restoreSelection() do. A subclass whose
+            // items are not their own vdom ids (Gallery, Helix: the vnode id is prefixed) resolved
+            // correctly on the way in and, before this, raw on the way out — so the lookup missed, the
+            // node came back null, and the deannotation was a silent no-op that left the item styled
+            // and aria-selected while the collection said it was gone.
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)), selectedCls);
 
             NeoArray.remove(itemCollection, item);
 
@@ -263,6 +298,65 @@ class Model extends Base {
     }
 
     /**
+     * @summary Maps a tracked item id to the vdom node id that carries its annotation.
+     *
+     * Identity here, because this model tracks ids that already ARE vdom ids —
+     * {@link Neo.selection.Model#select select()} maps through `getSelectionItemId` before tracking.
+     *
+     * A subclass that tracks a **logical** id while its view keys item nodes by a **prefixed** vnode id
+     * MUST override this. `selection.GalleryModel` and `selection.HelixModel` are both that shape: they
+     * store the record id, while their views build node ids as `${view.id}__${recordId}`. Without the
+     * override the lookup misses, `annotateItem` receives null, and the restore is a **silent no-op** —
+     * invisible precisely because a missed lookup and a legitimately unrendered item are the same value.
+     *
+     * @param {String} item A tracked item id
+     * @returns {String} The id to resolve against the view's vdom
+     * @protected
+     */
+    getItemVdomId(item) {
+        return item
+    }
+
+    /**
+     * @summary Re-applies the selection annotations onto the view's current vdom nodes.
+     *
+     * {@link Neo.selection.Model#select select()} annotates the nodes it resolves *at call time*, and it
+     * early-exits when the incoming ids already equal the tracked ones — so it cannot repair a view whose
+     * item nodes were replaced. A component that rebuilds its items from a template
+     * ({@link Neo.component.Gallery#onStoreLoad}, {@link Neo.component.Helix#onStoreLoad}) discards the
+     * annotated nodes while this model still tracks the ids, which leaves `hasSelection()` reporting a
+     * selection that nothing renders and drops `aria-selected` with it.
+     *
+     * **This only restores what `select()` established.** The concrete `GalleryModel` / `HelixModel`
+     * additionally push a DOM delta for immediacy, but the vdom annotation written through
+     * {@link Neo.selection.Model#annotateItem annotateItem} is the one this reads — so a subclass whose
+     * `select()` writes ONLY a delta leaves nothing to restore, and a restore here would be inventing an
+     * annotation rather than preserving one. That is why both concrete models annotate the vdom too.
+     *
+     * Call this after such a rebuild. It is a no-op when nothing is selected.
+     *
+     * Restores the default `items` / `selectedCls` pair only. A subclass tracking additional collections
+     * under their own class — see `selection.table.CellColumnModel` and its `selectedColumnCellIds` —
+     * must extend this to cover them.
+     *
+     * @param {Boolean} [silent=false] true leaves the `update()` cycle to the caller
+     */
+    restoreSelection(silent=false) {
+        let me     = this,
+            {view} = me;
+
+        if (me.items.length > 0) {
+            me.items.forEach(id => {
+                me.annotateItem(view.getVdomChild(me.getItemVdomId(id)))
+            });
+
+            if (!silent && !view.silentSelect) {
+                view.update()
+            }
+        }
+    }
+
+    /**
      * @param {Object|Object[]|String[]} items
      * @param {Object[]|String[]} itemCollection=this.items
      * @param {String} [selectedCls]
@@ -285,12 +379,7 @@ class Model extends Base {
             }
 
             items.forEach(node => {
-                node = view.getVdomChild(node);
-
-                if (node) {
-                    node.cls = NeoArray.add(node.cls || [], selectedCls || me.selectedCls);
-                    node['aria-selected'] = true
-                }
+                me.annotateItem(view.getVdomChild(node), selectedCls)
             });
 
             NeoArray.add(itemCollection, items);

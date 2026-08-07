@@ -1089,7 +1089,22 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Re-fires a sort as a `load`. This is deliberate — do NOT suppress it.
      *
+     * `load` is the store's **coarse** change-notification and `sort` the **fine-grained** one, so a consumer
+     * binds whichever granularity it needs. Several bind `load` alone and react to a sort *only* because of
+     * this method:
+     *
+     * - `form.field.ComboBox`
+     * - `toolbar.Paging`
+     * - `table.Container` — note its `sort` listener is on a *column*, not on the store
+     * - `table.Body` and `grid.Body` — the row-rendering surfaces of both data grids
+     *
+     * Reading this as a conflation and suppressing the fire stops all five updating on a sort, with no error
+     * and no failing test. The corresponding consumer-side hazard is the mirror image: a component binding
+     * both events runs its `sort` handler *after* the `load` handler has already rebuilt the view, because
+     * this store registers its own collection listener in `construct()` — before any component can bind. That
+     * second handler is therefore looking at already-corrected state.
      */
     onCollectionSort() {
         let me = this;
