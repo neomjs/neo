@@ -208,10 +208,16 @@ export function collectImports(ast) {
             continue;
         }
         for (const specifier of node.specifiers) {
-            imports.set(specifier.local.name, {
-                source  : node.source.value,
-                imported: specifier.type === 'ImportDefaultSpecifier' ? 'default' : specifier.imported.name
-            });
+            // Three specifier kinds, and only two carry `.imported`. `import * as yaml from …`
+            // is an ImportNamespaceSpecifier with no `imported` node at all, so reading
+            // `.imported.name` throws — which made this helper unusable on any module using a
+            // namespace import. It went unnoticed because the census only ever parsed
+            // `toolService.mjs` files, none of which have one.
+            const imported = specifier.type === 'ImportDefaultSpecifier'   ? 'default'
+                           : specifier.type === 'ImportNamespaceSpecifier' ? '*'
+                           : specifier.imported.name;
+
+            imports.set(specifier.local.name, {source: node.source.value, imported});
         }
     }
 

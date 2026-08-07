@@ -1,0 +1,52 @@
+name: OpenAPI Service Parity Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      # The service implementations: a method that starts reading a new parameter is the defect's
+      # origin, so any change under here must re-run the check.
+      - 'ai/services/**/*.mjs'
+      # The contracts. A parameter can also become undeclared by being REMOVED from a schema, which
+      # leaves the service reading a key nothing declares any more — same defect, opposite direction.
+      - 'ai/mcp/server/**/openapi.yaml'
+      # The wiring table the checker derives its service list from. If a service stops being wrapped
+      # here it silently leaves the guard's scope, so editing this must re-run it.
+      - 'ai/services.mjs'
+      # The shared AST helpers. The checker imports them rather than re-deriving, so a change there
+      # changes what the checker can see.
+      - 'ai/scripts/diagnostics/mcpHandlerSignatureCensus.mjs'
+      - 'ai/scripts/lint/lint-openapi-service-parity.mjs'
+      - '.github/workflows/openapi-service-parity-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/services/**/*.mjs'
+      - 'ai/mcp/server/**/openapi.yaml'
+      - 'ai/services.mjs'
+      - 'ai/scripts/diagnostics/mcpHandlerSignatureCensus.mjs'
+      - 'ai/scripts/lint/lint-openapi-service-parity.mjs'
+      - '.github/workflows/openapi-service-parity-lint.yml'
+
+concurrency:
+  group: openapi-service-parity-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint service methods for parameters their OpenAPI operation does not declare
+        run: node ai/scripts/lint/lint-openapi-service-parity.mjs
