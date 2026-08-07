@@ -142,8 +142,17 @@ export function extractWrappedServices(rootDir) {
           wrapped      = [];
 
     // `const ghSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/…/openapi.yaml'))`
-    for (const node of ast.body) {
-        if (node.type !== 'VariableDeclaration') continue;
+    //
+    // `export const X = makeSafe(…)` is unwrapped rather than skipped. Today every one of the 40
+    // live bindings is a bare `const` with a separate export, so this branch is unreachable on the
+    // current tree — which is exactly why it is here. Discovery that silently ignores a declaration
+    // form means a service written that way disappears from the gate and its absence reads as a
+    // pass, and a false green from a silent skip is the precise failure this whole lint exists to
+    // make loud. Cheaper to accept the form than to rely on nobody ever typing it.
+    for (const outer of ast.body) {
+        const node = outer.type === 'ExportNamedDeclaration' ? outer.declaration : outer;
+
+        if (node?.type !== 'VariableDeclaration') continue;
 
         for (const declarator of node.declarations) {
             const init = declarator.init;

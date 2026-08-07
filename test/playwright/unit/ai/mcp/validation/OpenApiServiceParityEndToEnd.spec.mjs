@@ -1,0 +1,303 @@
+import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+
+import {lintOpenApiServiceParity} from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
+
+/**
+ * End-to-end fixtures for the OpenAPI ↔ service parity lint: a synthetic repo root is built on
+ * disk, the real `lintOpenApiServiceParity` runs against it, and the assertion is on its verdict.
+ *
+ * **Why this file exists separately from the helper specs.** The sibling suite proves
+ * `consumedNames` and `declaredNames` behave on AST nodes handed to them directly. That is
+ * necessary and it is not sufficient: it cannot fail if the *lint* stops discovering services,
+ * stops resolving module paths, stops joining method names to operation ids, or stops reporting
+ * what it found. Every one of those is a silent-pass failure mode, and a helper-only suite would
+ * stay green through all of them.
+ *
+ * The fixtures are deliberately built from the outside in: `ai/services.mjs` with a `safeLoadYaml`
+ * + `makeSafe` pair, a spec under `ai/mcp/server/<id>/openapi.yaml`, and a service module under
+ * `ai/services/<id>/`. That is the real discovery contract, so a change to it fails here rather
+ * than silently narrowing what the gate covers.
+ *
+ * Every positive fixture is paired with a **negative control**. A fixture that only proves the
+ * lint fails on bad input cannot distinguish a working gate from one that fails on everything.
+ */
+
+let tmpRoot;
+
+test.beforeEach(() => {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), `parity-e2e-${process.pid}-`));
+});
+
+test.afterEach(() => {
+    if (tmpRoot && fs.existsSync(tmpRoot)) fs.rmSync(tmpRoot, {recursive: true, force: true});
+});
+
+/**
+ * Builds a synthetic repo root the lint can discover.
+ *
+ * @param {Object} options
+ * @param {String} options.serverId    Owning server directory name.
+ * @param {String} options.operationId The operation the method must join to.
+ * @param {Object} options.operation   The OpenAPI operation object (parameters / requestBody).
+ * @param {String} options.methodSrc   The service method source, e.g. `async doThing(options) {...}`.
+ * @param {Boolean} [options.exported=false] Emit `export const X = makeSafe(…)` instead of the bare
+ *     `const X = makeSafe(…)`. Defaults to the BARE form because that is what all 40 live bindings
+ *     use — a fixture built on the other shape would exercise a branch production never takes, and
+ *     prove the fixture rather than the gate.
+ * @returns {String} The fixture root path.
+ */
+function seedRoot({serverId, operationId, operation, methodSrc, exported = false}) {
+    const serviceDir = path.join(tmpRoot, 'ai', 'services', serverId),
+          serverDir  = path.join(tmpRoot, 'ai', 'mcp', 'server', serverId);
+
+    fs.mkdirSync(serviceDir, {recursive: true});
+    fs.mkdirSync(serverDir, {recursive: true});
+
+    // The discovery shape the lint actually parses: a `safeLoadYaml` binding whose first string
+    // literal is the spec path, and a `makeSafe(service, spec)` pair. Written as real source rather
+    // than mocked, so a change to `extractWrappedServices` is caught here.
+    fs.writeFileSync(path.join(tmpRoot, 'ai', 'services.mjs'), [
+        `import FixtureService from './services/${serverId}/FixtureService.mjs';`,
+        `const fixtureSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/${serverId}/openapi.yaml'));`,
+        `${exported ? 'export ' : ''}const Fixture_Service = makeSafe(FixtureService, fixtureSpec);`,
+        exported ? '' : 'export {Fixture_Service};',
+        ''
+    ].join('\n'));
+
+    fs.writeFileSync(path.join(serviceDir, 'FixtureService.mjs'), [
+        'class FixtureService {',
+        `    ${methodSrc}`,
+        '}',
+        'export default FixtureService;',
+        ''
+    ].join('\n'));
+
+    fs.writeFileSync(path.join(serverDir, 'openapi.yaml'), JSON.stringify({
+        openapi: '3.0.0',
+        info   : {title: 'fixture', version: '1.0.0'},
+        paths  : {'/fixture': {post: {operationId, ...operation}}}
+    }, null, 2));
+
+    return tmpRoot;
+}
+
+/** A request body declaring the given property names. */
+const bodyWith = (...names) => ({
+    requestBody: {content: {'application/json': {schema: {
+        type      : 'object',
+        properties: Object.fromEntries(names.map(name => [name, {type: 'string'}]))
+    }}}}
+});
+
+test.describe('parity lint end-to-end — the FAILING direction', () => {
+    test('a dotted bag read of an undeclared key is reported as a violation', async () => {
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('declaredOne'),
+            // Reads `secretKey`, which the spec does not declare — the exact production shape that
+            // shipped twice on `ingest_source_files`.
+            methodSrc  : 'async doThing(payload) { return payload.declaredOne + payload.secretKey }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.servicesScanned, 'the fixture service must be DISCOVERED — a zero here means the lint scanned nothing and would pass on anything').toBe(1);
+        expect(result.operationsMatched, 'the method must JOIN to its operation via camelToSnake').toBe(1);
+        expect(result.violations).toHaveLength(1);
+        expect(result.violations[0].param).toBe('secretKey');
+        expect(result.violations[0].operationId).toBe('do_thing');
+    });
+
+    test('NEGATIVE CONTROL: declaring the same key makes the identical fixture clean', async () => {
+        // Byte-identical to the fixture above except that `secretKey` is declared. Without this the
+        // suite could not distinguish a working gate from one that reports a violation for every
+        // fixture it is handed.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('declaredOne', 'secretKey'),
+            methodSrc  : 'async doThing(payload) { return payload.declaredOne + payload.secretKey }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.servicesScanned).toBe(1);
+        expect(result.operationsMatched).toBe(1);
+        expect(result.violations, 'a fully-declared contract must produce no violation').toHaveLength(0);
+    });
+
+    test('body destructuring is reached too — the form whose absence was a false green on real code', async () => {
+        // `PullRequestService#getPullRequestDiff` uses exactly this shape and the first walker
+        // reported ZERO consumed names for it while CI was green. Asserted end-to-end so the
+        // regression cannot come back through the lint even if the helper keeps passing.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('declaredOne'),
+            methodSrc  : 'async doThing(options) { const {declaredOne, undeclaredTwo} = options || {}; return declaredOne ?? undeclaredTwo }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.violations.map(v => v.param)).toEqual(['undeclaredTwo']);
+    });
+
+    test('an EXPORTED makeSafe binding is discovered too — a form no live service uses yet', async () => {
+        // Every one of the 40 live bindings is a bare `const` with a separate export, so this shape
+        // is currently unreachable in production. It is covered because discovery that silently
+        // skipped a declaration form would drop a whole service from the gate and report the
+        // omission as a pass — the exact false-green class this lint exists to close, one layer
+        // below the parameters it checks.
+        //
+        // Found by writing this fixture in the wrong shape: the suite reported clean on a method
+        // that reads an undeclared key, and the only tell was that `servicesScanned` was 0.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('declaredOne'),
+            methodSrc  : 'async doThing(payload) { return payload.declaredOne + payload.secretKey }',
+            exported   : true
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.servicesScanned, 'the exported form must not vanish from discovery').toBe(1);
+        expect(result.violations.map(v => v.param)).toEqual(['secretKey']);
+    });
+
+    test('a rest element suppresses the verdict rather than passing it', async () => {
+        // A rest element re-admits every key, so absence cannot be proven. The requirement is that
+        // the lint stays SILENT, not that it reports clean for a good reason — the operation is
+        // still matched, it simply yields no claim.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('declaredOne'),
+            methodSrc  : 'async doThing({declaredOne, ...rest}) { return declaredOne ?? rest }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.operationsMatched, 'the operation is matched — the suppression is about provability, not discovery').toBe(1);
+        expect(result.violations).toHaveLength(0);
+    });
+});
+
+test.describe('parity lint end-to-end — the ADVISORY direction', () => {
+    test('a declared key nothing reads is reported as advisory, and does NOT become a violation', async () => {
+        // The emission path for the non-failing direction. Verified end-to-end because the live tree
+        // currently reports ZERO advisory rows: without this fixture a permanently-silent advisory
+        // would be indistinguishable from a working one.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('usedOne', 'strandedTwo'),
+            methodSrc  : 'async doThing({usedOne}) { return usedOne }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.unusedDeclarations.map(row => row.param)).toEqual(['strandedTwo']);
+        expect(result.violations, 'the advisory direction must never escalate into the failing one').toHaveLength(0);
+    });
+
+    test('a FORWARDED bag yields no advisory — a lower bound cannot support an absence claim', async () => {
+        // `consumedNames` is a lower bound on reads by construction, which is what makes it sound
+        // for the failing direction and useless for its complement. Here the bag travels into a
+        // helper, so `strandedTwo` may well be read where no AST walk can see it. Claiming it unused
+        // would be a fabricated absence — the defect that produced 14 false findings before the
+        // completeness gate existed.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('usedOne', 'strandedTwo'),
+            methodSrc  : 'async doThing(payload) { return this.helper(payload) + payload.usedOne }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.unusedDeclarations, 'a forwarded bag must silence the advisory entirely').toHaveLength(0);
+        // And the failing direction is unaffected: `usedOne` is declared, so still no violation.
+        expect(result.violations).toHaveLength(0);
+    });
+
+    test('the advisory is decided per OPERATION, not per method — a sibling read counts', async () => {
+        // `get_conversation` is served by three services, each destructuring only its own keys.
+        // Judged per method, every sibling's parameters looked dead: this is that shape, minimised.
+        // `secondOnly` is read by the second method alone, so nothing here is unused.
+        const serviceDir = path.join(tmpRoot, 'ai', 'services', 'fixture-server'),
+              serverDir  = path.join(tmpRoot, 'ai', 'mcp', 'server', 'fixture-server');
+
+        fs.mkdirSync(serviceDir, {recursive: true});
+        fs.mkdirSync(serverDir, {recursive: true});
+
+        fs.writeFileSync(path.join(tmpRoot, 'ai', 'services.mjs'), [
+            `import AlphaService from './services/fixture-server/AlphaService.mjs';`,
+            `import BetaService  from './services/fixture-server/BetaService.mjs';`,
+            `const fixtureSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/fixture-server/openapi.yaml'));`,
+            `const Alpha = makeSafe(AlphaService, fixtureSpec);`,
+            `const Beta  = makeSafe(BetaService,  fixtureSpec);`,
+            `export {Alpha, Beta};`,
+            ''
+        ].join('\n'));
+
+        fs.writeFileSync(path.join(serviceDir, 'AlphaService.mjs'),
+            'class AlphaService {\n    async doThing({firstOnly}) { return firstOnly }\n}\nexport default AlphaService;\n');
+        fs.writeFileSync(path.join(serviceDir, 'BetaService.mjs'),
+            'class BetaService {\n    async doThing({secondOnly}) { return secondOnly }\n}\nexport default BetaService;\n');
+
+        fs.writeFileSync(path.join(serverDir, 'openapi.yaml'), JSON.stringify({
+            openapi: '3.0.0',
+            info   : {title: 'fixture', version: '1.0.0'},
+            paths  : {'/fixture': {post: {operationId: 'do_thing', ...bodyWith('firstOnly', 'secondOnly')}}}
+        }, null, 2));
+
+        const result = lintOpenApiServiceParity({rootDir: tmpRoot});
+
+        expect(result.operationsMatched, 'both methods bind to the one operation').toBe(2);
+        expect(
+            result.unusedDeclarations,
+            'each key is read by exactly one implementation, so the UNION covers both and nothing is unused'
+        ).toHaveLength(0);
+    });
+
+    test('POSITIVE CONTROL for the union: a key NO sibling reads is still reported', async () => {
+        // The control for the test above. Without it, "per-operation union" would be
+        // indistinguishable from "advisory permanently disabled whenever two methods share an id".
+        const serviceDir = path.join(tmpRoot, 'ai', 'services', 'fixture-server'),
+              serverDir  = path.join(tmpRoot, 'ai', 'mcp', 'server', 'fixture-server');
+
+        fs.mkdirSync(serviceDir, {recursive: true});
+        fs.mkdirSync(serverDir, {recursive: true});
+
+        fs.writeFileSync(path.join(tmpRoot, 'ai', 'services.mjs'), [
+            `import AlphaService from './services/fixture-server/AlphaService.mjs';`,
+            `import BetaService  from './services/fixture-server/BetaService.mjs';`,
+            `const fixtureSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/fixture-server/openapi.yaml'));`,
+            `const Alpha = makeSafe(AlphaService, fixtureSpec);`,
+            `const Beta  = makeSafe(BetaService,  fixtureSpec);`,
+            `export {Alpha, Beta};`,
+            ''
+        ].join('\n'));
+
+        fs.writeFileSync(path.join(serviceDir, 'AlphaService.mjs'),
+            'class AlphaService {\n    async doThing({firstOnly}) { return firstOnly }\n}\nexport default AlphaService;\n');
+        fs.writeFileSync(path.join(serviceDir, 'BetaService.mjs'),
+            'class BetaService {\n    async doThing({secondOnly}) { return secondOnly }\n}\nexport default BetaService;\n');
+
+        fs.writeFileSync(path.join(serverDir, 'openapi.yaml'), JSON.stringify({
+            openapi: '3.0.0',
+            info   : {title: 'fixture', version: '1.0.0'},
+            paths  : {'/fixture': {post: {operationId: 'do_thing', ...bodyWith('firstOnly', 'secondOnly', 'readByNobody')}}}
+        }, null, 2));
+
+        const result = lintOpenApiServiceParity({rootDir: tmpRoot});
+
+        expect(result.unusedDeclarations.map(row => row.param)).toEqual(['readByNobody']);
+        expect(result.unusedDeclarations[0].methods, 'the row names every contributor, so a reader can see the denominator').toHaveLength(2);
+    });
+});
