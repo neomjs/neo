@@ -217,6 +217,11 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<{heartbeat: number, memoryCollection: string, summaryCollection: string}>}
      */
     async checkConnectivity() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         const heartbeat = await this.client.heartbeat();
         const memory    = await this.getMemoryCollection();
         const summaries = await this.getSummaryCollection();
@@ -252,6 +257,11 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<Object>}
      */
     async getMemoryCollection() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         if (!this._memoryCollectionPromise) {
             const collectionName = aiConfig.collections.memory;
             this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
@@ -271,6 +281,11 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<Object>}
      */
     async getSummaryCollection() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         if (!this._summaryCollectionPromise) {
             const collectionName = aiConfig.collections.session;
             this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
@@ -290,6 +305,11 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<Object>}
      */
     async getTemporalSummaryCollection() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         if (!this._temporalSummaryCollectionPromise) {
             const collectionName = aiConfig.collections.temporalSummary;
             this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
@@ -309,6 +329,11 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<Object>}
      */
     async getGraphCollection() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         if (!this._graphCollectionPromise) {
             const collectionName = aiConfig.collections.graph;
             this.assertCollectionNotProdBleed({name: collectionName, database: this.resolveChromaClientConfig(aiConfig).database});
@@ -389,6 +414,11 @@ class ChromaManager extends AbstractVectorManager {
      * @see chromaDeleteCollection
      */
     async deleteCollection({name, confirmation} = {}) {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         return chromaDeleteCollection({client: this.client, name, subsystem: 'memory-core', confirmation})
     }
 

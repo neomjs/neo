@@ -112,6 +112,11 @@ class ChromaManager extends Base {
      * @returns {Promise<{heartbeat: number, knowledgeBaseCollection: string}>}
      */
     async checkConnectivity() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         const heartbeat  = await this.client.heartbeat();
         const collection = await this.getKnowledgeBaseCollection();
 
@@ -168,6 +173,11 @@ class ChromaManager extends Base {
      * @throws {DisposableRestoreTargetError} When `name` is a canonical collection.
      */
     async getDisposableCollection({name} = {}) {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         const targetName = assertDisposableRestoreTarget({name});
 
         return await this.#getCollectionWithConnectionRetry(
@@ -210,6 +220,11 @@ class ChromaManager extends Base {
      * @see https://github.com/neomjs/neo/issues/11685
      */
     async #resolveKnowledgeBaseCollection() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         const options = this.#getKnowledgeBaseCollectionOptions();
 
         try {
@@ -256,6 +271,11 @@ class ChromaManager extends Base {
      * @throws {Error}
      */
     async #getCollectionWithConnectionRetry(options, resolveCollection = opts => this.client.getCollection(opts)) {
+        // Both current callers are guarded, and that is verified rather than assumed — but the
+        // default resolver closes over `this.client`, so the guarantee is restated here rather than
+        // inherited. "Safe by construction" is the exact claim that failed on this lane.
+        await this.ready();
+
         const retry        = this.#getCollectionResolveRetryPolicy();
         let   totalDelayMs = 0;
 
@@ -395,6 +415,11 @@ class ChromaManager extends Base {
      * @returns {Promise<String[]>}
      */
     async #getActiveKnowledgeBaseSwapCollections() {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         const names = await chromaListCollectionNames({client: this.client});
 
         return names.filter(name => this.#isActiveKnowledgeBaseSwapName(name)).sort();
@@ -458,6 +483,11 @@ class ChromaManager extends Base {
      * @see https://github.com/neomjs/neo/issues/11652
      */
     async deleteCollection({name, confirmation} = {}) {
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
+        // exist between `construct()` and readiness. Asserted here rather than assumed from the
+        // caller: this is a public entry point and nothing stops it being called during boot.
+        await this.ready();
+
         return chromaDeleteCollection({client: this.client, name, subsystem: 'knowledge-base', confirmation})
     }
 }
