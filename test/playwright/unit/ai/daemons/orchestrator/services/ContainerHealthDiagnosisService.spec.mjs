@@ -1,10 +1,20 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
+// The COMMITTED declarative config, imported statically. Tests resolve committed config templates
+// rather than the overlay-resolving entrypoint: reading the roster through that entrypoint would let
+// a repo-local ignored file decide whether this totality guard passes, so a green here would describe
+// one machine instead of the shipped deployment. The roster leaf lives in `configBase.mjs`, which
+// this template subclasses.
+import aiConfigTemplate from '../../../../../../../ai/config.template.mjs';
 import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     CONTAINER_HEALTH_FACT_TYPES,
     ContainerHealthDiagnosisService,
+    SERVICE_CLASSES,
+    SERVICE_CLASS_BY_KEY,
+    classifyServiceKey,
+    isStoreBackedService,
     evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent
@@ -29,12 +39,19 @@ function runningInspect(overrides = {}) {
     };
 }
 
-function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
+/**
+ * `observedAtMs` is what `rememberStatsSample` stamps in production, and the sustained-window check
+ * measures the elapsed span across the window from it. A fixture that omits it asserts a sustained
+ * window nothing observed — which is precisely the defect these fixtures used to encode, so it is a
+ * required argument in spirit even though it defaults for the single-sample cases.
+ */
+function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs} = {}) {
     const systemDelta = 1_000_000_000,
           cpuDelta    = (cpuPercent / 100) * systemDelta / 4,
           memoryLimit = 1000;
 
     return {
+        ...(Number.isFinite(observedAtMs) ? {observedAtMs} : {}),
         cpu_stats: {
             online_cpus     : 4,
             system_cpu_usage: systemDelta,
@@ -150,8 +167,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const decision = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 380, memoryPercent: 85}),
-                statsSample({cpuPercent: 360, memoryPercent: 82})
+                statsSample({cpuPercent: 380, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 82, observedAtMs: 1_030_000})
             ]
         });
 
@@ -200,8 +217,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const diagnosed = service.diagnose({
             serviceKey  : 'model',
             statsSamples: [
-                statsSample({cpuPercent: 390}),
-                statsSample({cpuPercent: 390})
+                statsSample({cpuPercent: 390, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 390, observedAtMs: 1_030_000})
             ],
             ollamaEvalAttribution: evalAttribution
         });
@@ -629,5 +646,321 @@ test.describe('restart churn', () => {
         });
 
         expect(decision.churnBaseline).toEqual({containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 3});
+    });
+    test('a STORE at its memory ceiling gets raise-ceiling, not shed it cannot perform (#16596)', () => {
+        // The defect this pins: memory saturation routed uniformly to `throttle-shed`. For a store the
+        // corpus IS the workload — footprint tracks rows already persisted — so there is no arrival
+        // rate to reduce and a restart frees nothing durable. It was the one exhaustion case where no
+        // available action could have worked, which is why a store at its ceiling never recovered.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
+            ]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+        expect(decision.diagnosis).toMatchObject({
+            recoveryClass: 'exhaustion',
+            details      : {classificationReason: 'store-ceiling-exhaustion'}
+        });
+
+        // The evidence must be the MEMORY fact, not whatever resource fact happened to be first —
+        // a raise decision justified by a CPU fact would be unfalsifiable from the record.
+        expect(decision.diagnosis.evidenceFacts[0].type).toBe(CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        // And the fact must report the threshold ACTUALLY applied (80 for a store), not the transient
+        // default. Reporting 90 here would place a falsehood inside the evidence a heal is chosen from.
+        expect(decision.diagnosis.evidenceFacts[0].details.threshold).toBe(80);
+    });
+
+    test('the earlier store threshold is store-scoped: a transient service at the same load stays healthy (#16596)', () => {
+        // Negative control for the THRESHOLD. 85% trips a store (80) and must not trip a transient
+        // service (90) — otherwise the lower bar leaked globally and every service would now be
+        // diagnosed earlier, which is a different change from the one intended.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'model',
+            statsSamples: [
+                statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
+            ]
+        });
+
+        expect(decision.status).toBe('healthy');
+        expect(decision.facts).toHaveLength(0);
+    });
+
+    test('a transient service genuinely over its ceiling still sheds (#16596)', () => {
+        // Negative control for the ROUTING. Without it, `raise-ceiling` could have replaced
+        // `throttle-shed` everywhere and both this and the store test would still pass.
+        //
+        // CPU is saturated too, and it has to be: `hasAuthoritativeEvidence` needs
+        // `minAuthoritativeFacts` (2) corroborating facts, so a transient service with memory alone is
+        // not diagnosed at all. That floor is unchanged by this work and only the store branch is
+        // exempt from it.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'model',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 96, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 94, observedAtMs: 1_030_000})
+            ]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.throttleShed);
+        expect(decision.diagnosis.details.classificationReason).toBe('resource-exhaustion');
+    });
+
+    test('a store saturating CPU still sheds — the raise is memory-scoped (#16596)', () => {
+        // The third control, and the one most likely to be missed: "a store's resource pressure
+        // raises the ceiling" would be wrong. More room for resident data does not relieve compute
+        // pressure, so only a MEMORY fact may justify a raise. Memory is held below the store
+        // threshold so CPU is the sole saturation present.
+        //
+        // The expectation is `advisory` rather than `throttle-shed`, and that is a pre-existing
+        // property rather than a regression: CPU alone is one authoritative fact, below
+        // `minAuthoritativeFacts`, so the fact is recorded without becoming a diagnosis. That makes it
+        // a sharper control than a silent `healthy` would be — the evidence IS present and the store
+        // branch still declines it. Had the branch keyed on service class rather than on a memory
+        // fact, this would have returned `raise-ceiling`.
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 40, observedAtMs: 1_000_000}),
+                statsSample({cpuPercent: 360, memoryPercent: 42, observedAtMs: 1_030_000})
+            ]
+        });
+
+        expect(decision.actionClass).not.toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+        expect(decision.status).toBe('advisory');
+        // The CPU fact was seen — the branch declined on evidence type, not on absence of evidence.
+        expect(decision.facts.map(fact => fact.type)).toContain(CONTAINER_HEALTH_FACT_TYPES.resourceSaturation);
+    });
+
+    test('store classification is declared data, so a deployment can audit which services it covers (#16596)', () => {
+        // Guards against the classification drifting into an inline literal at a call site, where it
+        // would be unauditable and could disagree between the threshold and the routing branch.
+        // Real roster keys. The previous version asserted `.has('model') === false`, and `'model'`
+        // is not a production service key at all — `local-model` is — so that control could not
+        // fail and proved nothing.
+        expect(isStoreBackedService('chroma')).toBe(true);
+        expect(isStoreBackedService('local-model')).toBe(false);
+        expect(isStoreBackedService('kb-server')).toBe(false);
+    });
+});
+
+/**
+ * The sustained window is now MEASURED from per-sample observation times, not counted. These are the
+ * controls that make that claim discriminating rather than decorative: before the change, every case
+ * below produced a `sustained` window and an emitted fact asserting a 30-second span nothing had
+ * observed.
+ *
+ * This matters specifically because single-fact sufficiency for a store's memory saturation is
+ * justified by the window supplying the corroboration a second fact would otherwise provide. If two
+ * back-to-back samples can earn it, that justification is unbacked.
+ */
+test.describe('sustained window is measured, not asserted', () => {
+    const saturated = observedAtMs => statsSample({cpuPercent: 380, memoryPercent: 95, observedAtMs});
+
+    test('BACK-TO-BACK samples do NOT qualify, even at full saturation', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_000_010)]   // 10ms apart
+        });
+
+        expect(decision.status).toBe('healthy');
+        expect(decision.diagnosis).toBeNull();
+        expect(decision.facts).toHaveLength(0);
+    });
+
+    test('IDENTICAL timestamps do NOT qualify — a duplicated sample is one observation', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_000_000)]
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('UNSTAMPED samples do NOT qualify — fails closed rather than inheriting a window', () => {
+        // The pre-change fixture shape. It must not earn an exemption it cannot demonstrate.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({cpuPercent: 380, memoryPercent: 95}),
+                statsSample({cpuPercent: 370, memoryPercent: 93})
+            ]
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('a span just SHORT of the requirement does not qualify', () => {
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_029_999)]   // 29.999s
+        });
+
+        expect(decision.status).toBe('healthy');
+    });
+
+    test('an UNDECLARED service key is recorded as a guess, not silently classified', async () => {
+        // `validateServiceKey` accepts any safe string, so the key space is unbounded. An unrostered
+        // key still defaults to transient — refusing would break unrecognised deployments — but the
+        // emitted evidence must say the classification was not declared.
+        const service  = createService({cpuSaturationPercent: 90, memorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'some-unrostered-service',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]
+        });
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details).toMatchObject({
+            serviceClass        : SERVICE_CLASSES.transient,
+            serviceClassDeclared: false
+        });
+    });
+
+    test('CONTROL — a DECLARED key records declared:true, so the flag discriminates', () => {
+        const service  = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]
+        });
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details).toMatchObject({
+            serviceClass        : SERVICE_CLASSES.store,
+            serviceClassDeclared: true
+        });
+    });
+
+    test('CONTROL — the same samples spanning the requirement DO qualify, and report the MEASURED span', () => {
+        // The positive control. Without it the four refusals above could pass by breaking the path
+        // entirely rather than by discriminating on elapsed time.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_045_000)]   // 45s
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        // The emitted evidence carries what was OBSERVED alongside what was required. Reporting only
+        // the configured value is what let an unmeasured window look measured.
+        expect(memoryFact.details).toMatchObject({
+            observedWindowMs: 45000,
+            requiredWindowMs: 30000,
+            threshold       : 80
+        });
+    });
+
+    test('a PARTIALLY stamped window does not qualify — the span must cover every sample', () => {
+        // The falsifier that survived the first repair. Filtering non-finite stamps meant three
+        // samples carrying only two stamps produced a 45s span and passed a 30s floor — while the
+        // third sample was never timed at all, so the span was asserted over an observation no clock
+        // witnessed. A partial-coverage span is UNKNOWN, not merely shorter, and an unknown span
+        // cannot satisfy a floor. Two saturated stamped samples plus one saturated UNSTAMPED sample:
+        // count and threshold both pass, so coverage is the only thing standing between this and a
+        // false diagnosis.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                saturated(1_000_000),
+                saturated(1_045_000),
+                statsSample({cpuPercent: 0, memoryPercent: 85})   // saturated, deliberately UNSTAMPED
+            ]
+        });
+
+        expect(decision.status, 'an unwitnessed sample must not be swept into a timed window').not.toBe('diagnosed');
+        expect(decision.diagnosis).toBeNull();
+    });
+
+    test('CONTROL — the same three samples FULLY stamped do qualify, so coverage is what discriminates', () => {
+        // Without this the refusal above could pass by rejecting any three-sample window rather than
+        // by noticing the missing stamp.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_030_000), saturated(1_045_000)]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details.observedWindowMs).toBe(45000);
+    });
+});
+
+/**
+ * The classification used to be a `Set` of store keys where absence meant transient, which made two
+ * different things indistinguishable: "declared transient" and "nobody classified this". These bind
+ * the declared map to the roster the bridge actually iterates, so adding a service without
+ * classifying it fails here rather than silently inheriting a threshold it may not survive.
+ */
+test.describe('service classification is exhaustive over the real roster and genuinely immutable', () => {
+    test('every allowedServices key has a DECLARED classification', () => {
+        const roster = aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices;
+
+        expect(Array.isArray(roster)).toBe(true);
+        expect(roster.length).toBeGreaterThan(0);
+
+        const undeclared = roster.filter(key => !classifyServiceKey(key).declared);
+
+        expect(undeclared, `unclassified roster services: ${undeclared.join(', ')}`).toEqual([]);
+    });
+
+    test('the declared map does not classify keys that are NOT on the roster', () => {
+        // Totality runs both ways: a stale entry for a removed service is drift too, and it would
+        // keep asserting a policy for something the deployment no longer runs.
+        const roster   = new Set(aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices);
+        const orphaned = Object.keys(SERVICE_CLASS_BY_KEY).filter(key => !roster.has(key));
+
+        expect(orphaned, `classified but not on the roster: ${orphaned.join(', ')}`).toEqual([]);
+    });
+
+    test('the map is immutable — asserted by MUTATION, not by Object.isFrozen', () => {
+        // `Object.isFrozen` returns true for a frozen Set whose `add`/`delete` still work, so the
+        // predicate alone is a false assurance. A frozen plain object does resist writes; this
+        // attempts them and checks the values, which is the claim that matters.
+        expect(Object.isFrozen(SERVICE_CLASS_BY_KEY)).toBe(true);
+
+        try { SERVICE_CLASS_BY_KEY['chroma'] = SERVICE_CLASSES.transient } catch (e) { /* strict throws; both acceptable */ }
+        try { SERVICE_CLASS_BY_KEY['injected'] = SERVICE_CLASSES.store }    catch (e) { /* ditto */ }
+        try { delete SERVICE_CLASS_BY_KEY['kb-server'] }                    catch (e) { /* ditto */ }
+
+        expect(SERVICE_CLASS_BY_KEY.chroma).toBe(SERVICE_CLASSES.store);
+        expect(SERVICE_CLASS_BY_KEY.injected).toBeUndefined();
+        expect(SERVICE_CLASS_BY_KEY['kb-server']).toBe(SERVICE_CLASSES.transient);
+
+        // And the predicate cannot be subverted through the map.
+        expect(isStoreBackedService('chroma')).toBe(true);
+        expect(isStoreBackedService('injected')).toBe(false);
     });
 });

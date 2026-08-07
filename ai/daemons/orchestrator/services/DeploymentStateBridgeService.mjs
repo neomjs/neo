@@ -385,7 +385,7 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         if (stats) {
-            this.rememberStatsSample(serviceKey, stats);
+            this.rememberStatsSample(serviceKey, stats, observedAt);
         }
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
@@ -690,14 +690,25 @@ export class DeploymentStateBridgeService extends Base {
 
     /**
      * Stores a bounded stats sample window per service.
+     *
+     * Each sample is stamped with its observation time, because the consumer's sustained-window
+     * check measures the elapsed span across the window rather than counting samples. Without the
+     * stamp there is no span to measure, and two samples taken milliseconds apart would satisfy a
+     * "sustained 30 seconds" claim — which is what let single-fact sufficiency rest on a window
+     * nothing had observed.
+     *
      * @param {String} serviceKey Service key.
      * @param {Object} stats Docker stats sample.
+     * @param {Number} [observedAt] Epoch ms for this sample. Omitted leaves the sample unstamped,
+     *     which fails the span check closed rather than inheriting an unearned window.
      * @returns {void}
      */
-    rememberStatsSample(serviceKey, stats) {
+    rememberStatsSample(serviceKey, stats, observedAt) {
         const samples = this.statsSamplesByService.get(serviceKey) || [];
 
-        samples.push(stats);
+        // Shallow copy with an additive key: the percent calculators read specific Docker fields and
+        // ignore anything else, so this cannot alter their arithmetic.
+        samples.push(Number.isFinite(observedAt) ? {...stats, observedAtMs: observedAt} : stats);
 
         this.statsSamplesByService.set(serviceKey, samples.slice(-AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow));
     }
