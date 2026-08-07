@@ -8,6 +8,7 @@ import {
     exitLifecycleGuard,
     exitLifecycleGuardSync,
     LIFECYCLE_GUARD_SUFFIX,
+    lifecycleGuardPath,
     verifyLifecycleGuardOwnership,
     verifyLifecycleGuardOwnershipSync
 } from '../../shared/lifecycleGuard.mjs';
