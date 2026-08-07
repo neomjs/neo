@@ -84,13 +84,19 @@
 }
 
 // Terminal presentation for a vessel whose stack was just adopted home: the workspace applies this
-// to the vessel window's body the moment the documents transfer, and the window closes shortly
-// after. The overlay fades IN over the un-projected content (a body-opacity fade would flash the
-// html underlay), covers any residual gesture artifacts, and holds the theme ground until the OS
-// close — the exit reads as deliberate instead of a raw content yank. Lives in THIS sheet because
-// the `?popout=` vessel never loads `Workspace.css` (sheet gate above).
-.workstation-vessel-departing::after {
-    animation : workstation-vessel-depart 250ms ease-out forwards;
+// to the vessel's VIEWPORT the moment the documents transfer, and the window closes shortly after.
+// The overlay fades IN over the un-projected content (a body-opacity fade would flash the html
+// underlay), covers any residual gesture artifacts, and holds the theme ground until the OS close —
+// the exit reads as deliberate instead of a raw content yank. Two placement constraints, both
+// load-bearing: it lives in THIS sheet because the `?popout=` vessel never loads `Workspace.css`
+// (sheet gate above), and it anchors on `.workstation-viewport` because retheming fans to each
+// vessel's mainView while `document.body` keeps its BOOT theme — only the viewport resolves the
+// LIVE `--workstation-ground`. Motion comes from the vocabulary (`--ease-in-soft`: exits), at the
+// `--motion-panel` tier: the vessel's post-adoption lifetime is bounded (~450ms — the fast-path
+// projection shortened it), and the fade must COMPLETE and hold before the OS close; the stage
+// tier measures ~0.66 opacity at window death. Reduced-motion collapse inherited.
+.workstation-viewport.workstation-vessel-departing::after {
+    animation : workstation-vessel-depart var(--motion-panel) var(--ease-in-soft) forwards;
     background: var(--workstation-ground);
     content   : '';
     inset     : 0;

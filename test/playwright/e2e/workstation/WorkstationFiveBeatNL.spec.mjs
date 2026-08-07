@@ -2182,23 +2182,45 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(shellBefore, 'the projection shell must be resolvable before the return').toBeTruthy();
 
-        // The departing-state witness must observe DURING the return: the source vessel's body
-        // gains the terminal class between the adoption and the OS close, and the window is gone
-        // by the time the step resolves. Poll in parallel; the popup closing ends the poll.
-        const departingSeen = (async () => {
+        // The departing-state witness observes DURING the return at RENDERED depth: the terminal
+        // presentation is a claim about live-theme paint, not class dispatch. The retheme before
+        // the return is the falsifier for the stale-carrier class of bug — a vessel born dark and
+        // rethemed light must depart behind the LIGHT ground (document.body keeps its BOOT theme,
+        // so a body-mounted consumer would close in the stale color). Each sample compares the
+        // overlay's computed background against a same-context probe resolving the LIVE token.
+        await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        const departingSamples = (async () => {
+            const samples = [];
+
             for (let attempt = 0; attempt < 600; attempt++) {
-                if (targetPopup.isClosed()) return false;
+                if (targetPopup.isClosed()) break;
 
-                const seen = await targetPopup.evaluate(() =>
-                    document.body.classList.contains('workstation-vessel-departing')
-                ).catch(() => false);
+                const sample = await targetPopup.evaluate(() => {
+                    const root = document.querySelector('.workstation-viewport.workstation-vessel-departing');
 
-                if (seen) return true;
+                    if (!root) return null;
 
+                    const
+                        after = getComputedStyle(root, '::after'),
+                        probe = document.createElement('div');
+
+                    probe.style.background = 'var(--workstation-ground)';
+                    root.appendChild(probe);
+
+                    const groundNow = getComputedStyle(probe).backgroundColor;
+
+                    probe.remove();
+
+                    return {background: after.backgroundColor, ground: groundNow, opacity: Number(after.opacity)}
+                }).catch(() => null);
+
+                sample && samples.push(sample);
                 await new Promise(resolve => setTimeout(resolve, 16))
             }
 
-            return false
+            return samples
         })();
 
         const {evidence: returnCursorEvidence, result} = await captureFilmCursorLifecycle({
@@ -2216,7 +2238,19 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             targetPage         : page
         });
 
-        expect(await departingSeen, 'the source vessel presents the departing state before it closes').toBe(true);
+        const samples = await departingSamples;
+
+        console.log('[departing-witness]', JSON.stringify({count: samples.length, first: samples[0], last: samples.at(-1)}));
+
+        expect(samples.length, 'the departing overlay must render during the close window').toBeGreaterThan(0);
+        expect(samples.some(sample => sample.opacity > 0 && sample.opacity < 1),
+            'at least one intermediate fade state must render — motion, not a class toggle').toBe(true);
+        expect(samples.at(-1).opacity, 'the overlay settles opaque before the close').toBeGreaterThan(.9);
+
+        samples.forEach(sample => {
+            expect(sample.background, 'the overlay resolves the LIVE theme ground, never the boot theme')
+                .toBe(sample.ground)
+        });
 
         expect(result.errors, JSON.stringify({
             closeReceipt    : result.proof?.closeReceipt,
