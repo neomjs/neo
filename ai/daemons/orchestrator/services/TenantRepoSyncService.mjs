@@ -39,6 +39,10 @@ import {
     renewHeavyMaintenanceLease
 } from './heavyMaintenanceLeasePrimitives.mjs';
 import {
+    enterLifecycleGuard,
+    exitLifecycleGuard
+} from '../../shared/lifecycleGuard.mjs';
+import {
     classifyTenantRepoCheckpoint,
     normalizeTenantRepoCheckpointState,
     requiresTenantRepoCheckpointRevalidation,
@@ -937,6 +941,7 @@ class TenantRepoSyncService extends Base {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
+                leasePath        : resolvedLeasePath,
                 revisionsFilePath: resolvedRevisionsPath,
                 globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap
             });
@@ -999,6 +1004,7 @@ class TenantRepoSyncService extends Base {
         writeLog, tenantReposConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         fullReplay = false, taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
         leaseGuard         = async () => {},
+        leasePath          = null,
         globalCadenceMs    = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
         jitterRatio        = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
@@ -1124,14 +1130,31 @@ class TenantRepoSyncService extends Base {
             inFlightChain = inFlightChain.then(async () => {
                 update(inFlightAttempts);
 
+                // Held across BOTH the ownership re-inspection and the sidecar read-merge-write.
+                //
+                // A sidecar-only mutex would serialize sidecar writers and still let lease
+                // ACQUISITION interleave, so it could not establish generation authority — the
+                // successor would take the lease legitimately while we were mid-transaction. The
+                // lease's own lifecycle guard is the mutex that orders both, which is what makes
+                // "the run that owns the lease owns the sidecar" true rather than probable.
+                //
+                // Without it, `leaseGuard()` then write is check-then-act: earlier revisions of
+                // this code fenced harder and only MOVED the window (check→write became
+                // read→write). A lock that does not span the read and the write cannot close it.
+                let guard = null;
+
                 try {
+                    if (leasePath) {
+                        guard = await enterLifecycleGuard({leasePath, fsModule: fs});
+                    }
+
                     await leaseGuard();
 
-                    // Re-read INSIDE the critical section and merge against live state rather than
-                    // publishing this sweep's whole view. Entries owned by another run are carried
-                    // forward untouched; only our own are written or removed. A successor that took
-                    // over after the guard check above therefore keeps its record, and our stale
-                    // write becomes a no-op on its key instead of a deletion.
+                    // Merge against live state rather than publishing this sweep's whole view.
+                    // Entries owned by another run are carried forward untouched; only our own are
+                    // written or removed. `runId` is defence-in-depth for the residual the guard's
+                    // own contract admits: a holder stalled past `guardStaleAfterMs` can be evicted
+                    // and resume inside the verify→syscall gap.
                     const
                         live   = await this.readInFlightAttempts({filePath: inFlightPath}),
                         merged = {};
@@ -1149,6 +1172,10 @@ class TenantRepoSyncService extends Base {
                     // Swallowed rather than propagated: losing a sidecar write costs one unrecorded
                     // attempt, whereas throwing from the per-repo `finally` would mask the real
                     // error the repo failed with.
+                } finally {
+                    if (guard) {
+                        await exitLifecycleGuard({ownerFilePath: guard.ownerFilePath, fsModule: fs}).catch(() => {});
+                    }
                 }
             });
 

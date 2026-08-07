@@ -3589,6 +3589,79 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         ).toEqual({'t1/org/lease-repo': successorEntry});
     });
 
+    // The window three earlier witnesses missed: successor acquisition attempted strictly BETWEEN
+    // the predecessor's sidecar read and its write.
+    //
+    // Ordering specified by @neo-gpt after my third attempt again landed in an easy window. The
+    // assertion is on the guard REFUSING, not on a pending promise: `enterLifecycleGuard` is
+    // bounded (100 attempts x 10ms), so past that budget a contended recovery resolves
+    // `{status: 'held', guardContended: true}` rather than staying unsettled. Asserting "still
+    // pending" would fail against CORRECT code on a slow run — the bounded refusal is both
+    // deterministic and the stronger claim, because it shows the mutex actively refused.
+    //
+    // Only the RECOVERY path contends: acquiring a vacant name is a plain exclusive `wx` create
+    // deliberately outside the guard. Hence the short `leaseStaleAfterMs` — the successor must
+    // find a STALE lease so it takes the guarded recovery path at all.
+    test('successor acquisition is refused while the predecessor holds the guard mid-transaction (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            originalRead     = TenantRepoSyncService.readInFlightAttempts.bind(TenantRepoSyncService);
+
+        let readCount = 0, releasePredecessor, markPaused;
+
+        const
+            resumeGate = new Promise(resolve => releasePredecessor = resolve),
+            pausedGate = new Promise(resolve => markPaused        = resolve);
+
+        // Pause AFTER the read and BEFORE the write, while the guard is held. Reads: [1] the
+        // sweep-start fold (outside the guard), [2] the first mutate inside it — that is the one.
+        TenantRepoSyncService.readInFlightAttempts = async options => {
+            const result = await originalRead(options);
+
+            if (++readCount === 2) {
+                markPaused();
+                await resumeGate;
+            }
+
+            return result
+        };
+
+        try {
+            const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+                taskStateService,
+                leaseStaleAfterMs: 50
+            }));
+
+            await pausedGate;
+
+            // The predecessor is inside the critical section holding the guard, its lease now
+            // going stale. A production successor attempts recovery acquisition.
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const successor = await acquireHeavyMaintenanceLease({
+                leasePath   : leaseFilePath(),
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                staleAfterMs: 60_000
+            });
+
+            // The mutex did its job: recovery could not proceed while the transaction was open.
+            expect(
+                successor.acquired,
+                'a successor acquired the lease while the predecessor held the lifecycle guard ' +
+                'mid-transaction — the read and the write are not serialized against acquisition, ' +
+                'so the predecessor\'s pending write can still land over the successor\'s state'
+            ).toBe(false);
+            expect(successor.status).toBe('held');
+            expect(successor.guardContended).toBe(true);
+
+            releasePredecessor();
+            await invocation;
+        } finally {
+            TenantRepoSyncService.readInFlightAttempts = originalRead;
+        }
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
