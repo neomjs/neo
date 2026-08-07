@@ -1189,15 +1189,38 @@ export async function listRevisionPaths({mirrorRoot, tenantId, repoSlug, revisio
 
 /**
  * @summary Reads one text file from a mirror revision.
+ *
+ * ## Why this read takes a credential and the other reads do not
+ *
+ * On the blobless mirror `cloneIfMissing` creates, this is the ONLY operation that can reach the
+ * network. `for-each-ref`, `rev-parse`, `merge-base --is-ancestor`, `diff --name-status` and
+ * `ls-tree` are answered entirely from the commit graph and trees, which the filter keeps complete.
+ * `show <revision>:<path>` wants a blob, and the filter guarantees the blob is absent — so git
+ * resolves it through a lazy promisor fetch against `remote.origin`.
+ *
+ * That fetch is a fresh authentication. Credentials here are per-invocation by design:
+ * `createGitExecutionEnvironment` builds a disposable `mkdtemp` HOME with an empty `.gitconfig`,
+ * delivers the secret through `GIT_ASKPASS`, and deletes the whole environment afterwards — nothing
+ * is written into the mirror's own config. So a `show` invoked without `credentialRef` is genuinely
+ * anonymous, and against a private remote it fails with `could not fetch <oid> from promisor
+ * remote`. A public remote serves the same fetch to an anonymous client, which is why this is
+ * invisible until the first private tenant.
+ *
+ * `credentialRef` stays OPTIONAL: omitted, the read is anonymous, which remains correct for a public
+ * remote and for a mirror whose blob is already local. Do NOT propagate it to the graph and tree
+ * reads above — an operation that cannot reach the network should stay unable to resolve a secret.
+ *
  * @param {Object} options
  * @param {String} options.mirrorRoot Root directory for tenant repo mirrors.
  * @param {String} options.tenantId Tenant id.
  * @param {String} options.repoSlug Repository slug.
  * @param {String} options.revision Resolved revision.
  * @param {String} options.sourcePath Repo-relative source path.
+ * @param {String|Object|null} [options.credentialRef] Durable credential reference for the lazy
+ *     promisor fetch. Required for a private remote whose blobs are not yet local.
  * @returns {Promise<String>}
  */
-export async function readRevisionFile({mirrorRoot, tenantId, repoSlug, revision, sourcePath} = {}) {
+export async function readRevisionFile({mirrorRoot, tenantId, repoSlug, revision, sourcePath, credentialRef} = {}) {
     if (!sourcePath || sourcePath.includes('\0')) {
         throw createGitMirrorError(
             'KB_GITMIRROR_PATH_INVALID',
@@ -1209,8 +1232,10 @@ export async function readRevisionFile({mirrorRoot, tenantId, repoSlug, revision
 
     const result = await runGit(['show', `${revision}:${sourcePath}`], {
         cwd           : mirrorPath,
+        credentialRef,
         failureCode   : 'KB_GITMIRROR_FILE_READ_FAILED',
-        failureMessage: 'GitMirror failed to read a revision file'
+        failureMessage: 'GitMirror failed to read a revision file',
+        knownHostsPath: getKnownHostsPath(mirrorRoot)
     });
 
     return result.stdout;
