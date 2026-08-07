@@ -82,7 +82,7 @@ gh pr view <N> --json state,mergedAt,baseRefName,reviewRequests
 
 For every **other** PR the report names, `list_pull_requests({believedOpen: […]})`
 falsifies terminal state in one call; it returns `state`/`mergedAt` only, so the
-read above stays required for seats and head.
+read above stays required wherever seats matter.
 
 A non-empty `reviewRequests` blocks even at `APPROVED`; name each seat. For
 stacked PRs name base readiness. Relay the review verdict, not the flattened
