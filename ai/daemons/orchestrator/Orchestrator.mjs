@@ -521,7 +521,10 @@ export class Orchestrator extends Base {
                 restoreStoragePromise = (async () => {
                     await Promise.all([
                         StorageRouter.ready(),
-                        ChromaManager.ready(),
+                        // `ready()` alone no longer implies a client: Chroma is resolved on demand
+                        // so the Body install tier can load the SDK barrel without the Brain-only
+                        // package. This reads `ChromaManager.client` below, so it must ensure.
+                        ChromaManager.ensureChromaReady(),
                         GraphService.ready()
                     ]);
 

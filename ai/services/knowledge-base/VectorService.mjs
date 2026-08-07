@@ -748,10 +748,9 @@ class VectorService extends Base {
      * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
      */
     async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false}) {
-        // Reads `ChromaManager.client` directly below. The client is built in `initAsync()`
-        // (`chromadb` is imported on demand), so readiness is asserted at this method's entry
-        // rather than assumed from whichever caller happened to arrive first.
-        await ChromaManager.ready();
+        // Reads `ChromaManager.client` directly below, so Chroma is resolved on demand at this
+        // method's entry rather than assumed from whichever caller happened to arrive first.
+        await ChromaManager.ensureChromaReady();
 
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
@@ -943,9 +942,8 @@ class VectorService extends Base {
      */
     async discardResumeShadow(shadowName) {
         try {
-            // Readiness asserted at entry: this reads `ChromaManager.client` directly, and the
-            // client is built in `initAsync()`.
-            await ChromaManager.ready();
+            // Resolved at entry: this reads `ChromaManager.client` directly.
+            await ChromaManager.ensureChromaReady();
 
             const shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
             await this.parkFailedShadowCollection({shadowCollection, shadowName});

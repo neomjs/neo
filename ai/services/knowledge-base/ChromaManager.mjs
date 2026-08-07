@@ -32,6 +32,13 @@ function sleep(ms) {
  * @singleton
  */
 class ChromaManager extends Base {
+    /**
+     * Memoizes the demand-driven Chroma resolution so concurrent first-callers share one
+     * import + connect rather than racing several.
+     * @member {Promise<void>|null} #chromaReady=null
+     */
+    #chromaReady = null
+
     static config = {
         /**
          * @member {String} className='Neo.ai.services.knowledge-base.ChromaManager'
@@ -65,37 +72,62 @@ class ChromaManager extends Base {
     }
 
     /**
-     * Builds the Chroma client and registers Neo's embedding functions, then connects.
+     * Boot-time initialization that is safe in the Body install tier.
      *
-     * Client construction lives here rather than in `construct()` because `chromadb` is imported
-     * on demand: `construct()` is synchronous, so `await import()` cannot live in it. Moving it
-     * is what keeps the whole `ai/services.mjs` barrel loadable in the Body install tier, where
-     * `chromadb` is absent — merely importing the SDK entry point must not require it.
-     *
-     * `.client` therefore does not exist between `construct()` and this method resolving.
-     * `core.Base` kicks `initAsync()` off during singleton setup and gates `isReady` on it, so
-     * every consumer that awaits `ready()` is unaffected; consumers that reach for `.client`
-     * without awaiting were already racing the `connect()` this method performs.
+     * Notably it does NOT build the Chroma client — see the note in the body and
+     * {@link ChromaManager#ensureChromaReady}.
      *
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
 
-        const
-            {ChromaClient} = await import('chromadb'),
-            {host, port}   = aiConfig;
-
-        this.client = new ChromaClient({host, port, ssl: false});
-
-        // Registration moved off module scope with the import it needs; it is a connection-time
-        // concern, and awaiting it here is what keeps it ordered before the first collection call.
-        await registerNeoChromaEmbeddingFunctions({
-            dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
-        });
-
+        // DELIBERATELY does not touch `chromadb`. `Neo.setupClass()` instantiates this singleton at
+        // module load and `core.Base` schedules `initAsync()` on the very next microtask, so an
+        // `await import('chromadb')` here is NOT demand-lazy — it runs on barrel import and, in the
+        // Body install tier where the package is absent, rejects into an unhandled rejection that
+        // terminates the process. Moving a static import into `initAsync()` changes the failure
+        // PHASE, not the dependency ownership.
+        //
+        // Chroma resolution lives in `ensureChromaReady()` and runs on first actual use.
         await DatabaseLifecycleService.ready();
-        await this.connect();
+    }
+
+    /**
+     * Resolves `chromadb`, builds the client, registers the embedding functions and connects —
+     * memoized, and on FIRST ACTUAL USE rather than at boot.
+     *
+     * This is what makes the Brain-only package genuinely demand-driven: a Body-tier process that
+     * imports `ai/services.mjs` and never touches Chroma never resolves it, while a process that
+     * does touch Chroma fails HERE — at the call, with the package named. An absent Brain-only
+     * package must fail when connecting, not when importing.
+     *
+     * Every entry point that reads `this.client` awaits this. `initAsync()` must never call it, or
+     * the deferral collapses back into boot.
+     *
+     * @returns {Promise<void>}
+     */
+    async ensureChromaReady() {
+        // A caller that already owns a client keeps it. This is load-bearing for the documented
+        // test seam — specs mock-replace `.client` (>14 occurrences in one spec alone) — and it is
+        // also simply correct: an ensure with nothing to build does nothing.
+        if (this.client) return;
+
+        this.#chromaReady ??= (async () => {
+            const
+                {ChromaClient} = await import('chromadb'),
+                {host, port}   = aiConfig;
+
+            this.client = new ChromaClient({host, port, ssl: false});
+
+            await registerNeoChromaEmbeddingFunctions({
+                dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
+            });
+
+            await this.connect();
+        })();
+
+        return this.#chromaReady
     }
 
     /**
@@ -112,10 +144,9 @@ class ChromaManager extends Base {
      * @returns {Promise<{heartbeat: number, knowledgeBaseCollection: string}>}
      */
     async checkConnectivity() {
-        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
-        // exist between `construct()` and readiness. Asserted here rather than assumed from the
-        // caller: this is a public entry point and nothing stops it being called during boot.
-        await this.ready();
+        // Reads `this.client`, so it resolves Chroma on demand here rather than assuming a caller
+        // did. This is also where an absent Brain-tier package surfaces — at the call, named.
+        await this.ensureChromaReady();
 
         const heartbeat  = await this.client.heartbeat();
         const collection = await this.getKnowledgeBaseCollection();
@@ -173,10 +204,9 @@ class ChromaManager extends Base {
      * @throws {DisposableRestoreTargetError} When `name` is a canonical collection.
      */
     async getDisposableCollection({name} = {}) {
-        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
-        // exist between `construct()` and readiness. Asserted here rather than assumed from the
-        // caller: this is a public entry point and nothing stops it being called during boot.
-        await this.ready();
+        // Reads `this.client`, so it resolves Chroma on demand here rather than assuming a caller
+        // did. This is also where an absent Brain-tier package surfaces — at the call, named.
+        await this.ensureChromaReady();
 
         const targetName = assertDisposableRestoreTarget({name});
 
@@ -220,10 +250,9 @@ class ChromaManager extends Base {
      * @see https://github.com/neomjs/neo/issues/11685
      */
     async #resolveKnowledgeBaseCollection() {
-        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
-        // exist between `construct()` and readiness. Asserted here rather than assumed from the
-        // caller: this is a public entry point and nothing stops it being called during boot.
-        await this.ready();
+        // Reads `this.client`, so it resolves Chroma on demand here rather than assuming a caller
+        // did. This is also where an absent Brain-tier package surfaces — at the call, named.
+        await this.ensureChromaReady();
 
         const options = this.#getKnowledgeBaseCollectionOptions();
 
@@ -274,7 +303,7 @@ class ChromaManager extends Base {
         // Both current callers are guarded, and that is verified rather than assumed — but the
         // default resolver closes over `this.client`, so the guarantee is restated here rather than
         // inherited. "Safe by construction" is the exact claim that failed on this lane.
-        await this.ready();
+        await this.ensureChromaReady();
 
         const retry        = this.#getCollectionResolveRetryPolicy();
         let   totalDelayMs = 0;
@@ -415,10 +444,9 @@ class ChromaManager extends Base {
      * @returns {Promise<String[]>}
      */
     async #getActiveKnowledgeBaseSwapCollections() {
-        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
-        // exist between `construct()` and readiness. Asserted here rather than assumed from the
-        // caller: this is a public entry point and nothing stops it being called during boot.
-        await this.ready();
+        // Reads `this.client`, so it resolves Chroma on demand here rather than assuming a caller
+        // did. This is also where an absent Brain-tier package surfaces — at the call, named.
+        await this.ensureChromaReady();
 
         const names = await chromaListCollectionNames({client: this.client});
 
@@ -483,10 +511,9 @@ class ChromaManager extends Base {
      * @see https://github.com/neomjs/neo/issues/11652
      */
     async deleteCollection({name, confirmation} = {}) {
-        // The client is built in `initAsync()` (`chromadb` is imported on demand), so it does not
-        // exist between `construct()` and readiness. Asserted here rather than assumed from the
-        // caller: this is a public entry point and nothing stops it being called during boot.
-        await this.ready();
+        // Reads `this.client`, so it resolves Chroma on demand here rather than assuming a caller
+        // did. This is also where an absent Brain-tier package surfaces — at the call, named.
+        await this.ensureChromaReady();
 
         return chromaDeleteCollection({client: this.client, name, subsystem: 'knowledge-base', confirmation})
     }

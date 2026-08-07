@@ -19,9 +19,9 @@ async function main() {
     console.log('⏳ Waiting for Database Lifecycle...');
     await KB_LifecycleService.ready();
 
-    // The Chroma client itself is built in the manager's `initAsync()` (`chromadb` is imported on
-    // demand), which is a separate readiness from the lifecycle service above.
-    await KB_ChromaManager.ready();
+    // The Chroma client is resolved on demand, separately from the lifecycle service above — this
+    // is the call that actually loads `chromadb`.
+    await KB_ChromaManager.ensureChromaReady();
 
     // Manual "Wait for DB" loop (since spawn !== ready)
     console.log('⏳ Waiting for ChromaDB heartbeat...');

@@ -107,7 +107,7 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         // accident: it read a client that happened to exist by construction time. Without the
         // await it passes or fails depending on how much async work ran before it in the worker —
         // it was observed failing only in a multi-file run, and passing alone and on a rerun.
-        await ChromaManager.ready();
+        await ChromaManager.ensureChromaReady();
 
         expect(ChromaManager.client.database).toBe(aiConfig.engines.chroma.databaseTest);
         expect(ChromaManager.client.database).not.toBe(CHROMA_PRODUCTION_DATABASE);

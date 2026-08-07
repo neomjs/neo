@@ -172,10 +172,10 @@ class HealthService extends Base {
      */
     async #checkChromaConnection() {
         try {
-            // The client is built in `initAsync()` (`chromadb` is imported on demand), so a
-            // healthcheck racing boot would otherwise read `null` and report the connection failure
-            // as a TypeError — the diagnostic an operator reads would name the wrong thing.
-            await ChromaManager.ready();
+            // Resolves Chroma on demand. A healthcheck is a legitimate first toucher, and this is
+            // where an absent Brain-tier package surfaces as a named failure rather than as a
+            // TypeError naming the wrong thing.
+            await ChromaManager.ensureChromaReady();
 
             await ChromaManager.client.heartbeat();
             return {running: true};
