@@ -108,12 +108,19 @@ class ChromaManager extends Base {
      * @returns {Promise<void>}
      */
     async ensureChromaReady() {
-        // A caller that already owns a client keeps it. This is load-bearing for the documented
-        // test seam — specs mock-replace `.client` (>14 occurrences in one spec alone) — and it is
-        // also simply correct: an ensure with nothing to build does nothing.
+        // An initialization already in flight OWNS the outcome — join it. This check MUST precede
+        // the client seam below: `this.client` is assigned before `connect()` resolves, so a caller
+        // arriving in that window would otherwise return against a client that exists but is not
+        // connected and whose embedding functions are not registered. A guarded public entry then
+        // runs `getOrCreateCollection` on a half-initialized client — observed, not theorised.
+        if (this.#chromaReady) return this.#chromaReady;
+
+        // A caller that already owns a client keeps it, when nothing is in flight. Load-bearing for
+        // the documented test seam — specs mock-replace `.client` (>14 occurrences in one spec
+        // alone) — and also simply correct: an ensure with nothing to build does nothing.
         if (this.client) return;
 
-        this.#chromaReady ??= (async () => {
+        this.#chromaReady = (async () => {
             const
                 {ChromaClient} = await import('chromadb'),
                 {host, port}   = aiConfig;
