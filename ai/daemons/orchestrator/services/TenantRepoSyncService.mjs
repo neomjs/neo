@@ -1466,7 +1466,12 @@ class TenantRepoSyncService extends Base {
                     rootKind     : repo.rootKind || 'external-source',
                     parserId     : repo.parserId,
                     parserVersion: repo.parserVersion,
-                    gitMirror
+                    gitMirror,
+                    // The clone and fetch above are not the last authenticated operations of this
+                    // sweep. On a blobless mirror the envelope's own `show <rev>:<path>` resolves
+                    // every blob through a lazy promisor fetch, which re-authenticates — so a repo
+                    // whose remote refuses anonymous reads lists fine and then fails per file.
+                    credentialRef: repo.credentialRef
                 });
 
                 if (typeof envelope?.headRevision !== 'string' || !envelope.headRevision.trim()) {
