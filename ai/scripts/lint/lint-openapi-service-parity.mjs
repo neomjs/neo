@@ -743,9 +743,62 @@ export function reportUnusedDeclarations(unusedDeclarations, io = console) {
     );
 }
 
+/**
+ * @summary The PRODUCTION COMPOSITION of both joins — the gate's actual verdict.
+ *
+ * Extracted from the CLI block, and the extraction is the point rather than tidiness. While this
+ * lived inside `if (import.meta.url === …)` the composition itself was unreachable from any test:
+ * both child analyses were covered, and the step that merges them into one fatal result was not. So
+ * deleting the ToolService append would have left every child test green while the gate silently
+ * stopped failing on half its surface — a false green in the seam *between* two well-tested parts,
+ * which is the one place per-part coverage cannot look.
+ *
+ * The two joins fail as ONE gate: a violation on either path is the same defect reaching the same
+ * Zod strip, so reporting them separately would let a green on one read as a green overall.
+ * Advisory, unresolved and coverage counts are all preserved through the merge rather than
+ * recomputed, so the CLI renders exactly what a test can assert on.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.rootDir=ROOT_DIR]
+ * @returns {{violations: Object[], unusedDeclarations: Object[], unresolved: Object[], servicesScanned: Number, operationsMatched: Number, operationsChecked: Number, positionalSkipped: Number}}
+ */
+export function lintParity({rootDir = ROOT_DIR} = {}) {
+    const service = lintOpenApiServiceParity({rootDir}),
+          tool    = lintToolServiceParity({rootDir});
+
+    return {
+        violations        : [...service.violations, ...tool.violations],
+        unusedDeclarations: [...service.unusedDeclarations, ...tool.unusedDeclarations],
+        unresolved        : tool.unresolved,
+        servicesScanned   : service.servicesScanned,
+        operationsMatched : service.operationsMatched,
+        operationsChecked : tool.operationsChecked,
+        positionalSkipped : tool.positionalSkipped
+    };
+}
+
+/**
+ * @summary Renders one violation, from either join, with the coordinates that join actually carries.
+ *
+ * The two joins describe a handler differently and neither is a superset: the `services.mjs` join
+ * knows `module` + `method`, while the ToolService join knows `serverId` + `via` (the resolution
+ * path — `.bind` chain, inline arrow, imported identifier). Rendering both through the first shape
+ * printed `undefined → undefined()` for every ToolService row, which is a finding a reader cannot
+ * act on.
+ *
+ * @param {Object} violation
+ * @returns {String[]} the lines to print
+ */
+export function describeViolation(violation) {
+    const where = violation.via
+        ? `    ${violation.serverId} serviceMapping → ${violation.via}`
+        : `    ${violation.module} → ${violation.method}()`;
+
+    return [`- ${violation.operationId} reads \`${violation.param}\` — not declared in ${violation.spec}`, where];
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-    const result = lintOpenApiServiceParity();
-    const tool   = lintToolServiceParity();
+    const result = lintParity();
 
     // Printed BEFORE the failing arm, so a run that exits 1 still surfaces both directions rather
     // than hiding the advisory behind the abort.
@@ -753,24 +806,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     // An unresolved handler is a contract nobody checked. Reported loudly and counted in the OK line
     // rather than dropped, because silence here is indistinguishable from coverage.
-    if (tool.unresolved.length > 0) {
-        console.warn(`[lint-openapi-service-parity] ${tool.unresolved.length} ToolService handler(s) could not be resolved — NOT checked:\n`);
-        for (const row of tool.unresolved) {
+    if (result.unresolved.length > 0) {
+        console.warn(`[lint-openapi-service-parity] ${result.unresolved.length} ToolService handler(s) could not be resolved — NOT checked:\n`);
+        for (const row of result.unresolved) {
             console.warn(`- ${row.serverId}.${row.operationId}: ${row.reason}`);
         }
         console.warn('');
     }
 
-    // The two joins fail as one gate: a violation on either path is the same defect reaching the
-    // same Zod strip, and reporting them separately would let a green on one read as a green overall.
-    result.violations.push(...tool.violations);
-
     if (result.violations.length > 0) {
         console.error(`[lint-openapi-service-parity] FAILED — ${result.violations.length} consumed-but-undeclared parameter(s):\n`);
 
         for (const violation of result.violations) {
-            console.error(`- ${violation.operationId} reads \`${violation.param}\` — not declared in ${violation.spec}`);
-            console.error(`    ${violation.module} → ${violation.method}()`);
+            for (const line of describeViolation(violation)) console.error(line);
         }
 
         console.error(
@@ -784,8 +832,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     console.log(
         `[lint-openapi-service-parity] OK — ${result.servicesScanned} wrapped service(s), ` +
-        `${result.operationsMatched} operation-bound method(s) + ${tool.operationsChecked} object-dispatch handler(s), ` +
+        `${result.operationsMatched} operation-bound method(s) + ${result.operationsChecked} object-dispatch handler(s), ` +
         `0 consumed-but-undeclared parameter(s), ${result.unusedDeclarations.length} declared-but-unused (advisory), ` +
-        `${tool.positionalSkipped} positional handler(s) owned by the signature census.`
+        `${result.positionalSkipped} positional handler(s) owned by the signature census.`
     );
 }

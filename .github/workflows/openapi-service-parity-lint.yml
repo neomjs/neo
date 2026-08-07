@@ -13,6 +13,17 @@ on:
       # The wiring table the checker derives its service list from. If a service stops being wrapped
       # here it silently leaves the guard's scope, so editing this must re-run it.
       - 'ai/services.mjs'
+      # The SECOND wiring table, for the ToolService dispatch join. A `serviceMapping` entry is the
+      # authority for which handler answers an operation, so rebinding, removing or repointing one
+      # changes that join's scope exactly as editing `ai/services.mjs` changes the other's. Without
+      # this the join could exist and never RUN on the change that broke it — a guard whose absence
+      # from a PR reads as a pass.
+      - 'ai/mcp/server/**/toolService.mjs'
+      # Handler implementations that do NOT live under `ai/services/`. The dispatch join resolves
+      # mapping values into whatever module owns them, and several land here (the ingest facade, the
+      # dispatcher itself) rather than in the service tree the filter above covers.
+      - 'ai/mcp/server/**/*.mjs'
+      - 'ai/mcp/ToolService.mjs'
       # The shared AST helpers. The checker imports them rather than re-deriving, so a change there
       # changes what the checker can see.
       - 'ai/scripts/diagnostics/mcpHandlerSignatureCensus.mjs'

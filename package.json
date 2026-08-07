@@ -262,6 +262,15 @@
         "ai/{services,services.mjs}/**": [
             "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
         ],
+        "ai/mcp/server/**/{toolService.mjs,*.mjs}": [
+            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
+        ],
+        "ai/mcp/ToolService.mjs": [
+            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
+        ],
+        "ai/scripts/{lint/lint-openapi-service-parity.mjs,diagnostics/mcpHandlerSignatureCensus.mjs}": [
+            "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
+        ],
         "ai/mcp/server/**/openapi.yaml": [
             "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
         ],

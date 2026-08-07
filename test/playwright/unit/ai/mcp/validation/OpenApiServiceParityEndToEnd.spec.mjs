@@ -3,7 +3,7 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 
-import {lintOpenApiServiceParity, lintToolServiceParity} from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
+import {describeViolation, lintOpenApiServiceParity, lintParity, lintToolServiceParity} from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
 
 /**
  * End-to-end fixtures for the OpenAPI ↔ service parity lint: a synthetic repo root is built on
@@ -437,5 +437,90 @@ test.describe('parity lint end-to-end — undecidable reads must silence the adv
         const result = lintOpenApiServiceParity({rootDir});
 
         expect(result.unusedDeclarations.map(row => row.param)).toEqual(['beta']);
+    });
+});
+
+test.describe('parity lint — the COMPOSITE seam that merges both joins', () => {
+    /**
+     * Seeds a root carrying BOTH a `makeSafe` service defect and a `serviceMapping` handler defect,
+     * so the composite's merge is what the assertion depends on rather than either child.
+     * @returns {String} fixture root
+     */
+    function seedBothDefects() {
+        const serverDir  = path.join(tmpRoot, 'ai', 'mcp', 'server', 'knowledge-base'),
+              serviceDir = path.join(tmpRoot, 'ai', 'services', 'knowledge-base');
+
+        fs.mkdirSync(serverDir, {recursive: true});
+        fs.mkdirSync(serviceDir, {recursive: true});
+
+        // services.mjs join defect: a wrapped method reading an undeclared key.
+        fs.writeFileSync(path.join(tmpRoot, 'ai', 'services.mjs'), [
+            `import FixtureService from './services/knowledge-base/FixtureService.mjs';`,
+            `const fixtureSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));`,
+            `const Fixture_Service = makeSafe(FixtureService, fixtureSpec);`,
+            `export {Fixture_Service};`,
+            ''
+        ].join('\n'));
+        fs.writeFileSync(path.join(serviceDir, 'FixtureService.mjs'),
+            'class FixtureService {\n    async doThing(p) { return p.serviceOnlyLeak }\n}\nexport default FixtureService;\n');
+
+        // ToolService join defect: an object-dispatch handler reading a different undeclared key.
+        fs.writeFileSync(path.join(serverDir, 'toolService.mjs'), [
+            'const serviceMapping = {',
+            '    do_other: args => run(args.dispatchOnlyLeak)',
+            '};',
+            'export {serviceMapping};',
+            ''
+        ].join('\n'));
+
+        fs.writeFileSync(path.join(serverDir, 'openapi.yaml'), JSON.stringify({
+            openapi: '3.0.0',
+            info   : {title: 'fixture', version: '1.0.0'},
+            paths  : {
+                '/a': {post: {operationId: 'do_thing', ...bodyWith('declared')}},
+                '/b': {post: {operationId: 'do_other', 'x-pass-as-object': true, ...bodyWith('declared')}}
+            }
+        }, null, 2));
+
+        return tmpRoot;
+    }
+
+    test('the composite merges BOTH joins into one fatal result', async () => {
+        // The witness for the seam itself. Both child analyses are covered above; the step that
+        // merges them was previously unreachable, living inside the CLI's `import.meta.url` guard.
+        // Deleting the ToolService append would have left every child test green while the gate
+        // silently stopped failing on half its surface — a false green BETWEEN two tested parts,
+        // which is the one place per-part coverage cannot look.
+        const result = lintParity({rootDir: seedBothDefects()});
+        const params = result.violations.map(v => v.param).sort();
+
+        expect(params, 'a violation from EACH join must reach the fatal result').toEqual(['dispatchOnlyLeak', 'serviceOnlyLeak']);
+    });
+
+    test('the composite preserves advisory, unresolved and coverage counts through the merge', async () => {
+        // Recomputing these in the CLI instead of carrying them would let the printed summary drift
+        // from the verdict a test can assert on. `do_thing` declares `declared` and the method never
+        // reads it, so the advisory is non-empty and proves the field survives rather than being
+        // dropped to an empty array.
+        const result = lintParity({rootDir: seedBothDefects()});
+
+        expect(result.unusedDeclarations.length, 'advisory rows must survive the merge').toBeGreaterThan(0);
+        expect(result.operationsMatched, 'services.mjs coverage count preserved').toBe(1);
+        expect(result.operationsChecked, 'ToolService coverage count preserved').toBe(1);
+        expect(Array.isArray(result.unresolved), 'unresolved must be carried, not dropped').toBe(true);
+    });
+
+    test('a ToolService finding renders with its OWN coordinates, not undefined', async () => {
+        // The two joins describe a handler differently and neither is a superset: `services.mjs`
+        // knows module + method, the dispatch join knows serverId + via. Rendering both through the
+        // first shape printed `undefined → undefined()` for every ToolService row — a finding a
+        // reader cannot act on.
+        const result = lintParity({rootDir: seedBothDefects()}),
+              row    = result.violations.find(v => v.param === 'dispatchOnlyLeak'),
+              lines  = describeViolation(row).join('\n');
+
+        expect(lines).not.toContain('undefined');
+        expect(lines).toContain('knowledge-base');
+        expect(lines, 'the resolution path is what makes a dispatch finding actionable').toContain('serviceMapping');
     });
 });
