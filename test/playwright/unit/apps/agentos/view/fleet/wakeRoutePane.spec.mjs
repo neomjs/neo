@@ -23,7 +23,7 @@ function seat(identity, overrides = {}) {
         agentId      : identity.replace('@', ''),
         agentIdentity: identity,
         subscription : {state: 'active', reason: null},
-        armed        : {state: 'unobserved', reason: 'seat-side route arming is not exposed to the fleet server yet'},
+        armed        : {state: 'unobserved', reason: 'arming read path unavailable'},
         delivery     : {state: 'alive', reason: null},
         lastFailure  : {state: 'observed', reason: null, receipt: null},
         presence     : {state: 'online', lastSeenAt: '2026-08-03T19:55:00.000Z', reason: null},
@@ -117,7 +117,7 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
 
         expect(texts[0][0]).toBe('@neo-opus-ada');
         expect(texts[0][1]).toBe('subscription: none');
-        expect(texts[0][2]).toContain('armed: unobserved — seat-side route arming');
+        expect(texts[0][2]).toContain('armed: unobserved — arming read path unavailable');
         expect(texts[0][5]).toContain('presence: idle · last seen 2026-08-03 18:29Z — stale add_memory activity');
         expect(texts[1][4]).toBe('last failure: connect-timeout at 2026-08-03 19:00Z');
 
@@ -205,7 +205,7 @@ test.describe('WakeRoutePane — decomposed per-seat honesty (never fused)', () 
         pane.snapshot = envelope([], {
             state     : 'degraded',
             confidence: 'partial',
-            reason    : 'arming axis: seat-side route arming is not exposed to the fleet server yet'
+            reason    : 'arming axis: arming read path unavailable'
         });
 
         expect(pane.getReference('wakeroutes-rows').items[0].text).toBe('No seats in the registry.');

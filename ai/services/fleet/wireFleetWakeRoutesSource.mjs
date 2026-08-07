@@ -17,6 +17,7 @@ import {createFleetWakeRoutesSource} from './fleetWakeRoutesSource.mjs';
  * @param {Function|null} [options.listActiveSubscriptionIdentities]
  * @param {Function|null} [options.resolveDeliveryLiveness]
  * @param {Function|null} [options.resolveTerminalDeliveryFailures]
+ * @param {Function|null} [options.resolveSeatArming]
  * @param {Function|null} [options.readPresence]
  * @param {Function} [options.wakeIdentityFor]
  * @param {Function} [options.now]
@@ -30,6 +31,7 @@ export function wireFleetWakeRoutesSource({
     listActiveSubscriptionIdentities = null,
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
+    resolveSeatArming = null,
     readPresence = null,
     wakeIdentityFor,
     now,
@@ -46,6 +48,7 @@ export function wireFleetWakeRoutesSource({
         listActiveSubscriptionIdentities,
         resolveDeliveryLiveness,
         resolveTerminalDeliveryFailures,
+        resolveSeatArming,
         readPresence,
         ...(wakeIdentityFor ? {wakeIdentityFor} : {}),
         ...(now ? {now} : {})

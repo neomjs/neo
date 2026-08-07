@@ -45,33 +45,81 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         expect(() => createFleetWakeRoutesSource({resolveViewerIdentity: () => '@a'})).toThrow(TypeError)
     });
 
-    test('the armed-certification control: every injected axis answering still cannot certify wired while arming is structurally silent', async () => {
-        const snapshot = await harness().readWakeRoutes();
+    test('the envelope flip: with EVERY axis answering — arming included — wired/observed is finally reachable', async () => {
+        // The conjunction rule's promised payoff. The arming axis was the structurally silent one
+        // (a hardcoded false in the envelope until the receiver-manifest read existed); with a
+        // genuine arming answer joining the other four axes, the envelope certifies the full
+        // conjunction for the first time.
+        const snapshot = await harness({
+            resolveSeatArming: () => ({
+                state     : 'observed',
+                reason    : null,
+                byIdentity: new Map([[
+                    '@neo-fable-clio',
+                    {routeCount: 2, adapter: 'osascript', appName: 'Claude', addressType: 'userDataDir'}
+                ]])
+            })
+        }).readWakeRoutes();
 
-        // The conjunction rule: a decomposed envelope certifies EVERY declared axis, and the
-        // arming axis has no read yet — so `wired/observed` is unreachable BY CONSTRUCTION, and
-        // the reason names exactly the one silent axis.
         expect(snapshot.capability).toEqual({
-            source    : 'fleet:wakeRoutes', state: 'degraded', confidence: 'partial',
+            source    : 'fleet:wakeRoutes', state: 'wired', confidence: 'observed',
             capturedAt: '2026-08-03T20:01:00.000Z',
-            reason    : 'arming axis: seat-side route arming is not exposed to the fleet server yet'
+            reason    : null
         });
         expect(snapshot.viewer).toBe('@e2e-operator');
         expect(snapshot.count).toBe(2);
 
         const [ada, clio] = snapshot.seats;
 
-        expect(ada.agentIdentity).toBe('@neo-opus-ada');
+        // The armed row carries the allowlisted route detail — and ONLY it.
+        expect(clio.armed).toEqual({
+            state : 'armed',
+            reason: null,
+            route : {routeCount: 2, adapter: 'osascript', appName: 'Claude', addressType: 'userDataDir'}
+        });
+        // A seat absent from a healthy manifest answer is genuinely UNARMED — a first-class
+        // healthy answer, never collapsed into unknown.
+        expect(ada.armed).toEqual({state: 'none', reason: null});
+
         expect(ada.subscription).toEqual({state: 'none', reason: null});
         expect(clio.subscription).toEqual({state: 'active', reason: null});
         expect(clio.delivery).toEqual({state: 'alive', reason: null});
         expect(clio.lastFailure).toEqual({state: 'observed', reason: null, receipt: null});
         expect(clio.presence).toEqual({
             state: 'online', lastSeenAt: '2026-08-03T19:55:00.000Z', reason: 'recent add_memory activity'
+        })
+    });
+
+    test('the armed-certification control survives: an absent arming read still forbids wired, as a typed unobserved', async () => {
+        // The conjunction rule, preserved: the no-local-wake-lane branch (cloud profiles inject no
+        // manifest path) keeps every seat's arming row a TYPED unobserved and keeps `wired`
+        // unreachable — the reason names exactly the one silent axis.
+        const snapshot = await harness().readWakeRoutes();
+
+        expect(snapshot.capability).toEqual({
+            source    : 'fleet:wakeRoutes', state: 'degraded', confidence: 'partial',
+            capturedAt: '2026-08-03T20:01:00.000Z',
+            reason    : 'arming axis: arming read path unavailable'
         });
-        // The one axis nobody can observe yet is a TYPED unobserved, present on every row.
+
+        const [ada] = snapshot.seats;
+
         expect(ada.armed.state).toBe('unobserved');
         expect(typeof ada.armed.reason).toBe('string')
+    });
+
+    test('a throwing arming resolver degrades EVERY seat to unknown with the reason — never a fabricated none', async () => {
+        const snapshot = await harness({
+            resolveSeatArming: () => { throw new Error('receiver manifest walk exploded') }
+        }).readWakeRoutes();
+
+        expect(snapshot.capability.state).toBe('degraded');
+        expect(snapshot.capability.reason).toContain('arming axis: receiver manifest walk exploded');
+
+        for (const seat of snapshot.seats) {
+            expect(seat.armed.state).toBe('unknown');
+            expect(seat.armed.reason).toContain('receiver manifest walk exploded')
+        }
     });
 
     test('a terminal receipt reaches its seat as a first-class row fact', async () => {

@@ -28,7 +28,10 @@ const
     PRESENCE_STATES  = Object.freeze(['online', 'idle', 'dark', 'benched', 'neverConnected']),
     ARMED_UNOBSERVED = Object.freeze({
         state : 'unobserved',
-        reason: 'seat-side route arming is not exposed to the fleet server yet'
+        // The absent-reader branch, not a structural gap: a deployment with no local wake lane
+        // (cloud profiles disable local-only wake delivery) injects no arming read, and the axis
+        // says so instead of fabricating an armed or unarmed verdict nothing observed.
+        reason: 'arming read path unavailable'
     })
 
 /**
@@ -43,6 +46,10 @@ const
  *     reason}` (sync or async) — the delivery-lane authority. Absent ⇒ axis unknown with reason.
  * @param {Function|null} [options.resolveTerminalDeliveryFailures] `() => {state:
  *     'observed'|'unknown', reason, byIdentity: Map}` (sync or async). Absent ⇒ axis unknown.
+ * @param {Function|null} [options.resolveSeatArming] `() => {state: 'observed'|'unknown', reason,
+ *     byIdentity: Map}` (sync or async) — the seat-arming authority (the published wake-receiver
+ *     manifest, read through the receiver's own loader; see `seatArmingReader`). Absent ⇒ the
+ *     arming axis is a typed `unobserved` — the no-local-wake-lane branch, not an error.
  * @param {Function|null} [options.readPresence] `() => Object` (sync or async) resolving the
  *     roster-presence report (`who_is_online` payload shape: `{agents: [{identity, state,
  *     reason, signals}]}`). Absent ⇒ the presence axis is a typed `unobserved`.
@@ -57,6 +64,7 @@ export function createFleetWakeRoutesSource({
     listActiveSubscriptionIdentities = null,
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
+    resolveSeatArming = null,
     readPresence = null,
     wakeIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
     now = () => new Date()
@@ -76,6 +84,7 @@ export function createFleetWakeRoutesSource({
         const
             viewer       = safeViewer(resolveViewerIdentity),
             subscription = await readSubscriptionAxis(listActiveSubscriptionIdentities),
+            arming       = await readArmingAxis(resolveSeatArming),
             delivery     = await readDeliveryAxis(resolveDeliveryLiveness),
             failures     = await readFailuresAxis(resolveTerminalDeliveryFailures),
             presence     = await readPresenceAxis(readPresence)
@@ -117,21 +126,22 @@ export function createFleetWakeRoutesSource({
                 agentId      : agent.id,
                 agentIdentity: identity,
                 subscription : subscription.rowFor(identity),
-                armed        : {...ARMED_UNOBSERVED},
+                armed        : arming.rowFor(identity),
                 delivery     : {state: delivery.state, reason: delivery.reason},
                 lastFailure  : failures.rowFor(identity),
                 presence     : presence.rowFor(identity)
             })
         }
 
-        // Axis availability decides the envelope over EVERY declared axis — including the
-        // structurally silent arming axis, because a decomposed diagnostic envelope must certify
-        // the conjunction of all its constituents: `wired/observed` while any declared axis cannot
-        // answer would be the fused over-certification this surface exists to end. Today that
-        // makes `wired` unreachable BY CONSTRUCTION (arming has no read yet) — correct, and the
-        // reason names it. Some axes answering = degraded/partial; none = degraded/none.
+        // Axis availability decides the envelope over EVERY declared axis, because a decomposed
+        // diagnostic envelope must certify the conjunction of all its constituents: `wired/observed`
+        // while any declared axis cannot answer would be the fused over-certification this surface
+        // exists to end. The arming axis was the structurally silent one — a hardcoded `false` here
+        // until the receiver-manifest read existed — so `wired` is REACHABLE only since that read
+        // landed, and only when every axis genuinely answers. Some axes answering = degraded/partial;
+        // none = degraded/none.
         const
-            axisOk   = [subscription.ok, false, delivery.ok, failures.ok, presence.ok],
+            axisOk   = [subscription.ok, arming.ok, delivery.ok, failures.ok, presence.ok],
             fullyOk  = axisOk.every(Boolean),
             anyTruth = axisOk.some(Boolean)
 
@@ -143,7 +153,7 @@ export function createFleetWakeRoutesSource({
                 capturedAt: toIsoString(now()),
                 reason    : fullyOk ? null : [
                     subscription.ok ? null : `subscription axis: ${subscription.reason}`,
-                    `arming axis: ${ARMED_UNOBSERVED.reason}`,
+                    arming.ok       ? null : `arming axis: ${arming.reason}`,
                     delivery.ok     ? null : `delivery axis: ${delivery.reason}`,
                     failures.ok     ? null : `failure axis: ${failures.reason}`,
                     presence.ok     ? null : `presence axis: ${presence.reason}`
@@ -187,6 +197,73 @@ async function readSubscriptionAxis(listActiveSubscriptionIdentities) {
         const reason = redactReason(error) || 'subscription scan failed'
 
         return {ok: false, reason, rowFor: () => ({state: 'unknown', reason})}
+    }
+}
+
+/**
+ * @summary Resolves the seat-arming axis: a seat is ARMED iff the published wake-receiver manifest
+ * carries a loader-valid route for its identity (the `seatArmingReader` authority).
+ *
+ * Absent resolver ⇒ every seat answers the typed `unobserved` — the no-local-wake-lane branch, the
+ * same shape the axis carried while it was structurally silent, now scoped to deployments where
+ * nobody CAN read arming rather than to everyone. A throwing or out-of-contract resolver degrades
+ * to `unknown` with the reason; a seat absent from a healthy answer is genuinely UNARMED (`none`)
+ * — a first-class healthy answer, distinct from unreadable, mirroring the failures axis'
+ * observed-with-no-receipt.
+ *
+ * The `route` detail on an armed row is the resolver's allowlisted projection (route count,
+ * adapter, app, address type) — the manifest's signing keys never reach this envelope, and the
+ * resolver's own spec asserts that omission.
+ * @param {Function|null} resolveSeatArming
+ * @returns {Promise<{ok: Boolean, reason: String|null, rowFor: Function}>}
+ * @private
+ */
+async function readArmingAxis(resolveSeatArming) {
+    if (typeof resolveSeatArming !== 'function') {
+        return {ok: false, reason: ARMED_UNOBSERVED.reason, rowFor: () => ({...ARMED_UNOBSERVED})}
+    }
+
+    let answer
+
+    try {
+        answer = await resolveSeatArming()
+    } catch (error) {
+        const reason = redactReason(error) || 'seat arming read failed'
+
+        return {ok: false, reason, rowFor: () => ({state: 'unknown', reason})}
+    }
+
+    if ((answer?.state !== 'observed' && answer?.state !== 'unknown') || !(answer?.byIdentity instanceof Map)) {
+        const reason = 'seat arming resolver returned an out-of-contract value'
+
+        return {ok: false, reason, rowFor: () => ({state: 'unknown', reason})}
+    }
+
+    if (answer.state === 'unknown') {
+        const reason = redactReason(answer.reason) || 'seat arming resolver answered unknown'
+
+        return {ok: false, reason, rowFor: () => ({state: 'unknown', reason})}
+    }
+
+    return {
+        ok    : true,
+        reason: null,
+        rowFor: identity => {
+            const row = answer.byIdentity.get(identity)
+
+            if (!row) return {state: 'none', reason: null}
+
+            return {
+                state : 'armed',
+                reason: null,
+                route : {
+                    routeCount : Number.isFinite(row.routeCount) ? row.routeCount : 1,
+                    adapter    : typeof row.adapter     === 'string' ? row.adapter     : null,
+                    appName    : typeof row.appName     === 'string' ? row.appName     : null,
+                    addressType: typeof row.addressType === 'string' ? row.addressType : null
+                }
+            }
+        }
     }
 }
 

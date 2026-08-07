@@ -54,19 +54,20 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
-import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
-import {createPlaneWhoIsOnlineReader}         from './planeWhoIsOnlineReader.mjs';
-import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
+import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
+import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
+import {createPlaneWhoIsOnlineReader}                                    from './planeWhoIsOnlineReader.mjs';
+import {createSeatArmingReader}                                          from './seatArmingReader.mjs';
+import {readActiveWakeSubscriptionIdentities}                            from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
-import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
-import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
-import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
-import {wireFleetMemoriesSource}              from './wireFleetMemoriesSource.mjs';
-import {wireFleetWakeRoutesSource}            from './wireFleetWakeRoutesSource.mjs';
-import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.mjs';
-import path                                   from 'node:path';
-import {fileURLToPath, pathToFileURL}         from 'node:url';
+import {wireBootIdentityReadSource}                                      from './wireBootIdentityReadSource.mjs';
+import {wireFleetActivityReadSource}                                     from './wireFleetActivityReadSource.mjs';
+import {wireFleetCatchUpSource}                                          from './wireFleetCatchUpSource.mjs';
+import {wireFleetMemoriesSource}                                         from './wireFleetMemoriesSource.mjs';
+import {wireFleetWakeRoutesSource}                                       from './wireFleetWakeRoutesSource.mjs';
+import {wireOperatorComposeWriter}                                       from './wireOperatorComposeWriter.mjs';
+import path                                                              from 'node:path';
+import {fileURLToPath, pathToFileURL}                                    from 'node:url';
 
 /**
  * @summary Composes the launch contract and starts the authenticated Fleet transport.
@@ -187,6 +188,17 @@ async function boot() {
             (FleetManager.wakeStateOptions.deliveryFailureFilePath
                 ? createTerminalDeliveryFailuresFileReader({
                     deliveryFailureFilePath: FleetManager.wakeStateOptions.deliveryFailureFilePath
+                })
+                : null),
+        // Arming reads the published wake-receiver manifest through the receiver's own loader. The
+        // manifest path is deployment-declared (the receiver's paths live outside the config tree),
+        // so it rides the same wakeStateOptions vehicle as its sibling read paths — and a deployment
+        // with no local wake lane declares nothing, leaving the axis typed-unobserved rather than
+        // fabricating a verdict nothing observed.
+        resolveSeatArming: FleetManager.wakeStateOptions.resolveSeatArming ??
+            (FleetManager.wakeStateOptions.wakeReceiverManifestPath
+                ? createSeatArmingReader({
+                    manifestPath: FleetManager.wakeStateOptions.wakeReceiverManifestPath
                 })
                 : null),
         readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
