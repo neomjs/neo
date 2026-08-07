@@ -101,10 +101,53 @@ test.describe('Tenant repo ingest: content reads carry a credential (#16631)', (
         expect(readError.code).toBe('KB_GITMIRROR_FILE_READ_FAILED');
     });
 
+    test('the production read hands the credential to git, not merely to the builder', async () => {
+        const
+            {source} = await createFilterCapableSource(),
+            identity = {mirrorRoot: path.join(root, 'mirrors'), tenantId: 'tenant-b', repoSlug: 'org/prod'};
+
+        // A BARE PATH, not file://. git ignores --filter for a local path clone and hardlinks the
+        // object store instead, so this mirror holds every blob. That is the point: the read below
+        // cannot fail for want of the network, so the only variable left is the credential.
+        await cloneIfMissing({...identity, cloneUrl: source});
+
+        const revision = await resolveHead({...identity, ref: 'HEAD'});
+
+        // Control. Without a credential the read succeeds — proving the failure asserted next is
+        // caused by the credential reaching git, and not by a broken mirror or an absent blob.
+        expect(await readRevisionFile({...identity, revision, sourcePath: 'alpha.txt'})).toContain('alpha');
+
+        // Witness. An `env:` credentialRef naming a variable that does not exist can only fail inside
+        // runGit's credential resolution. So this throws if and only if credentialRef travelled all
+        // the way from readRevisionFile's signature into the real runGit call — which is the seam a
+        // fake gitMirror can never exercise, and the one deleting the argument would break.
+        let credentialError = null;
+
+        try {
+            await readRevisionFile({
+                ...identity,
+                revision,
+                sourcePath   : 'alpha.txt',
+                credentialRef: 'env:NEO_TEST_DELIBERATELY_ABSENT_TOKEN'
+            });
+        } catch (error) {
+            credentialError = error;
+        }
+
+        expect(credentialError).not.toBeNull();
+        expect(credentialError.code).toBe('KB_GITMIRROR_CREDENTIAL_REF_INVALID');
+    });
+
     test('credentialRef reaches the content read and only the content read', async () => {
         const
             credentialRef = 'env:TENANT_TEST_TOKEN',
-            seen          = {resolveHead: [], isAncestor: [], listRevisionPaths: [], readRevisionFile: []},
+            seen          = {
+                resolveHead      : [],
+                isAncestor       : [],
+                diffRevisions    : [],
+                listRevisionPaths: [],
+                readRevisionFile : []
+            },
             record        = (name, options) => {
                 seen[name].push(options.credentialRef);
             };
@@ -118,7 +161,8 @@ test.describe('Tenant repo ingest: content reads carry a credential (#16631)', (
                 record('isAncestor', options);
                 return true;
             },
-            diffRevisions() {
+            diffRevisions(options) {
+                record('diffRevisions', options);
                 return {addedOrChanged: ['alpha.txt'], deleted: []};
             },
             listRevisionPaths(options) {
@@ -176,6 +220,7 @@ test.describe('Tenant repo ingest: content reads carry a credential (#16631)', (
         // credentialRef onto `identity`.
         expect(seen.resolveHead.every(ref => ref === undefined)).toBe(true);
         expect(seen.isAncestor.every(ref => ref === undefined)).toBe(true);
+        expect(seen.diffRevisions.every(ref => ref === undefined)).toBe(true);
         expect(seen.listRevisionPaths.every(ref => ref === undefined)).toBe(true);
     });
 });
