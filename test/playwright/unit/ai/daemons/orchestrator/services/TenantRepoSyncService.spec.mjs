@@ -3464,6 +3464,79 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         ).toBe(1);
     });
 
+    // An evicted run must not clear a sidecar entry its successor now owns.
+    //
+    // My first attempt at this witness took the lease over inside `gitMirror.fetch` and PASSED
+    // against the unfixed source, so it proved nothing and was deleted. The ordering is what makes
+    // it reachable: the takeover has to land AFTER the predecessor has persisted its own in-flight
+    // record, otherwise its `finally` has nothing to write and the stale whole-file write never
+    // happens. `envelopeEntered` is the sequencing point — resolved at the top of the envelope
+    // builder, before the gate is awaited, so awaiting it proves the record already exists.
+    //
+    // The successor sidecar is written inside the lifecycle guard together with the lease
+    // replacement, so an in-flight renewal tick cannot interleave with the test's own writes.
+    test('an evicted run does not clear the sidecar entry its successor owns (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1},
+            baseEnvelope     = makeFakeEnvelopeBuilder();
+
+        let releaseEnvelope, markEnvelopeEntered;
+
+        const
+            envelopeGate    = new Promise(resolve => releaseEnvelope     = resolve),
+            envelopeEntered = new Promise(resolve => markEnvelopeEntered = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs     : 60_000,
+            leaseRenewalIntervalMs: 25,
+            envelopeBuilder       : async (...args) => {
+                markEnvelopeEntered();
+                await envelopeGate;
+                return baseEnvelope(...args)
+            }
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // The predecessor is now inside protected work with its own in-flight record persisted.
+        await envelopeEntered;
+
+        const guardPath = `${leaseFilePath()}${LIFECYCLE_GUARD_SUFFIX}`;
+        await fs.ensureDir(guardPath);
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'successor-owner',
+            reason      : 'tenant-repo-sync',
+            pid         : process.pid,
+            staleAfterMs: 60_000,
+            token       : 'successor-token'
+        }));
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+        await fs.rmdir(guardPath);
+
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        releaseEnvelope();
+        const result = await invocation;
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+
+        // The whole point: the evicted predecessor's `finally` must not write its own view over
+        // the successor's record. Exact equality, not existence — a rewritten-but-present file
+        // would pass a pathExists check while having lost the successor's attempt.
+        expect(
+            await fs.readJson(inFlightFile),
+            'the evicted predecessor overwrote the sidecar the successor owns; the successor\'s ' +
+            'attempt is unrecorded, so a crash during it leaves backoff unable to engage'
+        ).toEqual({'t1/org/lease-repo': successorEntry});
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
