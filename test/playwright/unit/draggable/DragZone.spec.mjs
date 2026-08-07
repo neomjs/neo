@@ -14,13 +14,19 @@ import DragZone       from '../../../../src/draggable/DragZone.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
- * Runs one proxy-teardown scenario against a spied `Neo.applyDeltas` and returns the
- * recorded dispatches. The spy is installed per call and always restored: the delta
- * surface is global, so a leaked recorder would poison sibling specs.
+ * Runs one proxy-teardown scenario against a spied `Neo.applyDeltas` and returns the recorded
+ * dispatches plus the proxy id captured BEFORE teardown — the id assertions must compare against
+ * an independently held value, never against the recorded payload itself. The spy is installed
+ * per call and always restored: the delta surface is global, so a leaked recorder would poison
+ * sibling specs.
  * @param {Function} scenario Receives the created zone; drives teardown timing.
- * @returns {Promise<Object[]>} The recorded `applyDeltas` calls as {windowId, deltas}.
+ * @param {Object} [options]
+ * @param {Function} [options.deltaResult] Maps a recorded call to the spy's returned promise —
+ *     the seam for simulating the transport's terminal outcomes (a vanished destination rejects
+ *     with bare `undefined`; live-window failures reject with a reason).
+ * @returns {Promise<{proxyId: String, recorded: Object[]}>}
  */
-async function recordProxyRemoval(scenario) {
+async function recordProxyRemoval(scenario, {deltaResult}={}) {
     const
         originalApplyDeltas = Neo.applyDeltas,
         recorded            = [],
@@ -30,31 +36,35 @@ async function recordProxyRemoval(scenario) {
         });
 
     Neo.applyDeltas = (windowId, deltas) => {
-        recorded.push({windowId, deltas});
-        return Promise.resolve()
+        const call = {deltas, windowId};
+
+        recorded.push(call);
+
+        return deltaResult ? deltaResult(call) : Promise.resolve()
     };
+
+    let proxyId;
 
     try {
         zone.dragProxy = Neo.create(Component, {appName: 'DraggableDragZoneTest'});
+        proxyId        = zone.dragProxy.id;
 
         await scenario(zone);
 
         // Both teardown paths resolve within the deferral ceiling (30ms) plus microtasks;
-        // one settled wait keeps the assertion race-free for the fixed AND the broken shape.
+        // one settled wait keeps the assertions race-free for the fixed AND the broken shape.
         await new Promise(resolve => setTimeout(resolve, 60))
     } finally {
         Neo.applyDeltas = originalApplyDeltas;
         !zone.isDestroyed && zone.destroy()
     }
 
-    return recorded
+    return {proxyId, recorded}
 }
 
 test.describe('Neo.draggable.DragZone', () => {
     test('the proxy removal delta survives a zone destroyed inside the deferral window', async () => {
-        const recorded = await recordProxyRemoval(zone => {
-            const proxyId = zone.dragProxy.id;
-
+        const {proxyId, recorded} = await recordProxyRemoval(zone => {
             zone.destroyDragProxy();
 
             // The dying-window race: the zone's owner chain is torn down before the deferred
@@ -65,21 +75,63 @@ test.describe('Neo.draggable.DragZone', () => {
 
             expect(zone.isDestroyed).toBe(true);
 
-            return Promise.resolve(proxyId)
+            return Promise.resolve()
         });
 
         expect(recorded, 'exactly one removal dispatch despite the destroyed zone').toHaveLength(1);
         expect(recorded[0].windowId).toBe('test-window-1');
-        expect(recorded[0].deltas[0].action).toBe('removeNode')
+        expect(recorded[0].deltas).toEqual([{action: 'removeNode', id: proxyId}])
     });
 
     test('the undisturbed teardown dispatches exactly one deferred removal', async () => {
-        const recorded = await recordProxyRemoval(zone => {
+        const {proxyId, recorded} = await recordProxyRemoval(zone => {
             zone.destroyDragProxy();
             return Promise.resolve()
         });
 
         expect(recorded, 'one dispatch, no duplicates from the survival guard').toHaveLength(1);
-        expect(recorded[0].deltas).toEqual([{action: 'removeNode', id: recorded[0].deltas[0].id}])
+        expect(recorded[0].deltas).toEqual([{action: 'removeNode', id: proxyId}])
+    });
+
+    test('a vanished destination settles silently — the closed-port rejection is owned, not unhandled', async () => {
+        // worker.Base's closed-port branch rejects the request promise with bare `undefined`
+        // (a vanished SharedWorker port). The detached teardown chain must observe that terminal
+        // outcome: an unowned rejection escapes as unhandledRejection, which this runner converts
+        // into a test failure — the unrepaired chain fails this test by construction.
+        const {recorded} = await recordProxyRemoval(zone => {
+            zone.destroyDragProxy();
+            zone.destroy();
+            return Promise.resolve()
+        }, {
+            deltaResult: () => Promise.reject(undefined)
+        });
+
+        expect(recorded, 'the dispatch is still attempted at the vanished destination').toHaveLength(1)
+    });
+
+    test('a reasoned delta failure in a live window stays visible instead of being swallowed', async () => {
+        const
+            originalConsoleError = console.error,
+            surfaced             = [];
+
+        console.error = (...args) => surfaced.push(args);
+
+        let outcome;
+
+        try {
+            outcome = await recordProxyRemoval(zone => {
+                zone.destroyDragProxy();
+                return Promise.resolve()
+            }, {
+                deltaResult: () => Promise.reject(new Error('delta transport failure'))
+            })
+        } finally {
+            console.error = originalConsoleError
+        }
+
+        expect(outcome.recorded).toHaveLength(1);
+        expect(surfaced, 'a reasoned rejection must surface exactly once').toHaveLength(1);
+        expect(surfaced[0][1]?.reason?.message, 'the surfaced entry names the failure')
+            .toContain('delta transport failure')
     });
 });
