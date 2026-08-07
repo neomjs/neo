@@ -292,6 +292,26 @@ function walkNodes(root) {
  * @returns {Object[]|null}
  */
 export function findCallableParams(ast, name) {
+    return findCallableNode(ast, name)?.params ?? null;
+}
+
+/**
+ * @summary Finds the callable NODE for `name` — the same search `findCallableParams` performs, one
+ * step earlier.
+ *
+ * Exists because a parameter LIST is not enough for every consumer. The signature-census only needs
+ * the params, but a contract-parity check must read the BODY: a handler that takes an opaque bag
+ * (`doThing(options)`) consumes its parameters through destructuring and member reads inside the
+ * function, so its signature carries no names at all. Returning the node serves both, and keeping
+ * `findCallableParams` as a delegation keeps ONE traversal deciding what a callable is — two copies
+ * of this search would be two definitions of "the handler", free to disagree about class members,
+ * property-definition arrows, or the declaration forms below.
+ *
+ * @param {Object} ast parsed module
+ * @param {String} name method or function name
+ * @returns {Object|null} the function/arrow node, or null when not found
+ */
+export function findCallableNode(ast, name) {
     const nodes = walkNodes(ast);
 
     for (const node of nodes) {
@@ -303,7 +323,7 @@ export function findCallableParams(ast, name) {
                     (member.key.name === name || member.key.value === name) &&
                     member.value?.params
                 ) {
-                    return member.value.params;
+                    return member.value;
                 }
             }
         }
@@ -311,13 +331,13 @@ export function findCallableParams(ast, name) {
 
     for (const node of nodes) {
         if (node.type === 'FunctionDeclaration' && node.id?.name === name) {
-            return node.params;
+            return node;
         }
         if (
             node.type === 'VariableDeclarator' && node.id?.name === name &&
             (node.init?.type === 'ArrowFunctionExpression' || node.init?.type === 'FunctionExpression')
         ) {
-            return node.init.params;
+            return node.init;
         }
     }
 
@@ -380,7 +400,7 @@ export function extractServiceMapping(ast) {
 }
 
 /**
- * Resolves one serviceMapping value node to its handler parameter descriptors.
+ * Resolves one serviceMapping value node to its handler CALLABLE NODE.
  * Shapes handled: `Service.method.bind(Service)`, inline arrows/functions, local identifiers
  * (function declarations and const arrows, e.g. github-workflow's `getConversationRouter`), and
  * imported identifiers (one hop into the source module, e.g. knowledge-base's
@@ -388,9 +408,9 @@ export function extractServiceMapping(ast) {
  * named, never dropped.
  * @param {Object} valueNode ESTree node of the mapping value
  * @param {Object} ctx {imports, filePath, root, fileCache}
- * @returns {{params: Object[], via: String}|{unresolved: String}}
+ * @returns {{node: Object, via: String}|{unresolved: String}}
  */
-export function resolveHandlerParams(valueNode, ctx) {
+export function resolveHandlerNode(valueNode, ctx) {
     // Service.method.bind(Service) — possibly with extra bound args (none in-repo; noted if seen)
     if (valueNode.type === 'CallExpression' && valueNode.callee?.type === 'MemberExpression' &&
         valueNode.callee.property?.name === 'bind' && valueNode.callee.object?.type === 'MemberExpression') {
@@ -405,11 +425,11 @@ export function resolveHandlerParams(valueNode, ctx) {
         }
 
         const servicePath = path.resolve(path.dirname(ctx.filePath), importInfo.source);
-        const params      = findCallableParams(loadModule(servicePath, ctx.fileCache), methodName);
+        const node        = findCallableNode(loadModule(servicePath, ctx.fileCache), methodName);
 
-        if (params) {
+        if (node) {
             const via = `${serviceName}.${methodName}` + (boundExtra > 0 ? ` (bind carries ${boundExtra} extra arg(s))` : '');
-            return {params: describeParams(params), via};
+            return {node, via};
         }
 
         // One superclass hop: inherited handlers (e.g. a shared HealthService base)
@@ -417,11 +437,11 @@ export function resolveHandlerParams(valueNode, ctx) {
         const superInfo = superName && ctx.imports.get(superName);
 
         if (superInfo) {
-            const superPath   = path.resolve(path.dirname(ctx.filePath), superInfo.source);
-            const superParams = findCallableParams(loadModule(superPath, ctx.fileCache), methodName);
+            const superPath = path.resolve(path.dirname(ctx.filePath), superInfo.source);
+            const superNode = findCallableNode(loadModule(superPath, ctx.fileCache), methodName);
 
-            if (superParams) {
-                return {params: describeParams(superParams), via: `${superName}.${methodName} (inherited by ${serviceName})`};
+            if (superNode) {
+                return {node: superNode, via: `${superName}.${methodName} (inherited by ${serviceName})`};
             }
         }
 
@@ -430,26 +450,26 @@ export function resolveHandlerParams(valueNode, ctx) {
 
     // Inline arrow / function expression: the dispatcher binds against THIS signature
     if (valueNode.type === 'ArrowFunctionExpression' || valueNode.type === 'FunctionExpression') {
-        return {params: describeParams(valueNode.params), via: 'inline handler in serviceMapping'};
+        return {node: valueNode, via: 'inline handler in serviceMapping'};
     }
 
     // Local or imported identifier
     if (valueNode.type === 'Identifier') {
-        const localParams = findCallableParams(ctx.ast, valueNode.name);
+        const localNode = findCallableNode(ctx.ast, valueNode.name);
 
-        if (localParams) {
-            return {params: describeParams(localParams), via: `${valueNode.name} (local)`};
+        if (localNode) {
+            return {node: localNode, via: `${valueNode.name} (local)`};
         }
 
         const importInfo = ctx.imports.get(valueNode.name);
 
         if (importInfo) {
             const targetPath = path.resolve(path.dirname(ctx.filePath), importInfo.source);
-            const params     = findCallableParams(loadModule(targetPath, ctx.fileCache),
+            const node       = findCallableNode(loadModule(targetPath, ctx.fileCache),
                 importInfo.imported === 'default' ? valueNode.name : importInfo.imported);
 
-            if (params) {
-                return {params: describeParams(params), via: `${valueNode.name} (imported from ${importInfo.source})`};
+            if (node) {
+                return {node, via: `${valueNode.name} (imported from ${importInfo.source})`};
             }
         }
 
@@ -457,6 +477,24 @@ export function resolveHandlerParams(valueNode, ctx) {
     }
 
     return {unresolved: `unhandled mapping value shape: ${valueNode.type}`};
+}
+
+/**
+ * @summary The parameter-descriptor view of {@link resolveHandlerNode}.
+ *
+ * Kept as a delegation rather than a second resolver: the `.bind()` unwrapping, superclass hop,
+ * local-vs-imported identifier rules and unresolved-naming all live in ONE place, so a new mapping
+ * shape is taught to the resolver once and both consumers learn it. The signature-census reads
+ * params; the contract-parity lint reads the node.
+ *
+ * @param {Object} valueNode ESTree node of the mapping value
+ * @param {Object} ctx {imports, filePath, root, fileCache, ast}
+ * @returns {{params: Object[], via: String}|{unresolved: String}}
+ */
+export function resolveHandlerParams(valueNode, ctx) {
+    const resolved = resolveHandlerNode(valueNode, ctx);
+
+    return resolved.node ? {params: describeParams(resolved.node.params), via: resolved.via} : resolved
 }
 
 /**
