@@ -3805,6 +3805,127 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
     });
 
+    // The last unwitnessed branch: eviction DURING the manifest's staging I/O.
+    //
+    // Every earlier fence was one layer too shallow — around the transaction, then around the
+    // writer — and each still let the rename land while evicted. The commit point is the rename,
+    // so this pauses inside `fsync` (after the payload is staged, before it becomes the manifest),
+    // lets a legitimate successor steal the stale guard and lease and write DISTINCT manifest and
+    // sidecar values, then resumes the predecessor.
+    //
+    // The predecessor must lose both races: no manifest overwrite, no sidecar clear.
+    test('a predecessor evicted inside manifest staging commits nothing over its successor (#16551)', async () => {
+        const
+            taskStateService  = createInMemoryTaskStateService(),
+            inFlightFile      = `${revisionsFile}.in-flight`,
+            successorSidecar  = {'t1/org/lease-repo': {startedMs: 4242, priorFailures: 3, runId: 'successor-run'}},
+            successorManifest = {'t1/org/lease-repo': {
+                lastIngestedRev                   : 'sha-successor',
+                lastRunAttemptAt                  : 9999,
+                consecutiveFailures               : 7,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }},
+            originalWrite     = TenantRepoSyncService.writePersistedRevisions.bind(TenantRepoSyncService);
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {startedMs: Date.now() - 60 * 60_000, priorFailures: 0}});
+
+        let wrapped = false, markStaging, releaseStaging;
+
+        const
+            stagingEntered = new Promise(resolve => markStaging    = resolve),
+            stagingGate    = new Promise(resolve => releaseStaging = resolve);
+
+        // One-shot: only the FIRST writer call (recovery's) is paused. The sweep-terminal commit
+        // must run normally or the run never settles.
+        TenantRepoSyncService.writePersistedRevisions = async options => {
+            if (wrapped) return originalWrite(options);
+            wrapped = true;
+
+            return originalWrite({
+                ...options,
+                fsModule: {
+                    ...fs,
+                    async fsync(fd) {
+                        const result = await fs.fsync(fd);
+
+                        markStaging();
+                        await stagingGate;
+
+                        return result
+                    }
+                }
+            })
+        };
+
+        try {
+            const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+                taskStateService,
+                leaseStaleAfterMs: 40
+            }));
+
+            await stagingEntered;
+
+            // The payload is staged on the temp path but has NOT been renamed. Let the
+            // predecessor's guard and lease age out, then take both as a legitimate successor.
+            await new Promise(resolve => setTimeout(resolve, 120));
+
+            const stolen = await enterLifecycleGuard({
+                leasePath        : leaseFilePath(),
+                fsModule         : fs,
+                guardStaleAfterMs: 1
+            });
+
+            expect(stolen, 'could not steal the stale guard, so the eviction this test needs never happened').toBeTruthy();
+
+            await fs.writeJson(leaseFilePath(), buildLeasePayload({
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                pid         : process.pid,
+                staleAfterMs: 60_000,
+                token       : 'successor-token'
+            }));
+            await fs.writeJson(revisionsFile, {revisions: successorManifest});
+            await fs.writeJson(inFlightFile, successorSidecar);
+
+            // The successor's critical section is over, so it releases the guard BEFORE the
+            // predecessor resumes. Holding it would block the predecessor's own lease release,
+            // which throws by design — that is the run failing on the successor's mutex, not on
+            // the property under test.
+            await exitLifecycleGuard({ownerFilePath: stolen.ownerFilePath, fsModule: fs});
+
+            releaseStaging();
+
+            // Surfaces lease loss rather than succeeding: the predecessor no longer owns anything.
+            const result = await invocation;
+
+            expect(result.status).toBe('failed');
+
+            // Both successor artifacts survive exactly. Under the pre-fence source the rename
+            // lands regardless and the manifest is the predecessor's.
+            expect(
+                (await fs.readJson(revisionsFile)).revisions,
+                'the evicted predecessor renamed its staged manifest over the successor\'s — the ' +
+                'successor\'s committed state is gone and every repo re-syncs from a stale base'
+            ).toEqual(successorManifest);
+
+            expect(
+                await fs.readJson(inFlightFile),
+                'the evicted predecessor cleared the successor\'s sidecar — its in-flight attempt ' +
+                'is unrecorded, so a crash during it leaves backoff unable to engage'
+            ).toEqual(successorSidecar);
+        } finally {
+            TenantRepoSyncService.writePersistedRevisions = originalWrite;
+        }
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
