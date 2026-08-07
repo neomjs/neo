@@ -37,6 +37,10 @@ import {
     buildLeasePayload
 } from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {
+    enterLifecycleGuard,
+    exitLifecycleGuard
+} from '../../../../../../../ai/daemons/shared/lifecycleGuard.mjs';
+import {
     buildRunTaskOptions,
     parseArgs,
     resolveExitCode
@@ -3250,6 +3254,676 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(await fs.readFile(revisionsFile, 'utf8')).toBe(originalManifest);
         // Token-guarded release must not clobber the new owner's lease.
         expect((await fs.readJson(leaseFilePath())).token).toBe('foreign-takeover-token');
+    });
+
+    // An attempt that never returns is still an attempt.
+    //
+    // Backoff reads `consecutiveFailures` + `lastRunAttemptAt`, and both advance only AFTER the
+    // work returns (`:1351` on success, `:1442` in the catch). A failure that prevents the work
+    // from returning at all — OOM, SIGKILL, host sleep, container stop mid-sweep — therefore
+    // leaves no record that anything was tried, `due` stays true forever, and the lane retries at
+    // full cadence. A crash loop is exactly what backoff exists to dampen, and it is the one
+    // failure class where backoff provably cannot engage: the dampening is only available to
+    // failures polite enough to return.
+    //
+    // The record cannot live in the revisions manifest. That file is a commit log, and the sibling
+    // specs in this file pin its commit-point fence: `commit-point fence: an evicted writer aborts
+    // without writing` compares it byte-for-byte, and `renewal failure aborts before protected
+    // work` asserts it does not exist. Writing scheduling state into it before the work completes
+    // does not defeat a proxy for those properties, it removes the properties. An in-flight
+    // attempt is by definition uncommitted, so it belongs BESIDE the manifest, not inside it.
+    //
+    // The `.in-flight` suffix is asserted literally rather than through an imported constant: the
+    // on-disk name IS the contract here. A crashed predecessor and its successor are different
+    // processes, potentially different builds, and a rename that both sides agree on would leave
+    // real residue unreadable while this spec still passed.
+    test('a sweep that never returns still records the attempt, and the next sweep commits it (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            now              = Date.now(),
+            // The predecessor's committed state: one clean prior run, no failures.
+            lastCommittedAt  = now - 30 * 60_000,
+            // The attempt it started and died inside — later than what it managed to commit.
+            crashedAttemptAt = now - 20 * 60_000;
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : lastCommittedAt,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // Residue from a process that entered protected work and was killed before it could
+        // reach the sweep-terminal commit. This is the only trace such a run can leave.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 0
+        }});
+
+        // A cadence long enough that the recovered failure is observable as suppression rather
+        // than being consumed by an immediate re-run that would reset the counter to 0.
+        //
+        // `backoffCapMs: 0` (the pure function's own no-cap default) is load-bearing, not tidiness.
+        // The configured ceiling is 2h, and 1 failure against a 60min base also resolves to 2h —
+        // so with the cap in play this assertion would pass whether the multiplier worked or the
+        // value simply hit the ceiling. Removing the cap is what makes it measure the multiplier.
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs: 60 * 60_000,
+            backoffCapMs   : 0
+        }));
+
+        expect(result.status).toBe('completed');
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        // The attempt is committed as a fact by the sweep that discovered the residue.
+        expect(persisted.consecutiveFailures).toBe(1);
+        expect(persisted.lastRunAttemptAt).toBe(crashedAttemptAt);
+        // A crashed attempt says nothing about what was ingested; the checkpoint must survive it.
+        expect(persisted.lastIngestedRev).toBe('sha-before');
+
+        // Recovered, therefore consumed: a second sweep must not fold the same corpse twice.
+        expect(await fs.pathExists(inFlightFile)).toBe(false);
+
+        // And the recovered failure must reach the scheduler, not just the manifest — backoff is
+        // the entire point. 1 failure ⇒ 2× cadence from the crashed attempt, still in the future.
+        const repoState = result.details.repos.find(state => state.repoSlug === 'org/lease-repo');
+        expect(repoState.status).toBe('backoff-suppressed');
+        expect(repoState.consecutiveFailures).toBe(1);
+        expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 2 * 60 * 60_000);
+    });
+
+    // The exponential term has to keep growing across successive crashes, which is the whole
+    // reason the record carries `priorFailures` instead of re-reading the manifest. A crash loop
+    // never commits, so a fold that re-derived its base from committed state would read the same
+    // number every restart and the cadence would sit flat at 2x forever — dampening in name only.
+    // Asserted on the resolved cadence value rather than on a log line, because the log is what
+    // agreed with the frozen counters last time while the arithmetic disagreed.
+    test('successive crashed attempts keep growing the backoff term, not just the first (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            baseCadenceMs    = 60 * 60_000,
+            crashedAttemptAt = Date.now() - 20 * 60_000;
+
+        // Committed `consecutiveFailures` is 0 — BEHIND the crashed attempt's own view, exactly
+        // as it is in a crash loop that never reaches its terminal commit.
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : crashedAttemptAt - 60_000,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // The dying process had already survived two earlier crashes.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 2
+        }});
+
+        // Cap removed for the same reason as the sibling spec: the configured 2h ceiling would
+        // clamp 8x-of-60min to exactly the same value a broken multiplier produces, and an
+        // assertion that cannot tell those apart is not measuring backoff growth at all.
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs: baseCadenceMs,
+            backoffCapMs   : 0
+        }));
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        // 2 observed + this one = 3, NOT 1 — the committed 0 must not win.
+        expect(persisted.consecutiveFailures).toBe(3);
+
+        const repoState = result.details.repos.find(state => state.repoSlug === 'org/lease-repo');
+
+        expect(repoState.consecutiveFailures).toBe(3);
+        // 2^3 of base, on the value.
+        expect(repoState.effectiveCadenceMs).toBe(8 * baseCadenceMs);
+        expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 8 * baseCadenceMs);
+    });
+
+    // A recovered attempt must be consumed ONCE.
+    //
+    // The fold cleared the sidecar on DISK but kept the same object in memory as the live
+    // in-flight map. The first repo that entered protected work then rewrote the whole file from
+    // that object — republishing the already-consumed entry, which the NEXT sweep folds again, and
+    // the next. A recovery that re-arms itself is worse than no recovery: it inflates
+    // `consecutiveFailures` without bound on a lane that is succeeding.
+    //
+    // The witness has to be built precisely, and my first attempt was NOT. Two repos both running
+    // does not reproduce it: the residue-holder's own fresh attempt overwrites its stale entry
+    // under the same key, then its `finally` deletes it, and the map empties correctly. The setup
+    // healed the defect.
+    //
+    // The property the witness must share: the residue-holder must NOT run this sweep, so nothing
+    // overwrites its consumed entry, while a SIBLING does run and rewrites the whole file from the
+    // shared in-memory map. Folding repo-a sets `consecutiveFailures: 1`, which suppresses it under
+    // a long cadence — so the fold itself produces the required not-due state.
+    test('a recovered attempt is consumed once and never republished by a sibling repo (#16551)', async () => {
+        const
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            baseCadenceMs    = 60 * 60_000,
+            crashedAttemptAt = Date.now() - 60_000,
+            repos            = [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo-a.git'},
+                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo-b.git'}
+            ];
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            't1/org/repo-a': {
+                lastIngestedRev                   : 'sha-a',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            },
+            't1/org/repo-b': {
+                lastIngestedRev                   : 'sha-b',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }
+        }});
+
+        // Only repo-a crashed, and recently — so once the fold makes it `consecutiveFailures: 1`
+        // it is suppressed for this sweep and never re-enters the mutate path.
+        await fs.writeJson(inFlightFile, {'t1/org/repo-a': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 0
+        }});
+
+        await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repos},
+            globalCadenceMs  : baseCadenceMs,
+            backoffCapMs     : 0
+        }));
+
+        // repo-b ran and returned; repo-a was suppressed and never started. Nothing is in flight.
+        expect(
+            await fs.pathExists(inFlightFile),
+            'the sidecar survived a sweep with nothing in flight — repo-b republished repo-a\'s ' +
+            'already-consumed entry from the shared in-memory map, re-arming it'
+        ).toBe(false);
+
+        // The class assertion, independent of the file: a second sweep must not fold repo-a again.
+        // One crash happened, so the counter is 1 — and must STAY 1.
+        await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repos},
+            globalCadenceMs  : baseCadenceMs,
+            backoffCapMs     : 0
+        }));
+
+        expect(
+            (await fs.readJson(revisionsFile)).revisions['t1/org/repo-a'].consecutiveFailures,
+            'repo-a was folded a second time from one crash — a recovery that re-arms itself ' +
+            'inflates the backoff term without bound on a lane that is not failing'
+        ).toBe(1);
+    });
+
+    // An evicted run must not clear a sidecar entry its successor now owns.
+    //
+    // My first attempt at this witness took the lease over inside `gitMirror.fetch` and PASSED
+    // against the unfixed source, so it proved nothing and was deleted. The ordering is what makes
+    // it reachable: the takeover has to land AFTER the predecessor has persisted its own in-flight
+    // record, otherwise its `finally` has nothing to write and the stale whole-file write never
+    // happens. `envelopeEntered` is the sequencing point — resolved at the top of the envelope
+    // builder, before the gate is awaited, so awaiting it proves the record already exists.
+    //
+    // The successor sidecar is written inside the lifecycle guard together with the lease
+    // replacement, so an in-flight renewal tick cannot interleave with the test's own writes.
+    test('an evicted run does not clear the sidecar entry its successor owns (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1},
+            baseEnvelope     = makeFakeEnvelopeBuilder();
+
+        let releaseEnvelope, markEnvelopeEntered;
+
+        const
+            envelopeGate    = new Promise(resolve => releaseEnvelope     = resolve),
+            envelopeEntered = new Promise(resolve => markEnvelopeEntered = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            leaseStaleAfterMs     : 60_000,
+            leaseRenewalIntervalMs: 25,
+            envelopeBuilder       : async (...args) => {
+                markEnvelopeEntered();
+                await envelopeGate;
+                return baseEnvelope(...args)
+            }
+        }));
+
+        for (let i = 0; i < 200 && !await fs.pathExists(leaseFilePath()); i++) {
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        expect(await fs.pathExists(leaseFilePath())).toBe(true);
+
+        // The predecessor is now inside protected work with its own in-flight record persisted.
+        await envelopeEntered;
+
+        const guardPath = `${leaseFilePath()}${LIFECYCLE_GUARD_SUFFIX}`;
+        await fs.ensureDir(guardPath);
+        await fs.writeJson(leaseFilePath(), buildLeasePayload({
+            owner       : 'successor-owner',
+            reason      : 'tenant-repo-sync',
+            pid         : process.pid,
+            staleAfterMs: 60_000,
+            token       : 'successor-token'
+        }));
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+        await fs.rmdir(guardPath);
+
+        await new Promise(resolve => setTimeout(resolve, 120));
+
+        releaseEnvelope();
+        const result = await invocation;
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_LEASE_LOST');
+
+        // The whole point: the evicted predecessor's `finally` must not write its own view over
+        // the successor's record. Exact equality, not existence — a rewritten-but-present file
+        // would pass a pathExists check while having lost the successor's attempt.
+        expect(
+            await fs.readJson(inFlightFile),
+            'the evicted predecessor overwrote the sidecar the successor owns; the successor\'s ' +
+            'attempt is unrecorded, so a crash during it leaves backoff unable to engage'
+        ).toEqual({'t1/org/lease-repo': successorEntry});
+    });
+
+    // Takeover AFTER the ownership check, which fencing cannot fix.
+    //
+    // `await leaseGuard()` followed by a write is check-then-act: the lease can expire and a
+    // successor legitimately acquire in the window between the two syscalls. The sibling witness
+    // above covers takeover BEFORE the check, where the guard rejects the write. This one covers
+    // after it, where the guard has already said yes — and no amount of extra fencing closes that
+    // window, because the check and the write are separate operations.
+    //
+    // The answer is ownership on the record: a mutation carries the id of the run that wrote it,
+    // and entries owned by another run are merged forward untouched. The successor's entry is
+    // written while the predecessor is parked inside protected work, under the SAME repo label —
+    // same-label is the hard case, since a per-label read-modify-write would still clobber it.
+    test('a resumed predecessor merges around the successor rather than deleting it (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1, runId: 'successor-run'},
+            baseEnvelope     = makeFakeEnvelopeBuilder();
+
+        let releaseEnvelope, markEnvelopeEntered;
+
+        const
+            envelopeGate    = new Promise(resolve => releaseEnvelope     = resolve),
+            envelopeEntered = new Promise(resolve => markEnvelopeEntered = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            envelopeBuilder: async (...args) => {
+                markEnvelopeEntered();
+                await envelopeGate;
+                return baseEnvelope(...args)
+            }
+        }));
+
+        // The predecessor is inside protected work with its own record already persisted, and its
+        // ownership check for the pending clear has effectively already passed.
+        await envelopeEntered;
+
+        // A successor takes the repo over and records its own attempt under the same label.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+
+        releaseEnvelope();
+        await invocation;
+
+        // The predecessor's clear must not consume a record it does not own.
+        expect(
+            await fs.readJson(inFlightFile).catch(() => null),
+            'the resumed predecessor deleted or overwrote the successor\'s record; the successor\'s ' +
+            'attempt is unrecorded, so a crash during it leaves backoff unable to engage'
+        ).toEqual({'t1/org/lease-repo': successorEntry});
+    });
+
+    // The window three earlier witnesses missed: successor acquisition attempted strictly BETWEEN
+    // the predecessor's sidecar read and its write.
+    //
+    // Ordering specified by @neo-gpt after my third attempt again landed in an easy window. The
+    // assertion is on the guard REFUSING, not on a pending promise: `enterLifecycleGuard` is
+    // bounded (100 attempts x 10ms), so past that budget a contended recovery resolves
+    // `{status: 'held', guardContended: true}` rather than staying unsettled. Asserting "still
+    // pending" would fail against CORRECT code on a slow run — the bounded refusal is both
+    // deterministic and the stronger claim, because it shows the mutex actively refused.
+    //
+    // Only the RECOVERY path contends: acquiring a vacant name is a plain exclusive `wx` create
+    // deliberately outside the guard. Hence the short `leaseStaleAfterMs` — the successor must
+    // find a STALE lease so it takes the guarded recovery path at all.
+    test('successor acquisition is refused while the predecessor holds the guard mid-transaction (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1, runId: 'successor-run'},
+            originalRead     = TenantRepoSyncService.readInFlightAttempts.bind(TenantRepoSyncService);
+
+        let readCount = 0, releasePredecessor, markPaused;
+
+        const
+            resumeGate = new Promise(resolve => releasePredecessor = resolve),
+            pausedGate = new Promise(resolve => markPaused        = resolve);
+
+        // Pause AFTER the read and BEFORE the write, while the guard is held. Reads: [1] the
+        // sweep-start fold (outside the guard), [2] the first mutate inside it — that is the one.
+        TenantRepoSyncService.readInFlightAttempts = async options => {
+            const result = await originalRead(options);
+
+            if (++readCount === 2) {
+                markPaused();
+                await resumeGate;
+            }
+
+            return result
+        };
+
+        try {
+            const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+                taskStateService,
+                leaseStaleAfterMs: 50
+            }));
+
+            await pausedGate;
+
+            // The predecessor is inside the critical section holding the guard, its lease now
+            // going stale. A production successor attempts recovery acquisition.
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const successor = await acquireHeavyMaintenanceLease({
+                leasePath   : leaseFilePath(),
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                staleAfterMs: 60_000
+            });
+
+            // The mutex did its job: recovery could not proceed while the transaction was open.
+            expect(
+                successor.acquired,
+                'a successor acquired the lease while the predecessor held the lifecycle guard ' +
+                'mid-transaction — the read and the write are not serialized against acquisition, ' +
+                'so the predecessor\'s pending write can still land over the successor\'s state'
+            ).toBe(false);
+            expect(successor.status).toBe('held');
+            expect(successor.guardContended).toBe(true);
+
+            releasePredecessor();
+            await invocation;
+
+            // Release -> retry. The refusal must be TEMPORARY: a guard that is entered and never
+            // exited would refuse forever, which passes the assertion above while deadlocking the
+            // lane. This is the half that tells those two apart.
+            const retry = await acquireHeavyMaintenanceLease({
+                leasePath   : leaseFilePath(),
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                staleAfterMs: 60_000
+            });
+
+            expect(
+                retry.acquired,
+                'the successor still cannot acquire after the predecessor finished — the guard was ' +
+                'entered and not exited, so the refusal above was a deadlock rather than mutual exclusion'
+            ).toBe(true);
+
+            // And the successor's own record, written under the SAME label, is exactly what a
+            // later reader sees: the predecessor left no residue behind to be folded again.
+            await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+            expect(await fs.readJson(inFlightFile)).toEqual({'t1/org/lease-repo': successorEntry});
+        } finally {
+            TenantRepoSyncService.readInFlightAttempts = originalRead;
+        }
+    });
+
+    // A best-effort sidecar policy must not absorb the MANIFEST's structural failure.
+    //
+    // The shared transaction helper swallows callback errors so a failed sidecar write cannot mask
+    // the real error a repo failed with — correct for the per-repo path, where the cost is one
+    // unrecorded attempt. Recovery is not that: it commits the manifest, whose writer deliberately
+    // throws `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED`. Applying one error policy to both
+    // callers converted that documented reason code into a silent `false` — a failure-taxonomy
+    // regression that reads as tidiness.
+    test('a manifest write failure during recovery still fails the task with its reason code (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            originalWrite    = TenantRepoSyncService.writePersistedRevisions.bind(TenantRepoSyncService);
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // Residue, so recovery reaches the manifest commit at all.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {startedMs: Date.now() - 60_000, priorFailures: 0}});
+
+        TenantRepoSyncService.writePersistedRevisions = async () => {
+            const error = new Error('Failed to persist tenant-repo-sync revisions');
+
+            error.code = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
+            throw error
+        };
+
+        try {
+            const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({taskStateService}));
+
+            expect(result.status).toBe('failed');
+            expect(
+                result.details.reasonCode,
+                'the manifest\'s structural failure was swallowed by the sidecar\'s best-effort ' +
+                'policy — the lane reports success while the revision manifest was never committed'
+            ).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
+        } finally {
+            TenantRepoSyncService.writePersistedRevisions = originalWrite;
+        }
+    });
+
+    // Fail-closed is the helper's most serious branch, and it was reasoned-only until now.
+    //
+    // `enterLifecycleGuard` returns null once its bounded retry budget is exhausted. An earlier
+    // revision fell through and ran the recovery read-fold-commit UNGUARDED — the guard silently
+    // stopped existing at exactly the moment contention proved another actor was live. The
+    // observable property is a NON-EVENT, so it has to be asserted as one: residue neither folded
+    // into the manifest nor cleared from the sidecar.
+    //
+    // Holds a REAL guard rather than stubbing the entry, so the refusal comes from the production
+    // primitive's own contention path.
+    test('a contended guard makes recovery fail closed: residue is neither folded nor cleared (#16551)', async () => {
+        const
+            inFlightFile   = `${revisionsFile}.in-flight`,
+            residualEntry  = {startedMs: Date.now() - 60 * 60_000, priorFailures: 0},
+            manifestBefore = {'t1/org/lease-repo': {
+                lastIngestedRev                   : 'sha-before',
+                lastRunAttemptAt                  : Date.now(),
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }};
+
+        await fs.writeJson(revisionsFile, {revisions: manifestBefore});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': residualEntry});
+
+        // Someone else holds the guard for the whole sweep.
+        await fs.ensureDir(path.dirname(leaseFilePath()));
+        const held = await enterLifecycleGuard({leasePath: leaseFilePath(), fsModule: fs});
+
+        expect(held, 'could not take the guard, so the contention this test needs never existed').toBeTruthy();
+
+        try {
+            // One not-due repo, so the ONLY sidecar work this sweep would do is the recovery fold.
+            await TenantRepoSyncService.syncTenantRepos({
+                taskStateService : createInMemoryTaskStateService(),
+                revisionsFilePath: revisionsFile,
+                leasePath        : leaseFilePath(),
+                leaseGuard       : async () => {},
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug: 'org/lease-repo', mirrorRoot,
+                    cloneUrl: 'https://github.com/neomjs/lease-repo.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                globalCadenceMs              : 60 * 60_000,
+                jitterRatio                  : 0,
+                seedBootstrap                : false
+            });
+
+            // Asserted on the FOLD'S EFFECT, not on manifest bytes: a sweep always rewrites the
+            // manifest at its terminal commit, so byte-equality cannot express "the fold did not
+            // happen" — it fails against correct code. Folding this residue would set
+            // `consecutiveFailures` to 1; a guard that refused leaves it at 0.
+            expect(
+                (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'].consecutiveFailures,
+                'the residue was folded while the guard was held by another actor — recovery ran ' +
+                'unguarded, which is the interleaving the guard exists to prevent'
+            ).toBe(0);
+
+            expect(
+                await fs.readJson(inFlightFile),
+                'the residue was cleared while the guard was held by another actor — the attempt ' +
+                'is now lost to whoever legitimately owns forward progress'
+            ).toEqual({'t1/org/lease-repo': residualEntry});
+        } finally {
+            await exitLifecycleGuard({ownerFilePath: held.ownerFilePath, fsModule: fs}).catch(() => {});
+        }
+    });
+
+    // The last unwitnessed branch: eviction DURING the manifest's staging I/O.
+    //
+    // Every earlier fence was one layer too shallow — around the transaction, then around the
+    // writer — and each still let the rename land while evicted. The commit point is the rename,
+    // so this pauses inside `fsync` (after the payload is staged, before it becomes the manifest),
+    // lets a legitimate successor steal the stale guard and lease and write DISTINCT manifest and
+    // sidecar values, then resumes the predecessor.
+    //
+    // The predecessor must lose both races: no manifest overwrite, no sidecar clear.
+    test('a predecessor evicted inside manifest staging commits nothing over its successor (#16551)', async () => {
+        const
+            taskStateService  = createInMemoryTaskStateService(),
+            inFlightFile      = `${revisionsFile}.in-flight`,
+            successorSidecar  = {'t1/org/lease-repo': {startedMs: 4242, priorFailures: 3, runId: 'successor-run'}},
+            successorManifest = {'t1/org/lease-repo': {
+                lastIngestedRev                   : 'sha-successor',
+                lastRunAttemptAt                  : 9999,
+                consecutiveFailures               : 7,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }},
+            originalWrite     = TenantRepoSyncService.writePersistedRevisions.bind(TenantRepoSyncService);
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {startedMs: Date.now() - 60 * 60_000, priorFailures: 0}});
+
+        let wrapped = false, markStaging, releaseStaging;
+
+        const
+            stagingEntered = new Promise(resolve => markStaging    = resolve),
+            stagingGate    = new Promise(resolve => releaseStaging = resolve);
+
+        // One-shot: only the FIRST writer call (recovery's) is paused. The sweep-terminal commit
+        // must run normally or the run never settles.
+        TenantRepoSyncService.writePersistedRevisions = async options => {
+            if (wrapped) return originalWrite(options);
+            wrapped = true;
+
+            return originalWrite({
+                ...options,
+                fsModule: {
+                    ...fs,
+                    async fsync(fd) {
+                        const result = await fs.fsync(fd);
+
+                        markStaging();
+                        await stagingGate;
+
+                        return result
+                    }
+                }
+            })
+        };
+
+        try {
+            const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+                taskStateService,
+                leaseStaleAfterMs: 40
+            }));
+
+            await stagingEntered;
+
+            // The payload is staged on the temp path but has NOT been renamed. Let the
+            // predecessor's guard and lease age out, then take both as a legitimate successor.
+            await new Promise(resolve => setTimeout(resolve, 120));
+
+            const stolen = await enterLifecycleGuard({
+                leasePath        : leaseFilePath(),
+                fsModule         : fs,
+                guardStaleAfterMs: 1
+            });
+
+            expect(stolen, 'could not steal the stale guard, so the eviction this test needs never happened').toBeTruthy();
+
+            await fs.writeJson(leaseFilePath(), buildLeasePayload({
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                pid         : process.pid,
+                staleAfterMs: 60_000,
+                token       : 'successor-token'
+            }));
+            await fs.writeJson(revisionsFile, {revisions: successorManifest});
+            await fs.writeJson(inFlightFile, successorSidecar);
+
+            // The successor's critical section is over, so it releases the guard BEFORE the
+            // predecessor resumes. Holding it would block the predecessor's own lease release,
+            // which throws by design — that is the run failing on the successor's mutex, not on
+            // the property under test.
+            await exitLifecycleGuard({ownerFilePath: stolen.ownerFilePath, fsModule: fs});
+
+            releaseStaging();
+
+            // Surfaces lease loss rather than succeeding: the predecessor no longer owns anything.
+            const result = await invocation;
+
+            expect(result.status).toBe('failed');
+
+            // Both successor artifacts survive exactly. Under the pre-fence source the rename
+            // lands regardless and the manifest is the predecessor's.
+            expect(
+                (await fs.readJson(revisionsFile)).revisions,
+                'the evicted predecessor renamed its staged manifest over the successor\'s — the ' +
+                'successor\'s committed state is gone and every repo re-syncs from a stale base'
+            ).toEqual(successorManifest);
+
+            expect(
+                await fs.readJson(inFlightFile),
+                'the evicted predecessor cleared the successor\'s sidecar — its in-flight attempt ' +
+                'is unrecorded, so a crash during it leaves backoff unable to engage'
+            ).toEqual(successorSidecar);
+        } finally {
+            TenantRepoSyncService.writePersistedRevisions = originalWrite;
+        }
     });
 
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
