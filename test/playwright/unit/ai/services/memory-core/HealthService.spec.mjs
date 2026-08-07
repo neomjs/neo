@@ -386,6 +386,16 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         HealthService = healthModule.default;
         buildEmbeddingWriteCanaryBlock = healthModule.buildEmbeddingWriteCanaryBlock;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+
+        // The run-scoped Chroma setup project starts the Chroma PROCESS; the run-scoped test
+        // DATABASE is created by `ChromaManager.connect()`. Now that Chroma resolution is
+        // demand-driven, that connect happens on first use rather than at singleton boot — and
+        // `beforeEach` below replaces `connect()`, so the real one would never run and every
+        // `getOrCreateCollection` would fail with "Database [neo-unit-test] does not exist".
+        //
+        // Forcing it once here, before any stub exists, restores what boot-time construction used
+        // to provide. This spec is the only one in the suite that stubs `connect()`.
+        await ChromaManager.ensureChromaReady();
     });
 
     test.beforeEach(async () => {
