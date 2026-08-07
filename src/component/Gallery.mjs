@@ -30,7 +30,7 @@ class Gallery extends Component {
         amountRows_: 3,
         /**
          * The background color of the gallery container
-         * @member {String} backgroundColor_='#000000'
+         * @member {String} backgroundColor_='#000000' ticket-ref-ok: hex colour, not an issue ref
          * @reactive
          */
         backgroundColor_: '#000000',
@@ -361,10 +361,11 @@ class Gallery extends Component {
 
         oldValue?.destroy();
 
+        // No `sort` listener: `Store.onCollectionSort` re-fires a sort as a `load`, and `onStoreLoad`
+        // rebuilds the items in the new order. A second handler could only ever see the corrected order.
         return ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners  : {
                 load : me.onStoreLoad,
-                sort : me.onSort,
                 scope: me
             }
         })
@@ -625,12 +626,12 @@ class Gallery extends Component {
         }
 
         let {appName, id, itemHeight, itemWidth, windowId} = me,
-            camera         = me.vdom.cn[0].cn[0],
-            cameraStyle    = camera.style,
-            dollyTransform = me.getCameraTransformForCell(index),
-            height         = me.offsetHeight / (me.amountRows + 2),
-            width          = Math.round(height * itemWidth / itemHeight),
-            spacing        = width + 10,
+            camera                                         = me.vdom.cn[0].cn[0],
+            cameraStyle                                    = camera.style,
+            dollyTransform                                 = me.getCameraTransformForCell(index),
+            height                                         = me.offsetHeight / (me.amountRows + 2),
+            width                                          = Math.round(height * itemWidth / itemHeight),
+            spacing                                        = width + 10,
             timeoutId;
 
         me.transitionTimeouts.forEach(item => {
@@ -696,50 +697,35 @@ class Gallery extends Component {
     }
 
     /**
+     * @summary Rebuilds every item vdom, then restores the state the rebuild destroys.
      *
-     */
-    onSort() {
-        if (this[itemsMounted] === true) {
-            let me        = this,
-                hasChange = false,
-                items     = [...me.store.items || []],
-                newCn     = [],
-                view      = me.getItemsRoot(),
-                vdomMap   = view.cn.map(e => e.id),
-                fromIndex, vdomId;
-
-            items.length = Math.min(me.maxItems, me.store.getCount());
-
-            if (items.length > 0) {
-                items.forEach((item, index) => {
-                    vdomId    = me.getItemVnodeId(me.getRecordId(item));
-                    fromIndex = vdomMap.indexOf(vdomId);
-
-                    newCn.push(view.cn[fromIndex]);
-
-                    if (index !== fromIndex) {
-                        hasChange = true
-                    }
-                });
-
-                if (hasChange) {
-                    view.cn = newCn;
-                    me.update();
-
-                    me.timeout(50).then(() => {
-                        me.afterSetOrderByRow(me.orderByRow, !me.orderByRow)
-                    })
-                }
-            }
-        }
-    }
-
-    /**
+     * `data.Store` re-fires a sort as a `load` ({@link Neo.data.Store#onCollectionSort}), so this is the
+     * sort path too. It replaces every child of the items root with fresh {@link Neo.component.Gallery#createItem}
+     * output built from `itemTpl`, which carries no selection state — while `selection.Model` tracks *ids* and
+     * annotates the vdom *nodes* it resolves. The rebuilt nodes are new objects, so `neo-selected` and
+     * `aria-selected` go with the old ones while `hasSelection()` still reports a selection, and the camera is
+     * left pointing at the selected item's pre-sort cell.
+     *
+     * The repair is bound here, to the rebuild, rather than to a sort handler: every full rebuild destroys the
+     * annotation, not only a sort-driven one.
+     *
+     * Reordering is NOT done here in the sense Helix means it — the rebuild emits items in the new store order
+     * and the differ owns the DOM moves, exactly once. `onSort` used to run a second pass afterwards; it could
+     * never observe stale order, so it was removed rather than fixed.
+     *
      * @param {Object[]} items
      */
     onStoreLoad(items) {
-        this.getItemsRoot().cn = []; // silent update
-        this.createItems()
+        let me = this,
+            sm = me.selectionModel;
+
+        me.getItemsRoot().cn = []; // silent update
+        me.createItems();
+
+        if (sm?.hasSelection()) {
+            sm.restoreSelection(true);
+            me.onSelectionChange(sm.items)
+        }
     }
 
     /**
