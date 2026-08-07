@@ -37,6 +37,10 @@ import {
     buildLeasePayload
 } from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {
+    enterLifecycleGuard,
+    exitLifecycleGuard
+} from '../../../../../../../ai/daemons/shared/lifecycleGuard.mjs';
+import {
     buildRunTaskOptions,
     parseArgs,
     resolveExitCode
@@ -3728,6 +3732,76 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             ).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
         } finally {
             TenantRepoSyncService.writePersistedRevisions = originalWrite;
+        }
+    });
+
+    // Fail-closed is the helper's most serious branch, and it was reasoned-only until now.
+    //
+    // `enterLifecycleGuard` returns null once its bounded retry budget is exhausted. An earlier
+    // revision fell through and ran the recovery read-fold-commit UNGUARDED — the guard silently
+    // stopped existing at exactly the moment contention proved another actor was live. The
+    // observable property is a NON-EVENT, so it has to be asserted as one: residue neither folded
+    // into the manifest nor cleared from the sidecar.
+    //
+    // Holds a REAL guard rather than stubbing the entry, so the refusal comes from the production
+    // primitive's own contention path.
+    test('a contended guard makes recovery fail closed: residue is neither folded nor cleared (#16551)', async () => {
+        const
+            inFlightFile   = `${revisionsFile}.in-flight`,
+            residualEntry  = {startedMs: Date.now() - 60 * 60_000, priorFailures: 0},
+            manifestBefore = {'t1/org/lease-repo': {
+                lastIngestedRev                   : 'sha-before',
+                lastRunAttemptAt                  : Date.now(),
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }};
+
+        await fs.writeJson(revisionsFile, {revisions: manifestBefore});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': residualEntry});
+
+        // Someone else holds the guard for the whole sweep.
+        await fs.ensureDir(path.dirname(leaseFilePath()));
+        const held = await enterLifecycleGuard({leasePath: leaseFilePath(), fsModule: fs});
+
+        expect(held, 'could not take the guard, so the contention this test needs never existed').toBeTruthy();
+
+        try {
+            // One not-due repo, so the ONLY sidecar work this sweep would do is the recovery fold.
+            await TenantRepoSyncService.syncTenantRepos({
+                taskStateService : createInMemoryTaskStateService(),
+                revisionsFilePath: revisionsFile,
+                leasePath        : leaseFilePath(),
+                leaseGuard       : async () => {},
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug: 'org/lease-repo', mirrorRoot,
+                    cloneUrl: 'https://github.com/neomjs/lease-repo.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                globalCadenceMs              : 60 * 60_000,
+                jitterRatio                  : 0,
+                seedBootstrap                : false
+            });
+
+            // Asserted on the FOLD'S EFFECT, not on manifest bytes: a sweep always rewrites the
+            // manifest at its terminal commit, so byte-equality cannot express "the fold did not
+            // happen" — it fails against correct code. Folding this residue would set
+            // `consecutiveFailures` to 1; a guard that refused leaves it at 0.
+            expect(
+                (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'].consecutiveFailures,
+                'the residue was folded while the guard was held by another actor — recovery ran ' +
+                'unguarded, which is the interleaving the guard exists to prevent'
+            ).toBe(0);
+
+            expect(
+                await fs.readJson(inFlightFile),
+                'the residue was cleared while the guard was held by another actor — the attempt ' +
+                'is now lost to whoever legitimately owns forward progress'
+            ).toEqual({'t1/org/lease-repo': residualEntry});
+        } finally {
+            await exitLifecycleGuard({ownerFilePath: held.ownerFilePath, fsModule: fs}).catch(() => {});
         }
     });
 

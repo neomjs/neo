@@ -1158,17 +1158,24 @@ class TenantRepoSyncService extends Base {
             // next boot, which over-counts one failure and dampens harder — the safe direction.
             // Clearing first would lose the attempt on a crash, which is the defect this recovers
             // from.
-            await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+            // The fence travels INTO the writer, because the commit point is its rename and the
+            // staging before that is multi-await I/O a holder can be evicted inside. Proving
+            // ownership out here only bounds the mutations that follow — it cannot stop the
+            // manifest itself from being overwritten by a run that lost the lease mid-write.
+            const {committed} = await this.writePersistedRevisions({
+                assertOwnership: assertStillOwned,
+                filePath       : resolvedRevisionsPath,
+                revisions      : persistedRevisions
+            });
 
-            // Re-proved because these are TWO mutations, not one. `writePersistedRevisions` is a
-            // multi-await transaction (temp write, fsync, close, rename); a holder can pass the
-            // check above, stall inside that I/O past `guardStaleAfterMs`, be legitimately evicted,
-            // and resume here after a successor has acquired and written its own sidecar. One proof
-            // cannot cover two mutations separated by unbounded I/O.
-            //
-            // Declining to clear is the safe direction: the residue is re-folded next sweep, which
-            // over-counts one failure and dampens harder. Clearing it while evicted would delete a
-            // successor's live record.
+            // Deferred at the commit point: the successor owns forward progress and the residue
+            // must survive for it to fold. Clearing now would delete evidence of an attempt whose
+            // recovery never landed.
+            if (!committed) return;
+
+            // Re-proved because these are TWO mutations, not one. Declining to clear is the safe
+            // direction: the residue is re-folded next sweep, which over-counts one failure and
+            // dampens harder. Clearing it while evicted would delete a successor's live record.
             if (!await assertStillOwned()) return;
 
             await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
@@ -2075,7 +2082,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
      * @returns {Promise<void>}
      */
-    async writePersistedRevisions({filePath, revisions, fsModule = fs}) {
+    async writePersistedRevisions({filePath, revisions, fsModule = fs, assertOwnership = null}) {
         const tmpPath = `${filePath}.tmp-${process.pid}`;
 
         try {
@@ -2094,7 +2101,26 @@ class TenantRepoSyncService extends Base {
                 await fsModule.close(fd);
             }
 
+            // THE COMMIT POINT IS THE RENAME, so the ownership fence belongs immediately before
+            // it and nowhere else. Everything above is staging on a private temp path and is
+            // discardable; the rename is the instant this document becomes the manifest.
+            //
+            // A caller that proved ownership before calling is not protected: the staging above is
+            // multi-await I/O, and a holder can be legitimately evicted inside it. Proving after
+            // the rename is worse than useless — the overwrite has already happened, and declining
+            // some LATER mutation does not undo it.
+            //
+            // Returns `{committed: false}` rather than throwing: a lost fence is a deferral, not a
+            // failure. The successor owns forward progress and this run's state is simply stale, so
+            // the next sweep re-derives it. Callers that must distinguish the two read `committed`.
+            if (assertOwnership && !await assertOwnership()) {
+                await fsModule.remove(tmpPath).catch(() => {});
+                return {committed: false, reason: 'ownership-lost'}
+            }
+
             await fsModule.rename(tmpPath, filePath);
+
+            return {committed: true}
         } catch (e) {
             await fsModule.remove(tmpPath).catch(() => {});
             throw new TenantRepoSyncError(
