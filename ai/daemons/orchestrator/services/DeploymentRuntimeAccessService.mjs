@@ -166,6 +166,17 @@ export class DeploymentRuntimeAccessService extends Base {
     }
 
     /**
+     * Per-target tail of the memory-limit critical section (`withMemoryLimitExclusion`). Process-local
+     * on purpose: the recovery-actuator decision record puts the docker socket in exactly ONE
+     * orchestrator-resident holder — ADR-0026 // ticket-ref-ok: the ADR is the governing authority for the single-holder topology this soundness argument rests on
+     * (the singleton lease forbids a second), so there is no cross-process racer for this map to
+     * miss — the assumption is architectural, not hopeful.
+     * @member {Map} memoryLimitLocksByService=new Map()
+     * @protected
+     */
+    memoryLimitLocksByService = new Map()
+
+    /**
      * Resolves the active runtime-access config.
      * @returns {Object}
      */
@@ -770,44 +781,79 @@ export class DeploymentRuntimeAccessService extends Base {
             });
         }
 
-        // 3. Raise-only, bound against what the container ACTUALLY enforces. Docker reports 0 for
-        //    an unlimited ceiling, and lowering a store's limit is an OOM instruction — the corpus
-        //    does not shrink to fit. Within-band lowerings are exactly the case the band alone
-        //    cannot catch, so the live limit is read at the boundary too. Monotonic-raise plus the
-        //    band cap also bounds the direct path's total travel: it ratchets to the cap and then
-        //    refuses forever, so even a caller that skips the actuator's cadence envelope cannot
-        //    loop this operation meaningfully.
-        const inspection     = await this.inspectTarget(target),
-              liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
+        // 3. Raise-only, bound against what the container ACTUALLY enforces — evaluated INSIDE the
+        //    per-target critical section, because the check is only as strong as its freshness.
+        //    Cycle-2 falsifier (@neo-gpt, run red at the previous head): two concurrent callers both
+        //    inspect 8 GiB; the 16 GiB update lands; the 12 GiB call — validated against its stale
+        //    read — then lands a LOWERING each call individually forbids. Docker's update endpoint
+        //    has no compare-and-set, so exclusion across inspect-through-update is the honest
+        //    primitive. Docker reports 0 for an unlimited ceiling, and lowering a store's limit is
+        //    an OOM instruction — the corpus does not shrink to fit. Within-band lowerings are
+        //    exactly the case the band alone cannot catch. Monotonic-raise plus the band cap also
+        //    bounds the direct path's total travel: it ratchets to the cap and then refuses forever.
+        return this.withMemoryLimitExclusion(target.serviceKey, async () => {
+            const inspection     = await this.inspectTarget(target),
+                  liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
 
-        if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0 || memoryLimitBytes <= liveLimitBytes) {
-            throw createRuntimeAccessError({
-                reason : 'runtime-memory-limit-not-a-raise',
-                message: !Number.isFinite(liveLimitBytes)
-                    ? `update-memory-limit refuses '${target.serviceKey}': the live memory limit is unreadable from inspect`
-                    : liveLimitBytes <= 0
-                        ? `update-memory-limit refuses '${target.serviceKey}': the container reports an unlimited ceiling, which cannot be raised`
-                        : `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': at or below the live limit ${liveLimitBytes}`,
-                details: {
-                    ...this.createEffectiveConfigSummary(),
-                    serviceKey: target.serviceKey
-                }
+            if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0 || memoryLimitBytes <= liveLimitBytes) {
+                throw createRuntimeAccessError({
+                    reason : 'runtime-memory-limit-not-a-raise',
+                    message: !Number.isFinite(liveLimitBytes)
+                        ? `update-memory-limit refuses '${target.serviceKey}': the live memory limit is unreadable from inspect`
+                        : liveLimitBytes <= 0
+                            ? `update-memory-limit refuses '${target.serviceKey}': the container reports an unlimited ceiling, which cannot be raised`
+                            : `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': at or below the live limit ${liveLimitBytes}`,
+                    details: {
+                        ...this.createEffectiveConfigSummary(),
+                        serviceKey: target.serviceKey
+                    }
+                });
+            }
+
+            const response = await this.dockerRequest({
+                method : 'POST',
+                path   : `/containers/${encodeURIComponent(target.containerId)}/update`,
+                headers: {'Content-Type': 'application/json'},
+                body   : JSON.stringify({Memory: memoryLimitBytes, MemorySwap: memoryLimitBytes})
             });
-        }
 
-        const response = await this.dockerRequest({
-            method : 'POST',
-            path   : `/containers/${encodeURIComponent(target.containerId)}/update`,
-            headers: {'Content-Type': 'application/json'},
-            body   : JSON.stringify({Memory: memoryLimitBytes, MemorySwap: memoryLimitBytes})
+            return {
+                ok        : true,
+                data      : {updated: true, memoryLimitBytes, reason},
+                proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'update-memory-limit', target, reason}),
+                statusCode: response.statusCode
+            };
         });
+    }
 
-        return {
-            ok        : true,
-            data      : {updated: true, memoryLimitBytes, reason},
-            proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'update-memory-limit', target, reason}),
-            statusCode: response.statusCode
-        };
+    /**
+     * @summary Serializes the memory-limit check-through-write critical section per target.
+     *
+     * A raise-only check evaluated against a stale read is not raise-only: without exclusion, two
+     * concurrent callers can both validate against the same live limit and the later, smaller update
+     * lands a lowering each call individually forbids. The queue is a per-service promise chain — a
+     * predecessor's FAILURE releases its successor (its error was already thrown to its own caller),
+     * and the stored tail never rejects, so one refused raise cannot poison the lane for the next.
+     * The map entry is deleted when its tail drains, so the map tracks in-flight targets only.
+     *
+     * @param {String} serviceKey Identity-proven compose service key.
+     * @param {Function} criticalSection Async section spanning the live read through the update.
+     * @returns {Promise<*>}
+     */
+    async withMemoryLimitExclusion(serviceKey, criticalSection) {
+        const previous = this.memoryLimitLocksByService.get(serviceKey) ?? Promise.resolve(),
+              run      = previous.then(criticalSection, criticalSection),
+              tail     = run.then(() => {}, () => {});
+
+        this.memoryLimitLocksByService.set(serviceKey, tail);
+
+        try {
+            return await run
+        } finally {
+            if (this.memoryLimitLocksByService.get(serviceKey) === tail) {
+                this.memoryLimitLocksByService.delete(serviceKey)
+            }
+        }
     }
 
     /**

@@ -655,6 +655,66 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             expect(calls.some(call => String(call.path).endsWith('/update'))).toBe(false);
         });
 
+        test('CONCURRENT lowering is unreachable — the check-through-write section is serialized per target', async () => {
+            // Cycle-2 falsifier, run red against the sequential-only fix: two callers both inspect
+            // 8 GiB, the 16 GiB update lands, and the 12 GiB call — validated against its stale
+            // read — lands a lowering each call individually forbids. This mock is STATEFUL (inspect
+            // reads what update last wrote) and the inspect carries an interleave-widening tick, so
+            // an un-serialized implementation genuinely reproduces the race: removing the exclusion
+            // makes both callers read 8 GiB and the final limit land at 12 — this spec is the
+            // deterministic witness that it cannot.
+            let liveLimitBytes = 8 * GIB;
+
+            const updates         = [],
+                  dockerRequestFn = async request => {
+                      if (request.path.startsWith('/containers/json')) {
+                          return {statusCode: 200, headers: {}, body: JSON.stringify([chromaContainer()])};
+                      }
+
+                      if (request.path.endsWith('/json')) {
+                          // The stale read is captured at inspect ENTRY — that is when Docker reads
+                          // the cgroup — and the tick models the daemon round-trip. An un-serialized
+                          // implementation lets both callers enter here before either update lands,
+                          // so both capture 8 GiB; a serialized one cannot start the second inspect
+                          // until the first section completes.
+                          const observedLimitBytes = liveLimitBytes;
+
+                          await new Promise(resolve => setTimeout(resolve, 5));
+                          return {statusCode: 200, headers: {}, body: JSON.stringify({HostConfig: {Memory: observedLimitBytes}})};
+                      }
+
+                      if (request.path.endsWith('/update')) {
+                          liveLimitBytes = JSON.parse(request.body).Memory;
+                          updates.push(liveLimitBytes);
+                          return {statusCode: 200, headers: {}, body: '{"Warnings":[]}'};
+                      }
+
+                      throw new Error(`Unexpected Docker request: ${request.method} ${request.path}`);
+                  };
+
+            const service = Neo.create(DeploymentRuntimeAccessService, {
+                runtimeAccessConfig: {...BASE_CONFIG, ...UPDATE_CONFIG},
+                dockerRequestFn
+            });
+
+            const [first, second] = await Promise.allSettled([
+                service.applyLifecycle({serviceKey: 'chroma', operation: 'update-memory-limit', memoryLimitBytes: 16 * GIB}),
+                service.applyLifecycle({serviceKey: 'chroma', operation: 'update-memory-limit', memoryLimitBytes: 12 * GIB})
+            ]);
+
+            expect(first.status).toBe('fulfilled');
+            expect(second.status).toBe('rejected');
+            expect(second.reason.reason).toBe('runtime-memory-limit-not-a-raise');
+            // The second caller's refusal is evaluated against the FIRST caller's applied limit —
+            // fresh, not stale.
+            expect(second.reason.message).toContain(`${16 * GIB}`);
+
+            // The falsifier's own exact assert, inverted into the guarantee: the final live limit is
+            // 16 GiB, one update total — a stale-validated lowering never reaches the endpoint.
+            expect(liveLimitBytes).toBe(16 * GIB);
+            expect(updates).toEqual([16 * GIB]);
+        });
+
         test('an unlimited or unreadable live ceiling refuses — an unknown bound is a refusal, never an absent one', async () => {
             for (const [inspectData, expectation] of [
                 [{HostConfig: {Memory: 0}}, 'unlimited ceiling'],
