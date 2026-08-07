@@ -1097,16 +1097,33 @@ class TenantRepoSyncService extends Base {
             await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
         }
 
-        // The sidecar is mutated from inside the concurrent per-repo region, so every write is
-        // serialized through one chain. Mirrors the constraint `writePersistedRevisions` already
-        // has: it stages through a single pid-scoped temp path, which concurrent writers would
-        // otherwise race on.
+        // The live in-flight map is a FRESH object, never the recovery snapshot. Reusing
+        // `residualAttempts` as the live map republished entries the fold had already consumed:
+        // the fold cleared the file but not the object, so the first repo to enter protected work
+        // rewrote the whole file from it and re-armed a spent attempt, which the next sweep folded
+        // again, without bound, on a lane that was succeeding. Recovery INPUT and in-flight STATE
+        // are different things with different lifetimes, and one object cannot be both.
+        const inFlightAttempts = {};
+
+        // Serialized through one chain: the sidecar is mutated from inside the concurrent per-repo
+        // region, and `writeInFlightAttempts` stages through a single pid-scoped temp path that
+        // concurrent writers would otherwise race on.
         let inFlightChain = Promise.resolve();
 
         const mutateInFlight = update => {
             inFlightChain = inFlightChain.then(async () => {
-                update(residualAttempts);
-                await this.writeInFlightAttempts({filePath: inFlightPath, attempts: residualAttempts});
+                update(inFlightAttempts);
+
+                // Lease-fenced, because this is a whole-file write of THIS sweep's view. A run that
+                // lost its lease must not clobber the successor that now owns forward progress —
+                // its stale clear would otherwise delete an attempt the successor has in flight.
+                // Swallowed rather than propagated: losing the sidecar write is bounded (one
+                // unrecorded attempt), whereas throwing from the per-repo `finally` would mask the
+                // real error the repo failed with.
+                try {
+                    await leaseGuard();
+                    await this.writeInFlightAttempts({filePath: inFlightPath, attempts: inFlightAttempts});
+                } catch (e) {}
             });
 
             return inFlightChain

@@ -3383,6 +3383,87 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 8 * baseCadenceMs);
     });
 
+    // A recovered attempt must be consumed ONCE.
+    //
+    // The fold cleared the sidecar on DISK but kept the same object in memory as the live
+    // in-flight map. The first repo that entered protected work then rewrote the whole file from
+    // that object — republishing the already-consumed entry, which the NEXT sweep folds again, and
+    // the next. A recovery that re-arms itself is worse than no recovery: it inflates
+    // `consecutiveFailures` without bound on a lane that is succeeding.
+    //
+    // The witness has to be built precisely, and my first attempt was NOT. Two repos both running
+    // does not reproduce it: the residue-holder's own fresh attempt overwrites its stale entry
+    // under the same key, then its `finally` deletes it, and the map empties correctly. The setup
+    // healed the defect.
+    //
+    // The property the witness must share: the residue-holder must NOT run this sweep, so nothing
+    // overwrites its consumed entry, while a SIBLING does run and rewrites the whole file from the
+    // shared in-memory map. Folding repo-a sets `consecutiveFailures: 1`, which suppresses it under
+    // a long cadence — so the fold itself produces the required not-due state.
+    test('a recovered attempt is consumed once and never republished by a sibling repo (#16551)', async () => {
+        const
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            baseCadenceMs    = 60 * 60_000,
+            crashedAttemptAt = Date.now() - 60_000,
+            repos            = [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo-a.git'},
+                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo-b.git'}
+            ];
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            't1/org/repo-a': {
+                lastIngestedRev                   : 'sha-a',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            },
+            't1/org/repo-b': {
+                lastIngestedRev                   : 'sha-b',
+                lastRunAttemptAt                  : 0,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }
+        }});
+
+        // Only repo-a crashed, and recently — so once the fold makes it `consecutiveFailures: 1`
+        // it is suppressed for this sweep and never re-enters the mutate path.
+        await fs.writeJson(inFlightFile, {'t1/org/repo-a': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 0
+        }});
+
+        await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repos},
+            globalCadenceMs  : baseCadenceMs,
+            backoffCapMs     : 0
+        }));
+
+        // repo-b ran and returned; repo-a was suppressed and never started. Nothing is in flight.
+        expect(
+            await fs.pathExists(inFlightFile),
+            'the sidecar survived a sweep with nothing in flight — repo-b republished repo-a\'s ' +
+            'already-consumed entry from the shared in-memory map, re-arming it'
+        ).toBe(false);
+
+        // The class assertion, independent of the file: a second sweep must not fold repo-a again.
+        // One crash happened, so the counter is 1 — and must STAY 1.
+        await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService : createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: repos},
+            globalCadenceMs  : baseCadenceMs,
+            backoffCapMs     : 0
+        }));
+
+        expect(
+            (await fs.readJson(revisionsFile)).revisions['t1/org/repo-a'].consecutiveFailures,
+            'repo-a was folded a second time from one crash — a recovery that re-arms itself ' +
+            'inflates the backoff term without bound on a lane that is not failing'
+        ).toBe(1);
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});
