@@ -105,13 +105,17 @@ test.describe('Neo.table.Container column sorting', () => {
         expect(body.loadCalls).toBe(1);
     });
 
-    test('the UN-sort re-renders the body too, through the event path alone', () => {
+    test('the UN-sort re-renders the body too on a LOCAL-sort store, through the event path alone', () => {
         TableContainer.prototype.onSortColumn.call(container, {direction: 'ASC', property: 'name'});
         expect(body.loadCalls).toBe(1);
 
         // `direction` falsy is the un-sort branch. The removed line was guarded by `opts.direction`, so
         // it never ran here — which is exactly why a spec exercising only the sorted branch cannot show
         // that the un-sort still re-renders. It does, off the same `load` event, and always did.
+        //
+        // Scoped to LOCAL sorting on purpose — `Store#sort`'s falsy branch is itself gated on
+        // `!remoteSort`. The `remoteSort` case is the next test; an unscoped name here would generalize
+        // over two branches while the fixture exercises one.
         //
         // Asserted on the re-render, NOT on the resulting record order: restoring insertion order is a
         // separate mechanism (`Store#sort` sorts by the `initialIndex` symbol, which `collection.Base`
@@ -120,6 +124,20 @@ test.describe('Neo.table.Container column sorting', () => {
         TableContainer.prototype.onSortColumn.call(container, {property: 'name'});
 
         expect(body.loadCalls).toBe(2);
+    });
+
+    test('on a remoteSort store the UN-sort drives NO local re-render — recorded, not endorsed', () => {
+        store.remoteSort = true;
+
+        // `Store#sort`'s falsy branch is gated on `!remoteSort`, so with a remote store the un-sort never
+        // assigns `sorters` at all: no `afterSetSorters`, no `doSort`, no `sort`, no re-fired `load`.
+        //
+        // This is unchanged by this PR — the deleted line was guarded by `opts.direction` and never ran on
+        // this branch either. Pinned so the asymmetry is visible rather than inferred: whether a remote
+        // round-trip is expected to supply the re-render, or this is a gap, is not settled here.
+        TableContainer.prototype.onSortColumn.call(container, {property: 'name'});
+
+        expect(body.loadCalls).toBe(0);
     });
 
     test('the single re-render sees the store already sorted', () => {
