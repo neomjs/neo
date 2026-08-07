@@ -36,7 +36,78 @@
  */
 const MINISUMMARY_MIN_ITEMS_PER_SWEEP = 4;
 
+/**
+ * The autonomous band for the store's memory ceiling, in bytes. Both ends are DERIVED, not preferred,
+ * and the derivation is the load-bearing content:
+ *
+ * - **Floor = the compose default (8 GiB).** Resident-vector arithmetic measured on the live plane:
+ *   `rows x 4096 dims x 4 B x ~1.38 index overhead` puts a complete ~96k-row corpus at ~2.02 GiB, and
+ *   8 GiB admits ~370k rows — about 4x the measured corpus. A request below the derived default is not
+ *   a raise, and this knob expresses exactly one intent: raise.
+ * - **Cap = 2x the default (16 GiB).** At ~34% of the 47 GiB Docker VM the sizing was measured
+ *   against, a store that still saturates has outgrown ceiling-raising as a heal: the next move is a
+ *   corpus-architecture decision (sharding, a second store, the dimension trade recorded on the
+ *   ticket), which is design work, not actuation. The cap is where autonomy ENDS on purpose — a
+ *   refusal here is the signal that forces that conversation, so it must never be widened casually to
+ *   silence the refusal.
+ * @type {Number}
+ */
+const CONTAINER_MEMORY_CEILING_MIN_BYTES = 8  * 1024 ** 3;
+const CONTAINER_MEMORY_CEILING_MAX_BYTES = 16 * 1024 ** 3;
+
 export const RECOVERY_KNOBS = Object.freeze({
+    'container-memory-ceiling': Object.freeze({
+        description: 'Raise a store-backed service\'s memory ceiling. For a store the corpus IS the ' +
+                     'workload — resident memory tracks rows already persisted — so shedding relieves ' +
+                     'nothing and a restart mid-ingestion is the harm itself. The only coherent heal is ' +
+                     'more ceiling, bounded here. Values are BYTES; the env binding carries a Docker ' +
+                     'size string ("8g"), and the deploy layer that consumes the overlay owns that ' +
+                     'unit translation.',
+        /**
+         * The one service this knob addresses. The actuator refuses a knob/target mismatch against
+         * this declaration, so a controller cannot aim the store's ceiling intent at a different
+         * container. Widening to another service is a deliberate registry edit with its own sizing
+         * derivation — per-service ceilings are explicitly out of scope on the origin ticket.
+         */
+        serviceKey: 'chroma',
+        /**
+         * The LIVE ceiling, resolved by the caller from the runtime (Docker inspect
+         * `HostConfig.Memory`) rather than from any config leaf. Config cannot answer this bound: a
+         * plane that predates the parameterised compose default runs a live 2 GiB cap under an 8 GiB
+         * config story, and the raise-not-lower invariant must bind against what the container
+         * actually enforces. Routing this knob through a channel that resolves context from config
+         * only (`reconfigure`) therefore fails closed on missing context — which is correct, because
+         * that channel couples the mutation to a restart this knob exists to avoid.
+         */
+        requires: Object.freeze(['runtime.chroma.liveMemoryLimitBytes']),
+        leaves  : Object.freeze([
+            Object.freeze({
+                path: 'deploy.chroma.memoryCeilingBytes',
+                env : 'NEO_CHROMA_MEMORY_LIMIT',
+                role: 'ceiling',
+                type: 'number',
+                min : CONTAINER_MEMORY_CEILING_MIN_BYTES,
+                max : CONTAINER_MEMORY_CEILING_MAX_BYTES
+            })
+        ]),
+        invariants: Object.freeze([
+            Object.freeze({
+                id    : 'raise-not-lower',
+                reason: 'Lowering a store\'s ceiling below or to its live limit is an OOM ' +
+                        'instruction with extra steps: the corpus does not shrink to fit. Docker ' +
+                        'reports 0 for an UNLIMITED ceiling, and raising an unlimited ceiling is ' +
+                        'incoherent, so a non-finite, non-positive, or unresolved live value refuses ' +
+                        'rather than passes — an unknown bound is a refusal, never an absent one.',
+                holds : (values, context = {}) => {
+                    const live = context['runtime.chroma.liveMemoryLimitBytes'];
+
+                    if (!Number.isFinite(live) || live <= 0) return false;
+
+                    return values['deploy.chroma.memoryCeilingBytes'] > live
+                }
+            })
+        ])
+    }),
     'minisummary-generation-window': Object.freeze({
         description: 'Nested generation timeouts for mini-summary backfill. Widened when generation ' +
                      'starvation is diagnosed; the inner bound guards a single generate call, the outer ' +

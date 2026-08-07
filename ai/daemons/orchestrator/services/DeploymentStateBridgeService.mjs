@@ -440,6 +440,13 @@ export class DeploymentStateBridgeService extends Base {
             stats         : summarizeStats(stats),
             logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
             providerResidency,
+            // EVERY snapshot, independent of load. The classification, the threshold that applies to
+            // it, and the measured window state used to live only inside a sustained-saturation fact,
+            // so a healthy store exposed none of them and no load-independent claim about the
+            // classification machinery was verifiable from outside the process.
+            classification: this.diagnosisService?.describeClassification
+                ? this.diagnosisService.describeClassification({serviceKey, statsSamples: this.getStatsSamples(serviceKey)})
+                : null,
             diagnosis     : diagnosis ? publishedDiagnosis : null,
             proofs,
             errors

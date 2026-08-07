@@ -15,6 +15,7 @@ import {
     createRecoveryTargetIdentity
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import AiConfig         from '../../../../../../../ai/config.template.mjs';
 
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
@@ -630,6 +631,224 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                     miniSummaryTimeoutMs        : 60000
                 }
             });
+        });
+    });
+
+    test.describe('raise-ceiling — the store-variant envelope: mutate + live activate, NO restart (#16596)', () => {
+        const GIB          = 1024 ** 3,
+              CEILING_KNOB = 'container-memory-ceiling',
+              CEIL_LEAF    = 'deploy.chroma.memoryCeilingBytes',
+              // The fixture registers `chroma` as BOTH a supervised task and a compose service, so a
+              // bare serviceKey is ambiguous by construction; the typed identity is how a real
+              // controller disambiguates, and these specs exercise that same path.
+              CHROMA_TARGET = {kind: 'compose-service', id: 'chroma'};
+
+        let originalSnapshotPath;
+
+        test.beforeEach(() => {
+            // The overlay lands in the snapshot leaf's directory. Redirected into this test's tmpdir so
+            // the `deploy.*` subtree cannot leak into the overlay file the reconfigure suite asserts
+            // with exact equality — and restored so no other suite inherits the redirection.
+            originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
+            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(tmpDir, 'deployment-state', 'snapshot.json');
+        });
+
+        test.afterEach(() => {
+            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
+        });
+
+        function createRaiseService({liveLimitBytes = 2 * GIB, inspectData, ...overrides} = {}) {
+            const readCalls = [],
+                  created   = createService({
+                      ...overrides,
+                      deploymentRuntimeAccessService: {
+                          async readObserve(options) {
+                              readCalls.push(options);
+
+                              return {
+                                  ok   : true,
+                                  data : inspectData ?? {HostConfig: {Memory: liveLimitBytes}},
+                                  proof: {capabilityEnvelope: 'read-observe', operation: options.operation, serviceKey: options.serviceKey}
+                              };
+                          },
+                          ...overrides.deploymentRuntimeAccessService
+                      }
+                  });
+
+            return {...created, readCalls};
+        }
+
+        test('the incident heal: overlay written, LIVE limit moved, and the target is NEVER restarted', async () => {
+            // The negative half of this assertion is the contract: a store crosses its ceiling
+            // WHILE INGESTING, and the restart `reconfigure` couples to its mutation is what killed a
+            // 59,754-row restore at 24,000 rows. Every lifecycle write the actuator performs flows
+            // through the recorded `applyLifecycle` seam, so a re-added restart on this path would
+            // surface here as a second call with `operation: 'restart'` — and fail.
+            const {service, runtimeCalls, readCalls} = createRaiseService({liveLimitBytes: 2 * GIB});
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob          : CEILING_KNOB,
+                knobValues    : {[CEIL_LEAF]: 8 * GIB},
+                now           : 100_000,
+                reason        : 'store-ceiling-exhaustion',
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({
+                status        : 'actioned',
+                action        : 'raise-ceiling',
+                targetIdentity: {kind: 'compose-service', id: 'chroma'},
+                ceilingRaise  : {
+                    previousLimitBytes: 2 * GIB,
+                    memoryLimitBytes  : 8 * GIB
+                }
+            });
+
+            // The live bound was read from the runtime, not assumed from config.
+            expect(readCalls).toEqual([expect.objectContaining({serviceKey: 'chroma', operation: 'inspect'})]);
+
+            // Exactly ONE lifecycle write, and it is the update — no restart, before or after.
+            expect(runtimeCalls).toHaveLength(1);
+            expect(runtimeCalls[0]).toMatchObject({
+                serviceKey      : 'chroma',
+                operation       : 'update-memory-limit',
+                memoryLimitBytes: 8 * GIB
+            });
+
+            // The durable half: the validated intent landed in the overlay for the converge layer.
+            const overlayPath = path.join(tmpDir, 'deployment-state', 'recovery-actuator-overrides.json');
+            expect(JSON.parse(await readFile(overlayPath, 'utf8'))).toEqual({
+                deploy: {chroma: {memoryCeilingBytes: 8 * GIB}}
+            });
+        });
+
+        test('is admitted for the store-classed compose service ONLY — the matrix row is mechanical', async () => {
+            const {service, runtimeCalls, readCalls} = createRaiseService();
+
+            // Declared-store compose target: admitted.
+            expect(service.isActionAllowedForTarget({
+                action: 'raise-ceiling',
+                target: {kind: 'compose-service', id: 'chroma'}
+            })).toBe(true);
+
+            // Transient compose target: refused through the FULL apply path, without ever touching the
+            // runtime — widening a transient service's ceiling would spend host memory to mask the
+            // arrival-rate signal `throttle-shed` exists to answer.
+            const rejected = await service.apply('kb-server', 'raise-ceiling', {
+                knob      : CEILING_KNOB,
+                knobValues: {[CEIL_LEAF]: 8 * GIB},
+                now       : 100_000
+            });
+
+            expect(rejected).toMatchObject({status: 'rejected', reasonCode: 'action-not-allowed-for-target'});
+            expect(runtimeCalls).toEqual([]);
+            expect(readCalls).toEqual([]);
+
+            // And the other kinds have no ceiling to raise at all.
+            expect(service.isActionAllowedForTarget({
+                action: 'raise-ceiling',
+                target: {kind: 'supervised-task', id: 'chroma'}
+            })).toBe(false);
+            expect(service.isActionAllowedForTarget({
+                action: 'raise-ceiling',
+                target: {kind: 'deploy-target', id: 'cloud-deploy'}
+            })).toBe(false);
+        });
+
+        test('the ratchet terminates: a raise past the registry cap is a recorded refusal, and no live write happens', async () => {
+            // The anti-thrash VALUE bound, driven through the full path. From the 16 GiB cap the
+            // doubling policy proposes 32 GiB; the registry refuses with a named violation, the refusal
+            // is thrown before any lifecycle write, and the attempt is persisted as failed — so the
+            // cadence envelope marches a repeating refusal into alarm-only instead of looping it.
+            const {service, runtimeCalls} = createRaiseService({liveLimitBytes: 16 * GIB});
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob          : CEILING_KNOB,
+                knobValues    : {[CEIL_LEAF]: 32 * GIB},
+                now           : 100_000,
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain(`${8 * GIB}..${16 * GIB}`);
+            expect(runtimeCalls).toEqual([]);
+
+            const attempts = await readAttempts();
+            expect(attempts['chroma:raise-ceiling']).toMatchObject({lastStatus: 'failed'});
+
+            // Refused means NOT durably recorded either: the overlay carries applied intents only.
+            await expect(readFile(path.join(tmpDir, 'deployment-state', 'recovery-actuator-overrides.json'), 'utf8'))
+                .rejects.toMatchObject({code: 'ENOENT'});
+        });
+
+        test('raise-not-lower binds against the LIVE limit the runtime reports', async () => {
+            // A plane already at 8 GiB must refuse a "raise" to 8 GiB: the corpus does not shrink to
+            // fit, and an equal-or-lower proposal is an OOM instruction whatever config claims.
+            const {service, runtimeCalls} = createRaiseService({liveLimitBytes: 8 * GIB});
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob          : CEILING_KNOB,
+                knobValues    : {[CEIL_LEAF]: 8 * GIB},
+                now           : 100_000,
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain('raise-not-lower');
+            expect(runtimeCalls).toEqual([]);
+        });
+
+        test('an unreadable live limit refuses — an unknown bound is a refusal, never an absent one', async () => {
+            const {service, runtimeCalls} = createRaiseService({inspectData: {}});
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob          : CEILING_KNOB,
+                knobValues    : {[CEIL_LEAF]: 8 * GIB},
+                now           : 100_000,
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain('unreadable');
+            expect(runtimeCalls).toEqual([]);
+        });
+
+        test('a ceiling intent cannot be re-aimed: the knob\'s declared service must match the target', async () => {
+            // The knob's sizing derivation belongs to one service by declaration. Naming a different
+            // knob (or a different target) fails before the runtime is touched.
+            const {service, runtimeCalls, readCalls} = createRaiseService();
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob          : 'minisummary-generation-window',
+                knobValues    : {[CEIL_LEAF]: 8 * GIB},
+                now           : 100_000,
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain('cannot be re-aimed');
+            expect(runtimeCalls).toEqual([]);
+            expect(readCalls).toEqual([]);
+        });
+
+        test('the restart-coupled channel fails closed on this knob — reconfigure cannot resolve its runtime bound', async () => {
+            // The ceiling knob's raise-not-lower bound resolves only from the RUNTIME; `reconfigure`
+            // resolves context from config. Routing the knob through the restart-coupled channel must
+            // therefore refuse on missing context BEFORE the restart that channel couples to — the
+            // mechanical guarantee that the store's ceiling can never be moved by a path that would
+            // bounce the store to do it.
+            const {service, runtimeCalls} = createRaiseService();
+
+            const result = await service.apply('chroma', 'reconfigure', {
+                knob          : CEILING_KNOB,
+                knobValues    : {[CEIL_LEAF]: 8 * GIB},
+                now           : 100_000,
+                targetIdentity: CHROMA_TARGET
+            });
+
+            expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain('missing context');
+            expect(runtimeCalls).toEqual([]);
         });
     });
 

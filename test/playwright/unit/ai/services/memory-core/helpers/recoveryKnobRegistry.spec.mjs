@@ -170,8 +170,107 @@ test.describe('recoveryKnobRegistry — the closed set is the actuator\'s author
         // merging). A knob whose leaf is env-pinned would be written and then discarded — a success
         // report over a no-op. Carrying the env name here is what lets the actuator detect that before
         // writing rather than after.
-        for (const leaf of RECOVERY_KNOBS[KNOB].leaves) {
-            expect(leaf.env, leaf.path).toMatch(/^NEO_[A-Z0-9_]+$/);
+        for (const knobName of Object.keys(RECOVERY_KNOBS)) {
+            for (const leaf of RECOVERY_KNOBS[knobName].leaves) {
+                expect(leaf.env, `${knobName} → ${leaf.path}`).toMatch(/^NEO_[A-Z0-9_]+$/);
+            }
         }
+    });
+});
+
+const GIB          = 1024 ** 3;
+const CEILING_KNOB = 'container-memory-ceiling';
+const CEIL_LEAF    = 'deploy.chroma.memoryCeilingBytes';
+const LIVE_LEAF    = 'runtime.chroma.liveMemoryLimitBytes';
+
+test.describe('recoveryKnobRegistry — container-memory-ceiling is the store\'s bounded raise (#16596)', () => {
+    test('the incident transaction is accepted — a 2 GiB plane raises to the derived 8 GiB default', () => {
+        // The shape the reactive controller will actually issue, taken from the live incident: a store
+        // at the pre-parameterisation 2 GiB cap, mid-ingestion, raised to the compose default. A guard
+        // that refuses the one transaction the incident needed is an outage with paperwork.
+        expect(validateKnobTransaction({
+            context: {[LIVE_LEAF]: 2 * GIB},
+            knob   : CEILING_KNOB,
+            values : {[CEIL_LEAF]: 8 * GIB}
+        })).toEqual({valid: true, violations: []});
+    });
+
+    test('the ratchet TERMINATES at the cap: doubling past 16 GiB is refused with a violation, never clamped', () => {
+        // THE anti-thrash bound. Repeated saturation walks the ceiling 8 → 16 → refused:
+        // the doubling policy's next step from the cap proposes 32 GiB, and the registry answers with a
+        // named violation rather than a silently clamped 16 GiB — a clamp would report success while
+        // actuating a value nobody proposed, and would retry forever at the cap instead of surfacing
+        // that autonomy has reached the corpus-architecture question.
+        const atCap = validateKnobTransaction({
+            context: {[LIVE_LEAF]: 16 * GIB},
+            knob   : CEILING_KNOB,
+            values : {[CEIL_LEAF]: 32 * GIB}
+        });
+
+        expect(atCap.valid).toBe(false);
+        expect(atCap.violations.some(v => v.includes(CEIL_LEAF) && v.includes(`${8 * GIB}..${16 * GIB}`))).toBe(true);
+
+        // Positive control one step earlier: 8 → 16 GiB is inside the band, so the refusal above is the
+        // cap and not an unrelated rejection.
+        expect(validateKnobTransaction({
+            context: {[LIVE_LEAF]: 8 * GIB},
+            knob   : CEILING_KNOB,
+            values : {[CEIL_LEAF]: 16 * GIB}
+        }).valid).toBe(true);
+    });
+
+    test('a raise below the derived floor is refused — sub-default values are operator work, not autonomy', () => {
+        // 2 → 4 GiB satisfies raise-not-lower and still refuses: the band's floor IS the compose
+        // default, because a knob whose whole intent is "raise" has no business landing beneath the
+        // value a fresh recreate would apply anyway.
+        const {valid, violations} = validateKnobTransaction({
+            context: {[LIVE_LEAF]: 2 * GIB},
+            knob   : CEILING_KNOB,
+            values : {[CEIL_LEAF]: 4 * GIB}
+        });
+
+        expect(valid).toBe(false);
+        expect(violations.some(v => v.includes(CEIL_LEAF))).toBe(true);
+    });
+
+    test('raise-not-lower binds against the LIVE limit — equal or lower proposals are refused', () => {
+        // The corpus does not shrink to fit. A proposal at or below what the container currently
+        // enforces is an OOM instruction, whatever the config story says the ceiling should be.
+        for (const [live, proposed] of [[16 * GIB, 16 * GIB], [12 * GIB, 8 * GIB]]) {
+            const {valid, violations} = validateKnobTransaction({
+                context: {[LIVE_LEAF]: live},
+                knob   : CEILING_KNOB,
+                values : {[CEIL_LEAF]: proposed}
+            });
+
+            expect(valid, `live=${live} proposed=${proposed}`).toBe(false);
+            expect(violations.some(v => v.includes('raise-not-lower'))).toBe(true);
+        }
+    });
+
+    test('an unresolved or incoherent live limit REFUSES — including Docker\'s 0-means-unlimited', () => {
+        // Fail-closed, same rule as the sweep budget above: an unknown bound is a refusal, never an
+        // absent one. Docker inspect reports `HostConfig.Memory: 0` for an unlimited container, and
+        // "raise the unlimited ceiling" is not a coherent instruction — it can only mean the caller
+        // read the wrong container or the wrong field, so it must not validate.
+        for (const context of [undefined, {}, {[LIVE_LEAF]: null}, {[LIVE_LEAF]: 'plenty'}, {[LIVE_LEAF]: 0}, {[LIVE_LEAF]: -1}]) {
+            const {valid} = validateKnobTransaction({
+                context,
+                knob  : CEILING_KNOB,
+                values: {[CEIL_LEAF]: 8 * GIB}
+            });
+
+            expect(valid, `context: ${JSON.stringify(context)}`).toBe(false);
+        }
+    });
+
+    test('the knob is bound to chroma by declaration, and declares its runtime context requirement', () => {
+        // `serviceKey` is what lets the actuator refuse aiming the store's ceiling intent at another
+        // container, and `requires` is what makes the restart-coupled `reconfigure` channel fail closed
+        // on this knob: that channel resolves context from config, and this bound only resolves from
+        // the runtime.
+        expect(RECOVERY_KNOBS[CEILING_KNOB].serviceKey).toBe('chroma');
+        expect(knobRequiredContext(CEILING_KNOB)).toEqual([LIVE_LEAF]);
+        expect(knobLeafPaths(CEILING_KNOB)).toEqual([CEIL_LEAF]);
     });
 });
