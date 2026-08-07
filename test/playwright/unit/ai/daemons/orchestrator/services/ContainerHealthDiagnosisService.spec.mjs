@@ -876,6 +876,46 @@ test.describe('sustained window is measured, not asserted', () => {
             threshold       : 80
         });
     });
+
+    test('a PARTIALLY stamped window does not qualify — the span must cover every sample', () => {
+        // The falsifier that survived the first repair. Filtering non-finite stamps meant three
+        // samples carrying only two stamps produced a 45s span and passed a 30s floor — while the
+        // third sample was never timed at all, so the span was asserted over an observation no clock
+        // witnessed. A partial-coverage span is UNKNOWN, not merely shorter, and an unknown span
+        // cannot satisfy a floor. Two saturated stamped samples plus one saturated UNSTAMPED sample:
+        // count and threshold both pass, so coverage is the only thing standing between this and a
+        // false diagnosis.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                saturated(1_000_000),
+                saturated(1_045_000),
+                statsSample({cpuPercent: 0, memoryPercent: 85})   // saturated, deliberately UNSTAMPED
+            ]
+        });
+
+        expect(decision.status, 'an unwitnessed sample must not be swept into a timed window').not.toBe('diagnosed');
+        expect(decision.diagnosis).toBeNull();
+    });
+
+    test('CONTROL — the same three samples FULLY stamped do qualify, so coverage is what discriminates', () => {
+        // Without this the refusal above could pass by rejecting any three-sample window rather than
+        // by noticing the missing stamp.
+        const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+        const decision = service.diagnose({
+            serviceKey  : 'chroma',
+            statsSamples: [saturated(1_000_000), saturated(1_030_000), saturated(1_045_000)]
+        });
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+
+        const memoryFact = decision.diagnosis.evidenceFacts
+            .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFact.details.observedWindowMs).toBe(45000);
+    });
 });
 
 /**

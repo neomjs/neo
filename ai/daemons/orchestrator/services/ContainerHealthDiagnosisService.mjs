@@ -1144,17 +1144,34 @@ function summarizeSustainedWindow({values, threshold, expectedCount, timestamps 
         ? Math.max(...finiteStamps) - Math.min(...finiteStamps)
         : 0;
 
+    // FULL coverage, not merely two stamps. Filtering non-finite entries out silently narrowed the
+    // claim: three values carrying two stamps 30s apart produced `observedWindowMs = 30000` and
+    // passed a 30s floor, while the third sample was never timed at all. The span was then asserted
+    // over samples no clock had witnessed — the same defect this window was added to close, one
+    // level in. A partial-coverage span is UNKNOWN, and an unknown span cannot satisfy a floor.
+    const stampCoverage = finiteStamps.length / values.length;
+
+    // `minWindowMs <= 0` keeps the count-only semantics unstamped callers rely on, so the coverage
+    // requirement binds exactly where a temporal claim is actually being made.
+    const windowSatisfied = minWindowMs <= 0
+        ? true
+        : stampCoverage === 1 && observedWindowMs >= minWindowMs;
+
     const
         min  = Math.min(...values),
         max  = Math.max(...values),
         mean = values.reduce((sum, value) => sum + value, 0) / values.length;
 
     return {
-        sustained: values.every(value => value >= threshold) && observedWindowMs >= minWindowMs,
+        sustained: values.every(value => value >= threshold) && windowSatisfied,
         min      : roundMetric(min),
         max      : roundMetric(max),
         mean     : roundMetric(mean),
-        observedWindowMs
+        observedWindowMs,
+        // Reported so a fact can say WHY a window failed: an under-length span and a partially
+        // stamped one are different conditions, and collapsing them would make the next diagnosis
+        // of this exact bug start from scratch.
+        stampCoverage: roundMetric(stampCoverage)
     };
 }
 
