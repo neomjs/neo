@@ -518,10 +518,15 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const health = await HealthService.healthcheck();
 
-        expect(ensureCalls).toBeGreaterThan(0);
+        // Outcome first: this is the shape `integration-unified` reported as four MC-unhealthy
+        // failures, so it is the assertion that has to carry the regression.
         expect(health.database.connection.connected).toBe(true);
         expect(health.database.connection.engines.chroma).toBe(true);
         expect(health.status, `details: ${JSON.stringify(health.details)}`).not.toBe('unhealthy');
+
+        // Mechanism second: the outcome above is only reachable through the ensure, but asserting it
+        // explicitly is what stops a future `connect()`-based "fix" from passing this test.
+        expect(ensureCalls).toBeGreaterThan(0);
     });
 
     // The producer gate. Review feedback surfaced the omission that made these necessary:
