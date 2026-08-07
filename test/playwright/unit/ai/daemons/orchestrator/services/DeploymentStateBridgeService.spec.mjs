@@ -1395,3 +1395,104 @@ test.describe('restart churn reaches the deployment record', () => {
         expect(quiet.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
     });
 });
+
+test.describe('DeploymentStateBridgeService — the classification projection is load-independent (#16596)', () => {
+    let savedBridgeConfig,
+        savedRuntimeConfig;
+
+    test.beforeEach(() => {
+        savedBridgeConfig  = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
+        savedRuntimeConfig = Neo.clone(AiConfig.orchestrator.deploymentRuntimeAccess, true, true);
+
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices  : ['chroma', 'kb-server'],
+            includeLogs      : false,
+            statsSampleWindow: 4
+        });
+    });
+
+    test.afterEach(() => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, savedBridgeConfig);
+        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, savedRuntimeConfig);
+    });
+
+    function healthyRuntime() {
+        return {
+            async readObserve(request) {
+                if (request.operation === 'inspect') {
+                    return {
+                        data : {Id: 'c-healthy', State: {Status: 'running', Health: {Status: 'healthy'}}},
+                        proof: {operation: 'inspect'}
+                    };
+                }
+
+                // FAR below every threshold, deliberately: the projection's whole claim is that it
+                // emits when nothing is wrong.
+                return {
+                    data : statsSample({cpuPercent: 3, memoryPercent: 10}),
+                    proof: {operation: 'stats'}
+                };
+            }
+        };
+    }
+
+    test('a HEALTHY store exposes its class, threshold, and window state on every snapshot', async () => {
+        // The falsifier this projection was created for: before it, these fields lived only inside
+        // `if (memoryWindow.sustained)`, so a healthy store at a raised ceiling exposed none of them
+        // and three successive post-merge verification formulations were each unobservable.
+        const service = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService: healthyRuntime(),
+            diagnosisService    : Neo.create(ContainerHealthDiagnosisService, {}),
+            writeLog            : () => {}
+        });
+
+        const snapshot     = await service.collectSnapshot({generatedAt: OBSERVED_AT}),
+              [chroma, kb] = snapshot.services;
+
+        // Nothing is wrong — and the projection is present anyway, with the store's OWN threshold.
+        expect(chroma.serviceKey).toBe('chroma');
+        expect(chroma.diagnosis.status).toBe('healthy');
+        expect(chroma.classification).toEqual({
+            serviceKey            : 'chroma',
+            serviceClass          : 'store',
+            serviceClassDeclared  : true,
+            appliedMemoryThreshold: 80,
+            observedWindowMs      : 0,
+            requiredWindowMs      : 30000,
+            sampleCount           : 1,
+            stampCoverage         : 1
+        });
+
+        // The transient sibling carries ITS threshold — the projection reports the class-resolved
+        // number, never one global default.
+        expect(kb.serviceKey).toBe('kb-server');
+        expect(kb.classification).toMatchObject({
+            serviceClass          : 'transient',
+            serviceClassDeclared  : true,
+            appliedMemoryThreshold: 90
+        });
+
+        // And the window ACCUMULATES load-independently: a second healthy observation later yields a
+        // measured span, so a reader can verify the sustained-window machinery is alive without ever
+        // saturating the service.
+        const later = await service.collectSnapshot({generatedAt: OBSERVED_AT + 45000});
+
+        expect(later.services[0].classification).toMatchObject({
+            observedWindowMs: 45000,
+            sampleCount     : 2,
+            stampCoverage   : 1
+        });
+    });
+
+    test('a diagnosis seam without the projection degrades to null rather than fabricating one', async () => {
+        const service = Neo.create(DeploymentStateBridgeService, {
+            runtimeAccessService: healthyRuntime(),
+            diagnosisService    : {diagnose: () => null},
+            writeLog            : () => {}
+        });
+
+        const snapshot = await service.collectSnapshot({generatedAt: OBSERVED_AT});
+
+        expect(snapshot.services[0].classification).toBeNull();
+    });
+});

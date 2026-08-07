@@ -167,6 +167,58 @@ export class ContainerHealthDiagnosisService extends Base {
     }
 
     /**
+     * @summary Projects the classification a heal decision WOULD reason from, independent of load.
+     *
+     * Every field here previously existed only inside the memory-saturation fact — which is emitted
+     * only when a sustained window trips. A healthy store therefore exposed neither its class, nor
+     * the threshold that applies to it, nor the window state building toward that threshold, so any
+     * load-independent claim about the classification machinery was unverifiable from the outside.
+     * Three successive post-merge verification formulations failed on exactly that gap before this
+     * projection existed: the evidence they asked for could not exist on a healthy plane.
+     *
+     * Pure read: no fact is emitted, no window verdict is taken, no threshold is compared. The span
+     * arithmetic mirrors `summarizeSustainedWindow`'s measured-span rule (two-plus finite stamps make
+     * a span; anything less is zero, never an assumed window) without invoking it, because this
+     * projection has no threshold to evaluate — reporting a verdict-shaped field from a
+     * verdict-free read would recreate the conflation this method exists to remove.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Allowlisted deployment service key.
+     * @param {Object[]} [options.statsSamples=[]] Docker stats samples, stamped with `observedAtMs`.
+     * @returns {Object} `{serviceKey, serviceClass, serviceClassDeclared, appliedMemoryThreshold,
+     *     observedWindowMs, requiredWindowMs, sampleCount, stampCoverage}`
+     */
+    describeClassification({serviceKey, statsSamples = []} = {}) {
+        this.validateServiceKey(serviceKey);
+
+        const
+            {serviceClass, declared} = classifyServiceKey(serviceKey),
+            config                   = this.configValues,
+            samples                  = Array.isArray(statsSamples) ? statsSamples : [],
+            timestamps               = samples.map(sample => sample?.observedAtMs).filter(Number.isFinite),
+            observedWindowMs         = timestamps.length > 1
+                ? Math.max(...timestamps) - Math.min(...timestamps)
+                : 0;
+
+        return {
+            serviceKey,
+            serviceClass,
+            serviceClassDeclared  : declared,
+            appliedMemoryThreshold: serviceClass === SERVICE_CLASSES.store
+                ? config.storeMemorySaturationPercent
+                : config.memorySaturationPercent,
+            observedWindowMs,
+            requiredWindowMs: config.sampleWindowMs,
+            sampleCount     : samples.length,
+            // Distinguishes an under-length span from an under-stamped one: the two read identically
+            // in `observedWindowMs`, and collapsing them is how a dead window hides behind a short one.
+            stampCoverage   : samples.length > 0
+                ? Math.round((timestamps.length / samples.length) * 100) / 100
+                : null
+        };
+    }
+
+    /**
      * Emits one diagnosis decision from bounded service observations.
      *
      * @param {Object} options
