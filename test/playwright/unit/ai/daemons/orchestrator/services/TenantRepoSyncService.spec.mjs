@@ -3300,9 +3300,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         // A cadence long enough that the recovered failure is observable as suppression rather
         // than being consumed by an immediate re-run that would reset the counter to 0.
+        //
+        // `backoffCapMs: 0` (the pure function's own no-cap default) is load-bearing, not tidiness.
+        // The configured ceiling is 2h, and 1 failure against a 60min base also resolves to 2h —
+        // so with the cap in play this assertion would pass whether the multiplier worked or the
+        // value simply hit the ceiling. Removing the cap is what makes it measure the multiplier.
         const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
             taskStateService,
-            globalCadenceMs: 60 * 60_000
+            globalCadenceMs: 60 * 60_000,
+            backoffCapMs   : 0
         }));
 
         expect(result.status).toBe('completed');
@@ -3324,6 +3330,57 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(repoState.status).toBe('backoff-suppressed');
         expect(repoState.consecutiveFailures).toBe(1);
         expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 2 * 60 * 60_000);
+    });
+
+    // The exponential term has to keep growing across successive crashes, which is the whole
+    // reason the record carries `priorFailures` instead of re-reading the manifest. A crash loop
+    // never commits, so a fold that re-derived its base from committed state would read the same
+    // number every restart and the cadence would sit flat at 2x forever — dampening in name only.
+    // Asserted on the resolved cadence value rather than on a log line, because the log is what
+    // agreed with the frozen counters last time while the arithmetic disagreed.
+    test('successive crashed attempts keep growing the backoff term, not just the first (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            baseCadenceMs    = 60 * 60_000,
+            crashedAttemptAt = Date.now() - 20 * 60_000;
+
+        // Committed `consecutiveFailures` is 0 — BEHIND the crashed attempt's own view, exactly
+        // as it is in a crash loop that never reaches its terminal commit.
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : crashedAttemptAt - 60_000,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // The dying process had already survived two earlier crashes.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 2
+        }});
+
+        // Cap removed for the same reason as the sibling spec: the configured 2h ceiling would
+        // clamp 8x-of-60min to exactly the same value a broken multiplier produces, and an
+        // assertion that cannot tell those apart is not measuring backoff growth at all.
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs: baseCadenceMs,
+            backoffCapMs   : 0
+        }));
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        // 2 observed + this one = 3, NOT 1 — the committed 0 must not win.
+        expect(persisted.consecutiveFailures).toBe(3);
+
+        const repoState = result.details.repos.find(state => state.repoSlug === 'org/lease-repo');
+
+        expect(repoState.consecutiveFailures).toBe(3);
+        // 2^3 of base, on the value.
+        expect(repoState.effectiveCadenceMs).toBe(8 * baseCadenceMs);
+        expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 8 * baseCadenceMs);
     });
 
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
