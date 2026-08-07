@@ -70,13 +70,32 @@ test.describe('cleanOldBackups — configurable retention', () => {
      * timestamp values are millisecond-unique (ageInDays accepts fractional days), which
      * keeps directory names distinct under rapid-fire seeding.
      */
-    async function seedBackup(ageInDays) {
+    async function seedBackup(ageInDays, {restorable = true, meta = true, substrates = ['kb']} = {}) {
         const ts      = new Date(Date.now() - ageInDays * 86400000);
         const isoTs   = ts.toISOString().replace(/:/g, '-');
         const dirName = `backup-${isoTs}`;
         const dirPath = path.join(tmpRoot, dirName);
         await fs.ensureDir(dirPath);
         await fs.writeFile(path.join(dirPath, 'placeholder'), 'test-marker');
+
+        // A published bundle carries a meta receipt and non-empty substrate payloads. The fixture
+        // defaults to that shape because retention now reads recoverability, and a payload-less
+        // directory models the empty bundle rather than the normal one — which is exactly the
+        // conflation the policy change removes. `restorable: false` opts into the empty shape.
+        if (meta) {
+            await fs.writeJson(path.join(dirPath, 'bundle-meta.json'), {timestamp: isoTs});
+        }
+
+        for (const substrate of substrates) {
+            const dir = path.join(dirPath, substrate);
+            await fs.ensureDir(dir);
+            // An empty DIRECTORY, not an absent one: six real bundles had `kb/` present and empty,
+            // and that is the shape the guard has to classify.
+            if (restorable) {
+                await fs.writeFile(path.join(dir, `${substrate}-backup-${isoTs}.jsonl`), '{"id":"row-1"}\n');
+            }
+        }
+
         return dirName;
     }
 
@@ -102,7 +121,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(remaining).toHaveLength(3);
         // Survivor set = newest 3
         for (const name of remaining) {
-            const match = name.match(/^backup-(.+?)(-suffix.*)?$/);
+            const match   = name.match(/^backup-(.+?)(-suffix.*)?$/);
             const isoTime = match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
             const ageDays = (Date.now() - new Date(isoTime).getTime()) / 86400000;
             expect(ageDays).toBeLessThan(30);
@@ -138,7 +157,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
         const remaining = await listBackups();
         expect(remaining).toHaveLength(2);
         for (const name of remaining) {
-            const match = name.match(/^backup-(.+)$/);
+            const match   = name.match(/^backup-(.+)$/);
             const isoTime = match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
             const ageDays = (Date.now() - new Date(isoTime).getTime()) / 86400000;
             expect(ageDays).toBeLessThan(7.1);  // 7 + tiny epsilon for rounding
@@ -198,6 +217,118 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(remaining).toHaveLength(1);
     });
 
+    test('the floor counts RESTORABLE bundles — three empty ones do not displace the only real one', async () => {
+        // The live defect, reduced. Measured 2026-08-07: six of ten kept bundles held zero KB rows,
+        // each with a valid bundle-meta.json, so the three newest — the entire "kept minimum" —
+        // could restore nothing, and the one 59,754-row bundle survived on age alone.
+        const populated = await seedBackup(40);                          // old but RESTORABLE
+        await seedBackup(1, {restorable: false});
+        await seedBackup(2, {restorable: false});
+        await seedBackup(3, {restorable: false});
+
+        await cleanOldBackups(tmpRoot, {log: () => {}}, {keepMinimum: 3, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        // Under a directory-counting floor the three empty bundles fill it and the 40d populated one
+        // is age-eligible — the exact displacement the operator called "REPLACED right away".
+        expect(remaining, 'the only restorable bundle must survive').toContain(populated);
+    });
+
+    test('the floor is PER SUBSTRATE — bundles restorable for mc only cannot fill kb\'s slots', async () => {
+        // My first implementation failed exactly here, and a dry-run against the live set caught it.
+        // An any-substrate floor read the three newest as `[kb,mc]`, `[mc]`, `[mc]`, called itself
+        // satisfied while holding ONE kb-bearing bundle, and left the only full corpus on age alone.
+        //
+        // TWO kb bundles is what makes this discriminate, and the first version of this test had one.
+        // With a single kb bundle the newest-per-substrate rule rescues it under BOTH floor designs,
+        // so the assertion passed against the implementation it was written to reject — proven by
+        // mutation. `recentKb` absorbs that rule; `oldKb` can only be saved by the per-substrate floor.
+        const recentKb = await seedBackup(1,  {substrates: ['kb', 'mc']});
+        const oldKb    = await seedBackup(40, {substrates: ['kb', 'mc']});
+        await seedBackup(2, {substrates: ['mc']});
+        await seedBackup(3, {substrates: ['mc']});
+        await seedBackup(4, {substrates: ['mc']});
+
+        await cleanOldBackups(tmpRoot, {log: () => {}}, {keepMinimum: 3, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        // Fixture guard: an any-substrate floor of 3 is entirely consumed by the mc-only bundles plus
+        // `recentKb`, so `oldKb` sits outside it and is past maxDays. If this pair were not both
+        // present the assertion below would be satisfied by the design it exists to reject.
+        expect(remaining, 'the newest kb bundle is the control, held by the per-substrate rule').toContain(recentKb);
+        expect(remaining, 'kb needs its OWN slots; mc-only bundles must not consume them').toContain(oldKb);
+    });
+
+    test('the newest restorable bundle per substrate outlives maxDays', async () => {
+        // Age is the wrong axis for a last-known-good artifact: a 40-day-old full corpus beats a
+        // one-day-old empty one. Nothing else here is restorable, so if this bundle goes, the
+        // substrate has no recovery source at all.
+        const ancientButReal = await seedBackup(400);
+        await seedBackup(1, {restorable: false});
+
+        await cleanOldBackups(tmpRoot, {log: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        expect(await listBackups(), 'the last artifact that can restore kb must not age out').toContain(ancientButReal);
+    });
+
+    test('a bundle with no meta receipt cannot fill the floor, but stays age-deletable', async () => {
+        // A real bundle in this shape existed: 2,001 rows, no bundle-meta.json, sitting in the
+        // retention set as a peer of complete captures. It must not count toward the recovery floor —
+        // and it must still be reclaimable, or residue accumulates forever and one unbounded-growth
+        // bug is traded for another.
+        const metaless  = await seedBackup(40, {meta: false});
+        const populated = await seedBackup(50);
+
+        await cleanOldBackups(tmpRoot, {log: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        expect(remaining, 'the meta-bearing restorable bundle holds the floor').toContain(populated);
+        expect(remaining, 'a partial capture is not a recovery source and is reclaimable').not.toContain(metaless);
+    });
+
+    test('CONTROL — with every bundle restorable, retention prunes exactly as before', async () => {
+        // The negative control, and the reason it matters: every assertion above is satisfied by a
+        // "never delete anything" implementation. This is what proves the change is a re-ranking
+        // rather than a disabling.
+        await seedBackup(1);
+        await seedBackup(10);
+        await seedBackup(25);
+        await seedBackup(40);
+        await seedBackup(60);
+
+        await cleanOldBackups(tmpRoot, {log: () => {}}, {keepMinimum: 3, maxDays: 30});
+
+        // Same outcome as the byte-equivalence anchor above: newest 3 held by the floor, the two
+        // beyond it are under nothing that protects them.
+        expect(await listBackups()).toHaveLength(3);
+    });
+
+    test('classifyBundleRecoverability reports per-substrate payload, and an empty dir is not absent', async () => {
+        const {classifyBundleRecoverability, RECOVERY_SUBSTRATES} =
+            await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        const realName  = await seedBackup(1, {substrates: ['kb', 'mc']}),
+              emptyName = await seedBackup(2, {restorable: false});
+
+        const real  = await classifyBundleRecoverability(path.join(tmpRoot, realName)),
+              empty = await classifyBundleRecoverability(path.join(tmpRoot, emptyName));
+
+        expect(real.hasMeta).toBe(true);
+        expect(real.restorableFor.sort()).toEqual(['kb', 'mc']);
+        expect(real.substrates.kb).toBeGreaterThan(0);
+        expect(real.substrates.graph, 'an absent substrate reads as zero, not undefined').toBe(0);
+
+        // The load-bearing distinction: `kb/` EXISTS and is empty. A presence check would call this
+        // bundle restorable, which is how six of them passed as valid recovery sources.
+        expect(empty.hasMeta).toBe(true);
+        expect(empty.restorableFor, 'a present-but-empty payload is not a recovery source').toEqual([]);
+
+        expect(RECOVERY_SUBSTRATES, 'optional substrates must not gate recoverability').not.toContain('ledgers');
+    });
+
     test('keepMinimum=0 + maxDays=0 deletes everything older than now', async () => {
         await seedBackup(0.001);  // ~86s old
         await seedBackup(1);
@@ -236,7 +367,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
 
     test('loads gitignored top-level AI config only when present', async () => {
         const loadedPaths = [];
-        const aiConfig = {
+        const aiConfig    = {
             async load(configPath) {
                 loadedPaths.push(configPath);
             }

@@ -28,10 +28,10 @@ import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
+import {resolveCloudOnlyDefault}                from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
 import {cleanStagingResidue, createStagingRoot} from './backupStagingResidueCore.mjs';
-import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
+import {HEAL_LEDGER_DIR_NAME}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {INCIDENT_LEDGER_BUNDLE_MEMBERS}         from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
     buildBackupReceipt,
     buildSyncChildEnv,
@@ -940,16 +940,84 @@ export async function listPublishedBundles(backupRoot) {
 }
 
 /**
+ * The substrates whose presence decides whether a bundle is a recovery source at all.
+ *
+ * `concepts`, `trajectories`, `mailbox` and `ledgers` are deliberately absent: `copyJsonlSource`
+ * documents them as legitimately optional (a deployment that has never healed has no ledger), so
+ * requiring them would classify correct bundles as unrecoverable.
+ * @member {String[]} RECOVERY_SUBSTRATES
+ */
+export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
+
+/**
+ * @summary Reports, per substrate, whether a published bundle could actually restore anything.
+ *
+ * **Non-empty payload bytes, deliberately — not row counts.** A `wc -l` over a 3.3 GB JSONL on every
+ * sweep would make retention cost scale with corpus size, and it would buy nothing: retention cannot
+ * judge *degraded*, only *empty*. It does not know what a complete corpus is, and the newest bundle
+ * on this plane (900 MB / 16,550 rows against an expected ~60,000) is non-empty by either measure.
+ * Claiming this guards against degradation would be the over-claim; it guards against **nothing to
+ * restore**, which is the failure that produced six such bundles.
+ *
+ * @param {String} bundlePath Absolute path to a published bundle.
+ * @returns {Promise<{hasMeta: Boolean, substrates: Object, restorableFor: String[]}>}
+ */
+export async function classifyBundleRecoverability(bundlePath) {
+    const hasMeta       = await fs.pathExists(path.join(bundlePath, 'bundle-meta.json')),
+          substrates    = {},
+          restorableFor = [];
+
+    for (const substrate of RECOVERY_SUBSTRATES) {
+        const dir   = path.join(bundlePath, substrate);
+        let   bytes = 0;
+
+        if (await fs.pathExists(dir)) {
+            for (const entry of await fs.readdir(dir)) {
+                if (!entry.endsWith('.jsonl')) continue;
+
+                try {
+                    bytes += (await fs.stat(path.join(dir, entry))).size;
+                } catch {
+                    // An unreadable payload is treated as absent for this substrate rather than
+                    // aborting the sweep. Under-counting keeps a bundle, which is the safe error;
+                    // throwing here would leave retention unrun and let the root grow unbounded.
+                }
+            }
+        }
+
+        substrates[substrate] = bytes;
+        if (bytes > 0) restorableFor.push(substrate);
+    }
+
+    return {hasMeta, substrates, restorableFor};
+}
+
+/**
  * Applies retention policy to the backup root.
  *
  * Two-axis policy:
- *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
+ *   - `keepMinimum` — newest N **restorable** bundles retained unconditionally regardless of age
  *   - `maxDays`     — bundles older than this many days are eligible for deletion
  *
- * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
- * window OR younger than maxDays). Both defaults match the original hardcoded
- * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
- * existing behavior.
+ * A bundle survives if EITHER axis protects it (i.e., it counts inside the keepMinimum floor OR is
+ * younger than maxDays).
+ *
+ * **`keepMinimum` counts RECOVERABILITY, not directories, and that is the whole point of this
+ * function.** The floor exists to guarantee a recovery path; counting bundles that can restore
+ * nothing toward it makes the guarantee decorative. Measured on the live plane 2026-08-07: six of ten
+ * kept bundles held **zero** KB rows, every one of them carrying a valid `bundle-meta.json`, so the
+ * three newest bundles — the entire "kept minimum" — contained no recoverable KB corpus. The one
+ * 59,754-row bundle survived on age alone, four days inside a thirty-day bound, and nothing in the
+ * policy knew it was the only real one.
+ *
+ * **The newest restorable bundle per substrate is never deleted, `maxDays` notwithstanding.** Age is
+ * the wrong axis for a last-known-good artifact: a 31-day-old bundle holding a full corpus beats a
+ * one-day-old empty one, and on this plane that comparison was concrete rather than hypothetical.
+ *
+ * A bundle with no `bundle-meta.json` cannot count toward the floor — it is a partial capture, and
+ * one such bundle (2,001 rows, no meta) was sitting in the retention set as a peer of complete
+ * captures. It stays age-deletable on purpose: excluding it from deletion as well would let residue
+ * accumulate forever, trading one unbounded-growth bug for another.
  *
  * Enumerates through {@link listPublishedBundles}, so a `.backup-partial-*` staging directory is
  * never a retention candidate and never counts toward `keepMinimum` — an in-flight capture must not
@@ -958,7 +1026,7 @@ export async function listPublishedBundles(backupRoot) {
  * @param {String} backupRoot
  * @param {Object} logger
  * @param {Object} [retention]
- * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
+ * @param {Number} [retention.keepMinimum=3] Newest N restorable bundles to retain unconditionally.
  * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
  */
 export async function cleanOldBackups(backupRoot, logger, retention = {}) {
@@ -966,29 +1034,90 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
 
     const {keepMinimum = 3, maxDays = 30} = retention;
 
-    const backups = await listPublishedBundles(backupRoot);
+    const backups     = await listPublishedBundles(backupRoot),
+          now         = Date.now(),
+          thresholdMs = maxDays * 24 * 60 * 60 * 1000;
 
-    const K           = keepMinimum;
-    const N_DAYS      = maxDays;
-    const now         = Date.now();
-    const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
+    // Classify first, decide second. The sweep needs the whole set's recoverability before it can
+    // say which bundles the floor protects — an index-based floor cannot express "the newest three
+    // that can actually restore something".
+    const classified = [];
+
+    for (const backup of backups) {
+        classified.push({...backup, ...await classifyBundleRecoverability(backup.path)});
+    }
+
+    // The floor is PER SUBSTRATE — the newest `keepMinimum` meta-bearing bundles restorable for each
+    // substrate, unioned. Not "restorable for at least one".
+    //
+    // An any-substrate floor looks correct and does not close the defect. Measured on the live set:
+    // the three newest restorable-for-anything bundles were `[kb,mc,graph]`, `[mc,graph]`,
+    // `[mc,graph]` — so the floor held exactly ONE kb-bearing bundle (the degraded newest), and the
+    // only full-corpus bundle was still protected by age alone. Recovery needs every substrate
+    // covered; a floor satisfied by three bundles that all lack `kb` guarantees nothing about kb.
+    const floor = new Set();
+
+    for (const substrate of RECOVERY_SUBSTRATES) {
+        for (const entry of classified.filter(candidate => candidate.hasMeta && candidate.substrates[substrate] > 0)
+                                      .slice(0, keepMinimum)) {
+            floor.add(entry.name);
+        }
+    }
+
+    // Per-substrate last-known-good. Separate from the floor because a bundle can be restorable for
+    // `mc` and empty for `kb`: a floor built from "restorable for anything" could still leave the
+    // only KB-bearing bundle unprotected.
+    //
+    // Gated on a POSITIVE floor, and that boundary is the point. This rule exists to stop an AGE
+    // CLOCK from deleting the last artifact that can restore a substrate — not to override an
+    // operator who explicitly asked for none. `keepMinimum: 0` is a stated intent to keep nothing,
+    // and a purge the tool refuses to perform is a different tool.
+    const newestPerSubstrate = new Set();
+
+    if (keepMinimum > 0) {
+        for (const substrate of RECOVERY_SUBSTRATES) {
+            // `hasMeta` is required here for the same reason it is required for the floor: a partial
+            // capture is not a verified recovery source, and letting one become the protected
+            // last-known-good would pin residue in place of a real bundle. Dropping this condition
+            // made a meta-less 40d bundle outrank a complete 50d one.
+            const newest = classified.find(entry => entry.hasMeta && entry.substrates[substrate] > 0);
+            if (newest) newestPerSubstrate.add(newest.name);
+        }
+    }
 
     let deletedCount = 0;
 
-    for (let i = K; i < backups.length; i++) {
-        const backup = backups[i];
-        const ageMs  = now - backup.time;
-        if (ageMs > thresholdMs) {
-            try {
-                logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
-                await fs.remove(backup.path);
-                deletedCount++;
-            } catch (err) {
-                if (logger.error) {
-                    logger.error(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
-                } else {
-                    logger.log(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
-                }
+    for (const entry of classified) {
+        const ageMs   = now - entry.time,
+              ageDays = Math.round(ageMs / 86400000),
+              payload = RECOVERY_SUBSTRATES.map(s => `${s}=${entry.substrates[s]}B`).join(' ');
+
+        if (floor.has(entry.name)) {
+            logger.log(`[Retention] Keeping ${entry.name} (restorable floor, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
+
+        if (newestPerSubstrate.has(entry.name)) {
+            // Deliberately independent of `maxDays`. This is the last artifact that can restore the
+            // substrate; deleting it on an age clock is the failure this branch exists to prevent.
+            logger.log(`[Retention] Keeping ${entry.name} (newest restorable per substrate, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
+
+        if (ageMs <= thresholdMs) continue;
+
+        try {
+            // Say WHAT is being dropped, not just its name. Six empty bundles accumulated unnoticed
+            // because the sweep logged names; a per-substrate byte line makes an audit possible after
+            // the fact rather than requiring one to have been watching.
+            logger.log(`[Retention] Deleting old backup: ${entry.name} (age: ${ageDays} days, meta=${entry.hasMeta}) — ${payload}`);
+            await fs.remove(entry.path);
+            deletedCount++;
+        } catch (err) {
+            if (logger.error) {
+                logger.error(`[Retention] Failed to delete ${entry.name}: ${err.message}`);
+            } else {
+                logger.log(`[Retention] Failed to delete ${entry.name}: ${err.message}`);
             }
         }
     }
