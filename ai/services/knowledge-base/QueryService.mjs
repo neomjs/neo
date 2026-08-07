@@ -86,8 +86,17 @@ class QueryService extends Base {
             throw new Error('The "root" parameter is required to prevent excessive context payload. Please specify a root class (e.g., "Neo.component.Base").');
         }
 
+        // Named remedy, because the previous one ("sync the knowledge base first") pointed at the
+        // wrong operation: a KB sync CONSUMES this file, it does not produce it. The producer is
+        // `generate-docs-json`. And since the file is tracked (see `.gitignore`), absence is a
+        // checkout or container-plane fault rather than a missing build step.
         if (!await fs.pathExists(aiConfig.hierarchyPath)) {
-            throw new Error('Class hierarchy file not found. Please sync the knowledge base first.');
+            throw new Error(
+                `Class hierarchy file not found at ${aiConfig.hierarchyPath}. It is tracked in git, so ` +
+                `absence indicates an incomplete checkout or a container plane that does not carry it. ` +
+                `Regenerate with \`npm run generate-docs-json\` — a knowledge-base sync consumes this file ` +
+                `and cannot create it.`
+            );
         }
 
         const hierarchy = await fs.readJson(aiConfig.hierarchyPath);

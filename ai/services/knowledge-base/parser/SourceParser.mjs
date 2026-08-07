@@ -41,9 +41,13 @@ class SourceParser extends Base {
      * @param {String} filePath The relative file path.
      * @param {String} [defaultType='src'] The type to assign to chunks (e.g., 'src', 'app', 'example').
      * @param {Object} [hierarchy={}] The authoritative class hierarchy map.
+     * @param {Object} [coverage=null] Optional `{declared, resolved}` accumulator, incremented in
+     *     place when this module declares a superclass. Passed in rather than returned so callers
+     *     measure the SAME universe the chunks come from — a reimplemented scan measures its own,
+     *     which is the producer/consumer mismatch this area exists to fix.
      * @returns {Array<Object>} An array of chunks.
      */
-    parse(content, filePath, defaultType='src', hierarchy={}) {
+    parse(content, filePath, defaultType='src', hierarchy={}, coverage=null) {
         const chunks = [];
         let ast;
 
@@ -70,6 +74,13 @@ class SourceParser extends Base {
         let   classDefinition = '';
         let   className       = '';
         let   superClass      = '';
+        // Whether the SOURCE declares a superclass, taken from the AST node rather than re-detected.
+        // This is the denominator for hierarchy-coverage reporting, and it has to come from the same
+        // extraction the chunks come from: a separately reimplemented scan measures its own universe
+        // and drifts from the one whose ids are actually at risk, which is the producer/consumer
+        // mismatch this whole area exists to fix. Three independent scans of these roots produced
+        // three different totals before this was derived here.
+        let declaresSuper = false;
 
         // 1. Traverse AST to categorize nodes
         ast.body.forEach(node => {
@@ -89,6 +100,10 @@ class SourceParser extends Base {
                     if (classDecl.id) {
                         className = classDecl.id.name;
                     }
+
+                    // acorn sets `superClass` only for an actual `extends` clause, so this is the
+                    // canonical answer to "does this module declare a superclass" — no regex.
+                    declaresSuper = !!classDecl.superClass;
 
                     // Iterate Class Body
                     classDecl.body.body.forEach(member => {
@@ -121,6 +136,16 @@ class SourceParser extends Base {
         // Resolve superclass using the authoritative hierarchy map
         if (className && hierarchy[className]) {
             superClass = hierarchy[className];
+        }
+
+        // Hierarchy-coverage tally, recorded at the exact point resolution succeeds or fails so the
+        // measured universe IS the ingested one. A module only counts when the AST saw an `extends`
+        // clause and a `className` was resolved: a class with no superclass is legitimately
+        // unresolved rather than a gap, and a file acorn could not parse contributes no chunks and
+        // so puts no ids at risk.
+        if (coverage && className && declaresSuper) {
+            coverage.declared++;
+            superClass && coverage.resolved++;
         }
 
         const commonMetadata = {

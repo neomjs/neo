@@ -77,7 +77,15 @@
 /buildScripts/webpack/json/myApps.json
 
 /dist
-/docs/output
+# Contents, NOT the directory: git does not descend into an ignored directory, so the
+# negation below would be unreachable under a bare `/docs/output`. #16600
+/docs/output/*
+# The one exception, and it is deliberate. `class-hierarchy.json` is a build output that is
+# ALSO an identity input: `extends` is hashed into every Knowledge Base chunk id, so a plane
+# that cannot read this file re-identifies the whole corpus. Tracking it makes it present in
+# every checkout — container, CI, peer clone — with no build step to keep correct. It is 53 KB
+# against 28 MB in this directory, and only ~6 entries per 7 weeks change a superclass.
+!/docs/output/class-hierarchy.json
 /tmp
 
 # dependencies

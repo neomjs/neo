@@ -1,0 +1,90 @@
+name: Class Hierarchy Freshness
+
+# `docs/output/class-hierarchy.json` is the one tracked file under `docs/output`, and it is tracked
+# because it is an IDENTITY input rather than a convenience: `extends` is hashed into every Knowledge
+# Base chunk id, so a plane that cannot read it re-identifies the whole corpus (#16600).
+#
+# Tracking fixes absence and introduces STALENESS in its place. A stale hierarchy is readable, so it
+# passes the fail-closed load in `helpers/classHierarchyContract.mjs` while yielding the wrong
+# `extends` for whichever classes changed — wrong ids, silently, on exactly the entries that matter.
+# The copy found during the incident was 7 weeks old and missing 96 classes, which is the default
+# state of an untracked build output. This guard is what makes tracking safe rather than slower rot.
+#
+# SCOPE, stated narrowly because the earlier wording here overclaimed: this guards STALENESS of the
+# generator's output against its own inputs. It does NOT make the artifact authoritative over every
+# tree `ApiSource` indexes. A superclass change under `examples/` runs the generator, produces no map
+# delta (that root resolves 0 of 259 declaring classes), and passes this guard — correctly, because
+# the gap is a coverage defect rather than a freshness one. Coverage is enforced separately by the
+# interim per-root floors in `helpers/classHierarchyContract.mjs`.
+#
+# Paths follow the Substrate Size Guard's lesson that a guard which does not run on the edit it
+# exists to catch is not a guard — so they span the indexed trees plus every direct producer input,
+# while the guarantee stays limited to "the committed map matches what the generator produces now."
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'src/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'ai/**/*.mjs'
+      - 'examples/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'docs/output/class-hierarchy.json'
+      # Every DIRECT producer input, not just the entrypoint. `generateDocsJson.mjs` delegates
+      # doclet parsing to `docletPipeline/**`, and reads the app manifest (`:40` falls back to
+      # `myApps.template.json`) to decide which app roots are walked at all — so either can change
+      # the output with the entrypoint untouched. Omitting them made this a guard that would not
+      # run on a whole class of edit it exists to catch.
+      - 'buildScripts/docs/generateDocsJson.mjs'
+      - 'buildScripts/docs/docletPipeline/**'
+      - 'buildScripts/webpack/json/myApps.template.json'
+      - '.github/workflows/class-hierarchy-freshness.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**/*.mjs'
+      - 'apps/**/*.mjs'
+      - 'ai/**/*.mjs'
+      - 'examples/**/*.mjs'
+      - 'docs/app/**/*.mjs'
+      - 'docs/output/class-hierarchy.json'
+      # Every DIRECT producer input, not just the entrypoint. `generateDocsJson.mjs` delegates
+      # doclet parsing to `docletPipeline/**`, and reads the app manifest (`:40` falls back to
+      # `myApps.template.json`) to decide which app roots are walked at all — so either can change
+      # the output with the entrypoint untouched. Omitting them made this a guard that would not
+      # run on a whole class of edit it exists to catch.
+      - 'buildScripts/docs/generateDocsJson.mjs'
+      - 'buildScripts/docs/docletPipeline/**'
+      - 'buildScripts/webpack/json/myApps.template.json'
+      - '.github/workflows/class-hierarchy-freshness.yml'
+
+concurrency:
+  group: class-hierarchy-freshness-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate the class hierarchy
+        run: npm run generate-docs-json
+
+      - name: Fail if the tracked hierarchy is stale
+        run: |
+          if ! git diff --exit-code -- docs/output/class-hierarchy.json; then
+            echo "::error file=docs/output/class-hierarchy.json::The tracked class hierarchy is stale. \`extends\` is hashed into every Knowledge Base chunk id, so committing source changes without regenerating this file makes the next ingest re-identify the affected chunks and mark the existing corpus stale. Fix: run \`npm run generate-docs-json\` and commit docs/output/class-hierarchy.json in the same change."
+            exit 1
+          fi
+          echo "Tracked class hierarchy matches a fresh generation."
