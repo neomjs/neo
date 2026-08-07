@@ -268,7 +268,9 @@ class GalleryModel extends Model {
                             add   : [],
                             remove: ['neo-selected']
                         }
-                    })
+                    });
+
+                    me.deannotateItem(view.getVdomChild(view.getItemVnodeId(item)))
                 }
             });
 
@@ -281,6 +283,12 @@ class GalleryModel extends Model {
                 add: ['neo-selected']
             }
         });
+
+        // The delta reaches the DOM immediately; this puts the SAME annotation on the vdom, which is what
+        // `restoreSelection` reads after a rebuild. Without it the vdom never carries the selection at all,
+        // so `aria-selected` is absent until a restore INVENTS it — and a sort that introduces ARIA for the
+        // first time has not preserved anything. One annotation owner, both paths.
+        me.annotateItem(view.getVdomChild(vnodeId));
 
         NeoArray['add'](items, itemId);
 

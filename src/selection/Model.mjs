@@ -103,6 +103,24 @@ class Model extends Base {
     }
 
     /**
+     * @summary Removes the selection annotations from one resolved vdom node.
+     *
+     * The inverse of {@link Neo.selection.Model#annotateItem annotateItem}, and the other half of the
+     * single annotation owner: a subclass that adds the class through its own delta must remove it
+     * through this, or select and deselect drift into different notions of "selected".
+     *
+     * @param {Object|null} node a vdom node resolved via `view.getVdomChild()`
+     * @param {String} [selectedCls]
+     * @protected
+     */
+    deannotateItem(node, selectedCls) {
+        if (node) {
+            node.cls = NeoArray.remove(node.cls || [], selectedCls || this.selectedCls);
+            delete node['aria-selected']
+        }
+    }
+
+    /**
      * @param {Object} item
      * @param {Boolean} [silent] true to prevent a vdom update
      * @param {Object[]|String[]} itemCollection=this.items
@@ -110,19 +128,13 @@ class Model extends Base {
      */
     deselect(item, silent, itemCollection=this.items, selectedCls) {
         let me     = this,
-            {view} = me,
-            node;
+            {view} = me;
 
         // We hold vdom ids for now, so all incoming selections must be converted.
         item = me.getSelectionItemId(item);
 
         if (itemCollection.includes(item)) {
-            node = view.getVdomChild(item);
-
-            if (node) {
-                node.cls = NeoArray.remove(node.cls || [], selectedCls || me.selectedCls);
-                delete node['aria-selected']
-            }
+            me.deannotateItem(view.getVdomChild(item), selectedCls);
 
             NeoArray.remove(itemCollection, item);
 
@@ -309,6 +321,12 @@ class Model extends Base {
      * ({@link Neo.component.Gallery#onStoreLoad}, {@link Neo.component.Helix#onStoreLoad}) discards the
      * annotated nodes while this model still tracks the ids, which leaves `hasSelection()` reporting a
      * selection that nothing renders and drops `aria-selected` with it.
+     *
+     * **This only restores what `select()` established.** The concrete `GalleryModel` / `HelixModel`
+     * additionally push a DOM delta for immediacy, but the vdom annotation written through
+     * {@link Neo.selection.Model#annotateItem annotateItem} is the one this reads — so a subclass whose
+     * `select()` writes ONLY a delta leaves nothing to restore, and a restore here would be inventing an
+     * annotation rather than preserving one. That is why both concrete models annotate the vdom too.
      *
      * Call this after such a rebuild. It is a no-op when nothing is selected.
      *

@@ -171,6 +171,56 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
         });
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // The preservation chain, driven through the REAL select(). `items.push(...)` proves the mapping
+    // seam but skips the half that matters: whether the annotation EXISTS before the rebuild. A restore
+    // that adds `aria-selected` where select never set it has not preserved anything — it invented it.
+    // ---------------------------------------------------------------------------------------------
+
+    for (const [name, ModelClass] of [['GalleryModel', GalleryModel], ['HelixModel', HelixModel]]) {
+        test(`${name}: select establishes the CSS + ARIA baseline BEFORE any rebuild`, () => {
+            const model = mount(ModelClass);
+
+            model.select('item-2');
+
+            const node = itemNode('item-2');
+
+            // This is the assertion the previous fixture could not make. Against the pre-repair models
+            // it fails on ariaSelected: their select() emitted `{id, cls}` only.
+            expect(node.cls).toContain('neo-selected');
+            expect(node['aria-selected']).toBe(true);
+            expect(model.items).toContain('item-2');
+        });
+
+        test(`${name}: select → rebuild → restore preserves the SAME annotation, not a new one`, () => {
+            const model = mount(ModelClass);
+
+            model.select('item-2');
+
+            const before = {
+                cls : [...itemNode('item-2').cls],
+                aria: itemNode('item-2')['aria-selected']
+            };
+
+            // Non-vacuity: the baseline must be a real annotation, or "identical after" is trivially true.
+            expect(before.cls).toContain('neo-selected');
+            expect(before.aria).toBe(true);
+
+            view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3']);
+
+            expect(itemNode('item-2').cls).not.toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBeUndefined();
+
+            model.restoreSelection(true);
+
+            const after = itemNode('item-2');
+
+            // Identical restoration, both axes — the contract Cycle-1 RA1 asked for.
+            expect(after.cls).toEqual(expect.arrayContaining(before.cls));
+            expect(after['aria-selected']).toBe(before.aria);
+        });
+    }
+
     test('Gallery#onStoreLoad restores through the concrete model, not the base contract', () => {
         const model = mount(GalleryModel);
 
