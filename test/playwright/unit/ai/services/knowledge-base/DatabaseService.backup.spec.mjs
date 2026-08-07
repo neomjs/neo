@@ -59,6 +59,11 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         const upserts        = [];
         const fakeCollection = {
             name  : 'fake-kb-import',
+            // A merge import reads the live collection before its first write to scan for
+            // natural-key divergence, so the double models that surface. Empty is the honest
+            // answer here and keeps this test about the vector invariant.
+            count : async () => 0,
+            get   : async () => ({ids: [], metadatas: []}),
             upsert: async args => { upserts.push(args) }
         };
 
@@ -84,6 +89,8 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         const upserts        = [];
         const fakeCollection = {
             name  : 'fake-kb-import-valid',
+            count : async () => 0,
+            get   : async () => ({ids: [], metadatas: []}),
             upsert: async args => { upserts.push(args) }
         };
 

@@ -1,11 +1,12 @@
-import aiConfig                                          from '../../mcp/server/knowledge-base/config.mjs';
-import {classifyExportCompleteness, EXPORT_COMPLETENESS} from '../memory-core/helpers/exportCompleteness.mjs';
-import {partitionRowsByVectorValidity}                   from '../memory-core/helpers/vectorWriteInvariant.mjs';
-import {validateJsonlSourceFile}                         from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
-import Base                                              from '../../../src/core/Base.mjs';
-import ChromaManager                                     from './ChromaManager.mjs';
-import DestructiveOperationGuard                         from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import VectorService                                     from './VectorService.mjs';
+import aiConfig                                                                                                            from '../../mcp/server/knowledge-base/config.mjs';
+import {classifyExportCompleteness, EXPORT_COMPLETENESS}                                                                   from '../memory-core/helpers/exportCompleteness.mjs';
+import {partitionRowsByVectorValidity}                                                                                     from '../memory-core/helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                                                                                           from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
+import {assertNoNaturalKeyDivergence, classifyIncomingRow, DIVERGENCE_SCAN, KB_MERGE_NATURAL_KEY_DIVERGENCE, naturalKeyOf} from './helpers/mergeIdentityContract.mjs';
+import Base                                                                                                                from '../../../src/core/Base.mjs';
+import ChromaManager                                                                                                       from './ChromaManager.mjs';
+import DestructiveOperationGuard                                                                                           from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import VectorService                                                                                                       from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
@@ -16,6 +17,18 @@ import fs             from 'fs-extra';
 import logger         from '../../mcp/server/knowledge-base/logger.mjs';
 import path           from 'path';
 import readline       from 'readline';
+
+/**
+ * Refusal codes `importDatabase` re-throws unwrapped. A refusal's value is that a caller can tell it
+ * apart from a generic failure, so collapsing one into `DATABASE_IMPORT_ERROR` destroys the only
+ * property it has. Kept as a set rather than a chain of `if`s so adding a refusal is one line in one
+ * place, and so a reader can see the whole contract at once.
+ * @member {Set<String>} PRESERVED_IMPORT_REFUSAL_CODES
+ */
+const PRESERVED_IMPORT_REFUSAL_CODES = new Set([
+    'DISPOSABLE_RESTORE_TARGET_REQUIRED',
+    KB_MERGE_NATURAL_KEY_DIVERGENCE
+]);
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -340,7 +353,15 @@ class DatabaseService extends Base {
      * @param {String|Object} [options.confirmation]     Explicit production confirmation token (forwarded to `truncateDatabase` when mode is `'replace'`).
      * @param {String}       [options.targetCollection]  Disposable collection to import into instead of the canonical one. Refuses canonical names; requires `mode: 'merge'`.
      * Parsing and Chroma writes share the existing 500-row bound: a source file is
-     * never materialized in full before its first write.
+     * never materialized in full — no code path retains more than one batch of rows.
+     *
+     * **`merge` into a NON-EMPTY target adds a read pass before the first write, deliberately.**
+     * The natural-key divergence scan streams every source file to completion, then writes. That is
+     * required by the guarantee it provides — a divergence found in batch 5 would arrive after four
+     * batches had landed, and "refuse before any write" is the whole point. The bounded-memory
+     * property is preserved (the scan retains ids and five metadata fields, never embeddings and
+     * never `metadata.content`); what changes is *when* the first write happens. An empty target
+     * skips the scan entirely, so a fresh restore still flushes its first batch before EOF.
      *
      * @returns {Promise<{message: String, imported: Number, mode: String, targetCollection: String|null}>}
      */
@@ -405,11 +426,98 @@ class DatabaseService extends Base {
             const collection = targetCollection === null
                 ? await ChromaManager.getKnowledgeBaseCollection()
                 : await ChromaManager.getDisposableCollection({name: targetCollection});
-            let   imported   = 0;
+            let imported = 0;
 
             if (targetCollection !== null) {
                 logger.log(`Importing into DISPOSABLE collection '${targetCollection}' — the canonical KB collection is untouched.`);
             }
+
+            // ── Natural-key divergence scan ──────────────────────────────────────────────────────
+            // The chunk id is a content digest (`createContentHash`), so an id-keyed merge cannot
+            // tell "same chunk, changed content" from "different chunk". A natural key present on
+            // both sides under differing ids therefore means the bundle and the live code no longer
+            // derive identity the same way — a derivation regression, and the strongest evidence of
+            // one we will ever hold. Refuse rather than bury it under 7,620 logical duplicates.
+            //
+            // This runs BEFORE the first write, which is what forces a full pre-pass over the source
+            // files: a divergence discovered in batch 5 would arrive after four batches had already
+            // landed. The pre-pass retains only ids and the five natural-key fields — never
+            // embeddings — so the 500-row streaming bound on vector memory is untouched. The cost is
+            // a second JSON.parse of each line, paid deliberately for a pre-write guarantee.
+            let divergenceScan = DIVERGENCE_SCAN.performed,
+                liveIds        = new Set(),
+                liveIndex      = new Map();
+
+            if (mode === 'replace') {
+                // The collection was truncated above, so no live row exists to diverge from.
+                divergenceScan = DIVERGENCE_SCAN.skippedReplaceMode;
+            } else {
+                const liveCount = await collection.count();
+
+                if (liveCount === 0) {
+                    // An empty target makes divergence impossible — and this is exactly why the
+                    // completed disposable-collection restore carried no information about merge
+                    // semantics. Recording WHICH zero this is keeps a clean receipt honest.
+                    divergenceScan = DIVERGENCE_SCAN.skippedEmptyTarget;
+                    logger.log('Merge target is empty — natural-key divergence is impossible, skipping the scan.');
+                } else {
+                    logger.log(`Scanning ${liveCount} live row(s) for natural-key identity before any write...`);
+
+                    const pageSize = 2000;
+                    let   offset   = 0;
+
+                    while (offset < liveCount) {
+                        const page = await collection.get({include: ['metadatas'], limit: pageSize, offset});
+                        const ids  = page.ids ?? [];
+
+                        // Project each row to its natural key and DISCARD the metadata in the same
+                        // step. Accumulating `{id, metadata}` rows would retain `metadata.content`
+                        // — the full chunk text — for every live row, which is ~120 MB on a 60k
+                        // corpus and would turn an identity scan into a memory regression on the
+                        // one code path whose contract is a bounded footprint.
+                        for (let i = 0; i < ids.length; i++) {
+                            const key = naturalKeyOf(page.metadatas?.[i] ?? {});
+                            let   set = liveIndex.get(key);
+
+                            if (!set) {
+                                set = new Set();
+                                liveIndex.set(key, set);
+                            }
+
+                            set.add(ids[i]);
+                            liveIds.add(ids[i]);
+                        }
+
+                        if (ids.length === 0) break;
+                        offset += pageSize;
+                    }
+
+                    const divergent = [];
+
+                    for (const filePath of sourceFiles) {
+                        const scanStream = fs.createReadStream(filePath);
+                        const scanReader = readline.createInterface({input: scanStream, crlfDelay: Infinity});
+
+                        for await (const line of scanReader) {
+                            if (!line.trim()) continue;
+
+                            const row                                   = JSON.parse(line);
+                            const {outcome, key, liveIds: collidingIds} = classifyIncomingRow({row, liveIndex, liveIds});
+
+                            if (outcome === 'natural-key-divergent') {
+                                divergent.push({id: row.id, key, liveIds: collidingIds});
+                            }
+                        }
+                    }
+
+                    assertNoNaturalKeyDivergence({divergent});
+
+                    logger.log(`Natural-key scan clean: no divergence across ${liveCount} live row(s).`);
+                }
+            }
+
+            let inserted         = 0,
+                idAlreadyPresent = 0;
 
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
@@ -458,6 +566,26 @@ class DatabaseService extends Base {
                     }
                     await collection.upsert(upsertArgs);
 
+                    // Classify AFTER the write succeeds, so a failed flush cannot leave the receipt
+                    // claiming rows that never landed. `liveIds` grows as we insert, which keeps the
+                    // counts summing correctly when one bundle carries the same id twice — the second
+                    // occurrence genuinely overwrites what the first just wrote.
+                    //
+                    // `idAlreadyPresent`, NOT "byte-identical". The id is a digest over content plus
+                    // hashed fields; it does NOT cover the embedding vector or metadata outside the
+                    // hash input. So a matching id proves the HASHED content is unchanged and proves
+                    // nothing about the row as stored — two rows can share an id and carry different
+                    // vectors. And these rows ARE upserted, not skipped: the write happens above, so
+                    // calling them no-ops would describe an optimisation the code does not perform.
+                    for (const row of valid) {
+                        if (liveIds.has(row.id)) {
+                            idAlreadyPresent++;
+                        } else {
+                            inserted++;
+                            liveIds.add(row.id);
+                        }
+                    }
+
                     imported     += valid.length;
                     fileImported += valid.length;
                 };
@@ -479,20 +607,33 @@ class DatabaseService extends Base {
                 }
             }
 
+            // `imported` stays the total rows written, so existing consumers keep their meaning, and
+            // the classification sits beside it. That split is what makes a no-op legible: the run
+            // that reported `"imported": 59754` on 2026-08-06 counted 7,900 rows that already
+            // existed, and no field in that receipt could have revealed it. `inserted: 0` can.
             return {
-                message : `Import complete. Ingested ${imported} chunks across ${sourceFiles.length} file(s)${targetCollection === null ? '' : ` into disposable collection '${targetCollection}'`}.`,
+                message            : `Import complete. ${inserted} inserted, ${idAlreadyPresent} re-written under an id already present across ${sourceFiles.length} file(s)${targetCollection === null ? '' : ` into disposable collection '${targetCollection}'`}.`,
                 imported,
+                inserted,
+                idAlreadyPresent,
+                naturalKeyDivergent: 0,
+                divergenceScan,
                 mode,
                 targetCollection
             };
         } catch (error) {
             logger.error('[DatabaseService] Error importing knowledge base:', error);
 
-            // A target refusal keeps its own identity. Re-wrapping it as DATABASE_IMPORT_ERROR
-            // would discard the `code` that distinguishes "you aimed a diagnostic restore at
-            // production" from any other import failure, and a collapsed error code makes that
-            // refusal impossible to assert on precisely.
-            if (error.code === 'DISPOSABLE_RESTORE_TARGET_REQUIRED') {
+            // A REFUSAL keeps its own identity. Re-wrapping one as DATABASE_IMPORT_ERROR discards the
+            // `code` that distinguishes it from any other import failure, and a collapsed code makes
+            // the refusal impossible to assert on precisely.
+            //
+            // The divergence refusal was added to this method WITHOUT being added here, so it arrived
+            // at every caller as a generic `DATABASE_IMPORT_ERROR` — a fail-loud guard whose whole
+            // value is being distinguishable, wrapped into indistinguishability one frame above the
+            // throw. The list is the contract: a new refusal code must be added here in the same
+            // change that introduces it, or the guard silently degrades to a generic failure.
+            if (PRESERVED_IMPORT_REFUSAL_CODES.has(error.code)) {
                 throw error;
             }
 
