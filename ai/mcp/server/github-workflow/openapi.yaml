@@ -486,7 +486,13 @@ paths:
 
   /comments/manage:
     post:
-      summary: Manage Comments (Create or Update) — dialogue only; corrections go in the BODY, not a comment
+      summary: Manage Comments (Create or Update)
+      # The compact `tools/list` description, and it MUST live here rather than in `summary`.
+      # `ToolService` emits `title: operation.summary` AND falls back to `summary` for the compact
+      # description, so putting the imperative in `summary` ships it twice — measured at +118 chars
+      # on the projected record instead of +59. This annotation carries it once and leaves the title
+      # stable at the tool's 34-char name.
+      x-neo-tool-summary: Manage Comments (Create or Update) — dialogue only; corrections go in the BODY, not a comment
       operationId: manage_issue_comment
       x-neo-tool-tier: write
       x-pass-as-object: true
