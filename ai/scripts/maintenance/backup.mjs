@@ -788,6 +788,22 @@ export function classifyIntegrityStatus(status) {
 }
 
 /**
+ * The substrates whose presence decides whether a bundle is a recovery source at all — and the same
+ * set whose row-count parity `verifyBundleIntegrity` checks, because those are one question, not two:
+ * the receipt's `integrity[]` block exists to answer "does this bundle hold rows a restore could
+ * bring back?", so verifying a substrate and ranking recoverability by it must range over the
+ * identical set. It was written out twice, and two lists that must agree are a list that will not.
+ *
+ * `concepts`, `trajectories`, `mailbox` and `ledgers` are deliberately absent: `copyJsonlSource`
+ * documents them as legitimately optional (a deployment that has never healed has no ledger), so
+ * requiring them would classify correct bundles as unrecoverable.
+ *
+ * Declared above both consumers rather than between them, so neither reads as the authority.
+ * @member {String[]} RECOVERY_SUBSTRATES
+ */
+export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
@@ -814,7 +830,7 @@ export function classifyIntegrityStatus(status) {
  * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is one of the frozen {@link INTEGRITY_STATUS} values — `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
-    const verifiable = ['kb', 'mc', 'graph'];
+    const verifiable = RECOVERY_SUBSTRATES;
     const checks     = [];
 
     for (const subsystem of verifiable) {
@@ -985,16 +1001,6 @@ export async function listPublishedBundles(backupRoot) {
 
     return backups
 }
-
-/**
- * The substrates whose presence decides whether a bundle is a recovery source at all.
- *
- * `concepts`, `trajectories`, `mailbox` and `ledgers` are deliberately absent: `copyJsonlSource`
- * documents them as legitimately optional (a deployment that has never healed has no ledger), so
- * requiring them would classify correct bundles as unrecoverable.
- * @member {String[]} RECOVERY_SUBSTRATES
- */
-export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
 
 /**
  * @summary Decides whether a parsed `bundle-meta.json` is a COMPLETED-capture receipt.
