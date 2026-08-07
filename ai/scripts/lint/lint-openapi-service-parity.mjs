@@ -116,10 +116,10 @@ export const PARITY_BASELINE = Object.freeze({
     // exists in the service and is unreachable from outside it, and declaring a parameter makes it
     // agent-settable, which is a per-parameter design decision (bounds for traversal knobs, payload
     // cost for response-widening flags).
-    'knowledge-base.manage_knowledge_base.viaMcp'       : 'Work-volume-gate selector, always false. Third live instance of this parameter name; disposition under #16611 citing #16577.',
-    'knowledge-base.manage_knowledge_base.staleStrategy': 'Stale-row handling strategy, always undefined. Disposition under #16611; adjacent to #16590 stale-id scoping.',
-    'knowledge-base.query_documents.includeMetadata'    : 'Metadata unreachable through the tool, always false. Disposition under #16611; interacts with #16588 payload size.',
-    'memory-core.get_context_frontier.depth'            : 'Frontier depth permanently 2. Disposition under #16611; needs a maximum if declared, or an agent can request an arbitrarily deep walk.',
+    'knowledge-base.manage_knowledge_base.viaMcp'       : 'PERMANENT. Not a gap: MCP dispatch forces true after Zod strips any caller value, and the services.mjs/CLI path correctly defaults to false (the documented long-running-work bypass). Declaring it would let a caller disable the work-volume gate through a public surface. Withdrawn from #16611.',
+    'knowledge-base.manage_knowledge_base.staleStrategy': 'PERMANENT. One of its two values (delete-upfront) removes stale rows BEFORE embedding, so a failure between the two loses both; the operator surface already exists as NEO_KB_STALE_STRATEGY. Declaring it would only add remote selection of the destructive branch. Dispositioned on #16611.',
+    'knowledge-base.query_documents.includeMetadata'    : 'PERMANENT. An internal RAG-synthesis hydration flag with exactly one caller (SearchService), not a caller-facing capability — the surface that needs metadata is ask_knowledge_base, which sets it. Nothing is unreachable. Dispositioned on #16611.',
+    'memory-core.get_context_frontier.depth'            : 'TRANSITIONAL. Measured DEAD by AST: zero occurrences in getContextFrontier body, destructured and never read. Declaring it would advertise a knob that silently does nothing; the disposition on #16611 is to DELETE the parameter, which removes this row with it.',
 
     // ── First findings from the ToolService dispatch join (the 142-operation object-dispatch path) ──
     // PERMANENT — both are the `now` class: an injected test seam with a working default, where the
@@ -148,7 +148,7 @@ export const PARITY_BASELINE = Object.freeze({
     // Baselined so the gate stays clean while the disposition is decided — wire it through to a
     // filter, or remove it from the contract and point callers at `query_summaries`. That is a
     // behaviour change, not a lint fix.
-    'memory-core.get_all_summaries.category': 'Declared with a "Filter by category" description that listSummaries never reads; capability exists on querySummaries. Disposition tracked with the other unreachable-parameter rows.',
+    'memory-core.get_all_summaries.category': 'Declared with a "Filter by category" description that listSummaries never reads, while the capability exists on querySummaries. Owned by #16611 as an added ledger row; the fix is to wire the filter or remove the declaration, both behaviour changes rather than lint edits.',
 
     'memory-core.get_session_memories.memorySharing': 'Tenant-isolation policy override, unreachable on this operation while declared on two siblings. Real capability gap; disposition under #16611 because declaring it changes which memories an agent can read.'
 });

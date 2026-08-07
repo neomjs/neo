@@ -31,10 +31,22 @@ on:
       - '.github/workflows/openapi-service-parity-lint.yml'
   push:
     branches: [dev]
+    # MUST stay identical to `pull_request.paths` above. GitHub Actions does not reliably expand YAML
+    # anchors in workflow files, so this is a second copy of one list — and two lists that must agree
+    # are a list that will not. `OpenApiServiceParityTriggerReachability.spec.mjs` asserts set-equality
+    # between the two, because that is the only thing standing between them and silent divergence.
+    #
+    # It already happened once: the three ToolService authorities were added above and not here, so
+    # `push` never ran the guard on the mapping table the join derives its handler list from.
+    # @neo-gpt caught it with micromatch, and the same shape is the defect I had removed from
+    # `backup.mjs` hours earlier — two substrate lists drifted apart as separate literals.
     paths:
       - 'ai/services/**/*.mjs'
       - 'ai/mcp/server/**/openapi.yaml'
       - 'ai/services.mjs'
+      - 'ai/mcp/server/**/toolService.mjs'
+      - 'ai/mcp/server/**/*.mjs'
+      - 'ai/mcp/ToolService.mjs'
       - 'ai/scripts/diagnostics/mcpHandlerSignatureCensus.mjs'
       - 'ai/scripts/lint/lint-openapi-service-parity.mjs'
       - '.github/workflows/openapi-service-parity-lint.yml'
