@@ -1743,9 +1743,14 @@ class Workspace extends Container {
             // away and its window closes within the second — the departing overlay fades in over
             // the un-projection so the terminal window never presents a raw yank. No phase or
             // ordering change rides this; the close still dispatches through the refresh chain.
+            // The dispatch owns its terminal outcome: a vessel that already closed rejects with
+            // bare `undefined` (worker.Base closed-port) — moot presentation, silent settle;
+            // reasoned rejections are live-window delta failures and stay visible.
             Neo.applyDeltas(sourceState.windowId, [
                 {cls: {add: ['workstation-vessel-departing']}, id: 'document.body'}
-            ])
+            ]).catch(reason => {
+                reason !== undefined && console.error('Workspace: departing overlay dispatch failed', {reason})
+            })
         }
 
         me.refreshPromise = (me.refreshPromise || Promise.resolve())
