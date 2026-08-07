@@ -2182,6 +2182,25 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         expect(shellBefore, 'the projection shell must be resolvable before the return').toBeTruthy();
 
+        // The departing-state witness must observe DURING the return: the source vessel's body
+        // gains the terminal class between the adoption and the OS close, and the window is gone
+        // by the time the step resolves. Poll in parallel; the popup closing ends the poll.
+        const departingSeen = (async () => {
+            for (let attempt = 0; attempt < 600; attempt++) {
+                if (targetPopup.isClosed()) return false;
+
+                const seen = await targetPopup.evaluate(() =>
+                    document.body.classList.contains('workstation-vessel-departing')
+                ).catch(() => false);
+
+                if (seen) return true;
+
+                await new Promise(resolve => setTimeout(resolve, 16))
+            }
+
+            return false
+        })();
+
         const {evidence: returnCursorEvidence, result} = await captureFilmCursorLifecycle({
             action: () => app.callMethod(wsId, 'executeStackReturnStep', [
                 {ownerItemId: 'metrics'},
@@ -2196,6 +2215,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             sourcePage         : targetPopup,
             targetPage         : page
         });
+
+        expect(await departingSeen, 'the source vessel presents the departing state before it closes').toBe(true);
 
         expect(result.errors, JSON.stringify({
             closeReceipt    : result.proof?.closeReceipt,

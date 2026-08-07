@@ -83,6 +83,28 @@
     opacity: .7;
 }
 
+// Terminal presentation for a vessel whose stack was just adopted home: the workspace applies this
+// to the vessel window's body the moment the documents transfer, and the window closes shortly
+// after. The overlay fades IN over the un-projected content (a body-opacity fade would flash the
+// html underlay), covers any residual gesture artifacts, and holds the theme ground until the OS
+// close — the exit reads as deliberate instead of a raw content yank. Lives in THIS sheet because
+// the `?popout=` vessel never loads `Workspace.css` (sheet gate above).
+.workstation-vessel-departing::after {
+    animation : workstation-vessel-depart 250ms ease-out forwards;
+    background: var(--workstation-ground);
+    content   : '';
+    inset     : 0;
+    opacity   : 0;
+    position  : fixed;
+    z-index   : 9999;
+}
+
+@keyframes workstation-vessel-depart {
+    to {
+        opacity: 1;
+    }
+}
+
 // Pane SKIN — everything a pane keeps when it is torn out of the workspace.
 //
 // The token bridge above made a vessel-hosted pane resolve the right colours; these rules are

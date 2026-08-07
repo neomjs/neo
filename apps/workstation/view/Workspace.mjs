@@ -1738,6 +1738,16 @@ class Workspace extends Container {
             topologyExited: false
         };
 
+        if (!mainToVessel && sourceState.windowId) {
+            // Presentation only, fire-and-forget: the source vessel's content was just adopted
+            // away and its window closes within the second — the departing overlay fades in over
+            // the un-projection so the terminal window never presents a raw yank. No phase or
+            // ordering change rides this; the close still dispatches through the refresh chain.
+            Neo.applyDeltas(sourceState.windowId, [
+                {cls: {add: ['workstation-vessel-departing']}, id: 'document.body'}
+            ])
+        }
+
         me.refreshPromise = (me.refreshPromise || Promise.resolve())
             .then(() => me.timeout(0))
             .then(async () => {
