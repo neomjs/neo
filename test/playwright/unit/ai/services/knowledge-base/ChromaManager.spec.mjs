@@ -29,6 +29,11 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         ChromaManager = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
 
+        // The client is built in `initAsync()` (`chromadb` is imported on demand), so capturing
+        // before readiness snapshots `null` — and the afterEach restore then writes that null back
+        // permanently, leaving every later reader with no client even after awaiting `ready()`.
+        await ChromaManager.ready();
+
         originalClient                  = ChromaManager.client;
         originalCollectionPromise       = ChromaManager._knowledgeBaseCollectionPromise;
         originalKnowledgeBaseCollection = ChromaManager.knowledgeBaseCollection;

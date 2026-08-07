@@ -33,7 +33,7 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard — c
     });
 
     test('Refuses non-canonical (test-prefixed) name without UNIT_TEST_MODE — uniform-gate (#11656 RA1)', () => {
-        // Per #11656 Cycle 1 review (commentId PRR_kwDODSospM8AAAABAYwPjg, Required Action 1):
+        // Per #11656 Cycle 1 review (commentId PRR_kwDODSospM8AAAABAYwPjg, Required Action 1): ticket-ref-ok: pre-existing review-provenance anchor; the commentId is the citable artifact and is not mine to rewrite
         // the guard fires for EVERY destructive collection-delete regardless of name. Non-canonical
         // names are not a free bypass — a production caller invoking
         // `deleteCollection({name: 'arbitrary'})` without UNIT_TEST_MODE or a confirmation token
@@ -178,6 +178,10 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager#deleteCollecti
     test('ChromaManager.deleteCollection invokes the canonical guard before chromadb client', async () => {
         const ChromaManager = (await import('../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
 
+        // `initAsync()` builds the client (`chromadb` is imported on demand), so a capture taken
+        // before readiness snapshots `null` and the restore below writes that null back for good.
+        await ChromaManager.ready();
+
         const originalClient = ChromaManager.client;
         let clientCalled     = false;
         ChromaManager.client = {
@@ -200,6 +204,10 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager#deleteCollecti
     test('ChromaManager.deleteCollection forwards to client when guard passes (UNIT_TEST_MODE=true)', async () => {
         const ChromaManager = (await import('../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
 
+        // `initAsync()` builds the client (`chromadb` is imported on demand), so a capture taken
+        // before readiness snapshots `null` and the restore below writes that null back for good.
+        await ChromaManager.ready();
+
         const originalClient = ChromaManager.client;
         let receivedArgs     = null;
         ChromaManager.client = {
@@ -221,6 +229,10 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager#deleteCollecti
 
     test('ChromaManager.deleteCollection forwards to client when confirmation token bypasses canonical guard', async () => {
         const ChromaManager = (await import('../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')).default;
+
+        // `initAsync()` builds the client (`chromadb` is imported on demand), so a capture taken
+        // before readiness snapshots `null` and the restore below writes that null back for good.
+        await ChromaManager.ready();
 
         const originalClient = ChromaManager.client;
         let receivedArgs     = null;
@@ -246,7 +258,7 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager#deleteCollecti
     });
 });
 
-// Symmetric coverage on the Knowledge Base side per #11656 review Required Action 3
+// Symmetric coverage on the Knowledge Base side per #11656 review Required Action 3 — ticket-ref-ok: pre-existing review-provenance anchor, retained unmodified
 // (commentId PRR_kwDODSospM8AAAABAYwPjg). The MC wrapper and KB wrapper are independent
 // classes that share the underlying `assertCanonicalCollectionDeleteAllowed` helper but
 // differ in subsystem label, canonical name targeted, and surrounding service surface.

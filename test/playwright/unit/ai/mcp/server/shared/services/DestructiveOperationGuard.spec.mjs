@@ -266,6 +266,10 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
     });
 
     test('Knowledge Base VectorService stops before deleting the production collection', async () => {
+        // `initAsync()` builds the client, so a capture taken before readiness snapshots `null`
+        // and the restore writes that null back permanently.
+        await KbChromaManager.ready();
+
         const
             originalClient = KbChromaManager.client,
             originalPath   = kbConfig.path;

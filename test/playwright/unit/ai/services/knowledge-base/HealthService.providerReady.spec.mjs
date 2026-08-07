@@ -67,7 +67,11 @@ test.describe('Neo.ai.services.knowledge-base.HealthService provider-aware readi
     test.describe('ensureHealthy with ChromaDB healthy + no GEMINI_API_KEY', () => {
         let originalClient, originalGetCollection, originalGetDbStatus, originalGeminiKey;
 
-        test.beforeEach(() => {
+        test.beforeEach(async () => {
+            // `initAsync()` builds the client, so a capture taken before readiness snapshots
+            // `null` and the restore writes that null back permanently.
+            await ChromaManager.ready();
+
             originalClient        = ChromaManager.client;
             originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
             originalGetDbStatus   = DatabaseLifecycleService.getDatabaseStatus;
@@ -126,7 +130,11 @@ test.describe('Neo.ai.services.knowledge-base.HealthService stale collection han
         DatabaseLifecycleService = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
     });
 
-    test.beforeEach(() => {
+    test.beforeEach(async () => {
+        // `initAsync()` builds the client, so a capture taken before readiness snapshots `null`
+        // and the restore writes that null back permanently.
+        await ChromaManager.ready();
+
         originalClient          = ChromaManager.client;
         originalGetCollection   = ChromaManager.getKnowledgeBaseCollection;
         originalGetDbStatus     = DatabaseLifecycleService.getDatabaseStatus;
@@ -372,6 +380,8 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
     });
 
     test('cached healthy healthcheck reuses runtime freshness inside the short TTL', async () => {
+        await ChromaManager.ready();
+
         const originalClient        = ChromaManager.client,
               originalGetCollection = ChromaManager.getKnowledgeBaseCollection,
               originalGetDbStatus   = DatabaseLifecycleService.getDatabaseStatus;

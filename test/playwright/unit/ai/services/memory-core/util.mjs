@@ -51,6 +51,12 @@ export async function cleanupChromaManager(SDK) {
         collectionsConfig = aiConfig?.collections;
     }
 
+    // The client is built in `initAsync()` (`chromadb` is imported on demand), so the truthiness
+    // guard below reads `null` on a manager that simply has not finished booting — and cleanup
+    // then SKIPS SILENTLY, leaving test collections behind for the next spec to trip over. Awaiting
+    // readiness makes the guard mean "no client configured" again rather than "not yet built".
+    await ChromaManager?.ready?.();
+
     if (ChromaManager?.client && collectionsConfig) {
         // Defense-in-depth: refuse cleanup when `UNIT_TEST_MODE !== 'true'` regardless of
         // collection name. The earlier guard checked only the name; under `npx playwright`
