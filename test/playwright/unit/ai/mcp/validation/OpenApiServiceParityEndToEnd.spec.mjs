@@ -402,3 +402,40 @@ test.describe('parity lint end-to-end — the TOOLSERVICE dispatch join', () => 
         expect(result.violations).toHaveLength(0);
     });
 });
+
+test.describe('parity lint end-to-end — undecidable reads must silence the advisory', () => {
+    test('a DYNAMIC computed key clears completeness, so no absence is claimed', async () => {
+        // `payload[someVar]` is a read whose NAME cannot be determined. The module's blind-spot list
+        // already named dynamic access — but named it for the FAILING direction, where it is harmless
+        // because an unseen read merely keeps a lower bound lower. In the advisory direction the claim
+        // is the complement, so an unnameable read must clear `complete` rather than simply be absent
+        // from `consumed`. Before this, the shape reported `complete: true` with `consumed: []` and
+        // every declared parameter would have been called unused.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('alpha', 'beta'),
+            methodSrc  : 'async doThing(payload, key) { return payload[key] }'
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.unusedDeclarations, 'an unnameable read must silence the advisory entirely').toHaveLength(0);
+        expect(result.violations, 'and it must not fabricate a violation either').toHaveLength(0);
+    });
+
+    test('CONTROL: a LITERAL computed key stays decidable and the advisory still speaks', async () => {
+        // The control that keeps the fix above from degenerating into "any computed access disables
+        // the advisory". `payload['alpha']` is a decidable read, so `beta` is still provably unused.
+        const rootDir = seedRoot({
+            serverId   : 'fixture-server',
+            operationId: 'do_thing',
+            operation  : bodyWith('alpha', 'beta'),
+            methodSrc  : "async doThing(payload) { return payload['alpha'] }"
+        });
+
+        const result = lintOpenApiServiceParity({rootDir});
+
+        expect(result.unusedDeclarations.map(row => row.param)).toEqual(['beta']);
+    });
+});

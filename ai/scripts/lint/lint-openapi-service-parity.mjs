@@ -136,6 +136,20 @@ export const PARITY_BASELINE = Object.freeze({
     // memory-core operations, so precedent says exposing it is acceptable somewhere. Whether it is
     // acceptable HERE is a security disposition, and a lint PR is the wrong place to silently widen
     // a memory-visibility surface — the row's reason names where that decision is tracked.
+    // ── First finding from the ADVISORY direction on the ToolService path ──────────────────────
+    // Not a stripped read — the inverse. `get_all_summaries` DECLARES `category` with the
+    // description "Filter by category", and its operation description tells an agent to "find
+    // sessions related to a specific category of work". The bound handler is
+    // `SummaryService.listSummaries({limit, offset, agentIdentity})`, which never reads it. So an
+    // agent filtering by category receives unfiltered results and no error, while the capability
+    // genuinely exists on the sibling `querySummaries`. Documentation actively instructing callers to
+    // use a parameter that does nothing is worse than an undocumented gap.
+    //
+    // Baselined so the gate stays clean while the disposition is decided — wire it through to a
+    // filter, or remove it from the contract and point callers at `query_summaries`. That is a
+    // behaviour change, not a lint fix.
+    'memory-core.get_all_summaries.category': 'Declared with a "Filter by category" description that listSummaries never reads; capability exists on querySummaries. Disposition tracked with the other unreachable-parameter rows.',
+
     'memory-core.get_session_memories.memorySharing': 'Tenant-isolation policy override, unreachable on this operation while declared on two siblings. Real capability gap; disposition under #16611 because declaring it changes which memories an agent can read.'
 });
 
@@ -309,7 +323,8 @@ export function consumedNames(fnNode) {
     // support an absence claim. Tracking it here rather than in the caller keeps the one walker as
     // the single authority on what it can and cannot see.
     let bagOccurrences = 0,
-        bagAccounted   = 0;
+        bagAccounted   = 0,
+        dynamicRead    = false;
 
     if (bagParam) {
         walk(fnNode.body, node => {
@@ -345,6 +360,24 @@ export function consumedNames(fnNode) {
             if (node.computed && node.property?.type === 'Literal' && typeof node.property.value === 'string') {
                 consumed.add(node.property.value);
             }
+
+            // 4. DYNAMIC computed read: `options[someVar]`. Undecidable, and it must clear
+            //    `complete` rather than merely be absent from `consumed`.
+            //
+            //    This module's blind-spot list already named dynamic access — but named it for the
+            //    FAILING direction, where it is harmless: that direction needs `consumed` to be a
+            //    lower bound, and an unseen read simply keeps it lower. Carrying the same caveat into
+            //    the advisory direction is NOT harmless, because there the claim is the complement.
+            //    Without this branch `m(o, k) { return o[k] }` reported `complete: true` with
+            //    `consumed: []` — a read that happened, cannot be named, and was certified as a full
+            //    view. Every declared parameter on such an operation would have been reported unused.
+            //
+            //    The lesson generalises past this line: a documented blind spot's harmlessness is
+            //    DIRECTION-SPECIFIC, so reusing a helper in the opposite direction re-opens every
+            //    caveat its docs had already retired.
+            if (node.computed && !(node.property?.type === 'Literal' && typeof node.property.value === 'string')) {
+                dynamicRead = true;
+            }
         });
     }
 
@@ -354,7 +387,7 @@ export function consumedNames(fnNode) {
     // destructured it (there is no bag left to forward), or when the bag exists and every one of its
     // occurrences was a read we recorded. Consumed by the advisory direction ONLY; the failing
     // direction is sound without it.
-    const complete = destructured || (bagParam ? bagOccurrences === bagAccounted : true);
+    const complete = !dynamicRead && (destructured || (bagParam ? bagOccurrences === bagAccounted : true));
 
     return {consumed, bagParam, destructured, complete};
 }
@@ -559,11 +592,12 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
  *
  * @param {Object} [options]
  * @param {String} [options.rootDir=ROOT_DIR]
- * @returns {{violations: Object[], unresolved: Object[], operationsChecked: Number, positionalSkipped: Number}}
+ * @returns {{violations: Object[], unresolved: Object[], unusedDeclarations: Object[], operationsChecked: Number, positionalSkipped: Number}}
  */
 export function lintToolServiceParity({rootDir = ROOT_DIR} = {}) {
-    const violations = [],
-          unresolved = [];
+    const violations         = [],
+          unresolved         = [],
+          unusedDeclarations = [];
 
     let operationsChecked = 0,
         positionalSkipped = 0;
@@ -601,8 +635,8 @@ export function lintToolServiceParity({rootDir = ROOT_DIR} = {}) {
 
             operationsChecked++;
 
-            const declared         = declaredNames(doc, findOperationById(doc, operation.operationId)),
-                  {consumed, rest} = consumedNames(resolved.node);
+            const declared                   = declaredNames(doc, findOperationById(doc, operation.operationId)),
+                  {complete, consumed, rest} = consumedNames(resolved.node);
 
             // A rest element re-admits every key, so absence cannot be proven — the same
             // suppression the services.mjs join applies, for the same reason.
@@ -620,10 +654,35 @@ export function lintToolServiceParity({rootDir = ROOT_DIR} = {}) {
                     spec       : path.relative(rootDir, specPath)
                 });
             }
+
+            // The inverse direction on this path too, gated on `complete` for the same reason as its
+            // sibling: `consumed` is a lower bound, so its complement cannot support an absence
+            // claim unless every read was visible.
+            //
+            // No per-operation union is needed here, unlike the services.mjs join. There, several
+            // same-named methods on different services bind to ONE operationId and each destructures
+            // only its own keys, so the union across contributors is the only sound denominator.
+            // A `serviceMapping` is keyed BY operationId, so an operation has exactly one handler and
+            // this loop already sees the whole denominator. Stating that rather than leaving the
+            // asymmetry to look like an oversight.
+            if (!complete) continue;
+
+            for (const name of declared) {
+                if (consumed.has(name)) continue;
+                if (PARITY_BASELINE[`${server.id}.${operation.operationId}.${name}`]) continue;
+
+                unusedDeclarations.push({
+                    operationId: operation.operationId,
+                    param      : name,
+                    serverId   : server.id,
+                    methods    : [resolved.via],
+                    spec       : path.relative(rootDir, specPath)
+                });
+            }
         }
     }
 
-    return {violations, unresolved, operationsChecked, positionalSkipped};
+    return {violations, unresolved, unusedDeclarations, operationsChecked, positionalSkipped};
 }
 
 /**
