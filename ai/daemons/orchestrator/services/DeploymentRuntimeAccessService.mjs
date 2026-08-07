@@ -1,5 +1,6 @@
 import http from 'http';
 import Base from '../../../../src/core/Base.mjs';
+import {RECOVERY_KNOBS} from '../../../services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
 export const DEPLOYMENT_RUNTIME_MECHANISMS = Object.freeze([
     'docker-socket',
@@ -701,6 +702,11 @@ export class DeploymentRuntimeAccessService extends Base {
      * `MemorySwap` is pinned to the same value: swap headroom would let the store balloon past the
      * declared ceiling into thrash instead of surfacing renewed saturation to the diagnosis layer.
      *
+     * The operation is policy-bounded AT this boundary, not only in the actuator above it: the
+     * closed knob registry decides which services are addressable and what band their values may
+     * occupy, and the live limit decides raise-only — so "one bounded resource limit" is a property
+     * of the raw capability, not a description of its best-behaved caller.
+     *
      * The change is EPHEMERAL by Docker's contract — the next recreate re-applies the compose value.
      * Durability belongs to the knob overlay this operation is paired with in the actuator; this
      * method deliberately owns only the live half.
@@ -717,6 +723,71 @@ export class DeploymentRuntimeAccessService extends Base {
                 Type   : TypeError,
                 reason : 'runtime-memory-limit-invalid',
                 message: `update-memory-limit requires a positive finite memoryLimitBytes, received ${JSON.stringify(memoryLimitBytes)}`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        // A bound is only real when every authority-bearing path inherits it (reviewer falsifier,
+        // review 1: the raw op under flat allowlists could lower chroma, exceed the cap, or resize
+        // a transient — bypassing everything the knob enforces one layer up). The boundary therefore
+        // consults the SAME closed registry the actuator validates against — one band source, never
+        // a second constant able to drift — and refuses before any Docker access:
+        //
+        // 1. Only a service some ceiling knob DECLARES is resizable at all. The registry's closed
+        //    set is the sanctioned-target list; a transient or unknown service has no knob, so the
+        //    op cannot address it.
+        // 2. The value must sit inside that knob's band. The cap that terminates the autonomous
+        //    ratchet holds here too — a caller with L0 access cannot express what the knob forbids.
+        const ceilingKnob = Object.values(RECOVERY_KNOBS).find(knob =>
+            knob.serviceKey === target.serviceKey &&
+            knob.leaves.some(leaf => leaf.role === 'ceiling')
+        );
+
+        if (!ceilingKnob) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-unsanctioned-target',
+                message: `update-memory-limit refuses '${target.serviceKey}': no ceiling knob in the closed registry declares this service`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        const ceilingLeaf = ceilingKnob.leaves.find(leaf => leaf.role === 'ceiling');
+
+        if (memoryLimitBytes < ceilingLeaf.min || memoryLimitBytes > ceilingLeaf.max) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-out-of-band',
+                message: `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': outside the registry band ${ceilingLeaf.min}..${ceilingLeaf.max}`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        // 3. Raise-only, bound against what the container ACTUALLY enforces. Docker reports 0 for
+        //    an unlimited ceiling, and lowering a store's limit is an OOM instruction — the corpus
+        //    does not shrink to fit. Within-band lowerings are exactly the case the band alone
+        //    cannot catch, so the live limit is read at the boundary too. Monotonic-raise plus the
+        //    band cap also bounds the direct path's total travel: it ratchets to the cap and then
+        //    refuses forever, so even a caller that skips the actuator's cadence envelope cannot
+        //    loop this operation meaningfully.
+        const inspection     = await this.inspectTarget(target),
+              liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
+
+        if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0 || memoryLimitBytes <= liveLimitBytes) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-not-a-raise',
+                message: !Number.isFinite(liveLimitBytes)
+                    ? `update-memory-limit refuses '${target.serviceKey}': the live memory limit is unreadable from inspect`
+                    : liveLimitBytes <= 0
+                        ? `update-memory-limit refuses '${target.serviceKey}': the container reports an unlimited ceiling, which cannot be raised`
+                        : `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': at or below the live limit ${liveLimitBytes}`,
                 details: {
                     ...this.createEffectiveConfigSummary(),
                     serviceKey: target.serviceKey
