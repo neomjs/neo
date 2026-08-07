@@ -1,9 +1,43 @@
 import {test, expect}     from '@playwright/test';
 import {execFileSync}     from 'node:child_process';
 import fs                 from 'node:fs';
+import os                 from 'node:os';
 import path               from 'node:path';
 import process            from 'node:process';
 import {load as yamlLoad} from 'js-yaml';
+
+/**
+ * @summary Runs `docker compose … config`, letting a non-zero exit THROW.
+ *
+ * Deliberately separate from {@link composeCliAvailable}: conflating the two is what made the first
+ * version of the render oracle fail open. This one only answers "what did Compose say"; whether
+ * Compose can run at all is a different question with a different remedy.
+ *
+ * @param {String[]} args Arguments inserted between `compose` and `config`.
+ * @param {String} cwd
+ * @returns {String} The rendered Compose document.
+ */
+function runComposeConfig(args, cwd) {
+    return execFileSync('docker', ['compose', ...args, 'config'],
+        {cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+}
+
+/**
+ * @summary Whether the `docker compose` CLI can run at all — availability, never validity.
+ *
+ * `version` touches no project file, so it cannot fail for a reason that belongs to the compose
+ * document. That is the whole point: it is the one probe whose failure means "cannot run".
+ *
+ * @returns {Boolean}
+ */
+function composeCliAvailable() {
+    try {
+        execFileSync('docker', ['compose', 'version'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']});
+        return true;
+    } catch {
+        return false;
+    }
+}
 
 const
     repoRoot    = path.resolve(process.cwd()),
@@ -171,15 +205,49 @@ test.describe('declared V8 heap ceilings', () => {
         // text. It exists because the previous attempt claimed to test the render and tested the
         // source; the escaping test above catches the same regression without Docker, so this is
         // corroboration rather than the sole guard — which is what makes skipping it acceptable.
+        //
+        // AVAILABILITY IS PROBED SEPARATELY FROM EXECUTION, and that separation is the point.
+        // The first version wrapped `config` in a bare `catch` that labelled EVERY non-zero exit
+        // "docker unavailable" — so a genuinely invalid Compose file skipped instead of failing, and
+        // the oracle failed OPEN. @neo-gpt's falsifier: with Docker present and a Compose-invalid
+        // service key, `compose` exits 1 while Playwright exits 0 with 17 passed / 1 skipped. A guard
+        // that cannot distinguish "cannot run" from "ran and said no" is not a guard.
+        if (!composeCliAvailable()) {
+            // Loud, not silent: a skipped guard must not read as a passed one.
+            test.skip(true, 'docker compose CLI unavailable — the escaping assertion above still covers this regression');
+            return;
+        }
+
+        // NEGATIVE WITNESS, before trusting the positive one. Proves this oracle actually reports a
+        // non-zero `config` exit rather than swallowing it, using a file Compose is guaranteed to
+        // reject. Without this, the fail-open bug would be invisible again the moment someone
+        // reintroduced a broad catch — the same reason the NODE_OPTIONS matcher above is controlled.
+        const invalidPath = path.join(os.tmpdir(), `neo-compose-negative-witness-${process.pid}.yml`);
+
+        fs.writeFileSync(invalidPath, 'services:\n  bad: "not-a-mapping"\n');
+
+        let invalidRejected = false;
+
+        try {
+            runComposeConfig(['-f', invalidPath], os.tmpdir());
+        } catch {
+            invalidRejected = true;
+        } finally {
+            fs.rmSync(invalidPath, {force: true});
+        }
+
+        expect(invalidRejected, 'the oracle must REPORT a Compose-invalid file, not treat its non-zero exit as unavailability')
+            .toBe(true);
+
         let rendered;
 
         try {
-            rendered = execFileSync('docker', ['compose', '--profile', 'cloud', 'config'],
-                {cwd: composeDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']});
-        } catch {
-            // Loud, not silent: a skipped guard must not read as a passed one.
-            test.skip(true, 'docker compose unavailable — the escaping assertion above still covers this regression');
-            return;
+            rendered = runComposeConfig(['--profile', 'cloud'], composeDir);
+        } catch (error) {
+            // A non-zero exit here is a CONFIG DEFECT and must fail the suite. Availability was
+            // already established above, so "cannot run" is no longer a candidate explanation.
+            throw new Error(`docker compose config exited non-zero — a config defect, not unavailability:\n${
+                error.stderr?.toString() || error.message}`);
         }
 
         // `docker compose config` EXITS 0 on a broken interpolation, reporting it only as a warning,
