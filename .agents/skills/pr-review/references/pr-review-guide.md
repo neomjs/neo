@@ -357,8 +357,7 @@ For multi-cycle reviews, after posting a review comment **capture its `commentId
 ### 10.1 PR-State Freshness Gate
 
 Before `manage_pr_review`, review relay, merge claim, or PR lane-state, re-run
-PR-scoped mailbox + `list_pull_requests({believedOpen})`; the parameter is the
-assumption, so it cannot be stamped from recollection. Wakes are not cache and
+PR-scoped mailbox + live `state,mergedAt,reviewRequests`; wakes are not cache and
 acceptance can be A2A-only. Authority moved → hand off. Relay §9, not flattened
 `reviewDecision`; every requested seat must be disposed. Canonical
 `[merge-eligible]` requires the current positive B-prime observation marker;
