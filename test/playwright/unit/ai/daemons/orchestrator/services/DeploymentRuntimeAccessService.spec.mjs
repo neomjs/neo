@@ -74,6 +74,10 @@ function createService({
             return {statusCode: 204, headers: {}, body: ''};
         }
 
+        if (request.path.endsWith('/update')) {
+            return {statusCode: 200, headers: {}, body: '{"Warnings":[]}'};
+        }
+
         throw new Error(`Unexpected Docker request: ${request.method} ${request.path}`);
     };
 
@@ -498,4 +502,82 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         // And the shipped allowlist must actually grant it, or the read half is unreachable in production.
         expect(compose).toMatch(new RegExp(`RUNTIME_ACCESS_ALLOWED_SERVICES=[^\\n]*${DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY}`));
     })
+
+    test.describe('update-memory-limit — the live ceiling move (#16596)', () => {
+        const GIB           = 1024 ** 3;
+        const UPDATE_CONFIG = {lifecycleOperations: ['restart', 'update-memory-limit']};
+
+        test('is refused when the deployment has not allowlisted it, before any Docker access', async () => {
+            // The frozen operation vocabulary says what the CODE can do; the config allowlist says what
+            // THIS deployment permits. A deployment shipped before the operation existed keeps exactly
+            // the envelope it was reviewed with until its config says otherwise.
+            const {service, calls} = createService();
+
+            await expect(service.applyLifecycle({
+                serviceKey      : 'mc-server',
+                operation       : 'update-memory-limit',
+                memoryLimitBytes: 8 * GIB
+            })).rejects.toThrow(/lifecycle-write operation 'update-memory-limit' is not allowlisted/);
+
+            expect(calls).toHaveLength(0);
+        });
+
+        test('moves the cgroup ceiling on the RUNNING container — a typed JSON update, never a restart', async () => {
+            const {service, calls} = createService({config: UPDATE_CONFIG});
+
+            const result = await service.applyLifecycle({
+                serviceKey      : 'mc-server',
+                operation       : 'update-memory-limit',
+                memoryLimitBytes: 8 * GIB,
+                reason          : 'store-ceiling-exhaustion'
+            });
+
+            expect(result.ok).toBe(true);
+            expect(result.data).toEqual({
+                updated         : true,
+                memoryLimitBytes: 8 * GIB,
+                reason          : 'store-ceiling-exhaustion'
+            });
+            expect(result.proof).toMatchObject({
+                capabilityEnvelope: 'lifecycle-write',
+                operation         : 'update-memory-limit',
+                auditLabel        : 'lifecycle-write:update-memory-limit',
+                reason            : 'store-ceiling-exhaustion'
+            });
+
+            // calls[0] is the identity-proving container list; calls[1] is the update itself.
+            expect(calls).toHaveLength(2);
+            expect(calls[1]).toMatchObject({
+                method : 'POST',
+                path   : '/containers/container-abc/update',
+                headers: {'Content-Type': 'application/json'}
+            });
+
+            // MemorySwap pinned to Memory: swap headroom would let the store balloon past the declared
+            // ceiling into thrash instead of re-surfacing saturation to the diagnosis layer.
+            expect(JSON.parse(calls[1].body)).toEqual({
+                Memory    : 8 * GIB,
+                MemorySwap: 8 * GIB
+            });
+
+            // The no-restart property at this layer: no restart endpoint is touched.
+            expect(calls.some(call => String(call.path).includes('/restart'))).toBe(false);
+        });
+
+        test('refuses a non-positive or non-finite ceiling before touching the update endpoint', async () => {
+            for (const memoryLimitBytes of [undefined, NaN, 0, -1, '8g']) {
+                const {service, calls} = createService({config: UPDATE_CONFIG});
+
+                const error = await service.applyLifecycle({
+                    serviceKey: 'mc-server',
+                    operation : 'update-memory-limit',
+                    memoryLimitBytes
+                }).catch(e => e);
+
+                expect(error.reason, JSON.stringify(memoryLimitBytes)).toBe('runtime-memory-limit-invalid');
+                // Identity resolution ran; the update endpoint was never reached.
+                expect(calls.some(call => String(call.path).endsWith('/update')), JSON.stringify(memoryLimitBytes)).toBe(false);
+            }
+        });
+    });
 });

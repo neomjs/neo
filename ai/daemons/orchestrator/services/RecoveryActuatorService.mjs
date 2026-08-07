@@ -19,8 +19,13 @@ import {
     requiredContextForKnob,
     writeKnobOverride
 } from '../../../services/memory-core/helpers/recoveryOverrideStore.mjs';
+import {
+    knobLeafPaths,
+    RECOVERY_KNOBS
+} from '../../../services/memory-core/helpers/recoveryKnobRegistry.mjs';
+import {isStoreBackedService} from './ContainerHealthDiagnosisService.mjs';
 
-const DEFAULT_ACTIONS        = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider']);
+const DEFAULT_ACTIONS        = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider', 'raise-ceiling']);
 const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
 
 /**
@@ -232,7 +237,7 @@ export class RecoveryActuatorService extends Base {
      * @summary Applies one bounded recovery action if the target registry and anti-thrash envelope admit it.
      *
      * @param {String} serviceKey Stable recovery target key.
-     * @param {String} action restart | redeploy | warm-provider.
+     * @param {String} action reconfigure | restart | redeploy | warm-provider | raise-ceiling.
      * @param {Object} [options]
      * @param {Object|null} [options.diagnosisEvent=null] Optional structured diagnosis event.
      * @param {Object|null} [options.targetIdentity=null] Optional typed target identity.
@@ -334,7 +339,11 @@ export class RecoveryActuatorService extends Base {
                     runtimeAccess    : result.runtimeAccess || null,
                     supervisor       : result.supervisor || null,
                     recorded         : result.recorded || null,
-                    providerResidency: result.providerResidency || null
+                    providerResidency: result.providerResidency || null,
+                    // The raise receipt (previous + new ceiling in bytes) rides into the durable
+                    // recovery-run ledger, which is what makes a raise attempt observable without
+                    // reading logs — the origin ticket's post-merge observability criterion.
+                    ceilingRaise     : result.ceilingRaise || null
                 },
                 recoveryRunId,
                 serviceKey,
@@ -511,6 +520,16 @@ export class RecoveryActuatorService extends Base {
         // at boot, and a supervised in-process child has no such mount to read from. Admitting it there
         // would write a file nothing consults and report success over it.
         if (target.kind === 'compose-service') {
+            // `raise-ceiling` is additionally STORE-classed only. The action's premise — the corpus is
+            // the workload, nothing sheds, a restart is the harm — is a property of store-backed
+            // services, and the classification is DECLARED (SERVICE_CLASS_BY_KEY), so the admission
+            // matrix can enforce its own row mechanically. A transient service under memory pressure
+            // has arrival rate to shed; widening its ceiling would spend host memory to mask the
+            // signal the correct heal responds to.
+            if (action === 'raise-ceiling') {
+                return isStoreBackedService(target.id);
+            }
+
             return action === 'reconfigure' || action === 'restart' || action === 'warm-provider';
         }
 
@@ -570,6 +589,99 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Raises a store-backed service's memory ceiling: durable knob override + LIVE cgroup
+     * update, with NO restart — the store-variant actuator envelope of
+     * ADR-0026 §2.8. // ticket-ref-ok: the ADR is the governing authority for the no-restart contract
+     *
+     * This is `reconfigureComposeService`'s deliberate sibling, differing in exactly the step it
+     * omits. For a transient service the restart IS the heal and the overlay needs a boot to be read.
+     * For a store the restart is the harm: a store crosses its ceiling WHILE INGESTING, and the
+     * restart that `reconfigure` couples to the mutation is what killed a 59,754-row restore at
+     * 24,000 rows — the incident this action exists to end. The live `update-memory-limit` operation
+     * makes the raise effective NOW on the running container, so no restart is necessary either.
+     *
+     * The raise-not-lower bound is resolved from the RUNTIME (`inspect` → `HostConfig.Memory`), not
+     * from config: a plane predating the parameterised compose default runs a live 2 GiB cap under an
+     * 8 GiB config story, and the invariant must bind against what the container actually enforces.
+     * An unreadable live limit refuses — an unknown bound is a refusal, never an absent one.
+     *
+     * Ordering: the override lands BEFORE the live update, mirroring `reconfigure`'s
+     * write-then-activate shape. A validated intent that fails activation leaves a durable record the
+     * next converge can apply; the inverse order could move the live ceiling on an intent that was
+     * never durably recorded.
+     *
+     * @param {Object} options
+     * @param {Object} options.target Resolved compose-service target.
+     * @param {String} options.knob Knob name from the closed set.
+     * @param {Object} options.knobValues Proposed values keyed by leaf path.
+     * @param {String|null} options.reason Controller reason.
+     * @returns {Promise<Object>}
+     */
+    async raiseComposeServiceCeiling({target, knob, knobValues, reason}) {
+        const declaredService = RECOVERY_KNOBS[knob]?.serviceKey;
+
+        // The knob declares which service its sizing derivation belongs to; an intent authored for the
+        // store cannot be re-aimed at another container by a caller naming a different target.
+        if (declaredService !== target.id) {
+            throw new Error(`Knob '${knob}' addresses service '${declaredService ?? 'none'}', not '${target.id}' — a ceiling intent cannot be re-aimed`);
+        }
+
+        if (!this.deploymentRuntimeAccessService?.readObserve) {
+            throw new Error('Deployment runtime access service is unavailable');
+        }
+
+        const leafPaths = knobLeafPaths(knob);
+
+        if (leafPaths.length !== 1) {
+            throw new Error(`Knob '${knob}' declares ${leafPaths.length} leaves; a ceiling knob carries exactly one`);
+        }
+
+        const inspection     = await this.deploymentRuntimeAccessService.readObserve({serviceKey: target.id, operation: 'inspect'}),
+              liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
+
+        if (!Number.isFinite(liveLimitBytes)) {
+            throw new Error(`Live memory limit for '${target.id}' is unreadable from inspect — refusing to raise against an unknown bound`);
+        }
+
+        const {applied, path: overridePath, violations} = await writeKnobOverride({
+            context    : {[`runtime.${target.id}.liveMemoryLimitBytes`]: liveLimitBytes},
+            knob,
+            // Same writer-owned mount as `reconfigure` — one overlay, one owner, one revert surface.
+            overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
+            values     : knobValues
+        });
+
+        if (!applied) {
+            // Thrown, not returned, for the same reason `reconfigureComposeService` throws: this class
+            // signals action failure by throwing, and a second soft-failure convention would let a
+            // caller treat a refusal as success. The registry's violations — including the anti-thrash
+            // cap — surface verbatim in the recorded failure.
+            throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
+        }
+
+        const memoryLimitBytes = knobValues[leafPaths[0]],
+              update           = await this.deploymentRuntimeAccessService.applyLifecycle({
+                  serviceKey: target.id,
+                  operation : 'update-memory-limit',
+                  memoryLimitBytes,
+                  reason    : reason || `recovery-actuator:${target.serviceKey}`
+              });
+
+        // DELIBERATELY no restartComposeService here. The omission is the contract, asserted by a
+        // negative spec: re-adding a restart on this path re-creates the mid-ingestion kill this
+        // action was built to remove.
+        return {
+            runtimeAccess: update.proof || null,
+            knob,
+            overridePath,
+            ceilingRaise : {
+                previousLimitBytes: liveLimitBytes,
+                memoryLimitBytes
+            }
+        }
+    }
+
+    /**
      * @summary Executes the typed target action through the matching privilege envelope.
      * @param {Object} options
      * @returns {Promise<Object>}
@@ -581,6 +693,10 @@ export class RecoveryActuatorService extends Base {
 
         if (action === 'reconfigure') {
             return this.reconfigureComposeService({knob, knobValues, reason, target});
+        }
+
+        if (action === 'raise-ceiling') {
+            return this.raiseComposeServiceCeiling({knob, knobValues, reason, target});
         }
 
         if (target.kind === 'compose-service') {
@@ -965,6 +1081,11 @@ export class RecoveryActuatorService extends Base {
     getRecoveryClassForAction({action, target}) {
         if (action === 'warm-provider') {
             return 'provider-role-residency';
+        }
+        if (action === 'raise-ceiling') {
+            // The class the diagnosis layer emits for a store at its ceiling; synthesizing `crash`
+            // here would record a restart-shaped story for an action whose point is not restarting.
+            return 'exhaustion';
         }
         return target.kind === 'deploy-target' ? 'config-drift' : 'crash';
     }

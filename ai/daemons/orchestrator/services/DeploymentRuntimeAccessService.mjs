@@ -13,7 +13,14 @@ export const DEPLOYMENT_RUNTIME_READ_OPERATIONS = Object.freeze([
 ]);
 
 export const DEPLOYMENT_RUNTIME_LIFECYCLE_OPERATIONS = Object.freeze([
-    'restart'
+    'restart',
+    // A live cgroup memory-ceiling change (`POST /containers/{id}/update`), added for the store-class
+    // ceiling raise: a store mid-ingestion must gain headroom WITHOUT the restart that would kill the
+    // ingestion the raise exists to rescue. Governed by the store-variant actuator row in
+    // ADR-0026 §2.8; // ticket-ref-ok: the ADR is the governing authority for this operation's envelope
+    // still config-and-lifecycle-only — it moves one bounded resource limit on one allowlisted,
+    // identity-proven target, never code or an open container field.
+    'update-memory-limit'
 ]);
 
 /**
@@ -47,6 +54,9 @@ const DOCKER_SOCKET_UNAVAILABLE_CODES = new Set(['ENOENT', 'ECONNREFUSED']);
  * @param {String} options.method HTTP method.
  * @param {String} options.path Docker Engine API path.
  * @param {String|null} [options.body=null] Optional request body.
+ * @param {Object|null} [options.headers=null] Optional request headers. The Engine API rejects a
+ *     JSON-bodied POST without `Content-Type: application/json`, so body-carrying operations must
+ *     declare it; header-free requests stay byte-identical to before this parameter existed.
  * @param {Number} [options.timeoutMs=5000] Request timeout.
  * @param {Number} [options.maxBytes=1048576] Response byte cap.
  * @returns {Promise<{statusCode: Number, headers: Object, body: String}>}
@@ -56,6 +66,7 @@ export function dockerSocketRequest({
     method,
     path,
     body = null,
+    headers = null,
     timeoutMs = 5000,
     maxBytes = DEFAULT_RESPONSE_MAX_BYTES
 }) {
@@ -64,6 +75,7 @@ export function dockerSocketRequest({
             socketPath,
             method,
             path,
+            ...(headers ? {headers} : {}),
             timeout: timeoutMs
         }, res => {
             const chunks = [];
@@ -228,12 +240,13 @@ export class DeploymentRuntimeAccessService extends Base {
      *
      * @param {Object} options
      * @param {String} options.serviceKey Allowlisted compose service key.
-     * @param {'restart'} options.operation Lifecycle operation.
+     * @param {'restart'|'update-memory-limit'} options.operation Lifecycle operation.
      * @param {String} [options.reason='manual'] Audit reason.
      * @param {Number} [options.restartTimeoutSeconds] Docker restart timeout.
+     * @param {Number} [options.memoryLimitBytes] Target memory ceiling for `update-memory-limit`.
      * @returns {Promise<Object>} Lifecycle result plus structured proof metadata.
      */
-    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds} = {}) {
+    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
@@ -243,6 +256,10 @@ export class DeploymentRuntimeAccessService extends Base {
 
         if (operation === 'restart') {
             return this.restartTarget(target, {reason, restartTimeoutSeconds});
+        }
+
+        if (operation === 'update-memory-limit') {
+            return this.updateTargetMemoryLimit(target, {memoryLimitBytes, reason});
         }
 
         throw new TypeError(`Unsupported lifecycle-write operation '${operation}'`);
@@ -668,6 +685,56 @@ export class DeploymentRuntimeAccessService extends Base {
             ok        : true,
             data      : {restarted: true, reason, restartTimeoutSeconds: timeoutSeconds},
             proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'restart', target, reason}),
+            statusCode: response.statusCode
+        };
+    }
+
+    /**
+     * @summary Applies a live memory-ceiling change to a resolved target WITHOUT a restart.
+     *
+     * `POST /containers/{id}/update` moves the cgroup limit on the running container — verified on the
+     * live plane: `RestartCount` and `StartedAt` unchanged, `memory.max` moved, and the
+     * interrupted 59,754-row restore resumed through the old cap instead of dying at it. That
+     * no-restart property is the entire reason this operation exists beside `restart`; a caller that
+     * wants the restart semantics already has `reconfigure`.
+     *
+     * `MemorySwap` is pinned to the same value: swap headroom would let the store balloon past the
+     * declared ceiling into thrash instead of surfacing renewed saturation to the diagnosis layer.
+     *
+     * The change is EPHEMERAL by Docker's contract — the next recreate re-applies the compose value.
+     * Durability belongs to the knob overlay this operation is paired with in the actuator; this
+     * method deliberately owns only the live half.
+     *
+     * @param {Object} target Resolved target.
+     * @param {Object} options
+     * @param {Number} options.memoryLimitBytes New ceiling in bytes.
+     * @param {String} options.reason Audit reason.
+     * @returns {Promise<Object>}
+     */
+    async updateTargetMemoryLimit(target, {memoryLimitBytes, reason} = {}) {
+        if (!Number.isFinite(memoryLimitBytes) || memoryLimitBytes <= 0) {
+            throw createRuntimeAccessError({
+                Type   : TypeError,
+                reason : 'runtime-memory-limit-invalid',
+                message: `update-memory-limit requires a positive finite memoryLimitBytes, received ${JSON.stringify(memoryLimitBytes)}`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        const response = await this.dockerRequest({
+            method : 'POST',
+            path   : `/containers/${encodeURIComponent(target.containerId)}/update`,
+            headers: {'Content-Type': 'application/json'},
+            body   : JSON.stringify({Memory: memoryLimitBytes, MemorySwap: memoryLimitBytes})
+        });
+
+        return {
+            ok        : true,
+            data      : {updated: true, memoryLimitBytes, reason},
+            proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'update-memory-limit', target, reason}),
             statusCode: response.statusCode
         };
     }

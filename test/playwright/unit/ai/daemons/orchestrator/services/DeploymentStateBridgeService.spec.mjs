@@ -1,11 +1,11 @@
-import {test, expect}                 from '@playwright/test';
-import fs                             from 'fs';
-import os                             from 'os';
-import path                           from 'path';
-import Neo                            from '../../../../../../../src/Neo.mjs';
-import * as core                      from '../../../../../../../src/core/_export.mjs';
-import AiConfig                       from '../../../../../../../ai/config.template.mjs';
-import {DeploymentStateBridgeService} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {test, expect}                    from '@playwright/test';
+import fs                                from 'fs';
+import os                                from 'os';
+import path                              from 'path';
+import Neo                               from '../../../../../../../src/Neo.mjs';
+import * as core                         from '../../../../../../../src/core/_export.mjs';
+import AiConfig                          from '../../../../../../../ai/config.template.mjs';
+import {DeploymentStateBridgeService}    from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import {appendHealEvent, readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
@@ -239,7 +239,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 composeProject     : null,
                 allowedServices    : ['kb-server', 'mc-server'],
                 readOperations     : ['inspect', 'stats', 'logs'],
-                lifecycleOperations: ['restart']
+                lifecycleOperations: ['restart', 'update-memory-limit']
             },
             bridgeConfig: {
                 allowedServices     : ['kb-server', 'mc-server'],
