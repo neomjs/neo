@@ -28,10 +28,10 @@ import {
     resolveHeavyMaintenanceLeasePath,
     withHeavyMaintenanceLease
 } from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import {resolveCloudOnlyDefault}        from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
+import {resolveCloudOnlyDefault}                from '../../daemons/orchestrator/services/deploymentDurabilityPosture.mjs';
 import {cleanStagingResidue, createStagingRoot} from './backupStagingResidueCore.mjs';
-import {HEAL_LEDGER_DIR_NAME}           from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
-import {INCIDENT_LEDGER_BUNDLE_MEMBERS} from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
+import {HEAL_LEDGER_DIR_NAME}                   from '../../services/memory-core/helpers/healEventLedgerStore.mjs';
+import {INCIDENT_LEDGER_BUNDLE_MEMBERS}         from '../../services/memory-core/helpers/incidentLedgerBundle.mjs';
 import {
     buildBackupReceipt,
     buildSyncChildEnv,
@@ -741,6 +741,69 @@ export const INTEGRITY_STATUS = Object.freeze({
 });
 
 /**
+ * The retention-relevant partition of {@link INTEGRITY_STATUS}, and the reason it is a partition
+ * rather than an equality test against `pass`.
+ *
+ * Retention asks two independent questions of a substrate, and only ONE of them is "may I certify
+ * this as a recovery source?". The other is "may I delete this?" — and the answer to the second is
+ * NOT the negation of the first. Three outcomes, not two:
+ *
+ * | status | certify as restorable? | safe to delete? | why |
+ * |---|---|---|---|
+ * | `pass`    | yes | n/a  | positive row-count parity — an evaluated, usable source |
+ * | `fail`    | no  | yes  | row-count mismatch — evaluated, and known torn |
+ * | `empty`   | no  | yes  | evaluated, and known to hold nothing to restore |
+ * | `skipped` | no  | **NO** | the verifier could not evaluate it at all |
+ * | anything else | no | **NO** | a status this reader does not recognize |
+ *
+ * `skipped` is not hypothetical: the producer emits it whenever the SDK returns a non-numeric source
+ * count, meaning parity was never established in either direction. Treating it as "not restorable"
+ * and therefore deletable destroys a bundle whose contents were never examined — the same
+ * unknown-is-not-empty error as trusting `pathExists`, one dimension further in. A status this
+ * reader does not recognize gets the same treatment, so a producer that adds a value later fails
+ * toward keeping rather than toward deleting.
+ * @member {Object} INTEGRITY_STATUS_DISPOSITION
+ */
+export const INTEGRITY_STATUS_DISPOSITION = Object.freeze({
+    certifying: Object.freeze([INTEGRITY_STATUS.pass]),
+    // Evaluated and known unusable. These, and ONLY these, make a substrate reclaimable.
+    evaluatedUnusable: Object.freeze([INTEGRITY_STATUS.fail, INTEGRITY_STATUS.empty])
+});
+
+/**
+ * @summary Classifies one substrate's receipt status into its retention disposition.
+ *
+ * Absent (`undefined`) lands in `indeterminate` deliberately: a substrate missing from the
+ * `integrity` array carries no parity claim in either direction, which is exactly the state that
+ * must not authorize deletion.
+ *
+ * @param {String|undefined} status The receipt's status for one substrate.
+ * @returns {String} `'certifying'`, `'evaluatedUnusable'`, or `'indeterminate'`.
+ */
+export function classifyIntegrityStatus(status) {
+    if (INTEGRITY_STATUS_DISPOSITION.certifying.includes(status))        return 'certifying';
+    if (INTEGRITY_STATUS_DISPOSITION.evaluatedUnusable.includes(status)) return 'evaluatedUnusable';
+
+    return 'indeterminate'
+}
+
+/**
+ * The substrates whose presence decides whether a bundle is a recovery source at all — and the same
+ * set whose row-count parity `verifyBundleIntegrity` checks, because those are one question, not two:
+ * the receipt's `integrity[]` block exists to answer "does this bundle hold rows a restore could
+ * bring back?", so verifying a substrate and ranking recoverability by it must range over the
+ * identical set. It was written out twice, and two lists that must agree are a list that will not.
+ *
+ * `concepts`, `trajectories`, `mailbox` and `ledgers` are deliberately absent: `copyJsonlSource`
+ * documents them as legitimately optional (a deployment that has never healed has no ledger), so
+ * requiring them would classify correct bundles as unrecoverable.
+ *
+ * Declared above both consumers rather than between them, so neither reads as the authority.
+ * @member {String[]} RECOVERY_SUBSTRATES
+ */
+export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
@@ -767,7 +830,7 @@ export const INTEGRITY_STATUS = Object.freeze({
  * @returns {Promise<Array<{subsystem: String, status: String, sourceCount: Number, bundleCount: Number, reason: String}>>} `status` is one of the frozen {@link INTEGRITY_STATUS} values — `pass` (positive row-count parity) / `empty` (source and bundle both zero — non-fatal, not a usable recovery source) / `fail` (row-count mismatch) / `skipped` (non-numeric source count); count + reason fields present per status.
  */
 export async function verifyBundleIntegrity(layout, subsystems) {
-    const verifiable = ['kb', 'mc', 'graph'];
+    const verifiable = RECOVERY_SUBSTRATES;
     const checks     = [];
 
     for (const subsystem of verifiable) {
@@ -940,16 +1003,208 @@ export async function listPublishedBundles(backupRoot) {
 }
 
 /**
+ * @summary Decides whether a parsed `bundle-meta.json` is a COMPLETED-capture receipt.
+ *
+ * Deliberately a validity check rather than a shape check. `typeof value === 'object'` accepts `{}`
+ * and `{garbage: 1}`, both of which certified a bundle, filled the recovery floor, and caused an
+ * older valid bundle to be deleted — the same defect as trusting `pathExists`, one level in.
+ *
+ * The required pair is measured against a real bundle rather than invented: `completedAt` is what
+ * separates a finished capture from an interrupted one, and `integrity` (an array of
+ * `{subsystem, status, sourceCount}`) is what makes the receipt an assertion about *content* rather
+ * than merely a timestamp. A receipt missing either cannot certify recoverability.
+ *
+ * Deliberately NOT checked here: whether every `integrity` entry says `pass`. A bundle can honestly
+ * record a failed subsystem, and that is a per-substrate question the byte scan already answers.
+ * Requiring all-pass would make an honest partial receipt indistinguishable from a corrupt one.
+ *
+ * @param {*} value Parsed contents of `bundle-meta.json`.
+ * @returns {Boolean}
+ */
+export function isCompletedBundleReceipt(value) {
+    return value !== null
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && typeof value.completedAt === 'string'
+        && value.completedAt.length > 0
+        && Array.isArray(value.integrity);
+}
+
+/**
+ * @summary Reports, per substrate, whether a published bundle could actually restore anything.
+ *
+ * **Non-empty payload bytes, deliberately — not row counts.** A `wc -l` over a 3.3 GB JSONL on every
+ * sweep would make retention cost scale with corpus size, and it would buy nothing: retention cannot
+ * judge *degraded*, only *empty*. It does not know what a complete corpus is, and the newest bundle
+ * on this plane (900 MB / 16,550 rows against an expected ~60,000) is non-empty by either measure.
+ * Claiming this guards against degradation would be the over-claim; it guards against **nothing to
+ * restore**, which is the failure that produced six such bundles.
+ *
+ * @param {String} bundlePath Absolute path to a published bundle.
+ * @returns {Promise<{hasMeta: Boolean, substrates: Object, restorableFor: String[]}>}
+ */
+export async function classifyBundleRecoverability(bundlePath) {
+    // THREE meta states, not two. `pathExists` alone answered "is there a file", and a corrupt
+    // receipt passed as a valid one: it filled the floor, displaced an older VALID bundle, and that
+    // bundle was then deleted. Data loss caused by the guard written to prevent data loss.
+    //
+    // The asymmetry between the two failure states is deliberate:
+    //   `absent`    — a KNOWN-incomplete capture. Cannot fill the floor, stays age-deletable.
+    //   `malformed` — UNKNOWN state. Cannot fill the floor, and is a HARD KEEP: we cannot certify it
+    //                 as a recovery source, and we equally cannot certify it as disposable.
+    const metaPath  = path.join(bundlePath, 'bundle-meta.json');
+    let   metaState = 'absent',
+          parsedMeta = null;
+
+    if (await fs.pathExists(metaPath)) {
+        try {
+            const parsed = await fs.readJson(metaPath);
+
+            parsedMeta = parsed;
+            // A JSON scalar parses but is not a receipt. `null` in particular parses cleanly and
+            // would otherwise certify a bundle on the strength of the four characters "null".
+            // SHAPE is not VALIDITY, and `typeof parsed === 'object'` alone was only a shape test —
+            // `{}` and `{garbage: 1}` passed it, filled the floor, and deleted the older valid bundle.
+            // The same defect as `pathExists`, one level in: I checked that something was there rather
+            // than that it was a receipt.
+            //
+            // A completed capture carries `completedAt` and an `integrity` array of per-subsystem
+            // `{subsystem, status, sourceCount}` — verified against a real bundle. Those two are the
+            // load-bearing pair: `completedAt` distinguishes a finished capture from an interrupted
+            // one, and `integrity` is what makes the receipt an assertion about content rather than a
+            // timestamp. Anything else is `malformed`: floor-ineligible AND a hard keep.
+            metaState = isCompletedBundleReceipt(parsed) ? 'valid' : 'malformed';
+        } catch {
+            metaState = 'malformed';
+        }
+    }
+
+    // Per-substrate integrity verdicts from the receipt, only trusted when the receipt itself is
+    // valid. `integrity` is an array of `{subsystem, status, sourceCount}`; a substrate absent from it
+    // has no parity claim and therefore cannot be certified.
+    const integrityStatus = {};
+
+    if (metaState === 'valid') {
+        for (const entry of parsedMeta.integrity) {
+            if (entry && typeof entry.subsystem === 'string') {
+                integrityStatus[entry.subsystem] = entry.status;
+            }
+        }
+    }
+
+    const hasMeta       = metaState === 'valid',
+          substrates    = {},
+          restorableFor = [],
+          unevaluated   = [],
+          unreadable    = [];
+
+    for (const substrate of RECOVERY_SUBSTRATES) {
+        const dir   = path.join(bundlePath, substrate);
+        let   bytes = 0;
+
+        if (await fs.pathExists(dir)) {
+            let entries;
+
+            try {
+                entries = await fs.readdir(dir);
+            } catch {
+                // Cannot enumerate the substrate at all — record it and move on. Unknown is not empty.
+                unreadable.push(substrate);
+                substrates[substrate] = 0;
+                continue;
+            }
+
+            for (const entry of entries) {
+                if (!entry.endsWith('.jsonl')) continue;
+
+                try {
+                    bytes += (await fs.stat(path.join(dir, entry))).size;
+                } catch {
+                    // UNREADABLE IS NOT EMPTY, and the first version of this comment claimed the
+                    // opposite: it said "under-counting keeps a bundle, which is the safe error".
+                    // That is exactly backwards. Under-counting makes the bundle non-restorable,
+                    // which excludes it from the floor, which makes it age-DELETABLE — so a bundle we
+                    // merely failed to read would be destroyed by the guard meant to protect
+                    // recovery sources. A stated safety property the code did not have.
+                    unreadable.push(substrate);
+                }
+            }
+        }
+
+        substrates[substrate] = bytes;
+
+        // TWO conditions, and neither is sufficient alone: **bytes establish non-empty, `pass`
+        // establishes parity.** A bundle recording `kb: fail (sourceCount 2, bundleCount 1)` with
+        // non-zero bytes was certified restorable on bytes alone, filled the floor, and deleted the
+        // older `kb: pass` bundle — a partial capture outranking a complete one.
+        //
+        // Per SUBSTRATE, deliberately. A mixed receipt is legitimate and still certifies the
+        // substrates that did pass: `kb: fail` + `mc: pass` is a real bundle that can restore MC and
+        // cannot restore KB, and collapsing that to a whole-bundle verdict would either discard a
+        // usable MC source or certify an unusable KB one.
+        //
+        // Classified against the frozen producer authority rather than compared to the literal
+        // 'pass'. An equality test answers "certify?" and silently answers "delete?" as its
+        // negation — but `skipped` and any unrecognized status are NOT-certifiable and ALSO
+        // not-deletable, so the negation is wrong for exactly the cases we cannot evaluate.
+        const disposition = classifyIntegrityStatus(integrityStatus[substrate]);
+
+        if (bytes > 0 && disposition === 'certifying') {
+            restorableFor.push(substrate);
+        }
+
+        // A substrate holding bytes whose parity was never established. Not certified above, and
+        // recorded here so retention hard-keeps the bundle instead of aging it out: deleting a
+        // capture nobody ever verified is the one outcome no recovery policy may choose.
+        //
+        // Gated on `hasMeta`, and the gate is the whole distinction. With NO receipt every status is
+        // trivially absent, so without this gate a meta-less bundle would become permanently
+        // undeletable — an existing test caught exactly that. Absent-receipt is not an unknown: it
+        // is a DECIDED case (a partial capture, never a verified recovery source, age-deletable so
+        // residue cannot accumulate forever). This branch is for the narrower and more deceptive
+        // state: a receipt we successfully read and parsed, which itself reports that the check
+        // never happened.
+        if (hasMeta && bytes > 0 && disposition === 'indeterminate') {
+            unevaluated.push(substrate);
+        }
+    }
+
+    return {
+        hasMeta,
+        metaState,
+        substrates,
+        restorableFor,
+        unevaluated: [...new Set(unevaluated)],
+        unreadable : [...new Set(unreadable)]
+    };
+}
+
+/**
  * Applies retention policy to the backup root.
  *
  * Two-axis policy:
- *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
+ *   - `keepMinimum` — newest N **restorable** bundles retained unconditionally regardless of age
  *   - `maxDays`     — bundles older than this many days are eligible for deletion
  *
- * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
- * window OR younger than maxDays). Both defaults match the original hardcoded
- * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
- * existing behavior.
+ * A bundle survives if EITHER axis protects it (i.e., it counts inside the keepMinimum floor OR is
+ * younger than maxDays).
+ *
+ * **`keepMinimum` counts RECOVERABILITY, not directories, and that is the whole point of this
+ * function.** The floor exists to guarantee a recovery path; counting bundles that can restore
+ * nothing toward it makes the guarantee decorative. Measured on the live plane 2026-08-07: six of ten
+ * kept bundles held **zero** KB rows, every one of them carrying a valid `bundle-meta.json`, so the
+ * three newest bundles — the entire "kept minimum" — contained no recoverable KB corpus. The one
+ * 59,754-row bundle survived on age alone, four days inside a thirty-day bound, and nothing in the
+ * policy knew it was the only real one.
+ *
+ * **The newest restorable bundle per substrate is never deleted, `maxDays` notwithstanding.** Age is
+ * the wrong axis for a last-known-good artifact: a 31-day-old bundle holding a full corpus beats a
+ * one-day-old empty one, and on this plane that comparison was concrete rather than hypothetical.
+ *
+ * A bundle with no `bundle-meta.json` cannot count toward the floor — it is a partial capture, and
+ * one such bundle (2,001 rows, no meta) was sitting in the retention set as a peer of complete
+ * captures. It stays age-deletable on purpose: excluding it from deletion as well would let residue
+ * accumulate forever, trading one unbounded-growth bug for another.
  *
  * Enumerates through {@link listPublishedBundles}, so a `.backup-partial-*` staging directory is
  * never a retention candidate and never counts toward `keepMinimum` — an in-flight capture must not
@@ -958,7 +1213,7 @@ export async function listPublishedBundles(backupRoot) {
  * @param {String} backupRoot
  * @param {Object} logger
  * @param {Object} [retention]
- * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
+ * @param {Number} [retention.keepMinimum=3] Newest N restorable bundles to retain unconditionally.
  * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
  */
 export async function cleanOldBackups(backupRoot, logger, retention = {}) {
@@ -966,29 +1221,144 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
 
     const {keepMinimum = 3, maxDays = 30} = retention;
 
-    const backups = await listPublishedBundles(backupRoot);
+    const backups     = await listPublishedBundles(backupRoot),
+          now         = Date.now(),
+          thresholdMs = maxDays * 24 * 60 * 60 * 1000;
 
-    const K           = keepMinimum;
-    const N_DAYS      = maxDays;
-    const now         = Date.now();
-    const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
+    // Classify first, decide second. The sweep needs the whole set's recoverability before it can
+    // say which bundles the floor protects — an index-based floor cannot express "the newest three
+    // that can actually restore something".
+    const classified = [];
+
+    for (const backup of backups) {
+        classified.push({...backup, ...await classifyBundleRecoverability(backup.path)});
+    }
+
+    // The floor is PER SUBSTRATE — the newest `keepMinimum` meta-bearing bundles restorable for each
+    // substrate, unioned. Not "restorable for at least one".
+    //
+    // An any-substrate floor looks correct and does not close the defect. Measured on the live set:
+    // the three newest restorable-for-anything bundles were `[kb,mc,graph]`, `[mc,graph]`,
+    // `[mc,graph]` — so the floor held exactly ONE kb-bearing bundle (the degraded newest), and the
+    // only full-corpus bundle was still protected by age alone. Recovery needs every substrate
+    // covered; a floor satisfied by three bundles that all lack `kb` guarantees nothing about kb.
+    const floor = new Set();
+
+    for (const substrate of RECOVERY_SUBSTRATES) {
+        // `restorableFor`, NOT raw bytes. The classifier already combines non-empty payload with a
+        // `pass` parity verdict; filtering on bytes here re-derived a weaker predicate one place over
+        // and let a `kb: fail` bundle hold kb's floor slot anyway. Two consumers read this signal and
+        // both must read the SAME one, or fixing the verdict fixes nothing.
+        for (const entry of classified.filter(candidate => candidate.hasMeta && candidate.restorableFor.includes(substrate))
+                                      .slice(0, keepMinimum)) {
+            floor.add(entry.name);
+        }
+    }
+
+    // Per-substrate last-known-good. Separate from the floor because a bundle can be restorable for
+    // `mc` and empty for `kb`: a floor built from "restorable for anything" could still leave the
+    // only KB-bearing bundle unprotected.
+    //
+    // Gated on a POSITIVE floor, and that boundary is the point. This rule exists to stop an AGE
+    // CLOCK from deleting the last artifact that can restore a substrate — not to override an
+    // operator who explicitly asked for none. `keepMinimum: 0` is a stated intent to keep nothing,
+    // and a purge the tool refuses to perform is a different tool.
+    const newestPerSubstrate = new Set();
+
+    if (keepMinimum > 0) {
+        for (const substrate of RECOVERY_SUBSTRATES) {
+            // `hasMeta` is required here for the same reason it is required for the floor: a partial
+            // capture is not a verified recovery source, and letting one become the protected
+            // last-known-good would pin residue in place of a real bundle. Dropping this condition
+            // made a meta-less 40d bundle outrank a complete 50d one.
+            const newest = classified.find(entry => entry.hasMeta && entry.restorableFor.includes(substrate));
+            if (newest) newestPerSubstrate.add(newest.name);
+        }
+    }
 
     let deletedCount = 0;
 
-    for (let i = K; i < backups.length; i++) {
-        const backup = backups[i];
-        const ageMs  = now - backup.time;
-        if (ageMs > thresholdMs) {
-            try {
-                logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
-                await fs.remove(backup.path);
-                deletedCount++;
-            } catch (err) {
-                if (logger.error) {
-                    logger.error(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
-                } else {
-                    logger.log(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
-                }
+    for (const entry of classified) {
+        const ageMs   = now - entry.time,
+              ageDays = Math.round(ageMs / 86400000),
+              payload = RECOVERY_SUBSTRATES.map(s => `${s}=${entry.substrates[s]}B`).join(' ');
+
+        // UNREADABLE is a hard keep, checked before every other rule. A payload we could not read is
+        // of UNKNOWN recoverability, and the one thing retention must never do is destroy an artifact
+        // it failed to inspect. Without this the classifier's zero-bytes fallback made an unreadable
+        // bundle non-restorable, which excluded it from the floor, which made it age-deletable — the
+        // guard deleting exactly the bundle whose contents it could not verify.
+        if (entry.unreadable?.length > 0) {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (UNREADABLE payload, age ${ageDays}d) — ` +
+                `could not read: ${entry.unreadable.join(', ')} — ${payload}. Recoverability unknown; ` +
+                `not deleting. Investigate permissions or corruption.`
+            );
+            continue;
+        }
+
+        // A MALFORMED receipt is the same class of unknown as an unreadable payload, and gets the same
+        // hard keep. It is already excluded from the floor by `hasMeta`, which is what stops it
+        // displacing a valid bundle; this stops it being destroyed on an age clock as well. Note the
+        // deliberate asymmetry with an ABSENT receipt, which stays age-deletable: absent is a
+        // known-incomplete capture, malformed is a bundle whose state we cannot determine at all.
+        if (entry.metaState === 'malformed') {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (MALFORMED bundle-meta.json, age ${ageDays}d) — ${payload}. ` +
+                `Cannot certify it as a recovery source, and cannot certify it as disposable; not deleting. ` +
+                `Investigate corruption.`
+            );
+            continue;
+        }
+
+        // The THIRD unknown, and the one this guard shipped without: a receipt that is perfectly
+        // valid and reports a status carrying no parity claim — `skipped` (the verifier could not
+        // evaluate) or a value this reader does not recognize. Such a substrate holds bytes nobody
+        // ever checked, so it is neither certifiable nor reclaimable. The two branches above cover
+        // "cannot read it" and "cannot parse it"; this covers "read and parsed it, and it says the
+        // check never happened" — which reads as evaluated precisely because the receipt is intact.
+        if (entry.unevaluated?.length > 0) {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (UNVERIFIED substrate(s): ${entry.unevaluated.join(', ')}, ` +
+                `age ${ageDays}d) — ${payload}. The receipt is valid but claims no parity for these, so their ` +
+                `contents were never verified in either direction; not deleting. Re-run integrity verification.`
+            );
+            continue;
+        }
+
+        if (floor.has(entry.name)) {
+            logger.log(`[Retention] Keeping ${entry.name} (restorable floor, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
+
+        if (newestPerSubstrate.has(entry.name)) {
+            // Deliberately independent of `maxDays`. This is the last artifact that can restore the
+            // substrate; deleting it on an age clock is the failure this branch exists to prevent.
+            logger.log(`[Retention] Keeping ${entry.name} (newest restorable per substrate, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
+
+        if (ageMs <= thresholdMs) {
+            // Age-held keeps are logged too. The AC is that the sweep says what it keeps AND drops,
+            // and a silent `continue` here left the largest keep category invisible — so a reader
+            // auditing the log could not tell an age-held bundle from one the sweep never saw. Six
+            // empty bundles accumulated unnoticed precisely because the log was incomplete.
+            logger.log(`[Retention] Keeping ${entry.name} (younger than ${maxDays}d, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
+
+        try {
+            // Say WHAT is being dropped, not just its name. Six empty bundles accumulated unnoticed
+            // because the sweep logged names; a per-substrate byte line makes an audit possible after
+            // the fact rather than requiring one to have been watching.
+            logger.log(`[Retention] Deleting old backup: ${entry.name} (age: ${ageDays} days, meta=${entry.hasMeta}) — ${payload}`);
+            await fs.remove(entry.path);
+            deletedCount++;
+        } catch (err) {
+            if (logger.error) {
+                logger.error(`[Retention] Failed to delete ${entry.name}: ${err.message}`);
+            } else {
+                logger.log(`[Retention] Failed to delete ${entry.name}: ${err.message}`);
             }
         }
     }
