@@ -220,7 +220,7 @@ export class ContainerHealthDiagnosisService extends Base {
             })] : []),
             ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
             ...this.collectLifecycleFacts({serviceKey, inspect, observedAt}),
-            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
+            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt, inspect}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
             ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
@@ -427,7 +427,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object[]}
      */
-    collectStatsFacts({serviceKey, stats, statsSamples, observedAt}) {
+    collectStatsFacts({serviceKey, stats, statsSamples, observedAt, inspect = null}) {
         const samples = normalizeStatsSamples({stats, statsSamples});
         if (samples.length < this.configValues.minResourceSamples) return [];
 
@@ -437,11 +437,18 @@ export class ContainerHealthDiagnosisService extends Base {
             // `storeMemorySaturationPercent`. CPU keeps the single threshold — compute pressure is
             // not monotonic in stored data, so a store has no special claim on it.
             serviceClassification = classifyServiceKey(serviceKey),
-            memoryThreshold = serviceClassification.serviceClass === SERVICE_CLASSES.store
+            isStore         = serviceClassification.serviceClass === SERVICE_CLASSES.store,
+            memoryThreshold = isStore
                 ? this.configValues.storeMemorySaturationPercent
                 : this.configValues.memorySaturationPercent,
+            // The EFFECTIVE ceiling, and only for a non-store. A store's process holds its data in
+            // the container budget, so the container limit IS its wall. A Node service aborts at its
+            // V8 heap limit, which can sit far below that budget — measuring a service against the
+            // budget reported 36% while `mc-server` was at ~66% of the ceiling that actually killed
+            // it. Undeclared stays null, which preserves today's denominator exactly.
+            declaredHeapBytes = isStore ? null : parseDeclaredHeapBytes(inspect),
             cpuPercents     = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
-            memoryPercents  = samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
+            memoryPercents  = samples.map(sample => calculateDockerMemoryPercent(sample, declaredHeapBytes)).filter(Number.isFinite),
             // Per-sample observation times, stamped by `rememberStatsSample` when each sample was
             // taken. The window is now MEASURED from these rather than asserted from config, so
             // back-to-back samples cannot satisfy a sustained-window claim.
@@ -1086,14 +1093,70 @@ export function calculateDockerCpuPercent(stats) {
     return (cpuDelta / systemDelta) * onlineCpus * 100;
 }
 
-export function calculateDockerMemoryPercent(stats) {
-    const
-        usage = Number(stats.memory_stats?.usage),
-        limit = Number(stats.memory_stats?.limit);
+/**
+ * @summary Reads a container's DECLARED V8 heap ceiling, in bytes, off its own running command.
+ *
+ * Taken from the container rather than from config on purpose. The declared ceiling exists in two
+ * places — a compose `command:` and whatever env knob fed it — and reading config would make the
+ * diagnosis depend on the orchestrator's view of what SHOULD be running rather than on what IS. A
+ * deployment that overrode the knob, or a container started before the knob existed, would then be
+ * measured against a ceiling it does not have. `Config.Cmd` is the same source the lifecycle facts
+ * already read, and it is the observed value.
+ *
+ * @param {Object|null} inspect A Docker inspect payload.
+ * @returns {Number|null} The declared ceiling in bytes, or null when none is declared.
+ */
+export function parseDeclaredHeapBytes(inspect) {
+    const parts = [
+        ...(Array.isArray(inspect?.Config?.Cmd) ? inspect.Config.Cmd : []),
+        ...(Array.isArray(inspect?.Config?.Entrypoint) ? inspect.Config.Entrypoint : [])
+    ].filter(part => typeof part === 'string');
 
-    if (!Number.isFinite(usage) || !Number.isFinite(limit) || usage < 0 || limit <= 0) {
+    // LAST match wins. A command can carry more than one `node` invocation — mc-server branches on
+    // whether a recovery-actuator overlay exists — and reading the first would silently report the
+    // if-branch's ceiling for a container running the else-branch. Both are held equal by
+    // `DeclaredHeapCeilings.spec.mjs`; taking the last is what keeps this honest if that ever slips.
+    let megabytes = null;
+
+    for (const part of parts) {
+        for (const match of part.matchAll(/--max-old-space-size[= ](\d+)/g)) {
+            megabytes = Number(match[1]);
+        }
+    }
+
+    return Number.isFinite(megabytes) && megabytes > 0 ? megabytes * 1024 * 1024 : null;
+}
+
+/**
+ * @summary Memory utilisation percent, against the EFFECTIVE ceiling rather than the container limit.
+ *
+ * `limitOverrideBytes` exists because the container limit is not always the ceiling that kills the
+ * process. A Node service aborts at its V8 heap limit, which can sit well below the container budget:
+ * `mc-server` died at ~560 MiB inside a 1 GiB container while this function reported 36%. The
+ * denominator was the budget; the numerator was racing a different, lower wall.
+ *
+ * Optional and defaulted so every existing single-argument call site keeps its exact behaviour — a
+ * store's ceiling IS its container limit, so passing nothing is correct there rather than merely
+ * tolerated.
+ *
+ * @param {Object} stats Docker stats payload.
+ * @param {Number|null} [limitOverrideBytes=null] The effective ceiling, when lower than the container limit.
+ * @returns {Number|null}
+ */
+export function calculateDockerMemoryPercent(stats, limitOverrideBytes = null) {
+    const
+        usage          = Number(stats.memory_stats?.usage),
+        containerLimit = Number(stats.memory_stats?.limit),
+        override       = Number(limitOverrideBytes);
+
+    if (!Number.isFinite(usage) || !Number.isFinite(containerLimit) || usage < 0 || containerLimit <= 0) {
         return null;
     }
+
+    // `min`, never "override wins": a declared ceiling ABOVE the container limit does not raise the
+    // wall, it just means the container OOM-killer arrives first, so the lower of the two is always
+    // the one that ends the process.
+    const limit = Number.isFinite(override) && override > 0 ? Math.min(containerLimit, override) : containerLimit;
 
     return (usage / limit) * 100;
 }

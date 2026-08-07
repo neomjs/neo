@@ -115,6 +115,24 @@ services:
       - neo-mcp-network
     expose:
       - "3000"
+    # Declared V8 heap ceiling, sized BELOW the 1g container limit below.
+    #
+    # Without this, V8 picks a heuristic default of ~560 MiB inside a 1 GiB container, so the process
+    # aborts with ~460 MiB of its own allowance unused — and `memory-saturation` measures against the
+    # container limit, reading ~36% while the enforcing ceiling is at ~66%. `mc-server` hit exactly
+    # that wall at 11:40:42Z on 2026-08-07; this service has the identical gap and a smaller corpus,
+    # which is timing rather than immunity.
+    #
+    # NOT `NODE_OPTIONS` — see the orchestrator's note; an env var is inherited by every child and
+    # silently multiplies the container budget.
+    #
+    # `$$SERVER_ENTRYPOINT` is double-escaped so Compose does NOT interpolate it at config time: it is
+    # a CONTAINER env set by the Dockerfile, and single-`$` here would resolve against the HOST
+    # environment, find nothing, and render `node --max-old-space-size=<n>` with NO SCRIPT.
+    # `docker compose config` reports that as a warning and still exits 0, so an exit-code check
+    # passes on a broken render — which is why the spec asserts the rendered command still contains a
+    # script path rather than asserting the config validates.
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_KB_SERVER_HEAP_MB:-768} \"$$SERVER_ENTRYPOINT\""]
     # If this deployment opts into NEO_AUTH_MODE=gitlab-pat, the in-container MCP
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
@@ -197,15 +215,31 @@ services:
     # any read failure including ENOENT, and `BaseServer.loadCustomConfig()` rethrows in turn, so
     # pointing this at a path that does not exist yet would turn "no override has ever been written"
     # into a boot crash. With the test, an absent overlay yields exactly today's behaviour.
+    #
+    # `--max-old-space-size` appears in BOTH branches deliberately, and that is the whole hazard of
+    # this block. A ceiling on one branch only is worse than none: the overlay path and the plain path
+    # would run under different limits, so the failure would appear or vanish depending on whether the
+    # recovery actuator had ever written an override — a condition nobody debugging a heap abort would
+    # think to check. Two invocations of one intent, kept in step by proximity and by the rendered-
+    # command spec, since Compose gives no way to declare it once.
+    #
+    # Sized BELOW the 1g container limit (see `deploy.resources.limits` at the end of this service).
+    # V8's own default here is ~560 MiB — well under the container budget — so the process aborted at
+    # 11:40:42Z on 2026-08-07 with ~460 MiB of its allowance unused, and `memory-saturation` read 36%
+    # of the wrong denominator. Declaring the ceiling is what makes it measurable at all: the
+    # diagnosis service reads it back off this container's own `Config.Cmd`.
+    #
+    # NOT `NODE_OPTIONS` — see the orchestrator's note below; an env var is inherited by every child
+    # and silently multiplies the budget.
     command:
       - sh
       - -c
       - >-
         overlay=/app/.neo-ai-data/deployment-state/recovery-actuator-overrides.json;
         if [ -f "$$overlay" ]; then
-          node "$$SERVER_ENTRYPOINT" --config "$$overlay";
+          node --max-old-space-size=${NEO_MC_SERVER_HEAP_MB:-768} "$$SERVER_ENTRYPOINT" --config "$$overlay";
         else
-          node "$$SERVER_ENTRYPOINT";
+          node --max-old-space-size=${NEO_MC_SERVER_HEAP_MB:-768} "$$SERVER_ENTRYPOINT";
         fi
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
