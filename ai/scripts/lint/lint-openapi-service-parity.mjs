@@ -74,11 +74,19 @@
  * cannot drift into disagreeing about what a parameter is.
  */
 
-import fs                                        from 'node:fs';
-import path                                      from 'node:path';
-import {fileURLToPath}                           from 'node:url';
-import * as yaml                                 from 'js-yaml';
-import {collectImports, parseModule, resolveRef} from '../diagnostics/mcpHandlerSignatureCensus.mjs';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import * as yaml       from 'js-yaml';
+import {
+    collectImports,
+    extractOperations,
+    extractServiceMapping,
+    parseModule,
+    resolveHandlerNode,
+    resolveRef,
+    SERVERS
+} from '../diagnostics/mcpHandlerSignatureCensus.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -111,7 +119,24 @@ export const PARITY_BASELINE = Object.freeze({
     'knowledge-base.manage_knowledge_base.viaMcp'       : 'Work-volume-gate selector, always false. Third live instance of this parameter name; disposition under #16611 citing #16577.',
     'knowledge-base.manage_knowledge_base.staleStrategy': 'Stale-row handling strategy, always undefined. Disposition under #16611; adjacent to #16590 stale-id scoping.',
     'knowledge-base.query_documents.includeMetadata'    : 'Metadata unreachable through the tool, always false. Disposition under #16611; interacts with #16588 payload size.',
-    'memory-core.get_context_frontier.depth'            : 'Frontier depth permanently 2. Disposition under #16611; needs a maximum if declared, or an agent can request an arbitrarily deep walk.'
+    'memory-core.get_context_frontier.depth'            : 'Frontier depth permanently 2. Disposition under #16611; needs a maximum if declared, or an agent can request an arbitrarily deep walk.',
+
+    // ── First findings from the ToolService dispatch join (the 142-operation object-dispatch path) ──
+    // PERMANENT — both are the `now` class: an injected test seam with a working default, where the
+    // JSDoc states the intent outright ("Test seam for bounding Chroma metadata reads"). Declaring a
+    // timeout would let a caller set an arbitrary bound on a Chroma read — either starving it or
+    // removing the bound that exists to stop a slow metadata fetch from hanging the call. A test
+    // seam and an input are different things, and the default resolving from config
+    // (`aiConfig.memoryService.chromaFetchTimeoutMs`) rather than from a literal is what says so.
+    'memory-core.get_session_memories.chromaTimeoutMs': 'Injected Chroma-read timeout seam with a config-resolved default; agent-settable would mean an arbitrary or absent bound on a metadata read. Deliberately internal, same class as who_is_online.now.',
+    'memory-core.resume_session.chromaTimeoutMs'      : 'Injected Chroma-read timeout seam with a constant default (CHROMA_SESSION_READ_TIMEOUT_MS); same reason as the sibling row above. Deliberately internal.',
+
+    // DEBT — a genuine caller-facing capability, and NOT one to fix by widening the schema on sight.
+    // `memorySharing` is a TENANT-ISOLATION policy override, already declared on two other
+    // memory-core operations, so precedent says exposing it is acceptable somewhere. Whether it is
+    // acceptable HERE is a security disposition, and a lint PR is the wrong place to silently widen
+    // a memory-visibility surface — the row's reason names where that decision is tracked.
+    'memory-core.get_session_memories.memorySharing': 'Tenant-isolation policy override, unreachable on this operation while declared on two siblings. Real capability gap; disposition under #16611 because declaring it changes which memories an agent can read.'
 });
 
 /**
@@ -506,6 +531,114 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
 }
 
 /**
+ * @summary The same parity check over the **ToolService dispatch** path.
+ *
+ * `lintOpenApiServiceParity` above joins an operation to a method on a service `ai/services.mjs`
+ * wraps. That join reaches 121 methods and leaves the larger surface uncovered: most operations are
+ * dispatched through their server's `serviceMapping` table, whose handlers are `.bind()` chains,
+ * inline arrows and imported functions rather than wrapped-service methods. Same Zod strip, same
+ * silent-`undefined` read, different join — so the gate needs both or it reports a partial sweep as
+ * a clean one.
+ *
+ * ## Object dispatch ONLY, and that is a correctness bound rather than a scoping convenience
+ *
+ * `ToolService#callTool` has two modes. With `x-pass-as-object: true` the handler receives the whole
+ * validated bag, so its first parameter genuinely IS the args object and `consumedNames` is reading
+ * the right thing. Without it, arguments arrive **positionally**: `handler(...argNames.map(...))`, so
+ * the first parameter is `argNames[0]` — one specific value, not a bag.
+ *
+ * Running the bag analysis over a positional handler would be actively wrong, not merely
+ * incomplete: `doThing(prNumber, file)` would be read as `bagParam = 'prNumber'`, and any
+ * `prNumber.something` member access would be reported as a consumed *parameter* named
+ * `something`. That is a fabricated violation, and a gate that invents findings gets ignored — so
+ * positional operations are skipped here and counted, with the signature-census owning them (its
+ * classes 2 / 2M / 3 are exactly the positional-dispatch failure modes).
+ *
+ * Unresolved handlers are REPORTED, never silently dropped: a handler this cannot locate is a
+ * contract nobody checked, and its absence from the output would read as a pass.
+ *
+ * @param {Object} [options]
+ * @param {String} [options.rootDir=ROOT_DIR]
+ * @returns {{violations: Object[], unresolved: Object[], operationsChecked: Number, positionalSkipped: Number}}
+ */
+export function lintToolServiceParity({rootDir = ROOT_DIR} = {}) {
+    const violations = [],
+          unresolved = [];
+
+    let operationsChecked = 0,
+        positionalSkipped = 0;
+
+    for (const server of SERVERS) {
+        const specPath = path.join(rootDir, server.openApi),
+              toolPath = path.join(rootDir, server.toolService);
+
+        if (!fs.existsSync(specPath) || !fs.existsSync(toolPath)) continue;
+
+        const doc                     = yaml.load(fs.readFileSync(specPath, 'utf8')),
+              toolAst                 = parseModule(fs.readFileSync(toolPath, 'utf8')),
+              {entries, imports, ast} = extractServiceMapping(toolAst),
+              fileCache               = new Map();
+
+        for (const operation of extractOperations(doc)) {
+            const valueNode = entries.get(operation.operationId);
+
+            // No binding at all is the census's finding, not this one — it reports `no-binding`
+            // per operation. Duplicating it here would mean two instruments disagreeing about the
+            // same absence.
+            if (!valueNode) continue;
+
+            if (!operation.passAsObject) {
+                positionalSkipped++;
+                continue;
+            }
+
+            const resolved = resolveHandlerNode(valueNode, {imports, filePath: toolPath, root: rootDir, fileCache, ast});
+
+            if (resolved.unresolved) {
+                unresolved.push({serverId: server.id, operationId: operation.operationId, reason: resolved.unresolved});
+                continue;
+            }
+
+            operationsChecked++;
+
+            const declared         = declaredNames(doc, findOperationById(doc, operation.operationId)),
+                  {consumed, rest} = consumedNames(resolved.node);
+
+            // A rest element re-admits every key, so absence cannot be proven — the same
+            // suppression the services.mjs join applies, for the same reason.
+            if (rest) continue;
+
+            for (const name of consumed) {
+                if (declared.has(name)) continue;
+                if (PARITY_BASELINE[`${server.id}.${operation.operationId}.${name}`]) continue;
+
+                violations.push({
+                    operationId: operation.operationId,
+                    param      : name,
+                    serverId   : server.id,
+                    via        : resolved.via,
+                    spec       : path.relative(rootDir, specPath)
+                });
+            }
+        }
+    }
+
+    return {violations, unresolved, operationsChecked, positionalSkipped};
+}
+
+/**
+ * Finds the raw operation object for an id, since `extractOperations` returns the runtime-mirror
+ * projection (`{operationId, args, passAsObject}`) rather than the document node `declaredNames`
+ * needs for its one-level `$ref` resolution.
+ * @param {Object} doc
+ * @param {String} operationId
+ * @returns {Object|undefined}
+ */
+function findOperationById(doc, operationId) {
+    return indexOperations(doc).get(operationId);
+}
+
+/**
  * Indexes a document's operations by `operationId`.
  * @param {Object} doc
  * @returns {Map<String,Object>}
@@ -553,10 +686,25 @@ export function reportUnusedDeclarations(unusedDeclarations, io = console) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
     const result = lintOpenApiServiceParity();
+    const tool   = lintToolServiceParity();
 
     // Printed BEFORE the failing arm, so a run that exits 1 still surfaces both directions rather
     // than hiding the advisory behind the abort.
     reportUnusedDeclarations(result.unusedDeclarations);
+
+    // An unresolved handler is a contract nobody checked. Reported loudly and counted in the OK line
+    // rather than dropped, because silence here is indistinguishable from coverage.
+    if (tool.unresolved.length > 0) {
+        console.warn(`[lint-openapi-service-parity] ${tool.unresolved.length} ToolService handler(s) could not be resolved — NOT checked:\n`);
+        for (const row of tool.unresolved) {
+            console.warn(`- ${row.serverId}.${row.operationId}: ${row.reason}`);
+        }
+        console.warn('');
+    }
+
+    // The two joins fail as one gate: a violation on either path is the same defect reaching the
+    // same Zod strip, and reporting them separately would let a green on one read as a green overall.
+    result.violations.push(...tool.violations);
 
     if (result.violations.length > 0) {
         console.error(`[lint-openapi-service-parity] FAILED — ${result.violations.length} consumed-but-undeclared parameter(s):\n`);
@@ -577,7 +725,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     console.log(
         `[lint-openapi-service-parity] OK — ${result.servicesScanned} wrapped service(s), ` +
-        `${result.operationsMatched} operation-bound method(s), 0 consumed-but-undeclared parameter(s), ` +
-        `${result.unusedDeclarations.length} declared-but-unused (advisory).`
+        `${result.operationsMatched} operation-bound method(s) + ${tool.operationsChecked} object-dispatch handler(s), ` +
+        `0 consumed-but-undeclared parameter(s), ${result.unusedDeclarations.length} declared-but-unused (advisory), ` +
+        `${tool.positionalSkipped} positional handler(s) owned by the signature census.`
     );
 }

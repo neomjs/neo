@@ -3,7 +3,7 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 
-import {lintOpenApiServiceParity} from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
+import {lintOpenApiServiceParity, lintToolServiceParity} from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
 
 /**
  * End-to-end fixtures for the OpenAPI ↔ service parity lint: a synthetic repo root is built on
@@ -299,5 +299,106 @@ test.describe('parity lint end-to-end — the ADVISORY direction', () => {
 
         expect(result.unusedDeclarations.map(row => row.param)).toEqual(['readByNobody']);
         expect(result.unusedDeclarations[0].methods, 'the row names every contributor, so a reader can see the denominator').toHaveLength(2);
+    });
+});
+
+test.describe('parity lint end-to-end — the TOOLSERVICE dispatch join', () => {
+    /**
+     * Seeds a server whose `toolService.mjs` carries a `serviceMapping` binding, which is the join
+     * this direction walks — distinct from the `ai/services.mjs` `makeSafe` table above.
+     *
+     * @param {Object}  options
+     * @param {Object}  options.operation      OpenAPI operation object.
+     * @param {String}  options.handlerSrc     Handler source bound in the mapping.
+     * @param {Boolean} [options.passAsObject] Emit `x-pass-as-object: true`.
+     * @returns {String} fixture root
+     */
+    function seedToolService({operation, handlerSrc, passAsObject = true}) {
+        // The census's SERVERS list is a fixed set of repo-relative paths, so the fixture must sit at
+        // the coordinates of a real server id for the join to discover it.
+        const serverDir = path.join(tmpRoot, 'ai', 'mcp', 'server', 'knowledge-base');
+
+        fs.mkdirSync(serverDir, {recursive: true});
+        fs.mkdirSync(path.join(tmpRoot, 'ai'), {recursive: true});
+        fs.writeFileSync(path.join(tmpRoot, 'ai', 'services.mjs'), '// no makeSafe bindings in this fixture\n');
+
+        fs.writeFileSync(path.join(serverDir, 'toolService.mjs'), [
+            `const serviceMapping = {`,
+            `    do_thing: ${handlerSrc}`,
+            `};`,
+            `export {serviceMapping};`,
+            ''
+        ].join('\n'));
+
+        fs.writeFileSync(path.join(serverDir, 'openapi.yaml'), JSON.stringify({
+            openapi: '3.0.0',
+            info   : {title: 'fixture', version: '1.0.0'},
+            paths  : {'/fixture': {post: {
+                operationId: 'do_thing',
+                ...(passAsObject ? {'x-pass-as-object': true} : {}),
+                ...operation
+            }}}
+        }, null, 2));
+
+        return tmpRoot;
+    }
+
+    test('an inline object-dispatch handler reading an undeclared key is reported', async () => {
+        const rootDir = seedToolService({
+            operation : bodyWith('declaredOne'),
+            handlerSrc: 'args => svc.run({...args, extra: args.undeclaredTwo})'
+        });
+
+        const result = lintToolServiceParity({rootDir});
+
+        expect(result.operationsChecked, 'the handler must be resolved and checked').toBe(1);
+        expect(result.violations.map(v => v.param)).toEqual(['undeclaredTwo']);
+    });
+
+    test('NEGATIVE CONTROL: the identical handler is clean once the key is declared', async () => {
+        const rootDir = seedToolService({
+            operation : bodyWith('declaredOne', 'undeclaredTwo'),
+            handlerSrc: 'args => svc.run({...args, extra: args.undeclaredTwo})'
+        });
+
+        const result = lintToolServiceParity({rootDir});
+
+        expect(result.operationsChecked).toBe(1);
+        expect(result.violations).toHaveLength(0);
+    });
+
+    test('a POSITIONAL handler is skipped and counted — the bag analysis would fabricate findings', async () => {
+        // Without `x-pass-as-object`, arguments arrive positionally, so the first parameter is
+        // `argNames[0]` rather than the args bag. Treating it as a bag would report `prNumber.detail`
+        // as a consumed PARAMETER named `detail` — an invented violation. The requirement is that the
+        // operation is skipped AND counted, so the omission is visible rather than silent.
+        const rootDir = seedToolService({
+            operation   : bodyWith('prNumber'),
+            handlerSrc  : 'prNumber => svc.run(prNumber.detail)',
+            passAsObject: false
+        });
+
+        const result = lintToolServiceParity({rootDir});
+
+        expect(result.violations, 'no fabricated finding from positional dispatch').toHaveLength(0);
+        expect(result.operationsChecked).toBe(0);
+        expect(result.positionalSkipped, 'skipped operations are COUNTED, never silently dropped').toBe(1);
+    });
+
+    test('an UNRESOLVABLE handler is reported, not passed over', async () => {
+        // A bare identifier with no local declaration and no import cannot be located. Silence here
+        // would be indistinguishable from "checked and clean" — the false-green shape this whole
+        // gate exists to remove, applied to its own coverage.
+        const rootDir = seedToolService({
+            operation : bodyWith('declaredOne'),
+            handlerSrc: 'handlerDefinedNowhere'
+        });
+
+        const result = lintToolServiceParity({rootDir});
+
+        expect(result.operationsChecked).toBe(0);
+        expect(result.unresolved).toHaveLength(1);
+        expect(result.unresolved[0].operationId).toBe('do_thing');
+        expect(result.violations).toHaveLength(0);
     });
 });
