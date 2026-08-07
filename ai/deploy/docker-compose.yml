@@ -102,6 +102,19 @@ services:
       - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
       - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
       - NEO_KB_ASK_MAX_RPM=${NEO_KB_ASK_MAX_RPM:-}
+    # Declared V8 heap ceiling, sized BELOW the 1g container limit below. Without it V8 picks a
+    # heuristic (~560 MiB in a 1 GiB container) and self-aborts with `Ineffective mark-compacts near
+    # heap limit` while ~460 MiB of the container's own allowance is still unused — and because NODE
+    # aborts rather than the container, `ExitCode` is 0, `OOMKilled` false and health `healthy`, so
+    # nothing surfaces it. Observed on mc-server at 2026-08-07T11:40:42Z (#16630); kb-server carries
+    # the identical shape and has only been spared by a smaller corpus.
+    #
+    # `command:`-scoped, NEVER `NODE_OPTIONS` — see the rationale at the orchestrator's ceiling below.
+    # `$$SERVER_ENTRYPOINT` is double-escaped so Compose does NOT interpolate it at config time; a
+    # single `$` renders an invocation with an EMPTY script argument and `docker compose config` still
+    # exits 0. Asserted by `DeclaredHeapCeilings.spec.mjs`, which checks the escaping directly rather
+    # than a substring that survives it.
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_KB_SERVER_HEAP_MB:-768} \"$$SERVER_ENTRYPOINT\""]
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
       # Read-only half of the orchestrator -> public MCP deployment-state bridge.
@@ -200,12 +213,17 @@ services:
     command:
       - sh
       - -c
+      # The heap ceiling is repeated in BOTH branches and the two values MUST stay equal.
+      # `DeclaredHeapCeilings.spec.mjs` asserts equality, not merely presence: the branches are
+      # mutually exclusive and `Config.Cmd` does not record which one is executing, so divergent
+      # values would make the effective ceiling unknowable from outside the container. Compose offers
+      # no way to declare it once for a conditional command, so the spec is what holds them in step.
       - >-
         overlay=/app/.neo-ai-data/deployment-state/recovery-actuator-overrides.json;
         if [ -f "$$overlay" ]; then
-          node "$$SERVER_ENTRYPOINT" --config "$$overlay";
+          node --max-old-space-size=${NEO_MC_SERVER_HEAP_MB:-768} "$$SERVER_ENTRYPOINT" --config "$$overlay";
         else
-          node "$$SERVER_ENTRYPOINT";
+          node --max-old-space-size=${NEO_MC_SERVER_HEAP_MB:-768} "$$SERVER_ENTRYPOINT";
         fi
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
