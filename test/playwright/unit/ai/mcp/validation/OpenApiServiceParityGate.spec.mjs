@@ -9,8 +9,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 import {
     PARITY_BASELINE,
     camelToSnake,
+    collectMethods,
     consumedNames,
     declaredNames,
+    extractWrappedServices,
     lintOpenApiServiceParity
 } from '../../../../../../ai/scripts/lint/lint-openapi-service-parity.mjs';
 
@@ -125,16 +127,41 @@ test.describe('openapi ↔ service parity — a consumed parameter must be decla
         // eslint-disable-next-line no-new-func
         const runtimeCamelToSnake = new Function('str', match[1]);
 
-        // Equality across every method name the wrapped services actually expose, plus edge shapes.
-        // A corpus drawn from reality, so a divergence on any real method fails here rather than
-        // waiting for a literal to be added to a list.
-        const corpus = [
-            'ingestSourceFiles', 'whoIsOnline', 'getPullRequestDiff', 'manageKnowledgeBase',
-            'queryDocuments', 'getContextFrontier', 'healthcheck', 'getMcpToolHandbook',
-            'a', 'ABC', 'alreadysnake', 'endsWithCapitalX'
-        ];
+        // ── The corpus is now ACTUALLY drawn from reality ────────────────────────────────────────
+        //
+        // This block previously held a hardcoded twelve-name array under a comment claiming "a corpus
+        // drawn from reality, so a divergence on any real method fails here rather than waiting for a
+        // literal to be added to a list." The prose asserted a property the code did not have: a
+        // divergence on the 400-odd method names NOT in that list passed silently, and the comment
+        // made it worse than a plainly-fixed list would have been by telling a reader it was derived.
+        // @neo-gpt flagged it as a still-fixed corpus and was right.
+        //
+        // Every method name on every wrapped service, harvested the same way the lint harvests them,
+        // so the corpus grows and shrinks with the tree instead of with someone remembering to edit an
+        // array. A new service method is covered the moment it exists.
+        const realNames = new Set();
 
-        for (const name of corpus) {
+        for (const service of extractWrappedServices(repoRoot)) {
+            if (!fs.existsSync(service.modulePath)) continue;
+
+            for (const methodName of collectMethods(
+                acorn.parse(fs.readFileSync(service.modulePath, 'utf8'), {ecmaVersion: 'latest', sourceType: 'module'})
+            ).keys()) {
+                realNames.add(methodName);
+            }
+        }
+
+        // A derived corpus can silently become empty — the exact false-green this test exists to
+        // prevent, one level up. Asserted against a floor well below the ~400 observed, so an ordinary
+        // refactor does not trip it but a broken harvest does.
+        expect(realNames.size, 'the derived corpus must be non-trivial, or this guard proves nothing').toBeGreaterThan(100);
+
+        // Synthetic EDGE shapes kept deliberately and labelled as synthetic: single char, all-caps,
+        // already-snake, trailing capital. These are shapes the live tree may not contain, and their
+        // absence from it is not evidence they transform correctly.
+        const edgeShapes = ['a', 'ABC', 'alreadysnake', 'endsWithCapitalX', 'aB', 'ABc'];
+
+        for (const name of [...realNames, ...edgeShapes]) {
             expect(camelToSnake(name), `divergence on ${name}`).toBe(runtimeCamelToSnake(name));
         }
 
