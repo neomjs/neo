@@ -401,14 +401,17 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         const summaryCollection = makeCollection(() => summaryCount);
 
         originals = {
-            chromaConnected          : ChromaManager.connected,
-            chromaReady              : ChromaManager.ready,
-            chromaConnect            : ChromaManager.connect,
-            invalidateCollectionCache: ChromaManager.invalidateCollectionCache,
-            getMemoryCollection      : StorageRouter.getMemoryCollection,
-            getSummaryCollection     : StorageRouter.getSummaryCollection,
-            getDatabaseStatus        : ChromaLifecycleService.getDatabaseStatus,
-            loopbackConnectProbe     : HealthService.loopbackConnectProbe
+            chromaConnected             : ChromaManager.connected,
+            chromaClient                : ChromaManager.client,
+            chromaReady                 : ChromaManager.ready,
+            chromaConnect               : ChromaManager.connect,
+            chromaEnsureReady           : ChromaManager.ensureChromaReady,
+            invalidateCollectionCache   : ChromaManager.invalidateCollectionCache,
+            getMemoryCollection         : StorageRouter.getMemoryCollection,
+            getSummaryCollection        : StorageRouter.getSummaryCollection,
+            getTemporalSummaryCollection: StorageRouter.getTemporalSummaryCollection,
+            getDatabaseStatus           : ChromaLifecycleService.getDatabaseStatus,
+            loopbackConnectProbe        : HealthService.loopbackConnectProbe
         };
 
         ChromaManager.connected = true;
@@ -456,11 +459,14 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         }
 
         ChromaManager.connected = originals.chromaConnected;
+        ChromaManager.client    = originals.chromaClient;
         ChromaManager.ready     = originals.chromaReady;
         ChromaManager.connect   = originals.chromaConnect;
+        ChromaManager.ensureChromaReady = originals.chromaEnsureReady;
         ChromaManager.invalidateCollectionCache = originals.invalidateCollectionCache;
         StorageRouter.getMemoryCollection      = originals.getMemoryCollection;
         StorageRouter.getSummaryCollection     = originals.getSummaryCollection;
+        StorageRouter.getTemporalSummaryCollection = originals.getTemporalSummaryCollection;
         ChromaLifecycleService.getDatabaseStatus = originals.getDatabaseStatus;
         TextEmbeddingService.embedText            = originalEmbedText;
         HealthService.loopbackConnectProbe        = originals.loopbackConnectProbe;
@@ -470,6 +476,52 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         HealthService.clearStartupDependencyState();
         HealthService.clearEmbeddingWriteCanaryProducer();
         HealthService.clearCache();
+    });
+
+    // Health-first Chroma ownership. A Memory Core process routinely runs its healthcheck
+    // BEFORE anything else touches Chroma, which makes the healthcheck the FIRST toucher and gives it
+    // ownership of resolving the Brain-only package. `ready()` settles the lifecycle service and no
+    // longer implies a client, so a health path that goes `ready()` -> `connect()` connects a null
+    // client and reports a server that is actually up as unreachable.
+    //
+    // This witness rigs `connect()` to FAIL, so the only route to a connected verdict is through
+    // `ensureChromaReady()`. That is what makes it go RED against the pre-fix code instead of merely
+    // observing a call that may or may not matter.
+    //
+    // Note what it has to undo: the surrounding `beforeEach` seeds `connected = true`, which
+    // short-circuits the broken branch before it can fire. That seed is why this suite stayed green
+    // while `integration-unified` reported four MC-unhealthy failures against the same head.
+    test('the healthcheck is a legitimate FIRST Chroma toucher and resolves the client itself', async () => {
+        let ensureCalls = 0;
+
+        // Health-first staging: nothing has touched Chroma yet, so there is no client to inherit.
+        ChromaManager.client    = null;
+        ChromaManager.connected = false;
+
+        ChromaManager.ensureChromaReady = async () => {
+            ensureCalls++;
+            // Stands in for the real one: resolves the package, builds the client, connects.
+            ChromaManager.client    = {heartbeat: async () => 1};
+            ChromaManager.connected = true;
+        };
+
+        // The falsifier. Reaching this means the path did NOT ensure, and the verdict must not
+        // come back connected.
+        ChromaManager.connect = async () => false;
+
+        // The surrounding `beforeEach` stubs the memory and summary collections but NOT this one, so
+        // it otherwise falls through to the real run-scoped Chroma the `chroma-setup` project starts.
+        // A real client is a second reason the null-client defect stayed invisible to this suite.
+        StorageRouter.getTemporalSummaryCollection = async () => makeCollection(() => 5);
+
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(ensureCalls).toBeGreaterThan(0);
+        expect(health.database.connection.connected).toBe(true);
+        expect(health.database.connection.engines.chroma).toBe(true);
+        expect(health.status, `details: ${JSON.stringify(health.details)}`).not.toBe('unhealthy');
     });
 
     // The producer gate. Review feedback surfaced the omission that made these necessary:

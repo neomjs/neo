@@ -1220,6 +1220,20 @@ class HealthService extends Base {
                     chromaProbeTimeoutMs,
                     'ChromaManager.ready health probe'
                 );
+
+                // A healthcheck is routinely the FIRST Chroma toucher in a Memory Core process, and
+                // `ready()` no longer implies a client — it settles the lifecycle service and nothing
+                // more. Without this, `connect()` runs against a null client, returns false, and a
+                // server that is actually up gets reported unreachable.
+                await withTimeout(
+                    ChromaManager.ensureChromaReady(),
+                    chromaProbeTimeoutMs,
+                    'ChromaManager.ensureChromaReady health probe'
+                );
+
+                // Retained as the RECOVERY path, not as the connect path. A first ensure that ran
+                // while Chroma was down leaves `connected` false behind a memoized resolution, so an
+                // explicit reconnect is what lets a restarted server be observed healthy again.
                 if (!ChromaManager.connected && !(await withTimeout(
                     ChromaManager.connect(),
                     chromaProbeTimeoutMs,
@@ -1227,6 +1241,7 @@ class HealthService extends Base {
                 ))) {
                     throw new Error("ChromaDB is not accessible");
                 }
+
                 engines.chroma = true;
             }
 

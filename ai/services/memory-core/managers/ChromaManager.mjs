@@ -169,15 +169,16 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
-     * Builds the Chroma client and registers Neo's embedding functions, then connects.
+     * Boot-time initialization that is safe in the Body install tier.
      *
-     * Client construction lives here rather than in `construct()` because `chromadb` is imported
-     * on demand, and `construct()` is synchronous. See the note there.
+     * Notably it does NOT build the Chroma client — see the note in the body and
+     * {@link ChromaManager#ensureChromaReady}.
      *
-     * `.client` therefore does not exist between `construct()` and this method resolving.
-     * `core.Base` kicks `initAsync()` off during singleton setup and gates `isReady` on it, so
-     * consumers that await `ready()` are unaffected; consumers reaching for `.client` without
-     * awaiting were already racing the `connect()` this method performs.
+     * **`ready()` therefore does not imply a client.** An earlier revision of this JSDoc claimed
+     * "consumers that await `ready()` are unaffected", and that sentence is what sent
+     * `ai/services/memory-core/HealthService.mjs` into `ready()` -> `connect()` against a null
+     * client: a Chroma server that was up got reported unreachable. Every consumer that needs the
+     * client must call {@link ChromaManager#ensureChromaReady} at its own entry.
      *
      * @returns {Promise<void>}
      */
