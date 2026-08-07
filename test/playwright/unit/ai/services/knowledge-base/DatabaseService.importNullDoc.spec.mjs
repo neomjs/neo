@@ -253,13 +253,28 @@ test.describe('KB_DatabaseService.importDatabase — null-document handling (#11
             {id: 'fresh-row',     embedding: vec(0.4), metadata: {...liveMetadata, name: 'src/a.mjs - y()'}, document: null}
         ]);
 
-        await expect(KB_DatabaseService.importDatabase({file: filePath, mode: 'merge'}))
-            .rejects.toThrow(/share a natural key with a live row/);
+        let thrown;
 
-        // The load-bearing assertion. `fresh-row` is a legitimate insert sitting in the same batch
-        // as the divergent row, so a per-batch guard would have written it before refusing — and a
-        // partial merge is worse than a refused one, because it leaves the corpus in a state no
-        // receipt describes.
+        try {
+            await KB_DatabaseService.importDatabase({file: filePath, mode: 'merge'});
+        } catch (error) {
+            thrown = error;
+        }
+
+        expect(thrown, 'divergence must refuse').toBeTruthy();
+        expect(thrown.message).toMatch(/share a natural key with a live row/);
+
+        // The CODE must survive the method's own catch. `importDatabase` re-wraps failures as
+        // `DATABASE_IMPORT_ERROR`, and the divergence refusal was added without being added to the
+        // preserved-code set — so it reached every caller as a generic import failure. A fail-loud
+        // guard whose entire value is being distinguishable, wrapped into indistinguishability one
+        // frame above the throw. Asserting the message alone would not have caught it, because the
+        // wrapper interpolates the original message.
+        expect(thrown.code, 'the refusal must not be collapsed into DATABASE_IMPORT_ERROR').toBe('KB_MERGE_NATURAL_KEY_DIVERGENCE');
+
+        // `fresh-row` is a legitimate insert sitting in the same batch as the divergent row, so a
+        // per-batch guard would have written it before refusing — and a partial merge is worse than a
+        // refused one, because it leaves the corpus in a state no receipt describes.
         expect(capturedUpsertCalls, 'refusal must precede every write, not just the divergent one').toHaveLength(0);
     });
 

@@ -1,12 +1,12 @@
-import aiConfig                                                                           from '../../mcp/server/knowledge-base/config.mjs';
-import {classifyExportCompleteness, EXPORT_COMPLETENESS}                                  from '../memory-core/helpers/exportCompleteness.mjs';
-import {partitionRowsByVectorValidity}                                                    from '../memory-core/helpers/vectorWriteInvariant.mjs';
-import {validateJsonlSourceFile}                                                          from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
-import {assertNoNaturalKeyDivergence, classifyIncomingRow, DIVERGENCE_SCAN, naturalKeyOf} from './helpers/mergeIdentityContract.mjs';
-import Base                                                                               from '../../../src/core/Base.mjs';
-import ChromaManager                                                                      from './ChromaManager.mjs';
-import DestructiveOperationGuard                                                          from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import VectorService                                                                      from './VectorService.mjs';
+import aiConfig                                                                                                            from '../../mcp/server/knowledge-base/config.mjs';
+import {classifyExportCompleteness, EXPORT_COMPLETENESS}                                                                   from '../memory-core/helpers/exportCompleteness.mjs';
+import {partitionRowsByVectorValidity}                                                                                     from '../memory-core/helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                                                                                           from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
+import {assertNoNaturalKeyDivergence, classifyIncomingRow, DIVERGENCE_SCAN, KB_MERGE_NATURAL_KEY_DIVERGENCE, naturalKeyOf} from './helpers/mergeIdentityContract.mjs';
+import Base                                                                                                                from '../../../src/core/Base.mjs';
+import ChromaManager                                                                                                       from './ChromaManager.mjs';
+import DestructiveOperationGuard                                                                                           from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import VectorService                                                                                                       from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
@@ -17,6 +17,18 @@ import fs             from 'fs-extra';
 import logger         from '../../mcp/server/knowledge-base/logger.mjs';
 import path           from 'path';
 import readline       from 'readline';
+
+/**
+ * Refusal codes `importDatabase` re-throws unwrapped. A refusal's value is that a caller can tell it
+ * apart from a generic failure, so collapsing one into `DATABASE_IMPORT_ERROR` destroys the only
+ * property it has. Kept as a set rather than a chain of `if`s so adding a refusal is one line in one
+ * place, and so a reader can see the whole contract at once.
+ * @member {Set<String>} PRESERVED_IMPORT_REFUSAL_CODES
+ */
+const PRESERVED_IMPORT_REFUSAL_CODES = new Set([
+    'DISPOSABLE_RESTORE_TARGET_REQUIRED',
+    KB_MERGE_NATURAL_KEY_DIVERGENCE
+]);
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -504,8 +516,8 @@ class DatabaseService extends Base {
                 }
             }
 
-            let inserted             = 0,
-                overwrittenIdentical = 0;
+            let inserted         = 0,
+                idAlreadyPresent = 0;
 
             for (const filePath of sourceFiles) {
                 logger.log(`Importing: ${filePath}`);
@@ -558,9 +570,16 @@ class DatabaseService extends Base {
                     // claiming rows that never landed. `liveIds` grows as we insert, which keeps the
                     // counts summing correctly when one bundle carries the same id twice — the second
                     // occurrence genuinely overwrites what the first just wrote.
+                    //
+                    // `idAlreadyPresent`, NOT "byte-identical". The id is a digest over content plus
+                    // hashed fields; it does NOT cover the embedding vector or metadata outside the
+                    // hash input. So a matching id proves the HASHED content is unchanged and proves
+                    // nothing about the row as stored — two rows can share an id and carry different
+                    // vectors. And these rows ARE upserted, not skipped: the write happens above, so
+                    // calling them no-ops would describe an optimisation the code does not perform.
                     for (const row of valid) {
                         if (liveIds.has(row.id)) {
-                            overwrittenIdentical++;
+                            idAlreadyPresent++;
                         } else {
                             inserted++;
                             liveIds.add(row.id);
@@ -593,10 +612,10 @@ class DatabaseService extends Base {
             // that reported `"imported": 59754` on 2026-08-06 counted 7,900 rows that already
             // existed, and no field in that receipt could have revealed it. `inserted: 0` can.
             return {
-                message            : `Import complete. ${inserted} inserted, ${overwrittenIdentical} already present (byte-identical) across ${sourceFiles.length} file(s)${targetCollection === null ? '' : ` into disposable collection '${targetCollection}'`}.`,
+                message            : `Import complete. ${inserted} inserted, ${idAlreadyPresent} re-written under an id already present across ${sourceFiles.length} file(s)${targetCollection === null ? '' : ` into disposable collection '${targetCollection}'`}.`,
                 imported,
                 inserted,
-                overwrittenIdentical,
+                idAlreadyPresent,
                 naturalKeyDivergent: 0,
                 divergenceScan,
                 mode,
@@ -605,11 +624,16 @@ class DatabaseService extends Base {
         } catch (error) {
             logger.error('[DatabaseService] Error importing knowledge base:', error);
 
-            // A target refusal keeps its own identity. Re-wrapping it as DATABASE_IMPORT_ERROR
-            // would discard the `code` that distinguishes "you aimed a diagnostic restore at
-            // production" from any other import failure, and a collapsed error code makes that
-            // refusal impossible to assert on precisely.
-            if (error.code === 'DISPOSABLE_RESTORE_TARGET_REQUIRED') {
+            // A REFUSAL keeps its own identity. Re-wrapping one as DATABASE_IMPORT_ERROR discards the
+            // `code` that distinguishes it from any other import failure, and a collapsed code makes
+            // the refusal impossible to assert on precisely.
+            //
+            // The divergence refusal was added to this method WITHOUT being added here, so it arrived
+            // at every caller as a generic `DATABASE_IMPORT_ERROR` — a fail-loud guard whose whole
+            // value is being distinguishable, wrapped into indistinguishability one frame above the
+            // throw. The list is the contract: a new refusal code must be added here in the same
+            // change that introduces it, or the guard silently degrades to a generic failure.
+            if (PRESERVED_IMPORT_REFUSAL_CODES.has(error.code)) {
                 throw error;
             }
 
