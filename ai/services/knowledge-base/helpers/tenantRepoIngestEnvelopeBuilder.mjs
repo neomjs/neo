@@ -207,10 +207,14 @@ async function listRevisionPaths({gitMirror, identity, revision}) {
  * @param {Object} options.identity Tenant-repo mirror identity.
  * @param {String} options.revision Resolved revision.
  * @param {String} options.sourcePath Repo-relative source path.
+ * @param {String|Object|null} [options.credentialRef] Durable credential reference. The mirror is
+ *     blobless, so this read is the one envelope operation that reaches the network — see
+ *     `gitMirror.readRevisionFile`. It is threaded explicitly rather than carried on `identity`,
+ *     which is spread into the graph and tree reads that must stay credential-free.
  * @returns {Promise<String>}
  * @private
  */
-async function readRevisionFile({gitMirror, identity, revision, sourcePath}) {
+async function readRevisionFile({gitMirror, identity, revision, sourcePath, credentialRef}) {
     if (!sourcePath || sourcePath.includes('\0')) {
         throw createIngestEnvelopeError(
             'KB_INGEST_ENVELOPE_PATH_INVALID',
@@ -219,7 +223,7 @@ async function readRevisionFile({gitMirror, identity, revision, sourcePath}) {
     }
 
     try {
-        return await gitMirror.readRevisionFile({...identity, revision, sourcePath});
+        return await gitMirror.readRevisionFile({...identity, revision, sourcePath, credentialRef});
     } catch (error) {
         throw createIngestEnvelopeError(
             'KB_INGEST_ENVELOPE_FILE_READ_FAILED',
@@ -240,7 +244,7 @@ async function readRevisionFile({gitMirror, identity, revision, sourcePath}) {
  * @returns {Promise<Array<Object>>}
  * @private
  */
-async function buildFilePayloads({gitMirror, identity, revision, paths, rootKind, parserId, parserVersion}) {
+async function buildFilePayloads({gitMirror, identity, revision, paths, rootKind, parserId, parserVersion, credentialRef}) {
     const files = [];
 
     for (const sourcePath of paths) {
@@ -248,7 +252,7 @@ async function buildFilePayloads({gitMirror, identity, revision, paths, rootKind
             sourcePath,
             repoSlug: identity.repoSlug,
             rootKind,
-            content : await readRevisionFile({gitMirror, identity, revision, sourcePath}),
+            content : await readRevisionFile({gitMirror, identity, revision, sourcePath, credentialRef}),
             ...(parserId ? {parserId} : {}),
             ...(parserVersion ? {parserVersion} : {})
         });
@@ -263,7 +267,7 @@ async function buildFilePayloads({gitMirror, identity, revision, paths, rootKind
  * @returns {Promise<Object>}
  * @private
  */
-async function buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion}) {
+async function buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion, credentialRef}) {
     const paths = await listRevisionPaths({gitMirror, identity, revision: headRevision});
     const files = await buildFilePayloads({
         gitMirror,
@@ -272,7 +276,8 @@ async function buildFullEnvelope({gitMirror, identity, headRevision, rootKind, p
         paths,
         rootKind,
         parserId,
-        parserVersion
+        parserVersion,
+        credentialRef
     });
 
     return {
@@ -299,6 +304,10 @@ async function buildFullEnvelope({gitMirror, identity, headRevision, rootKind, p
  * @param {String} [options.parserId] Optional server parser id.
  * @param {String} [options.parserVersion] Optional parser version.
  * @param {Object} [options.gitMirror=GitMirror] Injectable GitMirror implementation for tests.
+ * @param {String|Object|null} [options.credentialRef] Durable credential reference for the tenant
+ *     repo. Reaches only the content read: the mirror is blobless, so `show <rev>:<path>` resolves
+ *     each blob through a lazy promisor fetch that re-authenticates against the remote. Omitted,
+ *     content reads are anonymous — correct for a public remote, fatal for a private one.
  * @returns {Promise<Object>}
  */
 export async function buildIngestEnvelope({
@@ -310,7 +319,8 @@ export async function buildIngestEnvelope({
     rootKind = 'external-source',
     parserId,
     parserVersion,
-    gitMirror = GitMirror
+    gitMirror = GitMirror,
+    credentialRef
 } = {}) {
     const identity = {
         tenantId,
@@ -335,7 +345,7 @@ export async function buildIngestEnvelope({
     });
 
     if (!baseRevision) {
-        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion});
+        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion, credentialRef});
     }
 
     const linear = await gitMirror.isAncestor({
@@ -345,7 +355,7 @@ export async function buildIngestEnvelope({
     });
 
     if (!linear) {
-        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion});
+        return await buildFullEnvelope({gitMirror, identity, headRevision, rootKind, parserId, parserVersion, credentialRef});
     }
 
     const diff = await gitMirror.diffRevisions({
@@ -365,7 +375,8 @@ export async function buildIngestEnvelope({
             paths,
             rootKind,
             parserId,
-            parserVersion
+            parserVersion,
+            credentialRef
         }),
         deleted: [...new Set(diff.deleted || [])]
             .sort()
