@@ -301,6 +301,44 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(remaining, 'unknown state must not be destroyed on an age clock either').toContain(newerMalformed);
     });
 
+    test('a per-substrate FAIL cannot certify that substrate — bytes are non-empty, pass is parity', async () => {
+        // @neo-gpt's cycle-4 destructive probe. A newer bundle recording `kb: fail` with NON-ZERO
+        // bytes was certified `restorableFor: [kb, mc]` on bytes alone, filled K=1, and deleted the
+        // older `kb: pass` bundle — a partial capture outranking a complete one.
+        //
+        // Bytes establish non-empty; `pass` establishes parity. Neither is sufficient alone.
+        const {classifyBundleRecoverability} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        const newerPartial = await seedBackup(1,  {substrates: ['kb', 'mc']});
+        const olderPass    = await seedBackup(40, {substrates: ['kb', 'mc']});
+
+        // Rewrite the newer receipt so kb FAILS parity while its payload stays non-empty.
+        await fs.writeJson(path.join(tmpRoot, newerPartial, 'bundle-meta.json'), {
+            timestamp  : 'x',
+            completedAt: new Date().toISOString(),
+            integrity  : [
+                {subsystem: 'kb', status: 'fail', sourceCount: 2, bundleCount: 1},
+                {subsystem: 'mc', status: 'pass', sourceCount: 1, bundleCount: 1}
+            ]
+        });
+
+        const verdict = await classifyBundleRecoverability(path.join(tmpRoot, newerPartial));
+
+        // A mixed receipt is legitimate and still certifies what DID pass — collapsing it to a
+        // whole-bundle verdict would either discard a usable MC source or certify an unusable KB one.
+        expect(verdict.metaState, 'a partial receipt is still a valid receipt').toBe('valid');
+        expect(verdict.restorableFor, 'kb failed parity and must not be certified').not.toContain('kb');
+        expect(verdict.restorableFor, 'mc passed and is certified independently').toContain('mc');
+        expect(verdict.substrates.kb, 'the bytes are genuinely non-zero — that is the point').toBeGreaterThan(0);
+
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        expect(
+            await listBackups(),
+            'the older kb:pass bundle must outrank a newer kb:fail one'
+        ).toContain(olderPass);
+    });
+
     test('an OBJECT-SHAPED invalid receipt cannot certify a bundle either — shape is not validity', async () => {
         // @neo-gpt's cycle-3 probe. My first fix required only `typeof parsed === 'object'`, so `{}`
         // and `{garbage: 1}` still certified a bundle, filled the floor, and deleted the older valid

@@ -1000,11 +1000,14 @@ export async function classifyBundleRecoverability(bundlePath) {
     //   `malformed` — UNKNOWN state. Cannot fill the floor, and is a HARD KEEP: we cannot certify it
     //                 as a recovery source, and we equally cannot certify it as disposable.
     const metaPath  = path.join(bundlePath, 'bundle-meta.json');
-    let   metaState = 'absent';
+    let   metaState = 'absent',
+          parsedMeta = null;
 
     if (await fs.pathExists(metaPath)) {
         try {
             const parsed = await fs.readJson(metaPath);
+
+            parsedMeta = parsed;
             // A JSON scalar parses but is not a receipt. `null` in particular parses cleanly and
             // would otherwise certify a bundle on the strength of the four characters "null".
             // SHAPE is not VALIDITY, and `typeof parsed === 'object'` alone was only a shape test —
@@ -1020,6 +1023,19 @@ export async function classifyBundleRecoverability(bundlePath) {
             metaState = isCompletedBundleReceipt(parsed) ? 'valid' : 'malformed';
         } catch {
             metaState = 'malformed';
+        }
+    }
+
+    // Per-substrate integrity verdicts from the receipt, only trusted when the receipt itself is
+    // valid. `integrity` is an array of `{subsystem, status, sourceCount}`; a substrate absent from it
+    // has no parity claim and therefore cannot be certified.
+    const integrityStatus = {};
+
+    if (metaState === 'valid') {
+        for (const entry of parsedMeta.integrity) {
+            if (entry && typeof entry.subsystem === 'string') {
+                integrityStatus[entry.subsystem] = entry.status;
+            }
         }
     }
 
@@ -1062,7 +1078,19 @@ export async function classifyBundleRecoverability(bundlePath) {
         }
 
         substrates[substrate] = bytes;
-        if (bytes > 0) restorableFor.push(substrate);
+
+        // TWO conditions, and neither is sufficient alone: **bytes establish non-empty, `pass`
+        // establishes parity.** A bundle recording `kb: fail (sourceCount 2, bundleCount 1)` with
+        // non-zero bytes was certified restorable on bytes alone, filled the floor, and deleted the
+        // older `kb: pass` bundle — a partial capture outranking a complete one.
+        //
+        // Per SUBSTRATE, deliberately. A mixed receipt is legitimate and still certifies the
+        // substrates that did pass: `kb: fail` + `mc: pass` is a real bundle that can restore MC and
+        // cannot restore KB, and collapsing that to a whole-bundle verdict would either discard a
+        // usable MC source or certify an unusable KB one.
+        if (bytes > 0 && integrityStatus[substrate] === 'pass') {
+            restorableFor.push(substrate);
+        }
     }
 
     return {hasMeta, metaState, substrates, restorableFor, unreadable: [...new Set(unreadable)]};
@@ -1134,7 +1162,11 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
     const floor = new Set();
 
     for (const substrate of RECOVERY_SUBSTRATES) {
-        for (const entry of classified.filter(candidate => candidate.hasMeta && candidate.substrates[substrate] > 0)
+        // `restorableFor`, NOT raw bytes. The classifier already combines non-empty payload with a
+        // `pass` parity verdict; filtering on bytes here re-derived a weaker predicate one place over
+        // and let a `kb: fail` bundle hold kb's floor slot anyway. Two consumers read this signal and
+        // both must read the SAME one, or fixing the verdict fixes nothing.
+        for (const entry of classified.filter(candidate => candidate.hasMeta && candidate.restorableFor.includes(substrate))
                                       .slice(0, keepMinimum)) {
             floor.add(entry.name);
         }
@@ -1156,7 +1188,7 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
             // capture is not a verified recovery source, and letting one become the protected
             // last-known-good would pin residue in place of a real bundle. Dropping this condition
             // made a meta-less 40d bundle outrank a complete 50d one.
-            const newest = classified.find(entry => entry.hasMeta && entry.substrates[substrate] > 0);
+            const newest = classified.find(entry => entry.hasMeta && entry.restorableFor.includes(substrate));
             if (newest) newestPerSubstrate.add(newest.name);
         }
     }
