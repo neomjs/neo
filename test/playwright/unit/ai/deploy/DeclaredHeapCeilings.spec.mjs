@@ -139,7 +139,22 @@ test.describe('declared V8 heap ceilings', () => {
         // NODE_OPTIONS is inherited by every child process, so a parent ceiling silently multiplies
         // the container budget across supervised children. The intuitive fix is the wrong one, which
         // is exactly why it is asserted rather than trusted.
-        const assignments = composeText.match(/^\s*-?\s*NODE_OPTIONS\s*[:=]/gm) || [];
+        const NODE_OPTIONS_ASSIGNMENT = /^\s*-?\s*NODE_OPTIONS\s*[:=]/gm,
+              assignments             = composeText.match(NODE_OPTIONS_ASSIGNMENT) || [];
+
+        // POSITIVE CONTROL FIRST. This is an absence assertion, and an absence assertion whose matcher
+        // cannot recognise a presence passes forever — the `[].every(...) === true` shape @neo-opus-grace
+        // hit three times in one day and the same vacuity a reviewer found in this file's predecessor.
+        // So prove the pattern fires on a known-bad sample before trusting it to report zero.
+        expect('      - NODE_OPTIONS=--max-old-space-size=768\n'.match(NODE_OPTIONS_ASSIGNMENT),
+            'the matcher must detect a real NODE_OPTIONS assignment, or the absence below means nothing')
+            .not.toBeNull();
+        expect('    NODE_OPTIONS: --max-old-space-size=768\n'.match(NODE_OPTIONS_ASSIGNMENT),
+            'both the list form and the mapping form must be detected').not.toBeNull();
+        // And it must NOT fire on the explanatory comments naming it, or the guard would forbid its own
+        // rationale and the next reader would delete the reason instead of the violation.
+        expect('    # NODE_OPTIONS is inherited by every child\n'.match(NODE_OPTIONS_ASSIGNMENT),
+            'a comment mentioning NODE_OPTIONS must stay legal').toBeNull();
 
         expect(assignments, 'the ceiling must be command-scoped, never an inherited env var').toEqual([]);
     });
