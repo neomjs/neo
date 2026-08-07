@@ -1,6 +1,12 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
+// The COMMITTED declarative config, imported statically. Tests resolve committed config templates
+// rather than the overlay-resolving entrypoint: reading the roster through that entrypoint would let
+// a repo-local ignored file decide whether this totality guard passes, so a green here would describe
+// one machine instead of the shipped deployment. The roster leaf lives in `configBase.mjs`, which
+// this template subclasses.
+import aiConfigTemplate from '../../../../../../../ai/config.template.mjs';
 import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     CONTAINER_HEALTH_FACT_TYPES,
@@ -879,9 +885,8 @@ test.describe('sustained window is measured, not asserted', () => {
  * classifying it fails here rather than silently inheriting a threshold it may not survive.
  */
 test.describe('service classification is exhaustive over the real roster and genuinely immutable', () => {
-    test('every allowedServices key has a DECLARED classification', async () => {
-        const AiConfig = (await import('../../../../../../../ai/config.mjs')).default;
-        const roster   = AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices;
+    test('every allowedServices key has a DECLARED classification', () => {
+        const roster = aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices;
 
         expect(Array.isArray(roster)).toBe(true);
         expect(roster.length).toBeGreaterThan(0);
@@ -891,11 +896,10 @@ test.describe('service classification is exhaustive over the real roster and gen
         expect(undeclared, `unclassified roster services: ${undeclared.join(', ')}`).toEqual([]);
     });
 
-    test('the declared map does not classify keys that are NOT on the roster', async () => {
+    test('the declared map does not classify keys that are NOT on the roster', () => {
         // Totality runs both ways: a stale entry for a removed service is drift too, and it would
         // keep asserting a policy for something the deployment no longer runs.
-        const AiConfig = (await import('../../../../../../../ai/config.mjs')).default;
-        const roster   = new Set(AiConfig.orchestrator.deploymentRuntimeAccess.allowedServices);
+        const roster   = new Set(aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices);
         const orphaned = Object.keys(SERVICE_CLASS_BY_KEY).filter(key => !roster.has(key));
 
         expect(orphaned, `classified but not on the roster: ${orphaned.join(', ')}`).toEqual([]);
