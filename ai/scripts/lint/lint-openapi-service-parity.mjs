@@ -264,13 +264,29 @@ export function consumedNames(fnNode) {
     // shape is worse than no guard, because its green is read as coverage.
     let rest = false;
 
+    // Occurrences of the bag identifier we can ACCOUNT for (a named read or a destructuring source)
+    // versus every occurrence of it. A surplus means the bag itself travelled somewhere this walker
+    // cannot follow — `this.resolveTenantContext(payload)`, `{...payload}`, `return payload`. Those
+    // are real reads of names we never see, so `consumed` stops being a complete view.
+    //
+    // This distinction does not matter for the FAILING direction, which only needs `consumed` to be
+    // a lower bound: every name it does see is genuinely read. It is decisive for the advisory
+    // direction, whose claim is the complement — "no method reads this" — and a lower bound cannot
+    // support an absence claim. Tracking it here rather than in the caller keeps the one walker as
+    // the single authority on what it can and cannot see.
+    let bagOccurrences = 0,
+        bagAccounted   = 0;
+
     if (bagParam) {
         walk(fnNode.body, node => {
+            if (node.type === 'Identifier' && node.name === bagParam) bagOccurrences++;
+
             // 1. BODY destructuring: `const {a, b} = bag`, `= bag || {}`, `= bag ?? {}`.
             if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern' && node.init) {
                 const source = node.init.type === 'LogicalExpression' ? node.init.left : node.init;
 
                 if (source?.type === 'Identifier' && source.name === bagParam) {
+                    bagAccounted++;
                     for (const property of node.id.properties) {
                         if (property.type === 'Property' && property.key?.name) consumed.add(property.key.name);
                         // `...rest` re-exposes every key, so no name can be proven absent.
@@ -281,6 +297,8 @@ export function consumedNames(fnNode) {
 
             if (node.type !== 'MemberExpression') return;
             if (node.object?.type !== 'Identifier' || node.object.name !== bagParam) return;
+
+            bagAccounted++;
 
             // 2. Dotted read: `payload.viaMcp` — evaluates `undefined` once Zod has stripped the key.
             if (!node.computed && node.property?.type === 'Identifier') {
@@ -298,7 +316,13 @@ export function consumedNames(fnNode) {
 
     if (rest) return {consumed, bagParam, destructured, rest: true};
 
-    return {consumed, bagParam, destructured};
+    // `complete` = every read of this parameter is visible in `consumed`. True when the signature
+    // destructured it (there is no bag left to forward), or when the bag exists and every one of its
+    // occurrences was a read we recorded. Consumed by the advisory direction ONLY; the failing
+    // direction is sound without it.
+    const complete = destructured || (bagParam ? bagOccurrences === bagAccounted : true);
+
+    return {consumed, bagParam, destructured, complete};
 }
 
 /**
@@ -348,9 +372,11 @@ export function collectMethods(ast) {
  * @returns {{violations: Object[], checked: Number, operationsMatched: Number, servicesScanned: Number}}
  */
 export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
-    const services   = extractWrappedServices(rootDir),
-          violations = [],
-          specCache  = new Map();
+    const services           = extractWrappedServices(rootDir),
+          violations         = [],
+          unusedDeclarations = [],
+          perOperation       = new Map(),
+          specCache          = new Map();
 
     let operationsMatched = 0;
 
@@ -378,8 +404,8 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
 
             operationsMatched++;
 
-            const declared         = declaredNames(doc, operation),
-                  {consumed, rest} = consumedNames(fnNode);
+            const declared                   = declaredNames(doc, operation),
+                  {complete, consumed, rest} = consumedNames(fnNode);
 
             // A rest element re-admits every key, so absence cannot be proven and silence here
             // would be a false green rather than a pass.
@@ -404,11 +430,66 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
                     spec   : path.relative(rootDir, service.specPath)
                 });
             }
+
+            // ── Accumulate for the inverse direction; it CANNOT be decided here ─────────────────
+            // One operation is frequently served by SEVERAL same-named methods on different
+            // services — `get_conversation` is implemented by DiscussionService, IssueService and
+            // PullRequestService, each destructuring only the keys it owns. Deciding "unused" inside
+            // this per-method loop reported every sibling's parameters as dead: 14 findings, all
+            // false. So the union across every method bound to an operationId is the only sound
+            // denominator, and it is not available until every service has been walked.
+            const key   = `${serverId}.${operationId}`;
+            let   entry = perOperation.get(key);
+
+            if (!entry) {
+                entry = {serverId, operationId, declared, consumed: new Set(), complete: true, methods: [], specs: new Set()};
+                perOperation.set(key, entry);
+            }
+
+            for (const name of consumed) entry.consumed.add(name);
+
+            // AND across contributors: one un-analysable implementation makes the whole operation's
+            // absence claim unprovable, because the names it hides could be exactly these.
+            entry.complete &&= complete === true;
+            entry.methods.push(`${service.serviceName}.${methodName}`);
+            entry.specs.add(path.relative(rootDir, service.specPath));
+        }
+    }
+
+    // ── The inverse direction, and deliberately NON-FAILING ─────────────────────────────────────
+    // A declared parameter nothing reads is the mirror of the failing defect and NOT its equal: the
+    // failing direction silently destroys input a caller supplied, while this one costs an agent a
+    // plausible parameter that does nothing. Real, worth surfacing, and usually a contract that
+    // outlived a refactor.
+    //
+    // Non-failing is a judgement about incentives rather than importance: a gate that fails the
+    // build on stale declarations earns an exemption row per stale declaration, and the baseline
+    // then documents debt instead of the invariant. The failing arm stays reserved for data loss.
+    //
+    // `complete` is the load-bearing gate. `consumedNames` is a LOWER BOUND on reads by
+    // construction — sound for "consumed but undeclared", useless for its complement. An operation
+    // whose implementation forwards its whole bag (`this.resolveTenantContext(payload)`) reads names
+    // this walker never sees, so claiming they are unused would be a fabricated absence. Staying
+    // silent there is the same discipline the failing direction applies to a `rest` element.
+    for (const entry of perOperation.values()) {
+        if (!entry.complete) continue;
+
+        for (const name of entry.declared) {
+            if (entry.consumed.has(name)) continue;
+            if (PARITY_BASELINE[`${entry.serverId}.${entry.operationId}.${name}`]) continue;
+
+            unusedDeclarations.push({
+                operationId: entry.operationId,
+                param      : name,
+                methods    : entry.methods,
+                spec       : [...entry.specs].join(', ')
+            });
         }
     }
 
     return {
         violations,
+        unusedDeclarations,
         checked        : services.length,
         operationsMatched,
         servicesScanned: services.length
@@ -432,8 +513,41 @@ function indexOperations(doc) {
     return byId;
 }
 
+/**
+ * @summary Prints the non-failing declared-but-unused report.
+ *
+ * Separated from the CLI block so the wording is testable without spawning the process, and so the
+ * failing arm below stays a single unbroken read.
+ *
+ * @param {Object[]} unusedDeclarations Rows from `lintOpenApiServiceParity`.
+ * @param {Object}   [io=console] Injectable sink for tests.
+ */
+export function reportUnusedDeclarations(unusedDeclarations, io = console) {
+    if (unusedDeclarations.length === 0) return;
+
+    io.warn(
+        `[lint-openapi-service-parity] ${unusedDeclarations.length} declared-but-unused parameter(s) ` +
+        `— NOT a failure:\n`
+    );
+
+    for (const row of unusedDeclarations) {
+        io.warn(`- ${row.operationId} declares \`${row.param}\` — read by none of: ${row.methods.join(', ')}`);
+    }
+
+    io.warn(
+        `\nEach of these is a contract an agent can send and the service will ignore. That is the ` +
+        `mirror of the failing direction and not its equal: nothing a caller supplies is destroyed, ` +
+        `so this reports rather than blocks. Most are declarations that outlived a refactor — remove ` +
+        `the parameter, or start reading it.\n`
+    );
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
     const result = lintOpenApiServiceParity();
+
+    // Printed BEFORE the failing arm, so a run that exits 1 still surfaces both directions rather
+    // than hiding the advisory behind the abort.
+    reportUnusedDeclarations(result.unusedDeclarations);
 
     if (result.violations.length > 0) {
         console.error(`[lint-openapi-service-parity] FAILED — ${result.violations.length} consumed-but-undeclared parameter(s):\n`);
@@ -454,6 +568,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
     console.log(
         `[lint-openapi-service-parity] OK — ${result.servicesScanned} wrapped service(s), ` +
-        `${result.operationsMatched} operation-bound method(s), 0 consumed-but-undeclared parameter(s).`
+        `${result.operationsMatched} operation-bound method(s), 0 consumed-but-undeclared parameter(s), ` +
+        `${result.unusedDeclarations.length} declared-but-unused (advisory).`
     );
 }
