@@ -960,11 +960,26 @@ class Helix extends Component {
     }
 
     /**
+     * @summary Rebuilds every item vdom, then restores the selection annotation the rebuild destroys.
+     *
+     * `createItems` rebuilds each item from `itemTpl`, which carries no selection state, while
+     * `selection.Model` tracks *ids* and annotates the vdom *nodes* it resolved earlier. Those nodes are
+     * discarded here, so without the restore `hasSelection()` keeps reporting a selection that nothing
+     * renders, and `aria-selected` is dropped with it.
+     *
+     * Only the annotation is restored. Unlike {@link Neo.component.Gallery#onStoreLoad}, the post-sort
+     * visual pass is already owned by {@link Neo.component.Helix#onSort} → {@link Neo.component.Helix#sortItems}.
+     *
      * @param {Array} items
      */
     onStoreLoad(items) {
-        this.getItemsRoot().cn = []; // silent update
-        this.createItems()
+        let me = this,
+            sm = me.selectionModel;
+
+        me.getItemsRoot().cn = []; // silent update
+        me.createItems();
+
+        sm?.hasSelection() && sm.restoreSelection(true)
     }
 
     /**
@@ -1061,9 +1076,6 @@ class Helix extends Component {
         this.mounted && this.refresh()
     }
 
-    /**
-     *
-     */
     /**
      * @summary Applies the post-sort transforms. Reordering is NOT done here.
      *
