@@ -3685,6 +3685,52 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
     });
 
+    // A best-effort sidecar policy must not absorb the MANIFEST's structural failure.
+    //
+    // The shared transaction helper swallows callback errors so a failed sidecar write cannot mask
+    // the real error a repo failed with — correct for the per-repo path, where the cost is one
+    // unrecorded attempt. Recovery is not that: it commits the manifest, whose writer deliberately
+    // throws `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED`. Applying one error policy to both
+    // callers converted that documented reason code into a silent `false` — a failure-taxonomy
+    // regression that reads as tidiness.
+    test('a manifest write failure during recovery still fails the task with its reason code (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            originalWrite    = TenantRepoSyncService.writePersistedRevisions.bind(TenantRepoSyncService);
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : 0,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // Residue, so recovery reaches the manifest commit at all.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {startedMs: Date.now() - 60_000, priorFailures: 0}});
+
+        TenantRepoSyncService.writePersistedRevisions = async () => {
+            const error = new Error('Failed to persist tenant-repo-sync revisions');
+
+            error.code = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
+            throw error
+        };
+
+        try {
+            const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({taskStateService}));
+
+            expect(result.status).toBe('failed');
+            expect(
+                result.details.reasonCode,
+                'the manifest\'s structural failure was swallowed by the sidecar\'s best-effort ' +
+                'policy — the lane reports success while the revision manifest was never committed'
+            ).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
+        } finally {
+            TenantRepoSyncService.writePersistedRevisions = originalWrite;
+        }
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});

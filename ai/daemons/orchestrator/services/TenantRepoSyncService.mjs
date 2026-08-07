@@ -1100,7 +1100,7 @@ class TenantRepoSyncService extends Base {
          * @param {Function} work Receives `assertStillOwned`; returns nothing meaningful.
          * @returns {Promise<Boolean>} Whether the transaction committed.
          */
-        const withSidecarTransaction = async work => {
+        const withSidecarTransaction = async (work, {bestEffort = true} = {}) => {
             let guard = null;
 
             try {
@@ -1123,9 +1123,16 @@ class TenantRepoSyncService extends Base {
                 await work(assertStillOwned);
                 return true
             } catch (e) {
-                // Swallowed rather than propagated: losing a sidecar write costs one unrecorded
-                // attempt, whereas throwing from the per-repo `finally` would mask the real error
-                // the repo failed with.
+                // `bestEffort` is per CALLER, not per helper. A sidecar write is genuinely
+                // best-effort: losing it costs one unrecorded attempt, and throwing from the
+                // per-repo `finally` would mask the real error the repo failed with. The RECOVERY
+                // caller is not — it commits the manifest, whose writer deliberately throws
+                // `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` as a structural failure the outer
+                // task must surface. Swallowing every callback error uniformly turned that
+                // documented reason code into a silent `false`, which is a failure-taxonomy
+                // regression dressed as tidiness.
+                if (!bestEffort) throw e;
+
                 return false
             } finally {
                 if (guard) {
@@ -1152,8 +1159,20 @@ class TenantRepoSyncService extends Base {
             // Clearing first would lose the attempt on a crash, which is the defect this recovers
             // from.
             await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+
+            // Re-proved because these are TWO mutations, not one. `writePersistedRevisions` is a
+            // multi-await transaction (temp write, fsync, close, rename); a holder can pass the
+            // check above, stall inside that I/O past `guardStaleAfterMs`, be legitimately evicted,
+            // and resume here after a successor has acquired and written its own sidecar. One proof
+            // cannot cover two mutations separated by unbounded I/O.
+            //
+            // Declining to clear is the safe direction: the residue is re-folded next sweep, which
+            // over-counts one failure and dampens harder. Clearing it while evicted would delete a
+            // successor's live record.
+            if (!await assertStillOwned()) return;
+
             await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
-        });
+        }, {bestEffort: false});
 
         // The live in-flight map is a FRESH object, never the recovery snapshot. Reusing
         // `residualAttempts` as the live map republished entries the fold had already consumed:
