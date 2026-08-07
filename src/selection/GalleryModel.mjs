@@ -55,9 +55,15 @@ class GalleryModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        view.update();
-
-        me.fire('selectionChange', me.items, oldItems)
+        // promiseUpdate(), not update(): the ordering is part of the contract, not a detail. The
+        // previous Neo.applyDeltas(...).then(...) fired selectionChange only after the DOM had
+        // settled, so a listener could read the cleared state. update() returns void and starts an
+        // async worker cycle, so firing after it synchronously would hand every listener the DOM as
+        // it was BEFORE the clear — a regression invisible to any assertion that only checks the
+        // final state.
+        view.promiseUpdate().then(() => {
+            me.fire('selectionChange', me.items, oldItems)
+        })
     }
 
     /**

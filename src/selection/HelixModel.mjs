@@ -54,9 +54,12 @@ class HelixModel extends Model {
 
         me.items.splice(0, me.items.length);
 
-        view.update();
-
-        me.fire('selectionChange', me.items, oldItems)
+        // Same ordering contract as GalleryModel.onContainerClick: settle the DOM, then fire. The
+        // event carried a DOM-is-current guarantee under the old applyDeltas().then(...) shape, and
+        // a synchronous fire after a void update() would silently withdraw it.
+        view.promiseUpdate().then(() => {
+            me.fire('selectionChange', me.items, oldItems)
+        })
     }
 
     /**

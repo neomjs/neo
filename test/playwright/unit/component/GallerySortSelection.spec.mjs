@@ -81,6 +81,16 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
         view.updateCalls  = 0;
         view.update       = function() { this.updateCalls++ };
 
+        // A CONTROLLABLE update, so a spec can hold the vdom cycle open and observe what has and has
+        // not happened while it is in flight. An auto-resolving stub cannot witness ordering at all:
+        // the `.then` runs on the next microtask either way, so fire-before-settle and
+        // fire-after-settle produce identical end states.
+        view.settleUpdate = null;
+        view.promiseUpdate = function() {
+            this.updateCalls++;
+            return new Promise(resolve => { this.settleUpdate = resolve })
+        };
+
         return Neo.create(ModelClass, {view})
     }
 
@@ -310,6 +320,29 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
             // next differ pass would re-assert the styling this method exists to remove.
             expect(itemNode('item-2').cls).not.toContain('neo-selected');
             expect(itemNode('item-2')['aria-selected']).toBeFalsy();
+        });
+
+        test(`${name}: selectionChange waits for the vdom cycle to settle`, async () => {
+            const
+                model = mount(ModelClass),
+                fired = [];
+
+            model.select('item-2');
+            model.on('selectionChange', () => fired.push(true));
+
+            model.onContainerClick();
+
+            // The carried contract (@neo-gpt, cycle-3). The old applyDeltas().then(...) fired only
+            // after the DOM had settled, so a listener could read the cleared state. `update()`
+            // returns void and starts an async worker cycle — firing after it synchronously would
+            // hand every listener the pre-clear DOM while every end-state assertion stayed green.
+            expect(view.updateCalls).toBe(1);
+            expect(fired).toHaveLength(0);
+
+            view.settleUpdate();
+            await Promise.resolve();
+
+            expect(fired).toHaveLength(1);
         });
     }
 });
