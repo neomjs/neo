@@ -83,7 +83,14 @@ test.describe('cleanOldBackups — configurable retention', () => {
         // directory models the empty bundle rather than the normal one — which is exactly the
         // conflation the policy change removes. `restorable: false` opts into the empty shape.
         if (meta) {
-            await fs.writeJson(path.join(dirPath, 'bundle-meta.json'), {timestamp: isoTs});
+            // The fixture must satisfy the REAL receipt contract, not merely be an object: a completed
+            // capture carries `completedAt` plus an `integrity` array. A `{timestamp}`-only stub used
+            // to pass, which is exactly the object-shaped-but-invalid receipt that certified a bundle.
+            await fs.writeJson(path.join(dirPath, 'bundle-meta.json'), {
+                timestamp  : isoTs,
+                completedAt: ts.toISOString(),
+                integrity  : substrates.map(substrate => ({subsystem: substrate, status: 'pass', sourceCount: restorable ? 1 : 0}))
+            });
         }
 
         for (const substrate of substrates) {
@@ -292,6 +299,46 @@ test.describe('cleanOldBackups — configurable retention', () => {
         // as a recovery source OR as disposable. Deliberately asymmetric with an ABSENT receipt, which
         // stays age-deletable because absent is a known-incomplete capture.
         expect(remaining, 'unknown state must not be destroyed on an age clock either').toContain(newerMalformed);
+    });
+
+    test('an OBJECT-SHAPED invalid receipt cannot certify a bundle either — shape is not validity', async () => {
+        // @neo-gpt's cycle-3 probe. My first fix required only `typeof parsed === 'object'`, so `{}`
+        // and `{garbage: 1}` still certified a bundle, filled the floor, and deleted the older valid
+        // one. Same defect as trusting `pathExists`, one level in: I checked that something was THERE
+        // rather than that it was a RECEIPT.
+        const {classifyBundleRecoverability} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        for (const [label, body] of [
+            ['empty object',        {}],
+            ['unrelated keys',      {garbage: 1}],
+            ['timestamp only',      {timestamp: 'x'}],
+            ['completedAt only',    {completedAt: '2026-08-07T00:00:00.000Z'}],
+            ['integrity only',      {integrity: []}],
+            ['integrity not array', {completedAt: '2026-08-07T00:00:00.000Z', integrity: {}}],
+            ['array at the root',   [{completedAt: 'x', integrity: []}]]
+        ]) {
+            const name = await seedBackup(1);
+            await fs.writeJson(path.join(tmpRoot, name, 'bundle-meta.json'), body);
+
+            const verdict = await classifyBundleRecoverability(path.join(tmpRoot, name));
+
+            expect(verdict.metaState, `${label} must not read as a valid receipt`).toBe('malformed');
+            expect(verdict.hasMeta, `${label} must not satisfy hasMeta`).toBe(false);
+        }
+    });
+
+    test('an object-shaped invalid receipt does not delete the older valid bundle', async () => {
+        const newerInvalid = await seedBackup(1);
+        const olderValid   = await seedBackup(40);
+
+        await fs.writeJson(path.join(tmpRoot, newerInvalid, 'bundle-meta.json'), {garbage: 1});
+
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        expect(remaining, 'the older VALID bundle must survive an object-shaped invalid receipt').toContain(olderValid);
+        expect(remaining, 'unknown state is still a hard keep').toContain(newerInvalid);
     });
 
     test('a JSON scalar is not a receipt — "null" parses cleanly and must not certify a bundle', async () => {

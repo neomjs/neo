@@ -950,6 +950,34 @@ export async function listPublishedBundles(backupRoot) {
 export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
 
 /**
+ * @summary Decides whether a parsed `bundle-meta.json` is a COMPLETED-capture receipt.
+ *
+ * Deliberately a validity check rather than a shape check. `typeof value === 'object'` accepts `{}`
+ * and `{garbage: 1}`, both of which certified a bundle, filled the recovery floor, and caused an
+ * older valid bundle to be deleted — the same defect as trusting `pathExists`, one level in.
+ *
+ * The required pair is measured against a real bundle rather than invented: `completedAt` is what
+ * separates a finished capture from an interrupted one, and `integrity` (an array of
+ * `{subsystem, status, sourceCount}`) is what makes the receipt an assertion about *content* rather
+ * than merely a timestamp. A receipt missing either cannot certify recoverability.
+ *
+ * Deliberately NOT checked here: whether every `integrity` entry says `pass`. A bundle can honestly
+ * record a failed subsystem, and that is a per-substrate question the byte scan already answers.
+ * Requiring all-pass would make an honest partial receipt indistinguishable from a corrupt one.
+ *
+ * @param {*} value Parsed contents of `bundle-meta.json`.
+ * @returns {Boolean}
+ */
+export function isCompletedBundleReceipt(value) {
+    return value !== null
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && typeof value.completedAt === 'string'
+        && value.completedAt.length > 0
+        && Array.isArray(value.integrity);
+}
+
+/**
  * @summary Reports, per substrate, whether a published bundle could actually restore anything.
  *
  * **Non-empty payload bytes, deliberately — not row counts.** A `wc -l` over a 3.3 GB JSONL on every
@@ -979,7 +1007,17 @@ export async function classifyBundleRecoverability(bundlePath) {
             const parsed = await fs.readJson(metaPath);
             // A JSON scalar parses but is not a receipt. `null` in particular parses cleanly and
             // would otherwise certify a bundle on the strength of the four characters "null".
-            metaState = (parsed !== null && typeof parsed === 'object') ? 'valid' : 'malformed';
+            // SHAPE is not VALIDITY, and `typeof parsed === 'object'` alone was only a shape test —
+            // `{}` and `{garbage: 1}` passed it, filled the floor, and deleted the older valid bundle.
+            // The same defect as `pathExists`, one level in: I checked that something was there rather
+            // than that it was a receipt.
+            //
+            // A completed capture carries `completedAt` and an `integrity` array of per-subsystem
+            // `{subsystem, status, sourceCount}` — verified against a real bundle. Those two are the
+            // load-bearing pair: `completedAt` distinguishes a finished capture from an interrupted
+            // one, and `integrity` is what makes the receipt an assertion about content rather than a
+            // timestamp. Anything else is `malformed`: floor-ineligible AND a hard keep.
+            metaState = isCompletedBundleReceipt(parsed) ? 'valid' : 'malformed';
         } catch {
             metaState = 'malformed';
         }
