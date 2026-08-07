@@ -330,7 +330,12 @@ test.describe('restoreTargetSetStorage — live disposable Chroma + SQLite targe
             import('../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs')
         ]);
 
-        await ChromaManager.ready()
+        await ChromaManager.ready();
+
+        // `ready()` settles the lifecycle service; it does NOT build the client. `beforeEach` hands
+        // `ChromaManager.client` straight to the fixture, so resolution has to be forced here or the
+        // fixture receives null and fails on `createCollection`.
+        await ChromaManager.ensureChromaReady()
     });
 
     test.beforeEach(async ({}, testInfo) => {
