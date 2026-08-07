@@ -668,11 +668,19 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             ownerResult        = await app.callMethod(wsId, 'executeTearOutStep', [
                 {itemId: 'metrics', sourceNodeId: 'right-top-tabs'},
                 filmPace
-            ]),
+            ]);
+
+        // The step awaits the vessel birth internally, so its receipt is complete here. Asserting
+        // it BEFORE the popup wait converts a silent 90s waitForEvent timeout into the step's own
+        // arming/birth diagnostics — the receipt names the failing gate, the timeout names nothing.
+        expect(ownerResult.errors ?? [], JSON.stringify(ownerResult.proof ?? {})).toEqual([]);
+        expect(ownerResult.applied, 'the metrics tear-out must apply before merge staging continues').toBe(true);
+
+        const
             targetPopup        = await targetPopupPromise,
             sourcePopupPromise = page.waitForEvent('popup', {timeout: 90000}),
-            showCursor          = filmPace.showCursor ?? false,
-            cursorProofPromise  = captureFilmCursorLifecycle({
+            showCursor         = filmPace.showCursor ?? false,
+            cursorProofPromise = captureFilmCursorLifecycle({
                 action: () => app.callMethod(wsId, 'executeCrossWindowDockStep', [
                     {itemId: 'commits', sourceNodeId: 'right-bottom-tabs', targetItemId: 'metrics'},
                     {
@@ -2153,6 +2161,27 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(dockResult.applied).toBe(true);
         assertFilmCursorLifecycle(cursorEvidence, {expectMigration: true, showCursor});
 
+        // Projection-continuity witnesses. Pane instances AND their DOM nodes survive
+        // EITHER reconciliation path (native reparenting moves them through the common-ancestor
+        // transaction — red-proof measured, not assumed), so the pane tag below is a reparenting
+        // regression guard, NOT the path discriminator. The discriminator is the SHELL identity:
+        // the staged full path replaces the shell instance (its reveal is the measured whole-
+        // workspace blank frame), the stable-topology fast path retains it.
+        const witnessArmed = await page.evaluate(() => {
+            const el = document.querySelector('.workstation-pane-queues');
+
+            if (!el) return false;
+
+            el.__paneContinuityWitness = true;
+            return true
+        });
+
+        expect(witnessArmed, 'the unmoved queues pane must exist to arm the DOM-continuity witness').toBe(true);
+
+        const shellBefore = await app.callMethod(wsId, 'getShellIdentity', []);
+
+        expect(shellBefore, 'the projection shell must be resolvable before the return').toBeTruthy();
+
         const {evidence: returnCursorEvidence, result} = await captureFilmCursorLifecycle({
             action: () => app.callMethod(wsId, 'executeStackReturnStep', [
                 {ownerItemId: 'metrics'},
@@ -2214,6 +2243,23 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(await app.callMethod(wsId, 'getPaneIdentity', ['metrics'])).toBe(metricsBefore);
         expect(await app.callMethod(wsId, 'getPaneIdentity', ['commits'])).toBe(commitsBefore);
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
+
+        const witnessState = await page.evaluate(() => {
+            const el = document.querySelector('.workstation-pane-queues');
+
+            return {present: Boolean(el), retained: el?.__paneContinuityWitness === true}
+        });
+
+        expect(witnessState, 'an unmoved pane DOM node survives the stack-return adoption (native reparenting guard)').toEqual({
+            present : true,
+            retained: true
+        });
+
+        expect(
+            await app.callMethod(wsId, 'getShellIdentity', []),
+            'a topologically stable stack-return adoption retains the projection shell (no staged full re-stage)'
+        ).toBe(shellBefore);
+
         expect(pageErrors).toEqual([])
     });
 
