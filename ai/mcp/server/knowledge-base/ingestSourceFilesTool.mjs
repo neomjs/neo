@@ -1,6 +1,13 @@
-import aiConfig                          from './config.mjs';
-import IngestionService                  from '../../../services/knowledge-base/IngestionService.mjs';
-import {isRemoteKnowledgeBaseDeployment} from '../../../services/knowledge-base/helpers/deploymentMode.mjs';
+import aiConfig                           from './config.mjs';
+import IngestionService                   from '../../../services/knowledge-base/IngestionService.mjs';
+import {isRemoteKnowledgeBaseDeployment}  from '../../../services/knowledge-base/helpers/deploymentMode.mjs';
+import {resolveHeavyMaintenanceLeasePath} from '../../../daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
+import {
+    buildIngestLeaseHeldRefusal,
+    KB_WRITER_FENCE_OWNERS,
+    KB_WRITER_FENCE_STATUS,
+    withKbWriterFence
+} from '../../../services/knowledge-base/helpers/kbWriterFence.mjs';
 
 const ingestToolName = 'ingest_source_files';
 
@@ -62,15 +69,27 @@ const assertToolTransportAllowed = toolName => {
  * strips the pull orchestrator's internal materialization-attempt field, forces MCP
  * work-volume mode, and never returns a durable pull receipt to a push caller.
  *
+ * ## Writer fence (the second gate)
+ *
+ * Ingest and the merge-import path both write the same collection, and the import path's
+ * natural-key divergence scan is only sound while nothing writes between its read pass and its
+ * first upsert. So this facade takes the shared heavy-maintenance lease around the service call and
+ * refuses with a **retryable** `KB_INGEST_LEASE_HELD` when the other writer holds it. It never waits
+ * internally: an MCP invocation is synchronous from the agent's side, so waiting would freeze the
+ * caller for the length of a multi-hour re-embed while reporting nothing. The caller owns backoff.
+ *
  * @param {Object}    args            The `ingest_source_files` tool envelope.
  * @param {String}   [args.tenantId]  Authenticated tenant id.
  * @param {Object[]} [args.files]     Raw file payloads or client-side parsed records.
  * @returns {Promise<Object>} The `IngestionService.ingestSourceFiles` summary,
  *     OR a `{error, message, code: 'KB_INGEST_VOLUME_EXCEEDED', bulkPath, batchSize, threshold}`
- *     refusal when the work-volume gate fires.
+ *     refusal when the work-volume gate fires,
+ *     OR a `{error, message, code: 'KB_INGEST_LEASE_HELD', retryable: true, ingested: 0, leaseOwner, leaseAcquiredAt, leaseExpiresAt, leasePid}`
+ *     refusal when the writer fence is held by the merge-import path.
  * @see https://github.com/neomjs/neo/issues/11634
  * @see https://github.com/neomjs/neo/issues/10572
  * @see https://github.com/neomjs/neo/issues/16045
+ * @see https://github.com/neomjs/neo/issues/16599
  */
 const ingestSourceFilesViaMcp = async args => {
     const
@@ -95,7 +114,27 @@ const ingestSourceFilesViaMcp = async args => {
 
     delete serviceArgs.materializationAttempt;
 
-    const result = await IngestionService.ingestSourceFiles(serviceArgs);
+    // The fence is acquired HERE rather than inside `IngestionService.ingestSourceFiles`, and the
+    // placement is a correctness constraint. `ai/scripts/maintenance/ingestTenant.mjs` acquires the
+    // heavy lease and then calls that same service method in the SAME process; service-level
+    // acquisition would make it refuse against its own holder, because the primitive's inheritance
+    // path keys on an env var that only ever reaches spawned children. This facade is reached by MCP
+    // callers alone, so it cannot nest inside an existing holder.
+    const outcome = await withKbWriterFence(
+        () => IngestionService.ingestSourceFiles(serviceArgs),
+        {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: aiConfig.orchestrator.dataDir}),
+            owner       : KB_WRITER_FENCE_OWNERS.ingest,
+            reason      : 'mcp-ingest-source-files',
+            staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
+        }
+    );
+
+    if (outcome.status === KB_WRITER_FENCE_STATUS.held) {
+        return buildIngestLeaseHeldRefusal({lease: outcome.lease})
+    }
+
+    const result = outcome.result;
 
     if (!result || typeof result !== 'object' || !Object.hasOwn(result, 'materializationReceipt')) {
         return result

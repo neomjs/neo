@@ -1,12 +1,14 @@
-import aiConfig                                                                                                            from '../../mcp/server/knowledge-base/config.mjs';
-import {classifyExportCompleteness, EXPORT_COMPLETENESS}                                                                   from '../memory-core/helpers/exportCompleteness.mjs';
-import {partitionRowsByVectorValidity}                                                                                     from '../memory-core/helpers/vectorWriteInvariant.mjs';
-import {validateJsonlSourceFile}                                                                                           from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
-import {assertNoNaturalKeyDivergence, classifyIncomingRow, DIVERGENCE_SCAN, KB_MERGE_NATURAL_KEY_DIVERGENCE, naturalKeyOf} from './helpers/mergeIdentityContract.mjs';
-import Base                                                                                                                from '../../../src/core/Base.mjs';
-import ChromaManager                                                                                                       from './ChromaManager.mjs';
-import DestructiveOperationGuard                                                                                           from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import VectorService                                                                                                       from './VectorService.mjs';
+import aiConfig                                                                                                             from '../../mcp/server/knowledge-base/config.mjs';
+import {classifyExportCompleteness, EXPORT_COMPLETENESS}                                                                    from '../memory-core/helpers/exportCompleteness.mjs';
+import {partitionRowsByVectorValidity}                                                                                      from '../memory-core/helpers/vectorWriteInvariant.mjs';
+import {validateJsonlSourceFile}                                                                                            from '../memory-core/helpers/vectorJsonlSourceValidation.mjs';
+import {assertNoNaturalKeyDivergence, classifyIncomingRow, DIVERGENCE_SCAN, KB_MERGE_NATURAL_KEY_DIVERGENCE, naturalKeyOf}  from './helpers/mergeIdentityContract.mjs';
+import {buildImportLeaseHeldError, KB_IMPORT_LEASE_HELD, KB_WRITER_FENCE_OWNERS, KB_WRITER_FENCE_STATUS, withKbWriterFence} from './helpers/kbWriterFence.mjs';
+import {resolveHeavyMaintenanceLeasePath}                                                                                   from '../../daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
+import Base                                                                                                                 from '../../../src/core/Base.mjs';
+import ChromaManager                                                                                                        from './ChromaManager.mjs';
+import DestructiveOperationGuard                                                                                            from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import VectorService                                                                                                        from './VectorService.mjs';
 // SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
 // auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
 // plus declarative `aiConfig.customSources` entries.
@@ -363,9 +365,55 @@ class DatabaseService extends Base {
      * never `metadata.content`); what changes is *when* the first write happens. An empty target
      * skips the scan entirely, so a fresh restore still flushes its first batch before EOF.
      *
-     * @returns {Promise<{message: String, imported: Number, mode: String, targetCollection: String|null}>}
+     * ## Writer fence (why this method holds a cross-process lease)
+     *
+     * The divergence scan below reads every live row and only then writes. That sequence is sound
+     * only while no other writer can insert between the two halves — a row landing after the scan
+     * carries an identity the scan never examined, so a clean verdict would certify a corpus the
+     * guard never saw. **A refusal computed from a stale read is worse than no refusal, because it
+     * reads as a guarantee.** The MCP ingest facade takes the same lease and refuses with
+     * `KB_INGEST_LEASE_HELD`; neither side alone fences anything.
+     *
+     * Source discovery (`stat`, directory listing) stays OUTSIDE the fence deliberately: it reads
+     * the backup file, never the collection, so a bad path fails fast without taking the lease.
+     *
+     * @returns {Promise<{message: String, imported: Number, mode: String, targetCollection: (String|null)}>}
+     * @throws {Error} `KB_IMPORT_LEASE_HELD` (retryable) when another writer holds the fence; nothing was read or written.
      */
-    async importDatabase({file, mode = 'merge', confirmation, targetCollection = null} = {}) {
+    async importDatabase(options = {}) {
+        const outcome = await withKbWriterFence(() => this.#importUnderFence(options), {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: aiConfig.orchestrator.dataDir}),
+            owner       : KB_WRITER_FENCE_OWNERS.import,
+            reason      : `kb-merge-import:${options.mode ?? 'merge'}`,
+            staleAfterMs: aiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
+        });
+
+        if (outcome.status === KB_WRITER_FENCE_STATUS.held) {
+            throw buildImportLeaseHeldError({lease: outcome.lease})
+        }
+
+        return outcome.result
+    }
+
+    /**
+     * @summary The fenced body of `importDatabase`: every live read and every write it performs.
+     *
+     * Private because the fence is not optional. A caller able to reach this directly could run the
+     * divergence scan unprotected and receive a refusal-or-clean verdict with no exclusion behind
+     * it — the precise failure the fence exists to prevent, reachable by choosing the shorter name.
+     *
+     * Argument contract, receipt shape and every internal invariant are documented on the public
+     * `importDatabase` above; this split adds the lease and changes nothing else.
+     *
+     * @param {Object}        options                   See `importDatabase`.
+     * @param {String}        options.file              Absolute path to a JSONL file OR a directory of `.jsonl` files.
+     * @param {String}       [options.mode='merge']     `'merge'` upserts; `'replace'` truncates first.
+     * @param {String|Object} [options.confirmation]    Forwarded to `truncateDatabase` in `replace` mode.
+     * @param {String}       [options.targetCollection] Disposable collection override; merge-only.
+     * @returns {Promise<{message: String, imported: Number, mode: String, targetCollection: (String|null)}>}
+     * @private
+     */
+    async #importUnderFence({file, mode = 'merge', confirmation, targetCollection = null} = {}) {
         try {
             if (!file) {
                 throw new Error('importDatabase requires a `file` argument (path to a JSONL file or directory of JSONL files)');
