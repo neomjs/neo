@@ -172,6 +172,11 @@ class HealthService extends Base {
      */
     async #checkChromaConnection() {
         try {
+            // The client is built in `initAsync()` (`chromadb` is imported on demand), so a
+            // healthcheck racing boot would otherwise read `null` and report the connection failure
+            // as a TypeError — the diagnostic an operator reads would name the wrong thing.
+            await ChromaManager.ready();
+
             await ChromaManager.client.heartbeat();
             return {running: true};
         } catch (e) {

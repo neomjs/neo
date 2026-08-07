@@ -18,7 +18,11 @@ async function main() {
     // Wait for the DB Lifecycle service to initialize (which starts the DB)
     console.log('⏳ Waiting for Database Lifecycle...');
     await KB_LifecycleService.ready();
-    
+
+    // The Chroma client itself is built in the manager's `initAsync()` (`chromadb` is imported on
+    // demand), which is a separate readiness from the lifecycle service above.
+    await KB_ChromaManager.ready();
+
     // Manual "Wait for DB" loop (since spawn !== ready)
     console.log('⏳ Waiting for ChromaDB heartbeat...');
     let connected = false;
@@ -31,7 +35,7 @@ async function main() {
             await new Promise(r => setTimeout(r, 500));
         }
     }
-    
+
     if (!connected) {
         console.error('❌ ChromaDB failed to start.');
         process.exit(1);
@@ -56,7 +60,7 @@ async function main() {
         console.log(`⏳ Waiting for system health... (${health.status})`);
         await new Promise(r => setTimeout(r, 1000));
     }
-    
+
     console.log(`🏥 Health Status: ${health.status}`);
 
     if (health.status === 'unhealthy') {
@@ -75,23 +79,23 @@ async function main() {
 
         if (results.results) {
             console.log(`✅ Found ${results.results.length} results.`);
-            
+
             // 3. "Smart" Processing (The Code Execution Advantage)
             // Instead of dumping all results to the context, the agent can apply
             // custom logic to filter or rank them.
-            
+
             const topResult = results.results[0];
             console.log('\n--- Top Result ---');
             console.log(`Source: ${topResult.source}`);
             console.log(`Score:  ${topResult.score}`);
-            
+
             console.log('\n--- "Smart" Filter: Top 3 Guides ---');
             const topGuides = results.results
                 .slice(0, 3)
                 .map(r => `- ${r.source} (${r.score})`)
                 .join('\n');
             console.log(topGuides);
-            
+
         } else {
             console.log('⚠️ No results found.');
         }
@@ -99,7 +103,7 @@ async function main() {
     } catch (error) {
         console.error('❌ Query failed:', error.message);
     }
-    
+
     // Explicit exit required because Neo.mjs creates persistent workers/intervals
     process.exit(0);
 }
