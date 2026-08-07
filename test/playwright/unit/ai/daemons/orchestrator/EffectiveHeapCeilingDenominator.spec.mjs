@@ -154,8 +154,9 @@ test.describe('effective heap-ceiling denominator', () => {
         // the sharper denominator must not make every service permanently saturated.
         const decision = diagnoseMcServer(400);
 
-        expect(decision.facts.filter(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation))
-            .toEqual([]);
+        // `no fact at all`, the AC's own wording — not merely "no memory fact". A narrower assertion
+        // would pass while the sharper denominator quietly emitted something else.
+        expect(decision.facts).toEqual([]);
         expect(decision.status, 'a service well inside both ceilings is healthy').toBe('healthy');
     });
 
