@@ -219,6 +219,21 @@ class GalleryModel extends Model {
     }
 
     /**
+     * @summary Resolves a tracked record id to the prefixed vnode id the view's items actually carry.
+     *
+     * {@link Neo.selection.GalleryModel#select select()} tracks the **logical** record id, while
+     * `Gallery#createItem` keys each item node as `getItemVnodeId(recordId)` → `${view.id}__${recordId}`.
+     * The base implementation is identity, which resolves nothing against this view.
+     *
+     * @param {String} item Tracked record id
+     * @returns {String}
+     * @protected
+     */
+    getItemVdomId(item) {
+        return this.view?.getItemVnodeId(item) ?? item
+    }
+
+    /**
      * @param {String} itemId
      */
     select(itemId) {

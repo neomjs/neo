@@ -13,7 +13,9 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import Gallery        from '../../../../src/component/Gallery.mjs';
+import GalleryModel   from '../../../../src/selection/GalleryModel.mjs';
 import Helix          from '../../../../src/component/Helix.mjs';
+import HelixModel     from '../../../../src/selection/HelixModel.mjs';
 import SelectionModel from '../../../../src/selection/Model.mjs';
 
 /**
@@ -32,64 +34,85 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
     let selectionModel, view;
 
     /**
-     * @summary Fresh item nodes, as `createItems()` would build them from `itemTpl` — no selection state.
+     * @summary Fresh item nodes keyed the way the real views key them: `${view.id}__${recordId}`.
+     *
+     * `Gallery#createItem` / `Helix#createItem` set `vdomItem.id = getItemVnodeId(recordId)`, while
+     * `GalleryModel` / `HelixModel` track the BARE record id. Building plain ids here is exactly the
+     * fixture error that let a no-op restore ship green.
      */
-    function buildItems(itemIds) {
-        return itemIds.map(id => ({id, cls: ['neo-gallery-item']}))
+    function buildItems(recordIds) {
+        return recordIds.map(id => ({id: `${view.id}__${id}`, cls: ['neo-gallery-item']}))
     }
 
     /**
-     * @summary Resolves an item node through the component's REAL `getVdomChild` traversal.
+     * @summary Resolves an item by RECORD id through the component's real `getVdomChild` traversal.
      */
-    function itemNode(id) {
-        return view.getVdomChild(id)
+    function itemNode(recordId) {
+        return view.getVdomChild(`${view.id}__${recordId}`)
     }
 
     /**
-     * A real component, not a literal: `Model#beforeSetView` stores the view as an **id** and
-     * `beforeGetView` resolves it via `Neo.getComponent()`. A plain object is never registered, so the
-     * model's `view` reads back `undefined` and every annotation silently goes nowhere.
+     * A real component whose `getItemVnodeId` mirrors Gallery's and Helix's, because the seam under test
+     * is precisely the gap between the id a model TRACKS and the id a view's nodes CARRY.
+     *
+     * It must also be a real Neo instance rather than a literal: `Model#beforeSetView` stores the view as
+     * an **id** and `beforeGetView` resolves it via `Neo.getComponent()`, so a plain object reads back
+     * undefined and every annotation silently goes nowhere.
      */
+    class PrefixedItemView extends Component {
+        static config = {
+            className: 'Test.Unit.Selection.PrefixedItemView'
+        }
+
+        getItemVnodeId(id) {
+            return this.id + '__' + id
+        }
+    }
+
+    PrefixedItemView = Neo.setupClass(PrefixedItemView);
+
+    /**
+     * @summary Builds a model of the given class bound to a fresh prefixed-id view.
+     */
+    function mount(ModelClass) {
+        view = Neo.create(PrefixedItemView, {appName, vdom: {cn: []}});
+
+        view.vdom.cn      = buildItems(['item-1', 'item-2', 'item-3']);
+        view.updateCalls  = 0;
+        view.update       = function() { this.updateCalls++ };
+
+        return Neo.create(ModelClass, {view})
+    }
+
     test.beforeEach(() => {
-        view = Neo.create(Component, {
-            appName,
-            vdom: {cn: buildItems(['item-1', 'item-2', 'item-3'])}
-        });
-
-        view.updateCalls = 0;
-        view.update      = function() {
-            this.updateCalls++
-        };
-
-        selectionModel = Neo.create(SelectionModel, {
-            view
-        })
+        selectionModel = mount(SelectionModel)
     });
 
     test('CONTROL: a rebuild really does strip the annotation', () => {
-        selectionModel.select('item-2');
+        const vdomId = `${view.id}__item-2`;
 
-        expect(itemNode('item-2').cls).toContain('neo-selected');
+        // Base `Model` tracks ids that already ARE vdom ids, so it selects the prefixed id directly.
+        selectionModel.select(vdomId);
+        expect(view.getVdomChild(vdomId).cls).toContain('neo-selected');
 
-        // What `createItems()` does: fresh nodes built from the template, no selection state.
         view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3']);
 
-        // Non-vacuity guard: if the rebuild did NOT strip it, the restore assertions below would pass
-        // without the restore ever running.
-        expect(itemNode('item-2').cls).not.toContain('neo-selected');
+        // Non-vacuity guard: if the rebuild did NOT strip it, every restore assertion below would pass
+        // without the restore running.
+        expect(view.getVdomChild(vdomId).cls).not.toContain('neo-selected');
         expect(selectionModel.hasSelection()).toBe(true);
     });
 
-    test('restoreSelection re-annotates the rebuilt nodes', () => {
-        selectionModel.select('item-2');
+    test('base Model restoreSelection re-annotates the rebuilt nodes', () => {
+        const vdomId = `${view.id}__item-2`;
+
+        selectionModel.select(vdomId);
         view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3']);
 
         selectionModel.restoreSelection();
 
-        const node = itemNode('item-2');
-
-        expect(node.cls).toContain('neo-selected');
-        expect(node['aria-selected']).toBe(true);
+        expect(view.getVdomChild(vdomId).cls).toContain('neo-selected');
+        expect(view.getVdomChild(vdomId)['aria-selected']).toBe(true);
     });
 
     test('restoreSelection is a no-op when nothing is selected', () => {
@@ -103,24 +126,61 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
     });
 
     test('restoreSelection tolerates a tracked id whose item is no longer rendered', () => {
-        selectionModel.select('item-3');
+        selectionModel.select(`${view.id}__item-3`);
 
-        // A store sort can drop an item past `maxItems`, leaving the id tracked with no node.
+        // A sort can drop an item past `maxItems`, leaving the id tracked with no node.
         view.vdom.cn = buildItems(['item-1', 'item-2']);
 
         expect(() => selectionModel.restoreSelection()).not.toThrow();
         expect(selectionModel.hasSelection()).toBe(true);
     });
 
-    test('Gallery#onStoreLoad restores the selection its own rebuild destroyed', () => {
-        selectionModel.select('item-2');
+    // ---------------------------------------------------------------------------------------------
+    // The concrete models. These are the specs that matter: `GalleryModel` and `HelixModel` track the
+    // BARE record id while the view's nodes carry `${view.id}__${recordId}`, so a restore that resolves
+    // the tracked id directly finds nothing and silently does nothing. A fixture built on base `Model`
+    // with plain ids cannot observe that at all — it was green against a component that does not exist.
+    // ---------------------------------------------------------------------------------------------
+
+    for (const [name, ModelClass] of [['GalleryModel', GalleryModel], ['HelixModel', HelixModel]]) {
+        test(`${name} tracks the BARE record id — the seam that made the restore a no-op`, () => {
+            const model = mount(ModelClass);
+
+            model.items.push('item-2');
+
+            // The defect in one assertion: the tracked id resolves nothing, the prefixed id resolves.
+            expect(view.getVdomChild('item-2')).toBeFalsy();
+            expect(view.getVdomChild(`${view.id}__item-2`)).toBeTruthy();
+
+            // ...and the model must bridge exactly that gap.
+            expect(model.getItemVdomId('item-2')).toBe(`${view.id}__item-2`);
+        });
+
+        test(`${name} restoreSelection annotates the real prefixed node`, () => {
+            const model = mount(ModelClass);
+
+            model.items.push('item-2');
+            view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3']);
+
+            model.restoreSelection(true);
+
+            const node = itemNode('item-2');
+
+            expect(node.cls).toContain('neo-selected');
+            expect(node['aria-selected']).toBe(true);
+        });
+    }
+
+    test('Gallery#onStoreLoad restores through the concrete model, not the base contract', () => {
+        const model = mount(GalleryModel);
+
+        model.items.push('item-2');
 
         let cameraRecentred = false;
 
         const gallery = {
-            selectionModel,
+            selectionModel: model,
             createItems() {
-                // The real method rebuilds from `itemTpl`; the annotation loss is what matters here.
                 view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3'])
             },
             getItemsRoot: () => view.vdom,
@@ -140,10 +200,12 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
     });
 
     test('Helix#onStoreLoad restores the annotation, without the camera pass', () => {
-        selectionModel.select('item-2');
+        const model = mount(HelixModel);
+
+        model.items.push('item-2');
 
         const helix = {
-            selectionModel,
+            selectionModel: model,
             createItems() {
                 view.vdom.cn = buildItems(['item-2', 'item-1', 'item-3'])
             },
@@ -153,9 +215,6 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
         Helix.prototype.onStoreLoad.call(helix, []);
 
         expect(itemNode('item-2').cls).toContain('neo-selected');
-
-        // Helix's post-sort visual pass is owned by `onSort` → `sortItems`, so unlike Gallery it must
-        // NOT also drive a camera/selection-change pass from here.
         expect(itemNode('item-2')['aria-selected']).toBe(true);
     })
 });

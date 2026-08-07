@@ -281,6 +281,26 @@ class Model extends Base {
     }
 
     /**
+     * @summary Maps a tracked item id to the vdom node id that carries its annotation.
+     *
+     * Identity here, because this model tracks ids that already ARE vdom ids —
+     * {@link Neo.selection.Model#select select()} maps through `getSelectionItemId` before tracking.
+     *
+     * A subclass that tracks a **logical** id while its view keys item nodes by a **prefixed** vnode id
+     * MUST override this. `selection.GalleryModel` and `selection.HelixModel` are both that shape: they
+     * store the record id, while their views build node ids as `${view.id}__${recordId}`. Without the
+     * override the lookup misses, `annotateItem` receives null, and the restore is a **silent no-op** —
+     * invisible precisely because a missed lookup and a legitimately unrendered item are the same value.
+     *
+     * @param {String} item A tracked item id
+     * @returns {String} The id to resolve against the view's vdom
+     * @protected
+     */
+    getItemVdomId(item) {
+        return item
+    }
+
+    /**
      * @summary Re-applies the selection annotations onto the view's current vdom nodes.
      *
      * {@link Neo.selection.Model#select select()} annotates the nodes it resolves *at call time*, and it
@@ -304,7 +324,7 @@ class Model extends Base {
 
         if (me.items.length > 0) {
             me.items.forEach(id => {
-                me.annotateItem(view.getVdomChild(id))
+                me.annotateItem(view.getVdomChild(me.getItemVdomId(id)))
             });
 
             if (!silent && !view.silentSelect) {
