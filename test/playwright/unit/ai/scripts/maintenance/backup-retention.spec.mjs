@@ -70,7 +70,7 @@ test.describe('cleanOldBackups — configurable retention', () => {
      * timestamp values are millisecond-unique (ageInDays accepts fractional days), which
      * keeps directory names distinct under rapid-fire seeding.
      */
-    async function seedBackup(ageInDays, {restorable = true, meta = true, substrates = ['kb']} = {}) {
+    async function seedBackup(ageInDays, {restorable = true, meta = true, substrates = ['kb'], statuses = {}} = {}) {
         const ts      = new Date(Date.now() - ageInDays * 86400000);
         const isoTs   = ts.toISOString().replace(/:/g, '-');
         const dirName = `backup-${isoTs}`;
@@ -89,7 +89,13 @@ test.describe('cleanOldBackups — configurable retention', () => {
             await fs.writeJson(path.join(dirPath, 'bundle-meta.json'), {
                 timestamp  : isoTs,
                 completedAt: ts.toISOString(),
-                integrity  : substrates.map(substrate => ({subsystem: substrate, status: 'pass', sourceCount: restorable ? 1 : 0}))
+                // `statuses` overrides one substrate's verdict so a fixture can carry a legitimate
+                // MIXED or UNVERIFIED receipt — the shapes the producer really emits.
+                integrity  : substrates.map(substrate => ({
+                    subsystem  : substrate,
+                    status     : statuses[substrate] ?? 'pass',
+                    sourceCount: restorable ? 1 : 0
+                }))
             });
         }
 
@@ -337,6 +343,83 @@ test.describe('cleanOldBackups — configurable retention', () => {
             await listBackups(),
             'the older kb:pass bundle must outrank a newer kb:fail one'
         ).toContain(olderPass);
+    });
+
+    test('an UNRECOGNIZED status hard-keeps the bundle — not-certifiable is not the same as deletable', async () => {
+        // @neo-gpt's cycle-5 destructive probe, and the fifth reproduction of one mechanism. The
+        // cycle-4 repair certified only on `pass`, which is right — but it left deletion as the
+        // NEGATION of certification. For `fail` that negation is correct. For a status this reader
+        // cannot interpret it is data loss: an aged bundle holding real bytes, whose receipt is
+        // perfectly valid, deleted beside a fresh one because nobody could say what it contained.
+        const olderUnknown = await seedBackup(40, {substrates: ['kb'], statuses: {kb: 'future-v2'}});
+        const newerPass    = await seedBackup(1,  {substrates: ['kb']});
+
+        const {classifyBundleRecoverability} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+        const verdict                        = await classifyBundleRecoverability(path.join(tmpRoot, olderUnknown));
+
+        expect(verdict.metaState, 'the receipt is well-formed — that is what makes this dangerous').toBe('valid');
+        expect(verdict.restorableFor, 'an uninterpretable status cannot certify anything').not.toContain('kb');
+        expect(verdict.unevaluated, 'but it MUST be recorded as unevaluated, which is what saves it').toContain('kb');
+        expect(verdict.substrates.kb, 'the payload is real; only the verdict is unknown').toBeGreaterThan(0);
+
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        expect(remaining, 'a bundle nobody verified must not be destroyed on an age clock').toContain(olderUnknown);
+        expect(remaining, 'and the pass bundle is of course kept').toContain(newerPass);
+    });
+
+    test('a SKIPPED status hard-keeps too — the producer already emits it, so this is reachable today', async () => {
+        // `skipped` is not a hypothetical future value. `verifyBundleIntegrity` emits it whenever the
+        // SDK returns a non-numeric source count, so parity was never established in either
+        // direction. It was inside the deletable set until this fix.
+        const {INTEGRITY_STATUS} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+        const olderSkipped       = await seedBackup(40, {substrates: ['kb'], statuses: {kb: INTEGRITY_STATUS.skipped}});
+
+        await seedBackup(1, {substrates: ['kb']});
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        expect(await listBackups(), 'an unverified capture is not a disposable one').toContain(olderSkipped);
+    });
+
+    test('DESTRUCTIVE CONTROL: an EMPTY status is evaluated, so it stays reclaimable', async () => {
+        // The control that stops the fix above from degenerating into keep-everything. `empty` and
+        // `fail` are evaluated verdicts — the verifier looked and reported nothing to restore — so
+        // they must remain deletable. Without this test, hard-keeping every non-`pass` status would
+        // pass every assertion above while quietly disabling retention altogether.
+        const {INTEGRITY_STATUS} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+        const olderEmpty         = await seedBackup(40, {substrates: ['kb'], statuses: {kb: INTEGRITY_STATUS.empty}});
+
+        await seedBackup(1, {substrates: ['kb']});
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        expect(
+            await listBackups(),
+            'an EVALUATED "nothing to restore" verdict is still reclaimable — retention must keep working'
+        ).not.toContain(olderEmpty);
+    });
+
+    test('the status partition is derived from the frozen producer enum, not a literal', async () => {
+        const {INTEGRITY_STATUS, INTEGRITY_STATUS_DISPOSITION, classifyIntegrityStatus} =
+            await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        // Every value the producer can emit must have an explicit disposition. A new status added to
+        // the enum without a decision here fails THIS test rather than silently becoming deletable.
+        for (const status of Object.values(INTEGRITY_STATUS)) {
+            expect(
+                ['certifying', 'evaluatedUnusable', 'indeterminate'],
+                `${status} must carry an explicit retention disposition`
+            ).toContain(classifyIntegrityStatus(status));
+        }
+
+        expect(classifyIntegrityStatus(INTEGRITY_STATUS.pass)).toBe('certifying');
+        expect(classifyIntegrityStatus(INTEGRITY_STATUS.fail)).toBe('evaluatedUnusable');
+        expect(classifyIntegrityStatus(INTEGRITY_STATUS.empty)).toBe('evaluatedUnusable');
+        expect(classifyIntegrityStatus(INTEGRITY_STATUS.skipped)).toBe('indeterminate');
+        // Absent carries no parity claim in either direction — the case that must not authorize deletion.
+        expect(classifyIntegrityStatus(undefined)).toBe('indeterminate');
+        expect(Object.isFrozen(INTEGRITY_STATUS_DISPOSITION.certifying)).toBe(true);
     });
 
     test('an OBJECT-SHAPED invalid receipt cannot certify a bundle either — shape is not validity', async () => {

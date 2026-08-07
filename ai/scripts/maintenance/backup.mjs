@@ -741,6 +741,53 @@ export const INTEGRITY_STATUS = Object.freeze({
 });
 
 /**
+ * The retention-relevant partition of {@link INTEGRITY_STATUS}, and the reason it is a partition
+ * rather than an equality test against `pass`.
+ *
+ * Retention asks two independent questions of a substrate, and only ONE of them is "may I certify
+ * this as a recovery source?". The other is "may I delete this?" — and the answer to the second is
+ * NOT the negation of the first. Three outcomes, not two:
+ *
+ * | status | certify as restorable? | safe to delete? | why |
+ * |---|---|---|---|
+ * | `pass`    | yes | n/a  | positive row-count parity — an evaluated, usable source |
+ * | `fail`    | no  | yes  | row-count mismatch — evaluated, and known torn |
+ * | `empty`   | no  | yes  | evaluated, and known to hold nothing to restore |
+ * | `skipped` | no  | **NO** | the verifier could not evaluate it at all |
+ * | anything else | no | **NO** | a status this reader does not recognize |
+ *
+ * `skipped` is not hypothetical: the producer emits it whenever the SDK returns a non-numeric source
+ * count, meaning parity was never established in either direction. Treating it as "not restorable"
+ * and therefore deletable destroys a bundle whose contents were never examined — the same
+ * unknown-is-not-empty error as trusting `pathExists`, one dimension further in. A status this
+ * reader does not recognize gets the same treatment, so a producer that adds a value later fails
+ * toward keeping rather than toward deleting.
+ * @member {Object} INTEGRITY_STATUS_DISPOSITION
+ */
+export const INTEGRITY_STATUS_DISPOSITION = Object.freeze({
+    certifying: Object.freeze([INTEGRITY_STATUS.pass]),
+    // Evaluated and known unusable. These, and ONLY these, make a substrate reclaimable.
+    evaluatedUnusable: Object.freeze([INTEGRITY_STATUS.fail, INTEGRITY_STATUS.empty])
+});
+
+/**
+ * @summary Classifies one substrate's receipt status into its retention disposition.
+ *
+ * Absent (`undefined`) lands in `indeterminate` deliberately: a substrate missing from the
+ * `integrity` array carries no parity claim in either direction, which is exactly the state that
+ * must not authorize deletion.
+ *
+ * @param {String|undefined} status The receipt's status for one substrate.
+ * @returns {String} `'certifying'`, `'evaluatedUnusable'`, or `'indeterminate'`.
+ */
+export function classifyIntegrityStatus(status) {
+    if (INTEGRITY_STATUS_DISPOSITION.certifying.includes(status))        return 'certifying';
+    if (INTEGRITY_STATUS_DISPOSITION.evaluatedUnusable.includes(status)) return 'evaluatedUnusable';
+
+    return 'indeterminate'
+}
+
+/**
  * Verifies row-count parity between source collections and the JSONL files written into the
  * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
  * numeric count (KB, MC memories+summaries, MC graph), this function streams the bundle's JSONL
@@ -1042,6 +1089,7 @@ export async function classifyBundleRecoverability(bundlePath) {
     const hasMeta       = metaState === 'valid',
           substrates    = {},
           restorableFor = [],
+          unevaluated   = [],
           unreadable    = [];
 
     for (const substrate of RECOVERY_SUBSTRATES) {
@@ -1088,12 +1136,41 @@ export async function classifyBundleRecoverability(bundlePath) {
         // substrates that did pass: `kb: fail` + `mc: pass` is a real bundle that can restore MC and
         // cannot restore KB, and collapsing that to a whole-bundle verdict would either discard a
         // usable MC source or certify an unusable KB one.
-        if (bytes > 0 && integrityStatus[substrate] === 'pass') {
+        //
+        // Classified against the frozen producer authority rather than compared to the literal
+        // 'pass'. An equality test answers "certify?" and silently answers "delete?" as its
+        // negation — but `skipped` and any unrecognized status are NOT-certifiable and ALSO
+        // not-deletable, so the negation is wrong for exactly the cases we cannot evaluate.
+        const disposition = classifyIntegrityStatus(integrityStatus[substrate]);
+
+        if (bytes > 0 && disposition === 'certifying') {
             restorableFor.push(substrate);
+        }
+
+        // A substrate holding bytes whose parity was never established. Not certified above, and
+        // recorded here so retention hard-keeps the bundle instead of aging it out: deleting a
+        // capture nobody ever verified is the one outcome no recovery policy may choose.
+        //
+        // Gated on `hasMeta`, and the gate is the whole distinction. With NO receipt every status is
+        // trivially absent, so without this gate a meta-less bundle would become permanently
+        // undeletable — an existing test caught exactly that. Absent-receipt is not an unknown: it
+        // is a DECIDED case (a partial capture, never a verified recovery source, age-deletable so
+        // residue cannot accumulate forever). This branch is for the narrower and more deceptive
+        // state: a receipt we successfully read and parsed, which itself reports that the check
+        // never happened.
+        if (hasMeta && bytes > 0 && disposition === 'indeterminate') {
+            unevaluated.push(substrate);
         }
     }
 
-    return {hasMeta, metaState, substrates, restorableFor, unreadable: [...new Set(unreadable)]};
+    return {
+        hasMeta,
+        metaState,
+        substrates,
+        restorableFor,
+        unevaluated: [...new Set(unevaluated)],
+        unreadable : [...new Set(unreadable)]
+    };
 }
 
 /**
@@ -1224,6 +1301,21 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
                 `[Retention] Keeping ${entry.name} (MALFORMED bundle-meta.json, age ${ageDays}d) — ${payload}. ` +
                 `Cannot certify it as a recovery source, and cannot certify it as disposable; not deleting. ` +
                 `Investigate corruption.`
+            );
+            continue;
+        }
+
+        // The THIRD unknown, and the one this guard shipped without: a receipt that is perfectly
+        // valid and reports a status carrying no parity claim — `skipped` (the verifier could not
+        // evaluate) or a value this reader does not recognize. Such a substrate holds bytes nobody
+        // ever checked, so it is neither certifiable nor reclaimable. The two branches above cover
+        // "cannot read it" and "cannot parse it"; this covers "read and parsed it, and it says the
+        // check never happened" — which reads as evaluated precisely because the receipt is intact.
+        if (entry.unevaluated?.length > 0) {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (UNVERIFIED substrate(s): ${entry.unevaluated.join(', ')}, ` +
+                `age ${ageDays}d) — ${payload}. The receipt is valid but claims no parity for these, so their ` +
+                `contents were never verified in either direction; not deleting. Re-run integrity verification.`
             );
             continue;
         }
