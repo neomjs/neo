@@ -3537,6 +3537,58 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         ).toEqual({'t1/org/lease-repo': successorEntry});
     });
 
+    // Takeover AFTER the ownership check, which fencing cannot fix.
+    //
+    // `await leaseGuard()` followed by a write is check-then-act: the lease can expire and a
+    // successor legitimately acquire in the window between the two syscalls. The sibling witness
+    // above covers takeover BEFORE the check, where the guard rejects the write. This one covers
+    // after it, where the guard has already said yes — and no amount of extra fencing closes that
+    // window, because the check and the write are separate operations.
+    //
+    // The answer is ownership on the record: a mutation carries the id of the run that wrote it,
+    // and entries owned by another run are merged forward untouched. The successor's entry is
+    // written while the predecessor is parked inside protected work, under the SAME repo label —
+    // same-label is the hard case, since a per-label read-modify-write would still clobber it.
+    test('a resumed predecessor merges around the successor rather than deleting it (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1, runId: 'successor-run'},
+            baseEnvelope     = makeFakeEnvelopeBuilder();
+
+        let releaseEnvelope, markEnvelopeEntered;
+
+        const
+            envelopeGate    = new Promise(resolve => releaseEnvelope     = resolve),
+            envelopeEntered = new Promise(resolve => markEnvelopeEntered = resolve);
+
+        const invocation = TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            envelopeBuilder: async (...args) => {
+                markEnvelopeEntered();
+                await envelopeGate;
+                return baseEnvelope(...args)
+            }
+        }));
+
+        // The predecessor is inside protected work with its own record already persisted, and its
+        // ownership check for the pending clear has effectively already passed.
+        await envelopeEntered;
+
+        // A successor takes the repo over and records its own attempt under the same label.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+
+        releaseEnvelope();
+        await invocation;
+
+        // The predecessor's clear must not consume a record it does not own.
+        expect(
+            await fs.readJson(inFlightFile).catch(() => null),
+            'the resumed predecessor deleted or overwrote the successor\'s record; the successor\'s ' +
+            'attempt is unrecorded, so a crash during it leaves backoff unable to engage'
+        ).toEqual({'t1/org/lease-repo': successorEntry});
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});

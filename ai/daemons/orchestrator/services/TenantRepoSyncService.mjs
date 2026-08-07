@@ -1105,6 +1105,16 @@ class TenantRepoSyncService extends Base {
         // are different things with different lifetimes, and one object cannot be both.
         const inFlightAttempts = {};
 
+        // Identity for compare-and-commit. `await leaseGuard()` followed by a write is a
+        // check-then-act: the lease can expire and a successor legitimately acquire in the window
+        // between them, and the resumed predecessor's whole-file write then DELETES the
+        // successor's record. Fencing the write harder only narrows that window; it cannot close
+        // it, because the check and the write are separate syscalls no lock spans for free.
+        //
+        // So the record carries its owner and every mutation is conditional on it. The last
+        // writer no longer wins by virtue of being last — it wins only on keys it owns.
+        const runId = randomBytes(8).toString('hex');
+
         // Serialized through one chain: the sidecar is mutated from inside the concurrent per-repo
         // region, and `writeInFlightAttempts` stages through a single pid-scoped temp path that
         // concurrent writers would otherwise race on.
@@ -1114,16 +1124,32 @@ class TenantRepoSyncService extends Base {
             inFlightChain = inFlightChain.then(async () => {
                 update(inFlightAttempts);
 
-                // Lease-fenced, because this is a whole-file write of THIS sweep's view. A run that
-                // lost its lease must not clobber the successor that now owns forward progress —
-                // its stale clear would otherwise delete an attempt the successor has in flight.
-                // Swallowed rather than propagated: losing the sidecar write is bounded (one
-                // unrecorded attempt), whereas throwing from the per-repo `finally` would mask the
-                // real error the repo failed with.
                 try {
                     await leaseGuard();
-                    await this.writeInFlightAttempts({filePath: inFlightPath, attempts: inFlightAttempts});
-                } catch (e) {}
+
+                    // Re-read INSIDE the critical section and merge against live state rather than
+                    // publishing this sweep's whole view. Entries owned by another run are carried
+                    // forward untouched; only our own are written or removed. A successor that took
+                    // over after the guard check above therefore keeps its record, and our stale
+                    // write becomes a no-op on its key instead of a deletion.
+                    const
+                        live   = await this.readInFlightAttempts({filePath: inFlightPath}),
+                        merged = {};
+
+                    for (const [label, entry] of Object.entries(live)) {
+                        if (entry?.runId !== runId) merged[label] = entry;
+                    }
+
+                    for (const [label, entry] of Object.entries(inFlightAttempts)) {
+                        merged[label] = entry;
+                    }
+
+                    await this.writeInFlightAttempts({filePath: inFlightPath, attempts: merged});
+                } catch (e) {
+                    // Swallowed rather than propagated: losing a sidecar write costs one unrecorded
+                    // attempt, whereas throwing from the per-repo `finally` would mask the real
+                    // error the repo failed with.
+                }
             });
 
             return inFlightChain
@@ -1322,7 +1348,8 @@ class TenantRepoSyncService extends Base {
                 await mutateInFlight(attempts => {
                     attempts[repoLabel] = {
                         startedMs,
-                        priorFailures: priorState?.consecutiveFailures ?? 0
+                        priorFailures: priorState?.consecutiveFailures ?? 0,
+                        runId
                     };
                 });
                 inFlightRecorded = true;
