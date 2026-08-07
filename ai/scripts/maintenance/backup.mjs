@@ -965,22 +965,38 @@ export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
 export async function classifyBundleRecoverability(bundlePath) {
     const hasMeta       = await fs.pathExists(path.join(bundlePath, 'bundle-meta.json')),
           substrates    = {},
-          restorableFor = [];
+          restorableFor = [],
+          unreadable    = [];
 
     for (const substrate of RECOVERY_SUBSTRATES) {
         const dir   = path.join(bundlePath, substrate);
         let   bytes = 0;
 
         if (await fs.pathExists(dir)) {
-            for (const entry of await fs.readdir(dir)) {
+            let entries;
+
+            try {
+                entries = await fs.readdir(dir);
+            } catch {
+                // Cannot enumerate the substrate at all — record it and move on. Unknown is not empty.
+                unreadable.push(substrate);
+                substrates[substrate] = 0;
+                continue;
+            }
+
+            for (const entry of entries) {
                 if (!entry.endsWith('.jsonl')) continue;
 
                 try {
                     bytes += (await fs.stat(path.join(dir, entry))).size;
                 } catch {
-                    // An unreadable payload is treated as absent for this substrate rather than
-                    // aborting the sweep. Under-counting keeps a bundle, which is the safe error;
-                    // throwing here would leave retention unrun and let the root grow unbounded.
+                    // UNREADABLE IS NOT EMPTY, and the first version of this comment claimed the
+                    // opposite: it said "under-counting keeps a bundle, which is the safe error".
+                    // That is exactly backwards. Under-counting makes the bundle non-restorable,
+                    // which excludes it from the floor, which makes it age-DELETABLE — so a bundle we
+                    // merely failed to read would be destroyed by the guard meant to protect
+                    // recovery sources. A stated safety property the code did not have.
+                    unreadable.push(substrate);
                 }
             }
         }
@@ -989,7 +1005,7 @@ export async function classifyBundleRecoverability(bundlePath) {
         if (bytes > 0) restorableFor.push(substrate);
     }
 
-    return {hasMeta, substrates, restorableFor};
+    return {hasMeta, substrates, restorableFor, unreadable: [...new Set(unreadable)]};
 }
 
 /**
@@ -1092,6 +1108,20 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
               ageDays = Math.round(ageMs / 86400000),
               payload = RECOVERY_SUBSTRATES.map(s => `${s}=${entry.substrates[s]}B`).join(' ');
 
+        // UNREADABLE is a hard keep, checked before every other rule. A payload we could not read is
+        // of UNKNOWN recoverability, and the one thing retention must never do is destroy an artifact
+        // it failed to inspect. Without this the classifier's zero-bytes fallback made an unreadable
+        // bundle non-restorable, which excluded it from the floor, which made it age-deletable — the
+        // guard deleting exactly the bundle whose contents it could not verify.
+        if (entry.unreadable?.length > 0) {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (UNREADABLE payload, age ${ageDays}d) — ` +
+                `could not read: ${entry.unreadable.join(', ')} — ${payload}. Recoverability unknown; ` +
+                `not deleting. Investigate permissions or corruption.`
+            );
+            continue;
+        }
+
         if (floor.has(entry.name)) {
             logger.log(`[Retention] Keeping ${entry.name} (restorable floor, age ${ageDays}d) — ${payload}`);
             continue;
@@ -1104,7 +1134,14 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
             continue;
         }
 
-        if (ageMs <= thresholdMs) continue;
+        if (ageMs <= thresholdMs) {
+            // Age-held keeps are logged too. The AC is that the sweep says what it keeps AND drops,
+            // and a silent `continue` here left the largest keep category invisible — so a reader
+            // auditing the log could not tell an age-held bundle from one the sweep never saw. Six
+            // empty bundles accumulated unnoticed precisely because the log was incomplete.
+            logger.log(`[Retention] Keeping ${entry.name} (younger than ${maxDays}d, age ${ageDays}d) — ${payload}`);
+            continue;
+        }
 
         try {
             // Say WHAT is being dropped, not just its name. Six empty bundles accumulated unnoticed

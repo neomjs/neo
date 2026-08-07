@@ -273,6 +273,68 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(await listBackups(), 'the last artifact that can restore kb must not age out').toContain(ancientButReal);
     });
 
+    test('an UNREADABLE payload is a hard keep — unknown recoverability is not empty', async () => {
+        // The classifier's zero-bytes fallback once carried a comment claiming "under-counting keeps a
+        // bundle, which is the safe error" — the opposite of what the code did. Under-counting made the
+        // bundle non-restorable, which excluded it from the floor, which made it age-DELETABLE. The
+        // guard would have destroyed exactly the bundle whose contents it could not verify.
+        const {classifyBundleRecoverability} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        const unreadable = await seedBackup(400);
+        await seedBackup(1);
+        await seedBackup(2);
+        await seedBackup(3);
+
+        // Make the payload genuinely unreadable rather than mocking the failure: chmod the substrate
+        // directory so `readdir` throws. A stubbed error would test the branch; this tests the path.
+        const kbDir = path.join(tmpRoot, unreadable, 'kb');
+        await fs.chmod(kbDir, 0o000);
+
+        try {
+            const verdict = await classifyBundleRecoverability(path.join(tmpRoot, unreadable));
+
+            // Skip on any environment where the chmod does not actually deny us (e.g. running as
+            // root). Asserting into a non-hazard is how a guard becomes vacuous.
+            test.skip(verdict.unreadable.length === 0, 'chmod did not deny access in this environment');
+
+            expect(verdict.unreadable, 'the failure must be REPORTED, not silently read as empty').toContain('kb');
+
+            await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 3, maxDays: 30});
+
+            expect(
+                await listBackups(),
+                'a bundle whose payload could not be read must never be deleted'
+            ).toContain(unreadable);
+        } finally {
+            await fs.chmod(kbDir, 0o755);
+        }
+    });
+
+    test('the sweep logs every keep with its REASON, including age-held ones', async () => {
+        // The AC is that the sweep says what it keeps and drops. A silent `continue` on the age branch
+        // left the largest keep category invisible, so an auditor could not distinguish an age-held
+        // bundle from one the sweep never saw — which is how six empty bundles accumulated unnoticed.
+        const lines = [];
+
+        // `keepMinimum: 1` is what makes this discriminate. My first fixture used `keepMinimum: 3`
+        // with two bundles, so BOTH landed in the floor and the age branch never executed — the test
+        // would have passed against a build with no age logging at all. With a floor of one, the
+        // second bundle is outside it, younger than `maxDays`, and therefore genuinely age-held.
+        await seedBackup(1);    // floor-held + newest-restorable
+        await seedBackup(2);    // outside the floor, under maxDays → AGE-held
+
+        await cleanOldBackups(tmpRoot, {log: line => lines.push(line), warn: line => lines.push(line)}, {keepMinimum: 1, maxDays: 30});
+
+        const joined = lines.join('\n');
+
+        expect(joined, 'age-held keeps must be logged').toMatch(/younger than 30d/);
+        expect(joined, 'floor-held keeps must be logged').toMatch(/restorable floor/);
+        // Per-substrate bytes on every line, so the log is auditable after the fact rather than
+        // requiring someone to have been watching.
+        expect(joined).toMatch(/kb=\d+B/);
+        expect(lines.length, 'every bundle gets a line').toBeGreaterThanOrEqual(2);
+    });
+
     test('a bundle with no meta receipt cannot fill the floor, but stays age-deletable', async () => {
         // A real bundle in this shape existed: 2,001 rows, no bundle-meta.json, sitting in the
         // retention set as a peer of complete captures. It must not count toward the recovery floor —
