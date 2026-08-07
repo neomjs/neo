@@ -327,12 +327,25 @@ class DragZone extends Base {
      * Override for using custom animations
      */
     destroyDragProxy() {
-        let me = this,
-            id = me.dragProxy.id;
+        let me         = this,
+            id         = me.dragProxy.id,
+            {windowId} = me;
 
-        me.timeout(me.moveInMainThread ? 0 : 30).then(() => {
-            Neo.applyDeltas(me.windowId, [{action: 'removeNode', id}])
-        });
+        // The cleanup delta must outlive this zone: core.Base#destroy() clears and rejects
+        // pending timeouts, and a zone torn down inside the deferral window (e.g. a closing
+        // dock vessel's chrome un-projection racing a cross-window drop) would otherwise
+        // orphan the proxy's DOM node in the source window with no owner left to remove it.
+        me.timeout(me.moveInMainThread ? 0 : 30)
+            .catch(() => null)
+            .then(() => Neo.applyDeltas(windowId, [{action: 'removeNode', id}]))
+            .catch(reason => {
+                // The dispatch owns its terminal outcome: worker.Base's closed-port branch
+                // rejects with bare `undefined` when the destination window is already gone —
+                // the node died with its window, the cleanup is moot, settle silently. A
+                // REASONED rejection is a live-window delta failure; this detached chain has
+                // no caller to propagate to, so the console is the honest terminal surface.
+                reason !== undefined && console.error('DragZone: proxy removal delta failed', {id, reason, windowId})
+            });
 
         me.dragProxy.destroy()
     }
