@@ -18,18 +18,21 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => {
-    let SearchService, QueryService, GraphService;
+    let SearchService, QueryService, GraphService, ChromaManager;
     let originalModel, originalModelUnavailable, originalQueryDocuments, originalListNodeRecordsByType, originalReady;
+    let originalGetCollection;
 
     test.beforeAll(async () => {
         SearchService            = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
         QueryService             = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
         GraphService             = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        ChromaManager            = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         originalModel            = SearchService.model;
         originalModelUnavailable = SearchService.modelUnavailable;
         originalQueryDocuments   = QueryService.queryDocuments;
         originalListNodeRecordsByType = GraphService.listNodeRecordsByType;
         originalReady                 = GraphService.ready;
+        originalGetCollection         = ChromaManager.getKnowledgeBaseCollection;
     });
 
     test.afterEach(() => {
@@ -38,16 +41,68 @@ test.describe('Neo.ai.services.knowledge-base.SearchService model guard', () => 
         QueryService.queryDocuments        = originalQueryDocuments;
         GraphService.listNodeRecordsByType = originalListNodeRecordsByType;
         GraphService.ready                 = originalReady;
+        ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
     });
+
+    /**
+     * Makes the FIXTURE own the collection row count.
+     *
+     * `SearchService#emptyFlatResponse` selects between the empty-collection answer and the
+     * no-relevant-documents answer by calling `collection.count()` on the LIVE canonical collection.
+     * Mocking `QueryService.queryDocuments` alone looks like full isolation and is not: the emptiness
+     * probe is a second, separate read straight through to the plane.
+     *
+     * So this spec's verdict tracked corpus fill rather than the code. It passed on 2026-08-07 while
+     * the canonical collection was near-empty during a rebuild, then failed at ~19,000 rows, and would
+     * flip back if the collection were ever emptied — reporting a defect in whatever diff happened to
+     * be checked out. CI never saw it, because CI has no populated plane, so there was no upstream
+     * signal and it landed on whoever was holding a change.
+     *
+     * Owning the count is strictly better than removing the coupling: the branch is now selectable, so
+     * BOTH arms get asserted where previously only whichever one the plane happened to select could be.
+     *
+     * @param {Number} count The row count the fixture reports.
+     */
+    function withCollectionCount(count) {
+        ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => count});
+    }
 
     test('ask returns the empty-collection response before requiring a Gemini model', async () => {
         SearchService.model         = null;
         QueryService.queryDocuments = async () => ({message: 'No results found for your query and type.'});
+        withCollectionCount(0);
 
         await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
             answer    : "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').",
             references: []
         });
+    });
+
+    test('a POPULATED collection with no matches gets the no-results answer, not the empty-collection one', async () => {
+        // The arm the plane used to select for us, now asserted deliberately. These two answers say
+        // very different things to an agent — "populate the corpus" versus "your query matched
+        // nothing" — and before this only one of them was ever exercised on a given machine.
+        SearchService.model         = null;
+        QueryService.queryDocuments = async () => ({message: 'No results found for your query and type.'});
+        withCollectionCount(19_000);
+
+        await expect(SearchService.ask({query: 'How does KB work?'})).resolves.toEqual({
+            answer    : 'No relevant documents found in the knowledge base.',
+            references: []
+        });
+    });
+
+    test('an UNREADABLE collection is not reported as empty', async () => {
+        // The count read is `.catch(() => null)`, so a Chroma failure yields null rather than 0 — and
+        // null must NOT take the empty-collection branch. Telling an agent to repopulate a corpus
+        // because the store was briefly unreachable is a diagnosis pointing at the wrong subsystem.
+        SearchService.model         = null;
+        QueryService.queryDocuments = async () => ({message: 'No results found for your query and type.'});
+        ChromaManager.getKnowledgeBaseCollection = async () => { throw new Error('chroma unreachable') };
+
+        const result = await SearchService.ask({query: 'How does KB work?'});
+
+        expect(result.answer, 'unknown is not empty').toBe('No relevant documents found in the knowledge base.');
     });
 
     test('ask returns degraded references when retrieval finds references without a Gemini model', async () => {
