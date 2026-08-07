@@ -27,11 +27,14 @@ const MiB = 1024 * 1024,
  * whose semantics this change must not quietly alter.
  */
 test.describe('effective heap-ceiling denominator', () => {
-    let parseDeclaredHeapBytes, calculateDockerMemoryPercent;
+    let parseDeclaredHeapBytes, calculateDockerMemoryPercent, CONTAINER_HEALTH_FACT_TYPES,
+        ContainerHealthDiagnosisService;
 
     test.beforeAll(async () => {
-        ({parseDeclaredHeapBytes, calculateDockerMemoryPercent} =
-            await import('../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs'));
+        ({
+            parseDeclaredHeapBytes, calculateDockerMemoryPercent, CONTAINER_HEALTH_FACT_TYPES,
+            ContainerHealthDiagnosisService
+        } = await import('../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs'));
     });
 
     const statsAt = usedMiB => ({memory_stats: {usage: usedMiB * MiB, limit: 1 * GiB}}),
@@ -106,5 +109,65 @@ test.describe('effective heap-ceiling denominator', () => {
         for (const broken of [{}, {memory_stats: {}}, {memory_stats: {usage: 1, limit: 0}}]) {
             expect(calculateDockerMemoryPercent(broken, 768 * MiB)).toBeNull();
         }
+    });
+
+    /**
+     * The two tests above measure a percent. These two measure whether a FACT is emitted, which is a
+     * different claim: a denominator can be right while the fact never reaches the emit path, and the
+     * percent tests cannot tell those apart.
+     *
+     * They are written as a PAIR on purpose. "Comfortably inside both ceilings emits nothing" is
+     * worthless alone — it would read as green if the fixture never reached the memory branch at all
+     * (an unmet sample floor, a CPU fact short-circuiting, a service key classified as a store). The
+     * positive control moves ONE number in the same fixture and demands the fact appear, which is what
+     * makes the silence mean what it says.
+     */
+    const observedInspect = command => ({
+              State : {Status: 'running', Health: {Status: 'healthy'}},
+              Config: {Cmd: ['sh', '-c', command]}
+          }),
+          // A full Docker stats sample at MiB scale. CPU is held at ~4% so the only signal in play is
+          // memory — a CPU fact would satisfy the corroboration floor and mask which signal fired.
+          fullSample = (usedMiB, observedAtMs) => ({
+              observedAtMs,
+              cpu_stats   : {
+                  online_cpus     : 4,
+                  system_cpu_usage: 1_000_000_000,
+                  cpu_usage       : {total_usage: 10_000_000, percpu_usage: [2_500_000, 2_500_000, 2_500_000, 2_500_000]}
+              },
+              precpu_stats: {system_cpu_usage: 0, cpu_usage: {total_usage: 0}},
+              memory_stats: {usage: usedMiB * MiB, limit: 1 * GiB}
+          }),
+          // `mc-server` is a DECLARED non-store in `SERVICE_CLASS_BY_KEY`, so this exercises the real
+          // roster rather than an unrecognised key defaulting into the same policy by accident.
+          diagnoseMcServer = usedMiB => Neo.create(ContainerHealthDiagnosisService, {
+              diagnosisConfig: {cpuSaturationPercent: 90, memorySaturationPercent: 90},
+              nowFn          : () => 1_710_000_000_000
+          }).diagnose({
+              serviceKey  : 'mc-server',
+              inspect     : observedInspect('node --max-old-space-size=768 "$SERVER_ENTRYPOINT"'),
+              statsSamples: [fullSample(usedMiB, 1_000_000), fullSample(usedMiB, 1_030_000)]
+          });
+
+    test('NEGATIVE CONTROL: a service comfortably inside BOTH ceilings emits no memory fact', () => {
+        // 400 MiB → 39% of the 1 GiB container, 52% of the 768 MiB ceiling. Under both thresholds, so
+        // the sharper denominator must not make every service permanently saturated.
+        const decision = diagnoseMcServer(400);
+
+        expect(decision.facts.filter(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation))
+            .toEqual([]);
+        expect(decision.status, 'a service well inside both ceilings is healthy').toBe('healthy');
+    });
+
+    test('POSITIVE CONTROL: the same fixture at 730 MiB DOES emit, which is what today\'s code misses', () => {
+        // 730 MiB → 71% of the container limit (silent under a 90% threshold — today's behaviour) and
+        // 95% of the declared 768 MiB ceiling. Same service, same inspect, same sample count: only the
+        // usage moved, so the negative control's silence above is a threshold verdict and not an
+        // unreached code path.
+        const memoryFacts = diagnoseMcServer(730)
+            .facts.filter(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+
+        expect(memoryFacts, 'the declared ceiling must be the denominator that fires').toHaveLength(1);
+        expect(memoryFacts[0].details.maxPercent).toBeGreaterThan(90);
     });
 });
