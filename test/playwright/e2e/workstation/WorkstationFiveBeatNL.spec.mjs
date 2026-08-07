@@ -2188,8 +2188,53 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         // rethemed light must depart behind the LIGHT ground (document.body keeps its BOOT theme,
         // so a body-mounted consumer would close in the stale color). Each sample compares the
         // overlay's computed background against a same-context probe resolving the LIVE token.
+        // Cross-window authority kills the circularity: the MAIN page resolves the expected
+        // ground per theme, so a stale vessel cascade cannot satisfy the assertion by agreeing
+        // with itself. The pre-flip capture also witnesses the flip's authority (the two
+        // expectations must differ, or the retheme never landed anywhere).
+        const readMainGround = () => page.evaluate(() => {
+            const probe = document.createElement('div');
+
+            probe.style.background = 'var(--workstation-ground)';
+            document.querySelector('.workstation-viewport').appendChild(probe);
+
+            const ground = getComputedStyle(probe).backgroundColor;
+
+            probe.remove();
+            return ground
+        });
+
+        const expectedDarkGround = await readMainGround();
+
+        // Reduced-motion witness: the vocabulary collapses every duration at its root, and the
+        // departing rule must inherit that collapse THROUGH the vessel's loaded sheet. Probed on
+        // an in-vessel element under emulation BEFORE the real return (which needs normal motion
+        // for the fade-progression samples below).
+        await targetPopup.emulateMedia({reducedMotion: 'reduce'});
+
+        const reducedMotionDuration = await targetPopup.evaluate(() => {
+            const probe = document.createElement('div');
+
+            probe.className = 'workstation-viewport workstation-vessel-departing';
+            document.body.appendChild(probe);
+
+            const duration = getComputedStyle(probe, '::after').animationDuration;
+
+            probe.remove();
+            return duration
+        });
+
+        expect(reducedMotionDuration, 'the vocabulary reduced-motion collapse reaches the departing rule').toBe('0s');
+
+        await targetPopup.emulateMedia({reducedMotion: null});
+
         await app.callMethod(wsId, 'setWorkspaceTheme', ['neo-theme-neo-light']);
         await new Promise(resolve => setTimeout(resolve, 600));
+
+        const expectedLightGround = await readMainGround();
+
+        expect(expectedLightGround, 'the theme flip must change the resolved ground (flip authority)')
+            .not.toBe(expectedDarkGround);
 
         const departingSamples = (async () => {
             const samples = [];
@@ -2249,7 +2294,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         samples.forEach(sample => {
             expect(sample.background, 'the overlay resolves the LIVE theme ground, never the boot theme')
-                .toBe(sample.ground)
+                .toBe(sample.ground);
+            expect(sample.background, 'the vessel ground matches the MAIN window authority for the flipped theme')
+                .toBe(expectedLightGround)
         });
 
         expect(result.errors, JSON.stringify({
