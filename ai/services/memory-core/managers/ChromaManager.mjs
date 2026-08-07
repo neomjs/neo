@@ -1,4 +1,3 @@
-import {ChromaClient}         from 'chromadb';
 import aiConfig               from '../../../mcp/server/memory-core/config.mjs';
 import logger                 from '../../../mcp/server/memory-core/logger.mjs';
 import AbstractVectorManager  from './AbstractVectorManager.mjs';
@@ -24,10 +23,6 @@ const MC_WARN_FILTER = msg =>
     msg.includes('Could not deserialize the collection metadata') ||
     msg.includes('dummy_embedding_function') ||
     msg.includes('dynamic_text_embedding_service');
-
-registerNeoChromaEmbeddingFunctions({
-    dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
-});
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -85,11 +80,14 @@ class ChromaManager extends AbstractVectorManager {
     construct(config) {
         super.construct(config);
 
-        // The client is constructed here; heartbeat/connection is evaluated lazily by `connect()`.
-        // Under UNIT_TEST_MODE `database` resolves to a dedicated, droppable test database, so test
-        // collections never enter the production `default_database` by construction.
-        const {host, port, database} = this.resolveChromaClientConfig(aiConfig);
-        this.client                  = new ChromaClient({host, port, ssl: false, database});
+        // Client construction is NOT here — see `initAsync()`. `chromadb` is imported on demand so
+        // the `ai/services.mjs` barrel stays loadable in the Body install tier, and `construct()`
+        // is synchronous, so `await import()` cannot live in it.
+        //
+        // The test-database resolution this used to perform still happens before any client work,
+        // just one lifecycle step later: under UNIT_TEST_MODE `database` resolves to a dedicated,
+        // droppable test database, so test collections never enter the production
+        // `default_database` by construction.
     }
 
     /**
@@ -164,10 +162,33 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
+     * Builds the Chroma client and registers Neo's embedding functions, then connects.
+     *
+     * Client construction lives here rather than in `construct()` because `chromadb` is imported
+     * on demand, and `construct()` is synchronous. See the note there.
+     *
+     * `.client` therefore does not exist between `construct()` and this method resolving.
+     * `core.Base` kicks `initAsync()` off during singleton setup and gates `isReady` on it, so
+     * consumers that await `ready()` are unaffected; consumers reaching for `.client` without
+     * awaiting were already racing the `connect()` this method performs.
+     *
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
+
+        const
+            {ChromaClient}         = await import('chromadb'),
+            {host, port, database} = this.resolveChromaClientConfig(aiConfig);
+
+        this.client = new ChromaClient({host, port, ssl: false, database});
+
+        // Registration moved off module scope with the import it needs; awaiting it here is what
+        // keeps it ordered before the first collection call.
+        await registerNeoChromaEmbeddingFunctions({
+            dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
+        });
+
         await ChromaLifecycleService.ready();
         await this.connect();
     }

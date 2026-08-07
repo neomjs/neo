@@ -42,7 +42,9 @@ export const DEFAULT_VECTOR_COVERAGE_SAMPLE_SIZE                = 5;
 const METADATA_SEGMENT_SCOPE = 'METADATA',
       VECTOR_SEGMENT_SCOPE   = 'VECTOR';
 
-registerNeoChromaEmbeddingFunctions({
+// Awaited: the registry symbols are imported on demand, so a floating call would race the first
+// collection operation that depends on the registration.
+await registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
 });
 

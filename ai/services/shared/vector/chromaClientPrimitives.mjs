@@ -1,4 +1,13 @@
-import {knownEmbeddingFunctions, registerEmbeddingFunction} from 'chromadb';
+// `chromadb` is deliberately NOT imported at module scope.
+//
+// It ships only in the Brain install tier, and this module is reachable from `ai/services.mjs`
+// — the canonical SDK entry point that Body-tier consumers import. A static import here makes
+// merely LOADING the barrel require a package that is only needed once something actually talks
+// to Chroma, which is what took the hourly Data Sync stage down for twelve consecutive runs with
+// `ERR_MODULE_NOT_FOUND`.
+//
+// The registry symbols are pulled in on first registration instead. That is the only place in
+// this module they are used, and registration is a connection-time concern, not a load-time one.
 
 export const CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME = 'dynamic_text_embedding_service';
 const CHROMA_COLLECTION_NOT_FOUND_RE = /does not exist|not found|not be found|could not be found|404/i;
@@ -89,15 +98,22 @@ class NeoDynamicTextEmbeddingService {
  * leaf. Callers that already own a config object pass that leaf in, keeping this registry
  * free of local `ai/config.mjs` overlay coupling while still hydrating Chroma's process registry.
  *
+ * ASYNC because the Chroma registry symbols are imported on demand rather than at module scope
+ * (see the note at the top of this file). No caller reads the return value today, so the change
+ * is one `await` per call site rather than a data-flow change — but the await is REQUIRED: a
+ * floating call races the first collection operation that depends on the registration.
+ *
  * @param {Object} [options]
  * @param {Object|null} [options.dummyEmbeddingFunction=null] Tier-1 dummy EF leaf.
  * @param {Boolean} [options.includeDynamicTextEmbedding=true] Register the Memory Core dynamic EF.
- * @returns {String[]} Names registered during this call.
+ * @returns {Promise<String[]>} Names registered during this call.
  */
-export function registerNeoChromaEmbeddingFunctions({
+export async function registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction      = null,
     includeDynamicTextEmbedding = true
 } = {}) {
+    const {knownEmbeddingFunctions, registerEmbeddingFunction} = await import('chromadb');
+
     const registered = [];
     const entries    = [];
 

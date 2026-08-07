@@ -207,7 +207,7 @@ export async function runTargetSetMeasurementAdapter({
     });
 
     const dummyEmbeddingFunction = createGuardedEmbeddingFunction(recordProviderCall);
-    registerNeoChromaEmbeddingFunctions({dummyEmbeddingFunction});
+    await registerNeoChromaEmbeddingFunctions({dummyEmbeddingFunction});
 
     try {
         chromaPid = await startChromaProcess({

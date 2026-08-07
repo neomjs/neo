@@ -1,4 +1,3 @@
-import {ChromaClient}                  from 'chromadb';
 import aiConfig                        from '../../mcp/server/knowledge-base/config.mjs';
 import logger                          from '../../mcp/server/knowledge-base/logger.mjs';
 import Base                            from '../../../src/core/Base.mjs';
@@ -21,10 +20,6 @@ const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, Math.max(0, ms)));
 }
-
-registerNeoChromaEmbeddingFunctions({
-    dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
-});
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches the knowledge-base collection.
@@ -70,21 +65,35 @@ class ChromaManager extends Base {
     }
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        // The client is created here, but the connection is established in initAsync
-        const {host, port} = aiConfig;
-        this.client = new ChromaClient({host, port, ssl: false});
-    }
-
-    /**
+     * Builds the Chroma client and registers Neo's embedding functions, then connects.
+     *
+     * Client construction lives here rather than in `construct()` because `chromadb` is imported
+     * on demand: `construct()` is synchronous, so `await import()` cannot live in it. Moving it
+     * is what keeps the whole `ai/services.mjs` barrel loadable in the Body install tier, where
+     * `chromadb` is absent — merely importing the SDK entry point must not require it.
+     *
+     * `.client` therefore does not exist between `construct()` and this method resolving.
+     * `core.Base` kicks `initAsync()` off during singleton setup and gates `isReady` on it, so
+     * every consumer that awaits `ready()` is unaffected; consumers that reach for `.client`
+     * without awaiting were already racing the `connect()` this method performs.
+     *
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
+
+        const
+            {ChromaClient} = await import('chromadb'),
+            {host, port}   = aiConfig;
+
+        this.client = new ChromaClient({host, port, ssl: false});
+
+        // Registration moved off module scope with the import it needs; it is a connection-time
+        // concern, and awaiting it here is what keeps it ordered before the first collection call.
+        await registerNeoChromaEmbeddingFunctions({
+            dummyEmbeddingFunction: aiConfig.dummyEmbeddingFunction
+        });
+
         await DatabaseLifecycleService.ready();
         await this.connect();
     }

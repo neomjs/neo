@@ -97,9 +97,18 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
         expect(port).toBe(aiConfig.engines.chroma.portTest);
     });
 
-    test('the constructed ChromaClient targets the isolated test database', () => {
-        // construct() wires resolveChromaClientConfig(...).database (the toggle-selected test DB) into
-        // `new ChromaClient({database})`, so the live client targets the isolated namespace, not prod.
+    test('the constructed ChromaClient targets the isolated test database', async () => {
+        // `initAsync()` wires resolveChromaClientConfig(...).database (the toggle-selected test DB)
+        // into `new ChromaClient({database})`, so the live client targets the isolated namespace,
+        // not prod. The invariant is unchanged; only WHEN the client exists moved, because
+        // `chromadb` is now imported on demand and `construct()` is synchronous.
+        //
+        // Awaiting `ready()` is the sequencing this assertion always needed and previously got by
+        // accident: it read a client that happened to exist by construction time. Without the
+        // await it passes or fails depending on how much async work ran before it in the worker —
+        // it was observed failing only in a multi-file run, and passing alone and on a rerun.
+        await ChromaManager.ready();
+
         expect(ChromaManager.client.database).toBe(aiConfig.engines.chroma.databaseTest);
         expect(ChromaManager.client.database).not.toBe(CHROMA_PRODUCTION_DATABASE);
     });

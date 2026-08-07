@@ -81,7 +81,9 @@ const MEMORY_CORE_UNSAFE_MESSAGE  =
     'MC is an irreplaceable store; use backup/restore or a purpose-built repair lane instead of delete/recreate defrag.';
 const ACCEPTED_LOSS_STATE_SCHEMA_VERSION = 1;
 
-registerNeoChromaEmbeddingFunctions({
+// Awaited: the registry symbols are imported on demand, so a floating call would race the first
+// collection operation that depends on the registration.
+await registerNeoChromaEmbeddingFunctions({
     dummyEmbeddingFunction: AiConfig.dummyEmbeddingFunction
 });
 

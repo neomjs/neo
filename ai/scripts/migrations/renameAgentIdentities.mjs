@@ -103,7 +103,9 @@ const IDENTITY_METADATA_KEYS = new Set([
     'userId'
 ]);
 
-registerNeoChromaEmbeddingFunctions();
+// Awaited: the registry symbols are imported on demand, so a floating call would race the first
+// collection operation that depends on the registration.
+await registerNeoChromaEmbeddingFunctions();
 
 /**
  * @summary Parses CLI flags for the identity rename migration runner.

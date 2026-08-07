@@ -75,7 +75,9 @@ const COLLECTION_MEMORY  = 'neo-agent-memory';
 const COLLECTION_SESSION = 'neo-agent-sessions';
 const BATCH_SIZE         = 500;
 
-registerNeoChromaEmbeddingFunctions();
+// Awaited: the registry symbols are imported on demand, so a floating call would race the first
+// collection operation that depends on the registration.
+await registerNeoChromaEmbeddingFunctions();
 
 function parseArgs(argv) {
     const args = {
