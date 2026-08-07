@@ -963,7 +963,29 @@ export const RECOVERY_SUBSTRATES = Object.freeze(['kb', 'mc', 'graph']);
  * @returns {Promise<{hasMeta: Boolean, substrates: Object, restorableFor: String[]}>}
  */
 export async function classifyBundleRecoverability(bundlePath) {
-    const hasMeta       = await fs.pathExists(path.join(bundlePath, 'bundle-meta.json')),
+    // THREE meta states, not two. `pathExists` alone answered "is there a file", and a corrupt
+    // receipt passed as a valid one: it filled the floor, displaced an older VALID bundle, and that
+    // bundle was then deleted. Data loss caused by the guard written to prevent data loss.
+    //
+    // The asymmetry between the two failure states is deliberate:
+    //   `absent`    — a KNOWN-incomplete capture. Cannot fill the floor, stays age-deletable.
+    //   `malformed` — UNKNOWN state. Cannot fill the floor, and is a HARD KEEP: we cannot certify it
+    //                 as a recovery source, and we equally cannot certify it as disposable.
+    const metaPath  = path.join(bundlePath, 'bundle-meta.json');
+    let   metaState = 'absent';
+
+    if (await fs.pathExists(metaPath)) {
+        try {
+            const parsed = await fs.readJson(metaPath);
+            // A JSON scalar parses but is not a receipt. `null` in particular parses cleanly and
+            // would otherwise certify a bundle on the strength of the four characters "null".
+            metaState = (parsed !== null && typeof parsed === 'object') ? 'valid' : 'malformed';
+        } catch {
+            metaState = 'malformed';
+        }
+    }
+
+    const hasMeta       = metaState === 'valid',
           substrates    = {},
           restorableFor = [],
           unreadable    = [];
@@ -1005,7 +1027,7 @@ export async function classifyBundleRecoverability(bundlePath) {
         if (bytes > 0) restorableFor.push(substrate);
     }
 
-    return {hasMeta, substrates, restorableFor, unreadable: [...new Set(unreadable)]};
+    return {hasMeta, metaState, substrates, restorableFor, unreadable: [...new Set(unreadable)]};
 }
 
 /**
@@ -1118,6 +1140,20 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
                 `[Retention] Keeping ${entry.name} (UNREADABLE payload, age ${ageDays}d) — ` +
                 `could not read: ${entry.unreadable.join(', ')} — ${payload}. Recoverability unknown; ` +
                 `not deleting. Investigate permissions or corruption.`
+            );
+            continue;
+        }
+
+        // A MALFORMED receipt is the same class of unknown as an unreadable payload, and gets the same
+        // hard keep. It is already excluded from the floor by `hasMeta`, which is what stops it
+        // displacing a valid bundle; this stops it being destroyed on an age clock as well. Note the
+        // deliberate asymmetry with an ABSENT receipt, which stays age-deletable: absent is a
+        // known-incomplete capture, malformed is a bundle whose state we cannot determine at all.
+        if (entry.metaState === 'malformed') {
+            logger.warn?.(
+                `[Retention] Keeping ${entry.name} (MALFORMED bundle-meta.json, age ${ageDays}d) — ${payload}. ` +
+                `Cannot certify it as a recovery source, and cannot certify it as disposable; not deleting. ` +
+                `Investigate corruption.`
             );
             continue;
         }

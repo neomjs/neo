@@ -273,6 +273,41 @@ test.describe('cleanOldBackups — configurable retention', () => {
         expect(await listBackups(), 'the last artifact that can restore kb must not age out').toContain(ancientButReal);
     });
 
+    test('a MALFORMED bundle-meta cannot fill the floor — his probe deleted an older VALID bundle', async () => {
+        // @neo-gpt's exact probe, reproduced: newer malformed-meta + older valid, K=1, maxDays=30.
+        // `pathExists` alone answered "is there a file", so a corrupt receipt passed as a valid one,
+        // filled the floor, displaced the older valid bundle — and that bundle was DELETED. Data loss
+        // caused by the guard written to prevent data loss.
+        const newerMalformed = await seedBackup(1);
+        const olderValid     = await seedBackup(40);
+
+        await fs.writeFile(path.join(tmpRoot, newerMalformed, 'bundle-meta.json'), '{ this is not json');
+
+        await cleanOldBackups(tmpRoot, {log: () => {}, warn: () => {}}, {keepMinimum: 1, maxDays: 30});
+
+        const remaining = await listBackups();
+
+        expect(remaining, 'the older VALID bundle must survive a newer corrupt one').toContain(olderValid);
+        // And malformed is a HARD KEEP, not merely floor-ineligible: unknown state cannot be certified
+        // as a recovery source OR as disposable. Deliberately asymmetric with an ABSENT receipt, which
+        // stays age-deletable because absent is a known-incomplete capture.
+        expect(remaining, 'unknown state must not be destroyed on an age clock either').toContain(newerMalformed);
+    });
+
+    test('a JSON scalar is not a receipt — "null" parses cleanly and must not certify a bundle', async () => {
+        const {classifyBundleRecoverability} = await import('../../../../../../ai/scripts/maintenance/backup.mjs');
+
+        const scalarMeta = await seedBackup(1);
+        await fs.writeFile(path.join(tmpRoot, scalarMeta, 'bundle-meta.json'), 'null');
+
+        const verdict = await classifyBundleRecoverability(path.join(tmpRoot, scalarMeta));
+
+        // A try/catch around `readJson` alone would call this valid: `null` parses without throwing,
+        // so the bundle would be certified on the strength of four characters.
+        expect(verdict.metaState).toBe('malformed');
+        expect(verdict.hasMeta, 'a scalar must not satisfy hasMeta').toBe(false);
+    });
+
     test('an UNREADABLE payload is a hard keep — unknown recoverability is not empty', async () => {
         // The classifier's zero-bytes fallback once carried a comment claiming "under-counting keeps a
         // bundle, which is the safe error" — the opposite of what the code did. Under-counting made the
