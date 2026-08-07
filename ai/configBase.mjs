@@ -1065,7 +1065,9 @@ class ConfigBase extends ConfigProvider {
                  * capability envelopes over the same runtime handle:
                  *
                  * - `readOperations`: logs / stats / inspect for observability.
-                 * - `lifecycleOperations`: restart for recovery.
+                 * - `lifecycleOperations`: restart for recovery, plus update-memory-limit — the
+                 *   store-class ceiling raise, which must land on the RUNNING container because a
+                 *   store's restart mid-ingestion is the harm the raise exists to avoid.
                  *
                  * `allowedServices` names Docker Compose service labels, not arbitrary
                  * container ids. When runtime access is enabled, `composeProject` is mandatory:
@@ -1095,7 +1097,7 @@ class ConfigBase extends ConfigProvider {
                     composeProject              : leaf(null, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT', 'string'),
                     allowedServices             : leaf(['chroma', 'kb-server', 'mc-server', 'local-model'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES', 'csv'),
                     readOperations              : leaf(['inspect', 'logs', 'stats'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_READ_OPERATIONS', 'csv'),
-                    lifecycleOperations         : leaf(['restart'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS', 'csv'),
+                    lifecycleOperations         : leaf(['restart', 'update-memory-limit'], 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LIFECYCLE_OPERATIONS', 'csv'),
                     timeoutMs                   : leaf(5000, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_TIMEOUT_MS', 'number'),
                     responseMaxBytes            : leaf(1024 * 1024, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_RESPONSE_MAX_BYTES', 'number'),
                     logTail                     : leaf(200, 'NEO_ORCHESTRATOR_RUNTIME_ACCESS_LOG_TAIL', 'number'),

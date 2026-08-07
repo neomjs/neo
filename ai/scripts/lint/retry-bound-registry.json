@@ -25,6 +25,16 @@
             "witness": "`10 ** decimals` is decimal-place rounding: the exponent is a formatting precision argument, not an attempt counter. No loop encloses it.",
             "note": "Classified because every growth expression is gated, not because it was suspected."
         },
+        "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:bf9ea77a": {
+            "kind": "not-a-retry",
+            "witness": "`8 * 1024 ** 3` is byte-unit arithmetic — GiB to bytes for the container-memory-ceiling knob's band floor. The exponent is the literal 3 (KiB→MiB→GiB), evaluated once at module load; no loop, no attempt series.",
+            "note": "The band itself is the anti-thrash VALUE bound: growth terminates at the registry max by thrown violation, asserted in recoveryKnobRegistry.spec.mjs."
+        },
+        "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:092bcbf7": {
+            "kind": "not-a-retry",
+            "witness": "`16 * 1024 ** 3` — the same GiB-to-bytes unit arithmetic for the band cap; literal exponent 3, module-load constant.",
+            "note": "Sibling of bf9ea77a; the two constants ARE the bound a growth curve would need, which is why they look adjacent to one."
+        },
         "apps/devindex/services/Spider.mjs#pickStrategy:af20cfdb": {
             "kind": "not-a-retry",
             "witness": "`Math.pow(Math.random(), 3)` is a cubic-bias power-law over [0,1) shaping a jitter offset; the exponent is the constant 3 and cannot grow.",

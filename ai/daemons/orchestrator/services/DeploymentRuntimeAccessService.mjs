@@ -1,5 +1,6 @@
 import http from 'http';
 import Base from '../../../../src/core/Base.mjs';
+import {RECOVERY_KNOBS} from '../../../services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
 export const DEPLOYMENT_RUNTIME_MECHANISMS = Object.freeze([
     'docker-socket',
@@ -13,7 +14,14 @@ export const DEPLOYMENT_RUNTIME_READ_OPERATIONS = Object.freeze([
 ]);
 
 export const DEPLOYMENT_RUNTIME_LIFECYCLE_OPERATIONS = Object.freeze([
-    'restart'
+    'restart',
+    // A live cgroup memory-ceiling change (`POST /containers/{id}/update`), added for the store-class
+    // ceiling raise: a store mid-ingestion must gain headroom WITHOUT the restart that would kill the
+    // ingestion the raise exists to rescue. Governed by the store-variant actuator row in
+    // ADR-0026 §2.8; // ticket-ref-ok: the ADR is the governing authority for this operation's envelope
+    // still config-and-lifecycle-only — it moves one bounded resource limit on one allowlisted,
+    // identity-proven target, never code or an open container field.
+    'update-memory-limit'
 ]);
 
 /**
@@ -47,6 +55,9 @@ const DOCKER_SOCKET_UNAVAILABLE_CODES = new Set(['ENOENT', 'ECONNREFUSED']);
  * @param {String} options.method HTTP method.
  * @param {String} options.path Docker Engine API path.
  * @param {String|null} [options.body=null] Optional request body.
+ * @param {Object|null} [options.headers=null] Optional request headers. The Engine API rejects a
+ *     JSON-bodied POST without `Content-Type: application/json`, so body-carrying operations must
+ *     declare it; header-free requests stay byte-identical to before this parameter existed.
  * @param {Number} [options.timeoutMs=5000] Request timeout.
  * @param {Number} [options.maxBytes=1048576] Response byte cap.
  * @returns {Promise<{statusCode: Number, headers: Object, body: String}>}
@@ -56,6 +67,7 @@ export function dockerSocketRequest({
     method,
     path,
     body = null,
+    headers = null,
     timeoutMs = 5000,
     maxBytes = DEFAULT_RESPONSE_MAX_BYTES
 }) {
@@ -64,6 +76,7 @@ export function dockerSocketRequest({
             socketPath,
             method,
             path,
+            ...(headers ? {headers} : {}),
             timeout: timeoutMs
         }, res => {
             const chunks = [];
@@ -153,6 +166,17 @@ export class DeploymentRuntimeAccessService extends Base {
     }
 
     /**
+     * Per-target tail of the memory-limit critical section (`withMemoryLimitExclusion`). Process-local
+     * on purpose: the recovery-actuator decision record puts the docker socket in exactly ONE
+     * orchestrator-resident holder — ADR-0026 // ticket-ref-ok: the ADR is the governing authority for the single-holder topology this soundness argument rests on
+     * (the singleton lease forbids a second), so there is no cross-process racer for this map to
+     * miss — the assumption is architectural, not hopeful.
+     * @member {Map} memoryLimitLocksByService=new Map()
+     * @protected
+     */
+    memoryLimitLocksByService = new Map()
+
+    /**
      * Resolves the active runtime-access config.
      * @returns {Object}
      */
@@ -228,12 +252,13 @@ export class DeploymentRuntimeAccessService extends Base {
      *
      * @param {Object} options
      * @param {String} options.serviceKey Allowlisted compose service key.
-     * @param {'restart'} options.operation Lifecycle operation.
+     * @param {'restart'|'update-memory-limit'} options.operation Lifecycle operation.
      * @param {String} [options.reason='manual'] Audit reason.
      * @param {Number} [options.restartTimeoutSeconds] Docker restart timeout.
+     * @param {Number} [options.memoryLimitBytes] Target memory ceiling for `update-memory-limit`.
      * @returns {Promise<Object>} Lifecycle result plus structured proof metadata.
      */
-    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds} = {}) {
+    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
@@ -243,6 +268,10 @@ export class DeploymentRuntimeAccessService extends Base {
 
         if (operation === 'restart') {
             return this.restartTarget(target, {reason, restartTimeoutSeconds});
+        }
+
+        if (operation === 'update-memory-limit') {
+            return this.updateTargetMemoryLimit(target, {memoryLimitBytes, reason});
         }
 
         throw new TypeError(`Unsupported lifecycle-write operation '${operation}'`);
@@ -670,6 +699,161 @@ export class DeploymentRuntimeAccessService extends Base {
             proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'restart', target, reason}),
             statusCode: response.statusCode
         };
+    }
+
+    /**
+     * @summary Applies a live memory-ceiling change to a resolved target WITHOUT a restart.
+     *
+     * `POST /containers/{id}/update` moves the cgroup limit on the running container — verified on the
+     * live plane: `RestartCount` and `StartedAt` unchanged, `memory.max` moved, and the
+     * interrupted 59,754-row restore resumed through the old cap instead of dying at it. That
+     * no-restart property is the entire reason this operation exists beside `restart`; a caller that
+     * wants the restart semantics already has `reconfigure`.
+     *
+     * `MemorySwap` is pinned to the same value: swap headroom would let the store balloon past the
+     * declared ceiling into thrash instead of surfacing renewed saturation to the diagnosis layer.
+     *
+     * The operation is policy-bounded AT this boundary, not only in the actuator above it: the
+     * closed knob registry decides which services are addressable and what band their values may
+     * occupy, and the live limit decides raise-only — so "one bounded resource limit" is a property
+     * of the raw capability, not a description of its best-behaved caller.
+     *
+     * The change is EPHEMERAL by Docker's contract — the next recreate re-applies the compose value.
+     * Durability belongs to the knob overlay this operation is paired with in the actuator; this
+     * method deliberately owns only the live half.
+     *
+     * @param {Object} target Resolved target.
+     * @param {Object} options
+     * @param {Number} options.memoryLimitBytes New ceiling in bytes.
+     * @param {String} options.reason Audit reason.
+     * @returns {Promise<Object>}
+     */
+    async updateTargetMemoryLimit(target, {memoryLimitBytes, reason} = {}) {
+        if (!Number.isFinite(memoryLimitBytes) || memoryLimitBytes <= 0) {
+            throw createRuntimeAccessError({
+                Type   : TypeError,
+                reason : 'runtime-memory-limit-invalid',
+                message: `update-memory-limit requires a positive finite memoryLimitBytes, received ${JSON.stringify(memoryLimitBytes)}`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        // A bound is only real when every authority-bearing path inherits it (reviewer falsifier,
+        // review 1: the raw op under flat allowlists could lower chroma, exceed the cap, or resize
+        // a transient — bypassing everything the knob enforces one layer up). The boundary therefore
+        // consults the SAME closed registry the actuator validates against — one band source, never
+        // a second constant able to drift — and refuses before any Docker access:
+        //
+        // 1. Only a service some ceiling knob DECLARES is resizable at all. The registry's closed
+        //    set is the sanctioned-target list; a transient or unknown service has no knob, so the
+        //    op cannot address it.
+        // 2. The value must sit inside that knob's band. The cap that terminates the autonomous
+        //    ratchet holds here too — a caller with L0 access cannot express what the knob forbids.
+        const ceilingKnob = Object.values(RECOVERY_KNOBS).find(knob =>
+            knob.serviceKey === target.serviceKey &&
+            knob.leaves.some(leaf => leaf.role === 'ceiling')
+        );
+
+        if (!ceilingKnob) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-unsanctioned-target',
+                message: `update-memory-limit refuses '${target.serviceKey}': no ceiling knob in the closed registry declares this service`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        const ceilingLeaf = ceilingKnob.leaves.find(leaf => leaf.role === 'ceiling');
+
+        if (memoryLimitBytes < ceilingLeaf.min || memoryLimitBytes > ceilingLeaf.max) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-out-of-band',
+                message: `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': outside the registry band ${ceilingLeaf.min}..${ceilingLeaf.max}`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
+
+        // 3. Raise-only, bound against what the container ACTUALLY enforces — evaluated INSIDE the
+        //    per-target critical section, because the check is only as strong as its freshness.
+        //    Cycle-2 falsifier (@neo-gpt, run red at the previous head): two concurrent callers both
+        //    inspect 8 GiB; the 16 GiB update lands; the 12 GiB call — validated against its stale
+        //    read — then lands a LOWERING each call individually forbids. Docker's update endpoint
+        //    has no compare-and-set, so exclusion across inspect-through-update is the honest
+        //    primitive. Docker reports 0 for an unlimited ceiling, and lowering a store's limit is
+        //    an OOM instruction — the corpus does not shrink to fit. Within-band lowerings are
+        //    exactly the case the band alone cannot catch. Monotonic-raise plus the band cap also
+        //    bounds the direct path's total travel: it ratchets to the cap and then refuses forever.
+        return this.withMemoryLimitExclusion(target.serviceKey, async () => {
+            const inspection     = await this.inspectTarget(target),
+                  liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
+
+            if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0 || memoryLimitBytes <= liveLimitBytes) {
+                throw createRuntimeAccessError({
+                    reason : 'runtime-memory-limit-not-a-raise',
+                    message: !Number.isFinite(liveLimitBytes)
+                        ? `update-memory-limit refuses '${target.serviceKey}': the live memory limit is unreadable from inspect`
+                        : liveLimitBytes <= 0
+                            ? `update-memory-limit refuses '${target.serviceKey}': the container reports an unlimited ceiling, which cannot be raised`
+                            : `update-memory-limit refuses ${memoryLimitBytes} for '${target.serviceKey}': at or below the live limit ${liveLimitBytes}`,
+                    details: {
+                        ...this.createEffectiveConfigSummary(),
+                        serviceKey: target.serviceKey
+                    }
+                });
+            }
+
+            const response = await this.dockerRequest({
+                method : 'POST',
+                path   : `/containers/${encodeURIComponent(target.containerId)}/update`,
+                headers: {'Content-Type': 'application/json'},
+                body   : JSON.stringify({Memory: memoryLimitBytes, MemorySwap: memoryLimitBytes})
+            });
+
+            return {
+                ok        : true,
+                data      : {updated: true, memoryLimitBytes, reason},
+                proof     : this.createProofMetadata({envelope: 'lifecycle-write', operation: 'update-memory-limit', target, reason}),
+                statusCode: response.statusCode
+            };
+        });
+    }
+
+    /**
+     * @summary Serializes the memory-limit check-through-write critical section per target.
+     *
+     * A raise-only check evaluated against a stale read is not raise-only: without exclusion, two
+     * concurrent callers can both validate against the same live limit and the later, smaller update
+     * lands a lowering each call individually forbids. The queue is a per-service promise chain — a
+     * predecessor's FAILURE releases its successor (its error was already thrown to its own caller),
+     * and the stored tail never rejects, so one refused raise cannot poison the lane for the next.
+     * The map entry is deleted when its tail drains, so the map tracks in-flight targets only.
+     *
+     * @param {String} serviceKey Identity-proven compose service key.
+     * @param {Function} criticalSection Async section spanning the live read through the update.
+     * @returns {Promise<*>}
+     */
+    async withMemoryLimitExclusion(serviceKey, criticalSection) {
+        const previous = this.memoryLimitLocksByService.get(serviceKey) ?? Promise.resolve(),
+              run      = previous.then(criticalSection, criticalSection),
+              tail     = run.then(() => {}, () => {});
+
+        this.memoryLimitLocksByService.set(serviceKey, tail);
+
+        try {
+            return await run
+        } finally {
+            if (this.memoryLimitLocksByService.get(serviceKey) === tail) {
+                this.memoryLimitLocksByService.delete(serviceKey)
+            }
+        }
     }
 
     /**

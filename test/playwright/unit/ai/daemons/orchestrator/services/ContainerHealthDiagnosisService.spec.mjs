@@ -964,3 +964,91 @@ test.describe('service classification is exhaustive over the real roster and gen
         expect(isStoreBackedService('injected')).toBe(false);
     });
 });
+
+test.describe('describeClassification — the load-independent projection (#16596)', () => {
+    test('a store reports its class, ITS threshold, and a measured window — with zero saturation involved', () => {
+        const service = createService();
+
+        expect(service.describeClassification({
+            serviceKey  : 'chroma',
+            statsSamples: [
+                statsSample({memoryPercent: 10, observedAtMs: OBSERVED_AT}),
+                statsSample({memoryPercent: 11, observedAtMs: OBSERVED_AT + 45000})
+            ]
+        })).toEqual({
+            serviceKey            : 'chroma',
+            serviceClass          : 'store',
+            serviceClassDeclared  : true,
+            appliedMemoryThreshold: 80,
+            observedWindowMs      : 45000,
+            requiredWindowMs      : 30000,
+            sampleCount           : 2,
+            stampCoverage         : 1
+        });
+    });
+
+    test('a transient service reports the transient threshold, and an unrostered key reports its GUESS', () => {
+        const service = createService();
+
+        expect(service.describeClassification({serviceKey: 'kb-server'})).toMatchObject({
+            serviceClass          : 'transient',
+            serviceClassDeclared  : true,
+            appliedMemoryThreshold: 90
+        });
+
+        // An unrostered key still defaults to transient — refusing would break unrecognised
+        // deployments — but the projection carries `declared: false`, so "nobody classified this"
+        // stays distinguishable from "declared transient".
+        expect(service.describeClassification({serviceKey: 'mystery-svc'})).toMatchObject({
+            serviceClass        : 'transient',
+            serviceClassDeclared: false
+        });
+    });
+
+    test('emits with NO samples at all — the projection cannot depend on the load it exists to precede', () => {
+        const service = createService();
+
+        expect(service.describeClassification({serviceKey: 'chroma'})).toEqual({
+            serviceKey            : 'chroma',
+            serviceClass          : 'store',
+            serviceClassDeclared  : true,
+            appliedMemoryThreshold: 80,
+            observedWindowMs      : 0,
+            requiredWindowMs      : 30000,
+            sampleCount           : 0,
+            stampCoverage         : null
+        });
+    });
+
+    test('an under-stamped window is distinguishable from an under-length one', () => {
+        // Three samples, two stamps 30s apart: the span READS as satisfying the requirement while a
+        // third sample was never timed at all. `observedWindowMs` alone collapses the two conditions;
+        // `stampCoverage` is what keeps a dead stamping path from hiding behind a plausible span.
+        const service = createService(),
+              result  = service.describeClassification({
+                  serviceKey  : 'chroma',
+                  statsSamples: [
+                      statsSample({memoryPercent: 10, observedAtMs: OBSERVED_AT}),
+                      statsSample({memoryPercent: 10}),
+                      statsSample({memoryPercent: 10, observedAtMs: OBSERVED_AT + 30000})
+                  ]
+              });
+
+        expect(result).toMatchObject({
+            observedWindowMs: 30000,
+            sampleCount     : 3,
+            stampCoverage   : 0.67
+        });
+    });
+
+    test('the projection is verdict-free — it must never carry a sustained-shaped field', () => {
+        // A verdict-shaped field on a verdict-free read would recreate the conflation the projection
+        // removes: consumers would read a threshold comparison that never ran.
+        const service = createService(),
+              result  = service.describeClassification({serviceKey: 'chroma', statsSamples: []});
+
+        expect(Object.hasOwn(result, 'sustained')).toBe(false);
+        expect(Object.hasOwn(result, 'severity')).toBe(false);
+        expect(Object.hasOwn(result, 'authoritative')).toBe(false);
+    });
+});
