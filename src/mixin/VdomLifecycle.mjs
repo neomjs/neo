@@ -6,9 +6,12 @@ import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
-// Load-time binding: safe ONLY for per-process environment constants (e.g. `isSharedWorker`).
-// Mutable worker state (counters, event registration) must read `Neo.currentWorker` live — test
-// runners reuse worker processes across spec files and reassign the world between them.
+// Load-time binding: may capture `undefined` — a spec file's static imports can evaluate this
+// module BEFORE its top-level harness setup() assigns `Neo.currentWorker` (the assignment is
+// `??=`, never a replacement, and a surviving SharedWorker realm keeps the SAME worker object
+// on reconnect — no world is ever reassigned under a live binding). Safe here ONLY for
+// optional-chained per-process environment constants (e.g. `isSharedWorker`); anything mutable
+// (counters, event registration) must resolve `Neo.currentWorker` at call time.
 const {currentWorker} = Neo;
 
 /**
@@ -562,14 +565,16 @@ class VdomLifecycle extends Base {
         // any caller-side single-flight latch — tracks the REAL mount attempt instead of a
         // wrapper that resolves before the work begins. Rejections propagate through the chain
         // for the same reason.
-        // Read `Neo.currentWorker` LIVE, never the module-load binding: this gate consults MUTABLE
-        // worker state, and under test-runner worker-process reuse a later spec file's setup builds
-        // a fresh app world and reassigns `Neo.currentWorker` — a load-time binding then reads the
-        // PREVIOUS world's counter (0) while the live world is mid-load, silently skipping the
-        // deferral. One worker world per real runtime process makes both reads identical there.
-        if (!unitTestMode && autoMount && Neo.currentWorker.countLoadingThemeFiles !== 0) {
+        // Resolve `Neo.currentWorker` at CALL time, never via the module-load binding: import
+        // order can evaluate this module before the harness setup() assigns the worker, so the
+        // load-time capture may be `undefined` — a binding-read here then throws through the
+        // caller's catch and presents as a silently skipped deferral. One method-local read also
+        // keeps the count consult and the listener registration on one coherent owner.
+        const worker = Neo.currentWorker;
+
+        if (!unitTestMode && autoMount && worker.countLoadingThemeFiles !== 0) {
             return new Promise((resolve, reject) => {
-                Neo.currentWorker.on('themeFilesLoaded', function() {
+                worker.on('themeFilesLoaded', function() {
                     me.mounted ? resolve() : me.initVnode(mount).then(resolve, reject)
                 }, me, {once: true})
             })
@@ -1030,9 +1035,12 @@ class VdomLifecycle extends Base {
                     // }
 
                     // Verify that the critical rendering path => CSS files for the new tree is in place.
-                    // Live `Neo.currentWorker` read — mutable state; see the initVnode deferral gate.
-                    if (!config.isMiddleware && !config.unitTestMode && Neo.currentWorker.countLoadingThemeFiles !== 0) {
-                        Neo.currentWorker.on('themeFilesLoaded', function() {
+                    // Call-time `Neo.currentWorker` resolution, one read per invocation — the
+                    // initVnode deferral gate documents the import-order mechanism.
+                    const worker = Neo.currentWorker;
+
+                    if (!config.isMiddleware && !config.unitTestMode && worker.countLoadingThemeFiles !== 0) {
+                        worker.on('themeFilesLoaded', function() {
                             me.updateVdom(resolve, reject)
                         }, me, {once: true})
                     } else {
