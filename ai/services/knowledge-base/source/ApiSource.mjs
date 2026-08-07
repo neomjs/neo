@@ -1,8 +1,11 @@
 import Base         from './Base.mjs';
 import SourceParser from '../parser/SourceParser.mjs';
 import fs           from 'fs-extra';
+import logger       from '../../../mcp/server/knowledge-base/logger.mjs';
 import path         from 'path';
 import aiConfig     from '../../../mcp/server/knowledge-base/config.mjs';
+
+import {assertCoverageBaseline, loadClassHierarchy} from '../helpers/classHierarchyContract.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Neo.mjs source code.
@@ -43,22 +46,44 @@ class ApiSource extends Base {
         // Per-source sourceMap (path → type object) from the `sourcePaths` config (SSOT).
         const sourceMap = aiConfig.sourcePaths.ApiSource;
 
-        // Load the authoritative class hierarchy
-        let hierarchy = {};
-        try {
-            if (await fs.pathExists(aiConfig.hierarchyPath)) {
-                hierarchy = await fs.readJson(aiConfig.hierarchyPath);
-            } else {
-                console.warn(`[ApiSource] Class hierarchy file not found at ${aiConfig.hierarchyPath}. 'extends' metadata will be incomplete.`);
-            }
-        } catch (e) {
-            console.warn(`[ApiSource] Failed to load class hierarchy: ${e.message}`);
-        }
+        // Fail-closed, because the hierarchy is an IDENTITY input rather than an enrichment:
+        // `extends` is hashed into every chunk id, so an absent map re-identifies every class
+        // member and marks the existing corpus stale. The contract and the incident that earned
+        // it live in the helper's docblock. Refusal happens HERE, before the indexing loop below,
+        // so no chunk is written under a degraded identity.
+        const hierarchy = await loadClassHierarchy({
+            hierarchyPath  : aiConfig.hierarchyPath,
+            sourcePathCount: Object.keys(sourceMap).length
+        });
 
         let count = 0;
 
+        // Per-root coverage, measured rather than inferred from the map being non-empty. Those are
+        // different claims: the map is produced for the docs site, and this source indexes roots that
+        // producer never covered, so a loaded map can still leave a whole tree with empty `extends`.
+        // Reported per root on every ingest so the next regression is loud — see the helper for why
+        // this reports instead of refusing.
+        const coverage = {};
+
         for (const [path, type] of Object.entries(sourceMap)) {
-            count += await this.indexRawDirectory(writeStream, createHashFn, path, type, hierarchy);
+            coverage[path] = {declared: 0, resolved: 0};
+
+            count += await this.indexRawDirectory(writeStream, createHashFn, path, type, hierarchy, coverage[path]);
+        }
+
+        // Throws on a regression below the interim floor — the incident's actual shape, where `src`
+        // fell from 96.42% populated to 0% and every check passed. Standing gaps do NOT throw; see
+        // the helper for why refusing on those would make the degraded corpus unrebuildable.
+        for (const {root, declared, resolved, ratio, floor} of assertCoverageBaseline({coverage})) {
+            const percent = (ratio * 100).toFixed(1);
+
+            if (resolved < declared) {
+                // Named as DEBT, never as health: these chunks take an id derived from an empty
+                // `extends`, so the number is a defect description that happens to be within floor.
+                logger.warn?.(`[ApiSource] Class hierarchy resolves ${resolved}/${declared} (${percent}%) of the classes declaring a superclass under '${root}' — the remainder ingest with an empty 'extends', which is part of their chunk id. Known interim debt at floor ${floor === undefined ? 'unbaselined' : (floor * 100).toFixed(1) + '%'}; the generator's domain does not cover this root.`);
+            } else {
+                logger.log?.(`[ApiSource] Class hierarchy resolves ${resolved}/${declared} (100%) under '${root}'.`);
+            }
         }
 
         return count;
@@ -74,8 +99,8 @@ class ApiSource extends Base {
      * @returns {Promise<Number>} The number of chunks created.
      * @private
      */
-    async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, hierarchy) {
-        let count = 0;
+    async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, hierarchy, coverage) {
+        let   count    = 0;
         const fullPath = path.resolve(aiConfig.neoRootDir, relativePath);
 
         if (!await fs.pathExists(fullPath)) return 0;
@@ -90,14 +115,15 @@ class ApiSource extends Base {
 
             if (entry.isDirectory()) {
                 if (entryName === 'node_modules') continue; // Safety check
-                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy);
+                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy, coverage);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
+
                 // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
                 // Chroma zip shipped with each neo release stays portable across recipients'
                 // filesystems. SearchService resolves against its own neoRootDir at read time.
                 // Absolute paths would hard-code the local FS layout into the distributed zip.
-                const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
+                const chunks = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy, coverage);
 
                 chunks.forEach(chunk => {
                     chunk.hash = createHashFn(chunk);
