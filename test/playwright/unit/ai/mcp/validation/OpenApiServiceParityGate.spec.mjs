@@ -1,5 +1,10 @@
-import {test, expect} from '@playwright/test';
-import * as acorn     from 'acorn';
+import {test, expect}  from '@playwright/test';
+import * as acorn      from 'acorn';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 import {
     PARITY_BASELINE,
@@ -41,6 +46,34 @@ test.describe('openapi ↔ service parity — a consumed parameter must be decla
         expect([...consumed].sort()).toEqual(['materializationAttempt', 'viaMcp']);
     });
 
+    test('BODY destructuring is consumption — the shape that made the first version a false green', () => {
+        // @neo-gpt's exact-head falsification. `PullRequestService#getPullRequestDiff(options)` does
+        // `const {pr_number, file, sha, files_only} = options || {}` and the first walker returned
+        // ZERO consumed names for it — a real wrapped method consuming four parameters, invisible
+        // while CI was fully green. Only parameter-position destructuring and dotted reads were seen.
+        const viaOr      = fnFrom(`const f = async (options) => { const {pr_number, file} = options || {}; return pr_number + file; }`),
+              viaBare    = fnFrom(`const f = async (options) => { const {sha} = options; return sha; }`),
+              viaNullish = fnFrom(`const f = async (options) => { const {files_only} = options ?? {}; return files_only; }`);
+
+        expect([...consumedNames(viaOr).consumed].sort()).toEqual(['file', 'pr_number']);
+        expect([...consumedNames(viaBare).consumed]).toEqual(['sha']);
+        expect([...consumedNames(viaNullish).consumed]).toEqual(['files_only']);
+
+        // A rest element in a BODY destructure re-admits every key, exactly as in parameter position.
+        expect(consumedNames(fnFrom(`const f = async (o) => { const {a, ...rest} = o || {}; return rest; }`)).rest).toBe(true);
+    });
+
+    test('a LITERAL computed read is consumption — decidable, and previously hidden behind "dynamic access"', () => {
+        // The blind-spot list named "dynamic access" without separating a string literal from a
+        // variable key, so a fully decidable form sat behind an honest-sounding caveat.
+        const literal = fnFrom(`const f = async (payload = {}) => payload['file']`),
+              dynamic = fnFrom(`const f = async (payload = {}) => { const k = 'x'; return payload[k]; }`);
+
+        expect([...consumedNames(literal).consumed]).toEqual(['file']);
+        // Still undecidable, and still unreported — the caveat is real, just narrower than claimed.
+        expect([...consumedNames(dynamic).consumed], 'a variable key stays undecidable').toEqual([]);
+    });
+
     test('a destructured method reveals its keys, and a rest element disables the claim', () => {
         const destructuredFn = fnFrom(`const f = async ({query, limit = 25, includeMetadata = false}) => query`);
 
@@ -79,9 +112,34 @@ test.describe('openapi ↔ service parity — a consumed parameter must be decla
         expect([...declaredNames(doc, operation)].sort()).toEqual(['fromBody', 'fromParam']);
     });
 
-    test('the method→operationId join mirrors the runtime transform', () => {
+    test('the method→operationId join is DERIVED from the runtime authority, not restated', () => {
+        // Two copied literals is what this asserted first, and @neo-gpt was right that it proves
+        // nothing about agreement: both sides could drift together or the mirror could diverge on any
+        // input not literally listed. `services.mjs#camelToSnake` is module-private and importing that
+        // module boots the whole SDK, so the authority is read from its SOURCE and executed.
+        const source = fs.readFileSync(path.join(repoRoot, 'ai/services.mjs'), 'utf8'),
+              match  = source.match(/function camelToSnake\(str\)\s*\{([\s\S]*?)\n\}/);
+
+        expect(match, 'the runtime transform must be locatable, or this guard is vacuous').toBeTruthy();
+
+        // eslint-disable-next-line no-new-func
+        const runtimeCamelToSnake = new Function('str', match[1]);
+
+        // Equality across every method name the wrapped services actually expose, plus edge shapes.
+        // A corpus drawn from reality, so a divergence on any real method fails here rather than
+        // waiting for a literal to be added to a list.
+        const corpus = [
+            'ingestSourceFiles', 'whoIsOnline', 'getPullRequestDiff', 'manageKnowledgeBase',
+            'queryDocuments', 'getContextFrontier', 'healthcheck', 'getMcpToolHandbook',
+            'a', 'ABC', 'alreadysnake', 'endsWithCapitalX'
+        ];
+
+        for (const name of corpus) {
+            expect(camelToSnake(name), `divergence on ${name}`).toBe(runtimeCamelToSnake(name));
+        }
+
+        // And the anchor value, so a mirror that agreed with a BROKEN authority still fails.
         expect(camelToSnake('ingestSourceFiles')).toBe('ingest_source_files');
-        expect(camelToSnake('whoIsOnline')).toBe('who_is_online');
     });
 
     test('THE GATE: the live tree has no unbaselined consumed-but-undeclared parameter', () => {
@@ -110,14 +168,23 @@ test.describe('openapi ↔ service parity — a consumed parameter must be decla
         // The one permanent row, pinned by content: `now` is an injected clock, and a future sweep
         // "helpfully" declaring it would let a caller falsify peer liveness. The rationale has to
         // survive in the file, not only in the ticket that decided it.
-        expect(PARITY_BASELINE['who_is_online.now']).toMatch(/clock|liveness/i);
+        expect(PARITY_BASELINE['memory-core.who_is_online.now']).toMatch(/clock|liveness/i);
     });
 
-    test('the baseline suppresses by exact operation+param, never by param name alone', () => {
-        // `viaMcp` is baselined for `manage_knowledge_base`. If suppression keyed on the bare param
-        // name, the same defect on a DIFFERENT operation would be silently absorbed — which is how a
-        // recurring parameter (this one has three live instances) stops being visible.
-        expect(PARITY_BASELINE['manage_knowledge_base.viaMcp']).toBeTruthy();
+    test('the baseline key is SERVER-scoped, not operation-scoped and never param-only', () => {
+        // Three coordinates, each closing a different leak. `operationId` is unique per document, not
+        // repository-global — `healthcheck` and `get_mcp_tool_handbook` exist on several servers — so
+        // an operation-scoped key lets a suppression on one server absolve the same-named operation on
+        // another. A param-only key is worse still: `viaMcp` has three live instances across two
+        // operations, and one row would have hidden all of them.
+        expect(PARITY_BASELINE['knowledge-base.manage_knowledge_base.viaMcp']).toBeTruthy();
+
+        expect(PARITY_BASELINE['manage_knowledge_base.viaMcp'], 'an operation-scoped key crosses servers').toBeUndefined();
         expect(PARITY_BASELINE['viaMcp'], 'a bare param key would suppress across operations').toBeUndefined();
+
+        // Every key carries all three coordinates, so a future row cannot be added at the wrong depth.
+        for (const key of Object.keys(PARITY_BASELINE)) {
+            expect(key.split('.').length, `${key} must be <server>.<operationId>.<param>`).toBe(3);
+        }
     });
 });

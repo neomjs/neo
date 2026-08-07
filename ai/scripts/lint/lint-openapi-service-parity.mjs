@@ -34,17 +34,35 @@
  * unused param (harmless) while missing a read with no JSDoc at all (the worst case, undeclared
  * everywhere). Consumption also subsumes destructuring, since destructured names are reads.
  *
- * Detection is therefore: **destructured parameter names ∪ `<bagParam>.X` member reads**, compared
- * against the operation's declared parameters and request-body properties.
+ * Detection covers **four statically decidable forms**, unioned, and compared against the operation's
+ * declared parameters and request-body properties:
+ *
+ * 1. **Parameter destructuring** — `foo({a, b})`, `foo({a, b} = {})`.
+ * 2. **Dotted bag read** — `payload.viaMcp`.
+ * 3. **Body destructuring** — `const {a, b} = bag`, `= bag || {}`, `= bag ?? {}`.
+ * 4. **Literal computed read** — `options['file']`.
+ *
+ * Forms 3 and 4 were missing from the first version, and their absence was a **false green on real
+ * production code**: `PullRequestService#getPullRequestDiff(options)` does
+ * `const {pr_number, file, sha, files_only} = options || {}`, and the checker reported ZERO consumed
+ * names for it while CI was fully green. A guard that claims an invariant and misses the most common
+ * production shape is worse than no guard, because its green is read as coverage.
+ *
+ * A `...rest` element in either destructuring position re-admits every key, so absence cannot be
+ * proven and the bundle is skipped rather than passed.
  *
  * ## Known blind spots, stated rather than discovered
  *
- * - **Dynamic access** (`payload[key]`) is undecidable here and is not reported.
+ * - **Dynamic access with a NON-LITERAL key** (`payload[someVar]`) is undecidable and not reported.
+ *   The earlier wording said "dynamic access" without separating a string literal from a variable
+ *   key, which let a fully decidable form hide behind an honest-sounding caveat — the caveat is real,
+ *   it was just wider than the truth.
  * - **Wholesale forwarding** (`helper(payload)`) hides consumption in the callee; only direct reads
  *   on the bound parameter are seen.
  *
  * Both are narrower than the JSDoc approach's blind spot, not wider. A guard that overstated its
- * coverage would be worse than one that names its edges.
+ * coverage would be worse than one that names its edges — which is why this list is now shorter than
+ * it was, rather than longer.
  *
  * ## Relationship to the sibling instrument
  *
@@ -69,7 +87,12 @@ const ROOT_DIR   = path.resolve(__dirname, '../../..');
 /**
  * Suppression entries for parameters a method legitimately reads without the contract declaring
  * them. Each row must state WHY, so a suppression is a visible decision rather than an omission.
- * Keyed `<operationId>.<paramName>`.
+ *
+ * Keyed **`<serverId>.<operationId>.<paramName>`** — three coordinates, because `operationId` is
+ * unique per document and NOT repository-global. `healthcheck` and `get_mcp_tool_handbook` already
+ * exist on several servers, so an operation-scoped key would let a suppression on one server silently
+ * absolve the same-named operation on another; a param-only key is worse still, since `viaMcp` has
+ * three live instances across two operations and one row would have hidden all of them.
  * @type {Object<String,String>}
  */
 export const PARITY_BASELINE = Object.freeze({
@@ -78,17 +101,17 @@ export const PARITY_BASELINE = Object.freeze({
     // `retireStaleHarnessPresence` and `whoIsOnline`. Exposing it in the contract would let a caller
     // supply an arbitrary "current time" to a liveness computation — i.e. lie about whether a peer is
     // online. Do not "fix" this by widening the schema.
-    'who_is_online.now': 'Injected clock (test seam) with a working default; agent-settable time would let a caller falsify peer liveness. Deliberately internal.',
+    'memory-core.who_is_online.now': 'Injected clock (test seam) with a working default; agent-settable time would let a caller falsify peer liveness. Deliberately internal.',
 
     // DEBT — genuine contract gaps awaiting individual disposition; each row's reason names the
     // tracking ticket, which is where a decay-prone reference belongs. Not suppressed: the capability
     // exists in the service and is unreachable from outside it, and declaring a parameter makes it
     // agent-settable, which is a per-parameter design decision (bounds for traversal knobs, payload
     // cost for response-widening flags).
-    'manage_knowledge_base.viaMcp'       : 'Work-volume-gate selector, always false. Third live instance of this parameter name; disposition under #16611 citing #16577.',
-    'manage_knowledge_base.staleStrategy': 'Stale-row handling strategy, always undefined. Disposition under #16611; adjacent to #16590 stale-id scoping.',
-    'query_documents.includeMetadata'    : 'Metadata unreachable through the tool, always false. Disposition under #16611; interacts with #16588 payload size.',
-    'get_context_frontier.depth'         : 'Frontier depth permanently 2. Disposition under #16611; needs a maximum if declared, or an agent can request an arbitrarily deep walk.'
+    'knowledge-base.manage_knowledge_base.viaMcp'       : 'Work-volume-gate selector, always false. Third live instance of this parameter name; disposition under #16611 citing #16577.',
+    'knowledge-base.manage_knowledge_base.staleStrategy': 'Stale-row handling strategy, always undefined. Disposition under #16611; adjacent to #16590 stale-id scoping.',
+    'knowledge-base.query_documents.includeMetadata'    : 'Metadata unreachable through the tool, always false. Disposition under #16611; interacts with #16588 payload size.',
+    'memory-core.get_context_frontier.depth'            : 'Frontier depth permanently 2. Disposition under #16611; needs a maximum if declared, or an agent can request an arbitrarily deep walk.'
 });
 
 /**
@@ -234,16 +257,46 @@ export function consumedNames(fnNode) {
         }
     }
 
-    // `payload.viaMcp` — the read that evaluates `undefined` once Zod has stripped the key.
+    // Three consuming forms on the bag, all statically decidable. The first version recognised only
+    // the second and reported ZERO consumed names for `getPullRequestDiff(options)` —
+    // `const {pr_number, file, sha, files_only} = options || {}` — a real wrapped method consuming
+    // four parameters. A guard that claims an invariant while missing the most common production
+    // shape is worse than no guard, because its green is read as coverage.
+    let rest = false;
+
     if (bagParam) {
         walk(fnNode.body, node => {
-            if (node.type === 'MemberExpression' &&
-                node.object?.type === 'Identifier' && node.object.name === bagParam &&
-                !node.computed && node.property?.type === 'Identifier') {
+            // 1. BODY destructuring: `const {a, b} = bag`, `= bag || {}`, `= bag ?? {}`.
+            if (node.type === 'VariableDeclarator' && node.id?.type === 'ObjectPattern' && node.init) {
+                const source = node.init.type === 'LogicalExpression' ? node.init.left : node.init;
+
+                if (source?.type === 'Identifier' && source.name === bagParam) {
+                    for (const property of node.id.properties) {
+                        if (property.type === 'Property' && property.key?.name) consumed.add(property.key.name);
+                        // `...rest` re-exposes every key, so no name can be proven absent.
+                        if (property.type === 'RestElement') rest = true;
+                    }
+                }
+            }
+
+            if (node.type !== 'MemberExpression') return;
+            if (node.object?.type !== 'Identifier' || node.object.name !== bagParam) return;
+
+            // 2. Dotted read: `payload.viaMcp` — evaluates `undefined` once Zod has stripped the key.
+            if (!node.computed && node.property?.type === 'Identifier') {
                 consumed.add(node.property.name);
+            }
+
+            // 3. LITERAL computed read: `options['file']`. Decidable, and previously invisible —
+            //    the blind-spot list named dynamic access without distinguishing a string literal
+            //    from a variable key, so a whole decidable form hid behind an honest-sounding caveat.
+            if (node.computed && node.property?.type === 'Literal' && typeof node.property.value === 'string') {
+                consumed.add(node.property.value);
             }
         });
     }
+
+    if (rest) return {consumed, bagParam, destructured, rest: true};
 
     return {consumed, bagParam, destructured};
 }
@@ -311,7 +364,11 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
         const doc     = specCache.get(service.specPath),
               ast     = parseModule(fs.readFileSync(service.modulePath, 'utf8')),
               methods = collectMethods(ast),
-              byId    = indexOperations(doc);
+              byId    = indexOperations(doc),
+              // The owning server directory — `ai/mcp/server/<serverId>/openapi.yaml`. Derived from
+              // the spec path rather than restated, so a new server is scoped correctly without a
+              // list to forget to update.
+              serverId = path.basename(path.dirname(service.specPath));
 
         for (const [methodName, fnNode] of methods) {
             const operationId = camelToSnake(methodName),
@@ -330,7 +387,13 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
 
             for (const name of consumed) {
                 if (declared.has(name)) continue;
-                if (PARITY_BASELINE[`${operationId}.${name}`]) continue;
+                // SERVER-SCOPED, because `operationId` is unique per document and NOT repository-global.
+                // Six servers each own an `openapi.yaml`, and `healthcheck` / `get_mcp_tool_handbook`
+                // already exist on several of them — so a bare `<operationId>.<param>` key would let a
+                // suppression on one server silently absolve the same-named operation on another. That
+                // is the identical failure the `viaMcp` rows warn about (three live instances of one
+                // parameter name), one coordinate up.
+                if (PARITY_BASELINE[`${serverId}.${operationId}.${name}`]) continue;
 
                 violations.push({
                     operationId,
