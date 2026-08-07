@@ -3252,6 +3252,80 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect((await fs.readJson(leaseFilePath())).token).toBe('foreign-takeover-token');
     });
 
+    // An attempt that never returns is still an attempt.
+    //
+    // Backoff reads `consecutiveFailures` + `lastRunAttemptAt`, and both advance only AFTER the
+    // work returns (`:1351` on success, `:1442` in the catch). A failure that prevents the work
+    // from returning at all — OOM, SIGKILL, host sleep, container stop mid-sweep — therefore
+    // leaves no record that anything was tried, `due` stays true forever, and the lane retries at
+    // full cadence. A crash loop is exactly what backoff exists to dampen, and it is the one
+    // failure class where backoff provably cannot engage: the dampening is only available to
+    // failures polite enough to return.
+    //
+    // The record cannot live in the revisions manifest. That file is a commit log, and the sibling
+    // specs in this file pin its commit-point fence: `commit-point fence: an evicted writer aborts
+    // without writing` compares it byte-for-byte, and `renewal failure aborts before protected
+    // work` asserts it does not exist. Writing scheduling state into it before the work completes
+    // does not defeat a proxy for those properties, it removes the properties. An in-flight
+    // attempt is by definition uncommitted, so it belongs BESIDE the manifest, not inside it.
+    //
+    // The `.in-flight` suffix is asserted literally rather than through an imported constant: the
+    // on-disk name IS the contract here. A crashed predecessor and its successor are different
+    // processes, potentially different builds, and a rename that both sides agree on would leave
+    // real residue unreadable while this spec still passed.
+    test('a sweep that never returns still records the attempt, and the next sweep commits it (#16551)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            now              = Date.now(),
+            // The predecessor's committed state: one clean prior run, no failures.
+            lastCommittedAt  = now - 30 * 60_000,
+            // The attempt it started and died inside — later than what it managed to commit.
+            crashedAttemptAt = now - 20 * 60_000;
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : 'sha-before',
+            lastRunAttemptAt                  : lastCommittedAt,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        }}});
+
+        // Residue from a process that entered protected work and was killed before it could
+        // reach the sweep-terminal commit. This is the only trace such a run can leave.
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs    : crashedAttemptAt,
+            priorFailures: 0
+        }});
+
+        // A cadence long enough that the recovered failure is observable as suppression rather
+        // than being consumed by an immediate re-run that would reset the counter to 0.
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs: 60 * 60_000
+        }));
+
+        expect(result.status).toBe('completed');
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        // The attempt is committed as a fact by the sweep that discovered the residue.
+        expect(persisted.consecutiveFailures).toBe(1);
+        expect(persisted.lastRunAttemptAt).toBe(crashedAttemptAt);
+        // A crashed attempt says nothing about what was ingested; the checkpoint must survive it.
+        expect(persisted.lastIngestedRev).toBe('sha-before');
+
+        // Recovered, therefore consumed: a second sweep must not fold the same corpse twice.
+        expect(await fs.pathExists(inFlightFile)).toBe(false);
+
+        // And the recovered failure must reach the scheduler, not just the manifest — backoff is
+        // the entire point. 1 failure ⇒ 2× cadence from the crashed attempt, still in the future.
+        const repoState = result.details.repos.find(state => state.repoSlug === 'org/lease-repo');
+        expect(repoState.status).toBe('backoff-suppressed');
+        expect(repoState.consecutiveFailures).toBe(1);
+        expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 2 * 60 * 60_000);
+    });
+
     test('atomic manifest write: an interrupted partial temp write never replaces the target (#15763)', async () => {
         const target = path.join(tmpDir, 'fault-injected.json');
         await fs.writeJson(target, {revisions: {'t1/org/keep': {lastIngestedRev: 'sha-keep'}}});

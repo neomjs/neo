@@ -379,6 +379,28 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
  * @see learn/agentos/cloud-deployment/TenantIngestionModel.md
  * @see https://github.com/neomjs/neo/issues/16045
  */
+
+/**
+ * Filename suffix of the in-flight attempt sidecar, resolved beside the revisions manifest.
+ *
+ * Attempt state (`lastRunAttemptAt`, `consecutiveFailures`) is the only input to the backoff
+ * decision, and both used to advance ONLY after the work returned. A failure that prevents
+ * the work from returning — OOM, SIGKILL, host sleep, container stop mid-sweep — therefore
+ * left no record that anything was tried, `due` stayed true, and the lane retried at full
+ * cadence forever. A crash loop is precisely what backoff exists to dampen, and it was the
+ * one failure class where backoff could not engage: the dampening was available only to
+ * failures polite enough to return.
+ *
+ * The record cannot live in the manifest itself. That file is a commit log, and its
+ * commit-point fence is a hard contract: an evicted writer must abort *without writing*, and a
+ * renewal failure must leave no manifest at all. An in-flight attempt is by definition
+ * uncommitted, so it belongs beside the manifest rather than inside it. Sweep start folds any
+ * residue in, at which point it IS a committed fact and travels through the normal path.
+ *
+ * @member {String} IN_FLIGHT_SUFFIX='.in-flight'
+ */
+const IN_FLIGHT_SUFFIX = '.in-flight';
+
 class TenantRepoSyncService extends Base {
     /**
      * Latches the once-per-process inverted-leaf-order warning (runTask boundary): the
@@ -1052,6 +1074,44 @@ class TenantRepoSyncService extends Base {
             );
         }
 
+        // Recover attempts the previous process started and never returned from.
+        // Folded BEFORE the due checks so a crashed attempt dampens the very next decision
+        // rather than one sweep later — the whole point is that a crash loop cannot outrun
+        // its own backoff.
+        const
+            inFlightPath     = this.inFlightAttemptsPath(resolvedRevisionsPath),
+            residualAttempts = await this.readInFlightAttempts({filePath: inFlightPath}),
+            foldedCount      = this.foldInFlightAttempts({
+                attempts: residualAttempts,
+                persistedRevisions,
+                writeLog
+            });
+
+        if (foldedCount > 0) {
+            await leaseGuard();
+            // Commit FIRST, clear second. A crash between the two re-folds the same attempt on
+            // the next boot, which over-counts one failure and dampens harder — the safe
+            // direction. Clearing first would lose the attempt on a crash, which is exactly the
+            // defect this recovers from.
+            await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+            await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
+        }
+
+        // The sidecar is mutated from inside the concurrent per-repo region, so every write is
+        // serialized through one chain. Mirrors the constraint `writePersistedRevisions` already
+        // has: it stages through a single pid-scoped temp path, which concurrent writers would
+        // otherwise race on.
+        let inFlightChain = Promise.resolve();
+
+        const mutateInFlight = update => {
+            inFlightChain = inFlightChain.then(async () => {
+                update(residualAttempts);
+                await this.writeInFlightAttempts({filePath: inFlightPath, attempts: residualAttempts});
+            });
+
+            return inFlightChain
+        };
+
         const repoStates     = [];
         let   completedCount = 0;
         let   failedCount    = 0;
@@ -1224,8 +1284,9 @@ class TenantRepoSyncService extends Base {
                 return;
             }
 
-            let slotAcquired    = false,
-                accessConfirmed = false;
+            let slotAcquired     = false,
+                accessConfirmed  = false,
+                inFlightRecorded = false;
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
@@ -1235,6 +1296,20 @@ class TenantRepoSyncService extends Base {
                 // reclamation) stops here instead of running git work concurrently
                 // with its successor.
                 await leaseGuard();
+
+                // Write-ahead, after the lease fence and before the git phase. Placed here
+                // rather than at the top of syncRepo so a repo that never entered protected
+                // work — not due, revalidation-deferred, or lease-lost at the fence — records
+                // no attempt, matching the lease-lost contract below that deliberately leaves
+                // backoff state untouched for the successor to own.
+                await mutateInFlight(attempts => {
+                    attempts[repoLabel] = {
+                        startedMs,
+                        priorFailures: priorState?.consecutiveFailures ?? 0
+                    };
+                });
+                inFlightRecorded = true;
+
                 writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
 
                 await gitMirror.cloneIfMissing({
@@ -1502,6 +1577,17 @@ class TenantRepoSyncService extends Base {
                 // tenant deployment contract.
             } finally {
                 if (slotAcquired) semaphore.release();
+
+                // Every path that RETURNS clears its own entry — success, caught failure, and
+                // lease-lost abort all pass through here, so this is the single clearing point
+                // for all three. Per-repo rather than one sweep-terminal truncate: with
+                // `concurrencyLimit >= 2`, a crash while repo B is in flight would otherwise
+                // fold repo A's completed attempt into a spurious failure.
+                if (inFlightRecorded) {
+                    await mutateInFlight(attempts => {
+                        delete attempts[repoLabel];
+                    });
+                }
             }
         };
 
@@ -1723,6 +1809,128 @@ class TenantRepoSyncService extends Base {
             }
             return {};
         }
+    }
+
+    /**
+     * Resolves the in-flight attempt sidecar path for a revisions manifest.
+     * @param {String} revisionsFilePath
+     * @returns {String}
+     */
+    inFlightAttemptsPath(revisionsFilePath) {
+        return `${revisionsFilePath}${IN_FLIGHT_SUFFIX}`
+    }
+
+    /**
+     * Reads the in-flight attempt sidecar.
+     *
+     * Fail-OPEN, unlike `readPersistedRevisions`, which fail-closes the lane on a bad manifest.
+     * The asymmetry is deliberate: the manifest is authoritative state whose corruption must
+     * stop the lane, while this file is a best-effort crash hint whose worst outcome is one
+     * unrecorded attempt. Wedging a healthy lane because a crash left a torn hint would trade a
+     * rare missed dampening for a guaranteed outage.
+     *
+     * @param {Object} options
+     * @param {String} options.filePath
+     * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
+     * @returns {Promise<Object<String, {startedMs: Number, priorFailures: Number}>>}
+     */
+    async readInFlightAttempts({filePath, fsModule = fs}) {
+        try {
+            const parsed = await fsModule.readJson(filePath);
+
+            return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {}
+        } catch (e) {
+            return {}
+        }
+    }
+
+    /**
+     * Writes the in-flight attempt sidecar, or removes it once no attempt is outstanding.
+     *
+     * Staged through a temp sibling and renamed, so a concurrent reader sees either the old or
+     * the new document and never a half-written one. Deliberately NOT fsynced, unlike
+     * `writePersistedRevisions`: the failure class this file defends against is process death
+     * (OOM, SIGKILL, container stop), and a dead process leaves the OS page cache intact, so the
+     * rename is already durable enough for the successor that reads it. Paying for fsync on
+     * every repo attempt would buy only power-loss coverage, which this record does not claim.
+     *
+     * @param {Object} options
+     * @param {String} options.filePath
+     * @param {Object<String, {startedMs: Number, priorFailures: Number}>} options.attempts
+     * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
+     * @returns {Promise<void>}
+     */
+    async writeInFlightAttempts({filePath, attempts, fsModule = fs}) {
+        if (Object.keys(attempts).length === 0) {
+            await fsModule.remove(filePath).catch(() => {});
+            return
+        }
+
+        const tmpPath = `${filePath}.tmp-${process.pid}`;
+
+        try {
+            await fsModule.ensureDir(path.dirname(filePath));
+            await fsModule.writeFile(tmpPath, JSON.stringify(attempts, null, 2) + '\n');
+            await fsModule.rename(tmpPath, filePath);
+        } catch (e) {
+            // Best-effort by contract: a sidecar write failure must not fail a repo whose actual
+            // sync is fine. The cost is exactly one unrecorded attempt — the same price the
+            // write-behind behaviour paid on every crash — so failing the run here would be
+            // strictly worse than the defect this record exists to fix.
+            await fsModule.remove(tmpPath).catch(() => {});
+        }
+    }
+
+    /**
+     * Folds residue left by a sweep that never returned into the persisted revision state.
+     *
+     * A residual entry means the previous process started that repo's protected work and died
+     * before any return path could record the outcome. Treating it as a failure is the
+     * conservative reading and the correct one: the attempt provably consumed a cadence window
+     * and provably did not succeed, so it must both advance `lastRunAttemptAt` and grow the
+     * backoff term. Mutates `persistedRevisions` in place; the caller commits it.
+     *
+     * @param {Object} options
+     * @param {Object<String, {startedMs: Number, priorFailures: Number}>} options.attempts
+     * @param {Object} options.persistedRevisions Mutated in place.
+     * @param {Function} [options.writeLog]
+     * @returns {Number} Count of folded attempts.
+     */
+    foldInFlightAttempts({attempts, persistedRevisions, writeLog}) {
+        let folded = 0;
+
+        for (const [repoLabel, attempt] of Object.entries(attempts)) {
+            const startedMs = Number(attempt?.startedMs);
+
+            if (!Number.isFinite(startedMs)) continue;
+
+            const
+                priorState = persistedRevisions[repoLabel] || null,
+                // The failure count the crashed attempt itself observed. Preferred over the
+                // committed one because a crash loop never commits, so reading the manifest
+                // would re-derive the same base every restart and the term would never grow.
+                priorFailures = Number.isFinite(Number(attempt?.priorFailures))
+                    ? Number(attempt.priorFailures)
+                    : (priorState?.consecutiveFailures ?? 0);
+
+            persistedRevisions[repoLabel] = {
+                ...priorState,
+                // Preserved explicitly: a crashed attempt establishes nothing about what was
+                // ingested, so the checkpoint it inherited remains the correct base.
+                lastIngestedRev    : priorState?.lastIngestedRev || null,
+                lastRunAttemptAt   : startedMs,
+                consecutiveFailures: priorFailures + 1,
+                lastErrorCode      : KB_TENANT_REPO_SYNC_SYNC_FAILED,
+                lastSourceErrorCode: null,
+                lastAccessCode     : null,
+                lastErrorAt        : startedMs
+            };
+
+            folded++;
+            writeLog?.('WARN', `[TenantRepoSync] ${repoLabel} did not return from its previous attempt (started ${new Date(startedMs).toISOString()}); recording it as a failure so backoff can engage.`);
+        }
+
+        return folded
     }
 
     /**
