@@ -42,24 +42,22 @@ class GalleryModel extends Model {
     onContainerClick() {
         let me       = this,
             {view}   = me,
-            oldItems = [...me.items],
-            deltas   = [];
+            oldItems = [...me.items];
 
+        // Was a hand-rolled delta list pushed through Neo.applyDeltas. That writes the DOM directly
+        // and never touches the vdom, so clearing the selection left every item still carrying
+        // neo-selected AND aria-selected in the vdom — invisible until the next differ pass, which
+        // would then have re-asserted the styling this method exists to remove. deannotateItem owns
+        // both halves of the annotation, so routing through it keeps the two trees agreeing.
         me.items.forEach(item => {
-            deltas.push({
-                id : view.getItemVnodeId(item),
-                cls: {
-                    add   : [],
-                    remove: ['neo-selected']
-                }
-            });
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)))
         });
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.windowId, deltas).then(() => {
-            me.fire('selectionChange', me.items, oldItems)
-        })
+        view.update();
+
+        me.fire('selectionChange', me.items, oldItems)
     }
 
     /**

@@ -134,7 +134,12 @@ class Model extends Base {
         item = me.getSelectionItemId(item);
 
         if (itemCollection.includes(item)) {
-            me.deannotateItem(view.getVdomChild(item), selectedCls);
+            // Through getItemVdomId, exactly as select() and restoreSelection() do. A subclass whose
+            // items are not their own vdom ids (Gallery, Helix: the vnode id is prefixed) resolved
+            // correctly on the way in and, before this, raw on the way out — so the lookup missed, the
+            // node came back null, and the deannotation was a silent no-op that left the item styled
+            // and aria-selected while the collection said it was gone.
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)), selectedCls);
 
             NeoArray.remove(itemCollection, item);
 

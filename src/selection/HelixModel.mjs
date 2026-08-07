@@ -42,24 +42,21 @@ class HelixModel extends Model {
     onContainerClick() {
         let me       = this,
             {view}   = me,
-            oldItems = [...me.items],
-            deltas   = [];
+            oldItems = [...me.items];
 
+        // Same correction as GalleryModel.onContainerClick, for the same reason: the previous
+        // Neo.applyDeltas list wrote the DOM and left the vdom still annotated, so the two trees
+        // disagreed about what was selected. deannotateItem removes both neo-selected and
+        // aria-selected, and the differ carries it.
         me.items.forEach(item => {
-            deltas.push({
-                id : view.getItemVnodeId(item),
-                cls: {
-                    add   : [],
-                    remove: ['neo-selected']
-                }
-            });
+            me.deannotateItem(view.getVdomChild(me.getItemVdomId(item)))
         });
 
         me.items.splice(0, me.items.length);
 
-        Neo.applyDeltas(view.windowId, deltas).then(() => {
-            me.fire('selectionChange', me.items, oldItems)
-        })
+        view.update();
+
+        me.fire('selectionChange', me.items, oldItems)
     }
 
     /**

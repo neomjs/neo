@@ -266,5 +266,50 @@ test.describe('Gallery / Helix selection across an item rebuild', () => {
 
         expect(itemNode('item-2').cls).toContain('neo-selected');
         expect(itemNode('item-2')['aria-selected']).toBe(true);
-    })
+    });
+
+    // ---------------------------------------------------------------------------------------------
+    // The INVERSE contract (@neo-gpt, exact-head falsifier). Everything above proves the annotation
+    // arrives; none of it proved it LEAVES. Both un-select paths moved `items` to empty while the
+    // prefixed node kept `neo-selected` and `aria-selected` — a collection and a tree disagreeing
+    // about what is selected, which is the same defect as the missing restore pointing the other way.
+    //
+    // Two distinct causes, so two tests per model rather than one: `deselect` resolved the raw id
+    // instead of the prefixed one, and `onContainerClick` wrote deltas straight to the DOM through
+    // `Neo.applyDeltas`, never touching the vdom at all.
+    // ---------------------------------------------------------------------------------------------
+
+    for (const [name, ModelClass] of [['GalleryModel', GalleryModel], ['HelixModel', HelixModel]]) {
+        test(`${name}: the inherited deselect strips CSS + ARIA from the prefixed node`, () => {
+            const model = mount(ModelClass);
+
+            model.select('item-2');
+
+            // Control: without this the assertions below pass on a node that was never annotated.
+            expect(itemNode('item-2').cls).toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBe(true);
+
+            model.deselect('item-2');
+
+            expect(model.items).toHaveLength(0);
+            expect(itemNode('item-2').cls).not.toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBeFalsy();
+        });
+
+        test(`${name}: onContainerClick clears the vdom, not just the DOM`, () => {
+            const model = mount(ModelClass);
+
+            model.select('item-2');
+            expect(itemNode('item-2').cls).toContain('neo-selected');
+
+            model.onContainerClick();
+
+            expect(model.items).toHaveLength(0);
+
+            // The half `Neo.applyDeltas` could never reach. A DOM-only clear leaves these set, and the
+            // next differ pass would re-assert the styling this method exists to remove.
+            expect(itemNode('item-2').cls).not.toContain('neo-selected');
+            expect(itemNode('item-2')['aria-selected']).toBeFalsy();
+        });
+    }
 });
