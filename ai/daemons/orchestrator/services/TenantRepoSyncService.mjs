@@ -40,7 +40,8 @@ import {
 } from './heavyMaintenanceLeasePrimitives.mjs';
 import {
     enterLifecycleGuard,
-    exitLifecycleGuard
+    exitLifecycleGuard,
+    verifyLifecycleGuardOwnership
 } from '../../shared/lifecycleGuard.mjs';
 import {
     classifyTenantRepoCheckpoint,
@@ -1084,24 +1085,75 @@ class TenantRepoSyncService extends Base {
         // Folded BEFORE the due checks so a crashed attempt dampens the very next decision
         // rather than one sweep later — the whole point is that a crash loop cannot outrun
         // its own backoff.
-        const
-            inFlightPath     = this.inFlightAttemptsPath(resolvedRevisionsPath),
-            residualAttempts = await this.readInFlightAttempts({filePath: inFlightPath}),
-            foldedCount      = this.foldInFlightAttempts({
-                attempts: residualAttempts,
-                persistedRevisions,
-                writeLog
-            });
+        const inFlightPath = this.inFlightAttemptsPath(resolvedRevisionsPath);
 
-        if (foldedCount > 0) {
-            await leaseGuard();
-            // Commit FIRST, clear second. A crash between the two re-folds the same attempt on
-            // the next boot, which over-counts one failure and dampens harder — the safe
-            // direction. Clearing first would lose the attempt on a crash, which is exactly the
-            // defect this recovers from.
+        /**
+         * Runs `work` inside the lease's own lifecycle guard, which is the only mutex that orders
+         * sidecar mutation against lease ACQUISITION — a sidecar-only lock would serialize writers
+         * while a successor took the lease underneath them.
+         *
+         * `work` receives an `assertStillOwned` probe it MUST await immediately before mutating.
+         * That is the guard's documented contract, not belt-and-braces: a holder stalled past
+         * `guardStaleAfterMs` can be legitimately evicted, and a resumed evicted holder has to
+         * DEFER rather than write.
+         *
+         * @param {Function} work Receives `assertStillOwned`; returns nothing meaningful.
+         * @returns {Promise<Boolean>} Whether the transaction committed.
+         */
+        const withSidecarTransaction = async work => {
+            let guard = null;
+
+            try {
+                if (leasePath) {
+                    guard = await enterLifecycleGuard({leasePath, fsModule: fs});
+
+                    // FAIL CLOSED. `enterLifecycleGuard` returns null once its bounded retry
+                    // budget is exhausted, and falling through would run the read-merge-write
+                    // unguarded — precisely the interleaving the guard exists to prevent, and
+                    // exactly when contention proves another actor is live. Skipping costs one
+                    // unrecorded attempt; proceeding costs the invariant.
+                    if (!guard) return false;
+                }
+
+                await leaseGuard();
+
+                const assertStillOwned = async () => !guard ||
+                    await verifyLifecycleGuardOwnership({ownerFilePath: guard.ownerFilePath, fsModule: fs});
+
+                await work(assertStillOwned);
+                return true
+            } catch (e) {
+                // Swallowed rather than propagated: losing a sidecar write costs one unrecorded
+                // attempt, whereas throwing from the per-repo `finally` would mask the real error
+                // the repo failed with.
+                return false
+            } finally {
+                if (guard) {
+                    await exitLifecycleGuard({ownerFilePath: guard.ownerFilePath, fsModule: fs}).catch(() => {});
+                }
+            }
+        };
+
+        // Recover attempts the previous process started and never returned from. Read AND folded
+        // inside the guard: a fold that read outside it could consume residue a live successor was
+        // still writing. Folded BEFORE the due checks so a crashed attempt dampens the very next
+        // decision rather than one sweep later — a crash loop must not outrun its own backoff.
+        await withSidecarTransaction(async assertStillOwned => {
+            const residualAttempts = await this.readInFlightAttempts({filePath: inFlightPath});
+
+            if (this.foldInFlightAttempts({attempts: residualAttempts, persistedRevisions, writeLog}) === 0) {
+                return;
+            }
+
+            if (!await assertStillOwned()) return;
+
+            // Commit FIRST, clear second. A crash between the two re-folds the same attempt on the
+            // next boot, which over-counts one failure and dampens harder — the safe direction.
+            // Clearing first would lose the attempt on a crash, which is the defect this recovers
+            // from.
             await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
             await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
-        }
+        });
 
         // The live in-flight map is a FRESH object, never the recovery snapshot. Reusing
         // `residualAttempts` as the live map republished entries the fold had already consumed:
@@ -1130,31 +1182,15 @@ class TenantRepoSyncService extends Base {
             inFlightChain = inFlightChain.then(async () => {
                 update(inFlightAttempts);
 
-                // Held across BOTH the ownership re-inspection and the sidecar read-merge-write.
-                //
-                // A sidecar-only mutex would serialize sidecar writers and still let lease
-                // ACQUISITION interleave, so it could not establish generation authority — the
-                // successor would take the lease legitimately while we were mid-transaction. The
-                // lease's own lifecycle guard is the mutex that orders both, which is what makes
-                // "the run that owns the lease owns the sidecar" true rather than probable.
-                //
-                // Without it, `leaseGuard()` then write is check-then-act: earlier revisions of
-                // this code fenced harder and only MOVED the window (check→write became
-                // read→write). A lock that does not span the read and the write cannot close it.
-                let guard = null;
-
-                try {
-                    if (leasePath) {
-                        guard = await enterLifecycleGuard({leasePath, fsModule: fs});
-                    }
-
-                    await leaseGuard();
-
+                // Read-merge-write inside the same guard the fold uses. Without it, `leaseGuard()`
+                // then write is check-then-act: earlier revisions fenced harder and only MOVED the
+                // window (check→write became read→write). A lock that does not span the read and
+                // the write cannot close it.
+                await withSidecarTransaction(async assertStillOwned => {
                     // Merge against live state rather than publishing this sweep's whole view.
                     // Entries owned by another run are carried forward untouched; only our own are
                     // written or removed. `runId` is defence-in-depth for the residual the guard's
-                    // own contract admits: a holder stalled past `guardStaleAfterMs` can be evicted
-                    // and resume inside the verify→syscall gap.
+                    // own contract admits.
                     const
                         live   = await this.readInFlightAttempts({filePath: inFlightPath}),
                         merged = {};
@@ -1167,16 +1203,10 @@ class TenantRepoSyncService extends Base {
                         merged[label] = entry;
                     }
 
+                    if (!await assertStillOwned()) return;
+
                     await this.writeInFlightAttempts({filePath: inFlightPath, attempts: merged});
-                } catch (e) {
-                    // Swallowed rather than propagated: losing a sidecar write costs one unrecorded
-                    // attempt, whereas throwing from the per-repo `finally` would mask the real
-                    // error the repo failed with.
-                } finally {
-                    if (guard) {
-                        await exitLifecycleGuard({ownerFilePath: guard.ownerFilePath, fsModule: fs}).catch(() => {});
-                    }
-                }
+                });
             });
 
             return inFlightChain

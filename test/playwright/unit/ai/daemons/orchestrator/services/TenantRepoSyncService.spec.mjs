@@ -3605,6 +3605,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     test('successor acquisition is refused while the predecessor holds the guard mid-transaction (#16551)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            successorEntry   = {startedMs: 2000, priorFailures: 1, runId: 'successor-run'},
             originalRead     = TenantRepoSyncService.readInFlightAttempts.bind(TenantRepoSyncService);
 
         let readCount = 0, releasePredecessor, markPaused;
@@ -3657,6 +3659,27 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
             releasePredecessor();
             await invocation;
+
+            // Release -> retry. The refusal must be TEMPORARY: a guard that is entered and never
+            // exited would refuse forever, which passes the assertion above while deadlocking the
+            // lane. This is the half that tells those two apart.
+            const retry = await acquireHeavyMaintenanceLease({
+                leasePath   : leaseFilePath(),
+                owner       : 'tenant-repo-sync:successor',
+                reason      : 'tenant-repo-sync',
+                staleAfterMs: 60_000
+            });
+
+            expect(
+                retry.acquired,
+                'the successor still cannot acquire after the predecessor finished — the guard was ' +
+                'entered and not exited, so the refusal above was a deadlock rather than mutual exclusion'
+            ).toBe(true);
+
+            // And the successor's own record, written under the SAME label, is exactly what a
+            // later reader sees: the predecessor left no residue behind to be folded again.
+            await fs.writeJson(inFlightFile, {'t1/org/lease-repo': successorEntry});
+            expect(await fs.readJson(inFlightFile)).toEqual({'t1/org/lease-repo': successorEntry});
         } finally {
             TenantRepoSyncService.readInFlightAttempts = originalRead;
         }
