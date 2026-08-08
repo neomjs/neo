@@ -23,6 +23,88 @@ export const DEFAULT_URL = 'http://127.0.0.1:3000';
 export const DEFAULT_TIMEOUT_MS = 8000;
 
 /**
+ * @summary Separates the two incompatible meanings a probe timeout currently carries: the SERVICE
+ * did not answer, or this PROBE never got enough CPU to ask.
+ *
+ * ## Why one exit code was not enough
+ *
+ * A Docker healthcheck failure is a single bit, and two unrelated causes produce it:
+ *
+ * 1. **The service did not answer.** The process is up and the socket accepts, but no response
+ *    comes — a live-but-unreachable wedge.
+ * 2. **The probe could not run.** Under heavy CPU contention a Node cold start can consume the
+ *    whole wait budget before the request is even issued. The service is fine; the box is not.
+ *
+ * Nothing in the old output distinguished them, so the same red was read as an instrument artifact
+ * on one ticket and as a genuine wedge on another. Telling them apart required leaving the probe
+ * entirely — running a `curl` that spawns no Node and seeing whether IT also hung.
+ *
+ * ## Why the rule is `startupMs >= timeoutMs` and not a tuned fraction
+ *
+ * Measured on an 18-core host, this probe's startup is **0.25–0.36s idle** and only **~1.1s at
+ * `--cpus=0.1`** — one tenth of a single core. Reaching an 8000ms startup therefore takes roughly
+ * `--cpus=0.015`: catastrophic starvation, not ordinary load.
+ *
+ * That deliberately conservative bar is the point. `probe-starved` is claimed ONLY when startup
+ * alone outlasted the entire budget the probe was allowed to wait — an unambiguous fact needing no
+ * tuned constant, and no threshold anyone has to re-derive when hardware changes.
+ *
+ * **The asymmetry is intentional.** Being slow to call a starved probe starved costs a confusing
+ * log line. Being eager would let a real wedge be dismissed as contention — and a live-but-
+ * unreachable Memory Core, observed three times, presents with a healthy listener and a socket
+ * that still accepts. Ambiguity resolves toward `service-unresponsive`, never away from it.
+ * @param {Object} options
+ * @param {Number} options.startupMs How long this process took to become ready to issue the request.
+ * @param {Number} options.timeoutMs The per-operation budget the probe was allowed.
+ * @param {String} options.phase Which bounded operation exceeded its budget.
+ * @returns {Object} `{verdict: 'probe-starved'|'service-unresponsive', startupMs, timeoutMs, phase, reason}`
+ */
+export function classifyProbeFailure({startupMs, timeoutMs, phase}) {
+    const starved = Number.isFinite(startupMs) && Number.isFinite(timeoutMs) && startupMs >= timeoutMs;
+
+    return {
+        verdict: starved ? 'probe-starved' : 'service-unresponsive',
+        startupMs,
+        timeoutMs,
+        phase,
+        reason : starved
+            ? `this probe took ${Math.round(startupMs)}ms just to become ready — longer than the ` +
+              `${timeoutMs}ms it was then allowed to wait. The host could not schedule it; this is ` +
+              'evidence about the BOX, not about the service.'
+            : `this probe was ready after ${Math.round(startupMs)}ms, well inside its ${timeoutMs}ms ` +
+              `budget, and then ${phase} still produced nothing. The service did not answer.`
+    }
+}
+
+/**
+ * @summary Attaches a timing verdict to a TIMEOUT failure, and to nothing else.
+ *
+ * Scoped deliberately narrowly. A 401, a protocol error, a wrong-plane rejection, or a refused
+ * connection are all definite answers — the service replied, it simply replied badly — and
+ * labelling them `service-unresponsive` would blur a diagnosis that is already precise. Only the
+ * budget-exceeded case is ambiguous between the box and the service, so only it is classified.
+ *
+ * The predicate keys off the message `withAbortableTimeout` itself produces, so it cannot
+ * accidentally match an SDK error that merely mentions a timeout in prose.
+ * @param {Error}  error The rejection from a bounded operation.
+ * @param {Object} context `{startupMs, timeoutMs, phase}`.
+ * @returns {Error} The same error, annotated with `.probeTiming` and an extended message when it
+ * was a budget timeout; otherwise returned untouched.
+ */
+export function annotateTimeout(error, {startupMs, timeoutMs, phase}) {
+    if (!error?.message?.includes(`timed out after ${timeoutMs}ms`)) {
+        return error;
+    }
+
+    const timing = classifyProbeFailure({startupMs, timeoutMs, phase});
+
+    error.probeTiming = timing;
+    error.message     = `${error.message}\n[${timing.verdict}] ${timing.reason}`;
+
+    return error
+}
+
+/**
  * @summary Bounds an MCP SDK operation and aborts the underlying HTTP transport on timeout.
  * @param {Promise} promise Operation promise returned by the SDK.
  * @param {Number} timeoutMs Maximum wait time before rejecting.
@@ -276,7 +358,12 @@ export async function runHealthcheck({
     mcpPath               = '/mcp',
     timeoutMs             = DEFAULT_TIMEOUT_MS,
     ClientClass           = Client,
-    TransportClass        = StreamableHTTPClientTransport
+    TransportClass        = StreamableHTTPClientTransport,
+    // Time from process start to "ready to issue the request". `process.uptime()` is the only
+    // source that spans module loading, which is the cost contention actually inflates — a clock
+    // read inside this function would start after the expensive part had already happened.
+    // Injected as a seam so specs can drive starvation without one.
+    uptimeMs              = () => process.uptime() * 1000
 }) {
     const baseUrl         = new URL(url);
     const headers         = buildHeaders({identity, bearerToken});
@@ -296,20 +383,25 @@ export async function runHealthcheck({
         capabilities: {}
     });
 
+    // Captured BEFORE the first bounded operation: everything up to here — interpreter start, the
+    // SDK module graph, arg parsing — is cost the service had no part in, and it is exactly what
+    // CPU contention inflates. Reading it after a failure would be too late; the abort has fired.
+    const startupMs = uptimeMs();
+
     try {
         await withAbortableTimeout(
             client.connect(transport),
             timeoutMs,
             'MCP healthcheck connect',
             abortController
-        );
+        ).catch(error => { throw annotateTimeout(error, {startupMs, timeoutMs, phase: 'connect'}) });
 
         const result = await withAbortableTimeout(
             client.callTool({name: 'healthcheck', arguments: {}}),
             timeoutMs,
             'MCP healthcheck tool call',
             abortController
-        );
+        ).catch(error => { throw annotateTimeout(error, {startupMs, timeoutMs, phase: 'tool call'}) });
 
         if (result?.isError) {
             throw new Error('MCP healthcheck tool returned isError=true.');
@@ -330,7 +422,14 @@ export async function runHealthcheck({
         return {
             status: health.status,
             url   : baseUrl.toString(),
-            ...(plane ? {plane} : {})
+            ...(plane ? {plane} : {}),
+            // Emitted on SUCCESS too, not only on failure. A starvation verdict is only readable
+            // against a baseline, and the baseline has to come from the same probe on the same box
+            // — a healthy run is the only place it can be recorded. Docker keeps the last few
+            // health-log entries, so the passing runs before an incident carry the comparison that
+            // makes the failing one interpretable. Without this, the first evidence of contention
+            // is the failure itself, which is exactly when it can no longer be measured.
+            timings: {startupMs: Math.round(startupMs), timeoutMs}
         };
     } finally {
         await client.close?.();
