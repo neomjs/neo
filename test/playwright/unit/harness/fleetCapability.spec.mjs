@@ -4,7 +4,7 @@ import {
     projectPublicAgentIntent,
     projectPublicCredentialIntent
 } from '../../../../harness/fleetCapability.mjs';
-import {FLEET_CREDENTIAL_METHODS, FLEET_WIRE_METHODS} from '../../../../src/ai/fleet/fleetWireMethods.mjs';
+import {FLEET_CREDENTIAL_METHODS, FLEET_WIRE_METHODS} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
 
 const bearerToken = 'B'.repeat(43);
 

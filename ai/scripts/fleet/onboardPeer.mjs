@@ -3,7 +3,7 @@ import * as acorn                  from 'acorn';
 import {execFileSync}              from 'node:child_process';
 import path                        from 'node:path';
 import {fileURLToPath}             from 'node:url';
-import {createFleetRegistryBridge} from '../../../src/ai/fleet/createFleetRegistryBridge.mjs';
+import {createFleetRegistryBridge} from '../../services/fleet/createFleetRegistryBridge.mjs';
 
 import {LAUNCHABLE_HARNESS_TYPES, getHarnessAuthMode} from '../../services/fleet/deriveHarnessLaunchSpec.mjs';
 import {normalizeAgentIdentityNodeId}                 from '../../graph/normalizeAgentIdentityNodeId.mjs';

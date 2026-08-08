@@ -1,17 +1,15 @@
 /**
- * The ONE harness-type authority — the durable key set AND the product-language labels, shared
- * across the hemispheres exactly like {@link module:src/ai/fleet/fleetWireMethods}: the Brain's
+ * The harness-type AUTHORITY (Brain-side) — the durable key set AND the product-language labels:
  * `FleetRegistryService` validates `defineAgent`/`configureAgent` input against these keys, and
- * the Body's account/configuration surfaces derive their pickers and card labels from the same
- * entries. Adding a harness IS one registration here — a second list anywhere is the drift this
- * module exists to prevent.
- *
- * **Dependency-free by design** — imported by both Node modules and App-Worker (browser) modules,
- * so it MUST NOT pull in any Node-only or framework chain.
+ * `deriveHarnessLaunchSpec` binds its launch vocabulary to them. Adding a harness IS one
+ * registration here, mirrored into the cockpit's operable-cold twin
+ * (`apps/agentos/config/harnessTypes.mjs`) in the same commit —
+ * `ai/scripts/lint/lint-fleet-vocabulary-parity.mjs` deep-equals entries and helper behavior, so
+ * a second DRIFTING list cannot exist. The Body never imports this module.
  *
  * Entry order is the DISPLAY order (product decision: Codex first = the add-form default);
- * validation is order-blind.
- * @summary Shared Body↔Brain harness-type registry: durable keys + product labels.
+ * validation is order-blind. Dependency-free by design — pure data + pure functions only.
+ * @summary The harness-type authority: durable keys + product labels.
  */
 
 /**

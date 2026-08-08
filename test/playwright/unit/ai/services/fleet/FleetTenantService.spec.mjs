@@ -27,7 +27,7 @@ import FleetTenantService, {
 import FleetRegistryService   from '../../../../../../ai/services/fleet/FleetRegistryService.mjs'
 import FleetControlBridge     from '../../../../../../ai/services/fleet/FleetControlBridge.mjs'
 import {dispatchFleetRequest} from '../../../../../../ai/services/fleet/dispatchFleetRequest.mjs'
-import {FLEET_WIRE_METHODS}   from '../../../../../../src/ai/fleet/fleetWireMethods.mjs'
+import {FLEET_WIRE_METHODS}   from '../../../../../../ai/services/fleet/fleetWireMethods.mjs'
 
 const PAT = 'glpat-SUPER-SECRET-tenant-credential-42'
 

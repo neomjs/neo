@@ -9,7 +9,7 @@ import {
     REMOTE_MCP_CREDENTIAL_ENV_VAR,
     resolveMcpMatrix,
     supportsTenantMcpTarget
-} from '../../../src/ai/fleet/mcpServers.mjs';
+} from './mcpServers.mjs';
 import {deriveAgentInstanceHome}                           from './deriveAgentInstanceHome.mjs';
 import {LAUNCHABLE_HARNESS_TYPES}                          from './deriveHarnessLaunchSpec.mjs';
 import {KIMI_SEAT_SERVERS, generateKimiSeatConfig}         from './generateKimiSeatConfig.mjs';

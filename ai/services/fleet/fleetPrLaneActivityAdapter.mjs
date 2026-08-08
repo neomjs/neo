@@ -1,7 +1,7 @@
 import {
     createFleetCockpitEvent,
     FLEET_COCKPIT_SOURCES
-} from '../../../src/ai/fleet/fleetCockpitStatus.mjs'
+} from './fleetCockpitStatus.mjs'
 import {
     extractIssueCommentBlocks,
     getPrDeferDisposition,

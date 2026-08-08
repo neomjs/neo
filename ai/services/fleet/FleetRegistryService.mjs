@@ -4,12 +4,12 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 import aiConfig        from '../../config.mjs';
 import Base            from '../../../src/core/Base.mjs';
-import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
+import {HARNESS_TYPES} from './harnessTypes.mjs';
 import {
     normalizeMcpOverrides,
     normalizeMcpTarget,
     supportsTenantMcpTarget
-} from '../../../src/ai/fleet/mcpServers.mjs';
+} from './mcpServers.mjs';
 
 const
     __filename              = fileURLToPath(import.meta.url),
@@ -226,7 +226,7 @@ class FleetRegistryService extends Base {
 
     /**
      * Whitelist of supported harness types an agent definition may declare — derived from the ONE
-     * shared Body↔Brain registry (`src/ai/fleet/harnessTypes.mjs`): adding a harness there updates
+     * harness-type authority (`./harnessTypes.mjs`, app twin lint-bound): adding a harness there updates
      * this validation set AND every Body picker/label in the same registration.
      * @member {String[]} harnessTypes
      * @protected

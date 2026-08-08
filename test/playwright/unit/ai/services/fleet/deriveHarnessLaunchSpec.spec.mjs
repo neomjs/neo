@@ -1,5 +1,5 @@
 import {test, expect}                                                          from '@playwright/test';
-import {HARNESS_TYPES}                                                         from '../../../../../../src/ai/fleet/harnessTypes.mjs';
+import {HARNESS_TYPES}                                                         from '../../../../../../ai/services/fleet/harnessTypes.mjs';
 import {LAUNCHABLE_HARNESS_TYPES, deriveHarnessLaunchSpec, getHarnessAuthMode} from '../../../../../../ai/services/fleet/deriveHarnessLaunchSpec.mjs';
 
 // Pure function — imported directly (no fs / spawn / env / Neo runtime), so the suite has no
@@ -119,7 +119,7 @@ test.describe('deriveHarnessLaunchSpec (per-family harness launch templates)', (
         expect(registered.size).toBe(HARNESS_TYPES.length);
         expect(HARNESS_TYPES.filter(entry => entry.type === 'codex-desktop')).toHaveLength(1);
         for (const type of LAUNCHABLE_HARNESS_TYPES) {
-            expect(registered.has(type), `'${type}' must be registered in src/ai/fleet/harnessTypes.mjs`).toBe(true);
+            expect(registered.has(type), `'${type}' must be registered in ai/services/fleet/harnessTypes.mjs`).toBe(true);
         }
         expect(registered.has('native-neo')).toBe(true);
         expect(LAUNCHABLE_HARNESS_TYPES).not.toContain('native-neo');

@@ -29,9 +29,11 @@ export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
 ])
 
 /**
- * @summary Source labels for the Fleet Manager cockpit DTO. These labels are deliberately stable and
- * transport-agnostic: the Body-side cockpit can explain which live substrate produced each row or
- * event without importing the Node-only FleetControlBridge / registry / lifecycle service chain.
+ * @summary Source labels for the Fleet Manager cockpit DTO — the AUTHORITY. These labels are
+ * deliberately stable and transport-agnostic: the Body-side cockpit explains which live substrate
+ * produced each row or event via its operable-cold twin
+ * (`apps/agentos/config/cockpitSources.mjs`, bound by the vocabulary-parity lint) — it
+ * never imports this Node-side module chain.
  * @type {Object}
  */
 export const FLEET_COCKPIT_SOURCES = Object.freeze({...WIRE_SOURCES})
@@ -120,17 +122,17 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                 // Launch-derived truth stamped by the Brain-side assembler (fleetRoster) — hoisted
                 // like the identity facts below, tri-state honest: null = not stamped/unknown
                 // ("not read back yet"), never a guessed boolean. This pure map derives nothing.
-                launchable : publicAgent.launchable ?? null,
-                authMode   : publicAgent.authMode ?? null,
+                launchable: publicAgent.launchable ?? null,
+                authMode  : publicAgent.authMode ?? null,
                 // Open assigned lanes for the resident, stamped by a Brain-side enricher when one
                 // exists — the roster DTO OWNS this field end-to-end (assembler → cockpit record →
                 // card badge). Same tri-state honesty as `launchable`: null = no enricher has
                 // stamped a count, and the card renders NO badge then — never a fabricated zero.
                 openLaneCount: publicAgent.openLaneCount ?? null,
-                displayName: publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
-                avatarUrl  : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
-                family     : publicAgent.family ?? null,
-                engineTag  : publicAgent.engineTag ?? null,
+                displayName  : publicAgent.displayName ?? publicAgent.name ?? publicAgent.githubUsername ?? agentId ?? null,
+                avatarUrl    : publicAgent.metadata?.avatarUrl ?? githubAvatarUrl(publicAgent.githubUsername),
+                family       : publicAgent.family ?? null,
+                engineTag    : publicAgent.engineTag ?? null,
                 // The AUTHORITATIVE swarm-participation fact, resolved Brain-side through the ONE
                 // identity join seam — hoisted so fleet-level control eligibility can exclude an
                 // operator-benched identity. Tri-state: null = no identity root / not stamped.

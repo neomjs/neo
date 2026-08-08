@@ -1,4 +1,4 @@
-import {FLEET_COCKPIT_SOURCES} from '../../../../src/ai/fleet/fleetCockpitStatus.mjs';
+import {FLEET_COCKPIT_SOURCES} from '../../config/cockpitSources.mjs';
 
 /**
  * @summary Closed source-health contract shared by the Fleet cockpit's store-backed cards and

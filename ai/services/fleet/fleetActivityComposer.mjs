@@ -1,6 +1,6 @@
 import {DEFAULT_FLEET_ACTIVITY_EVENT_LIMIT} from './fleetPrLaneActivityAdapter.mjs';
 import {redactCredentials}                  from './redactCredentials.mjs';
-import {FLEET_COCKPIT_SOURCES}              from '../../../src/ai/fleet/fleetCockpitStatus.mjs';
+import {FLEET_COCKPIT_SOURCES}              from './fleetCockpitStatus.mjs';
 
 /**
  * @module ai/services/fleet/fleetActivityComposer

@@ -8,10 +8,13 @@ import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
  * through `send` and unwrapping the `{ok, result|error}` envelope (resolving `result`, throwing on
  * `error`).
  *
- * The browser-side (App-Worker) counterpart to the Node-side `dispatchFleetRequest`: both bind to the
- * same {@link FLEET_WIRE_METHODS} SSOT, so the client cannot call a method the server won't route.
- * **Dependency-light by design** — it imports only the dep-free wire-method list, never the Node-only
- * FleetControlBridge / crypto / fs chain, so it is safe to load in the App Worker.
+ * The NODE-side client factory (CLI tools like `ai/scripts/fleet/onboardPeer.mjs`, integration
+ * specs), binding the same {@link FLEET_WIRE_METHODS} authority `dispatchFleetRequest` validates
+ * against — a client built here cannot call a method the server won't route. The BROWSER does not
+ * import this module: `apps/agentos/fleet/installFleetBridge.mjs` generates its own proxy map over
+ * the app's wire-method twin, and the vocabulary-parity lint keeps the two lists identical
+ * **Dependency-light by design** — it imports only the dep-free wire-method list, never
+ * the Node-only FleetControlBridge / crypto / fs chain.
  *
  * @param {Function} send A transport sender: `({method, params}) => Promise<{ok:Boolean, result?:*, error?:String}>`.
  * @returns {Object} the registry bridge — one async method per {@link FLEET_WIRE_METHODS} entry

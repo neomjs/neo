@@ -1,4 +1,4 @@
-import {FLEET_COCKPIT_SOURCES}        from '../../../src/ai/fleet/fleetCockpitStatus.mjs'
+import {FLEET_COCKPIT_SOURCES}        from './fleetCockpitStatus.mjs'
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs'
 import {redactCredentials}            from './redactCredentials.mjs'
 

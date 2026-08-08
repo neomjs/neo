@@ -1,12 +1,14 @@
 /**
- * The ONE Fleet Manager MCP-server authority, shared across the Body and Brain. Durable keys,
- * operator labels, and defaults live here so the registry validates the same vocabulary the
- * Accounts surface renders. The persisted value is always a SPARSE override object: `null` means
- * every current catalog default applies.
+ * The Fleet Manager MCP-server AUTHORITY (Brain-side): durable keys, operator labels, defaults,
+ * and the sparse-override validation the registry enforces. The persisted value is always a
+ * SPARSE override object: `null` means every current catalog default applies.
  *
- * **Dependency-free by design** — this module is imported by both Node services and App-Worker
- * modules and MUST NOT pull in either a Node-only or framework dependency chain.
- * @summary Shared Body↔Brain MCP catalog plus sparse override projection and validation.
+ * **The Body never imports this module.** The cockpit's operable-cold render/form twin is
+ * `apps/agentos/config/mcpServers.mjs` — same vocabulary and shared pure helpers, bound to this
+ * authority by `ai/scripts/lint/lint-fleet-vocabulary-parity.mjs` (drift = red CI). The
+ * engine tree (`src/`) carries no FM vocabulary; the wire (FleetControlBridge) carries the live
+ * catalog at runtime. Dependency-free by design — pure data + pure functions only.
+ * @summary The FM MCP catalog authority plus sparse override projection and validation.
  */
 
 /**

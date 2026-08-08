@@ -67,6 +67,7 @@
         "ai:purge-test-collections"            : "node ./ai/scripts/maintenance/purgeTestCollections.mjs",
         "ai:lint-agents"                       : "node ./ai/scripts/lint/lint-agents.mjs",
         "ai:lint-config-template-ssot"         : "node ./ai/scripts/lint/lint-config-template-ssot.mjs",
+        "ai:lint-fleet-vocabulary-parity"      : "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
         "ai:lint-guides"                       : "node ./ai/scripts/lint/lint-guides.mjs",
         "ai:lint-identity-engine-coherence"    : "node ./ai/scripts/lint/lint-identity-engine-coherence.mjs",
         "ai:lint-identity-vocabulary"          : "node ./ai/scripts/lint/lint-identity-vocabulary.mjs",
@@ -261,6 +262,9 @@
         ],
         "ai/{services,services.mjs}/**": [
             "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"
+        ],
+        "{ai/services/fleet/{mcpServers,harnessTypes,fleetWireMethods,fleetCockpitStatus}.mjs,apps/agentos/config/{mcpServers,harnessTypes,fleetWireMethods,cockpitSources}.mjs,ai/scripts/lint/lint-fleet-vocabulary-parity.mjs}": [
+            "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs"
         ],
         "ai/mcp/server/**/{toolService.mjs,*.mjs}": [
             "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"

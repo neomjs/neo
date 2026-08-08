@@ -1,5 +1,5 @@
 import path                                                                                     from 'node:path';
-import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                                                          from '../../../src/ai/fleet/mcpServers.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                                                          from './mcpServers.mjs';
 import {MEMORY_LAYER_BOOT_FILES, renderAboutThisLayerMd, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
