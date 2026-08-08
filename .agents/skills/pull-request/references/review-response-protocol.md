@@ -55,7 +55,7 @@ Use the template at `.agents/skills/pull-request/assets/review-response-template
 
 ## 6. Authorship Respect
 
-Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation), and do NOT edit your own prior PR body to address review items — commit history plus this new comment are the canonical record. Aligned with the authorship-respect rule that applies across all surfaces (tickets, PR bodies, review comments).
+Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation). Your own body splits on **what the edit changes, never on whether a reviewer answered it** — so the two cases stay disjoint and the overlap has one answer: a **fact** (number, path, count, state) is corrected in place, *including* when the RA is what found it wrong, because the lint demands an accurate body and a false number erases no negotiation — disclose old→new in the response comment and map it to the RA; a **position** (a claim under negotiation) is never rewritten or sanitised, and a body-only edit never makes implementation work look addressed — that belongs in the comment thread.
 
 Restatement RAs on foreign ticket text -> read [foreign-ticket-restatement.md](./foreign-ticket-restatement.md) (comment-proposal default; prescribed-direct-edit path with trail + revert-authority + author-confirm closure).
 
@@ -90,7 +90,7 @@ After the second ordinary `CHANGES_REQUESTED`, the next reviewer handoff is clos
 | Pushing a follow-up commit without an Addressed comment | Reviewer must discover + match commits to Required Actions manually; breaks re-review efficiency |
 | Silently skipping a Required Action | Signals neither agreement (should be `[ADDRESSED]`) nor disagreement (should be `[REJECTED_WITH_RATIONALE]`) — leaves reviewer uncertain |
 | Editing the reviewer's comment | Authorship-respect violation; attribution collapse |
-| Editing your own prior PR body to "address" items | Commit + Addressed comment is the canonical record; body edits erase the review-negotiation thread |
+| Rewriting a contested *position* in your own PR body, or a body-only edit that makes work look addressed | Commit + Addressed comment is the canonical record. Correcting a *fact* stays required even when the RA is what found it — the axis is fact-vs-position, not answered-vs-unanswered; see §6 |
 | Using non-standard status language (*"done"*, *"fixed"*, *"won't fix"*) | Breaks the tag taxonomy; Retrospective daemon cannot ingest consistently |
 | Appending to the first Addressed comment across multiple review rounds | Violates the polish-vs-pivot analog from #10109 — new round = new comment preserving the negotiation evolution |
 
@@ -100,11 +100,11 @@ PR #10161 (MemorySessionIngestor) received a `Status: Request Changes` review wi
 
 ## 12. The Empirical "Isolation-Test-After-Review" Pattern
 
-When a reviewer challenges an architectural pattern in your PR (e.g., claiming it violates a paradigm or introduces unnecessary complexity), you have two valid paths to resolve the dispute:
-1. **Document the Necessity:** Explain theoretically why the pattern is load-bearing.
-2. **Empirical Isolation Test (Preferred):** Run a binary isolation test. Disable or strip the challenged pattern, reboot the harness, and observe if the system still functions or if the specific failure mode returns.
+When a reviewer challenges an architectural pattern, two paths resolve the dispute:
+1. **Document the Necessity:** explain why the pattern is load-bearing.
+2. **Empirical Isolation Test (Preferred):** strip the challenged pattern, reboot the harness, observe whether the system still functions or the failure mode returns.
 
-If the isolation test proves the pattern is dead weight, remove it and document the empirical finding in your response. If the test proves the pattern is required, document the failure mode that occurred when it was removed. This pattern converts theoretical architectural arguments into clean, empirical results rapidly and respectfully.
+Dead weight → remove it and document the finding. Required → document the failure mode that occurred when it was removed. This converts theoretical argument into empirical result, rapidly and respectfully.
 
 ## 13. PR Comment Hygiene (Polish vs. Pivot)
 
