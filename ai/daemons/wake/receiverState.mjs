@@ -152,6 +152,12 @@ export class WakeReceiverState {
 
     /**
      * @summary Atomically transitions a record when its current state matches the expected state.
+     *
+     * `dispatching → pending` is the context gate's deferral path: the gate runs after the
+     * non-idempotency marker is taken, finds the target session over budget, and returns the record
+     * to the only replayable state. A crash between defer and re-dispatch replays from `pending` —
+     * never from `dispatching` — so the defer cannot duplicate a GUI side effect.
+     *
      * @param {String} recordKey
      * @param {String} expectedState
      * @param {String} nextState
@@ -159,7 +165,7 @@ export class WakeReceiverState {
      * @returns {Promise<Object|null>} Updated record, or null when another actor already advanced it.
      */
     async transition(recordKey, expectedState, nextState, details = {}) {
-        if (nextState !== 'dispatching' && !TERMINAL_STATES.has(nextState)) {
+        if (!['dispatching', REPLAYABLE_STATE].includes(nextState) && !TERMINAL_STATES.has(nextState)) {
             throw new Error(`Unsupported receiver state transition target '${nextState}'`);
         }
 

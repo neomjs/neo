@@ -84,4 +84,29 @@ test.describe('ai/daemons/wake/receiverState', () => {
         expect(await state.transition(accepted.record.recordKey, 'pending', 'dispatching')).toBeNull();
         expect((await state.read(accepted.record.recordKey)).state).toBe('delivered');
     });
+
+    test('dispatching returns to pending on a context-gate deferral (#16682), keeping the wake replayable', async () => {
+        const accepted = await accept();
+        await state.transition(accepted.record.recordKey, 'pending', 'dispatching');
+
+        const deferred = await state.transition(accepted.record.recordKey, 'dispatching', 'pending', {
+            deferCount         : 1,
+            deferReason        : 'context-gate:700000>250000',
+            probedContextTokens: 700_000
+        });
+
+        expect(deferred).toMatchObject({
+            state              : 'pending',
+            deferCount         : 1,
+            deferReason        : 'context-gate:700000>250000',
+            probedContextTokens: 700_000
+        });
+
+        // The deferred record stays in the only replayable state: the next drain picks it up…
+        expect(await state.list('pending')).toHaveLength(1);
+        // …a boot recovery does NOT terminalize it (only crash-interrupted dispatches are)…
+        expect(await state.recoverInterrupted()).toBe(0);
+        // …and it can re-enter dispatch cleanly when the session shrinks or rotates.
+        expect(await state.transition(accepted.record.recordKey, 'pending', 'dispatching')).not.toBeNull();
+    });
 });

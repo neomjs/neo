@@ -558,3 +558,202 @@ test.describe('ai/daemons/wake/receiver — manifest reload', () => {
         expect(await waitFor(async () => await probe(peer) === 401)).toBe(true);
     });
 });
+
+test.describe('ai/daemons/wake/receiver — context gate (#16682)', () => {
+    const subscriptionId = 'WAKE_SUB:gate-test';
+    const signingKey     = 'b'.repeat(64);
+    const agentIdentity  = '@neo-kimi-phoebe';
+    const manifest       = {
+        schemaVersion: 1,
+        routes       : {
+            [subscriptionId]: {
+                signingKey,
+                agentIdentity,
+                harnessTargetMetadata: {adapter: 'test'},
+                adapterConfig        : {
+                    attemptTimeoutMs: 100,
+                    contextGate     : {maxContextTokens: 250_000, warnContextTokens: 200_000}
+                }
+            }
+        }
+    };
+    const ungatedManifest = {
+        schemaVersion: 1,
+        routes       : {
+            [subscriptionId]: {
+                signingKey,
+                agentIdentity,
+                harnessTargetMetadata: {adapter: 'test'},
+                adapterConfig        : {attemptTimeoutMs: 100}
+            }
+        }
+    };
+
+    let baseUrl, dispatchCalls, probeCalls, probeResult, receiver, server, state, stateDir, warnLines;
+
+    const buildEnvelope = () => ({
+        schemaVersion: '1.0',
+        eventType    : 'wake/digest',
+        eventId      : 'wake-digest:gate-1',
+        subscriptionId,
+        agentIdentity,
+        payload      : {
+            totalEvents   : 1,
+            sourceEventIds: ['MESSAGE:gate-1'],
+            breakdown     : {sent_to_me: {count: 1, latest: {messageId: 'MESSAGE:gate-1', subject: 'gate'}}}
+        },
+        emittedAt: new Date().toISOString()
+    });
+
+    async function postWake() {
+        const envelope = buildEnvelope();
+        const body     = JSON.stringify(envelope);
+
+        return fetch(`${baseUrl}/wake`, {
+            method : 'POST',
+            headers: {
+                'content-type'              : 'application/json',
+                'x-neo-wake-event-id'       : envelope.eventId,
+                'x-neo-wake-subscription-id': subscriptionId,
+                'x-neo-wake-schema-version' : '1.0',
+                'x-neo-wake-signature'      : crypto.createHmac('sha256', signingKey).update(body).digest('hex')
+            },
+            body
+        });
+    }
+
+    async function waitForRecord(predicate) {
+        for (let index = 0; index < 100; index++) {
+            const hit = (await state.list()).find(predicate);
+            if (hit) return hit;
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        return null;
+    }
+
+    async function waitForFlag(check) {
+        for (let index = 0; index < 100; index++) {
+            if (check()) return true;
+            await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        return false;
+    }
+
+    async function bootReceiver(activeManifest) {
+        receiver = createWakeReceiver({
+            manifest    : activeManifest,
+            state,
+            dispatch    : async record => { dispatchCalls.push(record); return 'delivered'; },
+            contextProbe: async record => { probeCalls.push(record); return probeResult; },
+            logger      : {error() {}, log() {}, warn(line) { warnLines.push(line); }}
+        });
+        server = receiver.server;
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve);
+        });
+        baseUrl = `http://127.0.0.1:${server.address().port}`;
+    }
+
+    test.beforeEach(async () => {
+        stateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-wake-gate-'));
+        state    = new WakeReceiverState({stateDir});
+        await state.init();
+        dispatchCalls = [];
+        probeCalls    = [];
+        warnLines     = [];
+        probeResult   = null;
+    });
+
+    test.afterEach(async () => {
+        if (server) await new Promise(resolve => server.close(resolve));
+        await fs.rm(stateDir, {recursive: true, force: true});
+    });
+
+    test('an over-budget session defers: no dispatch, record returns to pending with the reason', async () => {
+        probeResult = {contextTokens: 700_000, lastActivityAt: Date.now(), sessionId: 'ses_big'};
+        await bootReceiver(manifest);
+
+        await postWake();
+        // A record is `pending` from accept until the gate runs — wait for the DEFERRAL, not the state.
+        const deferred = await waitForRecord(record => record.deferCount >= 1);
+
+        expect(dispatchCalls).toHaveLength(0);
+        expect(probeCalls).toHaveLength(1);
+        expect(deferred).toMatchObject({
+            state              : 'pending',
+            deferCount         : 1,
+            deferReason        : 'context-gate:700000>250000',
+            probedContextTokens: 700_000
+        });
+        // The warn lands in the same drain iteration but after the state write the poll observes.
+        expect(await waitForFlag(() => warnLines.some(line => line.includes('DEFERRED')))).toBe(true);
+    });
+
+    test('a deferral flushes on the next drain once the session shrinks or rotates', async () => {
+        probeResult = {contextTokens: 700_000, lastActivityAt: Date.now(), sessionId: 'ses_big'};
+        await bootReceiver(manifest);
+
+        await postWake();
+        expect(await waitForRecord(record => record.deferCount >= 1)).toBeTruthy();
+
+        probeResult = {contextTokens: 45_000, lastActivityAt: Date.now(), sessionId: 'ses_fresh'};
+        await receiver.drain();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(dispatchCalls).toHaveLength(1);
+    });
+
+    test('unknown context delivers fail-open with a loud warn — never silently withheld', async () => {
+        probeResult = null;
+        await bootReceiver(manifest);
+
+        await postWake();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(dispatchCalls).toHaveLength(1);
+        expect(warnLines.join('\n')).toContain('fail-open');
+    });
+
+    test('the warn band delivers with an approaching-gate warning', async () => {
+        probeResult = {contextTokens: 220_000, lastActivityAt: Date.now(), sessionId: 'ses_warm'};
+        await bootReceiver(manifest);
+
+        await postWake();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(warnLines.join('\n')).toContain('warns');
+    });
+
+    test('a legacy route without contextGate skips the gate and the probe entirely', async () => {
+        await bootReceiver(ungatedManifest);
+
+        await postWake();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(probeCalls).toHaveLength(0);
+        expect(warnLines).toHaveLength(0);
+    });
+
+    test('the manifest loader validates contextGate shape when present', async () => {
+        const route = overrides => ({
+            signingKey,
+            agentIdentity,
+            harnessTargetMetadata: {adapter: 'opencode-server'},
+            adapterConfig        : {attemptTimeoutMs: 100, ...overrides}
+        });
+        const load = contextGate => {
+            const dir = stateDir;
+            return fs.writeFile(path.join(dir, 'manifest.json'), JSON.stringify({
+                schemaVersion: 1,
+                routes       : {[subscriptionId]: route({contextGate})}
+            }), {mode: 0o600}).then(() => loadWakeReceiverManifest(path.join(dir, 'manifest.json')));
+        };
+
+        await expect(load({maxContextTokens: 250_000, warnContextTokens: 200_000})).resolves.toBeDefined();
+        await expect(load({maxContextTokens: 0, warnContextTokens: 0})).rejects.toThrow('contextGate');
+        await expect(load({maxContextTokens: 100_000, warnContextTokens: 250_000})).rejects.toThrow('contextGate');
+        await expect(load({maxContextTokens: 250_000})).rejects.toThrow('contextGate');
+        await expect(load('not-an-object')).rejects.toThrow('contextGate');
+    });
+});

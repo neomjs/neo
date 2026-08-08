@@ -739,6 +739,151 @@ async function deliverOsascriptWithRetry(effects, args, subscriptionId) {
 }
 
 /**
+ * @summary Probes the target session's current context occupancy for the receiver's context gate,
+ * without disturbing the session.
+ *
+ * Returns `{contextTokens, lastActivityAt, sessionId}` — the newest assistant turn's
+ * `input + cache.read` (the context the next injected turn would re-process) plus the newest
+ * activity stamp — or `null` when the adapter has no readable local authority. `null` is the
+ * fail-open signal: the gate delivers with a loud warn rather than ever silently withholding a
+ * wake. Probe failures are deliberately swallowed into `null`; the receiver's
+ * warn line carries the subscription id, and the mailbox stays authoritative throughout.
+ *
+ * @param {Object} record Durable receiver record (carries its route snapshot).
+ * @param {Object} [dependencies] Injectable host effects for tests.
+ * @returns {Promise<{contextTokens: Number, lastActivityAt: Number|null, sessionId: String}|null>}
+ */
+export async function probeSessionContext(record, dependencies = {}) {
+    const meta    = record?.route?.harnessTargetMetadata || {};
+    const adapter = meta.adapter || (process.platform === 'darwin' ? 'osascript' : 'tmux');
+    const effects = {
+        fetch  : globalThis.fetch,
+        fs,
+        homedir: os.homedir,
+        ...dependencies
+    };
+
+    try {
+        if (adapter === 'opencode-server') {
+            return await probeOpenCodeSession({effects, meta});
+        }
+        if (adapter === 'kimi-server' || adapter === 'kimi-pull-bridge') {
+            return await probeKimiWireSession({effects, meta});
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+}
+
+/**
+ * @summary Reads the OpenCode session's context size through its own loopback server — the same
+ * 0600 envelope authority the delivery path uses, so a session rotation automatically re-points
+ * the probe at the fresh (cheap) session.
+ * @private
+ */
+async function probeOpenCodeSession({effects, meta}) {
+    const envelopePath = meta.envelopePath
+        || path.join(effects.homedir(), '.local', 'share', 'opencode', 'wake-envelope.json');
+    const {hostname, port, sessionId, username, password} = await readOpenCodeEnvelope(effects, envelopePath);
+
+    const response = await effects.fetch(
+        `http://${hostname}:${port}/session/${encodeURIComponent(sessionId)}/message?limit=30`,
+        {
+            headers: {'authorization': 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')},
+            signal : AbortSignal.timeout(4000)
+        }
+    );
+    if (!response.ok) return null;
+
+    const messages = await response.json();
+    if (!Array.isArray(messages) || messages.length === 0) return null;
+
+    let contextTokens  = null,
+        lastActivityAt = null;
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const info    = messages[i]?.info || messages[i];
+        const created = info?.time?.created;
+
+        if (lastActivityAt === null && Number.isFinite(created)) lastActivityAt = created;
+
+        const tokens = info?.tokens;
+        if (info?.role === 'assistant' && tokens && Number.isFinite(tokens.input)) {
+            contextTokens = (tokens.input || 0) + (tokens.cache?.read || 0);
+            break;
+        }
+    }
+
+    if (!Number.isFinite(contextTokens)) return null;
+
+    return {contextTokens, lastActivityAt, sessionId};
+}
+
+/**
+ * @summary Reads the Kimi session's context size from the tail of its `wire.jsonl` usage ledger —
+ * the same harness-side telemetry the flatrate forensics were computed from. The session id comes
+ * from the seat's wake envelope (rotation-safe); the working-dir bucket is discovered, never
+ * assumed.
+ * @private
+ */
+async function probeKimiWireSession({effects, meta}) {
+    const envelopePath = meta.envelopePath || path.join(effects.homedir(), '.kimi-code', 'wake-envelope.json');
+    const envelope     = await readJson(effects.fs, envelopePath, 'kimi wake envelope');
+    const {sessionId}  = envelope;
+
+    if (typeof sessionId !== 'string' || sessionId.length === 0) return null;
+
+    const sessionsRoot = path.join(effects.homedir(), '.kimi-code', 'sessions');
+
+    for (const bucket of await effects.fs.readdir(sessionsRoot)) {
+        const wirePath = path.join(sessionsRoot, bucket, sessionId, 'agents', 'main', 'wire.jsonl');
+
+        if (!await effects.fs.pathExists(wirePath)) continue;
+
+        // Tail-read only: these ledgers reach tens of MB inside a single session.
+        const {size} = await effects.fs.stat(wirePath);
+        const start  = Math.max(0, size - 262_144);
+        const handle = await effects.fs.open(wirePath, 'r');
+        let   chunk;
+
+        try {
+            const buffer = Buffer.alloc(size - start);
+            await handle.read(buffer, 0, buffer.length, start);
+            chunk = buffer.toString('utf8');
+        } finally {
+            await handle.close();
+        }
+
+        const lines = chunk.split('\n');
+
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (!lines[i].includes('"usage"')) continue;
+
+            let parsed;
+            try { parsed = JSON.parse(lines[i]) } catch { continue; } // a tail-sliced first line is partial
+
+            const usage = parsed?.usage;
+            if (!usage || !Number.isFinite(usage.inputOther)) continue;
+
+            let lastActivityAt = parsed.timestamp ?? parsed.time ?? null;
+            if (Number.isFinite(lastActivityAt) && lastActivityAt < 1e11) lastActivityAt *= 1000;
+
+            return {
+                contextTokens : (usage.inputOther || 0) + (usage.inputCacheRead || 0),
+                lastActivityAt: Number.isFinite(lastActivityAt) ? lastActivityAt : null,
+                sessionId
+            };
+        }
+
+        return null; // the located wire ledger has no usable usage line yet
+    }
+
+    return null;
+}
+
+/**
  * @summary Injection-safe child-process wrapper.
  * @private
  */
