@@ -125,7 +125,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
     });
 
     test('heap attribution needs BOTH the fatal line and a Node command', () => {
-        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
 
         expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion,
             'the line names a heap and the command proves there was one to exhaust').toBe(true);
@@ -140,7 +140,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
     });
 
     test('the declared ceiling licenses WORDING, never the attribution itself', () => {
-        const fatal = {text: 'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
+        const fatal = {text: 'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
 
         // The population the originating incident came from: Node, no declared ceiling, dead of a
         // heap. Scoping attribution to the ceiling would blind this to exactly that case.
@@ -152,7 +152,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
     });
 
     test('a kernel OOM kill alongside a matching tail is an unresolvable conflict, not a verdict', () => {
-        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
 
         // The kernel and V8 make CONTRADICTORY claims about the same death and this payload cannot
         // adjudicate: either V8 exhausted its heap and the container was reaped afterwards, or the
@@ -168,6 +168,31 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion).toBe(true);
     });
 
+    test('an unbounded slice refuses to attribute — the tail spans restarts', () => {
+        const fatal = 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory';
+
+        // Emmy's specimen: an old fatal line, a healthy boot, then an unrelated current crash. A
+        // match anywhere in an unbounded slice would name the wrong cause with full confidence.
+        const stale = {
+            text     : `${fatal}\n[restart] healthy boot\nTypeError: unrelated current crash`,
+            truncated: false
+        };
+
+        expect(classifyHeapExhaustion({logs: stale, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'log-incarnation-unbounded'});
+
+        // Absent the producer's bound, even a clean single-line slice must refuse — the classifier
+        // cannot tell a current death from a historical one without being told.
+        expect(classifyHeapExhaustion({logs: {text: fatal, truncated: false}, nodeCommand: true}).unavailableReason)
+            .toBe('log-incarnation-unbounded');
+
+        // With the bound stated, the same evidence attributes.
+        expect(classifyHeapExhaustion({
+            logs       : {text: fatal, truncated: false, incarnationBounded: true},
+            nodeCommand: true
+        }).heapExhaustion).toBe(true);
+    });
+
     test('unavailable is null WITH a reason — a disabled channel is not a negative', () => {
         expect(classifyHeapExhaustion({logs: null, nodeCommand: true}))
             .toMatchObject({heapExhaustion: null, unavailableReason: 'logs-unavailable'});
@@ -180,10 +205,19 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(classifyHeapExhaustion({logs: {text: 'nothing here', truncated: true}, nodeCommand: true}))
             .toMatchObject({heapExhaustion: null, unavailableReason: 'log-tail-truncated'});
 
+        // Truncation cannot manufacture the line, so a matching truncated tail stays conclusive
+        // ABOUT TRUNCATION — but it still needs the incarnation bound, because a surviving line can
+        // belong to an earlier run. Both conditions, not either.
+        expect(classifyHeapExhaustion({
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: true, incarnationBounded: true},
+            nodeCommand: true
+        }).heapExhaustion, 'a truncated but incarnation-bounded match is conclusive').toBe(true);
+
         expect(classifyHeapExhaustion({
             logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: true},
             nodeCommand: true
-        }).heapExhaustion, 'a truncated tail that DOES match is still conclusive').toBe(true);
+        }).unavailableReason, 'truncation-conclusiveness does not substitute for the incarnation bound')
+            .toBe('log-incarnation-unbounded');
     });
 
     test('the crash diagnosis names the heap exhaustion without changing the action', () => {
@@ -192,7 +226,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const decision = service.diagnose({
             serviceKey           : 'memory',
             inspect              : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
-            logs                 : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false},
+            logs                 : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
             nodeCommand          : true,
             declaredHeapCeilingMb: 768
         });
@@ -222,7 +256,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const decision = service.diagnose({
             serviceKey : 'memory',
             inspect    : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
-            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false},
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
             nodeCommand: true
         });
 

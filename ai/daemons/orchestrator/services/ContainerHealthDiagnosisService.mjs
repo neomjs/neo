@@ -1223,7 +1223,7 @@ export function calculateDockerCpuPercent(stats) {
  * negative. `unavailableReason` travels with it so a reader can tell a disabled channel from a
  * non-heap death — the two are opposite facts that a bare `false` would merge.
  * @param {Object} options
- * @param {Object|null} options.logs Bounded log summary (`{text, truncated, …}`) from the bridge.
+ * @param {Object|null} options.logs Bounded log summary (`{text, truncated, incarnationBounded, …}`) from the bridge. `incarnationBounded` must be `true` before a match may attribute.
  * @param {Boolean|null} options.nodeCommand Whether `Config.Cmd` invoked Node.
  * @param {Number|null} [options.declaredHeapCeilingMb=null] Declared ceiling, when observable.
  * @param {Boolean|null} [options.oomKilled=null] Whether the kernel reclaimed the container.
@@ -1264,6 +1264,16 @@ export function classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb
     // outside the window", so it must not answer. A truncated tail that DOES match is conclusive —
     // truncation cannot manufacture the line.
     if (!matched && logs.truncated === true) return unavailable('log-tail-truncated');
+
+    // The Docker log stream spans RESTARTS. An unbounded slice can therefore carry a fatal line from
+    // an earlier incarnation above a healthy boot above an unrelated current crash, and a match
+    // anywhere in it would name the wrong cause with full confidence — the same
+    // wider-than-the-thing-it-names defect this diagnosis path exists to remove, one layer down.
+    //
+    // So a match only attributes when the producer states the slice belongs to the stopped run.
+    // Until it does, this refuses rather than guesses: a matching line that cannot be proven to
+    // belong to this incarnation is unavailable evidence, never a weaker heap verdict.
+    if (matched && logs.incarnationBounded !== true) return unavailable('log-incarnation-unbounded');
 
     return {
         // Only a numeric ceiling licenses wording that implicates a DECLARED ceiling; an undeclared
