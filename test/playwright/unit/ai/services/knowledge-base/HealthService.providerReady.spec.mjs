@@ -33,86 +33,219 @@ function createFileDigest(filePath) {
     return `sha256:${createHash('sha256').update(contents).digest('hex')}`;
 }
 
-test.describe('Neo.ai.services.knowledge-base.HealthService provider-aware readiness (#12741)', () => {
-    let HealthService, ChromaManager, DatabaseLifecycleService, aiConfig;
+async function startHealthyEmbeddingProbe(HealthService, overrides = {}) {
+    return HealthService.startEmbeddingProbe({
+        cadenceMs    : 1000,
+        scheduler    : () => 0,
+        clearSchedule: () => {},
+        keyFor       : () => 'test-provider:3',
+        runProbe     : async () => ({
+            status            : 'healthy',
+            provider          : 'test-provider',
+            dimensions        : 3,
+            expectedDimensions: 3,
+            durationMs        : 1
+        }),
+        ...overrides
+    });
+}
+
+test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding readiness (#16691)', () => {
+    let HealthService, ChromaManager, DatabaseLifecycleService, buildKnowledgeBaseEmbeddingProbeBlock;
+    let originalClient, originalGetCollection, originalGetDbStatus;
 
     test.beforeAll(async () => {
-        HealthService            = (await import('../../../../../../ai/services/knowledge-base/HealthService.mjs')).default;
-        ChromaManager            = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
-        DatabaseLifecycleService = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
-        aiConfig                 = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
+        const healthModule = await import('../../../../../../ai/services/knowledge-base/HealthService.mjs');
+
+        HealthService                            = healthModule.default;
+        buildKnowledgeBaseEmbeddingProbeBlock    = healthModule.buildKnowledgeBaseEmbeddingProbeBlock;
+        ChromaManager                            = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+        DatabaseLifecycleService                 = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
     });
 
-    // ---------------------------------------------------------------------------
-    // Pure predicate: the readiness decision for every provider / key combination.
-    // Local + mock providers serve embeddings from their own host; only the remote
-    // `gemini` provider needs a GEMINI_API_KEY.
-    // ---------------------------------------------------------------------------
-    test('isEmbeddingProviderReady: local + mock providers are ready without a Gemini key', () => {
-        expect(HealthService.isEmbeddingProviderReady('openAiCompatible', false)).toBe(true);
-        expect(HealthService.isEmbeddingProviderReady('ollama',           false)).toBe(true);
-        expect(HealthService.isEmbeddingProviderReady('mock',             false)).toBe(true);
+    test.beforeEach(() => {
+        originalClient        = ChromaManager.client;
+        originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+        originalGetDbStatus   = DatabaseLifecycleService.getDatabaseStatus;
+
+        ChromaManager.client                       = {heartbeat: async () => ({})};
+        ChromaManager.getKnowledgeBaseCollection   = async () => ({count: async () => 1});
+        DatabaseLifecycleService.getDatabaseStatus = () => ({status: 'mocked'});
+
+        HealthService.clearEmbeddingProbeProducer();
+        HealthService.clearCache();
     });
 
-    test('isEmbeddingProviderReady: only the remote gemini provider requires a key', () => {
-        expect(HealthService.isEmbeddingProviderReady('gemini', false)).toBe(false);
-        expect(HealthService.isEmbeddingProviderReady('gemini', true)).toBe(true);
+    test.afterEach(() => {
+        ChromaManager.client                       = originalClient;
+        ChromaManager.getKnowledgeBaseCollection   = originalGetCollection;
+        DatabaseLifecycleService.getDatabaseStatus = originalGetDbStatus;
+
+        HealthService.clearEmbeddingProbeProducer();
+        HealthService.clearCache();
     });
 
-    // ---------------------------------------------------------------------------
-    // Gate-level proof: with ChromaDB healthy and NO GEMINI_API_KEY, a local-provider
-    // deployment must NOT have ask_knowledge_base rejected by the health gate.
-    // (CI default: aiConfig.embeddingProvider === 'openAiCompatible' — local.)
-    // ---------------------------------------------------------------------------
-    test.describe('ensureHealthy with ChromaDB healthy + no GEMINI_API_KEY', () => {
-        let originalClient, originalGetCollection, originalGetDbStatus, originalGeminiKey;
+    test('fails closed with a named null observation before the lifecycle producer starts', async () => {
+        const health = await HealthService.healthcheck();
 
-        test.beforeEach(() => {
-            originalClient        = ChromaManager.client;
-            originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
-            originalGetDbStatus   = DatabaseLifecycleService.getDatabaseStatus;
-            originalGeminiKey     = process.env.GEMINI_API_KEY;
+        expect(health.status).toBe('degraded');
+        expect(health.features.embedding).toBeNull();
+        expect(health.details.join(' ')).toContain('Knowledge Base embedding probe unavailable');
+        expect(health.details.join(' ')).toContain('no embedding observation exists');
+        expect(health.details).not.toContain('All features are operational');
+        await expect(HealthService.ensureHealthy()).rejects.toThrow('Knowledge Base is not fully operational');
+    });
 
-            ChromaManager.client                     = {heartbeat: async () => ({})};
-            ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 1});
-            DatabaseLifecycleService.getDatabaseStatus = () => ({status: 'mocked'});
-            delete process.env.GEMINI_API_KEY;
+    test('publishes healthy only after a real vector observation and health reads stay pure', async () => {
+        let probeRuns = 0;
 
-            HealthService.clearCache();
-        });
-
-        test.afterEach(() => {
-            ChromaManager.client                       = originalClient;
-            ChromaManager.getKnowledgeBaseCollection   = originalGetCollection;
-            DatabaseLifecycleService.getDatabaseStatus = originalGetDbStatus;
-
-            if (originalGeminiKey === undefined) {
-                delete process.env.GEMINI_API_KEY;
-            } else {
-                process.env.GEMINI_API_KEY = originalGeminiKey;
+        await startHealthyEmbeddingProbe(HealthService, {
+            runProbe: async () => {
+                probeRuns++;
+                return {
+                    status            : 'healthy',
+                    provider          : 'test-provider',
+                    dimensions        : 3,
+                    expectedDimensions: 3,
+                    durationMs        : 1
+                };
             }
-
-            HealthService.clearCache();
         });
 
-        test('local embedding provider reports healthy and ensureHealthy() resolves without a key', async () => {
-            // Precondition: the resolved default provider is local (not gemini).
-            expect(aiConfig.embeddingProvider).not.toBe('gemini');
+        const health = await HealthService.healthcheck();
 
-            const health = await HealthService.healthcheck();
+        expect(health.status).toBe('healthy');
+        expect(health.features.embedding).toBe(true);
+        expect(health.details).toContain('All features are operational');
+        await expect(HealthService.ensureHealthy()).resolves.toBeUndefined();
+        await HealthService.healthcheck();
+        expect(probeRuns).toBe(1);
+    });
 
-            expect(health.features.embedding).toBe(true);
-            expect(health.status).toBe('healthy');
-
-            // The gate must not throw — local-provider ask is allowed with no GEMINI_API_KEY.
-            await expect(HealthService.ensureHealthy()).resolves.toBeUndefined();
+    test('the first settled timeout degrades immediately and closes ensureHealthy()', async () => {
+        await HealthService.startEmbeddingProbe({
+            cadenceMs      : 1000,
+            failureTtlMs   : 1000,
+            failureTtlMaxMs: 1000,
+            scheduler      : () => 0,
+            clearSchedule  : () => {},
+            keyFor         : () => 'test-provider:3',
+            runProbe       : async () => ({
+                status             : 'failed',
+                error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
+                errorClassification: 'consumer-probe-timeout',
+                errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+            })
         });
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.status).toBe('degraded');
+        expect(health.features.embedding).toBe(false);
+        expect(health.details.join(' ')).toContain('consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT');
+        expect(health.details.join(' ')).toContain('streak 1');
+        expect(health.details.join(' ')).toContain('deadline 30000ms');
+        await expect(HealthService.ensureHealthy()).rejects.toThrow('Knowledge Base embedding probe failed');
+    });
+
+    test('a cached-green database payload degrades immediately when the producer later fails', async () => {
+        let fail = false;
+        let scheduledTick;
+
+        await HealthService.startEmbeddingProbe({
+            cadenceMs   : 1000,
+            failureTtlMs: 1000,
+            scheduler   : callback => {
+                scheduledTick = callback;
+                return 0;
+            },
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            runProbe     : async () => fail ? {
+                status: 'failed',
+                error : 'provider-failure:EMBEDDING_PROVIDER_ERROR'
+            } : {
+                status            : 'healthy',
+                provider          : 'test-provider',
+                dimensions        : 3,
+                expectedDimensions: 3,
+                durationMs        : 1
+            }
+        });
+
+        const cachedGreen = await HealthService.healthcheck();
+        expect(cachedGreen.status).toBe('healthy');
+
+        fail = true;
+        await scheduledTick();
+
+        const degraded = await HealthService.healthcheck();
+        expect(degraded.status).toBe('degraded');
+        expect(degraded.features.embedding).toBe(false);
+        expect(degraded.details).not.toContain('All features are operational');
+        expect(degraded.details.join(' ')).toContain('provider-failure:EMBEDDING_PROVIDER_ERROR');
+    });
+
+    test('a reachable provider that never answers is bounded by the named consumer deadline', async () => {
+        const result = await buildKnowledgeBaseEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'test-provider',
+                vectorDimension  : 3
+            },
+            embedText: () => new Promise(() => {}),
+            timeoutMs: 5
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            provider           : 'test-provider',
+            error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
+            errorClassification: 'consumer-probe-timeout',
+            errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+        });
+    });
+
+    test('scheduled demand inside failure backoff reuses truth instead of probing again', async () => {
+        let now       = 1000;
+        let probeRuns = 0;
+        let scheduledTick;
+
+        await HealthService.startEmbeddingProbe({
+            cadenceMs      : 100,
+            failureTtlMs   : 1000,
+            failureTtlMaxMs: 1000,
+            clock          : () => now,
+            scheduler      : callback => {
+                scheduledTick = callback;
+                return 0;
+            },
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            runProbe     : async () => {
+                probeRuns++;
+                return {
+                    status: 'failed',
+                    error : 'provider-failure:EMBEDDING_PROVIDER_ERROR'
+                };
+            }
+        });
+
+        expect(probeRuns).toBe(1);
+
+        HealthService.clearCache();
+        now += 999;
+        await scheduledTick();
+        expect(probeRuns).toBe(1);
+
+        now += 2;
+        await scheduledTick();
+        expect(probeRuns).toBe(2);
     });
 });
 
 test.describe('Neo.ai.services.knowledge-base.HealthService stale collection handle recovery (#13464)', () => {
     let HealthService, ChromaManager, DatabaseLifecycleService;
-    let originalClient, originalGetCollection, originalGetDbStatus, originalGeminiKey, originalInvalidateCache;
+    let originalClient, originalGetCollection, originalGetDbStatus, originalInvalidateCache;
 
     const createNotFoundError = () => {
         const error = new Error('The requested resource could not be found');
@@ -126,18 +259,18 @@ test.describe('Neo.ai.services.knowledge-base.HealthService stale collection han
         DatabaseLifecycleService = (await import('../../../../../../ai/services/knowledge-base/DatabaseLifecycleService.mjs')).default;
     });
 
-    test.beforeEach(() => {
+    test.beforeEach(async () => {
         originalClient          = ChromaManager.client;
         originalGetCollection   = ChromaManager.getKnowledgeBaseCollection;
         originalGetDbStatus     = DatabaseLifecycleService.getDatabaseStatus;
-        originalGeminiKey       = process.env.GEMINI_API_KEY;
         originalInvalidateCache = ChromaManager.invalidateKnowledgeBaseCollectionCache;
 
         ChromaManager.client = {heartbeat: async () => ({})};
         DatabaseLifecycleService.getDatabaseStatus = () => ({running: false});
-        delete process.env.GEMINI_API_KEY;
 
+        HealthService.clearEmbeddingProbeProducer();
         HealthService.clearCache();
+        await startHealthyEmbeddingProbe(HealthService);
     });
 
     test.afterEach(() => {
@@ -146,12 +279,7 @@ test.describe('Neo.ai.services.knowledge-base.HealthService stale collection han
         ChromaManager.invalidateKnowledgeBaseCollectionCache = originalInvalidateCache;
         DatabaseLifecycleService.getDatabaseStatus   = originalGetDbStatus;
 
-        if (originalGeminiKey === undefined) {
-            delete process.env.GEMINI_API_KEY;
-        } else {
-            process.env.GEMINI_API_KEY = originalGeminiKey;
-        }
-
+        HealthService.clearEmbeddingProbeProducer();
         HealthService.clearCache();
     });
 
@@ -242,6 +370,7 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
         HealthService.runtimeFreshnessCacheDuration = 30 * 1000;
         HealthService.bootRuntimeIdentity        = bootRuntimeIdentity;
         HealthService.bootRuntimeFreshnessErrors = bootRuntimeFreshnessErrors;
+        HealthService.clearEmbeddingProbeProducer();
         HealthService.clearCache();
     });
 
@@ -383,6 +512,7 @@ test.describe.serial('Neo.ai.services.knowledge-base.HealthService runtimeFreshn
             ChromaManager.client                       = {heartbeat: async () => ({})};
             ChromaManager.getKnowledgeBaseCollection   = async () => ({count: async () => 1});
             DatabaseLifecycleService.getDatabaseStatus = () => ({status: 'mocked'});
+            await startHealthyEmbeddingProbe(HealthService);
 
             HealthService.runtimeFreshnessReader = async () => {
                 readCount++;
