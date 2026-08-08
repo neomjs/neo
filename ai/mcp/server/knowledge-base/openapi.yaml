@@ -864,6 +864,26 @@ components:
               type: string
               description: Absolute durable data root this process resolved.
           required: [id, dataRoot]
+        deployedRevision:
+          type: object
+          description: >-
+            The PACKAGED source revision, read from the image's `.neo-revision` marker rather than from the
+            `NEO_REVISION` build arg — the arg records what was REQUESTED and is empty by default, the marker
+            records what actually landed. Distinct from `runtimeFreshness` below, which compares this process
+            against ITS OWN checkout and structurally cannot see a plane hundreds of commits behind. Always
+            present: `source` is `unknown` when no build wrote a revision, never omitted, because an absent
+            field reads as current to a consumer computing deployment skew.
+          properties:
+            revision:
+              type: string
+              nullable: true
+              description: The recorded revision — a full SHA for a git-sourced image, the `local-build` marker for a local-source image, or null when unknown.
+              example: "82e26297b5fad7ad9efbc708220dc0935c4f59d0"
+            source:
+              type: string
+              enum: [packaged, unknown]
+              description: "`packaged` when the artifact named a revision; `unknown` when no build wrote one (a source checkout, a test process, an unbuilt runtime)."
+          required: [revision, source]
         runtimeFreshness:
           type: object
           description: Compact boot-vs-current runtime freshness diagnostic for detecting stale Knowledge Base MCP process attachments.
