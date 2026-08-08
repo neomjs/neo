@@ -242,3 +242,24 @@ jobs:
                 ? `A follow-up comment on PR #${pr.number} carries the full guidance.`
                 : `(No follow-up comment is posted on \`${context.payload.action}\` events — this annotation is the diagnostic.)`
             ].join('\n'));
+
+  confidentiality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Body and denylist travel by ENV, never argv or `${{ }}` interpolation into a shell:
+      # an interpolated body is a script-injection vector and a denylist on a command line is
+      # visible in the process table.
+      #
+      # On a fork `pull_request` run the secret is absent, so the script reports NOT ENFORCED and
+      # exits 0. That is deliberate and stated in its output rather than passing silently — a green
+      # check that never ran is the failure mode this lane exists to end.
+      - name: Scan PR body for confidential tokens
+        env:
+          NEO_PUBLIC_BODY:                  ${{ github.event.pull_request.body }}
+          NEO_PUBLIC_BODY_LABEL:            'PR body'
+          NEO_CONFIDENTIAL_TOKEN_DENYLIST:  ${{ secrets.NEO_CONFIDENTIAL_TOKEN_DENYLIST }}
+        run: node ai/scripts/lint/lintPublicBodyConfidentiality.mjs

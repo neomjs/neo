@@ -197,3 +197,27 @@ export function scanForConfidentialTokens(text, {
 export function isPublishBlocked(result) {
     return result?.outcome === SCAN_OUTCOME.blocked
 }
+
+/**
+ * @summary Projects a scan result for a WORLD-READABLE sink, dropping the matched tokens.
+ *
+ * The local contract returns `matches[].token` so an author can scrub. In a public CI log that same
+ * field publishes the confidential value to exactly the audience the scan protects — the guard
+ * committing the harm. Offsets and a count are enough to act on and disclose nothing.
+ *
+ * The token key is REMOVED rather than blanked: an empty-string field invites a caller to render
+ * `token: ""` beside an offset and read it as "no token here".
+ *
+ * @param {Object} result From {@link scanForConfidentialTokens}.
+ * @returns {{outcome: String, reason: String, matchCount: Number, offsets: Number[]}}
+ */
+export function projectScanForPublicLog(result) {
+    const matches = Array.isArray(result?.matches) ? result.matches : [];
+
+    return {
+        outcome   : result?.outcome ?? SCAN_OUTCOME.unchecked,
+        reason    : result?.reason ?? SCAN_REASON.listUnconfigured,
+        matchCount: matches.length,
+        offsets   : matches.map(match => match.offset)
+    }
+}

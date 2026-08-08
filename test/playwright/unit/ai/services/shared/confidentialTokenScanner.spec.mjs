@@ -5,6 +5,7 @@ import {
     SCAN_REASON,
     TARGET_VISIBILITY,
     isPublishBlocked,
+    projectScanForPublicLog,
     scanForConfidentialTokens
 } from '../../../../../../ai/services/shared/confidentiality/confidentialTokenScanner.mjs';
 
@@ -203,5 +204,48 @@ test.describe('confidential token scanner — totality', () => {
         expect(isPublishBlocked(null)).toBe(false);
         expect(isPublishBlocked({})).toBe(false);
         expect(isPublishBlocked({outcome: SCAN_OUTCOME.blocked})).toBe(true);
+    });
+});
+
+test.describe('public-log projection', () => {
+    test('the matched token is REMOVED, not blanked', () => {
+        const projected = projectScanForPublicLog(scanForConfidentialTokens('for Acme Corp', {
+            denylist        : DENYLIST,
+            targetVisibility: TARGET_VISIBILITY.public
+        }));
+
+        // The whole point: this shape reaches a world-readable CI log. Serialising it must not
+        // disclose the value, and asserting on the serialised form is what proves it — an assertion
+        // on `projected.token` being undefined would pass for a `{token: ""}` field that still
+        // renders beside an offset and reads as "no token here".
+        const serialised = JSON.stringify(projected);
+
+        expect(serialised).not.toContain('Acme');
+        expect(serialised).not.toContain('token');
+        expect(Object.keys(projected)).not.toContain('token');
+
+        // Still actionable: enough to find and scrub it.
+        expect(projected.matchCount).toBe(1);
+        expect(projected.offsets).toEqual([4]);
+        expect(projected.outcome).toBe(SCAN_OUTCOME.blocked);
+    });
+
+    test('an unchecked scan projects as unchecked, never as clean', () => {
+        const projected = projectScanForPublicLog(scanForConfidentialTokens('for Acme Corp', {
+            denylist        : [],
+            targetVisibility: TARGET_VISIBILITY.public
+        }));
+
+        expect(projected.outcome).toBe(SCAN_OUTCOME.unchecked);
+        expect(projected.matchCount).toBe(0);
+    });
+
+    test('a malformed result degrades to unchecked rather than throwing on a public surface', () => {
+        // This runs in CI against whatever the scanner returned. A throw here fails the job for the
+        // wrong reason and teaches people to disable the step.
+        for (const input of [null, undefined, {}, {matches: 'nope'}]) {
+            expect(() => projectScanForPublicLog(input)).not.toThrow();
+            expect(projectScanForPublicLog(input).outcome).toBe(SCAN_OUTCOME.unchecked);
+        }
     });
 });

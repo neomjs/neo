@@ -437,3 +437,24 @@ jobs:
             });
 
             core.setFailed(`Agent review body missing required template anchors. See follow-up comment on PR #${pr.number}.`);
+
+  confidentiality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Body and denylist travel by ENV, never argv or `${{ }}` interpolation into a shell:
+      # an interpolated body is a script-injection vector and a denylist on a command line is
+      # visible in the process table.
+      #
+      # On a fork `pull_request` run the secret is absent, so the script reports NOT ENFORCED and
+      # exits 0. That is deliberate and stated in its output rather than passing silently — a green
+      # check that never ran is the failure mode this lane exists to end.
+      - name: Scan review body for confidential tokens
+        env:
+          NEO_PUBLIC_BODY:                  ${{ github.event.review.body }}
+          NEO_PUBLIC_BODY_LABEL:            'review body'
+          NEO_CONFIDENTIAL_TOKEN_DENYLIST:  ${{ secrets.NEO_CONFIDENTIAL_TOKEN_DENYLIST }}
+        run: node ai/scripts/lint/lintPublicBodyConfidentiality.mjs
