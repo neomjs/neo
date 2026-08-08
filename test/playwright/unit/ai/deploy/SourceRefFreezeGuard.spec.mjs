@@ -137,9 +137,12 @@ test.describe('source ref freeze guard (#16635)', () => {
         // The way out has to be copy-pasteable, with the real repository substituted in.
         expect(stderr).toContain(`git ls-remote ${REPO_URL}`);
         expect(stderr).toContain('NEO_SOURCE=local');
-        // And the escape hatch must advertise what it does NOT buy.
-        expect(stderr).toContain('NEO_ALLOW_MUTABLE_REF=1');
-        expect(stderr).toContain('FROZEN layer unless the build also passes --no-cache');
+        // And the escape hatch must advertise both its exact spelling and what it does NOT buy.
+        expect(stderr).toContain('NEO_ALLOW_MUTABLE_REF=1 exactly');
+        expect(stderr).toContain('no');
+        expect(stderr).toContain('other value opts in');
+        expect(stderr).toContain('FROZEN layer');
+        expect(stderr).toContain('--no-cache');
     });
 
     // Positive control sharing the property under test: these are all HEX, differing only in the
@@ -174,6 +177,33 @@ test.describe('source ref freeze guard (#16635)', () => {
 
         expect(result.status).toBe(0);
     });
+
+    // The override is an authorization parser, so it is tested like one. The arm above supplies the
+    // documented value, which is the arm where exact-equality and shell-truthiness agree BY
+    // CONSTRUCTION — it passed against a `[ -n "$VAR" ]` predicate that admitted every non-empty
+    // value, including `0`. These are the cells that separate the two readings; without them, green
+    // cannot distinguish "opts in on 1" from "opts in on anything at all".
+    for (const [label, value] of [
+        ['0',                '0'],
+        ['false',            'false'],
+        ['true',             'true'],
+        ['yes',              'yes'],
+        ['TRUE',             'TRUE'],
+        ['a single space',   ' '],
+        ['1 with a trailing space', '1 '],
+        ['1 with a leading space',  ' 1'],
+        ['11',               '11'],
+        ['a typo',           'allow']
+    ]) {
+        test(`NEO_ALLOW_MUTABLE_REF=${label} does NOT opt in — only the exact value 1 does`, async () => {
+            const result = await runRefGuard({NEO_ALLOW_MUTABLE_REF: value, NEO_REF: 'dev'});
+
+            expect(
+                result.status,
+                `"${value}" admitted a mutable ref; misspelling a safety override must fail closed, not open`
+            ).toBe(1);
+        });
+    }
 
     test('the guard runs BEFORE the fetch, so a refused ref never reaches the network', async () => {
         const

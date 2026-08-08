@@ -40,9 +40,15 @@ WORKDIR /neo
 # What this guard does NOT buy, stated rather than implied: it constrains the ref, not the
 # cache. `NEO_ALLOW_MUTABLE_REF=1` re-admits a channel for a hand-run build and re-admits the
 # freeze with it — that build is only fresh if it also passes `--no-cache`.
+#
+# The override is EXACT EQUALITY to `1`, never shell truthiness. An escape hatch is a tiny
+# authorization parser, and `[ -n "$VAR" ]` would make `0`, `false`, a stray space, and any
+# typo all mean YES — so misspelling a safety override would silently admit the cache-frozen
+# layer this guard exists to refuse. A near-miss value must fail the same way an absent one
+# does; `NEO_ALLOW_MUTABLE_REF=0` meaning "allow" is the specific absurdity being avoided.
 RUN neo_ref_is_sha=0; \
     printf '%s' "${NEO_REF}" | grep -Eq '^[0-9a-f]{40}$' && neo_ref_is_sha=1; \
-    if [ "${neo_ref_is_sha}" -eq 0 ] && [ -z "${NEO_ALLOW_MUTABLE_REF}" ]; then \
+    if [ "${neo_ref_is_sha}" -eq 0 ] && [ "${NEO_ALLOW_MUTABLE_REF}" != "1" ]; then \
         echo "[deploy] FATAL: NEO_REF='${NEO_REF}' is not a full 40-hex commit SHA." >&2; \
         echo "[deploy] A mutable ref freezes this layer: a second build reuses the first" >&2; \
         echo "[deploy]   build's commit forever, and reports success while doing it." >&2; \
@@ -50,8 +56,9 @@ RUN neo_ref_is_sha=0; \
         echo "[deploy]   export NEO_REVISION=\$(git ls-remote ${NEO_REPO_URL} <channel> | cut -f1)" >&2; \
         echo "[deploy]   (Compose maps that one pin to both NEO_REF and NEO_REVISION.)" >&2; \
         echo "[deploy] Dev iteration instead: --build-arg NEO_SOURCE=local" >&2; \
-        echo "[deploy] Deliberate exception: --build-arg NEO_ALLOW_MUTABLE_REF=1, which accepts" >&2; \
-        echo "[deploy]   a FROZEN layer unless the build also passes --no-cache." >&2; \
+        echo "[deploy] Deliberate exception: --build-arg NEO_ALLOW_MUTABLE_REF=1 exactly (no" >&2; \
+        echo "[deploy]   other value opts in), which accepts a FROZEN layer unless the build" >&2; \
+        echo "[deploy]   also passes --no-cache." >&2; \
         exit 1; \
     fi
 

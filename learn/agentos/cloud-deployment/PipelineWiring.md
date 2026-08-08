@@ -88,7 +88,7 @@ Read the requested selector against the resolved commit — the *direction* of a
 
 | Requested | Resolved (file) | Reading |
 |---|---|---|
-| a channel, e.g. `dev` | some commit | Expected. No pin was given, so the resolved commit is the sole identity — and `org.opencontainers.image.revision` will be empty, correctly asserting nothing. |
+| a channel, e.g. `dev` | some commit | **Only reachable via the `NEO_ALLOW_MUTABLE_REF=1` exception** — an ordinary unpinned build now refuses at the source stage (#16635). Where the exception was used, the resolved commit is the sole identity and `org.opencontainers.image.revision` is empty, correctly asserting nothing. Treat the commit as *whenever that layer was last built*, not as `dev`'s current tip. |
 | a pinned SHA | the same SHA | The pin held. Promote this image. |
 | a pinned SHA | a **different** SHA | **Build-integrity failure.** Not an oddity — the build did not produce what was asked for. Do not promote; rebuild and investigate. |
 
