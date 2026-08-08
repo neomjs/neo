@@ -2410,7 +2410,10 @@ test.describe('replay probe transaction (prototype-call)', () => {
 
 
 test.describe('cross-zone dwell candidate re-verification (prototype-call)', () => {
-    test('an active candidate lost during the dwell fails the step with a gate-named executor error', async () => {
+    // Drives `executeCrossZoneShowcaseStep` to its first dwell with a fake host, then applies
+    // `onDwell` to the indicators when the dwell-length timeout fires — covering both mid-dwell
+    // loss modes: expiry (the candidate is gone) and preemption (a different candidate is live).
+    const runDwellScenario = async onDwell => {
         const
             dwellDelay = 600,
             events     = [],
@@ -2452,12 +2455,8 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
                 timeout(ms) {
                     timeouts.push(ms);
 
-                    // Simulates a candidate loss mid-dwell (a human-pause dwell outliving the
-                    // gesture claim's arbitration TTL): the unguarded read then threw an
-                    // unattributed TypeError from inside the executor; the guard must convert it
-                    // into a gate-named step failure.
                     if (ms >= dwellDelay) {
-                        indicators.activeCandidate = null
+                        onDwell(indicators)
                     }
 
                     return Promise.resolve()
@@ -2483,15 +2482,39 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
         WindowManager.register({id: 'fake-cross-zone-window', innerRect: {height: 800, width: 1200, x: 0, y: 0}, windowId: 'fake-cross-zone-window'});
 
         try {
-            const result = await Workspace.prototype.executeCrossZoneShowcaseStep.call(host, step, {dwellDelay});
-
-            expect(result.applied, 'the step fails closed').toBe(false);
-            expect(
-                result.errors[0],
-                'the loss surfaces as a gate-named executor receipt, not an unattributed null-read'
-            ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=null dwell=1\/2/);
+            return await Workspace.prototype.executeCrossZoneShowcaseStep.call(host, step, {dwellDelay});
         } finally {
             WindowManager.unregister('fake-cross-zone-window')
         }
+    };
+
+    test('an active candidate lost during the dwell fails the step with a gate-named executor error', async () => {
+        // Expiry mode: a human-pause dwell outlives the gesture claim's arbitration TTL and the
+        // candidate is gone when the dwell elapses. The unguarded read threw an unattributed
+        // TypeError from inside the executor; the guard converts it into a gate-named receipt.
+        const result = await runDwellScenario(indicators => {
+            indicators.activeCandidate = null
+        });
+
+        expect(result.applied, 'the step fails closed').toBe(false);
+        expect(
+            result.errors[0],
+            'the loss surfaces as a gate-named executor receipt, not an unattributed null-read'
+        ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=null dwell=1\/2/);
+    });
+
+    test('an active candidate swapped during the dwell fails the step instead of adopting the wrong preview', async () => {
+        // Preemption mode: a different (truthy) candidate takes over mid-dwell. A presence-only
+        // guard would silently adopt the swap — the final preview, beat log, and committed
+        // operation would all name a candidate this gesture never verified.
+        const result = await runDwellScenario(indicators => {
+            indicators.activeCandidate = {preview: {placement: {kind: 'after'}, previewId: 'preview-b', target: {nodeId: 'zone-b'}}}
+        });
+
+        expect(result.applied, 'the step fails closed').toBe(false);
+        expect(
+            result.errors[0],
+            'the swap surfaces as the same gate-named receipt, with the live candidate named'
+        ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=preview-b dwell=1\/2/);
     });
 });
