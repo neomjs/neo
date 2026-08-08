@@ -45,6 +45,7 @@ import {
     detectLiveBrain,
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
+    probeFleetServing,
     probePort,
     resolveBrainMode,
     resolveBrainPaths,
@@ -961,6 +962,61 @@ async function bootProductBrain() {
 }
 
 /**
+ * The UI-only transport boot: plain `npm start` self-supplies the fleet transport instead of
+ * demanding a hand-carried `NEO_FLEET_BEARER` across two terminals (the first live operator run
+ * proved that coordination model unusable — and `fleetCapability` gates every renderer request on
+ * this boot receipt, so WITHOUT it the UI-only window could never reach a transport at all, even
+ * a perfectly-coordinated external one).
+ *
+ * Three outcomes, fail-honest:
+ * - **reuse** — a listener on the port proves canonical Fleet identity for THIS bearer + viewer
+ *   (the same-token-same-viewer probe): the shell adopts it and spawns nothing.
+ * - **spawn** — the port is free: the shell starts `devFleetServer` as an OWNED child with the
+ *   bearer it already holds (zero coordination — the packaged topology's behavior), awaits real
+ *   wire readiness, and the existing quit drain tears it down (`brainState.children` is the one
+ *   ownership set; the drain keys on membership, not on Brain mode).
+ * - **foreign-listener** — something else holds the port: the WINDOW must not brick (contrast:
+ *   organism boot fails closed), so the cockpit keeps its honest offline state and the named
+ *   refusal lands in the shell log.
+ * @summary Probes-then-spawns the app↔fleet transport for UI-only mode; never touches tray Brain state.
+ * @returns {Promise<Object>} `{fleetPort, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}`
+ */
+async function bootUiFleetTransport() {
+    const
+        fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
+        held      = await probePort({port: fleetPort});
+
+    if (held) {
+        const probe = await probeFleetServing({
+            agentIdentityNodeId: process.env.NEO_AGENT_IDENTITY,
+            bearerToken        : fleetBearerToken,
+            port               : fleetPort,
+            repoRoot           : organismRoot
+        });
+
+        if (probe.reusable === true) {
+            console.log(`HARNESS_UI_FLEET reuse fleetPort=${fleetPort}`);
+            return {fleetPort, mode: 'reuse', up: true}
+        }
+
+        console.log(`HARNESS_UI_FLEET foreign-listener fleetPort=${fleetPort} reason=${probe.reason || 'listener did not prove canonical Fleet identity'}`);
+        return {fleetPort, mode: 'foreign-listener', up: false}
+    }
+
+    const fleet = startBrainChild({
+        entry   : FLEET_SERVER_ENTRY,
+        env     : {NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
+        onLog   : brainLog,
+        repoRoot: organismRoot
+    });
+
+    registerBrainChild({child: fleet, label: 'fleet'});
+    await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort});
+    console.log(`HARNESS_UI_FLEET spawn fleetPort=${fleetPort}`);
+    return {fleetPort, mode: 'spawn', up: true}
+}
+
+/**
  * The smoke Brain boot. TWO profile shapes, deliberately distinct:
  * - **Packaged:** the EXACT product profile (`buildPackagedBrainEnv` — the artifact's lane and
  *   resource closure, unreduced), shifted only in COORDINATES: allocated Chroma/fleet ports and a
@@ -1078,7 +1134,16 @@ app.whenReady().then(async () => {
                 appLifecycle.settleBrainBoot(boot.up === true);
                 return boot
             })
-        : Promise.resolve(null);
+        : (diagnosticMode
+            // Plain smoke keeps its isolation contract: UI-only legs spawn nothing (a dev machine
+            // may carry a live transport); the fleet leg's evidence lives in smoke:brain.
+            ? Promise.resolve(null)
+            // UI-only product path: self-supply the transport. Tray Brain state is deliberately
+            // untouched — a fleet transport is not a Brain claim.
+            : bootUiFleetTransport().catch(error => {
+                console.log('HARNESS_UI_FLEET_BOOT_FAILED ' + error.message);
+                return {error: error.message, up: false}
+            }));
 
     if (!smokeMode) {
         try {
