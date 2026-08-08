@@ -1,18 +1,20 @@
 /**
- * @summary Multi-plane ISOLATION suite. The `parity` in its name is historical and misleading.
+ * @summary Mandatory witness for the dev-profile topology + mock-embedding contract.
  *
- * It does NOT compare a local plane against a dockerized one — that transition is over. It boots
- * a SECOND, fully separate dockerized plane (its own Compose project, its own data root) and
- * proves the two coexist without contaminating each other.
+ * `parity` here means DEV-PROFILE parity — does the profile CI runs match the shape we deploy.
+ * That is ongoing. It is NOT the local-vs-dockerized comparison that ended with the dockerization
+ * cut, which is how the name gets read by anyone who has not opened the suite; it was nearly
+ * dropped as leftover debt on exactly that reading.
  *
- * None of its assertions compare two planes for parity. Four assert the overlay plane must never
- * resolve or serve the durable root; one refuses boot outright when a plane resolves the canonical
- * root; one proves no egress. A second deployment is by definition a second plane, so what this
- * guards grows in relevance rather than shrinking.
+ * One isolated plane is booted — its own Compose project, its own data root — and the eight
+ * assertions split evenly. Four prove the profile stands up: the plane boots, Neural Link loggers
+ * initialize without sink degradation, provider auth refuses missing and empty secret carriers
+ * before listen, and the deterministic mock provider carries semantic recall end to end. Four
+ * prove it stays contained: served identity never resolves the durable root, foreign-plane
+ * expectations are rejected at the wire, an overlay resolving the canonical root is refused at
+ * boot, and no egress leaves the network.
  *
- * Stated here because the name alone reads as retirable, and the suite was nearly dropped as
- * leftover debt by a reader who had not opened it. A rename is ordering-sensitive and tracked
- * separately: this config's sibling job name IS the required check context.
+ * Isolation is one dimension of the guarantee, not the whole of it.
  */
 import './configTemplateResolver.mjs';
 
