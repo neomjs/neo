@@ -68,17 +68,18 @@ import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.
 import path                                   from 'node:path';
 import {fileURLToPath, pathToFileURL}         from 'node:url';
 
-const port = Number(process.env.NEO_FLEET_PORT) || 8083;
-
 /**
  * @summary Composes the launch contract and starts the authenticated Fleet transport.
  * @returns {Promise<void>}
  * @private
  */
 async function boot() {
-    const bearerToken = resolveFleetBearer({suppliedToken: process.env.NEO_FLEET_BEARER}),
-          origins     = (process.env.NEO_FLEET_COCKPIT_ORIGIN || 'http://localhost:8080,http://127.0.0.1:8080')
-              .split(',').map(origin => origin.trim()).filter(Boolean);
+    // Resolved HERE, at the use site, not captured at module scope: an overlay applied after
+    // import must still be honoured. `cockpitOrigins` is csv-typed, so the split/trim the caller
+    // used to do belongs to the leaf machinery instead.
+    const port        = AiConfig.fleet.port,
+          bearerToken = resolveFleetBearer({suppliedToken: AiConfig.fleet.bearer}),
+          origins     = AiConfig.fleet.cockpitOrigins;
 
     // The mailbox-seam plane decision: resolved ONCE at boot, BEFORE viewer binding, all-or-nothing,
     // logged. The leaves resolve here at the use site (the AiConfig SSOT contract); the client itself
@@ -321,7 +322,7 @@ async function boot() {
 
         // Identity facts only — the bearer is deliberately absent from every log line this
         // process emits; the launcher that supplied (or will inject) it owns the hand-off.
-        console.log(`[fleet] authenticated app<->fleet transport listening on http://127.0.0.1:${server.address().port}/fleet (viewer: ${viewer.agentIdentityNodeId}, bearer: ${process.env.NEO_FLEET_BEARER ? 'supplied' : 'generated'})`)
+        console.log(`[fleet] authenticated app<->fleet transport listening on http://127.0.0.1:${server.address().port}/fleet (viewer: ${viewer.agentIdentityNodeId}, bearer: ${AiConfig.fleet.bearer ? 'supplied' : 'generated'})`)
     } catch (error) {
         // EVERY exit below this line closes the proven plane session AWAITED — startup failures,
         // probe failures, reuse, and refusal alike would otherwise orphan it on the plane. The

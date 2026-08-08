@@ -296,6 +296,30 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
                 /**
+                 * Bearer credential for the app<->fleet TRANSPORT — a different credential from
+                 * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
+                 * the default is empty and never carries a value: `resolveFleetBearer` generates
+                 * an ephemeral one when this is unset, which is the correct posture for a local
+                 * dev transport. Declared rather than read from env at the use site so the two
+                 * bearers cannot be conflated by a reader who finds only one of them in config.
+                 * @type {string}
+                 */
+                bearer         : leaf('', 'NEO_FLEET_BEARER', 'string'),
+                /**
+                 * Origins the cockpit may call the Fleet transport from. CSV-typed: the env form
+                 * is a comma-separated list, the resolved form is an array, so no consumer splits
+                 * or trims a string of its own.
+                 * @type {string[]}
+                 */
+                cockpitOrigins : leaf(['http://localhost:8080', 'http://127.0.0.1:8080'], 'NEO_FLEET_COCKPIT_ORIGIN', 'csv'),
+                /**
+                 * Port the Fleet transport listens on. Must match the URL the App Worker's cockpit
+                 * dials; resolved at boot rather than captured at import so an overlay applied
+                 * after module load is still honoured.
+                 * @type {number}
+                 */
+                port           : leaf(8083, 'NEO_FLEET_PORT', 'number'),
+                /**
                  * Patience for ONE tenant-plane probe request (initialize, the initialized
                  * notification, the identity proof) — a single declared bound replacing per-site
                  * literals, env-relocatable. Calibrated from MEASURED plane latency, both modes:
