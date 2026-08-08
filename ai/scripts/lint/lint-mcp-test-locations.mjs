@@ -21,6 +21,12 @@ const GRANDFATHERED_MCP_TEST_FILES  = Object.freeze([
     'github-workflow/OpenapiIssues.spec.mjs'
 ]);
 
+// The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
+// verdict to stay reproducible at PR time. Consumed by lintWorkflowScanRootParity.spec.mjs;
+// derived from the scan directories above so the surface follows them.
+export const SCAN_SURFACE = Object.freeze([DEPRECATED_MCP_TEST_DIR, CANONICAL_MCP_SERVER_TEST_DIR]
+    .map(dir => `${toPosixRelative(ROOT_DIR, dir)}/**`));
+
 function toPosixRelative(rootDir, filePath) {
     return path.relative(rootDir, filePath).split(path.sep).join('/');
 }

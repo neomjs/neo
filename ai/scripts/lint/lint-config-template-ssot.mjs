@@ -61,6 +61,15 @@ const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
 const SCAN_ROOT_REL                      = 'ai';
 const TEST_SCAN_ROOT_REL                 = 'test';
 const SELF_REL_FILE                      = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+
+// The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
+// verdict to stay reproducible at PR time (scanned ⊆ watched as a mechanical fact, not YAML
+// prose). Consumed by lintWorkflowScanRootParity.spec.mjs; derived from the scan roots above
+// so a new root cannot silently widen the scan without widening this surface.
+export const SCAN_SURFACE = Object.freeze([
+    `${SCAN_ROOT_REL}/**/*.mjs`,
+    `${TEST_SCAN_ROOT_REL}/**/*.mjs`
+]);
 const CONFIG_TEMPLATE_KIND_CACHE         = new Map();
 const SERVICE_EXPORT_CONFIG_TEMPLATE_REL = Object.freeze({
     GH_Config        : 'ai/mcp/server/github-workflow/config.template.mjs',
