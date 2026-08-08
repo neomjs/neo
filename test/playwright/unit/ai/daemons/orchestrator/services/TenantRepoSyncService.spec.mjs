@@ -1792,11 +1792,17 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(JSON.stringify(failed)).not.toContain('lowercase-unbounded')
     });
 
-    test('mixed cycle counts an error-bearing summary as failed while preserving per-repo isolation (#15748)', async () => {
+    test('a DEFERRABLE embed failure holds the checkpoint without earning a backoff step (#16690)', async () => {
+        // The sibling test below still asserts that an error-bearing summary FAILS. That contract was
+        // right when every error meant failure. `KB_VECTOR_EMBED_FAILED` is the UNCLASSIFIED embed
+        // sentinel — the code an external deployment reported on all four repos while its corpus
+        // stayed empty — and failing on it discarded the parse work of every chunk that DID embed,
+        // then climbed the backoff toward its 2h cap. The isolation assertions are unchanged;
+        // only the verdict for a deferrable code differs.
         const
             taskStateService = createInMemoryTaskStateService(),
-            badSlug          = 'org/summary-bad',
-            goodSlug         = 'org/summary-good';
+            badSlug          = 'org/summary-deferred',
+            goodSlug         = 'org/summary-good-deferred';
 
         await provisionMirrorDir({tenantId: 't1', repoSlug: badSlug});
         await provisionMirrorDir({tenantId: 't1', repoSlug: goodSlug});
@@ -1823,10 +1829,68 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(result.status).toBe('completed');
         expect(result.details.completedCount).toBe(1);
+        // Neither completed nor failed. Counted separately so a sweep that defers every repo cannot
+        // present as "1 completed, 0 failed" and read as a clean cycle.
+        expect(result.details.deferredCount).toBe(1);
+        expect(result.details.failedCount).toBe(0);
+        expect(result.details.repos.find(repo => repo.repoSlug === badSlug)).toMatchObject({
+            status             : 'deferred',
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED'
+        });
+        // Per-repo isolation: one repo deferring must not disturb its sibling.
+        expect(result.details.repos.find(repo => repo.repoSlug === goodSlug).status).toBe('active');
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${badSlug}`]).toMatchObject({
+            // Checkpoint HELD — nothing is claimed as ingested that is not.
+            lastIngestedRev    : null,
+            // The load-bearing assertion: the streak is neither incremented nor reset. Incrementing
+            // climbs toward the cap for a condition the repo did not cause; resetting would erase a
+            // real failure history a genuinely broken repo earned.
+            consecutiveFailures: 0
+        });
+        expect(persisted.revisions[`t1/${goodSlug}`].lastIngestedRev).toBe(`sha-head-${goodSlug}`);
+    });
+
+    test('mixed cycle counts an error-bearing summary as failed while preserving per-repo isolation (#15748)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            // A REJECTED code, not a deferrable one. This test's contract — an
+            // error-bearing summary fails the run and earns a backoff step — is still exactly right
+            // for a deliberate refusal: a spoofed tenant must never be retried into success. Only
+            // the deferrable-embed case moved, and it is pinned in the sibling test above.
+            badSlug          = 'org/summary-bad',
+            goodSlug         = 'org/summary-good';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: badSlug});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: goodSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: badSlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/bad.git'},
+                {tenantId: 't1', repoSlug: goodSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/good.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory(payload) {
+                    return payload.repoSlug === badSlug
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            onlyRepoSlugs    : [badSlug, goodSlug],
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
         expect(result.details.failedCount).toBe(1);
         expect(result.details.repos.find(repo => repo.repoSlug === badSlug)).toMatchObject({
             status             : 'degraded',
-            lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED'
+            lastSourceErrorCode: 'KB_TENANT_SPOOF_REJECTED'
         });
         expect(result.details.repos.find(repo => repo.repoSlug === goodSlug).status).toBe('active');
 
@@ -1883,7 +1947,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 summaryFactory() {
                     ingestCallCount++;
                     return ingestCallCount === 1
-                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
                         : {ingested: 1, deleted: 0, errors: []}
                 }
             }),
@@ -1947,7 +2011,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                     ingestAttempt++;
 
                     if (ingestAttempt === 1) {
-                        return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                        return {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
                     }
 
                     if (ingestAttempt === 2) {
@@ -2697,7 +2761,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(completedLine.msg).toMatch(/deleted=\d+/);
         expect(completedLine.msg).toMatch(/\(\d+ms\)/);
         expect(summaryLine).toBeDefined();
-        expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 failed/);
+        // `deferred` sits between completed and failed: a deferral is neither, and a sweep
+        // that defers every repo must not read as "1 completed, 0 failed" on the one line an
+        // operator actually scans.
+        expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 deferred, 0 failed/);
     });
 
     test('--repo-slug filter against unknown slug surfaces stable KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED', async () => {
@@ -3589,7 +3656,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService             : createInMemoryTaskStateService(),
             knowledgeBaseIngestionService: makeFakeIngestionService({
                 summaryFactory() {
-                    return {ingested: 0, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]};
+                    return {ingested: 0, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]};
                 }
             })
         }));

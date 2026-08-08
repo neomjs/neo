@@ -10,8 +10,12 @@ import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
 // look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
-import {BOUNDED_KB_ERROR_CODE_PATTERN}
-                                 from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
+import {
+    BOUNDED_KB_ERROR_CODE_PATTERN,
+    EMBED_DISPOSITION,
+    classifyEmbedDisposition,
+    isEmbedFailureCode
+}                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {
     buildIngestEnvelope,
     createTenantRepoMaterializationDigest
@@ -299,28 +303,61 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
 }
 
 /**
- * @summary Fails closed unless the KB ingestion result explicitly proves an error-free summary.
+ * @summary Decides whether an ingestion run COMPLETED, DEFERRED, or FAILED.
  *
- * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft:
- * ingestion failures are returned inside `summary.errors` rather than necessarily
- * rejecting the promise. The tenant-repo caller therefore accepts only an object
- * with an array-valued, empty `errors` field before advancing revision state.
+ * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft: failures are
+ * returned inside `summary.errors` rather than rejecting the promise. This function is where the
+ * sync lane turns that array into a scheduling decision.
  *
- * Error messages and details from the summary are deliberately not copied into the
- * thrown error. The first bounded `KB_*` code is retained separately as source
- * provenance so the existing per-repo catch path can expose it as
- * `lastSourceErrorCode` without replacing the stable outer sync-failure code.
+ * **It used to have two outcomes and needed three.** Any error at all failed the run, so a single
+ * slow embedding discarded the checkpoint for every chunk that DID embed, the repo took a backoff
+ * step, and the corpus never grew. Measured on an external deployment: four repos at
+ * `consecutiveFailures: 13`, cadence pinned to its cap, `count: 0`. The parse and chunk work of
+ * every one of those runs was thrown away because the tail of it was late.
+ *
+ * The third outcome is `deferred` — *incomplete, not failed*. The caller holds the checkpoint where
+ * it is, leaves `consecutiveFailures` untouched, and lets the lane come back at base cadence.
+ * Nothing is lost by waiting: `VectorService` never re-embeds a chunk whose content-derived id is
+ * already present, so a later run resumes rather than restarts.
+ *
+ * **Deferral is opt-in by DOMAIN and default WITHIN it**, and the `every` below is the whole
+ * safety argument. A summary carries parse failures and tenant-guard rejections alongside embed
+ * failures — fourteen distinct push sites in `IngestionService`, two of them the embed path. So a
+ * run defers only when EVERY error is a deferrable embed failure; one rejected code, one non-embed
+ * error, or one error with no code at all fails the run exactly as before. Deferring a permanently
+ * malformed file would be silently stuck, which is worse than loudly broken.
+ *
+ * Error messages and details are still never copied into the thrown error. The bounded `KB_*` codes
+ * are retained separately as source provenance for `lastSourceErrorCode`.
  *
  * @param {Object} summary Returned KB ingestion summary.
- * @returns {Object} The validated error-free summary.
- * @throws {Error} When the summary shape is ambiguous or contains any errors.
+ * @returns {{outcome: 'complete'|'deferred', summary: Object, deferredCodes: String[]}}
+ * @throws {Error} When the summary shape is ambiguous, or it carries any error that is not a
+ *     deferrable embed failure.
  */
-function assertErrorFreeIngestionSummary(summary) {
+function classifyIngestionOutcome(summary) {
     if (!summary || typeof summary !== 'object' || Array.isArray(summary) || !Array.isArray(summary.errors)) {
         throw new Error('Knowledge Base ingestion returned an invalid summary.')
     }
 
     if (summary.errors.length > 0) {
+        // The three-outcome decision, evaluated before the failure is constructed. `every` is
+        // deliberate: one non-embed error, one rejected code, or one error carrying no code at all
+        // (`isEmbedFailureCode(undefined)` is false) drops the whole run back to the failure path.
+        // A codeless error is unclassifiable, and unclassifiable must fail loudly rather than wait.
+        const deferrable = summary.errors.every(item =>
+            isEmbedFailureCode(item?.code) &&
+            classifyEmbedDisposition(item.code) === EMBED_DISPOSITION.deferrable
+        );
+
+        if (deferrable) {
+            return {
+                outcome      : 'deferred',
+                summary,
+                deferredCodes: [...new Set(summary.errors.map(item => item.code))]
+            }
+        }
+
         const error = new Error('Knowledge Base ingestion returned an error-bearing summary.');
 
         // Every DISTINCT bounded code, not only the first. A failing ingest can carry several
@@ -351,7 +388,7 @@ function assertErrorFreeIngestionSummary(summary) {
         throw error
     }
 
-    return summary
+    return {outcome: 'complete', summary, deferredCodes: []}
 }
 
 /**
@@ -1556,6 +1593,7 @@ class TenantRepoSyncService extends Base {
 
         const repoStates     = [];
         let   completedCount = 0;
+        let   deferredCount  = 0;
         let   failedCount    = 0;
         let   abortedCount   = 0;
 
@@ -1886,7 +1924,7 @@ class TenantRepoSyncService extends Base {
                         });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
-                // `assertErrorFreeIngestionSummary` throws on any error-bearing summary, and
+                // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
                 // `assertFullMaterializationEffect` throws on a zero-effect one. Between them they
                 // cover the two live failure modes on this lane, and neither used to log anything
                 // between "Refreshing" and the error.
@@ -1908,7 +1946,57 @@ class TenantRepoSyncService extends Base {
                     `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
                     `errors=${rawSummary?.errors?.length ?? 0}`);
 
-                const ingestResult = assertErrorFreeIngestionSummary(rawSummary);
+                const ingestOutcome = classifyIngestionOutcome(rawSummary);
+
+                if (ingestOutcome.outcome === 'deferred') {
+                    // Incomplete, not failed. The checkpoint stays where it is so nothing is
+                    // claimed as ingested that is not, `consecutiveFailures` is neither reset nor
+                    // incremented — the run neither succeeded nor failed — and `lastRunAttemptAt`
+                    // advances so the next due-check measures from this attempt rather than
+                    // re-firing immediately against a provider that is already struggling.
+                    //
+                    // Leaving the streak untouched is the load-bearing half. Incrementing would
+                    // climb toward the cap for a condition that is not the repo's fault; resetting
+                    // would erase a real failure history that a genuinely broken repo earned.
+                    persistedRevisions[repoLabel] = {
+                        ...priorState,
+                        lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
+                        lastRunAttemptAt                  : startedMs,
+                        consecutiveFailures               : priorState?.consecutiveFailures ?? 0,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                    };
+
+                    // Counts and bounded codes only — same credential boundary as the failure path.
+                    writeLog?.('WARN', `[TenantRepoSync] ${repoLabel} deferred: ` +
+                        `embedding incomplete, checkpoint held at ` +
+                        `${priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : 'none'} ` +
+                        `codes=${ingestOutcome.deferredCodes.join(',')} ` +
+                        `ingested=${rawSummary?.ingested ?? 0} ` +
+                        `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
+                        `(streak held at ${priorState?.consecutiveFailures ?? 0})`);
+
+                    repoStates.push({
+                        tenantId           : repo.tenantId,
+                        repoSlug           : repo.repoSlug,
+                        lastIngestedRev    : priorState?.lastIngestedRev ?? null,
+                        lastSyncAt         : new Date().toISOString(),
+                        status             : 'deferred',
+                        checkpointStatus   : priorState?.checkpointStatus ?? TenantRepoCheckpointStatus.UNINITIALIZED,
+                        lastSourceErrorCode: ingestOutcome.deferredCodes[0] ?? null
+                    });
+
+                    healthService?.recordTaskOutcome?.(taskName, 'deferred', {
+                        repo    : repoLabel,
+                        tenantId: repo.tenantId,
+                        codes   : ingestOutcome.deferredCodes
+                    });
+
+                    deferredCount++;
+
+                    return
+                }
+
+                const ingestResult = ingestOutcome.summary;
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
@@ -2179,13 +2267,14 @@ class TenantRepoSyncService extends Base {
             });
         }
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${deferredCount} deferred, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
 
         return {
             status,
             details: {
                 repoCount: repos.length,
                 completedCount,
+                deferredCount,
                 failedCount,
                 notDueCount,
                 revalidationDeferredCount,
