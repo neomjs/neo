@@ -1,9 +1,7 @@
 import 'dotenv/config';
-import fs               from 'fs';
 import path             from 'path';
 import {fileURLToPath}  from 'url';
-import * as yaml        from 'js-yaml';
-import {buildZodSchema} from './mcp/validation/openApiValidator.mjs';
+import {camelToSnake, findOperation, makeSafe, safeLoadYaml} from './services/shared/serviceProxy.mjs';
 
 import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';
@@ -89,104 +87,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 // --- Runtime Type Safety Logic ---
+//
+// Moved to `services/shared/serviceProxy.mjs`: the host barrel needs this machinery, and
+// importing it from here would pull this module's whole transitive graph — the cloud-plane store
+// clients included — which is the reachability the split removes. The call sites stay here.
 
-function camelToSnake(str) {
-    return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-}
-
-function findOperation(spec, operationId) {
-    for (const pathItem of Object.values(spec.paths)) {
-        for (const operation of Object.values(pathItem)) {
-            if (operation.operationId === operationId) {
-                return operation;
-            }
-        }
-    }
-    return null;
-}
-
-/**
- * Wraps a service object to enforce Zod validation on its methods based on OpenAPI specs.
- * @param {Object} service - The raw service object.
- * @param {Object} spec - The parsed OpenAPI document.
- * @returns {Object} - The service object with wrapped methods (mutates original or returns proxy).
- */
-function makeSafe(service, spec) {
-    if (!spec) {
-        console.warn(`[services.mjs] Warning: OpenAPI spec is null or invalid. Running ${service?.constructor?.name || 'Service'} in degraded mode (NO Zod validation).`);
-        return service;
-    }
-
-    const wrappedMethods = new Map();
-    const proto          = Object.getPrototypeOf(service);
-    const keys           = new Set([...Object.getOwnPropertyNames(service), ...Object.getOwnPropertyNames(proto)]);
-
-    for (const key of keys) {
-        if (key === 'constructor') continue;
-
-        if (typeof service[key] === 'function') {
-            const operationId = camelToSnake(key);
-            const operation   = findOperation(spec, operationId);
-
-            if (operation) {
-                const zodSchema = buildZodSchema(spec, operation);
-
-                wrappedMethods.set(key, async (args) => {
-                    const currentMethod = service[key];
-                    if (args !== undefined && (typeof args !== 'object' || args === null || Array.isArray(args))) {
-                        return currentMethod.call(service, args);
-                    }
-                    const parsedArgs = zodSchema.parse(args || {});
-
-                    if (operation['x-pass-as-object']) {
-                        return currentMethod.call(service, parsedArgs);
-                    } else {
-                        const paramNames = (operation.parameters || []).map(p => p.name);
-                        if (operation.requestBody?.content?.['application/json']?.schema) {
-                            const argValues = paramNames.map(name => parsedArgs[name]);
-                            return currentMethod.call(service, ...argValues);
-                        }
-                        const argValues = paramNames.map(name => parsedArgs[name]);
-                        return currentMethod.call(service, ...argValues);
-                    }
-                });
-            }
-        }
-    }
-
-    return new Proxy(service, {
-        get(target, prop) {
-            if (wrappedMethods.has(prop)) {
-                return wrappedMethods.get(prop);
-            }
-            const value = Reflect.get(target, prop, target);
-            if (typeof value === 'function') {
-                return value.bind(target);
-            }
-            return value;
-        }
-    });
-}
-
-
-// --- Load Specs ---
-/**
- * Safely loads a YAML OpenAPI specification.
- *
- * Degraded Mode Semantics (Fail-Open):
- * If a specification file is missing or contains syntax errors, this function catches the error
- * and returns `null` rather than crashing the process. This prevents a single malformed MCP
- * spec from causing a systemic boot cascade failure across all daemon services.
- * Downstream consumers (e.g., `makeSafe`) must handle `null` by skipping validation.
- */
-function safeLoadYaml(filePath) {
-    try {
-        return yaml.load(fs.readFileSync(filePath, 'utf8'));
-    } catch (err) {
-        console.error(`[services.mjs] Failed to load or parse YAML at ${filePath}:`, err.message);
-        return null;
-    }
-}
 
 const ghSpec     = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'));
 const kbSpec     = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
