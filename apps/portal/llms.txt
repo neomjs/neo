@@ -16979,6 +16979,7 @@ Here you find problem-to-solution records from Neo.mjs pull requests.
 
 Here you find Ideation Sandbox and architectural discussion records.
 
+- [Discussion #16733](https://neomjs.com/raw/news/discussions/16733.md)
 - [Discussion #16720](https://neomjs.com/raw/news/discussions/16720.md)
 - [Discussion #16652](https://neomjs.com/raw/news/discussions/16652.md)
 - [Discussion #16648](https://neomjs.com/raw/news/discussions/16648.md)
