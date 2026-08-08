@@ -4,6 +4,11 @@ import path                      from 'node:path';
 import Base                      from '../../../../src/core/Base.mjs';
 import AiConfig                  from '../../../config.mjs';
 import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+// The filter below and the codes it admits are one contract. Importing the pattern from the module
+// that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
+// look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
+import {BOUNDED_KB_ERROR_CODE_PATTERN}
+                                 from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {
     buildIngestEnvelope,
     createTenantRepoMaterializationDigest
@@ -54,7 +59,6 @@ import {
 const
     ACCESS_CONFIG_FINGERPRINT_KEY    = randomBytes(32),
     ACCESS_READINESS_MIN_TTL_MS      = 15 * 60 * 1000,
-    BOUNDED_KB_ERROR_CODE_PATTERN    = /^KB_[A-Z0-9_]{1,120}$/,
     PERSISTED_REVISIONS_FILE_NAME    = 'tenant-repo-sync-revisions.json',
     TENANT_REPO_SYNC_LEASE_FILE_NAME = 'tenant-repo-sync-lease.json';
 
