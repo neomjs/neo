@@ -23,13 +23,6 @@ const SENSITIVE_PAYLOAD_KEYS = new Set([
 export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = 50;
 
 /**
- * @summary Default completed-call threshold for incident correlation. It matches the canonical MCP
- * client request deadline: a server call at or above this duration may have outlived its caller.
- * @type {Number}
- */
-export const DEFAULT_SLOW_CALL_THRESHOLD_MS = 60_000;
-
-/**
  * @summary Persists redacted Memory Core MCP tool-call telemetry.
  *
  * This is the Memory Core sibling of the Knowledge Base and Neural Link recorder services,
@@ -344,18 +337,19 @@ class MemoryCoreRecorderService extends Base {
      * @param {Object} options
      * @param {Number} [options.sinceMs=config.toolTelemetry.aggregateWindowMs] Lookback window.
      * @param {Number} [options.limit=config.toolTelemetry.aggregateLimit] Max rows per projection.
-     * @param {Number} [options.slowAfterMs=DEFAULT_SLOW_CALL_THRESHOLD_MS] Minimum completed-call
-     *     duration included in `recentSlowCalls`.
+     * @param {Number} [options.slowAfterMs=config.toolTelemetry.slowAfterMs] Minimum completed-call
+     *     duration included in `recentSlowCalls`; the resolved leaf defaults to the canonical MCP
+     *     client request deadline, so a matching server call may have outlived its caller.
      * @returns {Object}
      */
     getMemoryCoreToolMetrics({
         sinceMs     = config.toolTelemetry.aggregateWindowMs,
         limit       = config.toolTelemetry.aggregateLimit,
-        slowAfterMs = DEFAULT_SLOW_CALL_THRESHOLD_MS
+        slowAfterMs = config.toolTelemetry.slowAfterMs
     } = {}) {
         const safeSlowAfterMs = Number.isFinite(slowAfterMs) && slowAfterMs > 0
             ? slowAfterMs
-            : DEFAULT_SLOW_CALL_THRESHOLD_MS;
+            : config.toolTelemetry.slowAfterMs;
 
         if (!config.toolTelemetry.enabled) {
             return {

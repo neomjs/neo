@@ -33,6 +33,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         originalEnv = {
             NEO_MC_TOOL_TELEMETRY_ENABLED        : process.env.NEO_MC_TOOL_TELEMETRY_ENABLED,
             NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS: process.env.NEO_MC_TOOL_TELEMETRY_ERROR_MAX_CHARS,
+            NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS  : process.env.NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS,
             NEO_MEMORY_DB_PATH_TEST              : process.env.NEO_MEMORY_DB_PATH_TEST,
             UNIT_TEST_MODE                       : process.env.UNIT_TEST_MODE
         };
@@ -363,6 +364,36 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             'slow-cross-window',
             'slow-newer-a'
         ]);
+    });
+
+    test('reads the default slow threshold from the resolved leaf and validates caller overrides', () => {
+        const originalSlowAfterMs = process.env.NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS;
+
+        try {
+            process.env.NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS = '1234';
+            memoryCoreConfig.refreshEnv();
+
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics()).toMatchObject({
+                status         : 'ok',
+                slowAfterMs    : 1_234,
+                recentSlowCalls: []
+            });
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 0})).toMatchObject({
+                slowAfterMs    : 1_234,
+                recentSlowCalls: []
+            });
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 500})).toMatchObject({
+                slowAfterMs    : 500,
+                recentSlowCalls: []
+            })
+        } finally {
+            if (originalSlowAfterMs === undefined) {
+                delete process.env.NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS
+            } else {
+                process.env.NEO_MC_TOOL_TELEMETRY_SLOW_AFTER_MS = originalSlowAfterMs
+            }
+            memoryCoreConfig.refreshEnv()
+        }
     });
 
     test('captures Memory Core MCP wrapper success and dispatch failure', async () => {
