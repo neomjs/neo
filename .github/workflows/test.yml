@@ -280,6 +280,22 @@ jobs:
         include:
           - suite: integration-unified
             run: ${{ needs.changes.outputs.run_integration }}
+          # A MANDATORY witness for the dev-profile topology + mock-embedding contract.
+          # "Parity" here means DEV-PROFILE parity — does the profile CI runs match the
+          # shape we deploy — which is an ongoing concern, NOT the local-vs-dockerized
+          # comparison that ended with the dockerization cut. It gets misread as the
+          # latter, and was nearly dropped as leftover debt on that reading.
+          #
+          # It boots ONE isolated plane (its own Compose project, its own data root) and
+          # splits evenly across 8 test cases: four prove the profile stands up — plane boots,
+          # Neural Link loggers initialize without sink degradation, provider auth
+          # refuses missing/empty secret carriers before listen, and the deterministic
+          # mock provider carries semantic recall end to end. The other four prove that
+          # plane stays contained: served identity never resolves the durable root,
+          # foreign-plane expectations are rejected at the wire, an overlay resolving
+          # the canonical root is refused at boot, and no egress leaves the network.
+          #
+          # Do not retire this check on the strength of its name.
           - suite: integration-parity
             run: ${{ needs.changes.outputs.run_parity }}
           - suite: unit
