@@ -725,6 +725,35 @@ test.describe('ai/daemons/wake/receiver — context gate (#16682)', () => {
         expect(warnLines.join('\n')).toContain('warns');
     });
 
+    test('a wake delivered through a probed gate carries the session-context payload (AC-2)', async () => {
+        probeResult = {contextTokens: 45_000, lastActivityAt: Date.now(), sessionId: 'ses_cheap'};
+        await bootReceiver(manifest);
+
+        await postWake();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(dispatchCalls).toHaveLength(1);
+        expect(dispatchCalls[0].envelope.payload.sessionContext).toEqual({
+            contextTokens   : 45_000,
+            maxContextTokens: 250_000
+        });
+        // The durable record keeps the byte-identical signed envelope — the line is a dispatch-time copy
+        const delivered = (await state.list()).find(record => record.state === 'delivered');
+
+        expect(delivered.envelope.payload.sessionContext).toBeUndefined();
+    });
+
+    test('absent probe data, no session-context field rides the dispatch envelope (no noise)', async () => {
+        probeResult = null;
+        await bootReceiver(manifest);
+
+        await postWake();
+
+        expect(await waitForRecord(record => record.state === 'delivered')).toBeTruthy();
+        expect(dispatchCalls).toHaveLength(1);
+        expect(dispatchCalls[0].envelope.payload.sessionContext).toBeUndefined();
+    });
+
     test('a legacy route without contextGate skips the gate and the probe entirely', async () => {
         await bootReceiver(ungatedManifest);
 
