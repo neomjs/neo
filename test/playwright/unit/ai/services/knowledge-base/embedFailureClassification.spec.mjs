@@ -12,6 +12,8 @@ import {
     KB_VECTOR_EMBED_UNCLASSIFIED,
     classifyEmbedFailureCode
 } from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
+import {normalizeTenantRepoCheckpointState}
+    from '../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 
 /**
  * @summary An embed failure must reach the deployment-state snapshot as a cause a remote reader can
@@ -222,5 +224,65 @@ test.describe('embed failure classification — production path', () => {
         expect(run.errors).toHaveLength(1);
         expect(run.errors[0].code).toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
         expect(run.errors[0].code).not.toBe(KB_VECTOR_EMBED_UNCLASSIFIED);
+    });
+});
+
+/**
+ * @summary The projection half: the producer's ACTUAL output, carried through the durable read
+ * boundary, observed as the `lastSourceErrorCode` a remote client reads.
+ *
+ * The producer test above stops at `summary.errors[].code` and checks it against a pattern. That is
+ * one step short of the claim, and re-asserting the same regex I wrote proves only that I applied it
+ * twice. Whether the code SURVIVES is decided by a different function in a different module —
+ * `normalizeTenantRepoCheckpointState`, which independently re-validates persisted state it did not
+ * write and nulls anything it does not admit.
+ *
+ * So the two halves are chained by a real value: whatever `embedChunkGroups` actually produced is fed
+ * to the read boundary, with no literal code named in between. If the producer's namespace and the
+ * reader's admission rule ever drift apart, that is precisely the pair this catches — and it is the
+ * drift the durable receipt reported as `null`.
+ */
+test.describe('embed failure classification — durable projection', () => {
+    /**
+     * @param {String} providerCode A code in the provider's vocabulary.
+     * @returns {String|null} The value a remote client would read as `lastSourceErrorCode`.
+     */
+    function projectThroughDurableRead(providerCode) {
+        // No literal is named here — this is the producer's real answer, whatever it is.
+        const producedCode = classifyEmbedFailureCode(providerCode);
+
+        return normalizeTenantRepoCheckpointState({
+            consecutiveFailures: 1,
+            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastRunAttemptAt   : 1,
+            lastSourceErrorCode: producedCode
+        }).lastSourceErrorCode
+    }
+
+    test('a classified provider fault survives the read boundary instead of nulling', () => {
+        const timeout = projectThroughDurableRead('EMBEDDING_PROBE_TIMEOUT'),
+              aborted = projectThroughDurableRead('ABORT_ERR');
+
+        // Survival is the whole point: the reader nulls anything it will not admit, and null is
+        // exactly what the receipt reported before this fix.
+        expect(timeout, 'a timeout reaches the client as a cause').not.toBeNull();
+        expect(aborted, 'an abort reaches the client as a cause').not.toBeNull();
+
+        // Two causes remain two causes at the surface a remote diagnostician actually reads.
+        expect(timeout).not.toBe(aborted);
+    });
+
+    test('the reader is genuinely capable of nulling — the control that makes the above mean something', () => {
+        // Without this, "not null" could hold because the reader admits everything, and the test
+        // would pass against a boundary that validates nothing at all.
+        const rejected = normalizeTenantRepoCheckpointState({
+            consecutiveFailures: 1,
+            lastRunAttemptAt   : 1,
+            lastSourceErrorCode: 'EMBEDDING_PROBE_TIMEOUT'
+        }).lastSourceErrorCode;
+
+        // The raw provider code — what the pre-fix producer handed over — is refused by the reader.
+        // That is the exact mechanism by which the cause was lost.
+        expect(rejected).toBeNull();
     });
 });

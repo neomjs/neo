@@ -30,11 +30,26 @@
  */
 
 /**
- * @summary The single definition of a code that may cross into durable tenant-repo state.
+ * @summary The **writer-side** definition: what an embed failure may mint on its way into durable
+ * tenant-repo state.
  *
- * Owned here because this module is the one place that *produces* codes for that boundary; the
- * orchestrator's sync service imports it rather than re-declaring the literal, so the producer and
- * the filter cannot drift apart into a pair that separately look correct.
+ * Owned here because this module is the one place that *produces* codes for that boundary, and the
+ * orchestrator's sync filter imports it rather than re-declaring the literal. Those two must agree
+ * or a produced code is silently dropped — which is exactly the defect this module exists to end —
+ * so they are deliberately one definition.
+ *
+ * **It is not the only validator, and calling it the sole one would be the same overclaim this
+ * module warns about.** Two downstream gates re-check the same shape from different trust positions,
+ * and they are separate on purpose rather than by neglect:
+ *
+ * - `tenantRepoCheckpointValidity.normalizeBoundedErrorCode` — the READ boundary, validating
+ *   persisted state it did not write and may not trust (corruption, hand-editing, an older writer).
+ * - `DeploymentStateBridgeService.safeKnowledgeBaseErrorCode` — the PROJECTION boundary, validating
+ *   what leaves the process toward a remote client.
+ *
+ * A reader that trusted the writer's guarantee would inherit the writer's bugs, so collapsing all
+ * three into one import would remove defence-in-depth rather than duplication. What must never drift
+ * is producer-and-filter; reader and projector are allowed to be independently strict.
  * @type {RegExp}
  */
 export const BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/;
