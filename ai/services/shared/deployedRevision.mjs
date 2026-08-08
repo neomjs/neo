@@ -3,63 +3,29 @@ import path from 'path';
 
 import {fileURLToPath} from 'url';
 
-/**
- * @module ai/services/shared/deployedRevision
- * @summary The packaged source revision, read from the artifact rather than from the build arg that
- * asked for it.
- *
- * `NEO_REVISION` is a build ARG — what an operator requested, empty by default, absent at runtime.
- * `.neo-revision` is written by the image's source stage from the real checkout. This reads the
- * second, because the case worth detecting is the one where they disagree.
- *
- * `null` means no build wrote a revision (a source checkout, a test process). It is a value, not a
- * silence: the field must always be present on the payload, or a consumer computing deployment skew
- * reads an absent field as current. `local-build` is a real recorded value and passes through.
- */
-
 const revisionFilePath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)), '../../../.neo-revision'
 );
 
-// `undefined` is "not read yet", `null` is "read, and no build wrote one" — a single sentinel would
-// re-read the file on every healthcheck for an unbuilt runtime.
-let cached;
-
 /**
- * @summary Reads the packaged source revision, once per process.
+ * @summary The packaged source revision, so a deployment can report which commit it is running.
  *
- * Never throws: absent, unreadable and empty all resolve to `null`, since a healthcheck that could
- * fail because provenance was unavailable would trade a reporting gap for an outage.
+ * Reads the image's `.neo-revision` marker, written by the build from the real checkout — not the
+ * `NEO_REVISION` build arg, which records what was REQUESTED, is empty by default, and no runtime
+ * code reads.
+ *
+ * Never throws: absent, empty and unreadable all give `null`, since a healthcheck must not fail
+ * because provenance was unavailable. `null` is reported as the field's value, never omitted — an
+ * absent field reads as "current" to whoever is checking for skew.
  *
  * @param {Object} [options]
  * @param {String} [options.filePath] Override for tests. Production callers omit it.
- * @param {Boolean} [options.useCache=true] False in tests to defeat the memo.
- * @returns {String|null} The recorded revision — a SHA, the `local-build` marker, or null.
+ * @returns {String|null} A SHA, the `local-build` marker, or null when no build wrote one.
  */
-export function readDeployedRevision({filePath = revisionFilePath, useCache = true} = {}) {
-    if (useCache && cached !== undefined) {
-        return cached
-    }
-
-    let result;
-
+export function readDeployedRevision({filePath = revisionFilePath} = {}) {
     try {
-        result = fs.readFileSync(filePath, 'utf8').trim() || null
+        return fs.readFileSync(filePath, 'utf8').trim() || null
     } catch {
-        result = null
+        return null
     }
-
-    if (useCache) {
-        cached = result
-    }
-
-    return result
-}
-
-/**
- * @summary Clears the per-process memo. Test seam only — a running deployment's revision cannot change.
- * @returns {void}
- */
-export function resetDeployedRevisionCache() {
-    cached = undefined;
 }
