@@ -2115,7 +2115,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     });
 
     /**
-     * @summary The consumer witness: two real embed-failure summaries carried through `runTask` to the
+     * @summary The consumer witness: real embed-failure summaries carried through `runTask` to the
      * `details.repos[].lastSourceErrorCode` a remote client reads.
      *
      * A producer-side spec that classifies a code, and a reader-side spec that admits it, can BOTH be
@@ -2125,21 +2125,21 @@ test.describe('TenantRepoSyncService (#11790)', () => {
      * into `lastSourceErrorCode: null`, so a witness that skips it does not witness the defect.
      *
      * The summaries here are not hand-written: they are produced by running the real
-     * `IngestionService.embedChunkGroups` against two injected provider faults, then handed to the
+     * `IngestionService.embedChunkGroups` against source-shaped failures, then handed to the
      * `knowledgeBaseIngestionService` seam verbatim. No `KB_*` literal appears between the provider
      * error and the assertion, so the whole producer -> filter -> projection chain has to agree.
      */
-    test('two real embed failures reach details.repos[] as distinct source codes (#16647)', async () => {
+    test('real embed failures reach details.repos[] as distinct source codes (#16647, #16658)', async () => {
         const {default: IngestionService} = await import(
             '../../../../../../../ai/services/knowledge-base/IngestionService.mjs'
         );
 
         /**
          * Runs the REAL embed path against one injected provider fault.
-         * @param {String} providerCode
+         * @param {Error} sourceError Error emitted by the source boundary.
          * @returns {Promise<Object>} The genuine ingestion summary, errors included.
          */
-        async function produceRealSummary(providerCode) {
+        async function produceRealSummary(sourceError) {
             const summary = {errors: [], embeddingsGenerated: 0};
 
             await IngestionService.embedChunkGroups.call({
@@ -2147,7 +2147,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 updateIngestionProgress: () => {},
                 vectorService          : {
                     async embed() {
-                        throw Object.assign(new Error('provider failed'), {code: providerCode})
+                        throw sourceError
                     }
                 },
                 writeTempJsonl: async () => path.join(
@@ -2174,7 +2174,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
          * Drives one real summary through the sync lane and returns what a client would read.
          * @param {Object} summary
          * @param {String} repoSlug
-         * @returns {Promise<String|null>}
+         * @returns {Promise<Object>} The remotely-readable repository state.
          */
         async function projectThroughRunTask(summary, repoSlug) {
             await provisionMirrorDir({tenantId: 't1', repoSlug});
@@ -2192,30 +2192,102 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 seedBootstrap                : false
             });
 
-            return result.details.repos[0].lastSourceErrorCode ?? null
+            return result.details.repos[0]
+        }
+
+        /**
+         * Captures one rejected embedding call without replacing the production error object.
+         * @param {Promise<*>} promise Embedding operation expected to fail.
+         * @returns {Promise<Error>} The exact source error.
+         */
+        async function captureFailure(promise) {
+            return promise.then(
+                () => null,
+                error => error
+            )
         }
 
         const
-            timeoutSummary = await produceRealSummary('EMBEDDING_PROBE_TIMEOUT'),
-            abortSummary   = await produceRealSummary('ABORT_ERR');
+            {default: TextEmbeddingService} = await import(
+                '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs'
+            ),
+            {default: embeddingConfig} = await import(
+                '../../../../../../../ai/mcp/server/memory-core/config.template.mjs'
+            ),
+            originalHost               = embeddingConfig.openAiCompatible.host,
+            originalUnloadRetryCount   = embeddingConfig.openAiCompatible.unloadRetryCount,
+            originalProbe              = TextEmbeddingService.openAiCompatibleLoadedModelsProbe;
+
+        let connectionRefusedError, modelNotResidentError;
+
+        try {
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [];
+            modelNotResidentError = await captureFailure(
+                TextEmbeddingService.embedText('model-marker-must-not-project', 'openAiCompatible')
+            );
+
+            const {default: http} = await import('node:http');
+            const closedServer    = http.createServer();
+            await new Promise(resolve => closedServer.listen(0, '127.0.0.1', resolve));
+            const closedPort = closedServer.address().port;
+            await new Promise(resolve => closedServer.close(resolve));
+
+            embeddingConfig.openAiCompatible.host             = `http://127.0.0.1:${closedPort}`;
+            embeddingConfig.openAiCompatible.unloadRetryCount = 0;
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
+                id           : embeddingConfig.openAiCompatible.embeddingModel,
+                contextLength: embeddingConfig.localModels.embedding.contextLimitTokens
+            }];
+            connectionRefusedError = await captureFailure(
+                TextEmbeddingService.embedText('connection-marker-must-not-project', 'openAiCompatible')
+            );
+        } finally {
+            embeddingConfig.openAiCompatible.host             = originalHost;
+            embeddingConfig.openAiCompatible.unloadRetryCount = originalUnloadRetryCount;
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe = originalProbe;
+        }
+
+        expect(connectionRefusedError).toBeInstanceOf(Error);
+        expect(connectionRefusedError.code).toBe('ECONNREFUSED');
+        expect(modelNotResidentError).toBeInstanceOf(Error);
+        expect(modelNotResidentError.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
+
+        const
+            timeoutSummary     = await produceRealSummary(Object.assign(new Error('provider timed out'), {code: 'EMBEDDING_PROBE_TIMEOUT'})),
+            abortSummary       = await produceRealSummary(Object.assign(new Error('provider aborted'),   {code: 'ABORT_ERR'})),
+            refusedSummary     = await produceRealSummary(connectionRefusedError),
+            nonResidentSummary = await produceRealSummary(modelNotResidentError);
 
         // Non-vacuity: an empty errors array would make the lane succeed and every assertion below
         // would be reasoning about a repo that never failed.
         expect(timeoutSummary.errors, 'the timeout run really produced an error').toHaveLength(1);
         expect(abortSummary.errors, 'the abort run really produced an error').toHaveLength(1);
+        expect(refusedSummary.errors, 'the refusal run really produced an error').toHaveLength(1);
+        expect(nonResidentSummary.errors, 'the residency run really produced an error').toHaveLength(1);
 
         const
-            timeoutCode = await projectThroughRunTask(timeoutSummary, 'org/witness-timeout'),
-            abortCode   = await projectThroughRunTask(abortSummary,   'org/witness-abort');
+            timeoutState     = await projectThroughRunTask(timeoutSummary,     'org/witness-timeout'),
+            abortState       = await projectThroughRunTask(abortSummary,       'org/witness-abort'),
+            refusedState     = await projectThroughRunTask(refusedSummary,     'org/witness-refused'),
+            nonResidentState = await projectThroughRunTask(nonResidentSummary, 'org/witness-non-resident');
 
         // Arrival. Pre-fix both were dropped by the `^KB_` filter and this read null — the exact
         // symptom that made a wedged deployment undiagnosable from a remote client.
-        expect(timeoutCode, 'a provider timeout arrives as a cause').not.toBeNull();
-        expect(abortCode, 'an upstream abort arrives as a cause').not.toBeNull();
+        expect(timeoutState.lastSourceErrorCode, 'a provider timeout arrives as a cause').not.toBeNull();
+        expect(abortState.lastSourceErrorCode, 'an upstream abort arrives as a cause').not.toBeNull();
 
         // Distinguishability, which is the acceptance criterion itself: two faults must not read
         // identically from the deployment-state snapshot alone.
-        expect(timeoutCode).not.toBe(abortCode);
+        expect(timeoutState.lastSourceErrorCode).not.toBe(abortState.lastSourceErrorCode);
+        expect(refusedState.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_CONNECTION_REFUSED');
+        expect(nonResidentState.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_MODEL_NOT_RESIDENT');
+        expect(refusedState.lastSourceErrorCode).not.toBe(nonResidentState.lastSourceErrorCode);
+
+        const projected = JSON.stringify([refusedState, nonResidentState]);
+        expect(projected).not.toContain('connection-marker-must-not-project');
+        expect(projected).not.toContain('model-marker-must-not-project');
+        expect(projected).not.toContain(connectionRefusedError.message);
+        expect(projected).not.toContain(modelNotResidentError.message);
     });
 
 

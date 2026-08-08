@@ -59,8 +59,9 @@ export const BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/;
  * recognised.
  *
  * It does NOT mean "embedding is broken in some general way", and two deployments reporting it may
- * share nothing but the stage at which they stopped. Reading a shared occurrence of this code as a
- * shared defect is the inference this constant is named to discourage.
+ * share nothing but the stage at which they stopped. It remains reachable only for genuinely
+ * unclassifiable inputs: absent/empty/non-string codes, or strings outside both closed vocabularies
+ * below. Reading a shared occurrence as a shared defect is the inference this constant discourages.
  * @type {String}
  */
 export const KB_VECTOR_EMBED_UNCLASSIFIED = 'KB_VECTOR_EMBED_FAILED';
@@ -86,16 +87,19 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
 ]));
 
 /**
- * @summary Provider-vocabulary codes that describe a distinguishable embed fault.
+ * @summary Upstream-vocabulary codes that describe a distinguishable embed fault.
  *
  * Two timeout sources map to different codes on purpose: a consumer-owned deadline expiring
  * (`EMBEDDING_PROBE_TIMEOUT`, raised by our own caller) and the provider's own request timeout are
  * different faults with different fixes — raise our deadline, versus the provider is too slow or
- * wedged. Collapsing them would rebuild the ambiguity this module exists to remove.
+ * wedged. The map also translates a source-owned model-residency code and Node's foreign transport
+ * refusal code; neither is echoed. Collapsing them would rebuild the ambiguity this module removes.
  * @type {Object}
  */
 const PROVIDER_ERROR_CODE_MAP = Object.freeze({
     ABORT_ERR                        : 'KB_VECTOR_EMBED_ABORTED',
+    ECONNREFUSED                     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    EMBEDDING_MODEL_NOT_RESIDENT     : 'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
     EMBEDDING_PROBE_TIMEOUT          : 'KB_VECTOR_EMBED_TIMEOUT',
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT',
     PROVIDER_TIMEOUT                 : 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'

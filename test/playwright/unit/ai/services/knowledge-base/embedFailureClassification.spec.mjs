@@ -69,6 +69,16 @@ test.describe('embed failure classification (#16647)', () => {
             .toBe(classifyEmbedFailureCode('PROVIDER_TIMEOUT'));
     });
 
+    test('a connection refusal and a known model-residency failure stay distinguishable', () => {
+        const
+            refused     = classifyEmbedFailureCode('ECONNREFUSED'),
+            nonResident = classifyEmbedFailureCode('EMBEDDING_MODEL_NOT_RESIDENT');
+
+        expect(refused).toBe('KB_VECTOR_EMBED_CONNECTION_REFUSED');
+        expect(nonResident).toBe('KB_VECTOR_EMBED_MODEL_NOT_RESIDENT');
+        expect(refused).not.toBe(nonResident);
+    });
+
     test('a DECLARED internal code is passed through, not overwritten', () => {
         // Our own layers produce codes more specific than anything the map could add. Rewriting them
         // would be a regression disguised as classification. It passes because it is a declared
@@ -129,6 +139,8 @@ test.describe('embed failure classification (#16647)', () => {
         // only place that would notice.
         const providerCodes = [
             'ABORT_ERR',
+            'ECONNREFUSED',
+            'EMBEDDING_MODEL_NOT_RESIDENT',
             'EMBEDDING_PROBE_TIMEOUT',
             'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
             'PROVIDER_TIMEOUT'
