@@ -250,7 +250,7 @@ export function findExplicitSubscriptionWatermark(subscription, extraWatermarks 
  * @param {Object[]} [options.extraWatermarks=[]]
  * @param {Number} [options.wakeLiveCursor=null]
  * @param {Number} [options.safetyMarginRows=DEFAULT_SAFETY_MARGIN_ROWS]
- * @returns {Object}
+ * @returns {{canApply:Boolean, cutoffLogId:Number, consumers:Object[], disposition:String, minWatermark:(Number|undefined), reason:String, safetyMarginRows:Number, unknownConsumers:Object[]}}
  */
 export function computeCompactionPlan({
     stats,
@@ -306,36 +306,41 @@ export function computeCompactionPlan({
 
     if (unknownConsumers.length > 0) {
         return {
-            canApply        : false,
-            cutoffLogId     : 0,
+            canApply   : false,
+            cutoffLogId: 0,
             consumers,
+            disposition: 'safety-blocked',
             unknownConsumers,
-            reason          : 'unknown-consumer-watermark',
+            reason     : 'unknown-consumer-watermark',
             safetyMarginRows
         };
     }
 
     if (consumers.length === 0) {
         return {
-            canApply        : false,
-            cutoffLogId     : 0,
+            canApply   : false,
+            cutoffLogId: 0,
             consumers,
+            disposition: 'safety-blocked',
             unknownConsumers,
-            reason          : 'no-known-consumer-watermark',
+            reason     : 'no-known-consumer-watermark',
             safetyMarginRows
         };
     }
 
     const minWatermark = Math.min(...consumers.map(entry => entry.watermark));
     const cutoffLogId  = Math.max(0, Math.min(stats.maxLogId, minWatermark - safetyMarginRows));
+    const canApply     = cutoffLogId > 0;
+    const upToDate     = !canApply && stats.maxLogId <= safetyMarginRows;
 
     return {
-        canApply        : cutoffLogId > 0,
+        canApply,
         cutoffLogId,
         consumers,
+        disposition: canApply ? 'ready' : upToDate ? 'up-to-date' : 'safety-blocked',
         unknownConsumers,
         minWatermark,
-        reason          : cutoffLogId > 0 ? 'ready' : 'cutoff-not-positive',
+        reason     : canApply ? 'ready' : upToDate ? 'nothing-to-compact' : 'no-safe-cutoff',
         safetyMarginRows
     };
 }
@@ -459,10 +464,7 @@ export function runGraphLogCompaction({
  */
 export function buildGraphLogCompactionOutcome(result, {apply = false} = {}) {
     const {before = {}, after = {}, plan = {}, compaction = {}} = result || {};
-    const safetyBlocked = plan.canApply === false && (
-        plan.reason === 'unknown-consumer-watermark' ||
-        plan.reason === 'no-known-consumer-watermark'
-    );
+    const safetyBlocked = plan.disposition === 'safety-blocked';
     const status = safetyBlocked
         ? 'safety-blocked'
         : !apply

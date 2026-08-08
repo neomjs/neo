@@ -15,6 +15,7 @@ import fs             from 'fs-extra';
 import path           from 'path';
 
 import {
+    buildGraphLogCompactionOutcome,
     compactGraphLogRows,
     computeCompactionPlan,
     createCommand,
@@ -291,6 +292,56 @@ test.describe('compactGraphLog maintenance guard', () => {
         expect(plan.canApply).toBe(true);
         expect(plan.minWatermark).toBe(15);
         expect(plan.cutoffLogId).toBe(13);
+    });
+
+    test('#16681: distinguishes a consumer-blocked cutoff from a retained short log', () => {
+        const blockedPlan = computeCompactionPlan({
+            stats              : {maxLogId: 20},
+            wakeDaemonWatermark: null,
+            extraWatermarks    : [parseConsumerWatermark('remote-worker=1')],
+            safetyMarginRows   : 2
+        });
+        const blockedOutcome = buildGraphLogCompactionOutcome({
+            before    : {rowCount: 20},
+            after     : {rowCount: 20},
+            plan      : blockedPlan,
+            compaction: {eligibleRows: 0, deletedRows: 0}
+        }, {apply: true});
+
+        expect(blockedPlan).toEqual(expect.objectContaining({
+            canApply   : false,
+            disposition: 'safety-blocked',
+            reason     : 'no-safe-cutoff'
+        }));
+        expect(blockedOutcome).toEqual(expect.objectContaining({
+            deferred: true,
+            status  : 'safety-blocked',
+            reason  : 'no-safe-cutoff'
+        }));
+
+        const upToDatePlan = computeCompactionPlan({
+            stats              : {maxLogId: 2},
+            wakeDaemonWatermark: null,
+            extraWatermarks    : [parseConsumerWatermark('remote-worker=2')],
+            safetyMarginRows   : 2
+        });
+        const upToDateOutcome = buildGraphLogCompactionOutcome({
+            before    : {rowCount: 2},
+            after     : {rowCount: 2},
+            plan      : upToDatePlan,
+            compaction: {eligibleRows: 0, deletedRows: 0}
+        }, {apply: true});
+
+        expect(upToDatePlan).toEqual(expect.objectContaining({
+            canApply   : false,
+            disposition: 'up-to-date',
+            reason     : 'nothing-to-compact'
+        }));
+        expect(upToDateOutcome).toEqual(expect.objectContaining({
+            deferred: false,
+            status  : 'up-to-date',
+            reason  : 'nothing-to-compact'
+        }));
     });
 
     test('dry-run reports eligible rows without deleting; apply deletes only through cutoff', () => {
