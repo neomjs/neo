@@ -15,6 +15,13 @@ on:
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
+      # The invariant is scanned ⊆ watched: the lint's implementation/capture rules walk every
+      # `ai/**/*.mjs` and its test config-authority (C3) rule walks every `test/**/*.mjs`, so a
+      # filter without these lets an introducing PR land ungated and turns the NEXT unrelated
+      # template-touching run red — late, misattributed enforcement (#16628; the configBase
+      # comment above already names the class: guard present, correct, and never run).
+      - 'ai/**/*.mjs'
+      - 'test/**/*.mjs'
   push:
     branches: [dev]
     paths:
@@ -29,6 +36,13 @@ on:
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
+      # The invariant is scanned ⊆ watched: the lint's implementation/capture rules walk every
+      # `ai/**/*.mjs` and its test config-authority (C3) rule walks every `test/**/*.mjs`, so a
+      # filter without these lets an introducing PR land ungated and turns the NEXT unrelated
+      # template-touching run red — late, misattributed enforcement (#16628; the configBase
+      # comment above already names the class: guard present, correct, and never run).
+      - 'ai/**/*.mjs'
+      - 'test/**/*.mjs'
 
 concurrency:
   group: config-template-ssot-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
