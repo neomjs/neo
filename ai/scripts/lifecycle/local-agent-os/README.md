@@ -61,9 +61,16 @@ silent. Declare a role explicitly if you need that entrypoint directly.
 ## Start the container plane
 
 Run from the repository root after provisioning `.env` and the mode-0600
-`.neo-ai-secrets/mcp-auth-token`:
+`.neo-ai-secrets/mcp-auth-token`.
+
+**Resolve the channel to a commit first.** Compose maps one operator pin to both
+internal Docker arguments, and the source stage refuses a mutable ref (#16635) —
+a branch name makes the fetch layer cache-stable, so the build would package
+whatever `dev` pointed at the first time it ran and report success doing it:
 
 ```sh
+export NEO_REVISION=$(git ls-remote https://github.com/neomjs/neo.git dev | cut -f1)
+
 docker compose --env-file .env \
   -f ai/deploy/docker-compose.yml \
   -f ai/deploy/docker-compose.local-agent-os.yml \
@@ -72,6 +79,24 @@ docker compose --env-file .env \
 
 The canonical project is `neo-local-agent-os` unless
 `NEO_LOCAL_AGENT_OS_PROJECT_NAME` explicitly overrides it.
+
+### Updating an already-running plane
+
+Same resolve step, then `--build`. Do not trust the build log or `--wait`: the
+log prints a cached layer's command exactly as it prints an executed one, and
+`--wait` proves *health*, never *revision*. `D#16304` records this path running
+as a full cache hit — containers recreated from three-week-old images with the
+running revision moving **backwards** — while every gate in the stack reported
+success. With `NEO_REVISION` exported, the build now fails closed instead.
+
+Verify what actually shipped by reading the artifact rather than the graph:
+
+```sh
+docker compose --env-file .env \
+  -f ai/deploy/docker-compose.yml \
+  -f ai/deploy/docker-compose.local-agent-os.yml \
+  --profile cloud exec mc-server cat /app/.neo-revision
+```
 
 ## Install the host edge (macOS, supervised)
 
