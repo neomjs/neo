@@ -5198,6 +5198,135 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             }
         });
     });
+
+    test('a deferred repo publishes how much work is outstanding, and a completed one publishes zero', async () => {
+        // The discrimination this observable exists for. On a starved provider a repo sits `deferred`
+        // with `count: 0` for hours, and that is indistinguishable at the surface from a repo with
+        // nothing to do — the difference between a deployment that looks dead and one that is visibly
+        // converging. Driven through the real `runTask` sweep rather than the pure helper, because the
+        // helper is already covered and what is unproven here is that the number REACHES a surface.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slug             = 'org/outstanding-observable',
+            repoLabel        = `t1/${slug}`;
+
+        let ingestCallCount = 0;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/outstanding.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestCallCount++;
+
+                    // Run 1: 100 embeddable accepted, 10 DISJOINT guardrail rejections, 30 embedded
+                    // before the provider gave out -> 70 outstanding. Run 2: the corpus fully embedded.
+                    //
+                    // 110 total - 30 embedded - 10 declined = 70, which is identically 100 - 30:
+                    // `ingested` and `skippedOversized` are disjoint (the progress projection sums
+                    // them for its total), so the declined chunks cancel out instead of inflating a
+                    // backlog that could never reach zero.
+                    return ingestCallCount === 1
+                        ? {
+                            ingested           : 100,
+                            skippedOversized   : 10,
+                            embeddingsGenerated: 30,
+                            deleted            : 0,
+                            errors             : [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]
+                        }
+                        : {
+                            ingested           : 100,
+                            skippedOversized   : 10,
+                            embeddingsGenerated: 100,
+                            deleted            : 0,
+                            errors             : []
+                        }
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 0,
+            jitterRatio      : 0,
+            backoffCapMs     : 7_200_000,
+            seedBootstrap    : false
+        };
+
+        const deferredRun   = await TenantRepoSyncService.runTask(options),
+              deferredState = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(deferredRun.status).toBe('deferred');
+
+        expect(deferredState.corpusOutstanding.outstanding).toBe(70);
+        expect(deferredState.corpusOutstanding.observable).toBe(true);
+        expect(deferredState.corpusOutstanding.state).toBe('converging');
+
+        const deferredProjection = deferredRun.details.repos.find(row => row.repoSlug === slug);
+
+        expect(deferredProjection.status).toBe('deferred');
+        expect(deferredProjection.corpusOutstanding.outstanding).toBe(70);
+
+        // NEGATIVE CONTROL: a completed run must reach zero. Without this, "outstanding" could be a
+        // number that only ever grows, and a genuinely finished corpus would be indistinguishable
+        // from one still working.
+        const completedRun   = await TenantRepoSyncService.runTask(options),
+              completedState = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(completedRun.status).toBe('completed');
+        expect(completedState.corpusOutstanding.outstanding).toBe(0);
+        expect(completedState.corpusOutstanding.state).toBe('complete');
+
+        const completedProjection = completedRun.details.repos.find(row => row.repoSlug === slug);
+
+        expect(completedProjection.corpusOutstanding.outstanding).toBe(0);
+    });
+
+    test('a summary that never reported embeddings publishes UNKNOWN, never a reassuring zero', async () => {
+        // The empty-is-not-success guard, at the surface rather than in the helper. A run whose
+        // summary omits `embeddingsGenerated` was not measured; publishing `0` there would claim a
+        // finished corpus on the strength of a missing field, which is the exact defect this ticket
+        // family exists to close — and it would be indistinguishable from the completed case above.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slug             = 'org/unmeasured-outstanding',
+            repoLabel        = `t1/${slug}`;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        const run = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/unmeasured.git'}
+            ]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: makeFakeEnvelopeBuilder(),
+            // No `embeddingsGenerated` — the shape every pre-existing fixture in this file uses.
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 5, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]})
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 0,
+            jitterRatio      : 0,
+            backoffCapMs     : 7_200_000,
+            seedBootstrap    : false
+        });
+
+        const state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(run.status).toBe('deferred');
+        expect(state.corpusOutstanding.observable).toBe(false);
+        expect(state.corpusOutstanding.outstanding).toBeNull();
+        expect(state.corpusOutstanding.state).toBe('unobservable');
+        // The discrimination stated as a comparison, so a future change that collapses unknown into
+        // zero fails here rather than passing quietly on a plausible-looking number.
+        expect(state.corpusOutstanding.outstanding).not.toBe(0);
+    });
 });
 
 test.describe('the persisted cause DISCRIMINATES, and still leaks nothing (#16056)', () => {

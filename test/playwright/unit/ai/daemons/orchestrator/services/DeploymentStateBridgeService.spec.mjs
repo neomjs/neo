@@ -984,6 +984,87 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         service.destroy();
     });
 
+    test('the outstanding-work count reaches the snapshot, and an unmeasured repo does not read as finished', async () => {
+        // AC-4: the count must reach the DEPLOYMENT SNAPSHOT, which builds `repos[]` from PERSISTED
+        // state through two independent whitelists (the checkpoint normalizer, then this summarizer).
+        // A test against `runTask`'s own return would pass while the snapshot silently dropped the
+        // field — different projection, same-looking number.
+        const
+            makeService = checkpoint => createService({
+                taskStateService     : {getTaskState: () => ({running: false, lastCompletion: null})},
+                tenantRepoSyncService: {
+                    async resolveTenantReposConfig() {
+                        return {tenantRepos: [{
+                            tenantId  : 'tenant-outstanding',
+                            repoSlug  : 'private/outstanding',
+                            cloneUrl  : 'https://git.example/private/outstanding.git',
+                            cadenceMs : 60_000,
+                            configTier: 'yaml'
+                        }]};
+                    },
+                    defaultRevisionsFilePath: () => '/state/revisions.json',
+                    async readPersistedRevisions() {
+                        return {'tenant-outstanding/private/outstanding': checkpoint};
+                    },
+                    getTenantRepoAccessReadiness     : () => null,
+                    getEmbeddingRecoveryProbeSnapshot: () => null
+                },
+                tenantRepoSyncEnabledReader: () => true
+            }),
+            baseCheckpoint = {
+                lastIngestedRev : null,
+                lastRunAttemptAt: OBSERVED_AT - 1_000,
+                // Zero, deliberately: a repo deferring against a slow provider holds its streak by
+                // design. If this field were gated on `failures > 0` like the cause codes are, the
+                // backlog would be invisible in exactly the state it exists to explain.
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            };
+
+        const measured = makeService({
+            ...baseCheckpoint,
+            corpusOutstanding: {
+                state          : 'converging',
+                observable     : true,
+                outstanding    : 40_000,
+                lastDecreasedAt: OBSERVED_AT - 5_000,
+                observedAt     : OBSERVED_AT - 1_000
+            }
+        });
+
+        const measuredSnapshot = await measured.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(measuredSnapshot.repos[0].corpusOutstanding).toEqual({
+            state          : 'converging',
+            observable     : true,
+            outstanding    : 40_000,
+            lastDecreasedAt: OBSERVED_AT - 5_000,
+            observedAt     : OBSERVED_AT - 1_000
+        });
+        expect(measuredSnapshot.repos[0].consecutiveFailures).toBe(0);
+        measured.destroy();
+
+        // A repo whose observation was never written must not present as a finished corpus. This is
+        // the same empty-is-not-success discrimination, at the outermost surface a client reads.
+        const unmeasured         = makeService({...baseCheckpoint}),
+              unmeasuredSnapshot = await unmeasured.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(unmeasuredSnapshot.repos[0].corpusOutstanding).toBeNull();
+        unmeasured.destroy();
+
+        // A torn record degrades WHOLE rather than being repaired into a number — a half-written or
+        // hand-edited observation must never surface as a count.
+        const torn = makeService({
+                  ...baseCheckpoint,
+                  corpusOutstanding: {state: 'converging', observable: true, outstanding: 12}
+              }),
+              tornSnapshot = await torn.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tornSnapshot.repos[0].corpusOutstanding).toBeNull();
+        torn.destroy();
+    });
+
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {
         const repos = [
             {

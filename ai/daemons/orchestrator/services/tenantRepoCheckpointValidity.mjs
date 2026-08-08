@@ -102,7 +102,10 @@ export function normalizeTenantRepoCheckpointState(value) {
             lastSourceErrorCode: null,
             lastAccessCode     : null,
             lastErrorAt        : null,
-            embeddingRecovery  : null
+            embeddingRecovery  : null,
+            // A bare SHA also predates the outstanding-work observable. Null means "never measured",
+            // which is the honest reading — not a corpus with nothing left to do.
+            corpusOutstanding  : null
         };
     }
 
@@ -135,7 +138,52 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastSourceErrorCode: normalizeBoundedErrorCode(value.lastSourceErrorCode),
         lastAccessCode     : normalizeBoundedErrorCode(value.lastAccessCode),
         lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null,
-        embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery)
+        embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery),
+        corpusOutstanding  : normalizeCorpusOutstanding(value.corpusOutstanding)
+    };
+}
+
+/**
+ * @summary Normalizes one persisted corpus-outstanding observation without manufacturing one.
+ *
+ * The whole value of this field is the distinction between "N chunks still to embed", "nothing left",
+ * and "nobody measured". A normalizer that repaired a torn record into a zero would erase the third
+ * case at the exact layer meant to protect it — a hand-edited or half-written record would read as a
+ * finished corpus. So a record that does not carry a coherent observation degrades to `null`
+ * (unmeasured), never to a count.
+ *
+ * An unobservable observation is legitimate and passes through with null counts: that is the producer
+ * honestly reporting its own blindness, which only the producer has standing to do.
+ *
+ * @param {*} value Candidate persisted observation.
+ * @returns {Object|null}
+ */
+function normalizeCorpusOutstanding(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const
+        observable  = value.observable === true,
+        outstanding = normalizeNonNegativeNumber(value.outstanding),
+        observedAt  = normalizeNonNegativeNumber(value.observedAt);
+
+    // An observation claiming to be observable must carry both the count and the moment it was taken;
+    // one without the other cannot support either the number or its staleness, so it degrades whole.
+    if (observable && !(Number.isFinite(outstanding) && observedAt > 0)) {
+        return null;
+    }
+
+    if (typeof value.state !== 'string' || !value.state) {
+        return null;
+    }
+
+    return {
+        state          : value.state,
+        observable,
+        outstanding    : observable ? outstanding : null,
+        lastDecreasedAt: normalizeNonNegativeNumber(value.lastDecreasedAt) || null,
+        observedAt     : observedAt || null
     };
 }
 
