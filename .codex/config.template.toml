@@ -57,7 +57,7 @@ enabled = true
 # .claude/claude_desktop_config.example.json for the form that does.
 #
 # NEO_MCP_REMOTE_TOKEN is the one slot for this plane, shared with the Fleet seat
-# generators (src/ai/fleet/mcpServers.mjs). A repository credential is a different
+# generators (ai/services/fleet/mcpServers.mjs). A repository credential is a different
 # authority and may never be substituted for it.
 [mcp_servers."neo-mjs-knowledge-base"]
 url = "http://127.0.0.1:3102/kb/mcp"

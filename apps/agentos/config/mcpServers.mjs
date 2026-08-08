@@ -10,8 +10,10 @@
  * authority — any divergence is red CI. ADDING OR CHANGING A SERVER IS ONE REGISTRATION in the
  * authority module, mirrored here in the same commit; the lint refuses anything else.
  *
- * `normalizeMcpTarget` deliberately has NO twin: target validation is registry-enforced only —
- * the form ships the tiny intent and the Brain is the gate.
+ * `normalizeMcpTarget` and `REMOTE_MCP_CREDENTIAL_ENV_VAR` deliberately have NO twin: target
+ * validation is registry-enforced only, and the credential env-var name is Brain deployment
+ * vocabulary — the App Worker reads no process environment. The form ships the tiny intent and
+ * the Brain is the gate.
  * @summary Operable-cold MCP catalog twin plus the shared sparse-override projection helpers.
  */
 
@@ -40,13 +42,6 @@ export const TENANT_MCP_HARNESS_TYPES = Object.freeze([
     'opencode',
     'kimi-code'
 ]);
-
-/**
- * The fixed child-environment slot every remote MC/KB adapter references. Repository credentials
- * occupy a different authority and may never be substituted here.
- * @type {String}
- */
-export const REMOTE_MCP_CREDENTIAL_ENV_VAR = 'NEO_MCP_REMOTE_TOKEN';
 
 /**
  * @summary List every registered MCP server in display order. Every result is caller-owned.

@@ -60,7 +60,7 @@ export function loadFleetRuntimeContracts(repoRoot = DEFAULT_REPO_ROOT) {
         contract = Promise.all([
             import(pathToFileURL(path.join(absoluteRoot, 'ai/graph/normalizeAgentIdentityNodeId.mjs')).href),
             import(pathToFileURL(path.join(absoluteRoot, 'ai/services/fleet/fleetLaunchContract.mjs')).href),
-            import(pathToFileURL(path.join(absoluteRoot, 'src/ai/fleet/fleetWireMethods.mjs')).href)
+            import(pathToFileURL(path.join(absoluteRoot, 'ai/services/fleet/fleetWireMethods.mjs')).href)
         ]).then(([identityContract, fleetContract, wireContract]) => ({
             FLEET_CREDENTIAL_METHODS    : wireContract.FLEET_CREDENTIAL_METHODS,
             FLEET_WIRE_METHODS          : wireContract.FLEET_WIRE_METHODS,

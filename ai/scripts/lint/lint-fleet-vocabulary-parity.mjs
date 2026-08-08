@@ -65,14 +65,15 @@ function outcome(fn, args) {
 export function compareFleetVocabulary({authority, twin}) {
     const violations = [];
 
+    // REMOTE_MCP_CREDENTIAL_ENV_VAR is deliberately absent: credential env-var vocabulary is
+    // Brain-only (no app consumer exists; the App Worker reads no process environment).
     const dataPairs = [
-        ['MCP_SERVERS',                   authority.mcp.MCP_SERVERS,                   twin.mcp.MCP_SERVERS],
-        ['TENANT_MCP_HARNESS_TYPES',      authority.mcp.TENANT_MCP_HARNESS_TYPES,      twin.mcp.TENANT_MCP_HARNESS_TYPES],
-        ['REMOTE_MCP_CREDENTIAL_ENV_VAR', authority.mcp.REMOTE_MCP_CREDENTIAL_ENV_VAR, twin.mcp.REMOTE_MCP_CREDENTIAL_ENV_VAR],
-        ['HARNESS_TYPES',                 authority.harness.HARNESS_TYPES,             twin.harness.HARNESS_TYPES],
-        ['FLEET_WIRE_METHODS',            authority.wire.FLEET_WIRE_METHODS,           twin.wire.FLEET_WIRE_METHODS],
-        ['FLEET_CREDENTIAL_METHODS',      authority.wire.FLEET_CREDENTIAL_METHODS,     twin.wire.FLEET_CREDENTIAL_METHODS],
-        ['FLEET_COCKPIT_SOURCES',         authority.cockpit.FLEET_COCKPIT_SOURCES,     twin.sources.FLEET_COCKPIT_SOURCES]
+        ['MCP_SERVERS',              authority.mcp.MCP_SERVERS,               twin.mcp.MCP_SERVERS],
+        ['TENANT_MCP_HARNESS_TYPES', authority.mcp.TENANT_MCP_HARNESS_TYPES,  twin.mcp.TENANT_MCP_HARNESS_TYPES],
+        ['HARNESS_TYPES',            authority.harness.HARNESS_TYPES,         twin.harness.HARNESS_TYPES],
+        ['FLEET_WIRE_METHODS',       authority.wire.FLEET_WIRE_METHODS,       twin.wire.FLEET_WIRE_METHODS],
+        ['FLEET_CREDENTIAL_METHODS', authority.wire.FLEET_CREDENTIAL_METHODS, twin.wire.FLEET_CREDENTIAL_METHODS],
+        ['FLEET_COCKPIT_SOURCES',    authority.cockpit.FLEET_COCKPIT_SOURCES, twin.sources.FLEET_COCKPIT_SOURCES]
     ];
 
     dataPairs.forEach(([name, authorityValue, twinValue]) => {
@@ -150,7 +151,7 @@ function main() {
         process.exit(1)
     }
 
-    console.log(`[lint-fleet-vocabulary-parity] OK — ${7} constants + shared helper behavior identical across the realm boundary.`)
+    console.log('[lint-fleet-vocabulary-parity] OK — vocabulary constants + shared helper behavior identical across the realm boundary.')
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
