@@ -22,8 +22,10 @@ import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/Sort
  * walk); the rendered consequence rides the visual harness.
  */
 test.describe('Neo.dashboard.DockTabSortZone', () => {
-    test('keeps the parent-sized dock toolbar extent during a drag', () => {
-        expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false)
+    test('keeps dock headers parent-sized and toolbar-relative during a drag', () => {
+        expect(DockTabSortZone.config.adjustItemRectsToParent).toBe(true);
+        expect(DockTabSortZone.config.expandOwnerOnDrag).toBe(false);
+        expect(DockTabSortZone.config.positionOwnerRelative).toBe(true)
     });
 
     test.describe('getDragProxyConfig — the carried-scope embodiment contract', () => {

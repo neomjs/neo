@@ -8,10 +8,11 @@ import DragProxyContainer from '../draggable/DragProxyContainer.mjs';
  *
  * This helper owns render topology only. It never opens, closes, identifies, or authorizes a native
  * window, and it never mutates a dock document. The host must first validate the exact vessel, then
- * call {@link #stage}. A hidden placeholder keeps tab-header and card-body indices paired while the
- * live pane renders in the vessel. Zero-mutation retirement restores through the placeholder's LIVE
- * index; committed ownership calls {@link #promote} and leaves the placeholder for the ordinary dock
- * projection to retire alongside the obsolete tab button.
+ * call {@link #stage}. A deliberate status placeholder keeps tab-header and card-body indices paired
+ * while the live pane renders in the vessel; the active source slot therefore explains its transient
+ * ownership instead of becoming a black void. Zero-mutation retirement restores through the
+ * placeholder's LIVE index; committed ownership calls {@link #promote} and leaves the placeholder for
+ * the ordinary dock projection to retire alongside the obsolete tab button.
  */
 
 /**
@@ -51,10 +52,10 @@ export function createDockVesselEmbodiment({resolvePane, resolveTarget} = {}) {
         }
 
         const placeholder = Neo.create({
-            module  : Component,
-            cls     : ['neo-dashboard-dock-vessel-placeholder'],
-            hidden  : true,
-            hideMode: 'visibility'
+            module   : Component,
+            cls      : ['neo-dashboard-dock-vessel-placeholder'],
+            isLoading: 'Moving pane to another window…',
+            role     : 'status'
         });
 
         let record = {pane, placeholder, settlement: null, sourceParent, windowId};

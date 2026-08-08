@@ -52,6 +52,11 @@ test.describe('Neo.dashboard.DockVesselEmbodiment (#15396)', () => {
         expect(source.items).toHaveLength(3);
         expect(source.items[1]).not.toBe(pane);
         expect(source.items[1].cls).toContain('neo-dashboard-dock-vessel-placeholder');
+        expect(source.items[1].hidden, 'the active source slot must never become an invisible void').toBe(false);
+        expect(source.items[1].isLoading, 'staging must explain the temporary render ownership').toBe(
+            'Moving pane to another window…'
+        );
+        expect(source.items[1].role, 'the transition explanation must be announced as status').toBe('status');
         expect(embodiment.isStaged('live')).toBe(true)
     });
 
