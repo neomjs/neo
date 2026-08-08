@@ -1,10 +1,17 @@
-import fs                         from 'fs-extra';
-import {createHmac, randomBytes}  from 'node:crypto';
-import path                       from 'node:path';
-import Base                       from '../../../../src/core/Base.mjs';
-import AiConfig                   from '../../../config.mjs';
-import GitMirror                  from '../../../services/knowledge-base/helpers/gitMirror.mjs';
-import TextEmbeddingService       from '../../../services/memory-core/TextEmbeddingService.mjs';
+import fs                        from 'fs-extra';
+import {createHmac, randomBytes} from 'node:crypto';
+import path                      from 'node:path';
+import Base                      from '../../../../src/core/Base.mjs';
+import AiConfig                  from '../../../config.mjs';
+import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import TextEmbeddingService      from '../../../services/memory-core/TextEmbeddingService.mjs';
+// The outstanding-chunk observable is derived from the run's OWN totals rather than recomputed here.
+// A second implementation of "which chunks are missing" can disagree with the embedder that produced
+// them, and a backlog figure that disagrees with the embedder is worse than none.
+import {
+    deriveOutstanding,
+    describeCorpusOutstanding
+}                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
 import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
@@ -397,6 +404,45 @@ function classifyIngestionOutcome(summary) {
     }
 
     return {outcome: 'complete', summary, deferredCodes: []}
+}
+
+/**
+ * @summary Builds one repo's corpus-outstanding observation from the run's own ingestion summary.
+ *
+ * ## Why the mapping is not one-to-one with the summary's field names
+ *
+ * The summary carries primitives, not the derived pair: `ingested` (chunks accepted into the run),
+ * `skippedOversized` (guardrail rejections that will never embed), and `embeddingsGenerated` (chunks
+ * that actually landed). The progress projection derives `totalChunks` / `embeddedChunks` from those,
+ * but that projection is a KB-server-process surface and cannot answer for this lane — so the mapping
+ * happens here, from the primitives, once.
+ *
+ * `skippedOversized` appears on BOTH sides — inside the total and as the skip — so it cancels, and the
+ * remainder is exactly "accepted minus embedded". Passing it explicitly rather than pre-subtracting it
+ * keeps the intent legible: an oversized chunk is declined work, not outstanding work, and a backlog
+ * that silently counted it could never reach zero.
+ *
+ * @param {Object}      options
+ * @param {Object}      options.summary   Ingestion summary returned by the run.
+ * @param {Object|null} options.priorState Previously persisted per-repo state, for the movement stamp.
+ * @param {Number}      options.observedAt Epoch ms for this observation.
+ * @returns {Object} The `describeCorpusOutstanding` observation.
+ */
+function buildCorpusOutstandingObservation({summary, priorState, observedAt}) {
+    const
+        accepted = summary?.ingested,
+        skipped  = summary?.skippedOversized ?? 0,
+        embedded = summary?.embeddingsGenerated,
+        // Number.isFinite guards rather than `?? 0`: a summary missing these fields is UNMEASURED, and
+        // defaulting it to zero would publish "nothing outstanding" for a run nobody observed — the
+        // empty-is-not-success defect this observable exists to close.
+        total    = Number.isFinite(accepted) && Number.isFinite(skipped) ? accepted + skipped : undefined;
+
+    return describeCorpusOutstanding({
+        outstanding: deriveOutstanding({total, embedded, skipped}),
+        observedAt,
+        previous   : priorState?.corpusOutstanding ?? null
+    })
 }
 
 /**
@@ -1983,6 +2029,18 @@ class TenantRepoSyncService extends Base {
                         ?? priorState?.lastSourceErrorCode
                         ?? null;
 
+                    // The deferred branch is the one an operator stares at on a starved provider, and
+                    // until now it published a held checkpoint with no sense of scale: `count: 0` for
+                    // hours reads identically whether 40k chunks are outstanding or none are. The
+                    // observation is derived from this run's own totals and carries the prior movement
+                    // stamp forward, so a backlog that is shrinking is distinguishable from one that is
+                    // stuck at the same depth sweep after sweep.
+                    const deferredOutstanding = buildCorpusOutstandingObservation({
+                        summary   : rawSummary,
+                        priorState,
+                        observedAt: startedMs
+                    });
+
                     persistedRevisions[repoLabel] = {
                         ...priorState,
                         lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
@@ -1991,6 +2049,7 @@ class TenantRepoSyncService extends Base {
                         lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
                         lastSourceErrorCode               : deferredCauseCode,
                         lastErrorAt                       : startedMs,
+                        corpusOutstanding                 : deferredOutstanding,
                         // Recovery eligibility, on the SAME episode a failure would advance. A
                         // consumed generation folds into `lastConsumedGenerationId/At` and a newly
                         // healthy canary generation is required before another bypass, so a
@@ -2029,7 +2088,8 @@ class TenantRepoSyncService extends Base {
                             persistedRepoState: persistedRevisions[repoLabel],
                             probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
                             observedAt        : startedMs
-                        })
+                        }),
+                        corpusOutstanding  : deferredOutstanding
                     });
 
                     healthService?.recordTaskOutcome?.(taskName, 'deferred', {
@@ -2044,6 +2104,12 @@ class TenantRepoSyncService extends Base {
                 }
 
                 const ingestResult = ingestOutcome.summary;
+
+                const completedOutstanding = buildCorpusOutstandingObservation({
+                    summary   : ingestResult,
+                    priorState,
+                    observedAt: startedMs
+                });
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
@@ -2072,7 +2138,13 @@ class TenantRepoSyncService extends Base {
                     lastErrorCode      : null,
                     lastSourceErrorCode: null,
                     lastAccessCode     : null,
-                    lastErrorAt        : null
+                    lastErrorAt        : null,
+                    // Written on the success path too, and this is the negative control rather than
+                    // bookkeeping: a completed run must report zero outstanding, so a genuinely finished
+                    // corpus is distinguishable from one whose delta was never computed. Omitting it here
+                    // would leave `corpusOutstanding` absent on exactly the state that proves the
+                    // observable can reach zero, and an absent field reads as unknown.
+                    corpusOutstanding  : completedOutstanding
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -2089,7 +2161,8 @@ class TenantRepoSyncService extends Base {
                     lastSyncAt          : new Date().toISOString(),
                     status              : 'active',
                     checkpointStatus    : TenantRepoCheckpointStatus.COMPLETE,
-                    lastSyncDeletedCount: deleted
+                    lastSyncDeletedCount: deleted,
+                    corpusOutstanding   : completedOutstanding
                 });
                 completedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'completed', {
