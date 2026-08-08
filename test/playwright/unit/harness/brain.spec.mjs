@@ -19,6 +19,7 @@ import {
     probeFleetServing,
     probePort,
     registerOwnedChild,
+    resolveProductBrainPlan,
     resolveRealPath,
     resolveUiFleetTransport,
     startBrainChild,
@@ -106,6 +107,8 @@ test.describe('harness brain lifecycle', () => {
 
         expect(profile.UNIT_TEST_MODE).toBe('1');
         expect(profile.NEO_CHROMA_PORT_TEST).toBe('18500');
+        expect(profile.NEO_FLEET_PLANE_BASE).toBe('');
+        expect(profile.NEO_FLEET_PLANE_BEARER).toBe('');
         expect(profile.NEO_FLEET_PORT).toBe('18501');
 
         // Every gate leaf is OFF — an ungated port-bearing task can reap live listeners
@@ -114,6 +117,46 @@ test.describe('harness brain lifecycle', () => {
 
         expect(gates.length).toBeGreaterThanOrEqual(14);
         gates.forEach(([, value]) => expect(value).toBe('0'))
+    });
+
+    test('resolveProductBrainPlan: a declared plane outranks host liveness and can start only Fleet', () => {
+        // Port 1 is intentionally unreachable. The classifier never probes it: declaration selects
+        // topology, while the spawned Fleet transport owns authenticated readiness and refusal.
+        expect(resolveProductBrainPlan({
+            fleetServing     : false,
+            orchestratorAlive: false,
+            planeBase        : '  http://127.0.0.1:1  '
+        })).toEqual({
+            mode             : 'plane-attach',
+            planeBase        : 'http://127.0.0.1:1',
+            startFleet       : true,
+            startOrchestrator: false
+        });
+
+        expect(resolveProductBrainPlan({
+            fleetServing     : true,
+            orchestratorAlive: true,
+            planeBase        : 'http://127.0.0.1:3102'
+        })).toEqual({
+            mode             : 'plane-attach',
+            planeBase        : 'http://127.0.0.1:3102',
+            startFleet       : false,
+            startOrchestrator: false
+        })
+    });
+
+    test('resolveProductBrainPlan: without a plane, host liveness selects attach else own', () => {
+        expect(resolveProductBrainPlan({
+            fleetServing     : false,
+            orchestratorAlive: true,
+            planeBase        : ''
+        })).toEqual({mode: 'attach', planeBase: null, startFleet: true, startOrchestrator: false});
+
+        expect(resolveProductBrainPlan({
+            fleetServing     : false,
+            orchestratorAlive: false,
+            planeBase        : '   '
+        })).toEqual({mode: 'own', planeBase: null, startFleet: true, startOrchestrator: true})
     });
 
     test('assertIsolatedProfile passes an isolated resolution and names every escape', () => {
