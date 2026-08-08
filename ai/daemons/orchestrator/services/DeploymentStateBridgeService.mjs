@@ -472,6 +472,7 @@ export class DeploymentStateBridgeService extends Base {
             failureReasonCounts    = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.reason || 'unknown'))),
             operationFailureCounts = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.operation || 'unknown'))),
             lookupFailureCount     = serviceList.filter(hasLookupFailure).length,
+            undeclaredHeapCeilingServices = selectUndeclaredHeapCeilingServices(serviceList),
             allServicesDegraded    = serviceList.length > 0 && degradedServices.length === serviceList.length,
             broadLookupFailure     = serviceList.length > 0 && lookupFailureCount === serviceList.length,
             reason                 = broadLookupFailure
@@ -510,7 +511,18 @@ export class DeploymentStateBridgeService extends Base {
                 lookupFailureCount,
                 failureReasonCounts,
                 operationFailureCounts,
-                services            : serviceFailureStates
+                services            : serviceFailureStates,
+                // Observe-only, `record`-terminal: no action, no privilege, no restart. It states
+                // that a Node service was started with no `--max-old-space-size`, which is the
+                // condition under which V8 picks a heuristic well below the container's allowance
+                // and self-aborts with ExitCode 0 and OOMKilled false — a failure with no signature.
+                //
+                // Deliberately NOT a member of the `facts` array. `selectEvidenceFacts(facts, …)`
+                // is called with the WHOLE array at every classification branch, so anything added
+                // there becomes candidate evidence for every diagnosis. That is what the earlier
+                // attempt got wrong, and an observability statement is the wrong shape for an
+                // evidence array regardless.
+                undeclaredHeapCeilingServices
             },
             hints: buildBridgeHints({reason, failureReasonCounts})
         };
@@ -1016,13 +1028,64 @@ function resolveConfiguredDurabilityPosture() {
  */
 export function parseDeclaredHeapCeilingMb(cmd) {
     const
-        text     = Array.isArray(cmd) ? cmd.join(' ') : typeof cmd === 'string' ? cmd : '',
+        text     = commandText(cmd),
         declared = [...text.matchAll(/--max-old-space-size=(\d+)/g)].map(match => Number(match[1]));
 
     if (declared.length === 0)               return null;
     if (new Set(declared).size > 1)          return 'unknown';
 
     return declared[0]
+}
+
+/**
+ * @summary Flattens `Config.Cmd` to searchable text, tolerating the array and string forms Docker uses.
+ * @param {String[]|String} cmd
+ * @returns {String}
+ */
+function commandText(cmd) {
+    return Array.isArray(cmd) ? cmd.join(' ') : typeof cmd === 'string' ? cmd : ''
+}
+
+/**
+ * @summary Whether a container's command launches Node at all.
+ *
+ * A missing heap ceiling only means something for a **Node** service — `chroma` runs
+ * `["run", "/config.yaml"]` and has no V8 to bound, so an undeclared-ceiling finding against it
+ * would be noise the reader has to learn to ignore.
+ *
+ * Derived from the command rather than inferred from the image name. The image is a **proxy** for
+ * runtime — it holds until someone adds a Node service on a different base or a non-Node entrypoint
+ * to the shared image, and then it holds silently and wrongly. The command is the direct
+ * observation.
+ *
+ * @param {String[]|String} cmd `Config.Cmd`, as Docker returns it.
+ * @returns {Boolean}
+ */
+export function isNodeCommand(cmd) {
+    return /(^|[\s;&|"'`(])node(\s|$)/.test(commandText(cmd))
+}
+
+/**
+ * @summary Names the Node services that were started with no declared heap ceiling.
+ *
+ * Pure on purpose — the enclosing `collectBridgeDiagnostics` reads `AiConfig` and runtime-holder
+ * state, so folding this inline would make the rule testable only through a live service. The rule
+ * is the part worth guarding.
+ *
+ * Three populations are deliberately NOT findings:
+ * - **non-Node** services — nothing with a V8 heap to bound.
+ * - **`'unknown'`** — divergent declarations mean the ceiling could not be OBSERVED. Listing it
+ *   would publish *observed an absence* where the truth is *could not observe*.
+ * - an **unreadable `inspect`** — a failed read is already reported as a degraded service.
+ *
+ * @param {Object[]} services Per-service snapshots carrying `summarizeInspect()` output.
+ * @returns {String[]} service keys, in input order.
+ */
+export function selectUndeclaredHeapCeilingServices(services) {
+    return (Array.isArray(services) ? services : [])
+        .filter(service => service?.inspect?.nodeCommand === true &&
+                           service?.inspect?.declaredHeapCeilingMb === null)
+        .map(service => service.serviceKey)
 }
 
 function summarizeInspect(inspect) {
@@ -1037,7 +1100,13 @@ function summarizeInspect(inspect) {
         // Admitted by this ticket's Contract Ledger. Paired with `stats.memoryLimitBytes`, which is
         // already published, it lets a reader see a ceiling declared BELOW the container's own
         // allowance — the shape that aborts Node while the cgroup still looks half-idle.
+        //
+        // `nodeCommand` travels WITH it because the two are only meaningful together: a null ceiling
+        // is a finding on a Node service and a non-event on anything else. Publishing the ceiling
+        // alone would make every reader re-derive the qualifier, and re-derivation is where the
+        // image-name proxy gets invented.
         declaredHeapCeilingMb: parseDeclaredHeapCeilingMb(inspect.Config?.Cmd),
+        nodeCommand          : isNodeCommand(inspect.Config?.Cmd),
         state       : {
             status    : state.Status || null,
             health    : state.Health?.Status || null,
