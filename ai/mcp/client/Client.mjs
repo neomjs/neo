@@ -28,6 +28,13 @@ class Client extends Base {
          */
         args: null,
         /**
+         * Environment slot whose value becomes the Bearer credential for remote transports.
+         * The resolved credential is injected only while constructing the transport and is never
+         * written into the shared ClientConfig singleton.
+         * @member {String|null} bearerTokenEnvVar=null
+         */
+        bearerTokenEnvVar: null,
+        /**
          * The name of the client to announce to the server
          * @member {String} clientName='Neo.ai.Agent'
          */
@@ -160,14 +167,72 @@ class Client extends Base {
             });
 
         case 'sse':
-            return new SSEClientTransport(me.createTransportUrl(transportType), me.transportOptions);
+            return new SSEClientTransport(
+                me.createTransportUrl(transportType),
+                me.createRemoteTransportOptions()
+            );
 
         case 'streamable-http':
-            return new StreamableHTTPClientTransport(me.createTransportUrl(transportType), me.transportOptions);
+            return new StreamableHTTPClientTransport(
+                me.createTransportUrl(transportType),
+                me.createRemoteTransportOptions()
+            );
 
         default:
             throw new Error(`MCP Client: Unsupported transport type '${me.transportType}' for '${me.serverName}'. Expected 'stdio', 'sse', or 'streamable-http'.`);
         }
+    }
+
+    /**
+     * @summary Builds remote SDK options with a just-in-time Bearer credential when configured.
+     *
+     * Clones request options and headers before adding auth so one client connection cannot leak
+     * its resolved secret into the shared config or another client instance. Two auth authorities
+     * are rejected instead of silently choosing between a literal header and an environment slot.
+     * @returns {Object}
+     * @throws {Error} When the bearer slot is empty or a literal Authorization header conflicts.
+     */
+    createRemoteTransportOptions() {
+        const
+            me                  = this,
+            {bearerTokenEnvVar} = me,
+            transportOptions    = me.transportOptions;
+
+        if (!bearerTokenEnvVar) return transportOptions;
+
+        const
+            requestInit = {...transportOptions.requestInit},
+            headers     = new Headers(requestInit.headers);
+
+        if (headers.has('Authorization')) {
+            throw new Error(
+                `MCP Client: '${me.serverName}' config cannot declare both bearerTokenEnvVar and an Authorization header.`
+            );
+        }
+
+        const
+            instanceToken = me.env[bearerTokenEnvVar],
+            token         = (
+                typeof instanceToken === 'string' && instanceToken.trim()
+                    ? instanceToken
+                    : process.env[bearerTokenEnvVar]
+            )?.trim();
+
+        if (!token) {
+            throw new Error(
+                `MCP Client: Bearer token environment variable '${bearerTokenEnvVar}' is missing or empty for '${me.serverName}'.`
+            );
+        }
+
+        headers.set('Authorization', `Bearer ${token}`);
+
+        return {
+            ...transportOptions,
+            requestInit: {
+                ...requestInit,
+                headers
+            }
+        };
     }
 
     /**
@@ -322,15 +387,16 @@ class Client extends Base {
         if (!serverConfig) {
             throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
         }
-        me.command          = serverConfig.command          || null;
-        me.args             = serverConfig.args             || null;
-        me.openApiFilePath  = serverConfig.openApiFilePath  || null;
-        me.requiredEnv      = serverConfig.requiredEnv      || [];
-        me.transportOptions = serverConfig.transportOptions || {};
-        me.transportType    = serverConfig.transportType || serverConfig.transport || 'stdio';
-        me.url              = serverConfig.url              || null;
-        // Note: env from config.mjs is not explicitly merged here,
-        // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
+        me.command           = serverConfig.command           || null;
+        me.args              = serverConfig.args              || null;
+        me.bearerTokenEnvVar = serverConfig.bearerTokenEnvVar || null;
+        me.openApiFilePath   = serverConfig.openApiFilePath   || null;
+        me.requiredEnv       = serverConfig.requiredEnv       || [];
+        me.transportOptions  = serverConfig.transportOptions  || {};
+        me.transportType     = serverConfig.transportType || serverConfig.transport || 'stdio';
+        me.url               = serverConfig.url               || null;
+        // Note: env from config.mjs is not explicitly merged here. The entrypoint owns resolving
+        // and passing the credential slot named by the selected server configuration.
     }
 
     /**
