@@ -11,6 +11,11 @@
  * @see https://github.com/neomjs/neo/issues/16045
  */
 
+// The state vocabulary is imported from the PRODUCER rather than re-declared. A reader holding its own
+// copy of a closed set is one rename away from silently accepting a state the writer no longer emits,
+// or rejecting one it does — the drift this normalizer exists to catch.
+import {OUTSTANDING_STATE} from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
+
 /**
  * @summary Current success contract for tenant-repo ingestion checkpoints.
  *
@@ -102,7 +107,10 @@ export function normalizeTenantRepoCheckpointState(value) {
             lastSourceErrorCode: null,
             lastAccessCode     : null,
             lastErrorAt        : null,
-            embeddingRecovery  : null
+            embeddingRecovery  : null,
+            // A bare SHA also predates the outstanding-work observable. Null means "never measured",
+            // which is the honest reading — not a corpus with nothing left to do.
+            corpusOutstanding  : null
         };
     }
 
@@ -135,7 +143,77 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastSourceErrorCode: normalizeBoundedErrorCode(value.lastSourceErrorCode),
         lastAccessCode     : normalizeBoundedErrorCode(value.lastAccessCode),
         lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null,
-        embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery)
+        embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery),
+        corpusOutstanding  : normalizeCorpusOutstanding(value.corpusOutstanding)
+    };
+}
+
+/**
+ * @summary Normalizes one persisted corpus-outstanding observation without manufacturing one.
+ *
+ * The whole value of this field is the distinction between "N chunks still to embed", "nothing left",
+ * and "nobody measured". A normalizer that repaired a torn record into a zero would erase the third
+ * case at the exact layer meant to protect it — a hand-edited or half-written record would read as a
+ * finished corpus. So a record that does not carry a coherent observation degrades to `null`
+ * (unmeasured), never to a count.
+ *
+ * An unobservable observation is legitimate and passes through with null counts: that is the producer
+ * honestly reporting its own blindness, which only the producer has standing to do.
+ *
+ * @param {*} value Candidate persisted observation.
+ * @returns {Object|null}
+ */
+function normalizeCorpusOutstanding(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    // RAW reads, deliberately NOT `normalizeNonNegativeNumber` — that helper collapses
+    // null/undefined/negative to `0`, which destroys the exact distinction this field exists to carry.
+    // Built on it, the coherence check below could neither DETECT a missing count (a torn
+    // `{state:'complete', observable:true}` laundered to `complete/0` — a finished corpus asserted from
+    // an absent number) nor RECOGNISE a legitimate `outstanding: null`, so every valid `unobservable`
+    // the producer emits was rejected and could never round-trip. One helper, both residuals.
+    const
+        {state}     = value,
+        observable  = value.observable === true,
+        outstanding = Number.isFinite(value.outstanding) && value.outstanding >= 0 ? value.outstanding : null,
+        observedAt  = Number.isFinite(value.observedAt)  && value.observedAt  >  0 ? value.observedAt  : null;
+
+    // CLOSED vocabulary. An arbitrary string was previously admitted, which let a hand-edited or
+    // partially-migrated record name a state no writer emits and still project as authoritative.
+    if (state !== OUTSTANDING_STATE.complete
+        && state !== OUTSTANDING_STATE.outstanding
+        && state !== OUTSTANDING_STATE.unobservable) {
+        return null;
+    }
+
+    // An observation claiming to be observable must carry both the count and the moment it was taken;
+    // one without the other cannot support either the number or its staleness, so it degrades whole.
+    if (observable && !(outstanding !== null && observedAt !== null)) {
+        return null;
+    }
+
+    // COHERENCE, not merely presence. Each state admits exactly one tuple, so a record whose fields
+    // contradict each other degrades WHOLE rather than being published field-by-field. The dangerous
+    // specimen is `{state:'complete', observable:true, outstanding:42}`: every field is individually
+    // well-typed, and together they assert a finished corpus with 42 chunks left. Repairing that to a
+    // count would invent an observation; rejecting it is the only honest reading.
+    const coherent = state === OUTSTANDING_STATE.unobservable
+        ? (!observable && outstanding === null)
+        : (observable && outstanding !== null
+            && (state === OUTSTANDING_STATE.complete ? outstanding === 0 : outstanding > 0));
+
+    if (!coherent) {
+        return null;
+    }
+
+    return {
+        state,
+        observable,
+        outstanding    : observable ? outstanding : null,
+        lastDecreasedAt: Number.isFinite(value.lastDecreasedAt) && value.lastDecreasedAt > 0 ? value.lastDecreasedAt : null,
+        observedAt
     };
 }
 
