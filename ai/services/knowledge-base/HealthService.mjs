@@ -1,7 +1,6 @@
 import path                       from 'path';
 import {fileURLToPath}            from 'url';
 import aiConfig                   from '../../mcp/server/knowledge-base/config.mjs';
-import mcConfig                   from '../../mcp/server/memory-core/config.mjs';
 import Base                       from '../../../src/core/Base.mjs';
 import ChromaManager              from './ChromaManager.mjs';
 import DatabaseLifecycleService   from './DatabaseLifecycleService.mjs';
@@ -46,13 +45,12 @@ const
  * The consumer-owned 30-second default is deliberately explicit: it is the slow-sample tolerance
  * boundary. Scheduling and retry backoff remain lifecycle-owned by `HealthService`.
  *
- * The default intentionally reads Memory Core's resolved embedding leaves because the Knowledge Base
- * query and ingest paths both pass that same provider to `TextEmbeddingService`. This is an observation
- * of the dependency those operations actually use, not an inference from Knowledge Base's sibling
- * server config. If those operations move to KB-owned leaves, this default must move with them.
+ * The default reads Knowledge Base's resolved embedding leaves at the use site. Tier-1 inheritance
+ * keeps those leaves aligned with the configured provider while preserving this service's ownership
+ * boundary and the reactive Provider SSOT.
  *
  * @param {Object}   [options]
- * @param {Object}   [options.cfg=mcConfig] Resolved embedding provider configuration used by KB embedding operations.
+ * @param {Object}   [options.cfg=aiConfig] Resolved Knowledge Base embedding provider configuration.
  * @param {Function} [options.embedText] Injectable embedding call.
  * @param {String}   [options.input='neo-kb-healthcheck-embedding-canary'] Probe text.
  * @param {Function} [options.now=Date.now] Injectable clock.
@@ -60,7 +58,7 @@ const
  * @returns {Promise<Object>} Health-safe embedding observation.
  */
 export async function buildKnowledgeBaseEmbeddingProbeBlock({
-    cfg       = mcConfig,
+    cfg       = aiConfig,
     embedText,
     input     = 'neo-kb-healthcheck-embedding-canary',
     now       = Date.now,
@@ -519,7 +517,7 @@ class HealthService extends Base {
                 schedule,
                 clearSchedule: unschedule,
                 clock        : clock ?? Date.now,
-                keyFor       : keyFor ?? (() => `${mcConfig.embeddingProvider}:${mcConfig.vectorDimension}`),
+                keyFor       : keyFor ?? (() => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`),
                 runProbe     : runProbe ?? (() => buildKnowledgeBaseEmbeddingProbeBlock({timeoutMs: producer.timeoutMs})),
                 disabled     : false,
                 stopped      : false,
