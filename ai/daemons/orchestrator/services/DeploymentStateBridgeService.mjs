@@ -998,6 +998,33 @@ function resolveConfiguredDurabilityPosture() {
     })
 }
 
+/**
+ * @summary Reads the V8 old-space ceiling a container was STARTED with, from its command.
+ *
+ * Three states, and the third is the point. `Config.Cmd` records the argument the container was
+ * launched with; when a command has several `node` invocations (the overlay/no-overlay branches the
+ * MCP servers carry) it does NOT say which branch is executing. So a divergent pair is not a
+ * value to choose between — reporting either one would be a guess with a number attached. It
+ * reports `'unknown'` instead, and the caller treats that as "not observable", never as a reading.
+ *
+ * This is what the container was TOLD, never what V8 enforces. No V8-scoped metric exists for a
+ * sibling container anywhere in `ai/`, so the field name says `declared` and means it.
+ *
+ * @param {String[]|String} cmd `Config.Cmd`, as Docker returns it.
+ * @returns {Number|String|null} the agreed ceiling in MB · `'unknown'` when declarations diverge ·
+ * `null` when none is declared.
+ */
+export function parseDeclaredHeapCeilingMb(cmd) {
+    const
+        text     = Array.isArray(cmd) ? cmd.join(' ') : typeof cmd === 'string' ? cmd : '',
+        declared = [...text.matchAll(/--max-old-space-size=(\d+)/g)].map(match => Number(match[1]));
+
+    if (declared.length === 0)               return null;
+    if (new Set(declared).size > 1)          return 'unknown';
+
+    return declared[0]
+}
+
 function summarizeInspect(inspect) {
     if (!inspect || typeof inspect !== 'object') return null;
 
@@ -1007,6 +1034,10 @@ function summarizeInspect(inspect) {
         name        : inspect.Name || null,
         image       : inspect.Config?.Image || inspect.Image || null,
         restartCount: Number.isFinite(inspect.RestartCount) ? inspect.RestartCount : null,
+        // Admitted by this ticket's Contract Ledger. Paired with `stats.memoryLimitBytes`, which is
+        // already published, it lets a reader see a ceiling declared BELOW the container's own
+        // allowance — the shape that aborts Node while the cgroup still looks half-idle.
+        declaredHeapCeilingMb: parseDeclaredHeapCeilingMb(inspect.Config?.Cmd),
         state       : {
             status    : state.Status || null,
             health    : state.Health?.Status || null,
