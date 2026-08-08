@@ -190,16 +190,21 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         }
 
         const result = await runHealthcheck({
-            url           : 'http://127.0.0.1:3000',
-            identity      : 'probe',
-            bearerToken   : 'token',
+            url        : 'http://127.0.0.1:3000',
+            identity   : 'probe',
+            bearerToken: 'token',
+            // Injected so the exact-shape assertion below stays exact. Kept as `toEqual` rather
+            // than relaxed to `toMatchObject`: pinning the WHOLE result is what makes an
+            // accidental field addition visible, and the timings field was deliberate.
+            uptimeMs      : () => 120,
             ClientClass   : FakeClient,
             TransportClass: FakeTransport
         });
 
         expect(result).toEqual({
-            status: 'healthy',
-            url   : 'http://127.0.0.1:3000/'
+            status : 'healthy',
+            url    : 'http://127.0.0.1:3000/',
+            timings: {startupMs: 120, timeoutMs: 8000}
         });
         expect(calls).toEqual([
             {type: 'client', identity: {name: 'neo-container-healthcheck', version: '1.0.0'}, options: {capabilities: {}}},
@@ -572,11 +577,13 @@ test.describe('served-plane verification — a healthy status is not an identity
             expectedPlaneId      : 'neo-local-parity',
             expectedPlaneDataRoot: '/app/.neo-ai-data-parity',
             ClientClass          : clientFor(matching),
-            TransportClass       : FakeTransport
+            TransportClass       : FakeTransport,
+            uptimeMs             : () => 120
         })).toEqual({
-            status: 'healthy',
-            url   : 'http://127.0.0.1:8100/',
-            plane : {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'}
+            status : 'healthy',
+            url    : 'http://127.0.0.1:8100/',
+            plane  : {id: 'neo-local-parity', dataRoot: '/app/.neo-ai-data-parity'},
+            timings: {startupMs: 120, timeoutMs: 8000}
         });
     });
 });
@@ -738,5 +745,130 @@ test.describe('mcpHealthcheck — a liveness expectation is a SET', () => {
                 expect(command, file).not.toContain('--expected-status');
             }
         }
+    });
+});
+
+/**
+ * A probe timeout carries two incompatible meanings — the SERVICE did not answer, or this PROBE
+ * never got enough CPU to ask — and until now nothing in the output separated them. Telling them
+ * apart required leaving the probe entirely and running a `curl` that spawns no Node.
+ *
+ * The load-bearing arms here are the ones that must NOT reclassify. A rule eager to blame
+ * contention would let a live-but-unreachable wedge be dismissed as host load, and that wedge has
+ * been observed three times presenting with a healthy listener and an accepting socket.
+ */
+test.describe('probe timing verdict — box vs service (#16646)', () => {
+    let classifyProbeFailure, annotateTimeout, runHealthcheck;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/scripts/diagnostics/mcpHealthcheck.mjs');
+
+        classifyProbeFailure = mod.classifyProbeFailure;
+        annotateTimeout      = mod.annotateTimeout;
+        runHealthcheck       = mod.runHealthcheck;
+    });
+
+    test('a healthy startup that then gets no answer is the SERVICE, never the box', () => {
+        // The measured shape of the real incident: startup 0.36s against an 8s budget, then silence.
+        const verdict = classifyProbeFailure({startupMs: 360, timeoutMs: 8000, phase: 'connect'});
+
+        expect(verdict.verdict).toBe('service-unresponsive');
+        expect(verdict.reason).toContain('The service did not answer');
+    });
+
+    test('only a startup that outlasts the whole budget is called starved', () => {
+        expect(classifyProbeFailure({startupMs: 8000, timeoutMs: 8000, phase: 'connect'}).verdict)
+            .toBe('probe-starved');
+        expect(classifyProbeFailure({startupMs: 9500, timeoutMs: 8000, phase: 'connect'}).verdict)
+            .toBe('probe-starved');
+    });
+
+    // The discriminating band. Every one of these is slow — some absurdly so, 1100ms being the
+    // MEASURED cost at --cpus=0.1 — and none may be blamed on the box, because the probe still had
+    // budget left to wait and the service still said nothing. A tuned fraction (say "startup > 25%
+    // of budget") would misclassify the last two and hide a real wedge.
+    for (const startupMs of [360, 1100, 2000, 4000, 7999]) {
+        test(`startup ${startupMs}ms against an 8000ms budget is NOT starvation`, () => {
+            expect(classifyProbeFailure({startupMs, timeoutMs: 8000, phase: 'connect'}).verdict)
+                .toBe('service-unresponsive');
+        });
+    }
+
+    test('a non-timeout failure is left completely untouched', () => {
+        // A 401, a protocol error, a refused connection: all definite answers. Classifying them
+        // would blur a diagnosis that is already precise.
+        const original = new Error('fetch failed'),
+              returned = annotateTimeout(original, {startupMs: 50, timeoutMs: 8000, phase: 'connect'});
+
+        expect(returned).toBe(original);
+        expect(returned.message).toBe('fetch failed');
+        expect(returned.probeTiming).toBeUndefined();
+    });
+
+    test('a timeout from a DIFFERENT budget is not adopted', () => {
+        // Guards against matching any error that merely mentions a timeout: the message must be the
+        // one this probe's own bounded operation produced, for this budget.
+        const foreign = new Error('upstream timed out after 30000ms'),
+              result  = annotateTimeout(foreign, {startupMs: 50, timeoutMs: 8000, phase: 'connect'});
+
+        expect(result.probeTiming).toBeUndefined();
+    });
+
+    test('the verdict reaches the caller through runHealthcheck, with startup injected', async () => {
+        class FakeTransport {}
+        class FakeClient {
+            connect() { return new Promise(() => {}) }   // never settles — the wedge shape
+            close()   { return Promise.resolve() }
+        }
+
+        const error = await runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 40,
+            uptimeMs      : () => 5,                     // probe was ready almost instantly
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        }).then(() => null, err => err);
+
+        expect(error, 'a never-settling connect must reject').toBeTruthy();
+        expect(error.probeTiming?.verdict).toBe('service-unresponsive');
+        expect(error.message).toContain('[service-unresponsive]');
+    });
+
+    test('a starved probe is reported as starved rather than blamed on the service', async () => {
+        class FakeTransport {}
+        class FakeClient {
+            connect() { return new Promise(() => {}) }
+            close()   { return Promise.resolve() }
+        }
+
+        const error = await runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            timeoutMs     : 40,
+            uptimeMs      : () => 5000,                  // startup outlasted the entire budget
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        }).then(() => null, err => err);
+
+        expect(error.probeTiming?.verdict).toBe('probe-starved');
+        expect(error.message).toContain('evidence about the BOX, not about the service');
+    });
+
+    test('a passing run records the baseline, so a later failure is interpretable', async () => {
+        class FakeTransport {}
+        class FakeClient {
+            connect()  { return Promise.resolve() }
+            callTool() { return Promise.resolve({content: [{type: 'text', text: '{"status":"healthy"}'}]}) }
+            close()    { return Promise.resolve() }
+        }
+
+        const result = await runHealthcheck({
+            url           : 'http://127.0.0.1:3000',
+            uptimeMs      : () => 312,
+            ClientClass   : FakeClient,
+            TransportClass: FakeTransport
+        });
+
+        expect(result.status).toBe('healthy');
+        expect(result.timings).toEqual({startupMs: 312, timeoutMs: 8000});
     });
 });
