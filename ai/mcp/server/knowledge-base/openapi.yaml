@@ -949,7 +949,8 @@ components:
           properties:
             embedding:
               type: boolean
-              description: "Indicates if the configured embedding provider is available."
+              nullable: true
+              description: "Latest observed embedding-path readiness: true after a healthy vector, false after a settled failure, null before any observation. Never inferred from configuration alone."
               example: true
         details:
           type: array

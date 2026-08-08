@@ -19,7 +19,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
 
 test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
-    let Server;
+    let Server, HealthService;
 
     /**
      * @summary Creates a Server instance whose async boot is suppressed and fully settled.
@@ -59,7 +59,46 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
     }
 
     test.beforeAll(async () => {
-        Server = (await import('../../../../../../../ai/mcp/server/knowledge-base/Server.mjs')).default;
+        Server        = (await import('../../../../../../../ai/mcp/server/knowledge-base/Server.mjs')).default;
+        HealthService = (await import('../../../../../../../ai/services/knowledge-base/HealthService.mjs')).default;
+    });
+
+    test('#16691: startup awaits the first bounded embedding observation before healthcheck', async () => {
+        const serverInstance      = await createServerWithoutBoot(),
+              originalStart       = HealthService.startEmbeddingProbe,
+              originalStop        = HealthService.stopEmbeddingProbe,
+              exitListenersBefore = new Set(process.listeners('exit'));
+
+        let releaseObservation;
+        let startupSettled = false;
+
+        HealthService.startEmbeddingProbe = () => new Promise(resolve => {
+            releaseObservation = resolve;
+        });
+        HealthService.stopEmbeddingProbe = () => {};
+
+        try {
+            const startup = serverInstance.beforeHealthcheck().then(() => {
+                startupSettled = true;
+            });
+
+            await Promise.resolve();
+            expect(startupSettled).toBe(false);
+
+            releaseObservation({status: 'healthy'});
+            await startup;
+
+            expect(startupSettled).toBe(true);
+        } finally {
+            HealthService.startEmbeddingProbe = originalStart;
+            HealthService.stopEmbeddingProbe  = originalStop;
+
+            process.listeners('exit')
+                .filter(listener => !exitListenersBefore.has(listener))
+                .forEach(listener => process.removeListener('exit', listener));
+
+            serverInstance.destroy();
+        }
     });
 
     test('#15886: the plane-identity assertion names its ORIGIN server, not the shared class name', async () => {

@@ -1,14 +1,23 @@
-import path                     from 'path';
-import {fileURLToPath}          from 'url';
-import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import ChromaManager            from './ChromaManager.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import {readDeployedRevision}   from '../shared/deployedRevision.mjs';
-import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
-import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import path                       from 'path';
+import {fileURLToPath}            from 'url';
+import aiConfig                   from '../../mcp/server/knowledge-base/config.mjs';
+import Base                       from '../../../src/core/Base.mjs';
+import ChromaManager              from './ChromaManager.mjs';
+import DatabaseLifecycleService   from './DatabaseLifecycleService.mjs';
+import {createBoundedRetryGate}   from '../shared/boundedRetryGate.mjs';
+import {buildEmbeddingProbeBlock} from '../shared/embeddingProbe.mjs';
+import {readDeployedRevision}     from '../shared/deployedRevision.mjs';
+import logger                     from '../../mcp/server/knowledge-base/logger.mjs';
+import RuntimeFreshnessService    from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 
 const
+    embeddingProbePolicy = Object.freeze({
+        cadenceMs      : 60 * 1000,
+        timeoutMs      : 30 * 1000,
+        healthyTtlMs   : 60 * 1000,
+        failureTtlMs   : 30 * 1000,
+        failureTtlMaxMs: 10 * 60 * 1000
+    }),
     serviceDir              = path.dirname(fileURLToPath(import.meta.url)),
     configPath              = path.resolve(serviceDir, '../../config.mjs'),
     openApiPath             = path.resolve(serviceDir, '../../mcp/server/knowledge-base/openapi.yaml'),
@@ -29,6 +38,46 @@ const
         statusFields      : ['configDigest', 'openApiDigest'],
         unavailableSummary: 'config digest and OpenAPI digest'
     });
+
+/**
+ * @summary Probes the same embedding path used by Knowledge Base query and ingest operations.
+ *
+ * The consumer-owned 30-second default is deliberately explicit: it is the slow-sample tolerance
+ * boundary. Scheduling and retry backoff remain lifecycle-owned by `HealthService`.
+ *
+ * The default reads Knowledge Base's resolved embedding leaves at the use site. Tier-1 inheritance
+ * keeps those leaves aligned with the configured provider while preserving this service's ownership
+ * boundary and the reactive Provider SSOT.
+ *
+ * @param {Object}   [options]
+ * @param {Object}   [options.cfg=aiConfig] Resolved Knowledge Base embedding provider configuration.
+ * @param {Function} [options.embedText] Injectable embedding call.
+ * @param {String}   [options.input='neo-kb-healthcheck-embedding-canary'] Probe text.
+ * @param {Function} [options.now=Date.now] Injectable clock.
+ * @param {Number}   [options.timeoutMs=30000] Consumer-owned provider deadline.
+ * @returns {Promise<Object>} Health-safe embedding observation.
+ */
+export async function buildKnowledgeBaseEmbeddingProbeBlock({
+    cfg       = aiConfig,
+    embedText,
+    input     = 'neo-kb-healthcheck-embedding-canary',
+    now       = Date.now,
+    timeoutMs = embeddingProbePolicy.timeoutMs
+} = {}) {
+    const probe = embedText || (async (text, explicitProvider, options) => {
+        const {default: TextEmbeddingService} = await import('../memory-core/TextEmbeddingService.mjs');
+        return TextEmbeddingService.embedText(text, explicitProvider, options);
+    });
+
+    return buildEmbeddingProbeBlock({
+        cfg,
+        embedText     : probe,
+        input,
+        now,
+        operationLabel: 'Knowledge Base embedding probe',
+        timeoutMs
+    });
+}
 
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Knowledge Base MCP server.
@@ -89,6 +138,14 @@ class HealthService extends Base {
      * @private
      */
     #healthCheckPromise = null;
+
+    /**
+     * Lifecycle-owned embedding probe producer. Health reads only inspect its gate snapshot;
+     * they never schedule or execute provider work.
+     * @member {Object|null} #embeddingProbeProducer
+     * @private
+     */
+    #embeddingProbeProducer = null;
 
     /**
      * Duration (in milliseconds) for which cached HEALTHY results remain valid.
@@ -273,35 +330,250 @@ class HealthService extends Base {
     }
 
     /**
-     * Pure predicate: is the configured embedding provider ready to serve KB retrieval?
+     * @summary Projects the lifecycle producer's latest embedding observation onto health truth.
      *
-     * Knowledge Base `ask`/`query` must embed the query before retrieval, so a usable
-     * embedding provider is a hard health requirement (answer synthesis itself is
-     * degradeable — see `SearchService.ask()`). Local providers (`openAiCompatible`/
-     * `ollama`) and the `mock` test provider serve embeddings from their own host /
-     * in-process; only the remote `gemini` provider needs a `GEMINI_API_KEY`.
+     * A healthy vector is the only state that publishes `features.embedding: true`. A settled
+     * failure degrades immediately, while no observation publishes `null` and fails closed. The
+     * input payload is never mutated, which keeps cached-green database truth reusable while a
+     * later producer failure changes the outward health verdict immediately.
      *
-     * @param {String}  embeddingProvider Resolved `aiConfig.embeddingProvider`.
-     * @param {Boolean} hasGeminiKey      Whether `GEMINI_API_KEY` is set.
-     * @returns {Boolean}
+     * @param {Object} payload Database/corpus health payload under construction or from cache.
+     * @returns {Object} Health payload carrying current embedding observation truth.
+     * @private
      */
-    isEmbeddingProviderReady(embeddingProvider, hasGeminiKey) {
-        return embeddingProvider !== 'gemini' || hasGeminiKey;
+    #applyEmbeddingProbe(payload) {
+        const probe = this.#getEmbeddingProbe();
+
+        let details = (payload.details || [])
+            .filter(detail => !detail.startsWith('Knowledge Base embedding probe'));
+        let status = payload.status;
+
+        const features = {...payload.features};
+
+        if (probe.status === 'healthy') {
+            features.embedding = true;
+            return {...payload, features, details};
+        }
+
+        features.embedding = ['failed', 'terminal', 'stale'].includes(probe.status) ? false : null;
+        status             = status === 'unhealthy' ? 'unhealthy' : 'degraded';
+        details            = details.filter(detail => detail !== 'All features are operational');
+
+        if (probe.status === 'failed' || probe.status === 'terminal') {
+            if (probe.stopReason) {
+                details.push(`Knowledge Base embedding probe failed: ${probe.error} (${probe.stopReason}; deadline ${probe.timeoutMs}ms)`);
+            } else if (probe.nextAttemptAt) {
+                details.push(`Knowledge Base embedding probe failed: ${probe.error} — backing off ${probe.backoffMs}ms (streak ${probe.failureStreak}, deadline ${probe.timeoutMs}ms)`);
+            } else {
+                details.push(`Knowledge Base embedding probe failed: ${probe.error} (deadline ${probe.timeoutMs}ms)`);
+            }
+        } else if (probe.status === 'stale') {
+            details.push(`Knowledge Base embedding probe ${probe.reason}`);
+        } else {
+            details.push(`Knowledge Base embedding probe ${probe.status}: ${probe.reason}`);
+        }
+
+        return {...payload, status, features, details};
     }
 
     /**
-     * Checks whether the resolved embedding provider is ready (provider-aware).
+     * @summary Reads the embedding producer's current gate snapshot without causing provider work.
      *
-     * Reads the resolved `aiConfig.embeddingProvider` leaf (the reactive Provider SSOT) rather
-     * than probing raw env vars, so it honors the provider the deployment actually configured —
-     * including the local-by-default `openAiCompatible` — instead of falling through to a
-     * `GEMINI_API_KEY` check whenever the host env vars happen to be unset.
+     * A healthy observation becomes stale after three times the larger of cadence and healthy TTL;
+     * intentional failure backoff is not staleness. Every settled non-healthy result follows the
+     * bounded gate's single failure predicate and carries its retry receipt outward.
      *
-     * @returns {boolean}
+     * @returns {Object} Current probe truth.
      * @private
      */
-    #checkEmbeddingProviderReady() {
-        return this.isEmbeddingProviderReady(aiConfig.embeddingProvider, !!process.env.GEMINI_API_KEY);
+    #getEmbeddingProbe() {
+        const producer = this.#embeddingProbeProducer;
+
+        if (!producer) {
+            return {
+                status: 'unavailable',
+                reason: `producer not started — no embedding observation exists (configured deadline ${embeddingProbePolicy.timeoutMs}ms)`
+            };
+        }
+
+        if (producer.disabled) {
+            return {
+                status: 'disabled',
+                reason: `producer intentionally disabled — no embedding observation exists (deadline ${producer.timeoutMs}ms)`
+            };
+        }
+
+        const snapshot = producer.gate.snapshot();
+
+        if (snapshot.status === 'healthy') {
+            const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs),
+                  age        = producer.clock() - snapshot.cached.checkedAt;
+
+            if (age > staleAfter) {
+                return {
+                    status: 'stale',
+                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms)`
+                };
+            }
+
+            return {status: 'healthy'};
+        }
+
+        if (snapshot.cached) {
+            return {
+                status       : snapshot.terminal ? 'terminal' : 'failed',
+                error        : snapshot.cached.result?.error || 'unknown embedding-provider error',
+                failureStreak: snapshot.failureStreak,
+                backoffMs    : snapshot.backoffMs,
+                nextAttemptAt: snapshot.nextAttemptAt,
+                stopReason   : snapshot.stopReason,
+                timeoutMs    : producer.timeoutMs
+            };
+        }
+
+        return {
+            status: 'pending',
+            reason: `${snapshot.inFlight ? 'first run in flight' : 'no result yet'} (deadline ${producer.timeoutMs}ms)`
+        };
+    }
+
+    /**
+     * @summary Starts or re-arms the lifecycle-owned Knowledge Base embedding probe producer.
+     *
+     * Scheduling belongs here, never in `healthcheck()`. The first attempt runs immediately and is
+     * returned so server boot can await observed truth before its first public health verdict.
+     * Re-arms preserve the same bounded gate, so an in-flight attempt is joined and failure backoff
+     * survives a scheduler restart. Epoch fencing keeps queued callbacks from an older arm inert.
+     * An attempt-body throw becomes a fixed `probe-could-not-run` receipt at this consumer boundary;
+     * provider deadlines already return `consumer-probe-timeout`. The gate therefore owns cadence
+     * and backoff while the probe owns the public failure meaning.
+     *
+     * @param {Object}   [options]
+     * @param {Number}   [options.cadenceMs=60000] Producer attempt cadence.
+     * @param {Number}   [options.timeoutMs=30000] Per-attempt provider deadline.
+     * @param {Number}   [options.healthyTtlMs=60000] Healthy-result staleness floor.
+     * @param {Number}   [options.failureTtlMs=30000] Base failure backoff.
+     * @param {Number}   [options.failureTtlMaxMs=600000] Failure-backoff ceiling.
+     * @param {Function} [options.runProbe] Injectable attempt body.
+     * @param {Function} [options.keyFor] Injectable provider-generation key.
+     * @param {Function} [options.scheduler] Injectable interval scheduler.
+     * @param {Function} [options.clearSchedule] Injectable interval clearer.
+     * @param {Function} [options.clock] Injectable time source.
+     * @returns {Promise<Object>|null} First gate-annotated observation, or `null` when disabled.
+     */
+    startEmbeddingProbe(options = {}) {
+        const {
+            cadenceMs       = embeddingProbePolicy.cadenceMs,
+            timeoutMs       = embeddingProbePolicy.timeoutMs,
+            healthyTtlMs    = embeddingProbePolicy.healthyTtlMs,
+            failureTtlMs    = embeddingProbePolicy.failureTtlMs,
+            failureTtlMaxMs = embeddingProbePolicy.failureTtlMaxMs,
+            runProbe,
+            keyFor,
+            scheduler,
+            clearSchedule,
+            clock
+        } = options;
+
+        let producer = this.#embeddingProbeProducer;
+
+        if (!(cadenceMs > 0)) {
+            if (producer) {
+                producer.disabled = true;
+                this.stopEmbeddingProbe();
+            }
+
+            return null;
+        }
+
+        const schedule   = scheduler     ?? producer?.schedule      ?? ((fn, ms) => setInterval(fn, ms)),
+              unschedule = clearSchedule ?? producer?.clearSchedule ?? (handle => clearInterval(handle));
+
+        if (producer?.timer !== null && producer?.timer !== undefined) {
+            producer.clearSchedule(producer.timer);
+            producer.timer = null;
+        }
+
+        if (!producer) {
+            producer = this.#embeddingProbeProducer = {
+                epoch: 0,
+                gate : createBoundedRetryGate({
+                    run: async context => {
+                        try {
+                            return await producer.runProbe(context);
+                        } catch {
+                            return {
+                                status             : 'failed',
+                                error              : 'probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR',
+                                errorClassification: 'probe-could-not-run',
+                                errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
+                            };
+                        }
+                    },
+                    failureTtlMs,
+                    failureTtlMaxMs,
+                    now: () => producer.clock()
+                }),
+                schedule,
+                clearSchedule: unschedule,
+                clock        : clock ?? Date.now,
+                keyFor       : keyFor ?? (() => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`),
+                runProbe     : runProbe ?? (() => buildKnowledgeBaseEmbeddingProbeBlock({timeoutMs: producer.timeoutMs})),
+                disabled     : false,
+                stopped      : false,
+                timer        : null
+            };
+        } else {
+            if (clock)    producer.clock    = clock;
+            if (keyFor)   producer.keyFor   = keyFor;
+            if (runProbe) producer.runProbe = runProbe;
+
+            producer.schedule      = schedule;
+            producer.clearSchedule = unschedule;
+        }
+
+        producer.cadenceMs    = cadenceMs;
+        producer.disabled     = false;
+        producer.healthyTtlMs = healthyTtlMs;
+        producer.stopped      = false;
+        producer.timeoutMs    = timeoutMs;
+
+        const epoch = ++producer.epoch;
+
+        producer.timer = producer.schedule(() => {
+            if (producer.epoch === epoch && !producer.stopped) {
+                return producer.gate.tick({key: producer.keyFor()});
+            }
+        }, cadenceMs);
+
+        return producer.gate.tick({key: producer.keyFor()});
+    }
+
+    /**
+     * @summary Disarms the embedding probe schedule and epoch-fences queued callbacks.
+     * @returns {void}
+     */
+    stopEmbeddingProbe() {
+        const producer = this.#embeddingProbeProducer;
+
+        if (producer) {
+            producer.epoch++;
+            producer.stopped = true;
+
+            if (producer.timer !== null && producer.timer !== undefined) {
+                producer.clearSchedule(producer.timer);
+                producer.timer = null;
+            }
+        }
+    }
+
+    /**
+     * @summary Disarms and drops the embedding producer for test/restart-boundary isolation.
+     * @returns {void}
+     */
+    clearEmbeddingProbeProducer() {
+        this.stopEmbeddingProbe();
+        this.#embeddingProbeProducer = null;
     }
 
     /**
@@ -314,7 +586,7 @@ class HealthService extends Base {
      * The checks are performed in order of criticality:
      * 1. ChromaDB connectivity (if it's not running, nothing else matters)
      * 2. Collection accessibility (ensures data structures are ready)
-     * 3. Embedding provider readiness (needed for retrieval; only `gemini` needs a key)
+     * 3. The lifecycle producer's latest observed embedding result (projected by `healthcheck()`)
      *
      * Status levels:
      * - healthy: ChromaDB connected, KB corpus accessible, embedding provider ready
@@ -336,10 +608,10 @@ class HealthService extends Base {
                 }
             },
             features: {
-                embedding: false
+                embedding: null
             },
-            details         : [],
-            version         : process.env.npm_package_version || '1.0.0',
+            details: [],
+            version: process.env.npm_package_version || '1.0.0',
             // The package version answers "which release line", not "which commit". `runtimeFreshness`
             // below answers "are my tool schemas stale against MY OWN checkout" — both are blind to a
             // plane running several hundred commits behind, which is the drift that gets attributed to
@@ -369,15 +641,6 @@ class HealthService extends Base {
         if (collectionsCheck.error || !collectionsCheck.knowledgeBase?.exists) {
             payload.status = 'degraded';
             payload.details.push(collectionsCheck.error || 'The required knowledge base collection is missing');
-        }
-
-        // Step 3: Check embedding provider readiness (provider-aware; only 'gemini' needs a key)
-        const embeddingReady = this.#checkEmbeddingProviderReady();
-        payload.features.embedding = embeddingReady;
-
-        if (!embeddingReady) {
-            payload.status = 'degraded';
-            payload.details.push(`Embedding provider '${aiConfig.embeddingProvider}' requires GEMINI_API_KEY - retrieval unavailable`);
         }
 
         // If we made it here with no errors, report success
@@ -422,10 +685,10 @@ class HealthService extends Base {
             // If the cache is still fresh (< 5 minutes old), return it immediately
             if (age < this.#cacheDuration) {
                 logger.debug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
-                return {
+                return this.#applyEmbeddingProbe({
                     ...this.#cachedHealth,
                     runtimeFreshness: await this.resolveRuntimeFreshness()
-                };
+                });
             }
         }
 
@@ -439,10 +702,12 @@ class HealthService extends Base {
         logger.debug('[HealthService] Performing fresh health check');
 
         // Create the promise and store it
-        this.#healthCheckPromise = this.#performHealthCheck().finally(() => {
-            // Always clear the promise when done, success or fail
-            this.#healthCheckPromise = null;
-        });
+        this.#healthCheckPromise = this.#performHealthCheck()
+            .then(payload => this.#applyEmbeddingProbe(payload))
+            .finally(() => {
+                // Always clear the promise when done, success or fail
+                this.#healthCheckPromise = null;
+            });
 
         const health = await this.#healthCheckPromise;
 
@@ -483,11 +748,10 @@ class HealthService extends Base {
      * This method leverages the cached health check, so calling it frequently
      * (e.g., before each tool invocation) has minimal performance impact.
      *
-     * Note: ChromaDB and the configured embedding provider are required for retrieval, since
-     * adding/querying knowledge requires text embeddings. Only the remote 'gemini' embedding
-     * provider needs a GEMINI_API_KEY; local providers (openAiCompatible/ollama) serve embeddings
-     * from their own host. Database lifecycle is managed outside the MCP tool surface; degraded
-     * state only permits health/introspection helpers that do not touch the vector store.
+     * Note: ChromaDB and an observed-healthy embedding path are required for retrieval, since
+     * adding/querying knowledge requires text embeddings. Provider configuration alone is never
+     * treated as availability. Database lifecycle is managed outside the MCP tool surface;
+     * degraded state only permits health/introspection helpers that do not touch the vector store.
      *
      * @throws {Error} If the Knowledge Base is not fully healthy, with a detailed message
      * @returns {Promise<void>}
