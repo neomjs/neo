@@ -39,6 +39,7 @@ Avoid "deploy on every push to `dev`": it couples MCP availability to ordinary d
 
 ```bash
 # tag-triggered job: deploy the tag that fired it, not the default channel
+NEO_DEPLOY_COMPOSE_FILE="<base>.yml:<overlay>.yml" \
 NEO_REF="$CI_COMMIT_TAG" ai/examples/cloud-deployment/deploy-pipeline.sh
 ```
 
