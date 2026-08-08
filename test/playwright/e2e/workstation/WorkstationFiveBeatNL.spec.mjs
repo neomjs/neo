@@ -965,12 +965,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 })),
                 entryCertain  = rows.filter(row => row.timestampMs <  entryCompletedAt),
                 postStamp     = rows.filter(row => row.timestampMs >= entryCompletedAt),
+                // The EARLIEST post-stamp timestamp, never the first DELIVERED one. Chromium stamps
+                // `metadata.timestamp` before handing each bitmap to a shared thread-pool encoder and
+                // emits one event per independent reply, so `Page.screencastFrame` arrival order does
+                // not establish presentation order. Reading `postStamp[0]` treated transport order as
+                // presentation order and could leave a frame in NEITHER region — arrival
+                // `[90, 120, 110, 130]` against a stamp of 100 selected 120 as the boundary and
+                // dropped 110 from all three, while every non-empty check still passed and both band
+                // minima read healthy over a cleared frame (@neo-gpt, cycle-2 re-review).
+                //
                 // Ties share the boundary frame's fate: two frames stamped identically cannot be
                 // ordered by the receipt, so neither may be promoted to `resizeCertain` alone.
-                boundaryMs    = postStamp[0]?.timestampMs,
+                boundaryMs    = postStamp.length
+                    ? Math.min(...postStamp.map(row => row.timestampMs))
+                    : undefined,
                 ambiguous     = postStamp.filter(row => row.timestampMs === boundaryMs),
                 resizeCertain = postStamp.filter(row => row.timestampMs >  boundaryMs),
-                gaps          = rows.slice(1).map((row, index) => row.timestampMs - rows[index].timestampMs)
+                // Sorted before differencing for the same reason: an unsorted delta over delivery
+                // order yields negative "gaps" that are transport artefacts, not cadence.
+                ordered       = rows.map(row => row.timestampMs).sort((left, right) => left - right),
+                gaps          = ordered.slice(1).map((value, index) => value - ordered[index])
                     .sort((left, right) => left - right);
 
             return {
@@ -988,6 +1002,12 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 ambiguousFrameIndices: ambiguous.map(row => row.index),
                 entryCertainCount    : entryCertain.length,
                 medianGapMs          : gaps.length ? gaps[Math.floor(gaps.length / 2)] : null,
+                // CONSERVATION. Reported so the assertion can check it rather than trust the
+                // predicates: three regions that are pairwise disjoint can still fail to cover the
+                // capture, and a frame belonging to no region is invisible to every band assertion
+                // while every non-empty check passes. Disjointness was proven and coverage was
+                // merely assumed — this is the number that makes the assumption checkable.
+                partitionedFrameCount: entryCertain.length + ambiguous.length + resizeCertain.length,
                 resizeCertainCount   : resizeCertain.length
             }
         }
@@ -1056,7 +1076,18 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
             expect(regions.resizeCertainCount,
                 `${label}: no frame presented past the boundary frame, so the replay went unobserved`
-            ).toBeGreaterThan(0)
+            ).toBeGreaterThan(0);
+
+            // Conservation, asserted rather than assumed. Every captured frame must land in exactly
+            // one region: the three predicates are pairwise disjoint, but disjointness does not imply
+            // coverage, and a frame in no region is measured by no band while all three non-empty
+            // checks still pass. A cleared frame can hide in that gap with both band minima reading
+            // healthy — which is this oracle's own defect, one layer further down.
+            expect(regions.partitionedFrameCount,
+                `${label}: the regions must account for every captured frame — ` +
+                `${regions.partitionedFrameCount} of ${continuity.frameCount} attributed, so a frame ` +
+                `belongs to no region and no band assertion can see it`
+            ).toBe(continuity.frameCount)
         }
 
         // An entry red whose minimum IS the boundary frame is attributed, not confirmed. The
