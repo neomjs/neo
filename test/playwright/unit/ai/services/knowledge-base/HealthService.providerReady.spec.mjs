@@ -205,6 +205,55 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         });
     });
 
+    test('public health separates a probe that could not run from a provider that did not answer', async () => {
+        const common = {
+            cadenceMs      : 1000,
+            timeoutMs      : 5,
+            failureTtlMs   : 1000,
+            failureTtlMaxMs: 1000,
+            scheduler      : () => 0,
+            clearSchedule  : () => {},
+            keyFor         : () => 'test-provider:3'
+        };
+
+        await HealthService.startEmbeddingProbe({
+            ...common,
+            runProbe: () => buildKnowledgeBaseEmbeddingProbeBlock({
+                cfg: {
+                    embeddingProvider: 'test-provider',
+                    vectorDimension  : 3
+                },
+                embedText: () => new Promise(() => {}),
+                timeoutMs: 5
+            })
+        });
+
+        const didNotAnswer        = await HealthService.healthcheck(),
+              didNotAnswerDetails = didNotAnswer.details.join(' ');
+
+        expect(didNotAnswer.status).toBe('degraded');
+        expect(didNotAnswer.features.embedding).toBe(false);
+        expect(didNotAnswerDetails).toContain('consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT');
+
+        HealthService.clearEmbeddingProbeProducer();
+        HealthService.clearCache();
+
+        await HealthService.startEmbeddingProbe({
+            ...common,
+            runProbe: async () => {
+                throw new Error('fixture probe body cannot execute');
+            }
+        });
+
+        const couldNotRun        = await HealthService.healthcheck(),
+              couldNotRunDetails = couldNotRun.details.join(' ');
+
+        expect(couldNotRun.status).toBe('degraded');
+        expect(couldNotRun.features.embedding).toBe(false);
+        expect(couldNotRunDetails).toContain('probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR');
+        expect(couldNotRunDetails).not.toBe(didNotAnswerDetails);
+    });
+
     test('scheduled demand inside failure backoff reuses truth instead of probing again', async () => {
         let now       = 1000;
         let probeRuns = 0;

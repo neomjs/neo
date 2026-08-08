@@ -441,6 +441,9 @@ class HealthService extends Base {
      * returned so server boot can await observed truth before its first public health verdict.
      * Re-arms preserve the same bounded gate, so an in-flight attempt is joined and failure backoff
      * survives a scheduler restart. Epoch fencing keeps queued callbacks from an older arm inert.
+     * An attempt-body throw becomes a fixed `probe-could-not-run` receipt at this consumer boundary;
+     * provider deadlines already return `consumer-probe-timeout`. The gate therefore owns cadence
+     * and backoff while the probe owns the public failure meaning.
      *
      * @param {Object}   [options]
      * @param {Number}   [options.cadenceMs=60000] Producer attempt cadence.
@@ -492,7 +495,18 @@ class HealthService extends Base {
             producer = this.#embeddingProbeProducer = {
                 epoch: 0,
                 gate : createBoundedRetryGate({
-                    run: context => producer.runProbe(context),
+                    run: async context => {
+                        try {
+                            return await producer.runProbe(context);
+                        } catch {
+                            return {
+                                status             : 'failed',
+                                error              : 'probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR',
+                                errorClassification: 'probe-could-not-run',
+                                errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
+                            };
+                        }
+                    },
                     failureTtlMs,
                     failureTtlMaxMs,
                     now: () => producer.clock()
