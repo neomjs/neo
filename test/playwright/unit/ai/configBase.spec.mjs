@@ -199,3 +199,33 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
         expect(ConfigBase.config.singleton).toBeFalsy();
     });
 });
+
+test.describe('fleet.port — the domain type, not the generic one', () => {
+    // `'number'` would admit 0, which binds an EPHEMERAL port: the listener comes up somewhere
+    // random and the cockpit's fixed URL reaches nothing. The prior inline `Number(env) || 8083`
+    // caught 0 by ACCIDENT — via falsiness — and let -1, 80.5 and 70000 through. This drives the
+    // leaf's OWN declared parser rather than a parser the test picked, so it fails if the binding
+    // changes even when `Env.parsePort` itself is fine.
+    const portLeaf = () => ConfigBase.config.data.fleet.port;
+
+    test('declares the port domain type and the 8083 default', () => {
+        expect(portLeaf().default).toBe(8083);
+        expect(portLeaf().type).toBe('port');
+        expect(portLeaf().env).toBe('NEO_FLEET_PORT');
+    });
+
+    test('a valid port resolves; every invalid shape falls back to the default', () => {
+        const resolve = raw => portLeaf().parse('NEO_FLEET_PORT', {
+            env : {NEO_FLEET_PORT: raw},
+            warn: () => {}   // the parser warns on rejection; silence it, the return value is the assertion
+        });
+
+        // Resolves.
+        expect(resolve('9999')).toBe(9999);
+
+        // Falls back — `undefined` means "leaf default applies".
+        for (const invalid of ['0', '-1', '80.5', '70000', 'abc', '']) {
+            expect(resolve(invalid), `NEO_FLEET_PORT="${invalid}" must not resolve`).toBeUndefined();
+        }
+    })
+});

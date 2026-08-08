@@ -316,9 +316,16 @@ class ConfigBase extends ConfigProvider {
                  * Port the Fleet transport listens on. Must match the URL the App Worker's cockpit
                  * dials; resolved at boot rather than captured at import so an overlay applied
                  * after module load is still honoured.
+                 *
+                 * `'port'`, not `'number'`: the domain parser rejects anything outside 1..65535 and
+                 * falls back to the default. `'number'` would admit **0**, which binds an EPHEMERAL
+                 * port — the listener comes up on a random port and the cockpit's fixed URL reaches
+                 * nothing — plus negatives, fractions and 70000. The prior inline
+                 * `Number(env) || 8083` caught 0 by accident, via falsiness; this catches it by rule,
+                 * and catches the cases falsiness never did.
                  * @type {number}
                  */
-                port           : leaf(8083, 'NEO_FLEET_PORT', 'number'),
+                port           : leaf(8083, 'NEO_FLEET_PORT', 'port'),
                 /**
                  * Patience for ONE tenant-plane probe request (initialize, the initialized
                  * notification, the identity proof) — a single declared bound replacing per-site
