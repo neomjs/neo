@@ -1025,7 +1025,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         const measured = makeService({
             ...baseCheckpoint,
             corpusOutstanding: {
-                state          : 'converging',
+                state          : 'outstanding',
                 observable     : true,
                 outstanding    : 40_000,
                 lastDecreasedAt: OBSERVED_AT - 5_000,
@@ -1036,7 +1036,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         const measuredSnapshot = await measured.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(measuredSnapshot.repos[0].corpusOutstanding).toEqual({
-            state          : 'converging',
+            state          : 'outstanding',
             observable     : true,
             outstanding    : 40_000,
             lastDecreasedAt: OBSERVED_AT - 5_000,
@@ -1057,12 +1057,28 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         // hand-edited observation must never surface as a count.
         const torn = makeService({
                   ...baseCheckpoint,
-                  corpusOutstanding: {state: 'converging', observable: true, outstanding: 12}
+                  corpusOutstanding: {state: 'outstanding', observable: true, outstanding: 12}
               }),
               tornSnapshot = await torn.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(tornSnapshot.repos[0].corpusOutstanding).toBeNull();
         torn.destroy();
+
+        // RA-1 (@neo-gpt): every field individually well-typed, TOGETHER asserting a finished corpus
+        // with 42 chunks left. Presence-validation admits this; only coherence rejects it. Repairing it
+        // to a count would invent an observation nobody made, so it degrades WHOLE.
+        for (const incoherent of [
+            {state: 'complete',     observable: true,  outstanding: 42, observedAt: OBSERVED_AT - 1_000},
+            {state: 'outstanding',  observable: true,  outstanding: 0,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'unobservable', observable: true,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000},
+            {state: 'converging',   observable: true,  outstanding: 7,  observedAt: OBSERVED_AT - 1_000}
+        ]) {
+            const svc  = makeService({...baseCheckpoint, corpusOutstanding: incoherent}),
+                  snap = await svc.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+            expect(snap.repos[0].corpusOutstanding, `must reject ${JSON.stringify(incoherent)}`).toBeNull();
+            svc.destroy();
+        }
     });
 
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {

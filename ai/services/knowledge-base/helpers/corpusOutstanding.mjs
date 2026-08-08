@@ -1,7 +1,8 @@
 /**
  * @module ai/services/knowledge-base/helpers/corpusOutstanding
  * @summary Pure decision for the corpus-outstanding observable — how many chunks of a corpus are known
- * but not yet embedded, and whether that backlog is converging or stuck. The number this answers with
+ * but not yet embedded, plus the movement stamp a consumer needs to judge whether that backlog is moving.
+ * It reports a state, never a trend. The number this answers with
  * already exists inside every ingest run (`VectorService` derives `chunksToProcess` from the parsed corpus
  * against the ids present in Chroma, and the lease-yield path logs the remainder) and is then discarded
  * when the run returns. THIS is the placement-independent decision; persisting the observation and putting
@@ -32,16 +33,30 @@
  */
 
 /**
- * States a corpus-outstanding observation can carry.
+ * The CLOSED state vocabulary a corpus-outstanding observation may carry.
  *
- * `converging` and `stuck` both mean "there is a backlog"; they differ only in whether it has moved, which
- * is the question an operator staring at `count: 0` actually has.
+ * Deliberately three states, and deliberately NOT a motion claim. An earlier revision carried
+ * `converging` / `stuck`, discriminated by an age threshold — but no production caller could supply a
+ * semantically owned threshold, so `stuck` was unreachable and `converging` degraded to "positive count,
+ * forever": a claim about movement made by something that never observed movement.
+ *
+ * `outstanding` is therefore neutral. Whether a backlog is converging or stalled is the CONSUMER's
+ * question, answerable from `lastDecreasedAt` against `observedAt` — the honest companions, which do
+ * carry motion. A producer that cannot see cadence must not name a trend.
+ *
+ * Each state has exactly one coherent tuple, enforced at both trust boundaries:
+ *
+ * | state          | outstanding | observable |
+ * |----------------|-------------|------------|
+ * | `complete`     | `0`         | `true`     |
+ * | `outstanding`  | `> 0`       | `true`     |
+ * | `unobservable` | `null`      | `false`    |
+ *
  * @type {Object}
  */
 export const OUTSTANDING_STATE = Object.freeze({
     complete    : 'complete',
-    converging  : 'converging',
-    stuck       : 'stuck',
+    outstanding : 'outstanding',
     unobservable: 'unobservable'
 });
 
@@ -73,45 +88,49 @@ export function deriveOutstanding({total, embedded, skipped = 0} = {}) {
         return null;
     }
 
-    // Clamped at zero rather than allowed negative: a caller that over-reports `embedded` (a retry counted
-    // twice, say) would otherwise produce a negative backlog, which reads as nonsense on a surface and would
-    // sort below `complete` in any comparison. Clamping degrades toward "nothing outstanding", which is the
-    // claim the numbers are closest to supporting.
-    return Math.max(0, total - embedded - skipped);
+    // INCOHERENT INPUTS ARE UNMEASURABLE, NOT COMPLETE. An earlier revision clamped this with
+    // `Math.max(0, …)` and justified it as "degrading toward the claim the numbers are closest to
+    // supporting". That was wrong, and it built the exact defect this module exists to prevent: a run
+    // reporting more embedded-plus-skipped than it ever accepted is a run whose numbers disagree with
+    // themselves, and `0` would publish that as a FINISHED corpus. There is no reading of contradictory
+    // arithmetic that supports "nothing left to do" — only "this cannot be trusted".
+    if (embedded + skipped > total) {
+        return null;
+    }
+
+    return total - embedded - skipped;
 }
 
 /**
- * @summary Composes the durable corpus-outstanding observation, carrying forward when the backlog last moved.
+* @summary Composes the durable corpus-outstanding observation, carrying forward when the backlog last moved.
  *
  * The staleness companion is deliberately "when did the outstanding set last DECREASE" rather than "when was
  * this last observed". Observation is cheap and frequent; movement is the signal. A backlog re-observed every
- * minute at the same depth for six hours is stuck, and a `lastObservedAt` that advances every minute would
- * describe it as fresh.
+ * minute at the same depth for six hours has not moved, and a `lastObservedAt` that advances every minute
+ * would describe it as fresh.
+ *
+ * **This function names a state, never a trend.** `lastDecreasedAt` and `observedAt` are published so a
+ * consumer that knows the lane's cadence can decide whether a backlog is converging or stalled. Deciding
+ * that here would require a threshold no producer on this path can own.
  *
  * @param {Object}      options
- * @param {Number|null} options.outstanding    Current outstanding count (from `deriveOutstanding`).
- * @param {Number}      options.observedAt     Epoch ms for this observation — passed in, never read from a
+ * @param {Number|null} options.outstanding Current outstanding count (from `deriveOutstanding`).
+ * @param {Number}      options.observedAt  Epoch ms for this observation — passed in, never read from a
  *     clock here, so the decision stays pure and testable.
- * @param {Object|null} [options.previous]     The previously persisted observation, if any.
- * @param {Number}      [options.stuckThresholdMs] How long a non-decreasing backlog may sit before it is
- *     called `stuck`. Omitted → a backlog is `converging` regardless of age.
+ * @param {Object|null} [options.previous]  The previously persisted observation, if any.
  * @returns {{state: String, outstanding: Number|null, observable: Boolean, lastDecreasedAt: Number|null,
- *     observedAt: Number, stuckThresholdMs: Number|null}}
+ *     observedAt: Number|null}}
  */
-export function describeCorpusOutstanding({outstanding, observedAt, previous = null, stuckThresholdMs} = {}) {
-    const hasThreshold = Number.isFinite(stuckThresholdMs) && stuckThresholdMs > 0,
-          threshold    = hasThreshold ? stuckThresholdMs : null;
-
+export function describeCorpusOutstanding({outstanding, observedAt, previous = null} = {}) {
     if (!Number.isFinite(observedAt)) {
         // Without a timestamp there is no movement axis at all, so the observation cannot be composed even
         // if the count itself is sound. Reported as unobservable rather than dated with a substitute clock.
         return {
-            state           : OUTSTANDING_STATE.unobservable,
-            outstanding     : null,
-            observable      : false,
-            lastDecreasedAt : null,
-            observedAt      : null,
-            stuckThresholdMs: threshold
+            state          : OUTSTANDING_STATE.unobservable,
+            outstanding    : null,
+            observable     : false,
+            lastDecreasedAt: null,
+            observedAt     : null
         };
     }
 
@@ -121,10 +140,9 @@ export function describeCorpusOutstanding({outstanding, observedAt, previous = n
             outstanding: null,
             observable : false,
             // The previous movement stamp survives an unobservable reading. Losing it would let a single
-            // failed measurement reset a six-hour-stuck backlog's clock to "just moved".
-            lastDecreasedAt : Number.isFinite(previous?.lastDecreasedAt) ? previous.lastDecreasedAt : null,
-            observedAt,
-            stuckThresholdMs: threshold
+            // failed measurement reset a six-hour-stalled backlog's clock to "just moved".
+            lastDecreasedAt: Number.isFinite(previous?.lastDecreasedAt) ? previous.lastDecreasedAt : null,
+            observedAt
         };
     }
 
@@ -134,15 +152,11 @@ export function describeCorpusOutstanding({outstanding, observedAt, previous = n
               ? observedAt
               : (Number.isFinite(previous?.lastDecreasedAt) ? previous.lastDecreasedAt : observedAt);
 
-    let state;
-
-    if (outstanding === 0) {
-        state = OUTSTANDING_STATE.complete;
-    } else if (threshold !== null && (observedAt - lastDecreasedAt) >= threshold) {
-        state = OUTSTANDING_STATE.stuck;
-    } else {
-        state = OUTSTANDING_STATE.converging;
-    }
-
-    return {state, outstanding, observable: true, lastDecreasedAt, observedAt, stuckThresholdMs: threshold};
+    return {
+        state     : outstanding === 0 ? OUTSTANDING_STATE.complete : OUTSTANDING_STATE.outstanding,
+        outstanding,
+        observable: true,
+        lastDecreasedAt,
+        observedAt
+    };
 }

@@ -46,8 +46,17 @@ test.describe('deriveOutstanding — the run leaves a real remainder', () => {
         expect(deriveOutstanding({total: 1,   embedded: 0}))              .toBe(1);
     });
 
-    test('over-reported progress clamps to zero rather than going negative', () => {
-        expect(deriveOutstanding({total: 10, embedded: 12})).toBe(0);
+    test('THE RA-1 SPECIMEN: contradictory arithmetic is UNMEASURABLE, never complete', () => {
+        // This spec previously asserted the defect. It expected `0` and called it "clamping toward the
+        // claim the numbers are closest to supporting" — publishing a FINISHED corpus for a run whose
+        // own numbers disagree with themselves. There is no reading of `embedded + skipped > total`
+        // that supports "nothing left to do"; the only honest answer is "this cannot be trusted".
+        expect(deriveOutstanding({total: 10, embedded: 12})).toBeNull();
+        expect(deriveOutstanding({total: 10, embedded: 5, skipped: 8})).toBeNull();
+        expect(deriveOutstanding({total: 0,  embedded: 1})).toBeNull();
+
+        // The boundary itself stays measurable — exact exhaustion is a real, coherent zero.
+        expect(deriveOutstanding({total: 10, embedded: 6, skipped: 4})).toBe(0);
     });
 
     test('unusable inputs return null, never a reassuring zero', () => {
@@ -67,10 +76,10 @@ test.describe('describeCorpusOutstanding — empty-at-rest vs empty-mid-progress
         expect(result.outstanding).toBe(0);
     });
 
-    test('a backlog with no prior observation is converging, not stuck', () => {
-        const result = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000, stuckThresholdMs: 500});
+    test('a backlog with no prior observation reports outstanding and stamps its first observation', () => {
+        const result = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000});
 
-        expect(result.state).toBe(OUTSTANDING_STATE.converging);
+        expect(result.state).toBe(OUTSTANDING_STATE.outstanding);
         expect(result.lastDecreasedAt).toBe(1_000);
     });
 
@@ -88,66 +97,70 @@ test.describe('describeCorpusOutstanding — empty-at-rest vs empty-mid-progress
         expect(unknown.observable).not.toBe(complete.observable);
     });
 
-    test('a shrinking backlog stamps the movement and stays converging', () => {
-        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000, stuckThresholdMs: 500}),
+    test('a shrinking backlog stamps the movement and stays outstanding', () => {
+        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000}),
               next     = describeCorpusOutstanding({
-                  outstanding: 300, observedAt: 9_000, previous, stuckThresholdMs: 500
+                  outstanding: 300, observedAt: 9_000, previous
               });
 
-        expect(next.state).toBe(OUTSTANDING_STATE.converging);
+        expect(next.state).toBe(OUTSTANDING_STATE.outstanding);
         expect(next.lastDecreasedAt).toBe(9_000); // it moved, so the clock restarts
     });
 
-    test('a backlog that has not moved past the threshold is stuck', () => {
-        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000, stuckThresholdMs: 500}),
+    test('a non-decreasing backlog keeps its ORIGINAL movement stamp', () => {
+        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000}),
               next     = describeCorpusOutstanding({
-                  outstanding: 618, observedAt: 2_000, previous, stuckThresholdMs: 500
+                  outstanding: 618, observedAt: 2_000, previous
               });
 
-        expect(next.state).toBe(OUTSTANDING_STATE.stuck);
+        expect(next.state).toBe(OUTSTANDING_STATE.outstanding);
         expect(next.lastDecreasedAt).toBe(1_000); // the ORIGINAL stamp, not the re-observation
     });
 
-    test('re-observing a stuck backlog does not refresh its movement stamp', () => {
+    test('re-observing an unmoved backlog does not refresh its movement stamp', () => {
         // The reason the companion measures DECREASE and not observation: a stuck backlog polled every
         // minute for six hours would otherwise report as freshly-moved on every single poll.
-        let state = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000, stuckThresholdMs: 500});
+        let state = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000});
 
         for (const observedAt of [2_000, 3_000, 4_000, 5_000]) {
-            state = describeCorpusOutstanding({outstanding: 618, observedAt, previous: state, stuckThresholdMs: 500});
+            state = describeCorpusOutstanding({outstanding: 618, observedAt, previous: state});
         }
 
-        expect(state.state).toBe(OUTSTANDING_STATE.stuck);
+        expect(state.state).toBe(OUTSTANDING_STATE.outstanding);
         expect(state.lastDecreasedAt).toBe(1_000);
         expect(state.observedAt).toBe(5_000);
     });
 
     test('a growing backlog is not a decrease', () => {
-        const previous = describeCorpusOutstanding({outstanding: 100, observedAt: 1_000, stuckThresholdMs: 500}),
+        const previous = describeCorpusOutstanding({outstanding: 100, observedAt: 1_000}),
               next     = describeCorpusOutstanding({
-                  outstanding: 400, observedAt: 2_000, previous, stuckThresholdMs: 500
+                  outstanding: 400, observedAt: 2_000, previous
               });
 
         expect(next.lastDecreasedAt).toBe(1_000);
-        expect(next.state).toBe(OUTSTANDING_STATE.stuck);
+        expect(next.state).toBe(OUTSTANDING_STATE.outstanding);
     });
 
     test('a failed measurement preserves the prior movement stamp', () => {
         // Otherwise one unreadable poll resets a long-stuck backlog's clock, and the next successful read
         // reports it as recently-moved.
-        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000, stuckThresholdMs: 500}),
+        const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000}),
               failed   = describeCorpusOutstanding({outstanding: null, observedAt: 2_000, previous});
 
         expect(failed.state).toBe(OUTSTANDING_STATE.unobservable);
         expect(failed.lastDecreasedAt).toBe(1_000);
     });
 
-    test('without a threshold a backlog never claims to be stuck', () => {
+    test('RA-2: a long-unmoved backlog still reports the NEUTRAL state — the producer never claims a trend', () => {
         const previous = describeCorpusOutstanding({outstanding: 618, observedAt: 1_000}),
               next     = describeCorpusOutstanding({outstanding: 618, observedAt: 9_999_000, previous});
 
-        expect(next.state).toBe(OUTSTANDING_STATE.converging);
-        expect(next.stuckThresholdMs).toBeNull();
+        // RA-2 (@neo-gpt): a 618 backlog observed nearly three hours later still reports the NEUTRAL
+        // state — the producer makes no motion claim. The honest companion is that `lastDecreasedAt`
+        // stayed at 1_000 while `observedAt` moved to 9_999_000, so a consumer that knows this lane's
+        // cadence can compute the stall itself. That is the distinction the old `converging` erased.
+        expect(next.lastDecreasedAt).toBe(1_000);
+        expect(next.observedAt).toBe(9_999_000);
     });
 
     test('a missing observedAt is unobservable rather than dated with a substitute clock', () => {
@@ -160,12 +173,12 @@ test.describe('describeCorpusOutstanding — empty-at-rest vs empty-mid-progress
     test('NON-VACUITY CONTROL: the composed shape carries every field a surface branches on', () => {
         // Guards against a stub that returns a plausible-looking object with fields absent — which would let
         // every assertion above pass against a decision that reports nothing.
-        const result = describeCorpusOutstanding({outstanding: 42, observedAt: 7_000, stuckThresholdMs: 500});
+        const result = describeCorpusOutstanding({outstanding: 42, observedAt: 7_000});
 
-        for (const key of ['state', 'outstanding', 'observable', 'lastDecreasedAt', 'observedAt', 'stuckThresholdMs']) {
+        for (const key of ['state', 'outstanding', 'observable', 'lastDecreasedAt', 'observedAt']) {
             expect(result).toHaveProperty(key);
         }
         expect(result.outstanding).toBe(42);
-        expect(result.stuckThresholdMs).toBe(500);
+        expect(result.state).toBe(OUTSTANDING_STATE.outstanding);
     });
 });

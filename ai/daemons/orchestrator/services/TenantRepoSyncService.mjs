@@ -426,10 +426,9 @@ function classifyIngestionOutcome(summary) {
  * @param {Object}      options.summary   Ingestion summary returned by the run.
  * @param {Object|null} options.priorState Previously persisted per-repo state, for the movement stamp.
  * @param {Number}      options.observedAt Epoch ms for this observation.
- * @param {Number}      [options.stuckThresholdMs] Age past which a non-decreasing backlog reads `stuck`.
  * @returns {Object} The `describeCorpusOutstanding` observation.
  */
-function buildCorpusOutstandingObservation({summary, priorState, observedAt, stuckThresholdMs}) {
+function buildCorpusOutstandingObservation({summary, priorState, observedAt}) {
     const
         accepted = summary?.ingested,
         skipped  = summary?.skippedOversized ?? 0,
@@ -442,8 +441,7 @@ function buildCorpusOutstandingObservation({summary, priorState, observedAt, stu
     return describeCorpusOutstanding({
         outstanding: deriveOutstanding({total, embedded, skipped}),
         observedAt,
-        previous   : priorState?.corpusOutstanding ?? null,
-        stuckThresholdMs
+        previous   : priorState?.corpusOutstanding ?? null
     })
 }
 

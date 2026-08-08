@@ -11,6 +11,11 @@
  * @see https://github.com/neomjs/neo/issues/16045
  */
 
+// The state vocabulary is imported from the PRODUCER rather than re-declared. A reader holding its own
+// copy of a closed set is one rename away from silently accepting a state the writer no longer emits,
+// or rejecting one it does — the drift this normalizer exists to catch.
+import {OUTSTANDING_STATE} from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
+
 /**
  * @summary Current success contract for tenant-repo ingestion checkpoints.
  *
@@ -164,9 +169,18 @@ function normalizeCorpusOutstanding(value) {
     }
 
     const
+        {state}     = value,
         observable  = value.observable === true,
         outstanding = normalizeNonNegativeNumber(value.outstanding),
         observedAt  = normalizeNonNegativeNumber(value.observedAt);
+
+    // CLOSED vocabulary. An arbitrary string was previously admitted, which let a hand-edited or
+    // partially-migrated record name a state no writer emits and still project as authoritative.
+    if (state !== OUTSTANDING_STATE.complete
+        && state !== OUTSTANDING_STATE.outstanding
+        && state !== OUTSTANDING_STATE.unobservable) {
+        return null;
+    }
 
     // An observation claiming to be observable must carry both the count and the moment it was taken;
     // one without the other cannot support either the number or its staleness, so it degrades whole.
@@ -174,12 +188,22 @@ function normalizeCorpusOutstanding(value) {
         return null;
     }
 
-    if (typeof value.state !== 'string' || !value.state) {
+    // COHERENCE, not merely presence. Each state admits exactly one tuple, so a record whose fields
+    // contradict each other degrades WHOLE rather than being published field-by-field. The dangerous
+    // specimen is `{state:'complete', observable:true, outstanding:42}`: every field is individually
+    // well-typed, and together they assert a finished corpus with 42 chunks left. Repairing that to a
+    // count would invent an observation; rejecting it is the only honest reading.
+    const coherent = state === OUTSTANDING_STATE.unobservable
+        ? (!observable && !Number.isFinite(outstanding))
+        : (observable && Number.isFinite(outstanding)
+            && (state === OUTSTANDING_STATE.complete ? outstanding === 0 : outstanding > 0));
+
+    if (!coherent) {
         return null;
     }
 
     return {
-        state          : value.state,
+        state,
         observable,
         outstanding    : observable ? outstanding : null,
         lastDecreasedAt: normalizeNonNegativeNumber(value.lastDecreasedAt) || null,

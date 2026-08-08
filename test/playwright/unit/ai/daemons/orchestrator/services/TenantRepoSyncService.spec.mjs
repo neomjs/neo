@@ -5264,7 +5264,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(deferredState.corpusOutstanding.outstanding).toBe(70);
         expect(deferredState.corpusOutstanding.observable).toBe(true);
-        expect(deferredState.corpusOutstanding.state).toBe('converging');
+        expect(deferredState.corpusOutstanding.state).toBe('outstanding');
 
         const deferredProjection = deferredRun.details.repos.find(row => row.repoSlug === slug);
 
