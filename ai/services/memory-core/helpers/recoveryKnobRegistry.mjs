@@ -55,7 +55,89 @@ const MINISUMMARY_MIN_ITEMS_PER_SWEEP = 4;
 const CONTAINER_MEMORY_CEILING_MIN_BYTES = 8  * 1024 ** 3;
 const CONTAINER_MEMORY_CEILING_MAX_BYTES = 16 * 1024 ** 3;
 
+/**
+ * @summary Builds one service-heap knob. TWO knobs, not one, because `serviceKey` is singular and the
+ * actuator refuses a knob/target mismatch against it — a knob addressing both MCP servers would break
+ * that guarantee.
+ *
+ * **No `min`/`max`.** The shipped `768` has no derivation anywhere in the repo (three occurrences in
+ * compose, no working-set arithmetic), so a constant band here would be invented to match the store
+ * knob's shape. Both bounds are RELATIONSHIPS instead, per this file's own rule that a bound against
+ * a leaf it does not change is expressed against the live value and never as a constant.
+ *
+ * @param {String} serviceKey
+ * @param {String} leafPath
+ * @param {String} env
+ * @returns {Object} frozen knob descriptor
+ */
+function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
+    const liveLimitLeaf = `runtime.${serviceKey}.liveMemoryLimitBytes`;
+
+    return Object.freeze({
+        description: `Raise ${serviceKey}'s declared V8 old-space ceiling. Distinct from the store's ` +
+                     'ceiling in the resource it spends: this changes `--max-old-space-size` and leaves ' +
+                     '`HostConfig.Memory` UNCHANGED, so it spends memory the container was already ' +
+                     'granted rather than widening the authorisation. Values are MB — the unit ' +
+                     '`--max-old-space-size` itself takes, so nothing translates and nothing can ' +
+                     'disagree about the unit.',
+        serviceKey,
+        /**
+         * The container limit, resolved by the caller from the runtime (`HostConfig.Memory`).
+         *
+         * **Config cannot answer it, and that was measured rather than assumed:** no compose
+         * `deploy.resources` value has an AiConfig leaf anywhere — not chroma's, not local-model's —
+         * and there is no `deploy.*` subtree in `configBase.mjs`. Cgroup limits are OBSERVED at
+         * runtime by design, never DECLARED in config.
+         *
+         * The consequence is deliberate and correct: a channel resolving context from config only
+         * FAILS CLOSED on this knob. A controller that cannot see the container limit must not be
+         * able to raise a ceiling past it, and refusing is the safe half of that trade.
+         */
+        requires: Object.freeze([liveLimitLeaf]),
+        leaves  : Object.freeze([
+            Object.freeze({path: leafPath, env, role: 'ceiling', type: 'number'})
+        ]),
+        invariants: Object.freeze([
+            Object.freeze({
+                id    : 'raise-not-lower',
+                reason: 'This knob expresses exactly one intent: raise. Lowering a declared ceiling ' +
+                        'toward a working set that has already grown into it is an abort instruction ' +
+                        'with extra steps — and unlike the store case the process dies CLEANLY ' +
+                        '(ExitCode 0, OOMKilled false), so it leaves no crash signature to diagnose.',
+                holds : values => Number.isFinite(values[leafPath]) && values[leafPath] > 0
+            }),
+            Object.freeze({
+                id    : 'strictly-below-container-limit',
+                reason: 'A V8 ceiling at or above the cgroup limit converts a clean self-abort into an ' +
+                        'OOMKill — strictly worse, because the kernel kills mid-write with no chance ' +
+                        'to flush. An unresolved or non-positive live limit REFUSES rather than ' +
+                        'passes: an unknown bound is a refusal, never an absent one.',
+                holds : (values, context = {}) => {
+                    const liveLimitBytes = context[liveLimitLeaf];
+
+                    if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0) return false;
+
+                    // The leaf is MB and the runtime bound is BYTES. Converting HERE, once, at the
+                    // one place both units meet, is the whole reason the leaf stays in MB: a knob
+                    // declared in bytes would need this conversion at every writer instead.
+                    return values[leafPath] * 1024 * 1024 < liveLimitBytes
+                }
+            })
+        ])
+    })
+}
+
 export const RECOVERY_KNOBS = Object.freeze({
+    'kb-server-heap-ceiling': serviceHeapCeilingKnob({
+        serviceKey: 'kb-server',
+        leafPath  : 'deploy.kbServer.heapCeilingMb',
+        env       : 'NEO_KB_SERVER_HEAP_MB'
+    }),
+    'mc-server-heap-ceiling': serviceHeapCeilingKnob({
+        serviceKey: 'mc-server',
+        leafPath  : 'deploy.mcServer.heapCeilingMb',
+        env       : 'NEO_MC_SERVER_HEAP_MB'
+    }),
     'container-memory-ceiling': Object.freeze({
         description: 'Raise a store-backed service\'s memory ceiling. For a store the corpus IS the ' +
                      'workload — resident memory tracks rows already persisted — so shedding relieves ' +
