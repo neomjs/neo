@@ -4022,7 +4022,20 @@ class Workspace extends Container {
 
                 dwellDelay > 0 && await me.timeout(dwellDelay);
 
-                let preview = indicators.activeCandidate.preview;
+                // The dwell is a TOCTOU window: the candidate verified active above can be lost
+                // while it elapses — a human-pause dwell can outlive the gesture claim's
+                // arbitration TTL, retiring the candidate mid-gesture. Re-verify before the read:
+                // a loss fails the step through the receipts channel naming the gate, instead of
+                // an unattributed null-read here.
+                let preview = indicators.activeCandidate?.preview;
+
+                if (!preview) {
+                    throw new Error(
+                        `active candidate '${candidate.preview.previewId}' lost during the ${dwellDelay}ms dwell — ` +
+                        `gate=dwell-reverify active=${indicators.activeCandidate?.preview?.previewId ?? 'null'} ` +
+                        `dwell=${index + 1}/${dwells.length} target='${dwell.targetNodeId}' placement='${dwell.placementKind}'`
+                    )
+                }
 
                 finalPreview = JSON.parse(JSON.stringify(preview));
                 beats.push({
