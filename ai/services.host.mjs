@@ -22,9 +22,25 @@ import {makeSafe, safeLoadYaml} from './services/shared/serviceProxy.mjs';
  * (statically, via `ai/provider/Gemini.mjs`) — and, through an eager singleton whose `initAsync`
  * defers only syntactically, `better-sqlite3`. None of those exist in the host plane.
  *
- * Measured: the full barrel resolves 23 external packages, three of them cloud-only. The set below
- * resolves eleven, none of them cloud-only — `child_process crypto fs fs-extra gray-matter os path
- * semver url util ws`. The boundary is by grouping, not by rewriting the services.
+ * ## Measured — and the instrument is named, because two of them disagree by exactly the residual
+ *
+ * **Static module-graph walk** (the discipline the sibling spec enforces):
+ *
+ *     ai/services.mjs        273 files    22 externals    2 cloud-only: chromadb, @google/generative-ai
+ *     ai/services.host.mjs    90 files    14 externals    none
+ *
+ * The host set is `child_process crypto dotenv fs fs-extra gray-matter js-yaml os path semver url
+ * util ws zod`. The boundary is by grouping, not by rewriting the services.
+ *
+ * **Runtime record-and-allow resolve hook** over `ai/services.mjs` reports **23**, with a *third*
+ * cloud package: `better-sqlite3`.
+ *
+ * That one-package gap is not a discrepancy to reconcile — it IS this file's residual, stated as a
+ * number. `SQLite.mjs` reaches `better-sqlite3` through `await import()` inside `initAsync()`, so no
+ * static walk can see it, yet it still loads on barrel import because the singleton is eager and
+ * `initAsync` runs on the next microtask. Quoting a runtime count and a static count as one figure
+ * hides precisely the half that is not yet proven, so both are labelled here and neither is rounded
+ * into the other.
  *
  * ## Why the membership is what it is
  *

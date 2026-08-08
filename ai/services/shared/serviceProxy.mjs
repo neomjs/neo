@@ -18,9 +18,12 @@ import {buildZodSchema} from '../../mcp/validation/openApiValidator.mjs';
  * Sibling of `boundedRetryGate.mjs` and `storeWriteGuard.mjs`: a plain module with named exports and
  * no Neo coupling, so specs import it directly without standing a barrel up.
  *
- * **Moved verbatim.** The behaviour is unchanged from its previous home — including `safeLoadYaml`'s
- * fail-open contract and `makeSafe`'s null-spec passthrough — so that a reviewer diffing the split
- * sees relocation, not a rewrite wearing a move's clothes.
+ * **Relocated, with one observable change.** The contracts are unchanged from its previous home —
+ * including `safeLoadYaml`'s fail-open behaviour and `makeSafe`'s null-spec passthrough — so a
+ * reviewer diffing the split sees relocation, not a rewrite wearing a move's clothes. The exception,
+ * named rather than glossed: log lines now carry the `[serviceProxy]` prefix instead of
+ * `[services.mjs]`, which is the accurate label for the new home but is not "verbatim". Anything
+ * grepping those logs by the old prefix needs updating.
  */
 
 // --- Runtime Type Safety Logic ---
