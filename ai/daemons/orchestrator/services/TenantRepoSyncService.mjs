@@ -186,19 +186,27 @@ function getEmbeddingRecoveryCauseCode(error, sourceErrorCode) {
 }
 
 /**
- * @summary Creates or advances one durable embedding recovery episode after a sync failure.
+ * @summary Creates or advances one durable embedding recovery episode after a sync attempt that
+ * made no checkpoint progress for an embedding-class reason.
  *
- * A repeated embedding failure stays in the same episode, including after its one recovery grant
- * was consumed. Minting a fresh episode for every failure would let a still-broken provider acquire
- * one immediate retry per sweep and silently defeat the durable backoff this lane protects.
+ * **Both a failure and a DEFERRAL qualify, and deliberately share one episode shape.** A deferred
+ * outcome proves exactly what the canary measures — no checkpoint progress against the embedding
+ * dependency — so it is recovery-eligible on the same terms. Giving deferral its own episode kind
+ * would fork the resumption authority in two; the top-level and per-repo `deferred` outcomes
+ * already name the disposition, while the episode names only recovery eligibility.
+ *
+ * A repeated embedding-class outcome stays in the SAME episode, including after its one recovery
+ * grant was consumed. Minting a fresh episode each time would let a still-broken provider acquire
+ * one immediate retry per sweep and silently defeat the durable backoff this lane protects — which
+ * is the whole reason deferral must not mint its own.
  *
  * @param {Object} options
  * @param {Object|null} options.priorRecovery Existing normalized episode.
  * @param {String} options.causeCode Bounded embedding cause.
- * @param {Number} options.failedAt Attempt timestamp.
+ * @param {Number} options.failedAt Attempt timestamp (failure or deferral).
  * @returns {Object}
  */
-function buildEmbeddingRecoveryAfterFailure({priorRecovery, causeCode, failedAt}) {
+function buildEmbeddingRecoveryEpisode({priorRecovery, causeCode, failedAt}) {
     if (priorRecovery) {
         const consumedGenerationId = priorRecovery.generationId && priorRecovery.bypassConsumedAt
             ? priorRecovery.generationId
@@ -1958,12 +1966,42 @@ class TenantRepoSyncService extends Base {
                     // Leaving the streak untouched is the load-bearing half. Incrementing would
                     // climb toward the cap for a condition that is not the repo's fault; resetting
                     // would erase a real failure history that a genuinely broken repo earned.
+                    //
+                    // **The retained cause is what makes the deferral recoverable, and it is the
+                    // whole reason this branch does not invent its own cadence bypass.** A repo
+                    // carrying a retained embedding cause is what arms the dependency-recovery
+                    // canary; a healthy observation there commits one scoped generation, and only
+                    // that generation bypasses cadence. Without persisting the cause, a first-time
+                    // deferral leaves a clean prior state, nothing arms, and the repo waits out
+                    // whatever cadence its existing streak already dictates — which for a repo at a
+                    // capped streak is the cap. Deferral has to hand the recovery lane a reason.
+                    //
+                    // Bounded `KB_*` codes only, never messages or details: identical credential
+                    // boundary to the failure path, which is why these are safe to persist at all.
+                    const deferredCauseCode = ingestOutcome.deferredCodes.find(isEmbeddingRecoverySourceCode)
+                        ?? ingestOutcome.deferredCodes[0]
+                        ?? priorState?.lastSourceErrorCode
+                        ?? null;
+
                     persistedRevisions[repoLabel] = {
                         ...priorState,
                         lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
                         lastRunAttemptAt                  : startedMs,
                         consecutiveFailures               : priorState?.consecutiveFailures ?? 0,
-                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastSourceErrorCode               : deferredCauseCode,
+                        lastErrorAt                       : startedMs,
+                        // Recovery eligibility, on the SAME episode a failure would advance. A
+                        // consumed generation folds into `lastConsumedGenerationId/At` and a newly
+                        // healthy canary generation is required before another bypass, so a
+                        // still-starved provider cannot buy one retry per sweep by deferring.
+                        embeddingRecovery: isEmbeddingRecoverySourceCode(deferredCauseCode)
+                            ? buildEmbeddingRecoveryEpisode({
+                                priorRecovery: priorState?.embeddingRecovery || null,
+                                causeCode    : deferredCauseCode,
+                                failedAt     : startedMs
+                            })
+                            : (priorState?.embeddingRecovery || null)
                     };
 
                     // Counts and bounded codes only — same credential boundary as the failure path.
@@ -1982,7 +2020,16 @@ class TenantRepoSyncService extends Base {
                         lastSyncAt         : new Date().toISOString(),
                         status             : 'deferred',
                         checkpointStatus   : priorState?.checkpointStatus ?? TenantRepoCheckpointStatus.UNINITIALIZED,
-                        lastSourceErrorCode: ingestOutcome.deferredCodes[0] ?? null
+                        lastSourceErrorCode: deferredCauseCode,
+                        // Same recovery projection the failure path publishes. A deferred repo is
+                        // recovery-eligible, so omitting this would make the one state that is
+                        // actively waiting on the canary the only state whose canary/backoff/
+                        // retry-pending classification is invisible to every snapshot consumer.
+                        recoveryState      : classifyEmbeddingRecoveryState({
+                            persistedRepoState: persistedRevisions[repoLabel],
+                            probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
+                            observedAt        : startedMs
+                        })
                     });
 
                     healthService?.recordTaskOutcome?.(taskName, 'deferred', {
@@ -2103,7 +2150,7 @@ class TenantRepoSyncService extends Base {
                     nextFailureCount       = (priorState?.consecutiveFailures ?? 0) + 1,
                     embeddingRecoveryCause = getEmbeddingRecoveryCauseCode(e, sourceErrorCode),
                     embeddingRecovery      = embeddingRecoveryCause
-                        ? buildEmbeddingRecoveryAfterFailure({
+                        ? buildEmbeddingRecoveryEpisode({
                             priorRecovery: priorState?.embeddingRecovery || null,
                             causeCode    : embeddingRecoveryCause,
                             failedAt     : startedMs
@@ -2238,11 +2285,24 @@ class TenantRepoSyncService extends Base {
             starvedAfterMs,
             previousCompletion: taskStateService?.getTaskState?.(taskName)?.lastCompletion
         });
+        // A sweep whose only outcome was deferral did NOT run cleanly, and reporting it as
+        // `completed` re-creates precisely the defect the comment above describes: the lane
+        // machinery is healthy while the KB it feeds received nothing. `attemptedCount` cannot
+        // carry this on its own — deferrals are neither completed nor failed, so an all-deferred
+        // sweep lands on the `attemptedCount === 0` branch that exists for "every repo was not-due"
+        // and inherits its clean verdict. The two states are opposite: not-due means nobody needed
+        // work, all-deferred means everybody needed it and none of it landed.
+        //
+        // A mixed sweep stays `completed` deliberately — real repos did advance, and the deferred
+        // ones are reported per-repo. `deferred` routes to `markSkipped` through the existing
+        // consumer branch, so `lastSuccessAt` does not advance on a cycle that ingested nothing.
         const status = detection.starved
             ? 'starved'
-            : (attemptedCount === 0
-                ? 'completed' // all repos were not-due; cycle ran cleanly
-                : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed')));
+            : (completedCount === 0 && failedCount === 0 && deferredCount > 0
+                ? 'deferred'
+                : (attemptedCount === 0
+                    ? 'completed' // all repos were not-due; cycle ran cleanly
+                    : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'))));
 
         // Record-with-diagnosis: exactly one durable heal-ledger record per starved
         // episode (the detector's marker flows through the lane's completion metadata), once
@@ -2536,7 +2596,7 @@ class TenantRepoSyncService extends Base {
                     ? attempt.priorSourceErrorCode
                     : (priorState?.lastSourceErrorCode ?? null),
                 foldedRecovery = recoveryGrantMatches
-                    ? buildEmbeddingRecoveryAfterFailure({
+                    ? buildEmbeddingRecoveryEpisode({
                         priorRecovery: {
                             ...priorRecovery,
                             bypassConsumedAt: startedMs

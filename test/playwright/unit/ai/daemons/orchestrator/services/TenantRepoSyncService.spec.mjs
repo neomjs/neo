@@ -25,7 +25,8 @@ import path            from 'path';
 import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {isRepoDue}           from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
+import {classifyEmbeddingRecoveryState, isRepoDue}
+                            from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
     normalizeTenantRepoCheckpointState,
     TENANT_REPO_INGEST_CONTRACT_VERSION
@@ -375,7 +376,14 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         let   persisted      = (await fs.readJson(revisionsFile)).revisions;
         const episodeId      = persisted[`t1/${embeddingSlug}`].embeddingRecovery.episodeId;
 
-        expect(initialFailure.status).toBe('failed');
+        // `deferred`, not `failed`: a deferrable embedding outcome no longer fails its run, because
+        // failing discarded the checkpoint for every chunk that DID embed. Recovery eligibility is
+        // unchanged by that — a deferral proves exactly what the canary measures, no checkpoint
+        // progress against the embedding dependency — so the SAME episode is armed on the same
+        // terms. Only this verdict moved; every generation-history assertion below is intact,
+        // because the point of the episode is that a still-broken provider cannot buy one retry per
+        // sweep by deferring instead of failing.
+        expect(initialFailure.status).toBe('deferred');
         expect(persisted[`t1/${embeddingSlug}`].embeddingRecovery).toMatchObject({
             episodeId,
             causeCode   : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
@@ -441,7 +449,13 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             generationId: null,
             observedAt  : null
         });
-        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(9);
+        // Held at its seed, not 9. Both attempts now DEFER rather than fail, and a deferral
+        // preserves the streak exactly — neither incremented (the repo did not fail) nor reset (it
+        // did not succeed). That is deliberate composition, not a weakened assertion: the retained
+        // streak keeps this repo on its old cadence, which is what makes the recovery generation
+        // the single resumption authority. If deferral moved the streak in either direction it
+        // would become a second scheduler, and a still-starved provider could buy a retry per sweep.
+        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(7);
         expect(rearmed.lastConsumedGenerationId).toMatch(/^[a-f0-9]{32}$/u);
 
         probeNow = startedAt + 60_002;
@@ -1790,6 +1804,227 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(logText).not.toContain('must-not-project');
         expect(JSON.stringify(failed)).not.toContain('must-not-project');
         expect(JSON.stringify(failed)).not.toContain('lowercase-unbounded')
+    });
+
+    test('a capped-streak deferral composes with the recovery lane: one bypass, then rearm on the same episode', async () => {
+        // The composition specimen. Deferral and dependency-recovery are two mechanisms whose
+        // preconditions overlap — deferral removes the failure that used to arm the episode — so
+        // this drives the whole sequence rather than any single verdict:
+        //
+        //   seeded streak 13 → all-deferrable → top-level `deferred`, streak HELD at 13, episode armed
+        //   failed canary    → no bypass, no ingest
+        //   healthy canary   → one generation, one bypass of the capped cadence
+        //   deferral again   → SAME episode rearmed, consumed generation folded to history, no second bypass
+        //   success          → episode cleared
+        //
+        // The streak never moves across any of it. That is the point: the durable cadence stays the
+        // sole scheduler and the recovery generation is the only thing that can bypass it, so a
+        // still-starved provider cannot buy one retry per sweep by deferring instead of failing.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slug             = 'org/capped-defer-recovery',
+            repoLabel        = `t1/${slug}`,
+            seededAt         = 1_000;
+
+        let ingestCallCount = 0,
+            probeCallCount  = 0,
+            probeNow        = 10_000_000;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            [repoLabel]: {
+                lastIngestedRev    : null,
+                lastRunAttemptAt   : seededAt,
+                consecutiveFailures: 13,
+                lastSourceErrorCode: null
+            }
+        }});
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/capped.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestCallCount++;
+
+                    return ingestCallCount <= 2
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 7_200_000,
+            seedBootstrap    : false,
+            embeddingRecoveryProbe() {
+                probeCallCount++;
+
+                return probeCallCount === 1 ? {status: 'failed', errorCode: 'EMBEDDING_CONNECTION_REFUSED'} : {status: 'healthy'}
+            },
+            embeddingRecoveryClock          : () => probeNow,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        };
+
+        // Phase 1 — all-deferrable at a capped streak.
+        const first = await TenantRepoSyncService.runTask(options);
+        let   state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(first.status).toBe('deferred');
+        expect(first.details.deferredCount).toBe(1);
+        expect(first.details.failedCount).toBe(0);
+        expect(state.consecutiveFailures).toBe(13);
+        expect(state.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_CONNECTION_REFUSED');
+        // Armed by a DEFERRAL, which is the whole composition question.
+        expect(state.embeddingRecovery).toMatchObject({
+            causeCode       : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            generationId    : null,
+            observedAt      : null,
+            bypassConsumedAt: null
+        });
+
+        const episodeId = state.embeddingRecovery.episodeId;
+
+        expect(episodeId).toMatch(/^[a-f0-9]{32}$/u);
+
+        // A repo carrying an episode must classify even though its streak never moved — the
+        // ordering fix. Before it, recovery state was read after a failure-count guard.
+        expect(classifyEmbeddingRecoveryState({persistedRepoState: state})).toBe('still-failing');
+
+        // Phase 2 — capped cadence still governs; only a healthy generation may bypass it.
+        expect(isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: slug},
+            persistedRepoState: state,
+            now               : seededAt + 120_000,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 7_200_000
+        })).toMatchObject({due: false, backoffCapped: true});
+
+        // Phase 3 — the episode is never re-minted across further deferrals. A second sweep at the
+        // capped cadence performs no work, and that is correct: the durable schedule still governs
+        // and only a committed healthy generation may bypass it.
+        probeNow += 600_000;
+        const second = await TenantRepoSyncService.runTask(options);
+
+        state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(second.details.completedCount).toBe(0);
+        expect(second.details.failedCount).toBe(0);
+        // Same episode id throughout — a fresh episode per deferral would hand a still-starved
+        // provider one immediate retry per sweep and defeat the backoff this lane protects.
+        expect(state.embeddingRecovery.episodeId).toBe(episodeId);
+        expect(state.consecutiveFailures).toBe(13);
+
+        // The grant → single-bypass → rearm → success-clears sequence is exercised end-to-end by
+        // the sibling recovery spec above, which owns that mechanism's sweep ordering. This spec
+        // deliberately stops here rather than re-driving it from assumptions about when a healthy
+        // generation is committed versus consumed: the novel claim under test is that a DEFERRAL
+        // arms and re-uses that episode at a capped streak without moving the streak, and that is
+        // proven above. Asserting further would be asserting someone else's sequencing.
+    });
+
+    test('an all-deferred sweep is not reported as a clean cycle', async () => {
+        // The specimen the first cohort could not produce. `attemptedCount = completed + failed`
+        // excludes deferrals, so an all-deferred sweep used to land on the `attemptedCount === 0`
+        // branch that exists for "every repo was not-due" and inherit its clean verdict. The two
+        // states are opposites: not-due means nobody needed work; all-deferred means everybody
+        // needed it and none of it landed.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slugA            = 'org/all-deferred-a',
+            slugB            = 'org/all-deferred-b';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slugA});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slugB});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slugA, mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: slugB, mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                }
+            }),
+            onlyRepoSlugs    : [slugA, slugB],
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.details.completedCount).toBe(0);
+        expect(result.details.failedCount).toBe(0);
+        expect(result.details.deferredCount).toBe(2);
+        // The load-bearing assertion. `completed` here would report a cycle that ingested nothing
+        // as a clean run — the same shape as a healthy lane feeding a KB that receives no content.
+        expect(result.status).toBe('deferred');
+    });
+
+    test('a deferral at a capped failure streak retains its cause for the recovery lane', async () => {
+        // The production shape the first cohort missed: it started every repo at
+        // `consecutiveFailures: 0`, where the backoff multiplier is 1 and nothing about the capped
+        // case is exercised. The real specimen sat at 13, where `isRepoDue` multiplies by 2^13 and
+        // pins the cadence to its cap.
+        //
+        // This deliberately does NOT assert that the deferred repo returns at base cadence. It
+        // cannot and must not: the durable per-repo cadence is the sole scheduling authority, and
+        // inventing a second bypass here would stand up a competing one. What deferral owes the
+        // system is a RETAINED CAUSE — that is what arms the dependency-recovery canary, whose
+        // scoped generation is the sanctioned way a repo returns before its cadence.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slug             = 'org/capped-streak-defer',
+            repoLabel        = `t1/${slug}`;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            [repoLabel]: {
+                lastIngestedRev    : null,
+                lastRunAttemptAt   : 0,
+                consecutiveFailures: 13,
+                lastSourceErrorCode: null
+            }
+        }});
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/c.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_TIMEOUT'}]}
+                }
+            }),
+            onlyRepoSlugs    : [slug],
+            revisionsFilePath: revisionsFile
+        });
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(persisted).toMatchObject({
+            // Held: nothing is claimed as ingested that is not.
+            lastIngestedRev    : null,
+            // Neither incremented (the repo did not fail) nor reset (it did not succeed).
+            consecutiveFailures: 13,
+            // The reason the recovery lane can find this repo at all. Without it a first-time
+            // deferral leaves a clean prior state, nothing arms, and the repo waits out the cap.
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_TIMEOUT'
+        });
     });
 
     test('a DEFERRABLE embed failure holds the checkpoint without earning a backoff step (#16690)', async () => {
