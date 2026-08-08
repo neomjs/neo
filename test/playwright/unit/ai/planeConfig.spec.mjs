@@ -136,9 +136,15 @@ test.describe('plane-member derivation witnesses — #15791 seat-variance ground
     });
 
     test('root config members derive from the anchor', () => {
-        const {data} = ConfigBase.config;
+        const
+            {data}       = ConfigBase.config,
+            fleetDataDir = data.fleet.dataDir;
 
         expect(data.wakeDaemonHeartbeatAlivePath.default).toBe(path.resolve(anchor, 'wake-daemon/heartbeat.alive'));
+        expect(fleetDataDir.default).toBe(path.resolve(anchor, 'fleet'));
+        expect(fleetDataDir.env).toBe('NEO_FLEET_DATA_DIR');
+        expect(fleetDataDir.type).toBe('string');
+        expect(fleetDataDir.planeMember).toBe(true);
         expect(data.fleet.instanceRoot.default).toBe(path.resolve(anchor, 'fleet/instances'));
         expect(data.engines.chroma.dataDirProd.default).toBe(path.resolve(anchor, 'chroma/unified'));
         expect(data.orchestrator.deploymentStateBridge.snapshotPath.default).toBe(path.resolve(anchor, 'deployment-state/snapshot.json'));

@@ -271,6 +271,13 @@ class ConfigBase extends ConfigProvider {
              */
             fleet: {
                 /**
+                 * @summary Fleet-owned durable root for registry, tenant, encryption-key, and
+                 * signing-key material. The root is one plane member so every storage owner reads
+                 * the same resolved coordinate and container profiles can place one named volume.
+                 * @type {string}
+                 */
+                dataDir        : leaf(path.resolve(planeDataRootDefault, 'fleet'), 'NEO_FLEET_DATA_DIR', 'string', {planeMember: true}),
+                /**
                  * Absolute root under which per-agent isolated harness config/state homes
                  * (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`) are derived — the sibling of the managed
                  * checkouts root.
@@ -1988,6 +1995,7 @@ class ConfigBase extends ConfigProvider {
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'auth.seatTokenRegistryPath',
     'wakeDaemonHeartbeatAlivePath',
+    'fleet.dataDir',
     'fleet.instanceRoot',
     'engines.chroma.dataDirProd',
     'orchestrator.dataDir',

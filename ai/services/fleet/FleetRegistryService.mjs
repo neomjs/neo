@@ -1,7 +1,6 @@
 import crypto          from 'crypto';
 import fs              from 'fs';
 import path            from 'path';
-import {fileURLToPath} from 'url';
 import aiConfig        from '../../config.mjs';
 import Base            from '../../../src/core/Base.mjs';
 import {HARNESS_TYPES} from './harnessTypes.mjs';
@@ -12,8 +11,6 @@ import {
 } from './mcpServers.mjs';
 
 const
-    __filename              = fileURLToPath(import.meta.url),
-    __dirname               = path.dirname(__filename),
     RETIRED_TARGET_FIELD    = ['mcp', 'Transport'].join(''),
     PUBLIC_SENSITIVE_KEY_RE = /^(?:credentials?|secrets?|tokens?|(?:github)?pats?|passwords?|authorization|(?:api|client|private)(?:key|token|secret|credential|password)s?|personalaccess(?:key|token|secret|credential|password)s?|(?:access|auth|bearer|github|id|oauth|refresh|session)(?:key|token|secret|credential|password)s?|launch|command|args|argv|env|environment)$/;
 
@@ -191,8 +188,9 @@ function normalizeStoredMcpTarget(target) {
  * store nor forge a token. The private signing key ({@link getSigningKey}) never decrypts the PAT
  * store; the two credential classes stay key-separated.
  *
- * **Storage** lives under `dataDir` (default `<repoRoot>/.neo-ai-data/fleet/`, overridable — the
- * per-tenant data root is the multi-tenant isolation seam):
+ * **Storage** lives under `dataDir` (the canonical `AiConfig.fleet.dataDir` plane member, with an
+ * explicit instance/test override seam — the per-tenant data root is the multi-tenant isolation
+ * seam):
  * - `registry.json`    — agent definitions (no secrets), human-readable JSON.
  * - `credentials.enc`  — the encrypted `{agentId: pat}` map (AES-256-GCM, `0600`).
  * - `fleet.key`        — dev-only generated `0600` AES key file, used when `NEO_FLEET_SECRET_KEY`
@@ -217,9 +215,10 @@ class FleetRegistryService extends Base {
         singleton: true,
         /**
          * @member {String|null} dataDir_=null
-         * @summary Absolute path to the fleet data directory. Defaults to
-         * `<repoRoot>/.neo-ai-data/fleet/`. Set a per-tenant path for isolation, or a temp path in
-         * tests. Changing it transparently reloads the in-memory registry on the next call.
+         * @summary Optional instance-local Fleet data-root override for isolation and tests.
+         * Production leaves this null so {@link getDataDir} reads the canonical
+         * `AiConfig.fleet.dataDir` plane member at the use site. Changing it transparently reloads
+         * the in-memory registry on the next call.
          */
         dataDir_: null
     }
@@ -906,11 +905,14 @@ class FleetRegistryService extends Base {
     // ---- paths --------------------------------------------------------------
 
     /**
-     * @returns {String} The resolved fleet data directory.
+     * @summary Resolve the Fleet-owned durable root from the explicit instance/test override or
+     * the canonical `AiConfig.fleet.dataDir` plane member. No service-local default or env read is
+     * permitted: registry, tenant, keys, and ciphertext must stay co-located.
+     * @returns {String} The resolved Fleet data directory.
      * @private
      */
     getDataDir() {
-        return this.dataDir || path.resolve(__dirname, '../../../.neo-ai-data/fleet');
+        return this.dataDir || aiConfig.fleet.dataDir;
     }
 
     /** @returns {String} @private */

@@ -10,5 +10,15 @@
 		handle_path /kb/* {
 			reverse_proxy kb-server:3000
 		}
+
+		@fleet path /fleet /fleet/probe
+		reverse_proxy @fleet fleet-server:8083
+
+		respond 404
+	}
+
+	handle_errors 502 {
+		@fleet path /fleet /fleet/probe
+		respond @fleet 404
 	}
 }
