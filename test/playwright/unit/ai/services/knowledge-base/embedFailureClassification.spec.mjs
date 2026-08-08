@@ -1,5 +1,12 @@
 import {test, expect} from '@playwright/test';
 
+import fs   from 'fs-extra';
+import os   from 'os';
+import path from 'path';
+
+import '../../../../../../src/Neo.mjs';
+import '../../../../../../src/core/Base.mjs';
+
 import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     KB_VECTOR_EMBED_UNCLASSIFIED,
@@ -60,10 +67,28 @@ test.describe('embed failure classification (#16647)', () => {
             .toBe(classifyEmbedFailureCode('PROVIDER_TIMEOUT'));
     });
 
-    test('an already-bounded code is passed through, not overwritten', () => {
+    test('a DECLARED internal code is passed through, not overwritten', () => {
         // Our own layers produce codes more specific than anything the map could add. Rewriting them
-        // would be a regression disguised as classification.
+        // would be a regression disguised as classification. It passes because it is a declared
+        // member, not because of how it is spelled — see the provenance test below.
         expect(classifyEmbedFailureCode('KB_SYNC_VOLUME_EXCEEDED')).toBe('KB_SYNC_VOLUME_EXCEEDED');
+        expect(classifyEmbedFailureCode('KB_EMBEDDING_INPUT_SIZE_EXCEEDED')).toBe('KB_EMBEDDING_INPUT_SIZE_EXCEEDED');
+    });
+
+    test('a provider-authored KB_-shaped code does NOT pass through — shape is not provenance', () => {
+        // The hard specimen, and the one the first draft got wrong. `BOUNDED_KB_ERROR_CODE_PATTERN`
+        // constrains the ALPHABET, not the AUTHOR: 120 characters of `[A-Z0-9_]` are the provider's
+        // to choose. Gating on the pattern therefore admitted provider-controlled text verbatim into
+        // durable state while looking like a safety check.
+        //
+        // This is the assertion that makes the leak test below non-vacuous. A hostile string carrying
+        // lowercase or punctuation fails the pattern for INCIDENTAL reasons, so it would pass even
+        // under the broken gate — it never exercised the hole.
+        const providerAuthored = 'KB_SECRET_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+        expect(providerAuthored, 'the specimen really is pattern-admissible')
+            .toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
+        expect(classifyEmbedFailureCode(providerAuthored)).toBe(KB_VECTOR_EMBED_UNCLASSIFIED);
     });
 
     test('an unrecognised provider code is reported unclassified, never passed through', () => {
@@ -114,5 +139,88 @@ test.describe('embed failure classification (#16647)', () => {
 
         // Non-vacuity: if the list above were ever emptied, the loop would pass by iterating nothing.
         expect(providerCodes.length).toBeGreaterThan(0);
+    });
+});
+
+/**
+ * @summary The production-path witness: the same two faults, observed as the codes that actually
+ * reach the receipt, through the real `embedChunkGroups` catch block rather than the helper.
+ *
+ * The specs above pin the classifier in isolation. That is necessary and not sufficient — a correct
+ * helper wired to nothing would satisfy every one of them. This block drives the method the
+ * orchestrator's sync lane actually calls, and asserts on `summary.errors[].code`: the exact field
+ * `assertErrorFreeIngestionSummary` filters through `^KB_` on its way to `lastSourceErrorCode`.
+ *
+ * The bounded-pattern assertion is the load-bearing half. Pre-fix these arrived as
+ * `EMBEDDING_PROBE_TIMEOUT` and `ABORT_ERR`, which are rejected by that filter — so the receipt lost
+ * them and reported null. Asserting only that the two codes DIFFER would have passed before the fix
+ * too, since the provider's own strings also differ. Distinct AND admissible is the property.
+ *
+ * `.call()` on a stub rather than configuring the singleton: the service is a Neo singleton, and
+ * mutating shared instance state inside a unit run leaks across specs in the same worker.
+ */
+test.describe('embed failure classification — production path', () => {
+    /**
+     * @param {Function} embed Stubbed `vectorService.embed`.
+     * @returns {Promise<Object>} The populated ingestion summary.
+     */
+    async function runEmbedWithFailure(embed) {
+        const {default: IngestionService} = await import(
+            '../../../../../../ai/services/knowledge-base/IngestionService.mjs'
+        );
+        const
+            summary = {errors: [], embeddingsGenerated: 0},
+            harness = {
+                createError            : IngestionService.createError.bind(IngestionService),
+                updateIngestionProgress: () => {},
+                vectorService          : {embed},
+                writeTempJsonl         : async () => path.join(
+                    await fs.mkdtemp(path.join(os.tmpdir(), 'neo-embed-witness-')), 'chunks.jsonl'
+                )
+            };
+
+        await IngestionService.embedChunkGroups.call(harness, {
+            chunks       : [{repoSlug: 'org/witness', text: 'x'}],
+            summary,
+            tenantContext: {tenantId: 't1', repoSlug: 'org/witness'},
+            viaMcp       : false
+        });
+
+        return summary
+    }
+
+    test('a thrown provider timeout and a thrown abort reach the receipt as distinct admissible codes', async () => {
+        const
+            timeoutError = Object.assign(new Error('probe timed out'), {code: 'EMBEDDING_PROBE_TIMEOUT'}),
+            abortError   = Object.assign(new Error('aborted'),         {code: 'ABORT_ERR'}),
+            timeoutRun   = await runEmbedWithFailure(async () => { throw timeoutError }),
+            abortRun     = await runEmbedWithFailure(async () => { throw abortError });
+
+        // Non-vacuity: an empty errors array would satisfy every assertion below by iterating nothing.
+        expect(timeoutRun.errors, 'the timeout run recorded an error').toHaveLength(1);
+        expect(abortRun.errors,   'the abort run recorded an error').toHaveLength(1);
+
+        const timeoutCode = timeoutRun.errors[0].code,
+              abortCode   = abortRun.errors[0].code;
+
+        // Admissible: survives the `^KB_` filter on the way to `lastSourceErrorCode`. This is the
+        // half that was red before the fix — both arrived in the provider's vocabulary.
+        expect(timeoutCode).toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
+        expect(abortCode).toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
+
+        // Distinct: two causes remain two causes at the surface a remote reader sees.
+        expect(timeoutCode).not.toBe(abortCode);
+    });
+
+    test('a result-shaped provider failure is classified on the same path', async () => {
+        // The sibling branch — `embed` RESOLVES with an error payload instead of throwing. Both sites
+        // defaulted identically before, so covering only the throw path would leave half the defect.
+        const run = await runEmbedWithFailure(async () => ({
+            error: 'provider refused', code: 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT'
+        }));
+
+        expect(run.errors).toHaveLength(1);
+        expect(run.errors[0].code).toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
+        expect(run.errors[0].code).not.toBe(KB_VECTOR_EMBED_UNCLASSIFIED);
     });
 });

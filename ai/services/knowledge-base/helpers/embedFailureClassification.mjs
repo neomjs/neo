@@ -17,11 +17,14 @@
  *
  * **Why an allow-list and not a sanitizer.** Passing an unrecognised provider code through — even
  * scrubbed — would put provider-controlled text into durable state and onto a remotely-readable
- * surface, which is the exact property the bounded pattern exists to guarantee. Every value this
- * module returns is either a literal declared here or a string that already satisfied the bounded
- * pattern, so the guarantee holds by construction rather than by escaping. An unknown code is
- * therefore reported as unclassified, and teaching this map a new provider code is a deliberate,
- * reviewed act.
+ * surface, which is the exact property the bounded pattern exists to guarantee.
+ *
+ * **Every value this module returns is a literal declared in this file**, so the guarantee holds by
+ * construction rather than by escaping. That sentence is load-bearing and was false in the first
+ * draft, which also admitted any string matching the bounded pattern: the pattern constrains the
+ * alphabet, not the author, so a provider raising `KB_SECRET_…` satisfied it and travelled through
+ * verbatim. Shape is not provenance. Both the internal and provider sets below are closed
+ * membership lists, and extending either is a deliberate, reviewed act.
  *
  * @module ai/services/knowledge-base/helpers/embedFailureClassification
  */
@@ -46,6 +49,26 @@ export const BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/;
  * @type {String}
  */
 export const KB_VECTOR_EMBED_UNCLASSIFIED = 'KB_VECTOR_EMBED_FAILED';
+
+/**
+ * @summary The codes our OWN layers raise on the embed path, and the only ones allowed through
+ * unchanged.
+ *
+ * **Syntax is not provenance.** An earlier draft admitted anything matching the bounded pattern,
+ * reasoning that a `KB_`-shaped string is safe. It is not: the pattern constrains the *alphabet*, not
+ * the *author*, so a provider raising `KB_SECRET_…` — 120 admissible characters of its own choosing —
+ * travelled verbatim into durable state and onto the remotely-readable snapshot. The pattern is a
+ * necessary check on codes we mint; it was never evidence about who minted one.
+ *
+ * Membership is therefore the gate. A trusted internal code omitted here degrades to unclassified,
+ * which is the safe direction and a deliberate one-line addition when a new internal code appears.
+ * @type {Set<String>}
+ */
+const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
+    'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
+    'KB_SYNC_VOLUME_EXCEEDED',
+    'KB_TENANT_SPOOF_REJECTED'
+]));
 
 /**
  * @summary Provider-vocabulary codes that describe a distinguishable embed fault.
@@ -78,9 +101,10 @@ export function classifyEmbedFailureCode(code) {
         return KB_VECTOR_EMBED_UNCLASSIFIED
     }
 
-    // An already-bounded code passes through untouched: `KB_SYNC_VOLUME_EXCEEDED` and the gitmirror
-    // codes are produced by our own layers and are more specific than anything this map could add.
-    if (BOUNDED_KB_ERROR_CODE_PATTERN.test(code)) {
+    // Membership, not shape. A code we mint is more specific than anything the map could add, so it
+    // passes through — but only because it is a declared member here. Testing the bounded pattern
+    // instead would admit a provider-authored `KB_…` string verbatim, which is the hole this closes.
+    if (INTERNAL_EMBED_ERROR_CODES.has(code)) {
         return code
     }
 
