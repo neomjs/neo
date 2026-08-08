@@ -151,6 +151,23 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
             .toMatchObject({heapExhaustion: true, declaredHeapCeilingMb: 768});
     });
 
+    test('a kernel OOM kill alongside a matching tail is an unresolvable conflict, not a verdict', () => {
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
+
+        // The kernel and V8 make CONTRADICTORY claims about the same death and this payload cannot
+        // adjudicate: either V8 exhausted its heap and the container was reaped afterwards, or the
+        // cgroup killed a container whose slice still carries an older fatal line.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, oomKilled: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'evidence-conflict'});
+
+        // No conflict when the kernel did not intervene — the attribution stands.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, oomKilled: false}).heapExhaustion)
+            .toBe(true);
+
+        // And an unobserved oomKilled must not manufacture a conflict.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion).toBe(true);
+    });
+
     test('unavailable is null WITH a reason — a disabled channel is not a negative', () => {
         expect(classifyHeapExhaustion({logs: null, nodeCommand: true}))
             .toMatchObject({heapExhaustion: null, unavailableReason: 'logs-unavailable'});

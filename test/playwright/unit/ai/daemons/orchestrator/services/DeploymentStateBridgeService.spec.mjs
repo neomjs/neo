@@ -118,14 +118,31 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 };
             }
         };
+        // The handoff is CAPTURED, not just invoked. The heap attribution lives in diagnosis but its
+        // evidence is produced here, so a bridge that silently stopped passing the log summary or the
+        // Config.Cmd observations would leave the attribution permanently unavailable while every
+        // other assertion in this tree stayed green. Destructuring only the old arguments is exactly
+        // how that break would hide.
+        let diagnoseArgs = null;
+
         const diagnosisService = {
-            diagnose({serviceKey, inspect, statsSamples}) {
+            diagnose(args) {
+                diagnoseArgs = args;
+
+                const {serviceKey, inspect, statsSamples} = args;
+
                 return {serviceKey, status: inspect.State.Health.Status, sampleCount: statsSamples.length};
             }
         };
 
         const service  = createService({runtimeAccessService, diagnosisService});
         const snapshot = await service.collectSnapshot();
+
+        expect(diagnoseArgs, 'the bridge must hand diagnosis its heap-attribution evidence').toMatchObject({
+            declaredHeapCeilingMb: null,
+            logs                 : {text: expect.any(String)},
+            nodeCommand          : false
+        });
 
         expect(calls.map(call => call.operation)).toEqual(['inspect', 'stats', 'logs']);
         expect(snapshot.services).toHaveLength(1);

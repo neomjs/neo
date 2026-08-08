@@ -459,6 +459,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object|null} [options.logs=null] Bounded log summary, for heap attribution.
      * @param {Boolean|null} [options.nodeCommand=null] Whether `Config.Cmd` invoked Node.
      * @param {Number|null} [options.declaredHeapCeilingMb=null] Declared ceiling, when observable.
+ * @param {Boolean|null} [options.oomKilled=null] Whether the kernel reclaimed the container.
      * @returns {Object[]}
      */
     collectLifecycleFacts({serviceKey, inspect, observedAt, logs = null, nodeCommand = null, declaredHeapCeilingMb = null}) {
@@ -471,7 +472,12 @@ export class ContainerHealthDiagnosisService extends Base {
             facts       = [];
 
         if (status && !RUNNING_STATES.has(status)) {
-            const heap = classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb});
+            const heap = classifyHeapExhaustion({
+                logs,
+                nodeCommand,
+                declaredHeapCeilingMb,
+                oomKilled: typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null
+            });
 
             facts.push(this.createFact({
                 type         : CONTAINER_HEALTH_FACT_TYPES.containerDown,
@@ -1220,9 +1226,10 @@ export function calculateDockerCpuPercent(stats) {
  * @param {Object|null} options.logs Bounded log summary (`{text, truncated, …}`) from the bridge.
  * @param {Boolean|null} options.nodeCommand Whether `Config.Cmd` invoked Node.
  * @param {Number|null} [options.declaredHeapCeilingMb=null] Declared ceiling, when observable.
+ * @param {Boolean|null} [options.oomKilled=null] Whether the kernel reclaimed the container.
  * @returns {Object} `{heapExhaustion, unavailableReason, declaredHeapCeilingMb}`
  */
-export function classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb = null}) {
+export function classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb = null, oomKilled = null}) {
     const unavailable = reason => ({
         declaredHeapCeilingMb: null,
         heapExhaustion       : null,
@@ -1245,6 +1252,13 @@ export function classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb
     if (!logs || typeof logs.text !== 'string') return unavailable('logs-unavailable');
 
     const matched = HEAP_FATAL_LINE.test(logs.text);
+
+    // The kernel and V8 are making CONTRADICTORY claims about the same death, and this payload
+    // cannot adjudicate: either V8 exhausted its heap and the container was reaped afterwards, or
+    // the cgroup killed a container whose log slice still carries an older fatal line. Recording
+    // `oomKilled` beside a confident heap verdict would publish the contradiction as agreement, so
+    // an unresolvable conflict is absence of signal — never the weaker of the two answers.
+    if (matched && oomKilled === true) return unavailable('evidence-conflict');
 
     // A truncated tail that does NOT match cannot distinguish "no heap death" from "the line fell
     // outside the window", so it must not answer. A truncated tail that DOES match is conclusive —
