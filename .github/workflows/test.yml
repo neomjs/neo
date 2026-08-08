@@ -280,6 +280,22 @@ jobs:
         include:
           - suite: integration-unified
             run: ${{ needs.changes.outputs.run_integration }}
+          # NOT local-vs-dockerized parity. That comparison ended with the dockerization
+          # cut, and this name is the only thing still describing it — which is why it
+          # reads as retirable to anyone who has not opened the suite. It was nearly
+          # dropped as leftover debt on exactly that reading.
+          #
+          # What it actually guards is MULTI-PLANE ISOLATION: it boots a second, fully
+          # separate dockerized plane and proves the two coexist without contaminating
+          # each other. Not one of its assertions compares two planes for parity; four
+          # of them assert the overlay plane must never resolve or serve the durable
+          # root, one asserts no egress, and one refuses boot when a plane resolves the
+          # canonical root. A second deployment is by definition a second plane, so this
+          # gate's relevance grows rather than shrinks.
+          #
+          # Do not retire this check on the strength of its name. A rename is tracked
+          # separately and is ordering-sensitive: the job name IS the required check
+          # context, so renaming it in one step produces a PR that can never pass.
           - suite: integration-parity
             run: ${{ needs.changes.outputs.run_parity }}
           - suite: unit

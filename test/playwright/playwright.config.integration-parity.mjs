@@ -1,3 +1,19 @@
+/**
+ * @summary Multi-plane ISOLATION suite. The `parity` in its name is historical and misleading.
+ *
+ * It does NOT compare a local plane against a dockerized one — that transition is over. It boots
+ * a SECOND, fully separate dockerized plane (its own Compose project, its own data root) and
+ * proves the two coexist without contaminating each other.
+ *
+ * None of its assertions compare two planes for parity. Four assert the overlay plane must never
+ * resolve or serve the durable root; one refuses boot outright when a plane resolves the canonical
+ * root; one proves no egress. A second deployment is by definition a second plane, so what this
+ * guards grows in relevance rather than shrinking.
+ *
+ * Stated here because the name alone reads as retirable, and the suite was nearly dropped as
+ * leftover debt by a reader who had not opened it. A rename is ordering-sensitive and tracked
+ * separately: this config's sibling job name IS the required check context.
+ */
 import './configTemplateResolver.mjs';
 
 import {defineConfig}        from '@playwright/test';
