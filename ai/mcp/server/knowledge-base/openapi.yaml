@@ -864,6 +864,11 @@ components:
               type: string
               description: Absolute durable data root this process resolved.
           required: [id, dataRoot]
+        deployedRevision:
+          type: string
+          nullable: true
+          description: "Packaged source revision from the image's `.neo-revision` marker (not the `NEO_REVISION` build arg, which records what was REQUESTED). `null` when no build wrote one. Always present: an absent field reads as current to a consumer computing deployment skew."
+          example: "82e26297b5fad7ad9efbc708220dc0935c4f59d0"
         runtimeFreshness:
           type: object
           description: Compact boot-vs-current runtime freshness diagnostic for detecting stale Knowledge Base MCP process attachments.
@@ -961,6 +966,10 @@ components:
           type: number
           description: Server uptime in seconds.
           example: 3600
+      # Only `deployedRevision` is guaranteed present. Its siblings are emitted in practice but not
+      # contractually required, and widening this list is a separate decision per field — this entry is
+      # narrow on purpose rather than the start of a convention.
+      required: [deployedRevision]
 
     DatabaseLifecycleResponse:
       type: object
