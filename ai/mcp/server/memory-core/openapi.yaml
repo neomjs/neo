@@ -2871,6 +2871,11 @@ components:
               description: "Absolute durable data root this process resolved."
           required: [id, dataRoot]
         deployedRevision:
+          # Top-level REQUIRED (see `required:` at the end of this schema), unlike its siblings here.
+          # `required: [revision, source]` constrains the object only once it EXISTS; without top-level
+          # requiredness the response may omit it entirely, which is the exact ambiguity this field removes —
+          # a consumer computing deployment skew reads an absent field as "current". Presence is the
+          # contract; `source: unknown` is how "no build wrote one" is expressed.
           type: object
           description: >-
             The PACKAGED source revision, read from the image's `.neo-revision` marker rather than from the
@@ -3133,6 +3138,10 @@ components:
           type: number
           description: Server uptime in seconds
           example: 3600
+      # Only `deployedRevision` is guaranteed present. Its siblings are emitted in practice but not
+      # contractually required, and widening this list is a separate decision per field — this entry is
+      # narrow on purpose rather than the start of a convention.
+      required: [deployedRevision]
 
     DatabaseLifecycleResponse:
       type: object

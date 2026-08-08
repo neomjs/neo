@@ -4,8 +4,15 @@ import fs   from 'fs-extra';
 import os   from 'os';
 import path from 'path';
 
+import * as yaml from 'js-yaml';
+
 import {readDeployedRevision, resetDeployedRevisionCache}
     from '../../../../../../ai/services/shared/deployedRevision.mjs';
+
+const SERVERS = [
+    ['knowledge-base', 'ai/mcp/server/knowledge-base/openapi.yaml'],
+    ['memory-core',    'ai/mcp/server/memory-core/openapi.yaml']
+];
 
 /**
  * @summary A deployment must be able to answer which commit it is running, and must say so even when
@@ -21,6 +28,62 @@ import {readDeployedRevision, resetDeployedRevisionCache}
  * which is indistinguishable from current. So every assertion below checks that the key EXISTS
  * before checking what it holds — an assertion on a missing key would pass for the wrong reason.
  */
+
+/**
+ * @summary The output contract, not just the payload — a field a client cannot DISCOVER is not on the
+ * MCP surface.
+ *
+ * `additionalProperties: true` lets an undeclared runtime key through without rejection, so a service can
+ * emit a field indefinitely while `tools/list.outputSchema` never names it and no schema-driven consumer
+ * learns it exists. The parity lint cannot catch that: it compares the two service schemas against **each
+ * other**, so two services that both omit a field are perfectly consistent and both wrong.
+ *
+ * Top-level requiredness is asserted separately from the nested shape because they fail independently —
+ * `required: [revision, source]` constrains the object only once it EXISTS, and the whole point of this
+ * field is that absence is never a valid answer.
+ *
+ * Caught by @neo-gpt across two review cycles; this spec is the permanent witness he asked for, because
+ * the first repair was verified once by hand and nothing kept it verified.
+ */
+test.describe('deployedRevision — MCP output contract (#16568)', () => {
+    for (const [name, path] of SERVERS) {
+        test(`${name}: HealthCheckResponse declares deployedRevision and requires it at top level`, () => {
+            const
+                doc    = yaml.load(fs.readFileSync(path, 'utf8')),
+                schema = doc.components.schemas.HealthCheckResponse,
+                props  = schema.properties || {},
+                field  = props.deployedRevision;
+
+            // Control: a sibling that IS declared. Without it a typo'd schema path would fail every
+            // assertion below for the wrong reason and read as a real regression.
+            expect(props.runtimeFreshness, 'schema path resolved').toBeTruthy();
+
+            expect(field, 'deployedRevision declared').toBeTruthy();
+            expect(field.properties.source.enum.sort()).toEqual(['packaged', 'unknown']);
+            expect([...(field.required || [])].sort()).toEqual(['revision', 'source']);
+
+            // The half that fails independently: the object's own contract says nothing about whether the
+            // response must carry it.
+            expect(schema.required || [], 'deployedRevision required at top level').toContain('deployedRevision');
+        });
+    }
+
+    test('the emitted shape satisfies the declared contract, including the unknown case', () => {
+        const observed = readDeployedRevision({filePath: '/nonexistent-by-design', useCache: false});
+
+        for (const [name, path] of SERVERS) {
+            const field = yaml.load(fs.readFileSync(path, 'utf8'))
+                .components.schemas.HealthCheckResponse.properties.deployedRevision;
+
+            // A schema and a payload can each be internally valid and disagree. This is the only assertion
+            // that reads both.
+            expect(Object.keys(observed).sort(), `${name}: emitted keys match declared required`)
+                .toEqual([...field.required].sort());
+            expect(field.properties.source.enum, `${name}: emitted source is a declared enum member`)
+                .toContain(observed.source);
+        }
+    });
+});
 
 test.describe('deployedRevision (#16568)', () => {
     let root;
