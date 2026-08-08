@@ -79,7 +79,17 @@ test.describe('exportCompleteness — every export path states what it actually 
         );
 
         expect(source).not.toMatch(/^\s*return count;\s*$/m);
-        expect(source).toMatch(/^\s*return exported;\s*$/m);
+
+        // The written total still travels as `exported`; the pre-pass snapshot now travels beside it
+        // under a LABELLED `expected` rather than being passed off as the export figure: without an
+        // expectation a zero has nothing to be zero against, so a zero-row export cannot fail its own
+        // contract. A swap of these two bindings is the regression this guards, and it would read
+        // plausibly at a glance.
+        // Pins the BINDING, not the exact literal: `expected` must carry the pre-pass snapshot
+        // (`count`) and `exported` the written total. A swap is the regression — it reads plausibly
+        // and silently restores the original defect. Additive fields on the same return are allowed,
+        // so this does not break every time the receipt grows.
+        expect(source).toMatch(/return\s*\{\s*expected\s*:\s*count\s*,\s*exported\b/);
         // and the rescue path must TALLY its drops, not only log them
         expect(source).toMatch(/skipped\+\+/)
     });
