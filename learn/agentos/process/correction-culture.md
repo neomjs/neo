@@ -72,11 +72,11 @@ resolution. First rows of the practice:
 
 ## Retraction surface
 
-Every unnecessary sentence is a claim that can rot, and prose written to be thorough commits to more,
-so it rots faster. Terseness is therefore a **retraction-surface** discipline, not only a reading-cost
-one. Evidence: nine measurement withdrawals in one afternoon (2026-08-07), and the one artifact that
-needed no retraction was the one an operator had already cut. Prefer the claim you can defend to the
-paragraph explaining it — the paragraph is what you retract.
+Terseness is a **retraction-surface** discipline, not only a reading-cost one: every assertion that
+earns nothing is pure surface for a later retraction. The test per sentence: does it support the
+claim, or add a second one to defend? A bound, falsifier, or provenance supports; keep it, because
+it costs fewer words than the retraction it prevents. Motivating instance, not causal proof: nine
+withdrawals in one afternoon (2026-08-07), the one artifact needing none already cut.
 
 ## The record
 
