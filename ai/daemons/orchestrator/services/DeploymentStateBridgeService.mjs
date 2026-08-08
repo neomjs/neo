@@ -32,6 +32,7 @@ import {
 } from './ContainerHealthDiagnosisService.mjs';
 import {
     buildTenantRepoSyncTrigger,
+    classifyEmbeddingRecoveryState,
     isRepoDue
 } from '../scheduling/tenantRepoSync.mjs';
 import {
@@ -70,6 +71,13 @@ const KB_CONFIG_BOOTSTRAP_FAILURE_STATUSES = new Set([
     'read-failed',
     'parse-failed',
     'invalid-shape'
+]);
+const EMBEDDING_RECOVERY_PROBE_STATUSES = new Set([
+    'never-started',
+    'pending',
+    'healthy',
+    'failed',
+    'terminal'
 ]);
 
 /**
@@ -933,6 +941,10 @@ export class DeploymentStateBridgeService extends Base {
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-revision-state-read-failed'));
         }
 
+        const embeddingRecoveryProbe = summarizeEmbeddingRecoveryProbe(
+            readEmbeddingRecoveryProbeSnapshot(this.tenantRepoSyncService)
+        );
+
         const repoStates = repos.map(repo => summarizeTenantRepoState({
             repo,
             observedAt,
@@ -942,11 +954,12 @@ export class DeploymentStateBridgeService extends Base {
             globalCadenceMs   : scheduler.globalCadenceMs,
             jitterRatio       : scheduler.jitterRatio,
             backoffCapMs      : scheduler.backoffCapMs,
-            accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt)
+            accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt),
+            embeddingRecoveryProbe
         }));
 
         return {
-            schemaVersion: 2,
+            schemaVersion: 3,
             recordType   : 'tenant-repo-sync-deployment-state',
             source,
             observedAt,
@@ -970,7 +983,8 @@ export class DeploymentStateBridgeService extends Base {
                 repoStates,
                 stateAvailable: configEnumerationAvailable
             }),
-            repos : repoStates,
+            embeddingRecoveryProbe,
+            repos                 : repoStates,
             errors
         };
     }
@@ -1107,7 +1121,7 @@ function summarizeInspect(inspect) {
         // image-name proxy gets invented.
         declaredHeapCeilingMb: parseDeclaredHeapCeilingMb(inspect.Config?.Cmd),
         nodeCommand          : isNodeCommand(inspect.Config?.Cmd),
-        state       : {
+        state                : {
             status    : state.Status || null,
             health    : state.Health?.Status || null,
             startedAt : state.StartedAt || null,
@@ -1459,6 +1473,72 @@ function readTenantRepoAccessReadiness(service, repo, observedAt) {
 }
 
 /**
+ * @summary Reads process-local embedding evidence without letting diagnostics perturb the lane.
+ * @param {Object|null} service TenantRepoSyncService-compatible source.
+ * @returns {Object|null}
+ */
+function readEmbeddingRecoveryProbeSnapshot(service) {
+    if (typeof service?.getEmbeddingRecoveryProbeSnapshot !== 'function') {
+        return null;
+    }
+
+    try {
+        return service.getEmbeddingRecoveryProbeSnapshot();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Reduces one recovery-probe snapshot to its strict public allowlist.
+ * @param {Object|null} candidate Process-owned canary snapshot.
+ * @returns {Object}
+ */
+function summarizeEmbeddingRecoveryProbe(candidate) {
+    const
+        status = EMBEDDING_RECOVERY_PROBE_STATUSES.has(candidate?.status)
+            ? candidate.status
+            : 'unavailable',
+        checkedAt = Number.isFinite(candidate?.checkedAt) && candidate.checkedAt >= 0
+            ? candidate.checkedAt
+            : null,
+        nextAttemptAt = Number.isFinite(candidate?.nextAttemptAt) && candidate.nextAttemptAt >= 0
+            ? candidate.nextAttemptAt
+            : null,
+        stopReason = typeof candidate?.stopReason === 'string'
+            && /^attempt budget exhausted \(streak \d+, budget \d+\)$/u.test(candidate.stopReason)
+                ? candidate.stopReason
+                : null,
+        errorClassification = typeof candidate?.errorClassification === 'string'
+            && /^[a-z][a-z-]{0,63}$/u.test(candidate.errorClassification)
+                ? candidate.errorClassification
+                : null,
+        errorCode = typeof candidate?.errorCode === 'string'
+            && /^[A-Z][A-Z0-9_]{0,95}$/u.test(candidate.errorCode)
+                ? candidate.errorCode
+                : null;
+
+    return {
+        status,
+        checkedAt,
+        lastDemandCached: typeof candidate?.lastDemandCached === 'boolean'
+            ? candidate.lastDemandCached
+            : null,
+        failureStreak: Number.isSafeInteger(candidate?.failureStreak) && candidate.failureStreak >= 0
+            ? candidate.failureStreak
+            : 0,
+        backoffMs: Number.isFinite(candidate?.backoffMs) && candidate.backoffMs >= 0
+            ? candidate.backoffMs
+            : 0,
+        nextAttemptAt,
+        terminal: status === 'terminal' && candidate?.terminal === true,
+        stopReason,
+        errorClassification,
+        errorCode
+    };
+}
+
+/**
  * @summary Reduces one cached access result to its strict public allowlist.
  * @param {Object|null} candidate Process-local readiness candidate.
  * @param {Boolean} disabled Whether the repository is disabled.
@@ -1560,6 +1640,7 @@ function summarizeTenantRepoAccessReadiness({repoStates, stateAvailable}) {
  * @param {Number} options.jitterRatio Deterministic jitter ratio.
  * @param {Number} [options.backoffCapMs] Failure-backoff ceiling (the `tenantRepoSync.backoffCapMs` leaf); keeps the observed due-state identical to the lane's own computation.
  * @param {Object|null} options.accessReadiness Process-local access evidence.
+ * @param {Object|null} options.embeddingRecoveryProbe Process-owned embedding canary snapshot.
  * @returns {Object}
  */
 function summarizeTenantRepoState({
@@ -1571,7 +1652,8 @@ function summarizeTenantRepoState({
     globalCadenceMs,
     jitterRatio,
     backoffCapMs,
-    accessReadiness
+    accessReadiness,
+    embeddingRecoveryProbe
 }) {
     const
         normalizedCheckpoint = normalizeTenantRepoCheckpointState(persistedRepoState),
@@ -1582,26 +1664,43 @@ function summarizeTenantRepoState({
         dueState              = disabled
             ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
             : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio, backoffCapMs}),
-        nextDueAtMs           = Number.isFinite(dueState.effectiveCadenceMs)
-            ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
-            : null,
+        nextDueAtMs           = dueState.recoveryBypass
+            ? observedAt
+            : (Number.isFinite(dueState.effectiveCadenceMs)
+                ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
+                : null),
         lastOutcome           = findTenantRepoOutcome(taskState?.lastCompletion, repo),
         lastAttempt           = normalizedCheckpoint?.lastRunAttemptAt || 0,
-        failures              = normalizedCheckpoint?.consecutiveFailures ?? 0;
+        failures              = normalizedCheckpoint?.consecutiveFailures ?? 0,
+        recoveryState         = classifyEmbeddingRecoveryState({
+            persistedRepoState: normalizedCheckpoint,
+            probeSnapshot     : embeddingRecoveryProbe,
+            observedAt
+        });
 
     return {
-        identityHash                      : hashTenantRepoIdentity(repo),
-        tenantHash                        : hashValue(repo.tenantId),
-        repoHash                          : hashValue(repo.repoSlug),
-        configTier                        : repo.configTier || 'unreported',
+        identityHash       : hashTenantRepoIdentity(repo),
+        tenantHash         : hashValue(repo.tenantId),
+        repoHash           : hashValue(repo.repoSlug),
+        configTier         : repo.configTier || 'unreported',
         disabled,
-        accessReadiness                   : summarizeTenantRepoAccessState(accessReadiness, disabled),
-        status                            : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
-        due                               : disabled ? false : dueState.due,
-        nextDueAt                         : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
-        lastIngestedRev                   : shortRevision(normalizedCheckpoint?.lastIngestedRev),
-        lastRunAttemptAt                  : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
-        consecutiveFailures               : failures,
+        accessReadiness    : summarizeTenantRepoAccessState(accessReadiness, disabled),
+        status             : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
+        due                : disabled ? false : dueState.due,
+        nextDueAt          : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
+        lastIngestedRev    : shortRevision(normalizedCheckpoint?.lastIngestedRev),
+        lastRunAttemptAt   : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
+        consecutiveFailures: failures,
+        stopReasonCode     : failures > 0
+            ? (normalizedCheckpoint?.embeddingRecovery?.causeCode
+                || normalizedCheckpoint?.lastSourceErrorCode
+                || normalizedCheckpoint?.lastErrorCode
+                || null)
+            : null,
+        lastErrorCode                     : failures > 0 ? (normalizedCheckpoint?.lastErrorCode ?? null) : null,
+        lastSourceErrorCode               : failures > 0 ? (normalizedCheckpoint?.lastSourceErrorCode ?? null) : null,
+        lastAccessCode                    : failures > 0 ? (normalizedCheckpoint?.lastAccessCode ?? null) : null,
+        recoveryState,
         checkpointStatus,
         ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
         lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,

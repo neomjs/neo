@@ -24,8 +24,10 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
-import TenantRepoSyncService        from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import {isRepoDue}           from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
+    normalizeTenantRepoCheckpointState,
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
@@ -199,6 +201,335 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.concurrencyLimit         = 2;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
         TenantRepoSyncService.clearTenantRepoAccessReadiness();
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+    });
+
+    test('embedding recovery checkpoints degrade by omission, retain restart truth, and consumed grants become history (#16692)', async () => {
+        const
+            episodeId    = 'a'.repeat(32),
+            generationId = 'b'.repeat(32),
+            recovery     = {
+                episodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : 100,
+                generationId,
+                observedAt              : 200,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            };
+
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, episodeId: 'not-an-opaque-id'}
+        }).embeddingRecovery).toBeNull();
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, causeCode: 'KB_GITMIRROR_FETCH_FAILED'}
+        }).embeddingRecovery).toBeNull();
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, observedAt: null}
+        }).embeddingRecovery).toMatchObject({
+            episodeId,
+            generationId: null,
+            observedAt  : null
+        });
+
+        const normalized = normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, bypassConsumedAt: 300}
+        }).embeddingRecovery;
+
+        expect(normalized).toEqual({
+            episodeId,
+            causeCode               : recovery.causeCode,
+            detectedAt              : 100,
+            generationId            : null,
+            observedAt              : null,
+            bypassConsumedAt        : null,
+            lastConsumedGenerationId: generationId,
+            lastConsumedAt          : 300
+        });
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {'t1/org/restart-boundary': {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : 1_000,
+                consecutiveFailures               : 13,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                lastSourceErrorCode               : recovery.causeCode,
+                lastErrorAt                       : 1_000,
+                embeddingRecovery                 : {
+                    ...recovery,
+                    generationId    : null,
+                    observedAt      : null,
+                    bypassConsumedAt: null
+                }
+            }}
+        });
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+
+        const restarted = (await TenantRepoSyncService.readPersistedRevisions({
+            filePath: revisionsFile,
+            strict  : true
+        }))['t1/org/restart-boundary'];
+
+        expect(restarted).toMatchObject({
+            consecutiveFailures: 13,
+            lastSourceErrorCode: recovery.causeCode,
+            embeddingRecovery  : {
+                episodeId,
+                causeCode   : recovery.causeCode,
+                generationId: null,
+                observedAt  : null
+            }
+        });
+        expect(isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: 'org/restart-boundary'},
+            persistedRepoState: restarted,
+            now               : 1_001,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        })).toMatchObject({due: false, recoveryBypass: false});
+        expect(TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot().status).toBe('never-started');
+    });
+
+    test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            embeddingSlug    = 'org/embedding-recovery',
+            ordinarySlug     = 'org/ordinary-backoff',
+            mirrorCalls      = [],
+            probeKeys        = [],
+            removedEpisodeId = 'c'.repeat(32),
+            startedAt        = Date.now();
+        let ingestCallCount = 0,
+            probeCallCount  = 0,
+            probeNow        = startedAt;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: embeddingSlug});
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [`t1/${embeddingSlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : startedAt - 120_000,
+                    consecutiveFailures               : 7,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                },
+                [`t1/${ordinarySlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : startedAt,
+                    consecutiveFailures               : 7,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                    lastSourceErrorCode               : 'KB_GITMIRROR_FETCH_FAILED',
+                    lastAccessCode                    : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+                    lastErrorAt                       : startedAt
+                }
+            }
+        });
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [embeddingSlug, ordinarySlug].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestCallCount++;
+
+                    return ingestCallCount <= 2
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 60_000,
+            seedBootstrap    : false,
+            embeddingRecoveryProbe({key}) {
+                probeCallCount++;
+                probeKeys.push(key);
+
+                return probeCallCount === 1
+                    ? {
+                        status             : 'failed',
+                        errorClassification: 'connection-refused',
+                        errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
+                    }
+                    : {status: 'healthy'}
+            },
+            embeddingRecoveryClock          : () => probeNow,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        };
+
+        const initialFailure = await TenantRepoSyncService.runTask(options);
+        let   persisted      = (await fs.readJson(revisionsFile)).revisions;
+        const episodeId      = persisted[`t1/${embeddingSlug}`].embeddingRecovery.episodeId;
+
+        expect(initialFailure.status).toBe('failed');
+        expect(persisted[`t1/${embeddingSlug}`].embeddingRecovery).toMatchObject({
+            episodeId,
+            causeCode   : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            generationId: null,
+            observedAt  : null
+        });
+        expect(persisted[`t1/${ordinarySlug}`].embeddingRecovery).toBeNull();
+        expect(ingestCallCount).toBe(1);
+
+        persisted['t1/org/removed-repo'] = {
+            lastIngestedRev                   : null,
+            lastRunAttemptAt                  : startedAt,
+            consecutiveFailures               : 4,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastErrorAt                       : startedAt,
+            embeddingRecovery                 : {
+                episodeId               : removedEpisodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : startedAt,
+                generationId            : null,
+                observedAt              : null,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            }
+        };
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: persisted
+        });
+
+        const failedCanary = await TenantRepoSyncService.runTask(options);
+
+        expect(probeCallCount).toBe(1);
+        expect(probeKeys[0]).toContain(episodeId);
+        expect(probeKeys[0]).not.toContain(removedEpisodeId);
+        expect(ingestCallCount).toBe(1);
+        expect(failedCanary.details.repos.find(repo => repo.repoSlug === embeddingSlug).recoveryState)
+            .toBe('recovery-probe-backoff');
+        expect(failedCanary.details.repos.find(repo => repo.repoSlug === ordinarySlug).recoveryState)
+            .toBe('ordinary-repo-backoff');
+
+        probeNow = startedAt + 30_000;
+        await TenantRepoSyncService.runTask(options);
+        expect(probeCallCount, 'the failed canary is cached inside its bounded backoff').toBe(1);
+        expect(ingestCallCount).toBe(1);
+
+        probeNow = startedAt + 60_001;
+        const failedRecoveryRetry = await TenantRepoSyncService.runTask(options);
+
+        persisted = (await fs.readJson(revisionsFile)).revisions;
+        const rearmed = persisted[`t1/${embeddingSlug}`].embeddingRecovery;
+
+        expect(probeCallCount).toBe(2);
+        expect(ingestCallCount).toBe(2);
+        expect(failedRecoveryRetry.details.repos.find(repo => repo.repoSlug === embeddingSlug).recoveryState)
+            .toBe('still-failing');
+        expect(rearmed).toMatchObject({
+            episodeId,
+            generationId: null,
+            observedAt  : null
+        });
+        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(9);
+        expect(rearmed.lastConsumedGenerationId).toMatch(/^[a-f0-9]{32}$/u);
+
+        probeNow = startedAt + 60_002;
+        const recovered = await TenantRepoSyncService.runTask(options);
+
+        persisted = (await fs.readJson(revisionsFile)).revisions;
+
+        expect(recovered.status).toBe('completed');
+        expect(probeCallCount, 'consumption history rotates the gate key immediately').toBe(3);
+        expect(ingestCallCount).toBe(3);
+        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(0);
+        expect(persisted[`t1/${embeddingSlug}`].embeddingRecovery).toBeUndefined();
+        expect(persisted[`t1/${ordinarySlug}`].consecutiveFailures).toBe(7);
+        expect(mirrorCalls.filter(call => call.args.repoSlug === ordinarySlug)).toHaveLength(0);
+    });
+
+    test('a recovery bypass without a durable write-ahead receipt is deferred unconsumed (#16692)', async () => {
+        const
+            taskStateService      = createInMemoryTaskStateService(),
+            repoSlug              = 'org/recovery-receipt',
+            mirrorCalls           = [],
+            episodeId             = 'a'.repeat(32),
+            generationId          = 'b'.repeat(32),
+            originalWriteInFlight = TenantRepoSyncService.writeInFlightAttempts.bind(TenantRepoSyncService);
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : Date.now(),
+                    consecutiveFailures               : 8,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                    lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                    lastErrorAt                       : Date.now(),
+                    embeddingRecovery                 : {
+                        episodeId,
+                        causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                        detectedAt              : Date.now() - 10_000,
+                        generationId,
+                        observedAt              : Date.now() - 1_000,
+                        bypassConsumedAt        : null,
+                        lastConsumedGenerationId: null,
+                        lastConsumedAt          : null
+                    }
+                }
+            }
+        });
+
+        TenantRepoSyncService.writeInFlightAttempts = async options =>
+            Object.keys(options.attempts).length > 0 ? false : originalWriteInFlight(options);
+
+        let result;
+        try {
+            result = await TenantRepoSyncService.runTask({
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/recovery-receipt.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                jitterRatio                  : 0,
+                backoffCapMs                 : 120_000,
+                seedBootstrap                : false
+            });
+        } finally {
+            TenantRepoSyncService.writeInFlightAttempts = originalWriteInFlight;
+        }
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+
+        expect(result.details.repos[0]).toMatchObject({
+            status       : 'recovery-receipt-deferred',
+            recoveryState: 'recovery-observed/retry-pending'
+        });
+        expect(mirrorCalls).toHaveLength(0);
+        expect(persisted.embeddingRecovery).toMatchObject({
+            episodeId,
+            generationId,
+            bypassConsumedAt: null
+        });
+        expect(persisted.consecutiveFailures).toBe(8);
     });
 
     test('skipped when no tenantRepos configured', async () => {
@@ -2707,7 +3038,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
             lastSourceErrorCode: null,
             lastAccessCode     : 'KB_TENANT_REPO_ACCESS_SYNC_FAILED',
-            lastErrorAt        : expect.any(Number)
+            lastErrorAt        : expect.any(Number),
+            embeddingRecovery  : null
         });
     });
 
@@ -3511,6 +3843,82 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(repoState.status).toBe('backoff-suppressed');
         expect(repoState.consecutiveFailures).toBe(1);
         expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 2 * 60 * 60_000);
+    });
+
+    test('a crashed recovery retry consumes its generation without synthesizing another bypass (#16692)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            crashedAttemptAt = Date.now(),
+            episodeId        = 'a'.repeat(32),
+            generationId     = 'b'.repeat(32);
+
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : null,
+            lastRunAttemptAt                  : crashedAttemptAt - 120_000,
+            consecutiveFailures               : 7,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastAccessCode                    : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+            lastErrorAt                       : crashedAttemptAt - 120_000,
+            embeddingRecovery                 : {
+                episodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : crashedAttemptAt - 120_000,
+                generationId,
+                observedAt              : crashedAttemptAt - 60_000,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            }
+        }}});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs           : crashedAttemptAt,
+            priorFailures       : 7,
+            priorSourceErrorCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            priorAccessCode     : 'credential=must-not-cross-the-sidecar-boundary',
+            recoveryEpisodeId   : episodeId,
+            recoveryGenerationId: generationId
+        }});
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs       : 60_000,
+            backoffCapMs          : 120_000,
+            embeddingRecoveryProbe: async () => ({
+                status             : 'failed',
+                errorClassification: 'connection-refused',
+                errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
+            }),
+            embeddingRecoveryClock          : () => crashedAttemptAt,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        }));
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        expect(persisted).toMatchObject({
+            consecutiveFailures: 8,
+            lastRunAttemptAt   : crashedAttemptAt,
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastAccessCode     : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+            embeddingRecovery  : {
+                episodeId,
+                generationId            : null,
+                observedAt              : null,
+                lastConsumedGenerationId: generationId,
+                lastConsumedAt          : crashedAttemptAt
+            }
+        });
+        expect(result.details.repos[0]).toMatchObject({
+            status       : 'backoff-suppressed',
+            recoveryState: 'recovery-probe-backoff'
+        });
+        expect(JSON.stringify(persisted)).not.toContain('must-not-cross-the-sidecar-boundary');
+        expect(await fs.pathExists(inFlightFile)).toBe(false);
     });
 
     // The exponential term has to keep growing across successive crashes, which is the whole
