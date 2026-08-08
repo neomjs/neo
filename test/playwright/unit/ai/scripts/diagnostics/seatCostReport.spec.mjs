@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
+import os             from 'node:os';
 import path           from 'node:path';
 
 import {
@@ -13,23 +14,32 @@ import {
     parseOpencodeRows,
     renderReport
 } from '../../../../../../ai/scripts/diagnostics/seatCostReport.mjs';
+import {
+    syntheticOpencodeRows,
+    syntheticWireContent,
+    writeSyntheticFixtures
+} from './fixtures/seatCost/syntheticFixtures.mjs';
 
-// Fixture provenance: FULL-FIDELITY projected records from the live ledgers on this machine
-// (generated 2026-08-08, repair cycle). Every `usage.record` line of every kimi
-// `agents/main/wire.jsonl` and every assistant row of the live opencode db for
-// 2026-07-31→08-02 plus the 2026-08-08 ablation day, projected down to the parser-consumed
-// fields only (timestamps, token accounting, model/provider identity) — no prompts, no content.
-// The fixture therefore reproduces the published drain table EXACTLY (calls, tokens,
-// AND the real gap distribution): iris 253/971/1,449 calls, phoebe 177/603/934 (AC-1's
-// 2,673 / 1,714 totals). The real ledgers contain ZERO consecutive duplicate usage lines
-// (full-history census), so the dedupe arm is exercised with a synthetic pair in the parser
-// unit below; the AC-1 reproduction runs on the unmodified real data.
+// Fixture provenance: DETERMINISTIC SYNTHETIC records from
+// ./fixtures/seatCost/syntheticFixtures.mjs, generated against the published per-day drain
+// table (parent-ticket forensics: iris 253/971/1,449 calls, phoebe 177/603/934, plus the
+// 2026-08-08 ablation day). Per-call timestamps and token cells are generated — uniform
+// splits and evenly-spaced synthetic times with deterministically placed over-window gaps —
+// so the committed evidence proves every parser/aggregation/gap/ablation/CLI property at
+// full scale WITHOUT carrying real per-call telemetry (cycle-3 review boundary: projected
+// real-ledger fixtures must not be committed, even with content stripped). The live-ledger
+// reproduction (digit-identical table on the operator machine, zero-consecutive-dupe census)
+// remains as untracked corroboration on the source ticket; the dedupe arm below stays a
+// synthetic pair.
 const
     repoRoot    = process.cwd(),
-    fixtureDir  = path.join(repoRoot, 'test/playwright/unit/ai/scripts/diagnostics/fixtures/seatCost'),
+    fixtureDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'seatcost-fixtures-')),
     scriptPath  = path.join(repoRoot, 'ai/scripts/diagnostics/seatCostReport.mjs'),
-    wireFixture = fs.readFileSync(path.join(fixtureDir, 'kimi-wire.jsonl'), 'utf8'),
-    rowsFixture = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'opencode-rows.json'), 'utf8'));
+    wireFixture = syntheticWireContent(),
+    rowsFixture = syntheticOpencodeRows();
+
+writeSyntheticFixtures(fixtureDir);
+test.afterAll(() => fs.rmSync(fixtureDir, {recursive: true, force: true}));
 
 test.describe('seatCostReport — harness ledger aggregation', () => {
     test('kimi wire parsing dedupes consecutive double-written lines, keeps model identity', () => {
@@ -100,14 +110,15 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         expect(report).toContain('| 2026-08-01 | euclid | 2 | 220 | 0 | 0 | 11 | 231 | 0.00% | unmeasured |');
     });
 
-    test('the 07-31→08-02 drain table reproduces exactly from committed fixture data (AC-1)', () => {
+    test('the 07-31→08-02 drain table reproduces exactly from deterministic synthetic fixtures (AC-1)', () => {
         const iris   = buildSeat('iris',   'kimi-code', parseKimiWire(wireFixture));
         const phoebe = buildSeat('phoebe', 'opencode',  parseOpencodeRows(rowsFixture));
 
         expect(iris.family).toBe('kimi');
         expect(phoebe.family).toBe('kimi');
 
-        // The real per-day table, cross-checked against the parent ticket's published forensics:
+        // The published per-day table, cross-checked against the parent ticket's forensics
+        // and asserted hardcoded here so a generator drift fails the suite:
         // iris totals 2,673 calls / 13.2M fresh / 1,170M cache; phoebe 1,714 / 20.8M / 715M.
         expect(iris.days.get('2026-07-31')).toMatchObject({calls: 253,  freshInput: 1285993, cacheRead: 82288640,  output: 234556, gapsOverWindow: 1});
         expect(iris.days.get('2026-08-01')).toMatchObject({calls: 971,  freshInput: 6774121, cacheRead: 401658112, output: 694075, gapsOverWindow: 6});
@@ -117,7 +128,7 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         expect(phoebe.days.get('2026-08-01')).toMatchObject({calls: 603, freshInput: 11602266, cacheRead: 332071424, output: 366113, gapsOverWindow: 9});
         expect(phoebe.days.get('2026-08-02')).toMatchObject({calls: 934, freshInput: 8224871,  cacheRead: 353372928, output: 487086, gapsOverWindow: 7});
 
-        // The real 2026-08-08 ablation day (post-reset, capped arm begins)
+        // The 2026-08-08 ablation day (post-reset, capped arm begins)
         expect(iris.days.get('2026-08-08')).toMatchObject({calls: 253, freshInput: 814684, cacheRead: 69824000, output: 236271, gapsOverWindow: 2});
         expect(phoebe.days.get('2026-08-08')).toMatchObject({calls: 206, freshInput: 2818972, cacheRead: 39663616, output: 170364, gapsOverWindow: 2});
     });
@@ -130,11 +141,11 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         const report = renderReport(seats, {ablation: true});
 
         expect(report).toContain(`capped at ${ABLATION.capTokens.toLocaleString('en-US')}`);
-        // Real 08-08 needles: iris 814,684+236,271; phoebe 2,818,972+170,364
+        // 08-08 needle tokens: iris 814,684+236,271; phoebe 2,818,972+170,364
         expect(report).toContain('- 2026-08-08: iris needle tokens 1,050,955 · phoebe needle tokens 2,989,336');
     });
 
-    test('CLI end-to-end over --fixtures prints the real table with the needle column (AC-1)', () => {
+    test('CLI end-to-end over --fixtures prints the published drain table with the needle column (AC-1)', () => {
         const output = execFileSync('node', [scriptPath, '--fixtures', fixtureDir], {encoding: 'utf8'});
 
         expect(output).toContain('| 2026-07-31 | iris | 253 | 1,285,993 | 82,288,640 | 0 | 234,556 | 83,809,189 | 5.07% | 1 |');

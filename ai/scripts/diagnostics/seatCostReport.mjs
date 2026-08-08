@@ -334,7 +334,8 @@ Ledger flags (defaults read the live ledgers on this machine):
   --opencode-db <path>   opencode sqlite store (default ~/.local/share/opencode/opencode.db);
                          needs the brain-tier better-sqlite3
   --opencode-rows <json> read opencode rows from a JSON file instead of the live db
-  --fixtures <dir>       read committed fixture data (kimi-wire.jsonl + opencode-rows.json)
+  --fixtures <dir>       read fixture files (kimi-wire.jsonl + opencode-rows.json), e.g.
+                         the spec suite's deterministic synthetic fixtures
 
 Report flags:
   --from YYYY-MM-DD      include only days on/after this date
@@ -452,7 +453,7 @@ function main() {
     } catch (error) {
         console.error(`Error: ${error.message}`);
         console.error('Usage: npm run ai:seat-cost-report -- [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--ablation] [--json] [--help]');
-        console.error('  defaults read the live harness ledgers; --fixtures <dir> reads committed fixture data (kimi-wire.jsonl + opencode-rows.json)');
+        console.error('  defaults read the live harness ledgers; --fixtures <dir> reads fixture files (kimi-wire.jsonl + opencode-rows.json)');
         process.exit(1);
     }
 }
