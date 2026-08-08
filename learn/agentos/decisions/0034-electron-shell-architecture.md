@@ -11,6 +11,7 @@
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-07-10 (#14786; PR #14924 merged to `dev`). |
+| **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. Inline notes at §2.1 + §2.6.4; ADR 0038 §3.3 is the canonical statement. |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
@@ -77,6 +78,18 @@ EITHER arm:
 **Falsifier:** if #13033's spike shows in-process hosting cannot satisfy settle-or-reject restarts
 (e.g. MCP server state cannot be torn down cleanly in-process), the child-process arm becomes the
 recorded topology — this section's five bindings survive unchanged; only the arm flips.
+
+*[Amended 2026-08-08 — ADR 0038 §3.3 (#16747, from D#16720): the hosting this section settles is
+the packaged product's local-plane BOOTSTRAP — role-3 host-actuator machinery (bundle = organism,
+Body-first first-render) — never the cockpit's runtime identity. The cockpit is a pure client of
+the (bundled or remote) plane's fleet service in every topology; identity, registry, credential,
+and authorization policy are plane-owned. Binding 1 survives as the bundled plane's
+bootstrap-supervisor authority; binding 2's settle-or-reject semantics stay plane-side contracts
+whose affordances surface behind `CAN_ADMINISTER_FLEET_OF` on the authenticated fleet wire;
+bindings 3–5 survive unchanged as bootstrap-machinery contracts. The sentence "Attach-to-external
+stays a dev-mode capability, never a packaged-app default" is superseded: CONNECT is the cockpit's
+only mode — profiles vary in whether the shell also bootstraps a local plane (ADR 0038 §2.7), and
+attach-or-own as cockpit identity is retired (C5 #16746, blast-radius inventory first).]*
 
 ### §2.2 Window topology — the SharedWorker constraint set, verified (Q2)
 
@@ -260,7 +273,11 @@ partial updates are the recorded alternative.
    packaging root (the hemisphere discipline, enforced at review).
 4. **Brain parity:** dev attaches to externally-run daemons (today's topology); packaged hosts per
    §2.1. The seam that makes both true is §2.1.3's injectable data-root + §2.1.4's managed ports —
-   the SAME Brain code, two lifecycle owners, never both at once.
+   the SAME Brain code, two lifecycle owners, never both at once. *[Amended 2026-08-08 — ADR 0038
+   §3.3 (#16747): both arms carry ONE cockpit contract — the cockpit connects. Dev connects to an
+   externally-run plane; packaged BOOTSTRAPS the bundled plane (§2.1 as amended) and connects over
+   the same authenticated fleet wire. "Two lifecycle owners, never both at once" survives as a
+   plane-bootstrap invariant, not a cockpit-identity dichotomy.]*
 
 **Falsifier:** any leaf introducing a `process.versions.electron` branch inside `src/` or `apps/`
 violates this section on its face — shell awareness lives in the packaging root and

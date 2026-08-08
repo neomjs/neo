@@ -8,8 +8,8 @@
 | **Author** | @neo-fable-clio (Clio, Claude Fable 5) drafting; architecture converged operator + four families via D#16720 (12 body versions, one evening, 2026-08-08) |
 | **Graduated from** | Discussion #16720 — *"FM as pure client: the fleet surface joins the composition (optional container) + PAT-grade auth for cross-hardware planes"* (family-keyed quorum: fable `AUTHOR_SIGNAL`+`APPROVED` · Opus `APPROVED` (re-stamped, blockers verified closed) · GPT `[GRADUATION_APPROVED]` at the filed state). #16720 is **archaeology** — never required reading |
 | **Resolves** | #16747 (the D1 Decision-Record carrier; parent Epic #16168) |
-| **Amends** | ADR 0020 §3 + §4 (in-process-main scope + fleet-lifecycle-owns-restarts — re-scoped for the pure client) and ADR 0026 §2.7 (the reserved `restartAgent` fold — executed). Both amendment notes land in the **same PR** as this file, per the #13880 no-dangling-cross-reference precedent |
-| **Depends on** | #16176 (graduated control-plane parent — `ownerPrincipal`, the grant families, registered projections, the Fleet service selection; **this ADR is the client-side delta, never a second control-plane authority**), ADR 0019 §10.8 (credential-class taxonomy the S6 ledger must stay consistent with), ADR 0014 (service-boundary rationale for the Fleet service seat) |
+| **Amends** | ADR 0020 §3 + §4 (the in-process-main sentence itself rewritten + restart affordances re-scoped for the pure client), ADR 0026 §2.7 (the reserved `restartAgent` fold — executed), and ADR 0034 §2.1 + §2.6.4 (the accepted shell-specific hosting frame + dev/prod dichotomy, re-scoped as plane bootstrap beneath the client wire). All amendment notes land in the **same PR** as this file, per the #13880 no-dangling-cross-reference precedent — at the statements a future session will retrieve, not only at the concept anchor |
+| **Depends on** | [D#16176](https://github.com/orgs/neomjs/discussions/16176) (graduated control-plane parent — `ownerPrincipal`, the grant families, registered projections, the Fleet service selection; **this ADR is the client-side delta, never a second control-plane authority**), ADR 0019 §10.8 (credential-class taxonomy the S6 ledger must stay consistent with), ADR 0014 (service-boundary rationale for the Fleet service seat) |
 | **Informs** | S1–S7 (#16735–#16741, control-plane leaves under #16168) · C1 #16742, C2 #16743 (client connection/bridge under #13015) · C3 #16744, C4 #16745 (cockpit UI/UX under #14560) · C5 #16746 (harness demotion under #13377) · the v13.2 "FM with data" milestone gate |
 | **Anti-anchor for** | the cockpit-as-supervisor regression (FM spawning/attaching organism children as its identity); login-keyed ownership (a rename or forge-namespace collision silently reassigning fleet state); grant aggregation (roster visibility widening content visibility, or one granularity enum for both); interception-reconstructed fleet views (a host-side "local alternative reality" that sees only its own traffic slice); trust-policy twins in the client SDK (client-side re-implementation of server authorization) |
 
@@ -21,7 +21,7 @@ The 2026-08 hard cut moved the organism's data into containers (MC + KB canonica
 
 The operator's architectural direction, adopted on its merits: the Agent OS plane can live on **different hardware** (cloud); FM is **not in charge of running** the orchestrator — **FM connects**. Two structural falsifiers close the alternatives: a cockpit reading a stale local graph can never show a live peer, and host-side interception of plane traffic to reconstruct fleet views builds a **split-brain local alternative reality** that is incomplete by construction (it sees only the traffic slice transiting that one host — seat-level production confirmation in D#16720).
 
-Authority lineage: #16176 / #16168 own the control-plane selections (Fleet service in the composition, service-owned data root, server-derived request identity, registered projections). This ADR records the **client-side delta** and the cross-cutting identity/visibility contracts the implementing subs share.
+Authority lineage: D#16176 / #16168 own the control-plane selections (Fleet service in the composition, service-owned data root, server-derived request identity, registered projections). This ADR records the **client-side delta** and the cross-cutting identity/visibility contracts the implementing subs share.
 
 ## 2. Decision
 
@@ -32,12 +32,12 @@ Authority lineage: #16176 / #16168 own the control-plane selections (Fleet servi
 Three authorities — "FM" stops naming all of them at once:
 
 1. **Fleet cockpit client** — renders, requests. Never starts organism children; never imports runtime trust primitives from a checkout.
-2. **Plane-owned Fleet control service** — owns agent-definition/lifecycle policy, request-time seat identity, audit, and the logical plan (the #16176 service; the #16715 / PR #16731 pure-plan ÷ host-apply split is what makes role 2 → role 3 honest).
+2. **Plane-owned Fleet control service** — owns agent-definition/lifecycle policy, request-time seat identity, audit, and the logical plan (the D#16176 service; the #16715 / PR #16731 pure-plan ÷ host-apply split is what makes role 2 → role 3 honest).
 3. **Host actuator** — owns host paths, hydration, filesystem convergence, process spawn/stop, signed receipts. It cannot decide identity, registry, credential, or authorization policy.
 
 And **two registries, not one**: client **connection profiles** (endpoint, public descriptor, the client's encrypted or env-indirected credential) live client-side; **agent definitions, lifecycle state, and plane-side credential references** are plane-owned — the truth the Fleet service serves. The Body receives **public projections and a session capability only, never the credential**. Three client custodian shapes are real today (seat-witnessed): Electron main (packaged) · session-only (browser dev) · env-indirection client file (headless CLI seats, production-proven).
 
-The fleet surface itself is the **optional `fleet-server` compose service** (#16176-inherited selection; S1 #16735 carries the executable contract ledger: request-time `AuthService` admission, exact-match `/fleet` + `/fleet/probe` ingress routes, `AiConfig.fleet.dataDir` per ADR 0019, identity-bearing readiness).
+The fleet surface itself is the **optional `fleet-server` compose service** (D#16176-inherited selection; S1 #16735 carries the executable contract ledger: request-time `AuthService` admission, exact-match `/fleet` + `/fleet/probe` ingress routes, `AiConfig.fleet.dataDir` per ADR 0019, identity-bearing readiness).
 
 ### 2.2 The four non-aliased identity facts
 
@@ -46,7 +46,7 @@ Kept separate **by construction** — each fact has its own carrier, and no fact
 | # | Fact | Carrier | What it is NOT |
 |---|---|---|---|
 | 1 | **Who authenticated** | The forge login (`AuthService` exposes mutable login + stable provider metadata separately) | Never ownership — a DISPLAY/projection fact only; Memory Core may project it onto an auto-provisioned `AgentIdentity` for attribution |
-| 2 | **Who owns Fleet state** | The opaque stable **`ownerPrincipal`**, backed by `(authProvider, normalizedProviderBaseUrl, providerUserId)` (#16176-inherited) | Never the mutable provider login, never the `AgentIdentity` graph id — a login rename or a GitHub/GitLab namespace collision must never silently change ownership |
+| 2 | **Who owns Fleet state** | The opaque stable **`ownerPrincipal`**, backed by `(authProvider, normalizedProviderBaseUrl, providerUserId)` (D#16176-inherited) | Never the mutable provider login, never the `AgentIdentity` graph id — a login rename or a GitHub/GitLab namespace collision must never silently change ownership |
 | 3 | **Who may see the roster** | Fleet's own grant family: `CAN_OBSERVE_FLEET_OF(granteePrincipal, ownerPrincipal)` for owner-scoped read projections; `CAN_ADMINISTER_FLEET_OF` for curated lifecycle verbs. **DEFAULT-PRIVATE**, even inside a trusted team deployment | Never inferred from authentication, team membership, or content grants |
 | 4 | **Who may read agent content** | Memory Core's independent `CAN_READ_INBOX_OF` / `CAN_READ_MEMORIES_OF` / `CAN_READ_SESSIONS_OF` (fail-closed) | Never widened, synthesized, or aggregated from roster visibility |
 
@@ -75,9 +75,9 @@ The roster is a **viewer-scoped plane-graph projection** rendered under a truth-
 
 PAT-grade auth **adopts shipped substrate as the authentication SOURCE, not as authorization**: `ai/mcp/server/shared/services/AuthService.mjs` (`NEO_AUTH_MODE` ∈ `local-bearer` / `gitlab-pat` / `github-pat`) validates the bearer and yields forge identity; the fleet surface occupies the same seat kb/mc occupy (S2 #16736; admission subject = `ownerPrincipal`, login = display). Authorization is the §2.2/§2.3 grant families plus the **credential-class ledger** (S6 #16740, ADR 0019 §10.8-consistent): plane-admission bearer, Body→shell IPC session capability, managed-seat remote-MCP bearer, repository-workflow credential, and the signed plane→actuator envelope are **DISTINCT classes — no silent substitution**; the ledger names tunnel-delegated transport as accepted-with-conditions or refused, per deployment class.
 
-### 2.6 The storage boundary (binding — #16176 Option A)
+### 2.6 The storage boundary (binding — D#16176 Option A)
 
-The Fleet service owns a **Fleet-owned, entrypoint-fixed durable root**. Graph, mailbox, and roster facts cross **authenticated registered projections / service APIs — NEVER a mount or schema-read of another service's private storage** (the co-located shared-volume facade is #16176's REJECTED Option B). S1 scopes the root to what S1 owns (registry, tenant, key material); grants/audit/lifecycle durability belongs to their named slices.
+The Fleet service owns a **Fleet-owned, entrypoint-fixed durable root**. Graph, mailbox, and roster facts cross **authenticated registered projections / service APIs — NEVER a mount or schema-read of another service's private storage** (the co-located shared-volume facade is D#16176's REJECTED Option B). S1 scopes the root to what S1 owns (registry, tenant, key material); grants/audit/lifecycle durability belongs to their named slices.
 
 ### 2.7 Profiles — optionality is profile-specific
 
@@ -99,12 +99,16 @@ The client SDK home (#16710; C2 #16743 consumes it) carries **method/schema voca
 
 ### 3.1 ADR 0020 §3 + §4 — re-scoped for the pure client
 
-- **§3 "the Agent OS runs in-process in the Electron main (target), child-process supervision as the sanctioned fallback"** now describes the **packaged local plane bootstrap** (bundle = organism, §2.7 above) — never the cockpit's runtime identity. The cockpit is a client of the composition's fleet service in every topology; where the packaged product hosts a local plane, that hosting is packaging/bootstrap machinery beneath the same wire.
+- **§3's sentence is rewritten in place** — from "the Agent OS runs in-process in the Electron main (target)…" to the packaged product **bootstrapping the local Agent OS plane** from the Electron main (bundle = organism, §2.7 above) as host machinery beneath the fleet wire — never the cockpit's runtime identity. A note alone cannot re-mean a superseded sentence (reviewer principle, PR #16752 RA-1); the sentence now states the truth and the bracket note carries provenance. The #13033 hosting-arm decision is untouched.
 - **§4 guardrail 4 "Fleet lifecycle owns restart affordances"** — restart affordances are **plane-owned surfaces** behind `CAN_ADMINISTER_FLEET_OF`, invoked over the authenticated fleet wire. The cockpit requests and renders outcomes; it never owns the affordance. (Runtime MCP-server restarts with settle-or-reject semantics remain plane-side contracts.)
 
 ### 3.2 ADR 0026 §2.7 — the reserved fold, executed
 
 ADR 0026 §2.7 deliberately kept the client-reachable Fleet `restartAgent` outside the daemon-core authority model "unless a later Discussion deliberately folds it in." **D#16720 is that Discussion.** The fold: `restartAgent` joins the authority model as a client-reachable **curated fleet-lifecycle verb** gated by `CAN_ADMINISTER_FLEET_OF` (§2.2 fact 3) — while the daemon-core `control-plane/` lifecycle-write seam stays physically separate and control-plane-principal-gated. The **read-observe ÷ lifecycle-write envelope split is preserved on both surfaces**; neither fold direction widens the other's envelope.
+
+### 3.3 ADR 0034 §2.1 + §2.6.4 — the accepted shell record carries the amendment
+
+ADR 0034 is the **accepted, shell-specific successor** of ADR 0020 §3 and still taught the packaged-host topology as the cockpit's identity. A successor ADR does not supersede an accepted, more-specific record merely by being newer — **the amendment must land at the statements a future session will retrieve** (PR #16752 RA-1; the KB retrieval surfacing 0034 beside 0020 was the falsifier for "0020 + 0026 are the complete predecessor set"). So 0034 now carries: **§2.1's hosting frame re-scoped** as the bundled plane's BOOTSTRAP — role-3 host machinery, with bindings 1–5 surviving as bootstrap-machinery contracts (binding 1 = the bundled plane's bootstrap-supervisor authority; binding 2's settle-or-reject = a plane-side contract whose affordances surface behind `CAN_ADMINISTER_FLEET_OF`); the "attach-to-external stays dev-mode" sentence **superseded** (CONNECT is the cockpit's only mode; profiles vary in whether the shell also bootstraps a local plane, §2.7); and **§2.6.4's dev-attaches/packaged-hosts dichotomy re-bound** as one client contract over two bootstrap arms.
 
 ## 4. Considered alternatives (rejected — from the D#16720 divergence matrix, terminal dispositions)
 
@@ -116,18 +120,18 @@ ADR 0026 §2.7 deliberately kept the client-reachable Fleet `restartAgent` outsi
 
 ## 5. Consequences
 
-**Positive:** one client contract serves every plane placement (local compose, cloud, future multi-plane) — the cockpit stops being a topology-dependent fork; the v13.2 "FM with data" gate becomes reachable (a data-less FM cannot pass the roadmap's done-signal); identity/visibility bugs become contract violations with named falsifiers instead of UX surprises. **Negative / cost:** the local product profile now operates one more service; two grant families must be administered (C4 owns the UX that keeps that honest); the presence contract obliges every roster surface to carry band + tier provenance. **Boundary:** this ADR records client topology and cross-cutting identity/visibility contracts — per-leaf executable contracts (compose/Caddy/AiConfig rows, verb tables, projection shapes) live in the S/C sub bodies, and control-plane authority remains #16176/#16168.
+**Positive:** one client contract serves every plane placement (local compose, cloud, future multi-plane) — the cockpit stops being a topology-dependent fork; the v13.2 "FM with data" gate becomes reachable (a data-less FM cannot pass the roadmap's done-signal); identity/visibility bugs become contract violations with named falsifiers instead of UX surprises. **Negative / cost:** the local product profile now operates one more service; two grant families must be administered (C4 owns the UX that keeps that honest); the presence contract obliges every roster surface to carry band + tier provenance. **Boundary:** this ADR records client topology and cross-cutting identity/visibility contracts — per-leaf executable contracts (compose/Caddy/AiConfig rows, verb tables, projection shapes) live in the S/C sub bodies, and control-plane authority remains D#16176/#16168.
 
 ## 6. The session-intake recipe
 
-A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (2) glance the v13.2 milestone for the live S/C leaf state; (3) open the target leaf only — its body carries the executable contract. D#16720 is archaeology; #16176 is the control-plane parent when authority questions arise. **Cold-read contract:** if a fresh session cannot state the three roles, the four identity facts, and the two grant families from step 1 alone, this ADR has failed and gets amended — file the friction.
+A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (2) glance the v13.2 milestone for the live S/C leaf state; (3) open the target leaf only — its body carries the executable contract. D#16720 is archaeology; D#16176 is the control-plane parent when authority questions arise. **Cold-read contract:** if a fresh session cannot state the three roles, the four identity facts, and the two grant families from step 1 alone, this ADR has failed and gets amended — file the friction.
 
 ## 7. Related
 
 - **Discussion #16720** — graduation archaeology (12 body versions, divergence matrix, falsifier receipts).
-- **#16747** — the D1 carrier this ADR resolves; **Epic #16168** — control-plane parent; **#16176** — the graduated control-plane authority.
+- **#16747** — the D1 carrier this ADR resolves; **Epic #16168** — control-plane parent; **D#16176** — the graduated control-plane authority.
 - Subs informed: S1 #16735 · S2 #16736 · S3 #16737 · S4 #16738 · S5 #16739 · S6 #16740 · S7 #16741 · C1 #16742 · C2 #16743 · C3 #16744 · C4 #16745 · C5 #16746.
-- **ADR 0020** (harness concept — amended §3/§4) · **ADR 0026** (recovery actuator — amended §2.7) · **ADR 0019 §10.8** (credential taxonomy) · **ADR 0014** (deployment topology).
+- **ADR 0020** (harness concept — §3 sentence rewritten, §4 re-scoped) · **ADR 0026** (recovery actuator — amended §2.7) · **ADR 0034** (Electron shell — amended §2.1 + §2.6.4) · **ADR 0019 §10.8** (credential taxonomy) · **ADR 0014** (deployment topology).
 - `ai/mcp/server/shared/services/AuthService.mjs` · `ai/services/fleet/` (devFleetServer/fleetBridgeServer — the pre-topology surface C1/C5 migrate) · `ai/deploy/docker-compose.local-agent-os.yml` + `ai/deploy/Caddyfile*` · `learn/agentos/cloud-deployment/ClientAuthentication.md`.
 - PR #16721 (connection-truth banner — the reason-carrying vocabulary class §2.4 reuses) · PR #16731 (plan/apply split — the role-2→3 honesty prerequisite).
 
