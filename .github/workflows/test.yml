@@ -287,7 +287,7 @@ jobs:
           # latter, and was nearly dropped as leftover debt on that reading.
           #
           # It boots ONE isolated plane (its own Compose project, its own data root) and
-          # splits evenly: four assertions prove the profile stands up — plane boots,
+          # splits evenly across 8 test cases: four prove the profile stands up — plane boots,
           # Neural Link loggers initialize without sink degradation, provider auth
           # refuses missing/empty secret carriers before listen, and the deterministic
           # mock provider carries semantic recall end to end. The other four prove that

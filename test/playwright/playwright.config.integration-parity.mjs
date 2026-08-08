@@ -6,8 +6,8 @@
  * cut, which is how the name gets read by anyone who has not opened the suite; it was nearly
  * dropped as leftover debt on exactly that reading.
  *
- * One isolated plane is booted — its own Compose project, its own data root — and the eight
- * assertions split evenly. Four prove the profile stands up: the plane boots, Neural Link loggers
+ * One isolated plane is booted — its own Compose project, its own data root — and the eight test
+ * cases split evenly. Four prove the profile stands up: the plane boots, Neural Link loggers
  * initialize without sink degradation, provider auth refuses missing and empty secret carriers
  * before listen, and the deterministic mock provider carries semantic recall end to end. Four
  * prove it stays contained: served identity never resolves the durable root, foreign-plane
