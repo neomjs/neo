@@ -121,8 +121,10 @@ function mouseDown() {
  * off-document never reaches onMouseUp, so the move stream is the independent terminal
  * witness). The delay-timeout's coords-only re-entry carries no `buttons` and must never
  * trigger the recovery. The recovery fires on TRUSTED streams only: synthetic dispatches
- * carry `isTrusted === false` and no buttons bitmask, so the terminal-contract tests stub
- * the `isLostReleaseSignal` seam while the trust boundary gets its own pinning test.
+ * carry `isTrusted` undefined in this harness (never forgeable), so the recovery tests stub
+ * ONLY the `isTrustedEvent` seam — the shipped buttons logic of `isLostReleaseSignal` stays
+ * under test, and a constant-false mutation on the real predicate turns them red. The trust
+ * boundary itself gets its own pinning test with the real predicate.
  */
 test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal contract', () => {
     test.beforeEach(() => {
@@ -151,9 +153,10 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
     test('pre-threshold lost release: a move reporting the primary button gone retires the guard', () => {
         const sensor = createSensor();
 
-        // Stub the trust boundary (JS-constructed events always carry isTrusted === false) so
-        // the terminal contract is exercised against the buttons signal alone.
-        sensor.isLostReleaseSignal = event => event.buttons !== undefined && (event.buttons & 1) === 0;
+        // Stub ONLY the trust bit (isTrusted is undefined in this harness, never forgeable), so
+        // the shipped buttons logic of isLostReleaseSignal stays under test — a dead predicate
+        // turns this test red.
+        sensor.isTrustedEvent = () => true;
 
         Mouse.prototype.attach.call(sensor);
 
@@ -174,8 +177,8 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
         const ends   = [],
               sensor = createSensor();
 
-        // Same trust-boundary stub as the pre-threshold sibling.
-        sensor.isLostReleaseSignal = event => event.buttons !== undefined && (event.buttons & 1) === 0;
+        // Same trust-bit-only stub as the pre-threshold sibling: the real predicate must fire.
+        sensor.isTrustedEvent = () => true;
 
         Mouse.prototype.attach.call(sensor);
         documentRef.addEventListener('drag:end', event => ends.push(event.detail));
@@ -224,8 +227,8 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
 
         // The REAL predicate, no stub: synthetic streams (EventSimulator, InteractionService)
         // construct events without the buttons bitmask — buttons reads 0 by default — and
-        // isTrusted is false by construction. Reading that as a lost release wedged every
-        // synthetic drag on its first move.
+        // isTrusted is undefined in this harness (never forgeable). Reading that as a lost
+        // release wedged every synthetic drag on its first move.
         Mouse.prototype.attach.call(sensor);
 
         documentRef.dispatchEvent(mouseDown());
