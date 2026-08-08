@@ -31,15 +31,16 @@ const execFileAsync = promisify(execFile),
  */
 
 /**
- * Runs the pipeline with recording stubs for `docker` and `node`.
+ * Runs the pipeline with recording stubs for `docker`, `node`, and optionally `git`.
  * @param {Object}  config
  * @param {String}  [config.composeFileValue] Value for `NEO_DEPLOY_COMPOSE_FILE`.
- * @param {Boolean} [config.omitComposeFile]  Leave the variable UNSET rather than setting it — the only
- * way to exercise the default path, since an empty string is a *supplied* value with different meaning.
+ * @param {Boolean} [config.omitComposeFile]  Leave the variable UNSET rather than setting it.
+ * @param {Boolean} [config.failIfGitCalled]  Install a recording `git` stub that fails if the pipeline
+ * reaches revision resolution. Used only for missing-composition cases, which must stop first.
  * @param {String}  [config.revision]         Selector for `NEO_REF`; defaults to this checkout's `HEAD`.
- * @returns {Promise<Object>} `{code, stdout, calls, dockerCalls, composeArgs, preflightCallIndex, firstDockerIndex}`
+ * @returns {Promise<Object>} `{code, stdout, calls, dockerCalls, gitCalls, composeArgs, preflightCallIndex, firstDockerIndex}`
  */
-async function runPipeline({composeFileValue, omitComposeFile, revision}) {
+async function runPipeline({composeFileValue, omitComposeFile, failIfGitCalled, revision}) {
     const workDir = await fs.mkdtemp(path.join(repoRoot, 'test/playwright/test-results/compose-list-')),
           binDir  = path.join(workDir, 'bin'),
           logPath = path.join(workDir, 'calls.log');
@@ -53,6 +54,13 @@ async function runPipeline({composeFileValue, omitComposeFile, revision}) {
 
         await fs.writeFile(stubPath, `#!/usr/bin/env bash\nprintf '${name} %s\\n' "$*" >> "$CALL_LOG"\nexit 0\n`);
         await fs.chmod(stubPath, 0o755)
+    }
+
+    if (failIfGitCalled) {
+        const gitStubPath = path.join(binDir, 'git');
+
+        await fs.writeFile(gitStubPath, '#!/usr/bin/env bash\nprintf \'git %s\\n\' "$*" >> "$CALL_LOG"\nexit 97\n');
+        await fs.chmod(gitStubPath, 0o755)
     }
 
     const selector = revision || (await execFileAsync('git', ['rev-parse', 'HEAD'], {cwd: repoRoot})).stdout.trim();
@@ -88,6 +96,7 @@ async function runPipeline({composeFileValue, omitComposeFile, revision}) {
 
     const calls       = (await fs.readFile(logPath, 'utf8')).split('\n').filter(Boolean),
           dockerCalls = calls.filter(line => line.startsWith('docker ')),
+          gitCalls    = calls.filter(line => line.startsWith('git ')),
           firstUp     = dockerCalls.find(line => line.includes(' up ')) || '';
 
     await fs.remove(workDir);
@@ -99,6 +108,7 @@ async function runPipeline({composeFileValue, omitComposeFile, revision}) {
         stdout,
         calls,
         dockerCalls,
+        gitCalls,
         composeArgs       : firstUp,
         preflightCallIndex: calls.findIndex(line => line.startsWith('node ') && line.includes('redeployPreflight')),
         firstDockerIndex  : calls.findIndex(line => line.startsWith('docker '))
@@ -158,14 +168,29 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
         expect(orderedComposeFiles(result.composeArgs)).toEqual([base, overlay])
     });
 
-    test('a zero-entry value aborts with Docker NEVER invoked', async () => {
-        // The guarantee is "stopped before touching containers", not merely "stopped". A non-zero exit
-        // alone would not distinguish the two.
-        const result = await runPipeline({composeFileValue: ':::'});
+    test('unset, empty, and delimiter-only values abort BEFORE external transaction work', async () => {
+        // A non-zero exit alone would not prove the boundary. The failing git stub is the mutation
+        // witness for revision lookup: reaching it would leave a recorded call and change the exit code.
+        const missingCompositionCases = [
+            {omitComposeFile: true},
+            {composeFileValue: ''},
+            {composeFileValue: ':::'}
+        ];
 
-        expect(result.code).not.toBe(0);
-        expect(result.dockerCalls).toEqual([]);
-        expect(result.stdout).toContain('no usable path')
+        for (const missingComposition of missingCompositionCases) {
+            const result = await runPipeline({
+                ...missingComposition,
+                failIfGitCalled: true,
+                revision       : '0'.repeat(40)
+            });
+
+            expect(result.code).not.toBe(0);
+            expect(result.gitCalls).toEqual([]);
+            expect(result.preflightCallIndex).toBe(-1);
+            expect(result.dockerCalls).toEqual([]);
+            expect(result.stdout).toContain('NEO_DEPLOY_COMPOSE_FILE');
+            expect(result.stdout).toContain('auth-complete')
+        }
     });
 
     test('the operator-facing count reports FILES, not argv elements', async () => {
@@ -198,25 +223,4 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
         expect(result.dockerCalls.some(line => line.includes(' down '))).toBe(false)
     });
 
-    test('an EXPLICIT empty value aborts; an UNSET variable keeps the compatible default', async () => {
-        // These are different inputs and `${VAR:-default}` collapses them: an explicit empty string
-        // would fall back to the base compose file, deploying the base contract to a plane that needs
-        // an overlay — precisely what the zero-entry abort exists to prevent. Unset must still default,
-        // or every existing caller breaks.
-        const explicitEmpty = await runPipeline({composeFileValue: ''});
-
-        expect(explicitEmpty.code).not.toBe(0);
-        expect(explicitEmpty.dockerCalls).toEqual([]);
-        expect(explicitEmpty.stdout).toContain('no usable path');
-
-        const unset      = await runPipeline({omitComposeFile: true}),
-              unsetFiles = orderedComposeFiles(unset.composeArgs);
-
-        expect(unset.code).toBe(0);
-        expect(unsetFiles).toHaveLength(1);
-        // Compared on what the path RESOLVES to, not on its spelling: the script builds the default
-        // from `$SCRIPT_DIR/../..`, so the literal argv contains `../..` un-normalized. Asserting the
-        // string would pin an incidental spelling rather than the file being addressed.
-        expect(path.resolve(unsetFiles[0])).toBe(path.join(repoRoot, 'ai/deploy/docker-compose.yml'))
-    });
 });

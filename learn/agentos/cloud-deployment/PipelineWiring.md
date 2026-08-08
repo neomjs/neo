@@ -39,6 +39,7 @@ Avoid "deploy on every push to `dev`": it couples MCP availability to ordinary d
 
 ```bash
 # tag-triggered job: deploy the tag that fired it, not the default channel
+NEO_DEPLOY_COMPOSE_FILE="<base>.yml:<overlay>.yml" \
 NEO_REF="$CI_COMMIT_TAG" ai/examples/cloud-deployment/deploy-pipeline.sh
 ```
 
@@ -154,9 +155,9 @@ The script is CI-neutral: it is meant to be invoked by a deployment's own job, a
 
 What *is* verifiable is a capability gap: until the change below, **no correct invocation against a multi-file plane existed at all.**
 
-`NEO_DEPLOY_COMPOSE_FILE` accepts a `:`-delimited list (Docker's own `COMPOSE_FILE` convention) and expands to repeated `-f` in merge order — later files override earlier ones, so reordering them changes the result. A single path behaves exactly as before; a value resolving to zero paths aborts before Docker runs.
+`NEO_DEPLOY_COMPOSE_FILE` is mandatory. It accepts a `:`-delimited list (Docker's own `COMPOSE_FILE` convention) and expands to repeated `-f` in merge order — later files override earlier ones, so reordering them changes the result. A single explicit path behaves exactly as before. An unset, empty, or delimiter-only value aborts before revision resolution, preflight, or Docker.
 
-This is not a convenience. A real plane is rarely one file — the canonical local Agent OS runs `docker-compose.yml` plus `docker-compose.local-agent-os.yml` under project `neo-local-agent-os` — and a single `-f` drops the overlay **silently**. Measured read-only on that plane, the two renderings differ by 80 lines: without the overlay, `NEO_AUTH_MODE` is absent, `NEO_MODEL_PROVIDER` is empty rather than `openAiCompatible`, and `NEO_MCP_HEALTHCHECK_TOKEN_FILE` is gone — under a *different* project name, so on fresh volumes.
+This is not a convenience. A real plane is rarely one file — the canonical local Agent OS runs `docker-compose.yml` plus `docker-compose.local-agent-os.yml` under project `neo-local-agent-os` — and a single `-f` drops the overlay **silently**. Measured read-only on that plane, the two renderings differ by 80 lines: without the overlay, `NEO_AUTH_MODE` is absent, `NEO_MODEL_PROVIDER` is empty rather than `openAiCompatible`, and `NEO_MCP_HEALTHCHECK_TOKEN_FILE` is gone — under a *different* project name, so on fresh volumes. The reference pipeline therefore has no base-only fallback: a caller must name the complete deployment composition it intends to operate.
 
 So a caller must pass three things, and the script infers none of them:
 

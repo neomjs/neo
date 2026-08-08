@@ -133,6 +133,9 @@ function preflightEnv(fake, declareInitialization, projectName) {
         // It also made the suite non-idempotent in a way a single local run cannot show: the first run
         // passed because the marker did not exist yet, and created the state that failed the second.
         NEO_BACKUP_PATH        : path.join(fake.bin, 'preflight-backups'),
+        // Revision tests need a valid explicit composition so the mandatory caller-owned boundary does
+        // not stop them before their actual subject. The fake Docker never starts this base file.
+        NEO_DEPLOY_COMPOSE_FILE: composePath,
         NEO_DEPLOY_INITIALIZE  : declareInitialization ? '1' : '0',
         NEO_DEPLOY_PROJECT_NAME: projectName
     }
@@ -331,10 +334,9 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
 
     test('every SCRIPT_DIR-relative path in the script actually RESOLVES', async () => {
         // Both instances of one bug shipped here: `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so
-        // `../..` is ALREADY `ai/`, and two lines re-added `ai/` on top of it. Mine broke CI loudly.
-        // The pre-existing `COMPOSE_FILE` default pointed at `ai/ai/deploy/docker-compose.yml` and broke
-        // NOTHING — because the spec fakes `docker`, and a fake docker ignores `-f`. A path that only a
-        // real deployment would exercise is exactly the path a faked harness cannot witness.
+        // `../..` is ALREADY `ai/`, and two lines re-added `ai/` on top of it. The old `COMPOSE_FILE`
+        // default was removed because composition is caller-owned; the maintenance preflight remains
+        // the script's sole sibling-path reference.
         //
         // So this asserts resolution directly rather than trusting the next author to count `../`.
         const source    = await fs.readFile(scriptPath, 'utf8'),
@@ -342,8 +344,9 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
               refs      = [...source.matchAll(/\$SCRIPT_DIR\/([A-Za-z0-9/._-]+)/g)].map(match => match[1]),
               unique    = [...new Set(refs)];
 
-        // Positive control: if the regex stops matching, this test silently asserts nothing.
-        expect(unique.length).toBeGreaterThan(1);
+        // Positive control: pin the one intended script-relative dependency so removal or accidental
+        // reintroduction of an implicit Compose path changes this contract loudly.
+        expect(unique).toEqual(['../../scripts/maintenance/redeployPreflight.mjs']);
 
         for (const ref of unique) {
             const resolved = path.resolve(scriptRel, ref);
