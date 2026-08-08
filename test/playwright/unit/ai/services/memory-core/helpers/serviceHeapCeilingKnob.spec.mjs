@@ -23,9 +23,16 @@ const
     // heap facts. The production value must come from a real observation; this constant exists so
     // the arithmetic is exercised, and no production path may derive non-heap this way.
     NON_HEAP = Math.round(92.7 * MIB),
-    // Every valid transaction must now supply BOTH runtime facts. A fixture that omits the non-heap
-    // observation is exercising the fail-closed path, not the happy path.
-    liveContext = (nonHeapBytes = NON_HEAP) => ({[KB_LIVE]: GIB, [KB_NONHEAP]: nonHeapBytes});
+    KB_DECLARED = 'runtime.kb-server.declaredHeapCeilingMb',
+    // The plane's actual declaration, and the value every "raise" below must exceed.
+    DECLARED_MB = 768,
+    // Every valid transaction must supply all THREE runtime facts. A fixture omitting one is
+    // exercising a fail-closed path, not the happy path.
+    liveContext = (nonHeapBytes = NON_HEAP, declaredMb = DECLARED_MB) => ({
+        [KB_LIVE]    : GIB,
+        [KB_NONHEAP] : nonHeapBytes,
+        [KB_DECLARED]: declaredMb
+    });
 
 test.describe('service-heap ceiling knobs — two knobs, relational bounds, no constants', () => {
     test('both knobs exist and are SEPARATE — serviceKey is singular', () => {
@@ -56,11 +63,47 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
         // The non-heap observation joined the limit here after @neo-opus-grace measured that the
         // limit alone cannot express the bound. Neither is derivable from config: cgroup limits and
         // process footprints are observed at runtime by design.
-        expect(knobRequiredContext(KB_KNOB)).toEqual([KB_LIVE, KB_NONHEAP]);
+        expect(knobRequiredContext(KB_KNOB)).toEqual([KB_LIVE, KB_NONHEAP, KB_DECLARED]);
         expect(knobRequiredContext(MC_KNOB)).toEqual([
             'runtime.mc-server.liveMemoryLimitBytes',
-            'runtime.mc-server.observedNonHeapBytes'
+            'runtime.mc-server.observedNonHeapBytes',
+            'runtime.mc-server.declaredHeapCeilingMb'
         ]);
+    });
+
+    test('a LOWERING is refused — the name compares against the declaration, not against zero', async () => {
+        // @neo-gpt-emmy's finding, reviewing this PR. `raise-not-lower` previously checked only
+        // finite-and-positive, so it carried its name without its meaning: 256 MB against a live
+        // 768 MB declaration passed as a "raise". Lowering a ceiling toward a working set that has
+        // already grown into it is an abort instruction with extra steps.
+        const refused = validateKnobTransaction({
+            knob   : KB_KNOB,
+            values : {[KB_LEAF]: 256},
+            context: liveContext()
+        });
+
+        expect(refused.valid).toBe(false);
+
+        // Run the REJECTED predicate inline, so this proves the DECLARATION comparison refuses it
+        // rather than some unrelated invariant: the old check passes the same input.
+        expect(Number.isFinite(256) && 256 > 0).toBe(true);
+        expect(256 > DECLARED_MB).toBe(false);
+    });
+
+    test('an equal value is not a raise, and an unresolved or DIVERGING declaration refuses', () => {
+        // `parseDeclaredHeapCeilingMb` yields the string 'unknown' when replicas disagree, which is
+        // non-finite by construction — so a service whose declarations diverge cannot be raised
+        // until they are reconciled, rather than being raised against a guess.
+        for (const [label, values, ctx] of [
+            ['equal to the declaration', {[KB_LEAF]: DECLARED_MB}, liveContext()],
+            // The key is OMITTED rather than passed as `undefined`: an explicit `undefined` argument
+            // triggers the helper's default parameter, so it would have supplied 768 and tested
+            // nothing. Caught by this test failing — the fixture had not created the state it named.
+            ['declaration unresolved',   {[KB_LEAF]: 900},         {[KB_LIVE]: GIB, [KB_NONHEAP]: NON_HEAP}],
+            ['declaration diverging',    {[KB_LEAF]: 900},         liveContext(NON_HEAP, 'unknown')]
+        ]) {
+            expect(validateKnobTransaction({knob: KB_KNOB, values, context: ctx}).valid, label).toBe(false);
+        }
     });
 
     test('a ceiling UNDER the limit but over it once non-heap is counted is REFUSED', () => {

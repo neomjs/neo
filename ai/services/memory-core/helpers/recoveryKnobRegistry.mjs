@@ -72,7 +72,8 @@ const CONTAINER_MEMORY_CEILING_MAX_BYTES = 16 * 1024 ** 3;
  */
 function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
     const liveLimitLeaf = `runtime.${serviceKey}.liveMemoryLimitBytes`,
-          nonHeapLeaf   = `runtime.${serviceKey}.observedNonHeapBytes`;
+          nonHeapLeaf   = `runtime.${serviceKey}.observedNonHeapBytes`,
+          declaredLeaf  = `runtime.${serviceKey}.declaredHeapCeilingMb`;
 
     return Object.freeze({
         description: `Raise ${serviceKey}'s declared V8 old-space ceiling. Distinct from the store's ` +
@@ -94,7 +95,7 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
          * FAILS CLOSED on this knob. A controller that cannot see the container limit must not be
          * able to raise a ceiling past it, and refusing is the safe half of that trade.
          */
-        requires: Object.freeze([liveLimitLeaf, nonHeapLeaf]),
+        requires: Object.freeze([liveLimitLeaf, nonHeapLeaf, declaredLeaf]),
         leaves  : Object.freeze([
             // `resource` is load-bearing, not descriptive: a consumer authorising a CGROUP move must
             // not match this leaf. `role: 'ceiling'` spans both, and the envelope boundary matched on
@@ -108,8 +109,22 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
                 reason: 'This knob expresses exactly one intent: raise. Lowering a declared ceiling ' +
                         'toward a working set that has already grown into it is an abort instruction ' +
                         'with extra steps — and unlike the store case the process dies CLEANLY ' +
-                        '(ExitCode 0, OOMKilled false), so it leaves no crash signature to diagnose.',
-                holds : values => Number.isFinite(values[leafPath]) && values[leafPath] > 0
+                        '(ExitCode 0, OOMKilled false), so it leaves no crash signature to diagnose. ' +
+                        'The comparison is therefore against the CURRENT DECLARATION, not against ' +
+                        'zero: a positive-and-finite check carries the name without the meaning, and ' +
+                        'admitted 256 MB against a live 768 MB declaration (@neo-gpt-emmy, reviewing ' +
+                        'this PR). An unresolved or diverging declaration REFUSES — `\'unknown\'` is ' +
+                        'non-finite by construction, so a service whose replicas disagree cannot be ' +
+                        'raised until they are reconciled. Establishing a FIRST ceiling on a service ' +
+                        'that declares none is a different operation and is not this knob.',
+                holds : (values, context = {}) => {
+                    const declaredMb = context[declaredLeaf];
+
+                    if (!Number.isFinite(values[leafPath]) || values[leafPath] <= 0) return false;
+                    if (!Number.isFinite(declaredMb)) return false;
+
+                    return values[leafPath] > declaredMb
+                }
             }),
             Object.freeze({
                 id    : 'strictly-below-container-limit',
