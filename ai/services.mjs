@@ -1,31 +1,35 @@
 import 'dotenv/config';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
+import path                                                  from 'path';
+import {fileURLToPath}                                       from 'url';
 import {camelToSnake, findOperation, makeSafe, safeLoadYaml} from './services/shared/serviceProxy.mjs';
+
+// Host-plane services are constructed ONCE, in the host barrel, and re-exported here for consumers
+// that have not migrated. Re-export rather than re-wrap: wrapping in both places would produce two
+// distinct Proxies around the same singleton, so `a.GH_IssueService === b.GH_IssueService` would be
+// false and any identity check would break silently for exactly as long as the migration lasts.
+//
+// Cloud importing host is the permitted direction. The reverse is what the split forbids.
+import {
+    GH_Config, GH_HealthService, GH_IssueService, GH_LabelService, GH_LocalFileService,
+    GH_PullRequestHistoryService, GH_PullRequestService, GH_RepositoryService, GH_SyncService,
+    GL_IssueService, GL_MergeRequestService,
+    NeuralLink_ComponentService, NeuralLink_Config, NeuralLink_ConnectionService,
+    NeuralLink_DataService, NeuralLink_DockService, NeuralLink_HealthService,
+    NeuralLink_InstanceService, NeuralLink_InteractionService, NeuralLink_RuntimeService,
+    Shared_DestructiveOperationGuard
+} from './services.host.mjs';
 
 import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';
 import InstanceManager from '../src/manager/Instance.mjs';
 
 // --- Shared Services ---
-import Shared_DestructiveOperationGuard from './mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 // --- GitHub Workflow Services ---
-import GH_Config                    from './mcp/server/github-workflow/config.mjs';
-import _GH_HealthService            from './services/github-workflow/HealthService.mjs';
-import _GH_IssueService             from './services/github-workflow/IssueService.mjs';
-import _GH_LabelService             from './services/github-workflow/LabelService.mjs';
-import _GH_LocalFileService         from './services/github-workflow/LocalFileService.mjs';
-import _GH_PullRequestService       from './services/github-workflow/PullRequestService.mjs';
-import GH_PullRequestHistoryService from './services/github-workflow/PullRequestHistoryService.mjs';
-import _GH_RepositoryService        from './services/github-workflow/RepositoryService.mjs';
-import _GH_SyncService              from './services/github-workflow/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
 // --- GitLab Workflow Services ---
-import _GL_IssueService        from './services/gitlab-workflow/IssueService.mjs';
-import _GL_MergeRequestService from './services/gitlab-workflow/MergeRequestService.mjs';
 
 // --- Knowledge Base Services ---
 import _KB_DatabaseService  from './services/knowledge-base/DatabaseService.mjs';
@@ -62,15 +66,6 @@ import Memory_WebhookDeliveryService     from './services/memory-core/WebhookDel
 import Memory_Config                     from './mcp/server/memory-core/config.mjs';
 
 // --- Neural Link Services ---
-import _NeuralLink_ComponentService   from './services/neural-link/ComponentService.mjs';
-import _NeuralLink_ConnectionService  from './services/neural-link/ConnectionService.mjs';
-import _NeuralLink_DataService        from './services/neural-link/DataService.mjs';
-import _NeuralLink_DockService        from './services/neural-link/DockService.mjs';
-import _NeuralLink_HealthService      from './services/neural-link/HealthService.mjs';
-import _NeuralLink_InstanceService    from './services/neural-link/InstanceService.mjs';
-import _NeuralLink_InteractionService from './services/neural-link/InteractionService.mjs';
-import _NeuralLink_RuntimeService     from './services/neural-link/RuntimeService.mjs';
-import NeuralLink_Config              from './mcp/server/neural-link/config.mjs';
 
 NeuralLink_Config.data.autoConnect = false;
 
@@ -93,26 +88,14 @@ const __dirname  = path.dirname(__filename);
 // clients included — which is the reachability the split removes. The call sites stay here.
 
 
-const ghSpec     = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'));
-const kbSpec     = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
-const memSpec    = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
-const nlSpec     = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'));
-const gitlabSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/gitlab-workflow/openapi.yaml'));
+const kbSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
+const memSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
 
 // --- Apply Safety Wrappers ---
 
 // GitHub
-const GH_HealthService      = makeSafe(_GH_HealthService, ghSpec);
-const GH_IssueService       = makeSafe(_GH_IssueService, ghSpec);
-const GH_LabelService       = makeSafe(_GH_LabelService, ghSpec);
-const GH_LocalFileService   = makeSafe(_GH_LocalFileService, ghSpec);
-const GH_PullRequestService = makeSafe(_GH_PullRequestService, ghSpec);
-const GH_RepositoryService  = makeSafe(_GH_RepositoryService, ghSpec);
-const GH_SyncService        = makeSafe(_GH_SyncService, ghSpec);
 
 // GitLab
-const GL_IssueService        = makeSafe(_GL_IssueService, gitlabSpec);
-const GL_MergeRequestService = makeSafe(_GL_MergeRequestService, gitlabSpec);
 
 // Knowledge Base
 const KB_DatabaseService  = makeSafe(_KB_DatabaseService, kbSpec);
@@ -142,14 +125,6 @@ const Memory_MailboxService            = makeSafe(_Memory_MailboxService, memSpe
 const Memory_PermissionService         = makeSafe(_Memory_PermissionService, memSpec);
 
 // Neural Link
-const NeuralLink_ConnectionService  = makeSafe(_NeuralLink_ConnectionService, nlSpec);
-const NeuralLink_ComponentService   = makeSafe(_NeuralLink_ComponentService, nlSpec);
-const NeuralLink_DataService        = makeSafe(_NeuralLink_DataService, nlSpec);
-const NeuralLink_DockService        = makeSafe(_NeuralLink_DockService, nlSpec);
-const NeuralLink_HealthService      = makeSafe(_NeuralLink_HealthService, nlSpec);
-const NeuralLink_InstanceService    = makeSafe(_NeuralLink_InstanceService, nlSpec);
-const NeuralLink_InteractionService = makeSafe(_NeuralLink_InteractionService, nlSpec);
-const NeuralLink_RuntimeService     = makeSafe(_NeuralLink_RuntimeService, nlSpec);
 
 
 /**

@@ -163,7 +163,41 @@ export function camelToSnake(str) {
 }
 
 /**
- * @summary Reads the `makeSafe(service, spec)` declaration table out of `ai/services.mjs`.
+ * @summary Minimum number of wrapped services this gate must discover.
+ *
+ * A TRIPWIRE, not a target. The gate's whole value is that every MCP-backed service is inside it, and
+ * its one catastrophic failure is losing services while still reporting OK. That is not hypothetical:
+ * splitting the SDK into a host barrel and a cloud composition root dropped discovery from 40 services
+ * / 121 operation-bound methods to 23 / 38 — reported as `OK`, exit 0. Eighty-three methods left a CI
+ * gate with no diagnostic, because a file the gate never opens produces no findings to ignore.
+ *
+ * Raise this when the service count genuinely grows. Never lower it to make a run pass: a drop means
+ * either services were deleted (say so in the commit) or a barrel stopped being discovered, and the
+ * second is the failure this constant exists to make loud.
+ */
+const MIN_WRAPPED_SERVICES = 40;
+
+/**
+ * @summary Every SDK barrel that may contain `makeSafe(...)` declarations.
+ *
+ * Discovered rather than listed. A hardcoded path was correct while there was one barrel and became a
+ * silent coverage hole the moment there were two; hardcoding two would be correct until there are
+ * three. The glob makes a new barrel join the gate by existing, which is the only version of this that
+ * survives the next split.
+ * @param {String} rootDir Repository root.
+ * @returns {String[]} Absolute paths, sorted for deterministic output.
+ */
+export function discoverServiceBarrels(rootDir) {
+    const aiDir = path.join(rootDir, 'ai');
+
+    return fs.readdirSync(aiDir)
+        .filter(name => /^services(\.[a-z0-9-]+)?\.mjs$/.test(name))
+        .map(name => path.join(aiDir, name))
+        .sort()
+}
+
+/**
+ * @summary Reads the `makeSafe(service, spec)` declaration table out of every SDK barrel.
  *
  * Derived from the source rather than restated, so adding a service to the SDK brings it under this
  * guard automatically. A hand-maintained list would silently exempt exactly the newest code, which
@@ -173,12 +207,34 @@ export function camelToSnake(str) {
  * @returns {Array<{serviceName: String, modulePath: String, specPath: String}>}
  */
 export function extractWrappedServices(rootDir) {
-    const servicesPath = path.join(rootDir, 'ai/services.mjs'),
-          source       = fs.readFileSync(servicesPath, 'utf8'),
-          ast          = parseModule(source),
-          imports      = collectImports(ast),
-          specPaths    = new Map(),
-          wrapped      = [];
+    const discovered = discoverServiceBarrels(rootDir),
+          collected  = discovered.flatMap(barrelPath => extractWrappedServicesFromBarrel(rootDir, barrelPath));
+
+    if (collected.length < MIN_WRAPPED_SERVICES) {
+        throw new Error(
+            `[lint-openapi-service-parity] discovered ${collected.length} wrapped service(s) across ` +
+            `${discovered.length} barrel(s) (${discovered.map(f => path.basename(f)).join(', ')}), ` +
+            `below the ${MIN_WRAPPED_SERVICES} floor. Either a barrel stopped being discovered or ` +
+            'services were removed — a silent drop is the failure this gate exists to prevent, so it ' +
+            'fails closed rather than reporting OK on reduced coverage.'
+        );
+    }
+
+    return collected
+}
+
+/**
+ * @summary The single-barrel half of {@link extractWrappedServices}.
+ * @param {String} rootDir Repository root.
+ * @param {String} servicesPath Absolute path of one barrel.
+ * @returns {Array<{serviceName: String, modulePath: String, specPath: String}>}
+ */
+function extractWrappedServicesFromBarrel(rootDir, servicesPath) {
+    const source    = fs.readFileSync(servicesPath, 'utf8'),
+          ast       = parseModule(source),
+          imports   = collectImports(ast),
+          specPaths = new Map(),
+          wrapped   = [];
 
     // `const ghSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/…/openapi.yaml'))`
     //
