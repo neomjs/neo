@@ -115,18 +115,28 @@ export function classifyEmbeddingRecoveryState({persistedRepoState, probeSnapsho
     const failures = persistedRepoState?.consecutiveFailures ?? 0,
           recovery = persistedRepoState?.embeddingRecovery;
 
-    if (failures <= 0) return null;
-    if (!recovery) return 'ordinary-repo-backoff';
-    if (hasPendingEmbeddingRecoveryBypass(persistedRepoState)) return 'recovery-observed/retry-pending';
+    // Recovery is inspected BEFORE the failure count, and the order is load-bearing. A repo can own
+    // a real episode at a zero streak: a deferred embedding outcome arms recovery without
+    // incrementing failures, because the run neither succeeded nor failed. Reading the streak first
+    // returned `null` for exactly that repo — the one waiting on the dependency the canary
+    // measures — so its canary/backoff/retry-pending state was invisible on every surface that
+    // consumes this classification. The failure count only decides the ORDINARY-backoff case,
+    // which is the one question it can actually answer.
+    if (recovery) {
+        if (hasPendingEmbeddingRecoveryBypass(persistedRepoState)) return 'recovery-observed/retry-pending';
 
-    if (
-        Number.isFinite(probeSnapshot?.nextAttemptAt)
-        && probeSnapshot.nextAttemptAt > observedAt
-    ) {
-        return 'recovery-probe-backoff';
+        if (
+            Number.isFinite(probeSnapshot?.nextAttemptAt)
+            && probeSnapshot.nextAttemptAt > observedAt
+        ) {
+            return 'recovery-probe-backoff';
+        }
+
+        return 'still-failing';
     }
 
-    return 'still-failing';
+    if (failures <= 0) return null;
+    return 'ordinary-repo-backoff';
 }
 
 /**

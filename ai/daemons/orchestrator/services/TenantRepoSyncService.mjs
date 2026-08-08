@@ -10,8 +10,12 @@ import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
 // look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
-import {BOUNDED_KB_ERROR_CODE_PATTERN}
-                                 from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
+import {
+    BOUNDED_KB_ERROR_CODE_PATTERN,
+    EMBED_DISPOSITION,
+    classifyEmbedDisposition,
+    isEmbedFailureCode
+}                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {
     buildIngestEnvelope,
     createTenantRepoMaterializationDigest
@@ -182,19 +186,27 @@ function getEmbeddingRecoveryCauseCode(error, sourceErrorCode) {
 }
 
 /**
- * @summary Creates or advances one durable embedding recovery episode after a sync failure.
+ * @summary Creates or advances one durable embedding recovery episode after a sync attempt that
+ * made no checkpoint progress for an embedding-class reason.
  *
- * A repeated embedding failure stays in the same episode, including after its one recovery grant
- * was consumed. Minting a fresh episode for every failure would let a still-broken provider acquire
- * one immediate retry per sweep and silently defeat the durable backoff this lane protects.
+ * **Both a failure and a DEFERRAL qualify, and deliberately share one episode shape.** A deferred
+ * outcome proves exactly what the canary measures — no checkpoint progress against the embedding
+ * dependency — so it is recovery-eligible on the same terms. Giving deferral its own episode kind
+ * would fork the resumption authority in two; the top-level and per-repo `deferred` outcomes
+ * already name the disposition, while the episode names only recovery eligibility.
+ *
+ * A repeated embedding-class outcome stays in the SAME episode, including after its one recovery
+ * grant was consumed. Minting a fresh episode each time would let a still-broken provider acquire
+ * one immediate retry per sweep and silently defeat the durable backoff this lane protects — which
+ * is the whole reason deferral must not mint its own.
  *
  * @param {Object} options
  * @param {Object|null} options.priorRecovery Existing normalized episode.
  * @param {String} options.causeCode Bounded embedding cause.
- * @param {Number} options.failedAt Attempt timestamp.
+ * @param {Number} options.failedAt Attempt timestamp (failure or deferral).
  * @returns {Object}
  */
-function buildEmbeddingRecoveryAfterFailure({priorRecovery, causeCode, failedAt}) {
+function buildEmbeddingRecoveryEpisode({priorRecovery, causeCode, failedAt}) {
     if (priorRecovery) {
         const consumedGenerationId = priorRecovery.generationId && priorRecovery.bypassConsumedAt
             ? priorRecovery.generationId
@@ -299,28 +311,61 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
 }
 
 /**
- * @summary Fails closed unless the KB ingestion result explicitly proves an error-free summary.
+ * @summary Decides whether an ingestion run COMPLETED, DEFERRED, or FAILED.
  *
- * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft:
- * ingestion failures are returned inside `summary.errors` rather than necessarily
- * rejecting the promise. The tenant-repo caller therefore accepts only an object
- * with an array-valued, empty `errors` field before advancing revision state.
+ * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft: failures are
+ * returned inside `summary.errors` rather than rejecting the promise. This function is where the
+ * sync lane turns that array into a scheduling decision.
  *
- * Error messages and details from the summary are deliberately not copied into the
- * thrown error. The first bounded `KB_*` code is retained separately as source
- * provenance so the existing per-repo catch path can expose it as
- * `lastSourceErrorCode` without replacing the stable outer sync-failure code.
+ * **It used to have two outcomes and needed three.** Any error at all failed the run, so a single
+ * slow embedding discarded the checkpoint for every chunk that DID embed, the repo took a backoff
+ * step, and the corpus never grew. Measured on an external deployment: four repos at
+ * `consecutiveFailures: 13`, cadence pinned to its cap, `count: 0`. The parse and chunk work of
+ * every one of those runs was thrown away because the tail of it was late.
+ *
+ * The third outcome is `deferred` — *incomplete, not failed*. The caller holds the checkpoint where
+ * it is, leaves `consecutiveFailures` untouched, and lets the lane come back at base cadence.
+ * Nothing is lost by waiting: `VectorService` never re-embeds a chunk whose content-derived id is
+ * already present, so a later run resumes rather than restarts.
+ *
+ * **Deferral is opt-in by DOMAIN and default WITHIN it**, and the `every` below is the whole
+ * safety argument. A summary carries parse failures and tenant-guard rejections alongside embed
+ * failures — fourteen distinct push sites in `IngestionService`, two of them the embed path. So a
+ * run defers only when EVERY error is a deferrable embed failure; one rejected code, one non-embed
+ * error, or one error with no code at all fails the run exactly as before. Deferring a permanently
+ * malformed file would be silently stuck, which is worse than loudly broken.
+ *
+ * Error messages and details are still never copied into the thrown error. The bounded `KB_*` codes
+ * are retained separately as source provenance for `lastSourceErrorCode`.
  *
  * @param {Object} summary Returned KB ingestion summary.
- * @returns {Object} The validated error-free summary.
- * @throws {Error} When the summary shape is ambiguous or contains any errors.
+ * @returns {{outcome: 'complete'|'deferred', summary: Object, deferredCodes: String[]}}
+ * @throws {Error} When the summary shape is ambiguous, or it carries any error that is not a
+ *     deferrable embed failure.
  */
-function assertErrorFreeIngestionSummary(summary) {
+function classifyIngestionOutcome(summary) {
     if (!summary || typeof summary !== 'object' || Array.isArray(summary) || !Array.isArray(summary.errors)) {
         throw new Error('Knowledge Base ingestion returned an invalid summary.')
     }
 
     if (summary.errors.length > 0) {
+        // The three-outcome decision, evaluated before the failure is constructed. `every` is
+        // deliberate: one non-embed error, one rejected code, or one error carrying no code at all
+        // (`isEmbedFailureCode(undefined)` is false) drops the whole run back to the failure path.
+        // A codeless error is unclassifiable, and unclassifiable must fail loudly rather than wait.
+        const deferrable = summary.errors.every(item =>
+            isEmbedFailureCode(item?.code) &&
+            classifyEmbedDisposition(item.code) === EMBED_DISPOSITION.deferrable
+        );
+
+        if (deferrable) {
+            return {
+                outcome      : 'deferred',
+                summary,
+                deferredCodes: [...new Set(summary.errors.map(item => item.code))]
+            }
+        }
+
         const error = new Error('Knowledge Base ingestion returned an error-bearing summary.');
 
         // Every DISTINCT bounded code, not only the first. A failing ingest can carry several
@@ -351,7 +396,7 @@ function assertErrorFreeIngestionSummary(summary) {
         throw error
     }
 
-    return summary
+    return {outcome: 'complete', summary, deferredCodes: []}
 }
 
 /**
@@ -1556,6 +1601,7 @@ class TenantRepoSyncService extends Base {
 
         const repoStates     = [];
         let   completedCount = 0;
+        let   deferredCount  = 0;
         let   failedCount    = 0;
         let   abortedCount   = 0;
 
@@ -1886,7 +1932,7 @@ class TenantRepoSyncService extends Base {
                         });
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
-                // `assertErrorFreeIngestionSummary` throws on any error-bearing summary, and
+                // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and
                 // `assertFullMaterializationEffect` throws on a zero-effect one. Between them they
                 // cover the two live failure modes on this lane, and neither used to log anything
                 // between "Refreshing" and the error.
@@ -1908,7 +1954,96 @@ class TenantRepoSyncService extends Base {
                     `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
                     `errors=${rawSummary?.errors?.length ?? 0}`);
 
-                const ingestResult = assertErrorFreeIngestionSummary(rawSummary);
+                const ingestOutcome = classifyIngestionOutcome(rawSummary);
+
+                if (ingestOutcome.outcome === 'deferred') {
+                    // Incomplete, not failed. The checkpoint stays where it is so nothing is
+                    // claimed as ingested that is not, `consecutiveFailures` is neither reset nor
+                    // incremented — the run neither succeeded nor failed — and `lastRunAttemptAt`
+                    // advances so the next due-check measures from this attempt rather than
+                    // re-firing immediately against a provider that is already struggling.
+                    //
+                    // Leaving the streak untouched is the load-bearing half. Incrementing would
+                    // climb toward the cap for a condition that is not the repo's fault; resetting
+                    // would erase a real failure history that a genuinely broken repo earned.
+                    //
+                    // **The retained cause is what makes the deferral recoverable, and it is the
+                    // whole reason this branch does not invent its own cadence bypass.** A repo
+                    // carrying a retained embedding cause is what arms the dependency-recovery
+                    // canary; a healthy observation there commits one scoped generation, and only
+                    // that generation bypasses cadence. Without persisting the cause, a first-time
+                    // deferral leaves a clean prior state, nothing arms, and the repo waits out
+                    // whatever cadence its existing streak already dictates — which for a repo at a
+                    // capped streak is the cap. Deferral has to hand the recovery lane a reason.
+                    //
+                    // Bounded `KB_*` codes only, never messages or details: identical credential
+                    // boundary to the failure path, which is why these are safe to persist at all.
+                    const deferredCauseCode = ingestOutcome.deferredCodes.find(isEmbeddingRecoverySourceCode)
+                        ?? ingestOutcome.deferredCodes[0]
+                        ?? priorState?.lastSourceErrorCode
+                        ?? null;
+
+                    persistedRevisions[repoLabel] = {
+                        ...priorState,
+                        lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
+                        lastRunAttemptAt                  : startedMs,
+                        consecutiveFailures               : priorState?.consecutiveFailures ?? 0,
+                        lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastSourceErrorCode               : deferredCauseCode,
+                        lastErrorAt                       : startedMs,
+                        // Recovery eligibility, on the SAME episode a failure would advance. A
+                        // consumed generation folds into `lastConsumedGenerationId/At` and a newly
+                        // healthy canary generation is required before another bypass, so a
+                        // still-starved provider cannot buy one retry per sweep by deferring.
+                        embeddingRecovery: isEmbeddingRecoverySourceCode(deferredCauseCode)
+                            ? buildEmbeddingRecoveryEpisode({
+                                priorRecovery: priorState?.embeddingRecovery || null,
+                                causeCode    : deferredCauseCode,
+                                failedAt     : startedMs
+                            })
+                            : (priorState?.embeddingRecovery || null)
+                    };
+
+                    // Counts and bounded codes only — same credential boundary as the failure path.
+                    writeLog?.('WARN', `[TenantRepoSync] ${repoLabel} deferred: ` +
+                        `embedding incomplete, checkpoint held at ` +
+                        `${priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : 'none'} ` +
+                        `codes=${ingestOutcome.deferredCodes.join(',')} ` +
+                        `ingested=${rawSummary?.ingested ?? 0} ` +
+                        `embeddings=${rawSummary?.embeddingsGenerated ?? 0} ` +
+                        `(streak held at ${priorState?.consecutiveFailures ?? 0})`);
+
+                    repoStates.push({
+                        tenantId           : repo.tenantId,
+                        repoSlug           : repo.repoSlug,
+                        lastIngestedRev    : priorState?.lastIngestedRev ?? null,
+                        lastSyncAt         : new Date().toISOString(),
+                        status             : 'deferred',
+                        checkpointStatus   : priorState?.checkpointStatus ?? TenantRepoCheckpointStatus.UNINITIALIZED,
+                        lastSourceErrorCode: deferredCauseCode,
+                        // Same recovery projection the failure path publishes. A deferred repo is
+                        // recovery-eligible, so omitting this would make the one state that is
+                        // actively waiting on the canary the only state whose canary/backoff/
+                        // retry-pending classification is invisible to every snapshot consumer.
+                        recoveryState      : classifyEmbeddingRecoveryState({
+                            persistedRepoState: persistedRevisions[repoLabel],
+                            probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
+                            observedAt        : startedMs
+                        })
+                    });
+
+                    healthService?.recordTaskOutcome?.(taskName, 'deferred', {
+                        repo    : repoLabel,
+                        tenantId: repo.tenantId,
+                        codes   : ingestOutcome.deferredCodes
+                    });
+
+                    deferredCount++;
+
+                    return
+                }
+
+                const ingestResult = ingestOutcome.summary;
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
@@ -2015,7 +2150,7 @@ class TenantRepoSyncService extends Base {
                     nextFailureCount       = (priorState?.consecutiveFailures ?? 0) + 1,
                     embeddingRecoveryCause = getEmbeddingRecoveryCauseCode(e, sourceErrorCode),
                     embeddingRecovery      = embeddingRecoveryCause
-                        ? buildEmbeddingRecoveryAfterFailure({
+                        ? buildEmbeddingRecoveryEpisode({
                             priorRecovery: priorState?.embeddingRecovery || null,
                             causeCode    : embeddingRecoveryCause,
                             failedAt     : startedMs
@@ -2150,11 +2285,24 @@ class TenantRepoSyncService extends Base {
             starvedAfterMs,
             previousCompletion: taskStateService?.getTaskState?.(taskName)?.lastCompletion
         });
+        // A sweep whose only outcome was deferral did NOT run cleanly, and reporting it as
+        // `completed` re-creates precisely the defect the comment above describes: the lane
+        // machinery is healthy while the KB it feeds received nothing. `attemptedCount` cannot
+        // carry this on its own — deferrals are neither completed nor failed, so an all-deferred
+        // sweep lands on the `attemptedCount === 0` branch that exists for "every repo was not-due"
+        // and inherits its clean verdict. The two states are opposite: not-due means nobody needed
+        // work, all-deferred means everybody needed it and none of it landed.
+        //
+        // A mixed sweep stays `completed` deliberately — real repos did advance, and the deferred
+        // ones are reported per-repo. `deferred` routes to `markSkipped` through the existing
+        // consumer branch, so `lastSuccessAt` does not advance on a cycle that ingested nothing.
         const status = detection.starved
             ? 'starved'
-            : (attemptedCount === 0
-                ? 'completed' // all repos were not-due; cycle ran cleanly
-                : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed')));
+            : (completedCount === 0 && failedCount === 0 && deferredCount > 0
+                ? 'deferred'
+                : (attemptedCount === 0
+                    ? 'completed' // all repos were not-due; cycle ran cleanly
+                    : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'))));
 
         // Record-with-diagnosis: exactly one durable heal-ledger record per starved
         // episode (the detector's marker flows through the lane's completion metadata), once
@@ -2179,13 +2327,14 @@ class TenantRepoSyncService extends Base {
             });
         }
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${deferredCount} deferred, ${failedCount} failed, ${notDueCount} not-due, ${revalidationDeferredCount} revalidation-deferred${detection.starved ? ` — STARVED (oldest suppression ${detection.evidence.oldestSuppressedAt})` : ''}.`);
 
         return {
             status,
             details: {
                 repoCount: repos.length,
                 completedCount,
+                deferredCount,
                 failedCount,
                 notDueCount,
                 revalidationDeferredCount,
@@ -2447,7 +2596,7 @@ class TenantRepoSyncService extends Base {
                     ? attempt.priorSourceErrorCode
                     : (priorState?.lastSourceErrorCode ?? null),
                 foldedRecovery = recoveryGrantMatches
-                    ? buildEmbeddingRecoveryAfterFailure({
+                    ? buildEmbeddingRecoveryEpisode({
                         priorRecovery: {
                             ...priorRecovery,
                             bypassConsumedAt: startedMs
