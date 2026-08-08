@@ -149,7 +149,7 @@ export function planSnapshotClone({
             `overlayPlaneId "${overlayPlaneId}" is the canonical plane identity — a snapshot clone must ` +
             'declare a DISTINCT overlay identity. Reusing it would leave two planes claiming to be ' +
             'canonical, which planeConfig.assertPlaneCoherence cannot detect: its overlay clause only ' +
-            'inspects non-canonical identities.'
+            'inspects non-canonical identities. Its CANNOT-detect section carries the full boundary.'
         );
     }
 

@@ -665,6 +665,9 @@ class BaseServer extends Base {
                 `[${this.className}] declared plane member resolved no \`plane\` subtree — Tier-1 config not loaded?`
             );
         }
+        // Guards overlay-onto-durable mutation, NOT wrong-store service: a server booted from a
+        // different checkout resolves a self-consistent canonical and passes this. See the
+        // CANNOT-detect section on `assertPlaneCoherence`.
         const observed = assertPlaneCoherence({
             planeId : plane.id,
             dataRoot: plane.dataRoot,

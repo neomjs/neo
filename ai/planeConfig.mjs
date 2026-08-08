@@ -152,6 +152,35 @@ function realpathOrResolve(p) {
  * 3. A NON-canonical `planeId` (a declared overlay) must not resolve — symlink-transparently —
  *    to the canonical durable root: identity-without-isolation would mutate the durable plane.
  *
+ * ## What this CANNOT detect — read before treating a call site as protected
+ *
+ * Clause 3 is a **collision** test: a non-canonical identity resolving ONTO the canonical root.
+ * It is not, and cannot be, a **divergence** test — a canonical identity resolving AWAY from the
+ * root the deployment actually serves.
+ *
+ * Two structural reasons, both load-bearing:
+ *
+ * 1. `planeId !== canonicalPlaneId` short-circuits before the root comparison, so a process
+ *    claiming the canonical identity never reaches clause 3 at all.
+ * 2. There is no served-root fact here to compare against. Callers derive `canonicalDataRoot`
+ *    from their own module location, so a process booted from the wrong checkout computes a
+ *    canonical that agrees with itself perfectly and passes. Supplying the true served root as
+ *    `canonicalDataRoot` does NOT help: clause 3 still never runs for a canonical identity.
+ *
+ * The measured shapes:
+ *
+ * ```
+ * THROWS  overlay id + dataRoot collides with canonical root   <- the hazard it was built for
+ * PASS    canonical id, dataRoot = orphan, canonical = orphan  <- what a wrong-checkout boot passes
+ * PASS    canonical id, dataRoot = orphan, canonical = SERVED  <- injecting the true root does not help
+ * PASS    overlay id,   roots DIVERGE                          <- divergence is not expressible
+ * ```
+ *
+ * **Consequence:** a caller that runs this at boot is protected against overlay-onto-durable
+ * mutation and is NOT protected against serving the wrong store. Do not read a call to this as
+ * coverage for the second. Detecting divergence requires a served-root fact supplied from OUTSIDE
+ * the process — never re-derived from `import.meta.url`, since that self-derivation is the defect.
+ *
  * Pure and injectable (no Neo import): entrypoints assert provider-resolved values;
  * non-entrypoints may assert twin-resolved values.
  * @param {Object} options

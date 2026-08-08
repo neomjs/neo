@@ -583,3 +583,65 @@ test.describe('⭐ one env ⇒ one resolved default across every declaring confi
         expect(new Set(converged.map(entry => entry.default)).size).toBe(1);
     })
 });
+
+test.describe('assertPlaneCoherence — the boundary of the clause, stated as tests', () => {
+    // The rationale on this function names "identity without isolation" as the hazard, and three
+    // write-path callers run it at boot. That reads as protection against serving the wrong store.
+    // It is not. Clause 3 is a COLLISION test (a non-canonical identity landing ON the canonical
+    // root); the wrong-checkout hazard is DIVERGENCE (a canonical identity landing AWAY from the
+    // root the deployment serves). These four rows pin that boundary so a future change cannot
+    // quietly widen the claim — or make the guard vacuous — without failing here.
+    const
+        SERVED = '/served/.neo-ai-data',
+        ORPHAN = '/wrong-checkout/.neo-ai-data',
+        // Identity resolver: no symlink layer, so realpath is identity. Injected rather than
+        // touching the filesystem — the clause compares resolved paths, not file contents.
+        idRealpath = value => value;
+
+    test('POSITIVE CONTROL: a non-canonical overlay resolving the canonical root still THROWS', () => {
+        // If this ever stops throwing the guard has become vacuous and the three rows below
+        // would pass for the wrong reason.
+        expect(() => assertPlaneCoherence({
+            planeId          : 'pilot',
+            dataRoot         : SERVED,
+            canonicalDataRoot: SERVED,
+            realpathFn       : idRealpath
+        })).toThrow(/resolves the durable root/);
+    });
+
+    test('a canonical identity on an orphan root PASSES — the wrong-checkout boot shape', () => {
+        // What a process booted from the wrong checkout actually passes: it claims the canonical
+        // identity and derives its canonical root from its own location, so both agree.
+        expect(assertPlaneCoherence({
+            planeId          : CANONICAL_PLANE_ID,
+            dataRoot         : ORPHAN,
+            canonicalDataRoot: ORPHAN,
+            realpathFn       : idRealpath
+        })).toEqual({planeId: CANONICAL_PLANE_ID, dataRoot: ORPHAN});
+    });
+
+    test('injecting the TRUE served root does NOT make it detectable', () => {
+        // The decisive row. A reader might assume the clause would fire if only it were handed the
+        // real served root. It does not: `planeId !== canonicalPlaneId` short-circuits first, so a
+        // canonical identity never reaches the root comparison at all. Direction-1 fixes therefore
+        // need a new clause, not better arguments to this one.
+        expect(assertPlaneCoherence({
+            planeId          : CANONICAL_PLANE_ID,
+            dataRoot         : ORPHAN,
+            canonicalDataRoot: SERVED,
+            realpathFn       : idRealpath
+        })).toEqual({planeId: CANONICAL_PLANE_ID, dataRoot: ORPHAN});
+    });
+
+    test('divergence is not expressible even for an overlay identity', () => {
+        // An overlay whose root DIVERGES from canonical passes — correctly, since divergence is
+        // not what clause 3 asks. Recorded so "it only fails for canonical ids" is not mistaken
+        // for the boundary; the boundary is collision-vs-divergence, not which identity.
+        expect(assertPlaneCoherence({
+            planeId          : 'host-edge',
+            dataRoot         : ORPHAN,
+            canonicalDataRoot: SERVED,
+            realpathFn       : idRealpath
+        })).toEqual({planeId: 'host-edge', dataRoot: ORPHAN});
+    })
+});
