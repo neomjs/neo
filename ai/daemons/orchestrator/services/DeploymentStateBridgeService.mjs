@@ -408,6 +408,15 @@ export class DeploymentStateBridgeService extends Base {
         const inspectReadFailed = inspect === null &&
             errors.some(entry => entry?.operation === 'inspect' || entry?.detail?.operation === 'inspect');
 
+        // Summarized ONCE, here, and reused by both the diagnosis and the published snapshot below.
+        // The heap attribution needs the same two `Config.Cmd` observations this service already
+        // derives (`nodeCommand`, `declaredHeapCeilingMb`) plus the same bounded tail it already
+        // reads — so diagnosis consumes them rather than re-deriving, and there stays exactly one
+        // place that decides what "a Node service" and "the log tail" mean.
+        const
+            inspectSummary = summarizeInspect(inspect),
+            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes);
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
                 inspectReadFailed,
@@ -418,6 +427,11 @@ export class DeploymentStateBridgeService extends Base {
                 providerResidency,
                 churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
+                // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
+                // attribution, never as "not a heap death". A disabled channel is not evidence.
+                logs                 : logSummary,
+                nodeCommand          : inspectSummary?.nodeCommand ?? null,
+                declaredHeapCeilingMb: inspectSummary?.declaredHeapCeilingMb ?? null,
                 observedAt
             })
             : null;
@@ -444,9 +458,9 @@ export class DeploymentStateBridgeService extends Base {
             targetIdentity: {kind: 'compose-service', id: serviceKey},
             observedAt,
             status        : errors.length > 0 ? 'degraded' : 'available',
-            inspect       : summarizeInspect(inspect),
+            inspect       : inspectSummary,
             stats         : summarizeStats(stats),
-            logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
+            logs          : logSummary,
             providerResidency,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,

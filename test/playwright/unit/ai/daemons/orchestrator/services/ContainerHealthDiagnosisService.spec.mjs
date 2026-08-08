@@ -18,8 +18,7 @@ import {
     evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent,
-    classifyHeapAbortCandidate,
-    V8_HEAP_ABORT_EXIT_CODE
+    classifyHeapExhaustion
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 
 const OBSERVED_AT = 1710000000000;
@@ -125,46 +124,60 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
             .toContain(CONTAINER_HEALTH_FACT_TYPES.containerDown);
     });
 
-    test('a heap-abort candidate needs BOTH the abort code and a kernel that did not intervene', () => {
-        // 134 is `128 + SIGABRT`, shared by every V8 FATAL ERROR and assertion failure, so it names
-        // the manner of death and not its cause. The pair is the discriminator.
-        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE, OOMKilled: false}),
-            'a self-abort the kernel did not cause is consistent with a heap ceiling').toBe(true);
+    test('heap attribution needs BOTH the fatal line and a Node command', () => {
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
 
-        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE, OOMKilled: true}),
-            'a cgroup kill reclaimed the whole container, so the V8 ceiling is not implicated').toBe(false);
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion,
+            'the line names a heap and the command proves there was one to exhaust').toBe(true);
 
-        expect(classifyHeapAbortCandidate({ExitCode: 137, OOMKilled: true}),
-            'SIGKILL under an OOM kill is the cgroup path, not a V8 self-abort').toBe(false);
+        // The scoping red control. A non-Node process cannot exhaust a V8 heap, so a tail carrying
+        // the phrase (another container's output, or a service logging the text) must not attribute.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: false}).heapExhaustion,
+            'a non-Node service has no V8 heap, whatever the tail contains').toBe(false);
 
-        // The incident this diagnosis descends from: with NO declared ceiling, V8 picks a heuristic
-        // inside the container allowance and the same exhaustion exits 0 — a failure with no
-        // signature. Declaring the ceiling is what produced a signature to read at all.
-        expect(classifyHeapAbortCandidate({ExitCode: 0, OOMKilled: false}),
-            'an undeclared-ceiling exhaustion leaves no signature and must not be inferred').toBe(false);
+        expect(classifyHeapExhaustion({logs: {text: 'ECONNREFUSED, exiting', truncated: false}, nodeCommand: true}).heapExhaustion,
+            'a Node service that died of something else is a positive negative').toBe(false);
     });
 
-    test('an unobservable exit is null, never a negative — absence of signal is not evidence of health', () => {
-        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE}),
-            'no OOMKilled field means the discriminator was not observed').toBeNull();
+    test('the declared ceiling licenses WORDING, never the attribution itself', () => {
+        const fatal = {text: 'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory', truncated: false};
 
-        expect(classifyHeapAbortCandidate({OOMKilled: false}),
-            'no ExitCode means there is nothing to classify').toBeNull();
+        // The population the originating incident came from: Node, no declared ceiling, dead of a
+        // heap. Scoping attribution to the ceiling would blind this to exactly that case.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, declaredHeapCeilingMb: null}))
+            .toMatchObject({heapExhaustion: true, declaredHeapCeilingMb: null});
 
-        expect(classifyHeapAbortCandidate({}), 'an empty state observes neither field').toBeNull();
-        expect(classifyHeapAbortCandidate(undefined), 'a missing state must not throw').toBeNull();
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, declaredHeapCeilingMb: 768}))
+            .toMatchObject({heapExhaustion: true, declaredHeapCeilingMb: 768});
     });
 
-    test('the crash diagnosis names a heap-abort candidate without changing the action', () => {
+    test('unavailable is null WITH a reason — a disabled channel is not a negative', () => {
+        expect(classifyHeapExhaustion({logs: null, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'logs-unavailable'});
+
+        expect(classifyHeapExhaustion({logs: {text: 'x', truncated: false}, nodeCommand: null}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'command-unreadable'});
+
+        // A truncated tail that does not match cannot separate "no heap death" from "the line fell
+        // outside the window" — but truncation cannot manufacture the line, so a match still counts.
+        expect(classifyHeapExhaustion({logs: {text: 'nothing here', truncated: true}, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'log-tail-truncated'});
+
+        expect(classifyHeapExhaustion({
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: true},
+            nodeCommand: true
+        }).heapExhaustion, 'a truncated tail that DOES match is still conclusive').toBe(true);
+    });
+
+    test('the crash diagnosis names the heap exhaustion without changing the action', () => {
         const service = createService();
 
         const decision = service.diagnose({
-            serviceKey: 'memory',
-            inspect   : runningInspect({
-                Status   : 'exited',
-                ExitCode : V8_HEAP_ABORT_EXIT_CODE,
-                OOMKilled: false
-            })
+            serviceKey           : 'memory',
+            inspect              : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
+            logs                 : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false},
+            nodeCommand          : true,
+            declaredHeapCeilingMb: 768
         });
 
         // The action was never wrong — a stopped container is restarted either way. The cause is
@@ -172,35 +185,46 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(decision.actionClass, 'attribution must not change the heal')
             .toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
 
-        expect(decision.diagnosis.details.classificationReason,
-            'the reason must name the candidate cause rather than a generic crash')
-            .toBe('lifecycle-crash-heap-abort-candidate');
+        expect(decision.diagnosis.details.classificationReason)
+            .toBe('lifecycle-crash-heap-exhaustion-declared-ceiling');
 
         const downFact = decision.facts.find(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
 
-        expect(downFact.details, 'the fact carries the evidence its reason rests on').toMatchObject({
-            exitCode          : V8_HEAP_ABORT_EXIT_CODE,
-            heapAbortCandidate: true,
-            oomKilled         : false
+        expect(downFact.details, 'raw evidence and attribution travel together').toMatchObject({
+            declaredHeapCeilingMb: 768,
+            exitCode             : 139,
+            heapExhaustion       : true,
+            oomKilled            : false
         });
     });
 
-    test('a cgroup OOM kill keeps the generic crash reason', () => {
+    test('an undeclared Node service still attributes, without claiming a ceiling it never had', () => {
         const service = createService();
 
         const decision = service.diagnose({
-            serviceKey: 'memory',
-            inspect   : runningInspect({Status: 'exited', ExitCode: 137, OOMKilled: true})
+            serviceKey : 'memory',
+            inspect    : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false},
+            nodeCommand: true
         });
 
-        // The red control for the narrowing: a memory-related death that is NOT a V8 ceiling must not
-        // acquire the heap reason, or the attribution is decoration rather than discrimination.
+        expect(decision.diagnosis.details.classificationReason).toBe('lifecycle-crash-heap-exhaustion');
+    });
+
+    test('a non-heap death keeps the generic crash reason', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey : 'memory',
+            inspect    : runningInspect({Status: 'exited', ExitCode: 137, OOMKilled: true}),
+            logs       : {text: 'terminated', truncated: false},
+            nodeCommand: true
+        });
+
+        // The narrowing must discriminate rather than decorate.
         expect(decision.diagnosis.details.classificationReason).toBe('lifecycle-crash');
         expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
-        expect(decision.facts.find(fact =>
-            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown).details.heapAbortCandidate)
-            .toBe(false);
     });
 
     test('requires multi-fact evidence before diagnosing unhealthy probe-like states', () => {
