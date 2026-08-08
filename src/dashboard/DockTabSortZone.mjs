@@ -46,6 +46,14 @@ import TabHeaderSortZone              from '../draggable/tab/header/toolbar/Sort
 class DockTabSortZone extends TabHeaderSortZone {
     static config = {
         /**
+         * Dock header buttons leave normal flow during a gesture, so their measured viewport rects
+         * must be rebased onto the toolbar before becoming absolute `left` / `top` values. Keeping
+         * viewport coordinates made the Audit button resolve against an ancestor and paint inside
+         * the card body at the flagship 1280x800 capture profile.
+         * @member {Boolean} adjustItemRectsToParent=true
+         */
+        adjustItemRectsToParent: true,
+        /**
          * @member {String} className='Neo.dashboard.DockTabSortZone'
          * @protected
          */
@@ -85,6 +93,13 @@ class DockTabSortZone extends TabHeaderSortZone {
          * @member {Boolean} expandOwnerOnDrag=false
          */
         expandOwnerOnDrag: false,
+        /**
+         * Establishes the toolbar as the containing block for the owner-relative drag coordinates.
+         * This is the rendering half of {@link #adjustItemRectsToParent}; either setting alone
+         * leaves the absolute tab headers offset by a positioned ancestor's origin.
+         * @member {Boolean} positionOwnerRelative=true
+         */
+        positionOwnerRelative: true,
         /**
          * Slack in px around the source toolbar's REAL bounds inside which a release still counts
          * as a within-toolbar gesture (the base reorder applies). A release farther out than this
