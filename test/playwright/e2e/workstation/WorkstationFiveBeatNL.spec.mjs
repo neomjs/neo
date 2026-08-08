@@ -903,32 +903,25 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             minFrameIndex   = entropies.indexOf(minEntropy);
 
         /**
-         * Narrows the receipt to the frames of one phase.
+         * Reduces one region's frames to the receipt every consumer reads.
          *
          * The whole-window figures above stay the headline because they are what every existing
-         * consumer reads, and they remain the honest answer to *did any frame clear* — a band is a
-         * narrower question, never a weaker one. What a band adds is ATTRIBUTION: a window spanning
+         * consumer reads, and they remain the honest answer to *did any frame clear* — a region is a
+         * narrower question, never a weaker one. What a region adds is ATTRIBUTION: a window spanning
          * more than the step it is named for can report a real defect against the wrong beat, which
          * is exactly what happened here (`scene-1-run-1-resize` was reporting an entry-time frame).
-         * @param {Number|null} fromMs Inclusive lower bound, or null for the opening band.
-         * @param {Number|null} toMs Exclusive upper bound, or null for the closing band.
-         * @returns {Object|null} Band receipt, or null when the phase stamp is unavailable.
+         * @param {Object[]} rows Frames of one region, each carrying `entropy`, `index`, `timestampMs`.
+         * @returns {Object|null} Region receipt, or null when the region observed no frame.
          */
-        function band(fromMs, toMs) {
-            const selected = actionFrames
-                .map((frame, index) => ({entropy: entropies[index], frame, index}))
-                .filter(({frame}) =>
-                    (fromMs === null || frame.timestampMs >= fromMs) &&
-                    (toMs   === null || frame.timestampMs <   toMs));
+        function summarise(rows) {
+            if (!rows.length) return null;
 
-            if (!selected.length) return null;
+            const lowest = rows.reduce((min, row) => row.entropy < min.entropy ? row : min);
 
-            const lowest = selected.reduce((min, row) => row.entropy < min.entropy ? row : min);
-
-            // `minFrameIndex` is the index into the FULL frame list, not into the band, so an
-            // attachment resolves against `frames` without the caller knowing the band's offset.
+            // `minFrameIndex` is the index into the FULL frame list, not into the region, so an
+            // attachment resolves against `frames` without the caller knowing the region's offset.
             return {
-                frameCount   : selected.length,
+                frameCount   : rows.length,
                 minEntropy   : lowest.entropy,
                 minFrameIndex: lowest.index
             }
@@ -936,15 +929,75 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
 
         const entryCompletedAt = result?.phases?.entryCompletedAt ?? null;
 
+        /**
+         * Splits the capture at the entry/replay boundary into three regions, ORDINALLY.
+         *
+         * `entryCompletedAt` is stamped in the App Worker when `refreshDockWorkspace()` resolves —
+         * DOM acknowledgement, not presentation. The compositor can swap an entry-caused frame after
+         * that reply leaves, so a plain `timestamp <` predicate can file an entry frame under the
+         * resize label: the exact misattribution this capture exists to remove, one layer down.
+         *
+         * The uncertainty is ONE-SIDED. The stamp is sampled immediately before `runner.start()`, so
+         * a frame presenting before it cannot belong to the replay — program order already proves
+         * ownership, and a symmetric band would report uncertainty on the side that has none.
+         *
+         * The ambiguous unit is one FRAME, not one interval. A per-run median cadence is better than
+         * a 16.7ms constant and still fails the case that matters: a first post-boundary frame
+         * arriving 31ms after the stamp under a 16ms median falls back into the replay region and
+         * recreates the defect. Deriving from presentation ORDER removes the statistic from the
+         * correctness path; median and adjacent gaps stay below as diagnostics only.
+         *
+         * The model is falsifiable and was falsified-tested rather than asserted: more than one
+         * entry-owned presented frame after the stamp would disprove it. Measured at this head with
+         * the replay reduced to a no-op — so every post-stamp change is entry-owned by construction —
+         * exactly one entry-owned frame presented after the stamp, at ordinal 0, across 58 observed
+         * post-stamp frames and with the boundary tightened from 247ms of slack to 29ms.
+         * @returns {Object|null} Region receipts, or null when the phase stamp is unavailable.
+         */
+        function partition() {
+            if (entryCompletedAt === null) return null;
+
+            const
+                rows          = actionFrames.map((frame, index) => ({
+                    entropy    : entropies[index],
+                    index,
+                    timestampMs: frame.timestampMs
+                })),
+                entryCertain  = rows.filter(row => row.timestampMs <  entryCompletedAt),
+                postStamp     = rows.filter(row => row.timestampMs >= entryCompletedAt),
+                // Ties share the boundary frame's fate: two frames stamped identically cannot be
+                // ordered by the receipt, so neither may be promoted to `resizeCertain` alone.
+                boundaryMs    = postStamp[0]?.timestampMs,
+                ambiguous     = postStamp.filter(row => row.timestampMs === boundaryMs),
+                resizeCertain = postStamp.filter(row => row.timestampMs >  boundaryMs),
+                gaps          = rows.slice(1).map((row, index) => row.timestampMs - rows[index].timestampMs)
+                    .sort((left, right) => left - right);
+
+            return {
+                // The asserted regions. Continuity covers `entryCertain ∪ ambiguous` because the two
+                // misattributions are not equally costly: an entry frame called "resize" is the
+                // defect being removed, while a resize frame called "entry" is an investigable false
+                // red. The tie-break is deliberately not neutral, and the residual stays visible
+                // below rather than being folded into a single confident number.
+                entry : summarise([...entryCertain, ...ambiguous]),
+                resize: summarise(resizeCertain),
+
+                // Diagnostics. `medianGapMs` is reported so a reader can see the cadence the
+                // partition did NOT use; it must never re-enter the correctness path.
+                ambiguousFrameCount  : ambiguous.length,
+                ambiguousFrameIndices: ambiguous.map(row => row.index),
+                entryCertainCount    : entryCertain.length,
+                medianGapMs          : gaps.length ? gaps[Math.floor(gaps.length / 2)] : null,
+                resizeCertainCount   : resizeCertain.length
+            }
+        }
+
         return {
             baselineEntropy,
             // Absent only when `runTourSpec` did not publish the boundary — an older workspace, or a
             // different action entirely. Null rather than a guessed split: attributing frames on an
             // assumed boundary is the defect this exists to remove, one layer down.
-            bands: entryCompletedAt === null ? null : {
-                entry : band(null, entryCompletedAt),
-                resize: band(entryCompletedAt, null)
-            },
+            bands     : partition(),
             frameCount: actionFrames.length,
             frames    : actionFrames.map(frame => frame.data),
             minEntropy,
@@ -959,6 +1012,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @param {Object} config.continuity Receipt returned by captureWorkspaceContinuity().
      * @param {String} config.label Stable attachment and log label.
      * @param {Object} config.testInfo Playwright test metadata.
+     * @param {String|null} [config.band=null] `'entry'` (certain ∪ ambiguous) or `'resize'`
+     * (certain only). Omitted keeps whole-window semantics for every pre-existing caller, and
+     * naming a region additionally fails closed unless all three regions were observed.
      * @param {Boolean} [config.expectedCleared=false] Known-defect red-control direction.
      * @param {Object} [config.receipt] Additional action-specific log fields.
      * @returns {Promise<void>}
@@ -972,7 +1028,9 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         testInfo
     }) {
         // Whole-window when no band is named, so every existing caller keeps its exact semantics.
-        const scoped = band ? continuity.bands?.[band] : continuity;
+        const
+            regions = continuity.bands,
+            scoped  = band ? regions?.[band] : continuity;
 
         // A named band that produced NO frames must fail here rather than pass silently. Zero frames
         // means the phase was never observed, and an oracle that reports green on an unobserved phase
@@ -980,13 +1038,47 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         expect(scoped,
             `${label}: band '${band}' produced no frames, so it proves nothing about that phase`).toBeTruthy();
 
+        // Fail closed on the partition itself, not just on the asserted band. All three regions must
+        // have been observed: an unobserved `entryCertain` means the capture opened too late, an
+        // unobserved `resizeCertain` means it closed too early, and a missing ambiguous frame means
+        // the boundary was never crossed — none of which a green band can distinguish from health.
+        // `document.hidden` swaps the frame path for `setTimeout`, which carries no presentation
+        // guarantee at all; that case must surface here as an unobserved phase rather than be
+        // absorbed by a region that happens to be non-empty.
+        if (band) {
+            expect(regions.entryCertainCount,
+                `${label}: no frame presented before the entry boundary, so the capture opened too late`
+            ).toBeGreaterThan(0);
+
+            expect(regions.ambiguousFrameCount,
+                `${label}: no frame presented at or after the entry boundary, so it was never crossed`
+            ).toBeGreaterThan(0);
+
+            expect(regions.resizeCertainCount,
+                `${label}: no frame presented past the boundary frame, so the replay went unobserved`
+            ).toBeGreaterThan(0)
+        }
+
+        // An entry red whose minimum IS the boundary frame is attributed, not confirmed. The
+        // tie-break resolved it toward entry deliberately, and the receipt has to keep saying so —
+        // a reader chasing this number must know whether the frame was proven entry-owned by program
+        // order or assigned to entry by the tie-break.
+        const minFrameAttribution = band === 'entry' && regions.ambiguousFrameIndices.includes(scoped.minFrameIndex)
+            ? 'entry-attributed / boundary-ambiguous'
+            : band ?? 'whole-window';
+
         console.log('[rendered-continuity]', JSON.stringify({
-            band           : band ?? 'whole-window',
-            baselineEntropy: continuity.baselineEntropy,
-            frameCount     : scoped.frameCount,
+            ambiguousFrameCount: regions?.ambiguousFrameCount ?? null,
+            band               : band ?? 'whole-window',
+            baselineEntropy    : continuity.baselineEntropy,
+            entryCertainCount  : regions?.entryCertainCount ?? null,
+            frameCount         : scoped.frameCount,
             label,
-            minEntropy     : scoped.minEntropy,
-            minFrameIndex  : scoped.minFrameIndex,
+            medianGapMs        : regions?.medianGapMs ?? null,
+            minEntropy         : scoped.minEntropy,
+            minFrameAttribution,
+            minFrameIndex      : scoped.minFrameIndex,
+            resizeCertainCount : regions?.resizeCertainCount ?? null,
             ...receipt
         }));
 
@@ -1013,7 +1105,8 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 `${label} red control must expose the confirmed cleared-body frame`).toBeLessThan(entropyFloor)
         } else {
             expect(scoped.minEntropy,
-                `${label} must not present a cleared dense workspace body`).toBeGreaterThanOrEqual(entropyFloor)
+                `${label} must not present a cleared dense workspace body (${minFrameAttribution})`
+            ).toBeGreaterThanOrEqual(entropyFloor)
         }
     }
 
