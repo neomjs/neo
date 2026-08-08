@@ -23,7 +23,19 @@
  */
 export const TENANT_REPO_INGEST_CONTRACT_VERSION = 2;
 
-const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
+const
+    EMBEDDING_RECOVERY_ID_PATTERN      = /^[a-f0-9]{32}$/u,
+    MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
+
+/**
+ * @summary Closed source-code family that can arm an embedding-recovery episode.
+ *
+ * These codes are minted by the Knowledge Base embed-failure boundary. The prefix is both bounded
+ * by the checkpoint's general `KB_*` reader gate and specific enough that a Git/access/parser fault
+ * cannot accidentally inherit an embedding recovery grant.
+ * @type {RegExp}
+ */
+export const EMBEDDING_RECOVERY_SOURCE_CODE_PATTERN = /^KB_VECTOR_EMBED_[A-Z0-9_]{1,100}$/u;
 
 /**
  * Bounded diagnostic-code vocabulary for the retained failure cause.
@@ -89,7 +101,8 @@ export function normalizeTenantRepoCheckpointState(value) {
             lastErrorCode      : null,
             lastSourceErrorCode: null,
             lastAccessCode     : null,
-            lastErrorAt        : null
+            lastErrorAt        : null,
+            embeddingRecovery  : null
         };
     }
 
@@ -121,7 +134,79 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastErrorCode      : normalizeBoundedErrorCode(value.lastErrorCode),
         lastSourceErrorCode: normalizeBoundedErrorCode(value.lastSourceErrorCode),
         lastAccessCode     : normalizeBoundedErrorCode(value.lastAccessCode),
-        lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null
+        lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null,
+        embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery)
+    };
+}
+
+/**
+ * @summary Returns whether a bounded checkpoint cause belongs to the embedding dependency.
+ * @param {*} value Candidate retained source code.
+ * @returns {Boolean}
+ */
+export function isEmbeddingRecoverySourceCode(value) {
+    return typeof value === 'string' && EMBEDDING_RECOVERY_SOURCE_CODE_PATTERN.test(value);
+}
+
+/**
+ * @summary Normalizes one durable embedding recovery episode without manufacturing an observation.
+ *
+ * An episode requires its own opaque id, embedding-class cause, and detected timestamp. A recovery
+ * generation exists only when both its opaque id and observed timestamp are present; consumption
+ * exists only behind that proved generation. Any partial or malformed branch degrades by omission,
+ * so a restart can never synthesize a due-bypass from torn or hand-edited state.
+ *
+ * @param {*} value Candidate persisted episode.
+ * @returns {Object|null}
+ * @private
+ */
+function normalizeEmbeddingRecovery(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const
+        episodeId  = normalizeEmbeddingRecoveryId(value.episodeId),
+        causeCode  = isEmbeddingRecoverySourceCode(value.causeCode) ? value.causeCode : null,
+        detectedAt = normalizeNonNegativeNumber(value.detectedAt) || null;
+
+    if (!episodeId || !causeCode || !detectedAt) {
+        return null;
+    }
+
+    const
+        candidateGenerationId = normalizeEmbeddingRecoveryId(value.generationId),
+        candidateObservedAt   = normalizeNonNegativeNumber(value.observedAt) || null,
+        generationProved      = Boolean(candidateGenerationId && candidateObservedAt),
+        candidateConsumedAt   = generationProved
+            ? (normalizeNonNegativeNumber(value.bypassConsumedAt) || null)
+            : null,
+        historyGenerationId   = normalizeEmbeddingRecoveryId(value.lastConsumedGenerationId),
+        historyConsumedAt     = normalizeNonNegativeNumber(value.lastConsumedAt) || null,
+        historyProved         = Boolean(historyGenerationId && historyConsumedAt);
+
+    // A consumed current generation is stable history, not a pending grant. Canonicalizing it here
+    // makes a restart re-arm the canary generation while retaining the exact receipt that rotates
+    // the process-local gate key; it can never reuse the consumed bypass.
+    const
+        generationId             = generationProved && !candidateConsumedAt ? candidateGenerationId : null,
+        observedAt               = generationProved && !candidateConsumedAt ? candidateObservedAt : null,
+        lastConsumedGenerationId = candidateConsumedAt
+            ? candidateGenerationId
+            : (historyProved ? historyGenerationId : null),
+        lastConsumedAt = candidateConsumedAt
+            ? candidateConsumedAt
+            : (historyProved ? historyConsumedAt : null);
+
+    return {
+        episodeId,
+        causeCode,
+        detectedAt,
+        generationId,
+        observedAt,
+        bypassConsumedAt: null,
+        lastConsumedGenerationId,
+        lastConsumedAt
     };
 }
 
@@ -248,6 +333,17 @@ function normalizeContractVersion(value) {
  */
 function normalizeMaterializationAttemptId(value) {
     return typeof value === 'string' && MATERIALIZATION_ATTEMPT_ID_PATTERN.test(value)
+        ? value
+        : null;
+}
+
+/**
+ * @summary Accepts only opaque ids minted for embedding recovery episodes and generations.
+ * @param {*} value Candidate id.
+ * @returns {String|null}
+ */
+function normalizeEmbeddingRecoveryId(value) {
+    return typeof value === 'string' && EMBEDDING_RECOVERY_ID_PATTERN.test(value)
         ? value
         : null;
 }

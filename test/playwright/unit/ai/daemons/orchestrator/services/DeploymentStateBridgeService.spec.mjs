@@ -830,7 +830,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         const tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
 
         expect(tenantRepoSync.status).toBe('not-due');
-        expect(tenantRepoSync.schemaVersion).toBe(2);
+        expect(tenantRepoSync.schemaVersion).toBe(3);
         expect(tenantRepoSync.config).toMatchObject({
             repoCount : 1,
             tierCounts: {yaml: 1}
@@ -861,6 +861,127 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(JSON.stringify(tenantRepoSync)).not.toContain('private/repo');
         expect(JSON.stringify(tenantRepoSync)).not.toContain('TOKEN');
         expect(JSON.stringify(tenantRepoSync)).not.toContain('must-not-cross-the-bridge');
+    });
+
+    test('collectTenantRepoSyncSnapshot projects bounded embedding-recovery state without durable ids (#16692)', async () => {
+        const
+            episodeId     = '0123456789abcdef'.repeat(2),
+            generationId  = 'fedcba9876543210'.repeat(2),
+            probeSnapshot = {
+                status             : 'failed',
+                checkedAt          : OBSERVED_AT - 1_000,
+                lastDemandCached   : true,
+                failureStreak      : 2,
+                backoffMs          : 60_000,
+                nextAttemptAt      : OBSERVED_AT + 60_000,
+                terminal           : false,
+                stopReason         : null,
+                errorClassification: 'connection-refused',
+                errorCode          : 'ECONNREFUSED',
+                credential         : 'must-not-cross-the-bridge'
+            },
+            checkpoint = {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : OBSERVED_AT - 1_000,
+                consecutiveFailures               : 8,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                lastAccessCode                    : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+                lastErrorAt                       : OBSERVED_AT - 1_000,
+                embeddingRecovery                 : {
+                    episodeId,
+                    causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                    detectedAt              : OBSERVED_AT - 10_000,
+                    generationId            : null,
+                    observedAt              : null,
+                    bypassConsumedAt        : null,
+                    lastConsumedGenerationId: generationId,
+                    lastConsumedAt          : OBSERVED_AT - 2_000
+                }
+            },
+            service = createService({
+                taskStateService: {
+                    getTaskState() {
+                        return {running: false, lastCompletion: null};
+                    }
+                },
+                tenantRepoSyncService: {
+                    async resolveTenantReposConfig() {
+                        return {tenantRepos: [{
+                            tenantId  : 'tenant-recovery',
+                            repoSlug  : 'private/recovery',
+                            cloneUrl  : 'https://git.example/private/recovery.git',
+                            cadenceMs : 60_000,
+                            configTier: 'yaml'
+                        }]};
+                    },
+                    defaultRevisionsFilePath() {
+                        return '/state/revisions.json';
+                    },
+                    async readPersistedRevisions() {
+                        return {'tenant-recovery/private/recovery': checkpoint};
+                    },
+                    getTenantRepoAccessReadiness() {
+                        return null;
+                    },
+                    getEmbeddingRecoveryProbeSnapshot() {
+                        return probeSnapshot;
+                    }
+                },
+                tenantRepoSyncEnabledReader: () => true
+            });
+
+        const snapshot = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(snapshot.schemaVersion).toBe(3);
+        expect(snapshot.embeddingRecoveryProbe).toEqual({
+            status             : 'failed',
+            checkedAt          : OBSERVED_AT - 1_000,
+            lastDemandCached   : true,
+            failureStreak      : 2,
+            backoffMs          : 60_000,
+            nextAttemptAt      : OBSERVED_AT + 60_000,
+            terminal           : false,
+            stopReason         : null,
+            errorClassification: 'connection-refused',
+            errorCode          : 'ECONNREFUSED'
+        });
+        expect(snapshot.repos[0]).toMatchObject({
+            status             : 'not-due',
+            stopReasonCode     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastAccessCode     : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+            recoveryState      : 'recovery-probe-backoff'
+        });
+
+        const serialized = JSON.stringify(snapshot);
+
+        expect(serialized).not.toContain(episodeId);
+        expect(serialized).not.toContain(generationId);
+        expect(serialized).not.toContain('tenant-recovery');
+        expect(serialized).not.toContain('private/recovery');
+        expect(serialized).not.toContain('must-not-cross-the-bridge');
+
+        checkpoint.embeddingRecovery = {
+            ...checkpoint.embeddingRecovery,
+            generationId,
+            observedAt              : OBSERVED_AT - 500,
+            lastConsumedGenerationId: null,
+            lastConsumedAt          : null
+        };
+
+        const retryPendingSnapshot = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(retryPendingSnapshot.repos[0]).toMatchObject({
+            due          : true,
+            nextDueAt    : new Date(OBSERVED_AT).toISOString(),
+            recoveryState: 'recovery-observed/retry-pending'
+        });
+        expect(JSON.stringify(retryPendingSnapshot)).not.toContain(generationId);
+        service.destroy();
     });
 
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {
