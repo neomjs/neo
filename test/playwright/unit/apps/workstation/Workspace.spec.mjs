@@ -2345,6 +2345,43 @@ test.describe('replay probe transaction (prototype-call)', () => {
         expect(refreshCalls, 'the rejecting restore projection ran and was recorded').toHaveLength(2)
     });
 
+    test('the entry projection requests validated in-place admission; the restore stays full', async () => {
+        const
+            liveDocument = {nodes: {marker: 'live'}},
+            refreshCalls = [],
+            host         = {
+                dockModel     : liveDocument,
+                id            : 'fake-workspace',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    return Promise.resolve()
+                }
+            },
+            script = {
+                schema: 'neo.tour.script.v1',
+                id    : 'clean-pause',
+                title : 'clean pause',
+                scenes: [{id: 's1', title: 'pause', steps: [{type: 'pause', ms: 1}]}]
+            };
+
+        await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
+
+        // Entry declares admission to the validated in-place path (reconcileStableTopology
+        // null-falls-back to the staged transaction on any topology delta — the fallback
+        // contract is pinned in DockProjectionReconciler.spec.mjs). The staged shell swap's
+        // cleared-body intermediate frame must never ride the same-topology entry.
+        expect(refreshCalls[0], 'the entry projection requests geometry-only admission')
+            .toEqual({geometryOnly: true});
+
+        // The restore transition can genuinely change topology (the replay edited the
+        // workspace); it stays on the full staged path with no admission declared.
+        expect(refreshCalls[1], 'the restore projection stays full').toEqual({});
+        expect(host.dockModel, 'the displaced document is restored').toBe(liveDocument)
+    });
+
     test('a rejecting entry projection leaves the driver default without a restore', async () => {
         const
             liveDocument = {nodes: {marker: 'live'}},

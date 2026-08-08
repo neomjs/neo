@@ -2342,15 +2342,27 @@ class Workspace extends Container {
         // As a PROBE (`restoreDocument: true`), the displaced live document is restored after
         // the replay, so a replay can never edit the surface it measures. The transaction owns
         // the baseline swap too: a rejecting entry projection must still destroy the runner and
-        // service, and must still restore the probe's displaced document. Both projections are
-        // full — the swap and the restore can each change topology, so neither may declare a
-        // geometry-only projection over the transition.
+        // service, and must still restore the probe's displaced document.
+        //
+        // The ENTRY projection declares `geometryOnly` — validated in-place ADMISSION, not a
+        // skip: `DockProjectionReconciler.reconcileProjection` (:314) attempts
+        // `reconcileStableTopology` (:130), which returns null on ANY node/type/ancestry/order/
+        // orientation delta and falls back to the full staged transaction. The workspace boots
+        // from the same `initialDocument` the entry re-stages, so the proven-stable in-place
+        // path applies and the staged shell swap — whose intermediate state presents a cleared
+        // workspace body on camera (one compositor frame, measured at capture minFrameIndex
+        // 7/59, minEntropy 0.41 vs baseline 5.30) — never runs on the same-topology path. A
+        // genuinely changed topology still takes the staged path unchanged (the residual blank
+        // for that branch is documented on the ticket; present-no-intermediate-state is the
+        // deferred stronger shape). The RESTORE projection stays full deliberately: at
+        // probe-restore time the shell typically diverges from the displaced document, so
+        // admission would validate-and-fall-back with no gain.
         let completed = false,
             out       = null;
 
         try {
             me.dockModel = DockZoneModel.clone(initialDocument);
-            await me.refreshDockWorkspace();
+            await me.refreshDockWorkspace({geometryOnly: true});
 
             const result = await runner.start();
 
