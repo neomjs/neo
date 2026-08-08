@@ -133,3 +133,67 @@ export function classifyEmbedFailureCode(code) {
         ? PROVIDER_ERROR_CODE_MAP[code]
         : KB_VECTOR_EMBED_UNCLASSIFIED
 }
+
+/**
+ * @summary Whether a failed embed may be retried later (`deferrable`) or must fail its ingest run
+ * now (`rejected`).
+ *
+ * The two dispositions differ in what they cost when wrong, and the asymmetry is the whole argument.
+ * Deferring a permanently-failing embed costs bounded retries whose backlog is *observable* — a
+ * pending depth that never falls. Failing a merely-slow one costs the corpus: the run discards its
+ * completed parse and chunk work, the repo takes a backoff step, and nothing is ever ingested. That
+ * second outcome is not hypothetical; it is the measured behaviour of an external deployment whose
+ * four repos sat at thirteen consecutive failures with an empty collection.
+ * @type {Object}
+ */
+export const EMBED_DISPOSITION = Object.freeze({
+    deferrable: 'deferrable',
+    rejected  : 'rejected'
+});
+
+/**
+ * @summary The bounded codes that must NOT be retried — the closed set of our own deliberate refusals.
+ *
+ * Membership here means a later attempt is either futile or unsafe, never merely unlucky: an input
+ * over the embedding budget is over it on every retry; a work-volume gate refused on purpose and a
+ * silent requeue would launder that refusal; a rejected tenant must never be retried into success.
+ *
+ * These are exactly the codes {@link classifyEmbedFailureCode} passes through by membership, and
+ * that is not a coincidence — a code we mint is one whose permanence we actually know. Everything
+ * arriving in the provider's vocabulary describes a fault we are inferring about someone else's
+ * process, which is not a basis for discarding a corpus.
+ * @type {Set<String>}
+ */
+const REJECTED_EMBED_ERROR_CODES = Object.freeze(new Set([
+    'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
+    'KB_SYNC_VOLUME_EXCEEDED',
+    'KB_TENANT_SPOOF_REJECTED'
+]));
+
+/**
+ * @summary Decides whether one bounded embed-failure code defers or rejects.
+ *
+ * **Deferral is the default and rejection is the closed set — the inverse of the obvious design, for
+ * an evidence-driven reason.** Keying deferral off a recognised-transient list (the timeout codes,
+ * the abort, the refused connection) reads as the careful choice, and it would not have fired on the
+ * failure that motivated this: the deployment reported `KB_VECTOR_EMBED_FAILED`, which is
+ * {@link KB_VECTOR_EMBED_UNCLASSIFIED} — the provider's code matched no entry in either vocabulary.
+ * A transient-allow-list therefore rejects precisely the case it was built to survive, and it does so
+ * silently, because an unrecognised code looks like a decision rather than a gap.
+ *
+ * So an unclassified failure defers. That is the same "unrecognised degrades in the safe direction"
+ * discipline {@link classifyEmbedFailureCode} already applies to the durable-state boundary, pointed
+ * at the corpus instead: there, safe means declining to persist an unknown; here, safe means
+ * declining to discard on one.
+ *
+ * Pure and total, and deliberately typed on the BOUNDED code rather than the raw provider code, so a
+ * caller cannot reach a disposition without having translated first.
+ *
+ * @param {String} [boundedCode] A bounded `KB_*` code, as produced by {@link classifyEmbedFailureCode}.
+ * @returns {String} One of {@link EMBED_DISPOSITION}.
+ */
+export function classifyEmbedDisposition(boundedCode) {
+    return typeof boundedCode === 'string' && REJECTED_EMBED_ERROR_CODES.has(boundedCode)
+        ? EMBED_DISPOSITION.rejected
+        : EMBED_DISPOSITION.deferrable
+}
