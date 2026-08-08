@@ -2135,7 +2135,14 @@ class FleetCockpit extends Container {
         const generation = ++me.streamReadGeneration;
 
         if (!stream || typeof bridge?.fleetActivity !== 'function') {
-            // no bridge/verb IS the cold truth — the spine banner must say so
+            // no bridge/verb IS the cold truth — the spine banner must say so. Same retraction
+            // duty as the roster twin's absence exit: a never-wired surface's retained
+            // producer-answered cause ("activity source not wired") must not outlive the bridge
+            // that answered it; wired surfaces keep their stale/live semantics.
+            if (me.streamAdapterState === 'sample') {
+                me.streamDegradedReason = null
+            }
+
             me.syncSpineBanner();
             return
         }
@@ -2220,8 +2227,10 @@ class FleetCockpit extends Container {
      * - absent bridge / no verb / a MALFORMED answer (`rows` not an Array) / a thrown source →
      *   keep the last-known roster; fail closed rather than blanking the fleet. A resolved call is
      *   mechanically distinguishable from a failed one — only failures preserve last-known state.
-     *   (The grid's `stale` render remains reserved for a real degraded signal once a producer
-     *   emits one.)
+     *   Absence and thrown calls are DISTINCT transitions with one shared retraction duty: a
+     *   never-wired surface's retained answered cause is withdrawn on either (the claim must not
+     *   outlive its producer), while a wired surface keeps its stale/live semantics. (The grid's
+     *   `stale` render remains reserved for a real degraded signal once a producer emits one.)
      * @protected
      */
     async loadRoster() {
@@ -2234,7 +2243,15 @@ class FleetCockpit extends Container {
         const generation = ++me.gridReadGeneration;
 
         if (!grid?.store || typeof bridge?.fleetRoster !== 'function') {
-            // no bridge/verb IS the cold truth — the spine banner must say so
+            // no bridge/verb IS the cold truth — the spine banner must say so. Absence is a
+            // DISTINCT transition from a thrown call, and it owns the same retraction duty: a
+            // never-wired surface's retained ANSWERED cause ("server connected · registry
+            // empty") must not outlive the bridge that said it. A wired surface keeps its
+            // stale/live semantics — this exit only speaks for cold truth.
+            if (me.gridAdapterState === 'sample') {
+                me.gridDegradedReason = null
+            }
+
             me.syncSpineBanner();
             return
         }

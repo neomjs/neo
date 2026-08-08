@@ -336,6 +336,34 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(cockpit.gridDegradedReason).toBe(null)
     });
 
+    test('answered-empty → bridge ABSENT also retracts — absence is its own transition, not a thrown-call proxy', async () => {
+        // the exact-head reviewer falsifier: an answered producer-specific cause survived the
+        // no-bridge early return while the surface stayed sample — "server connected" rendering
+        // against NO bridge at all. Absence must withdraw the answered cause exactly like a
+        // thrown call does.
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toContain('registry empty');
+
+        clearBridge();
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.gridAdapterState).toBe('sample');
+        expect(cockpit.gridDegradedReason).toBe(null)
+    });
+
+    test('answered-empty → verb ABSENT retracts too — a bridge without the verb is the same cold truth', async () => {
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toContain('registry empty');
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {}};
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.gridAdapterState).toBe('sample');
+        expect(cockpit.gridDegradedReason).toBe(null)
+    });
+
     test('a resolved EMPTY first snapshot is authoritative after explicit source selection', async () => {
         const {cockpit, grid} = await routeLoadRoster(
             {fleetRoster: async () => ({rows: []})},
@@ -1593,6 +1621,42 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         // 'stale' would tell the operator we are showing last-known data that never existed
         expect(host.streamAdapterState).toBe('sample');
         expect(host.streamDegradedReason).toBe(null)
+    });
+
+    test('not-wired → bridge ABSENT retracts the activity cause — the answer must not outlive its producer', async () => {
+        // the activity half of the reviewer falsifier: the producer ANSWERED not-wired (reason
+        // retained, honest sample), then the bridge vanished — the retained cause must go with it.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.streamAdapterState = 'sample';
+
+        await withBridge(async () => ({capability: {state: 'not-wired', reason: 'activity source not wired'}, events: []}), host);
+        expect(host.streamDegradedReason).toBe('activity source not wired');
+        expect(host.streamAdapterState).toBe('sample');
+
+        // withBridge already removed the bridge in its finally — this drive hits the absence exit
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('sample');
+        expect(host.streamDegradedReason).toBe(null)
+    });
+
+    test('CONTROL — a wired surface keeps its stale reason through bridge absence (last-known truth survives)', async () => {
+        // the retraction is scoped to never-wired ANSWERED causes; a surface that reached live and
+        // degraded holds last-known data, and its cause explains exactly that — absence must not
+        // erase it (the per-surface-reason doctrine's other half).
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost');
+
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost')
     });
 
     test('the degraded reason is redacted + bounded before it reaches operator-visible chrome', async () => {
