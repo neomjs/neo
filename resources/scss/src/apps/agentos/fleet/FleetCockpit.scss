@@ -53,9 +53,13 @@
            same-weight blue slab never reaches the bar. Mirrors the chrome's agent-button pair
            (Viewport.scss); only the primary action reaches for the signal. The shell-owned pop-out
            toggle joins the quiet base here: windowing a pane is a secondary cockpit action, while
-           Start fleet remains the sole signal/primary on the bar (operator hierarchy direction). */
+           Start fleet remains the sole signal/primary on the bar (operator hierarchy direction).
+           The spine banner's Reconnect remedy joins the same quiet base: it appears only when the
+           banner speaks (exception-only chrome), and a recovery affordance must read as calm, not
+           as a second alarm beside the line that already carries the severity. */
         .neo-button.fm-preset-button,
-        .neo-button.fm-detail-window-toggle {
+        .neo-button.fm-detail-window-toggle,
+        .neo-button.fm-reconnect-button {
             border       : 1px solid var(--fm-line);
             border-radius: 6px;
             background: var(--fm-panel-2);
