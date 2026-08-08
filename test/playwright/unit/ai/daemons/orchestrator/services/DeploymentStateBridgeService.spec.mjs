@@ -1,3 +1,4 @@
+import {describeCorpusOutstanding}       from '../../../../../../../ai/services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {test, expect}                    from '@playwright/test';
 import fs                                from 'fs';
 import os                                from 'os';
@@ -1079,6 +1080,45 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             expect(snap.repos[0].corpusOutstanding, `must reject ${JSON.stringify(incoherent)}`).toBeNull();
             svc.destroy();
         }
+
+        // @neo-gpt's two named residuals at d632, both from ONE root: the shared
+        // `normalizeNonNegativeNumber` collapsed null/undefined to 0, so the coherence check above was
+        // reading laundered values and could not see either case.
+
+        // tornCompleteMissingCount — a record claiming `complete` with NO count at all. Laundered to 0,
+        // it read as coherent and published a FINISHED corpus asserted from an absent number.
+        const tornMissing = makeService({
+                  ...baseCheckpoint,
+                  corpusOutstanding: {state: 'complete', observable: true, observedAt: OBSERVED_AT - 1_000}
+              }),
+              tornMissingSnap = await tornMissing.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tornMissingSnap.repos[0].corpusOutstanding).toBeNull();
+        tornMissing.destroy();
+
+        // readerOfProducerBlind — the ROUND TRIP. A valid `unobservable` straight from the producer was
+        // rejected, because `outstanding: null` laundered to 0 and `Number.isFinite(0)` is true. The
+        // reader was blind to its own writer's output, which no amount of incoherent-input testing finds.
+        const producerUnobservable = describeCorpusOutstanding({outstanding: null, observedAt: OBSERVED_AT - 1_000}),
+              roundTrip            = makeService({...baseCheckpoint, corpusOutstanding: producerUnobservable}),
+              roundTripSnap        = await roundTrip.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(roundTripSnap.repos[0].corpusOutstanding).toMatchObject({
+            state      : 'unobservable',
+            observable : false,
+            outstanding: null
+        });
+        roundTrip.destroy();
+
+        // …and the positive round trip, so the reader is not merely permissive.
+        const producerOutstanding = describeCorpusOutstanding({outstanding: 618, observedAt: OBSERVED_AT - 1_000}),
+              positive            = makeService({...baseCheckpoint, corpusOutstanding: producerOutstanding}),
+              positiveSnap        = await positive.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(positiveSnap.repos[0].corpusOutstanding).toMatchObject({
+            state: 'outstanding', observable: true, outstanding: 618
+        });
+        positive.destroy();
     });
 
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {
