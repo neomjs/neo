@@ -50,6 +50,7 @@ import {
     resolveBrainMode,
     resolveUiFleetTransport,
     resolveBrainPaths,
+    resolveProductBrainPlan,
     loadFleetRuntimeContracts,
     startBrainChild,
     stopBrainTree,
@@ -899,11 +900,11 @@ function registerBrainChild(entry) {
 }
 
 /**
- * The product Brain boot — ATTACH-OR-OWN (see brain.mjs): on a machine with a live Brain the
- * harness supervises only the missing fleet transport against the REAL organism; on a fresh
- * machine it owns the whole organism on the default (canonical-layout) paths. It never boots a
- * second organism beside a live one — the daemon's single-instance takeover and the supervisor's
- * singleton-port reaping make that unsafe by construction.
+ * The product Brain boot — PLANE-ATTACH / ATTACH / OWN (see brain.mjs): a declared containerized
+ * plane starts only the missing Fleet transport, a live host Brain is attached, and only a truly
+ * fresh machine owns the full organism. It never boots a second organism beside either declared
+ * authority — the daemon's single-instance takeover and the supervisor's singleton-port reaping
+ * make that unsafe by construction.
  * @summary Boots or attaches the Brain for `start:brain`, supervising only what is missing.
  * @returns {Promise<Object>}
  */
@@ -928,9 +929,14 @@ async function bootProductBrain() {
             orchestratorDataDir: paths.orchestratorDataDir,
             repoRoot           : organismRoot
         }),
-        mode      = live.orchestratorAlive ? 'attach' : 'own';
+        plan      = resolveProductBrainPlan({
+            fleetServing     : live.fleetServing,
+            orchestratorAlive: live.orchestratorAlive,
+            planeBase        : paths.fleetPlaneBase
+        }),
+        {mode}    = plan;
 
-    if (mode === 'own') {
+    if (plan.startOrchestrator) {
         // Coexistence guard (dev machines): a packaged app's own-mode organism runs the DEFAULT
         // ports — a checkout Brain's Chroma already on that port would be REAPED by the spawned
         // supervisor (singleton-port reconciliation). A held Chroma port without a serving fleet
@@ -945,7 +951,7 @@ async function bootProductBrain() {
         await awaitOrchestratorReady({child: orchestrator})
     }
 
-    if (!live.fleetServing) {
+    if (plan.startFleet) {
         // Protocol identity, fail closed: a listener that does NOT answer the fleet wire verb is
         // a foreign server squatting the port — spawning into it would EADDRINUSE, and skipping
         // the spawn would report a Brain that the window cannot actually reach.
@@ -964,8 +970,8 @@ async function bootProductBrain() {
         await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     }
 
-    console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
-    return {fleetPort, mode, up: true}
+    console.log(`HARNESS_BRAIN_MODE ${mode}${plan.planeBase ? ` planeBase=${plan.planeBase}` : ''} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
+    return {fleetPort, mode, planeBase: plan.planeBase, up: true}
 }
 
 /**
@@ -1037,6 +1043,8 @@ async function bootSmokeBrain() {
                 ELECTRON_RUN_AS_NODE    : '1',
                 NEO_CHROMA_PORT         : String(chromaPort),
                 NEO_FLEET_BEARER        : fleetBearerToken,
+                NEO_FLEET_PLANE_BASE    : '',
+                NEO_FLEET_PLANE_BEARER  : '',
                 NEO_FLEET_PORT          : String(fleetPort),
                 NEO_HARNESS_ELECTRON_BIN: process.execPath
             }
