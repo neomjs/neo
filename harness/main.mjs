@@ -47,6 +47,7 @@ import {
     ORCHESTRATOR_ENTRY,
     probeFleetServing,
     probePort,
+    registerOwnedChild,
     resolveBrainMode,
     resolveBrainPaths,
     loadFleetRuntimeContracts,
@@ -881,14 +882,20 @@ const appLifecycle = createAppLifecycle({
 });
 
 /**
- * @summary Registers one owned Brain child for both teardown and event-derived tray degradation.
- * @param {Object} entry The existing brainState child record.
+ * @summary Registers one owned child: teardown ownership unconditionally, Brain-health
+ * observation only for organism children — the split lives in {@link registerOwnedChild}
+ * (brain.mjs), where its owner-coverage witness also lives. `observeBrain: false` (the UI-mode
+ * fleet transport) is drain-owned with diagnostic-log-only fault visibility.
+ * @param {Object} entry The brainState child record (`{child, label, observeBrain?, ...}`).
  * @returns {Object}
  */
 function registerBrainChild(entry) {
-    brainState.children.push(entry);
-    appLifecycle.watchBrainChild(entry.child, entry.label);
-    return entry
+    return registerOwnedChild({
+        children        : brainState.children,
+        entry,
+        onUnobservedExit: summary => console.log(`HARNESS_UI_FLEET_CHILD ${summary}`),
+        watch           : appLifecycle.watchBrainChild
+    })
 }
 
 /**
@@ -974,7 +981,10 @@ async function bootProductBrain() {
  * - **spawn** — the port is free: the shell starts `devFleetServer` as an OWNED child with the
  *   bearer it already holds (zero coordination — the packaged topology's behavior), awaits real
  *   wire readiness, and the existing quit drain tears it down (`brainState.children` is the one
- *   ownership set; the drain keys on membership, not on Brain mode).
+ *   ownership set; the drain keys on membership, not on Brain mode). Ownership ≠ observation:
+ *   the child registers `observeBrain: false`, so its death logs diagnostically and renders as
+ *   the cockpit's honest offline — never as whole-Brain `degraded` (the tray reports the
+ *   organism, not the UI's transport convenience).
  * - **foreign-listener** — something else holds the port: the WINDOW must not brick (contrast:
  *   organism boot fails closed), so the cockpit keeps its honest offline state and the named
  *   refusal lands in the shell log.
@@ -1010,7 +1020,11 @@ async function bootUiFleetTransport() {
         repoRoot: organismRoot
     });
 
-    registerBrainChild({child: fleet, label: 'fleet'});
+    // Drain-owned, NOT Brain-observed: a UI-mode transport death must never move whole-Brain
+    // health (the cycle-1 falsifier — registerBrainChild's default watcher flipped the tray to
+    // degraded where no Brain exists). Faults stay visible: the diagnostic sink logs the exit,
+    // and the cockpit's fail-closed reads render the honest offline state.
+    registerBrainChild({child: fleet, label: 'fleet', observeBrain: false});
     await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort});
     console.log(`HARNESS_UI_FLEET spawn fleetPort=${fleetPort}`);
     return {fleetPort, mode: 'spawn', up: true}

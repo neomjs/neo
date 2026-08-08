@@ -758,6 +758,37 @@ export async function stopBrainChild(child, {graceMs = 10000, pollMs = 200, kill
 }
 
 /**
+ * @summary Registers one owned child for teardown, routing Brain-health observation by the
+ * entry's `observeBrain` flag. Teardown ownership is UNCONDITIONAL — every registered entry
+ * joins the drain list (§2.1.1 one lifecycle owner) — while tray/whole-Brain-health observation
+ * attaches only for organism children (`observeBrain !== false`). A UI-mode fleet transport is
+ * drain-owned but never a Brain claim: its faults surface through the diagnostic sink and the
+ * cockpit's own fail-closed reads, never through whole-Brain health — the tray reports the
+ * organism, not the UI's transport convenience.
+ * @param {Object} options
+ * @param {Object[]} options.children The owner's drain list.
+ * @param {Object} options.entry `{child, label, observeBrain=true, ...}` — the child record.
+ * @param {Function} options.watch Attaches Brain-health observation (error/exit → degraded).
+ * @param {Function} [options.onUnobservedExit] Diagnostic-only sink for unobserved children's
+ *     error/exit — visibility without health mutation.
+ * @returns {Object} The registered entry.
+ */
+export function registerOwnedChild({children, entry, watch, onUnobservedExit = null}) {
+    children.push(entry);
+
+    if (entry.observeBrain === false) {
+        if (onUnobservedExit) {
+            entry.child.once('error', error => onUnobservedExit(`${entry.label ?? 'child'}: error ${String(error?.message ?? error ?? 'unknown')}`));
+            entry.child.once('exit', (code, signal) => onUnobservedExit(`${entry.label ?? 'child'}: ${signal ? `exit signal ${signal}` : `exit code ${code}`}`))
+        }
+    } else {
+        watch(entry.child, entry.label)
+    }
+
+    return entry
+}
+
+/**
  * @summary Tears down every supervised child (fleet first — it consumes the orchestrator's
  * organism, so reverse-dependency order) and reports per-child.
  * @param {Object[]} children `{label, child}` entries.

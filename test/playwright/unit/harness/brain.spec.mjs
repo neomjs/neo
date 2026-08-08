@@ -18,6 +18,7 @@ import {
     ORCHESTRATOR_ENTRY,
     probeFleetServing,
     probePort,
+    registerOwnedChild,
     resolveRealPath,
     startBrainChild,
     stopBrainChild,
@@ -565,5 +566,64 @@ test.describe('harness brain lifecycle', () => {
 
         expect(JSON.parse(readFileSync(path.join(workDir, 'run-state.json'), 'utf8')))
             .toEqual({children: [{entry, ownershipToken: 'token-111', pgid: 111}]})
+    })
+});
+
+test.describe('registerOwnedChild — teardown ownership is unconditional; Brain observation routes by flag', () => {
+    test('owner coverage is deterministic: observed AND unobserved children BOTH join the drain list', () => {
+        const
+            children = [],
+            watched  = [],
+            organism = new EventEmitter(),
+            uiFleet  = new EventEmitter(),
+            watch    = (child, label) => watched.push(label);
+
+        registerOwnedChild({children, entry: {child: organism, label: 'orchestrator'}, watch});
+        registerOwnedChild({children, entry: {child: uiFleet, label: 'fleet', observeBrain: false}, watch, onUnobservedExit: () => {}});
+
+        // The cycle-1 falsifier's inverse, pinned: the drain list carries EVERY registered child
+        // regardless of observation routing — ownership never narrows with the watcher.
+        expect(children.map(entry => entry.label)).toEqual(['orchestrator', 'fleet']);
+        expect(watched).toEqual(['orchestrator'])
+    });
+
+    test('an unobserved child\'s death reaches the diagnostic sink — and ONLY the sink', () => {
+        const
+            children = [],
+            logged   = [],
+            watched  = [],
+            uiFleet  = new EventEmitter();
+
+        registerOwnedChild({
+            children,
+            entry           : {child: uiFleet, label: 'fleet', observeBrain: false},
+            onUnobservedExit: summary => logged.push(summary),
+            watch           : (child, label) => watched.push(label)
+        });
+
+        uiFleet.emit('exit', null, 'SIGKILL');
+
+        // Fault visibility WITHOUT health mutation: the sink names the child and the signal,
+        // while the Brain-health watcher was never attached (a UI transport is not a Brain).
+        expect(logged).toEqual(['fleet: exit signal SIGKILL']);
+        expect(watched).toEqual([])
+    });
+
+    test('an observed child routes to the Brain watcher and never to the sink', () => {
+        const
+            children = [],
+            logged   = [],
+            watched  = [],
+            organism = new EventEmitter();
+
+        registerOwnedChild({
+            children,
+            entry           : {child: organism, label: 'orchestrator'},
+            onUnobservedExit: summary => logged.push(summary),
+            watch           : (child, label) => watched.push(label)
+        });
+
+        expect(watched).toEqual(['orchestrator']);
+        expect(logged).toEqual([])
     })
 });
