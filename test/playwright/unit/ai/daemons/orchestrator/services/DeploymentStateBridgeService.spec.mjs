@@ -178,6 +178,63 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
     });
 
+    test('the declared heap ceiling travels Config.Cmd → inspect → diagnostics through the OWNER', async () => {
+        // The helper that decides this is unit-tested elsewhere, and that proves only the decision.
+        // This drives `collectSnapshot()` itself, so it proves the WIRING: a correct selector that
+        // was never reached would pass every helper test and publish nothing. Both halves of the
+        // contract are asserted from one snapshot — the per-service `inspect` fields a consumer
+        // reads, and the diagnostics record that names who declared nothing.
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['kb-server', 'mc-server'],
+            includeLogs    : false
+        });
+        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, {
+            enabled        : true,
+            composeProject : null,
+            allowedServices: ['kb-server', 'mc-server'],
+            readOperations : ['inspect', 'stats']
+        });
+
+        // kb-server declares a ceiling; mc-server is Node with none. A third shape is deliberately
+        // absent: a NON-Node command is covered by the helper spec, and duplicating it here would
+        // add a row without adding a wire.
+        const commands = {
+            'kb-server': ['sh', '-c', 'node --max-old-space-size=768 /app/server.mjs'],
+            'mc-server': ['sh', '-c', 'node /app/server.mjs']
+        };
+
+        const runtimeAccessService = {
+            async readObserve(request) {
+                if (request.operation === 'inspect') {
+                    return {
+                        data: {
+                            Name  : `/${request.serviceKey}`,
+                            State : {Status: 'running', Health: {Status: 'healthy'}},
+                            Config: {Image: 'neo', Cmd: commands[request.serviceKey]}
+                        },
+                        proof: {operation: 'inspect'}
+                    };
+                }
+
+                return {data: statsSample({cpuPercent: 5, memoryPercent: 40}), proof: {operation: 'stats'}};
+            }
+        };
+
+        const snapshot = await createService({
+            runtimeAccessService,
+            diagnosisService: {diagnose: () => null}
+        }).collectSnapshot();
+
+        const byKey = Object.fromEntries(snapshot.services.map(entry => [entry.serviceKey, entry]));
+
+        expect(byKey['kb-server'].inspect).toMatchObject({declaredHeapCeilingMb: 768, nodeCommand: true});
+        expect(byKey['mc-server'].inspect).toMatchObject({declaredHeapCeilingMb: null, nodeCommand: true});
+
+        // The published record, read at the exact path a consumer would read it.
+        expect(snapshot.bridgeDiagnostics.serviceResolution.undeclaredHeapCeilingServices)
+            .toEqual(['mc-server']);
+    });
+
     test('adds bridge-level diagnosis when every service lookup fails', async () => {
         Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
             allowedServices: ['kb-server', 'mc-server'],
