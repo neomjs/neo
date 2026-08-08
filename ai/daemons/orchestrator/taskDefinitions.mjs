@@ -444,10 +444,12 @@ export function buildTaskDefinitions({
             command: nodeBin,
             args   : [
                 path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
-                '--apply'
+                '--apply',
+                '--json'
             ],
-            pidFileName    : 'graphlog-compaction.pid',
-            expectedCommand: 'compactGraphLog.mjs'
+            pidFileName      : 'graphlog-compaction.pid',
+            expectedCommand  : 'compactGraphLog.mjs',
+            captureStdoutJson: true
         },
         // Supervised one-shot: the orchestrator owns cadence + the heavy-maintenance lease and spawns this
         // child per due tick to run ONE temporal-pyramid aggregation cycle (L1 session + L2 daily) and exit.
