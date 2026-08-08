@@ -9,6 +9,11 @@ import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
 import logger               from '../../mcp/server/github-workflow/logger.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
 import {
+    SCAN_OUTCOME,
+    scanForConfidentialTokens
+}                           from '../shared/confidentiality/confidentialTokenScanner.mjs';
+import RepositoryService    from './RepositoryService.mjs';
+import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
     GET_PULL_REQUEST_REVIEW,
@@ -2374,9 +2379,34 @@ class PullRequestService extends Base {
             };
         }
 
+        // The confidentiality scan, BEFORE publication. Enforcement lives at the public-write
+        // boundary, where nothing can route around it; this copy is advisory and exists because
+        // an author wants the diagnosis while they still hold the draft, not after posting.
+        //
+        // Its outcome is reported as its own field rather than folded into `valid`. Collapsing them
+        // is the defect this ticket exists to end: a body that was never scanned returned the same
+        // bare pass as one that was scanned and was safe.
+        const confidentiality = scanForConfidentialTokens(body, {
+            denylist        : aiConfig.confidentialTokenDenylist,
+            targetVisibility: RepositoryService.getRepositoryVisibility()
+        });
+
+        if (confidentiality.outcome === SCAN_OUTCOME.blocked) {
+            return {
+                valid  : false,
+                error  : 'Confidential content',
+                code   : 'CONFIDENTIAL_TOKEN_IN_REVIEW_BODY',
+                confidentiality,
+                message: 'The review body contains a confidential token. Scrub it before posting; the public-write boundary will refuse it otherwise.'
+            };
+        }
+
         return {
-            valid   : true,
-            message : 'Review body matches the pr-review template structure.',
+            valid  : true,
+            message: 'Review body matches the pr-review template structure.',
+            // Never a bare pass. `unchecked` here means no denylist was configured, and the caller
+            // must be able to tell that from a body that was actually examined.
+            confidentiality,
             skill   : '.agents/skills/pr-review/SKILL.md',
             template: PR_REVIEW_TEMPLATE_PATH
         };
