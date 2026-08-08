@@ -105,9 +105,19 @@ class ChromaManager extends Base {
 
         // The test database must EXIST before the first lazy getOrCreateCollection, or the isolated
         // client connects to a database Chroma has never been told to create. Idempotent, and the
-        // production path is untouched because the toggle is false there. Same call and same ordering
-        // Memory Core uses — one isolation authority, not a second beside it.
-        if (this.connected && aiConfig.chromaUseTestDatabase === true) {
+        // production path is untouched because the resolved database is the production one there.
+        // Same call and same ordering Memory Core uses — one isolation authority, not a second
+        // beside it.
+        //
+        // The condition asks what the formula RESOLVED, not which toggle drove it. `chromaDatabase`
+        // selects the test database on `chromaUseTestDatabase || memoryCoreDbUseTestHarness`, so a
+        // guard naming one toggle is narrower than the selector it guards: under the
+        // template-resolver arm (`NEO_TEST_CONFIG_TEMPLATES` set, `UNIT_TEST_MODE` unset) the client
+        // resolved the per-worker test database while the ensure never ran, and the first lazy
+        // collection call targeted a database nothing had created. Comparing against
+        // `chromaDatabaseTest` tracks the formula automatically, so a future third toggle cannot
+        // reintroduce the drift.
+        if (this.connected && aiConfig.chromaDatabase === aiConfig.chromaDatabaseTest) {
             await ensureChromaTestDatabase({
                 host    : aiConfig.host,
                 port    : aiConfig.port,

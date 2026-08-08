@@ -33,6 +33,25 @@ test.describe('KB Chroma isolation — a unit spec cannot reach the live canonic
         expect(aiConfig.chromaUseTestDatabase || aiConfig.memoryCoreDbUseTestHarness).toBe(true);
     });
 
+    test('the ensure-guard condition tracks the FORMULA, not one toggle', () => {
+        // @neo-kimi-iris's finding, reviewing this PR. `connect()` guarded the ensure on
+        // `chromaUseTestDatabase === true`, while `chromaDatabase` selects the test database on
+        // `chromaUseTestDatabase || memoryCoreDbUseTestHarness`. A guard narrower than the selector
+        // it guards means the client resolves the test database and nothing creates it.
+        //
+        // This is non-vacuous ONLY because the two can disagree, so assert that directly rather
+        // than asserting the happy state: whenever the harness toggle alone selected test mode, the
+        // old condition was false while the resolved database was already the test one.
+        const resolvedTest = aiConfig.chromaDatabase === aiConfig.chromaDatabaseTest;
+
+        expect(resolvedTest, 'the suite must be running in test mode for this to mean anything').toBe(true);
+
+        if (aiConfig.chromaUseTestDatabase !== true) {
+            expect(aiConfig.memoryCoreDbUseTestHarness,
+                'test mode was selected by the harness toggle, which the OLD guard could not see').toBe(true)
+        }
+    });
+
     test('the resolved database is the TEST one, and it differs from production', () => {
         expect(aiConfig.chromaDatabase).toBe(aiConfig.chromaDatabaseTest);
         expect(aiConfig.chromaDatabase).not.toBe(aiConfig.chromaDatabaseProd);
