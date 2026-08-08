@@ -24,7 +24,7 @@ const report = (overrides = {}) => ({
     cockpitVisible  : true,
     cardCount       : 10,
     rosterState     : 'sample',
-    rosterLabel     : 'static roster · offline',
+    rosterLabel     : 'static roster',
     streamState     : 'sample',
     activityLabel   : 'sample · live feed pending',
     firstPaintMs    : 800,

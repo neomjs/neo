@@ -711,7 +711,9 @@ test.describe('resolveUiFleetTransport — the reuse|spawn|foreign OWNER COMPOSI
             spawn         : () => { calls.spawned++; throw new Error('spawn must not run on foreign') }
         });
 
-        expect(result).toEqual({fleetPort: 18083, mode: 'foreign-listener', up: false});
+        // the refusal travels IN the outcome: the cockpit banner renders the named case, so the
+        // shell log must not be the only place the reason exists
+        expect(result).toEqual({fleetPort: 18083, mode: 'foreign-listener', reason: 'bearer subject mismatch', up: false});
         expect(calls.spawned).toBe(0);
         expect(calls.registered).toEqual([]);
         expect(outcome).toEqual(['foreign-listener fleetPort=18083 reason=bearer subject mismatch'])

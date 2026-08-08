@@ -115,7 +115,7 @@ function adapterHead(state, labelText, labelSelector) {
  * @param {Object} options
  * @returns {Object}
  */
-function cockpitDom({rosterState='sample', rosterLabel='static roster · offline', streamState='sample', streamLabel='sample · live feed pending', cards=[{getClientRects: () => [{}]}], tourControls=[], cockpit={getClientRects: () => [{}]}} = {}) {
+function cockpitDom({rosterState='sample', rosterLabel='static roster', streamState='sample', streamLabel='sample · live feed pending', cards=[{getClientRects: () => [{}]}], tourControls=[], cockpit={getClientRects: () => [{}]}} = {}) {
     return {
         selectors: {
             '.fm-fleet-cockpit'                : cockpit,
@@ -174,7 +174,7 @@ test.describe('Electron harness preload capability', () => {
             cards              = [{getClientRects: () => [{}]}, {getClientRects: () => [{}]}],
             {intervals, sends} = await loadPreload({
                 clock,
-                dom                      : cockpitDom({cards, cockpit, rosterLabel: ' static roster · offline ', streamLabel: ' sample · live feed pending '}),
+                dom                      : cockpitDom({cards, cockpit, rosterLabel: ' static roster ', streamLabel: ' sample · live feed pending '}),
                 precedeWithUnrelatedTimer: true
             }),
             firstPaintReporter = getFirstPaintReporter(intervals);
@@ -188,7 +188,7 @@ test.describe('Electron harness preload capability', () => {
             cardCount           : 2,
             cockpitVisible      : true,
             rendererFirstPaintMs: 0,
-            rosterLabel         : 'static roster · offline',
+            rosterLabel         : 'static roster',
             rosterState         : 'sample',
             streamState         : 'sample',
             timedOut            : false,
@@ -219,7 +219,7 @@ test.describe('Electron harness preload capability', () => {
             cardCount           : 1,
             cockpitVisible      : true,
             rendererFirstPaintMs: null,
-            rosterLabel         : 'static roster · offline',
+            rosterLabel         : 'static roster',
             rosterState         : 'sample',
             streamState         : 'sample',
             timedOut            : true,

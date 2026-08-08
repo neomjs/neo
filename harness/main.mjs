@@ -93,7 +93,35 @@ const
 
 let
     brainBootPromise = Promise.resolve(null),
-    resolveHarnessAsset;
+    resolveHarnessAsset,
+    // The shell's transport-boot fact for the cockpit banner — attached to every brain-health
+    // answer so the renderer can name WHICH shell case is live instead of guessing "offline".
+    // `null` = no transport story this run (plain UI-only smoke spawns nothing by isolation
+    // contract); `{phase: 'starting'}` while a boot is in flight; the normalized settle after.
+    uiTransportFact = null;
+
+/**
+ * @summary Normalizes a settled transport/Brain boot outcome into the wire-safe banner fact.
+ *
+ * Every boot path resolves a slightly different shape (`bootUiFleetTransport`'s three-outcome
+ * plan, `bootProductBrain`'s plan modes, `bootSmokeBrain`'s profile record, the catch handlers'
+ * `{error, up: false}`); the cockpit needs ONE shape. Deliberately no bearer, no paths — ports and
+ * harness-authored refusal/error strings only, rendered through the banner's text sink.
+ * @param {Object|null} boot The settled boot outcome, or `null` (no transport story).
+ * @returns {Object|null}
+ */
+function normalizeTransportFact(boot) {
+    if (!boot) return null;
+
+    return {
+        error    : boot.error     ?? null,
+        fleetPort: boot.fleetPort ?? null,
+        mode     : boot.mode      ?? null,
+        phase    : 'settled',
+        reason   : boot.reason    ?? null,
+        up       : boot.up === true
+    }
+}
 
 // Packaged mode: every parent-side child spawn (Brain children, the config resolver) runs on the
 // bundled Electron runtime — the packaged env fragments add ELECTRON_RUN_AS_NODE per child.
@@ -936,6 +964,12 @@ async function bootProductBrain() {
         }),
         {mode}    = plan;
 
+    // The selected plan goes on record BEFORE anything spawns: a boot that fails past this point
+    // logs HARNESS_BRAIN_BOOT_FAILED with no plan context of its own, and diagnosing "which mode
+    // was it attempting" from silence cost a live iteration run. Success keeps the richer
+    // HARNESS_BRAIN_MODE line below.
+    console.log(`HARNESS_BRAIN_PLAN ${JSON.stringify({fleetPort, mode, planeBase: plan.planeBase ?? null, startFleet: !!plan.startFleet, startOrchestrator: !!plan.startOrchestrator})}`);
+
     if (plan.startOrchestrator) {
         // Coexistence guard (dev machines): a packaged app's own-mode organism runs the DEFAULT
         // ports — a checkout Brain's Chroma already on that port would be REAPED by the spawned
@@ -1114,7 +1148,11 @@ app.whenReady().then(async () => {
             throw new Error('brain-health: untrusted sender')
         }
 
-        return appLifecycle.brainHealth
+        // Daemon truth plus the shell's transport-boot fact on one pull: the cockpit's banner
+        // needs BOTH — the organism's health for the daemon line, the transport fact for honest
+        // cold-case guidance (never "start it: npm run ai:fleet-server" inside a shell that
+        // self-supplies). No new channel: the fact rides the wire that already crosses.
+        return {...appLifecycle.brainHealth, transport: uiTransportFact}
     });
 
     const win1 = createHarnessWindow(APP_URL);
@@ -1128,6 +1166,13 @@ app.whenReady().then(async () => {
         appLifecycle.setBrainState('degraded')
     }
 
+    // The banner fact enters 'starting' exactly when a transport boot is actually in flight —
+    // brain mode boots the organism's fleet leg, UI-only product self-supplies. Plain UI-only
+    // smoke spawns nothing by isolation contract and keeps `null`: no transport story to tell.
+    if (brainMode || !diagnosticMode) {
+        uiTransportFact = {phase: 'starting'}
+    }
+
     brainBootPromise = brainMode
         ? (diagnosticMode ? bootSmokeBrain() : bootProductBrain())
             .catch(error => {
@@ -1136,6 +1181,7 @@ app.whenReady().then(async () => {
             })
             .then(boot => {
                 appLifecycle.settleBrainBoot(boot.up === true);
+                uiTransportFact = normalizeTransportFact(boot);
                 return boot
             })
         : (diagnosticMode
@@ -1144,10 +1190,15 @@ app.whenReady().then(async () => {
             ? Promise.resolve(null)
             // UI-only product path: self-supply the transport. Tray Brain state is deliberately
             // untouched — a fleet transport is not a Brain claim.
-            : bootUiFleetTransport().catch(error => {
-                console.log('HARNESS_UI_FLEET_BOOT_FAILED ' + error.message);
-                return {error: error.message, up: false}
-            }));
+            : bootUiFleetTransport()
+                .catch(error => {
+                    console.log('HARNESS_UI_FLEET_BOOT_FAILED ' + error.message);
+                    return {error: error.message, up: false}
+                })
+                .then(boot => {
+                    uiTransportFact = normalizeTransportFact(boot);
+                    return boot
+                }));
 
     if (!smokeMode) {
         try {

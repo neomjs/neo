@@ -302,7 +302,11 @@ class FleetGrid extends Container {
 
         // header — updated in place (the health bar is store-bound and tallies itself)
         me.getReference('fleet-title').text = `Fleet · ${rank.total} agents`;
-        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'static roster · offline' : '';
+        // 'static roster' without an offline claim: sample only proves WHICH data renders, never
+        // WHY — the transport may be answering (empty registry) or silent, and the spine banner is
+        // the surface that knows which. A badge asserting "offline" against a replying server lies
+        // one level below the banner that used to tell the same lie.
+        me.getReference('fleet-stale').text = adapterState === 'stale' ? 'stale — reconnecting' : adapterState === 'sample' ? 'static roster' : '';
         me.getReference('fleet-head').cls   = ['fm-fleet-head', `is-${adapterState}`];
 
         // card set — rebuilt (the visible cards change with the roster)

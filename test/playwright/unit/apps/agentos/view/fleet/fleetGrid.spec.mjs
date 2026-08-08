@@ -318,7 +318,10 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         const grid = Neo.create(FleetGrid, {appName, adapterState: 'sample', store: makeStore(roster(['ok']))});
 
         expect(head(grid).cls).toContain('is-sample');
-        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('static roster · offline');
+        // provenance only, no offline claim: sample proves WHICH data renders, never WHY — the
+        // spine banner owns the why; a badge asserting "offline" against a replying server would
+        // repeat the lie the banner used to tell
+        expect(head(grid).items.find(i => i.cls.includes('fm-fleet-stale')).text).toBe('static roster');
         expect(agentCards(grid).length).toBe(1);
 
         grid.destroy()
