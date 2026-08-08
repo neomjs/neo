@@ -35,6 +35,14 @@ function createTestService() {
             pidFileName      : 'kb-sync.pid',
             expectedCommand  : 'syncKnowledgeBase.mjs',
             captureStdoutJson: true
+        },
+        'graphlog-compaction': {
+            label            : 'GraphLog compaction',
+            command          : 'node',
+            args             : ['compactGraphLog.mjs', '--apply', '--json'],
+            pidFileName      : 'graphlog-compaction.pid',
+            expectedCommand  : 'compactGraphLog.mjs',
+            captureStdoutJson: true
         }
     };
 
@@ -457,6 +465,42 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
             status  : 'completed',
             taskName: 'kbSync',
             details : expect.objectContaining({added: 2566, deleted: 1513})
+        }));
+    });
+
+    test('#16681: GraphLog safety-blocked stdout records skipped, not false-green completed', () => {
+        const { service, stateCalls, taskOutcomes } = createTestService();
+        const manualChild                           = createManualChild();
+
+        service.spawnFn = () => manualChild.child;
+
+        expect(service.runTask('graphlog-compaction', 'periodic-graphlog-compaction:86400000')).toBe(true);
+        manualChild.writeStdout(JSON.stringify({
+            success     : true,
+            deferred    : true,
+            status      : 'safety-blocked',
+            reason      : 'unknown-consumer-watermark',
+            beforeRows  : 3200403,
+            afterRows   : 3200403,
+            cutoffLogId : 0,
+            eligibleRows: 0,
+            deletedRows : 0
+        }));
+        manualChild.close(0);
+
+        expect(stateCalls).toContainEqual({action: 'skipped', taskName: 'graphlog-compaction'});
+        expect(stateCalls).not.toContainEqual({action: 'completed', taskName: 'graphlog-compaction'});
+        expect(taskOutcomes).toContainEqual(expect.objectContaining({
+            status  : 'skipped',
+            taskName: 'graphlog-compaction',
+            details : expect.objectContaining({
+                reasonCode : 'unknown-consumer-watermark',
+                childReason: 'unknown-consumer-watermark',
+                status     : 'safety-blocked',
+                deferred   : true,
+                beforeRows : 3200403,
+                afterRows  : 3200403
+            })
         }));
     });
 

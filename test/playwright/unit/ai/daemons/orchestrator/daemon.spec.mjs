@@ -125,9 +125,11 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks['graphlog-compaction'].command).toBe('/test/node');
         expect(tasks['graphlog-compaction'].args).toEqual([
             path.join(scriptDir, 'maintenance', 'compactGraphLog.mjs'),
-            '--apply'
+            '--apply',
+            '--json'
         ]);
         expect(tasks['graphlog-compaction'].expectedCommand).toBe('compactGraphLog.mjs');
+        expect(tasks['graphlog-compaction'].captureStdoutJson).toBe(true);
     });
 
     test('memory-summary backfill CLI is guarded by the shared heavy-maintenance lease', () => {
