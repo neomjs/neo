@@ -223,9 +223,11 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {String} options.serviceKey Allowlisted compose service key.
      * @param {'inspect'|'logs'|'stats'} options.operation Read operation.
      * @param {Number} [options.tail] Log tail count for `logs`.
+     * @param {String|Number} [options.since] Lower bound of the incarnation interval for `logs`.
+     * @param {String|Number} [options.until] Upper bound of the incarnation interval for `logs`.
      * @returns {Promise<Object>} Observation payload plus structured proof metadata.
      */
-    async readObserve({serviceKey, operation = 'inspect', tail} = {}) {
+    async readObserve({serviceKey, operation = 'inspect', tail, since, until} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('read-observe', operation);
@@ -237,7 +239,7 @@ export class DeploymentRuntimeAccessService extends Base {
         }
 
         if (operation === 'logs') {
-            return this.readTargetLogs(target, {tail});
+            return this.readTargetLogs(target, {tail, since, until});
         }
 
         if (operation === 'stats') {
@@ -644,16 +646,40 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {Number} [options.tail] Log tail count.
      * @returns {Promise<Object>}
      */
-    async readTargetLogs(target, {tail} = {}) {
-        const tailCount = tail ?? this.configValues.logTail ?? 200,
-              response  = await this.dockerRequest({
-                  method: 'GET',
-                  path  : `/containers/${encodeURIComponent(target.containerId)}/logs?stdout=1&stderr=1&tail=${encodeURIComponent(String(tailCount))}`
-              });
+    async readTargetLogs(target, {tail, since, until} = {}) {
+        const
+            tailCount     = tail ?? this.configValues.logTail ?? 200,
+            // The interval is what makes the slice attributable. Docker's log stream spans
+            // restarts, so an unbounded tail can carry a fatal line from a PREVIOUS incarnation —
+            // `since` removes that poison, and `until` additionally excludes output from an
+            // auto-restart that races after the inspect this interval was derived from. Both
+            // bounds or none: a half-bounded slice is not the run the stopped fact names.
+            sinceSeconds  = toUnixSeconds(since),
+            untilSeconds  = toUnixSeconds(until),
+            bounded       = sinceSeconds !== null && untilSeconds !== null && untilSeconds >= sinceSeconds,
+            query         = [
+                'stdout=1',
+                'stderr=1',
+                `tail=${encodeURIComponent(String(tailCount))}`,
+                ...(bounded ? [`since=${sinceSeconds}`, `until=${untilSeconds}`] : [])
+            ].join('&'),
+            response      = await this.dockerRequest({
+                method: 'GET',
+                path  : `/containers/${encodeURIComponent(target.containerId)}/logs?${query}`
+            });
 
         return {
-            ok        : true,
-            data      : {logs: response.body, tail: tailCount},
+            ok   : true,
+            // The APPLIED bounds are echoed, never the requested ones. A consumer may only treat a
+            // slice as incarnation-bounded on the strength of this receipt — a caller-supplied
+            // boolean would let the claim originate at the layer that wants it to be true.
+            data : {
+                appliedSince: bounded ? sinceSeconds : null,
+                appliedUntil: bounded ? untilSeconds : null,
+                bounded,
+                logs        : response.body,
+                tail        : tailCount
+            },
             proof     : this.createProofMetadata({envelope: 'read-observe', operation: 'logs', target}),
             statusCode: response.statusCode
         };
@@ -971,3 +997,23 @@ function createRuntimeAccessError({Type = Error, reason, message, code = null, d
 }
 
 export default Neo.setupClass(DeploymentRuntimeAccessService);
+
+/**
+ * @summary Converts a Docker timestamp to whole Unix seconds, or null when it cannot be trusted.
+ *
+ * Docker reports an unset time as the zero instant (`0001-01-01T00:00:00Z`), which parses to a
+ * valid but meaningless epoch — so a naive parse would hand the log query a bound that looks real.
+ * Anything non-positive is therefore refused rather than passed through, which is what keeps the
+ * interval fail-closed instead of silently unbounded.
+ * @param {String|Number|null} value
+ * @returns {Number|null}
+ */
+function toUnixSeconds(value) {
+    if (value === null || value === undefined) return null;
+
+    const parsed = typeof value === 'number' ? value * 1000 : Date.parse(value);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+
+    return Math.floor(parsed / 1000)
+}

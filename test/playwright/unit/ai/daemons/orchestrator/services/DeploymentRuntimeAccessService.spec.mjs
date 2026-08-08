@@ -168,12 +168,69 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         const logs  = await service.readObserve({serviceKey: 'mc-server', operation: 'logs', tail: 25});
         const stats = await service.readObserve({serviceKey: 'mc-server', operation: 'stats'});
 
-        expect(logs.data).toEqual({logs: 'service booted', tail: 25});
+        // No interval requested, so the receipt must say so — `bounded: false` is what keeps a
+        // consumer from treating an unbounded slice as attributable to one incarnation.
+        expect(logs.data).toEqual({
+            appliedSince: null,
+            appliedUntil: null,
+            bounded     : false,
+            logs        : 'service booted',
+            tail        : 25
+        });
         expect(logs.proof.auditLabel).toBe('read-observe:logs');
         expect(stats.data).toEqual({memory_stats: {usage: 42}});
         expect(stats.proof.auditLabel).toBe('read-observe:stats');
         expect(calls.some(call => call.path === '/containers/container-abc/logs?stdout=1&stderr=1&tail=25')).toBe(true);
         expect(calls.some(call => call.path === '/containers/container-abc/stats?stream=false')).toBe(true);
+    });
+
+    test('a valid incarnation interval reaches the Docker query AND is echoed as applied', async () => {
+        const {service, calls} = createService({logText: 'FATAL ERROR'});
+
+        const logs = await service.readObserve({
+            serviceKey: 'mc-server',
+            operation : 'logs',
+            since     : '2026-08-08T20:00:00.000Z',
+            tail      : 25,
+            until     : '2026-08-08T20:05:00.000Z'
+        });
+
+        // The URL carries the interval — the bound is applied by the daemon, not simulated here.
+        expect(calls.some(call => call.path.includes('since=1786219200') && call.path.includes('until=1786219500')))
+            .toBe(true);
+
+        // And the receipt proves what was applied, which is the ONLY thing a consumer may trust.
+        expect(logs.data).toMatchObject({
+            appliedSince: 1786219200,
+            appliedUntil: 1786219500,
+            bounded     : true
+        });
+    });
+
+    test('an unusable bound stays unbounded rather than half-applied', async () => {
+        const {service, calls} = createService({logText: 'x'});
+
+        // Docker reports an unset time as the zero instant, which parses to a valid but meaningless
+        // epoch. Passing that through would hand the query a bound that looks real.
+        const zeroInstant = await service.readObserve({
+            serviceKey: 'mc-server',
+            operation : 'logs',
+            since     : '0001-01-01T00:00:00Z',
+            until     : '0001-01-01T00:00:00Z'
+        });
+
+        expect(zeroInstant.data.bounded, 'the zero instant is not a usable bound').toBe(false);
+
+        // A running container has a start but no finish — half an interval is not the incarnation.
+        const halfOpen = await service.readObserve({
+            serviceKey: 'mc-server',
+            operation : 'logs',
+            since     : '2026-08-08T20:00:00.000Z',
+            until     : null
+        });
+
+        expect(halfOpen.data.bounded, 'a missing upper bound cannot exclude a racing restart').toBe(false);
+        expect(calls.every(call => !call.path.includes('since=')), 'no partial interval reaches the query').toBe(true);
     });
 
     test('applyLifecycle restart uses the lifecycle-write envelope and POSTs to Docker restart', async () => {

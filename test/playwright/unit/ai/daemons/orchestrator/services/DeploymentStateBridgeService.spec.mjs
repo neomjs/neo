@@ -140,9 +140,17 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
 
         expect(diagnoseArgs, 'the bridge must hand diagnosis its heap-attribution evidence').toMatchObject({
             declaredHeapCeilingMb: null,
-            logs                 : {text: expect.any(String)},
-            nodeCommand          : false
+            // The incarnation bound must travel WITH the slice. This fixture's container is running,
+            // so it has no FinishedAt and therefore no interval — `false` here is the correct answer
+            // and the one that keeps diagnosis from attributing a death that has not happened.
+            logs       : {incarnationBounded: false, text: expect.any(String)},
+            nodeCommand: false
         });
+
+        // The same summarized receipt reaches diagnosis AND publication — one object, not two
+        // derivations that could drift apart.
+        expect(snapshot.services[0].logs.incarnationBounded).toBe(false);
+        expect(snapshot.services[0].logs.text).toBe(diagnoseArgs.logs.text);
 
         expect(calls.map(call => call.operation)).toEqual(['inspect', 'stats', 'logs']);
         expect(snapshot.services).toHaveLength(1);

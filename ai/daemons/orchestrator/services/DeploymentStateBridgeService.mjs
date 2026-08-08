@@ -389,7 +389,15 @@ export class DeploymentStateBridgeService extends Base {
         const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge;
 
         if (bridgeConfig.includeLogs) {
-            logs = await read('logs', {tail: bridgeConfig.logTail});
+            // The interval is derived from the SAME inspect this snapshot publishes, so the slice
+            // and the stopped fact describe one incarnation. A running container has no
+            // `FinishedAt`, so it yields no interval and the read stays unbounded — correct, since
+            // there is no death to attribute yet.
+            logs = await read('logs', {
+                since: inspect?.State?.StartedAt  ?? null,
+                tail : bridgeConfig.logTail,
+                until: inspect?.State?.FinishedAt ?? null
+            });
         }
 
         if (stats) {
@@ -1169,10 +1177,17 @@ function summarizeLogs(logs, maxBytes) {
     const bounded = boundUtf8Tail(logs.logs, maxBytes);
 
     return {
-        tail     : Number.isFinite(logs.tail) ? logs.tail : null,
-        text     : bounded.text,
-        truncated: bounded.truncated,
-        maxBytes : bounded.maxBytes
+        // `incarnationBounded` is set ONLY from the producer's echoed receipt — never from a
+        // caller-supplied flag and never inferred here. A consumer that attributes a death to this
+        // slice is trusting that the daemon actually applied the interval, so the claim has to
+        // originate where it was applied rather than where it is wanted.
+        appliedSince      : Number.isFinite(logs.appliedSince) ? logs.appliedSince : null,
+        appliedUntil      : Number.isFinite(logs.appliedUntil) ? logs.appliedUntil : null,
+        incarnationBounded: logs.bounded === true,
+        maxBytes          : bounded.maxBytes,
+        tail              : Number.isFinite(logs.tail) ? logs.tail : null,
+        text              : bounded.text,
+        truncated         : bounded.truncated
     };
 }
 
