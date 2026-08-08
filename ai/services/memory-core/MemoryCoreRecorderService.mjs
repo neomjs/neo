@@ -17,6 +17,12 @@ const SENSITIVE_PAYLOAD_KEYS = new Set([
 ]);
 
 /**
+ * @summary Maximum SQLite lock wait allowed on the best-effort telemetry path.
+ * @type {Number}
+ */
+export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = 50;
+
+/**
  * @summary Persists redacted Memory Core MCP tool-call telemetry.
  *
  * This is the Memory Core sibling of the Knowledge Base and Neural Link recorder services,
@@ -70,7 +76,10 @@ class MemoryCoreRecorderService extends Base {
 
             const Database = (await import('better-sqlite3')).default;
 
-            this.db = new Database(dbPath, {verbose: null});
+            this.db = new Database(dbPath, {
+                timeout: TOOL_TELEMETRY_BUSY_TIMEOUT_MS,
+                verbose: null
+            });
             if (dbPath !== ':memory:') {
                 this.db.pragma('journal_mode = WAL');
             }
@@ -100,6 +109,7 @@ class MemoryCoreRecorderService extends Base {
                 tool          TEXT NOT NULL,
                 success       INTEGER DEFAULT 0,
                 duration_ms   INTEGER,
+                completed_at  INTEGER,
                 failure_stage TEXT,
                 error_code    TEXT,
                 error_name    TEXT,
@@ -112,6 +122,38 @@ class MemoryCoreRecorderService extends Base {
             CREATE INDEX IF NOT EXISTS idx_mc_tool_call_log_success   ON mc_tool_call_log(success);
             CREATE INDEX IF NOT EXISTS idx_mc_tool_call_log_session   ON mc_tool_call_log(session_id);
         `);
+
+        const columns = new Set(
+            this.db.prepare('PRAGMA table_info(mc_tool_call_log)').all().map(column => column.name)
+        );
+
+        if (!columns.has('completed_at')) {
+            this.db.exec('ALTER TABLE mc_tool_call_log ADD COLUMN completed_at INTEGER;');
+        }
+
+        this.db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_mc_tool_call_log_completed_at
+                ON mc_tool_call_log(completed_at);
+        `);
+
+        const hasCompletedLegacyRow = this.db.prepare(`
+            SELECT 1
+              FROM mc_tool_call_log
+             WHERE completed_at IS NULL
+               AND duration_ms IS NOT NULL
+             LIMIT 1
+        `).get();
+
+        if (hasCompletedLegacyRow) {
+            // Rows written before the start boundary shipped are completed calls. The existence
+            // probe keeps this idempotent across a crash between ALTER TABLE and the backfill.
+            this.db.prepare(`
+                UPDATE mc_tool_call_log
+                   SET completed_at = timestamp + COALESCE(duration_ms, 0)
+                 WHERE completed_at IS NULL
+                   AND duration_ms IS NOT NULL
+            `).run();
+        }
     }
 
     /**
@@ -172,7 +214,86 @@ class MemoryCoreRecorderService extends Base {
     }
 
     /**
-     * Persists one redacted tool-call telemetry row. Best-effort only.
+     * Builds the shared redacted row shape for both the start and completion boundaries.
+     * @param {Object} entry Tool-call metadata.
+     * @param {Number|null} completedAt Completion timestamp, or null while the call is in flight.
+     * @returns {Object}
+     */
+    buildToolCallRecord(entry = {}, completedAt = null) {
+        const
+            timestamp = Number.isFinite(entry.timestamp) ? entry.timestamp : (Number.isFinite(entry.t0) ? entry.t0 : Date.now()),
+            context   = RequestContextService.get?.() || {},
+            agentId   = context.agentIdentityNodeId || process.env.NEO_AGENT_IDENTITY || process.env.NEO_AGENT_ID || process.env.USER || 'unknown',
+            userId    = context.userId || null,
+            sessionId = entry.args?.sessionId || context.sessionId || process.env.NEO_SESSION_ID || null,
+            duration  = completedAt === null
+                ? null
+                : (Number.isFinite(entry.duration_ms)
+                    ? Math.max(0, entry.duration_ms)
+                    : Math.max(0, completedAt - (entry.t0 || timestamp))),
+            error    = entry.error || null,
+            id       = entry.id || crypto.randomUUID?.() || `${timestamp}-${Math.random()}`,
+            sequence = entry.sequence_id || `${agentId}_${timestamp}_${id}`;
+
+        return {
+            id,
+            agent_id     : agentId,
+            user_id      : userId,
+            session_id   : sessionId,
+            sequence_id  : sequence,
+            timestamp,
+            tool         : entry.toolName || entry.tool || 'unknown',
+            success      : entry.success ? 1 : 0,
+            duration_ms  : duration,
+            completed_at : completedAt,
+            failure_stage: entry.failureStage || entry.failure_stage || null,
+            error_code   : error?.code || null,
+            error_name   : error?.name || null,
+            error_message: this.buildErrorMessage(error, entry.args),
+            args_bytes   : this.measureBytes(entry.args),
+            result_bytes : this.measureBytes(entry.result)
+        };
+    }
+
+    /**
+     * Persists the redacted start boundary before Memory Core begins tool dispatch.
+     *
+     * A call that wedges the process never reaches the existing completion-only recorder. The
+     * unfinished row is therefore the durable evidence: tool identity, start time, and opaque call
+     * id, with arguments measured but never stored. Best-effort failure keeps dispatch available.
+     *
+     * @param {Object} entry Tool-call metadata.
+     * @returns {String|null} Opaque call id used to complete the same row.
+     */
+    beginToolCall(entry = {}) {
+        if (!config.toolTelemetry.enabled || !this.db) return null;
+
+        try {
+            const record = this.buildToolCallRecord(entry);
+
+            this.db.prepare(`
+                INSERT INTO mc_tool_call_log (
+                    id, agent_id, user_id, session_id, sequence_id, timestamp,
+                    tool, success, duration_ms, completed_at, failure_stage, error_code,
+                    error_name, error_message, args_bytes, result_bytes
+                )
+                VALUES (
+                    @id, @agent_id, @user_id, @session_id, @sequence_id, @timestamp,
+                    @tool, @success, @duration_ms, @completed_at, @failure_stage, @error_code,
+                    @error_name, @error_message, @args_bytes, @result_bytes
+                )
+            `).run(record);
+
+            return record.id;
+        } catch (err) {
+            logger.warn('[MemoryCoreRecorderService] Failed to persist tool start telemetry:', err.message);
+            return null;
+        }
+    }
+
+    /**
+     * Persists one redacted tool-call completion, updating its start row when available.
+     * Best-effort only.
      * @param {Object} entry Tool-call metadata.
      * @returns {void}
      */
@@ -180,47 +301,29 @@ class MemoryCoreRecorderService extends Base {
         if (!config.toolTelemetry.enabled || !this.db) return;
 
         try {
-            const
-                timestamp = Number.isFinite(entry.timestamp) ? entry.timestamp : (Number.isFinite(entry.t0) ? entry.t0 : Date.now()),
-                context   = RequestContextService.get?.() || {},
-                agentId   = context.agentIdentityNodeId || process.env.NEO_AGENT_IDENTITY || process.env.NEO_AGENT_ID || process.env.USER || 'unknown',
-                userId    = context.userId || null,
-                sessionId = entry.args?.sessionId || context.sessionId || process.env.NEO_SESSION_ID || null,
-                duration  = Number.isFinite(entry.duration_ms)
-                    ? Math.max(0, entry.duration_ms)
-                    : Math.max(0, Date.now() - (entry.t0 || timestamp)),
-                error    = entry.error || null,
-                id       = entry.id || crypto.randomUUID?.() || `${timestamp}-${Math.random()}`,
-                sequence = entry.sequence_id || `${agentId}_${timestamp}_${id}`;
+            const record = this.buildToolCallRecord(entry, Date.now());
 
             this.db.prepare(`
                 INSERT INTO mc_tool_call_log (
                     id, agent_id, user_id, session_id, sequence_id, timestamp,
-                    tool, success, duration_ms, failure_stage, error_code,
+                    tool, success, duration_ms, completed_at, failure_stage, error_code,
                     error_name, error_message, args_bytes, result_bytes
                 )
                 VALUES (
                     @id, @agent_id, @user_id, @session_id, @sequence_id, @timestamp,
-                    @tool, @success, @duration_ms, @failure_stage, @error_code,
+                    @tool, @success, @duration_ms, @completed_at, @failure_stage, @error_code,
                     @error_name, @error_message, @args_bytes, @result_bytes
                 )
-            `).run({
-                id,
-                agent_id     : agentId,
-                user_id      : userId,
-                session_id   : sessionId,
-                sequence_id  : sequence,
-                timestamp,
-                tool         : entry.toolName || entry.tool || 'unknown',
-                success      : entry.success ? 1 : 0,
-                duration_ms  : duration,
-                failure_stage: entry.failureStage || entry.failure_stage || null,
-                error_code   : error?.code || null,
-                error_name   : error?.name || null,
-                error_message: this.buildErrorMessage(error, entry.args),
-                args_bytes   : this.measureBytes(entry.args),
-                result_bytes : this.measureBytes(entry.result)
-            });
+                ON CONFLICT(id) DO UPDATE SET
+                    success       = excluded.success,
+                    duration_ms   = excluded.duration_ms,
+                    completed_at  = excluded.completed_at,
+                    failure_stage = excluded.failure_stage,
+                    error_code    = excluded.error_code,
+                    error_name    = excluded.error_name,
+                    error_message = excluded.error_message,
+                    result_bytes  = excluded.result_bytes
+            `).run(record);
         } catch (err) {
             logger.warn('[MemoryCoreRecorderService] Failed to persist tool telemetry:', err.message);
         }
@@ -238,11 +341,11 @@ class MemoryCoreRecorderService extends Base {
         limit   = config.toolTelemetry.aggregateLimit
     } = {}) {
         if (!config.toolTelemetry.enabled) {
-            return {status: 'disabled', sinceMs, limit, totalCalls: 0, tools: []};
+            return {status: 'disabled', sinceMs, limit, totalCalls: 0, totalUnfinished: 0, tools: [], unfinishedCalls: []};
         }
 
         if (!this.db) {
-            return {status: 'unavailable', sinceMs, limit, totalCalls: 0, tools: []};
+            return {status: 'unavailable', sinceMs, limit, totalCalls: 0, totalUnfinished: 0, tools: [], unfinishedCalls: []};
         }
 
         this.ensureSchema();
@@ -261,6 +364,7 @@ class MemoryCoreRecorderService extends Base {
                        MAX(timestamp) AS last_seen_at
                   FROM mc_tool_call_log
                  WHERE timestamp >= @sinceTs
+                   AND completed_at IS NOT NULL
                  GROUP BY tool
                  ORDER BY calls DESC, tool ASC
                  LIMIT @limit
@@ -269,13 +373,30 @@ class MemoryCoreRecorderService extends Base {
                 SELECT COUNT(*) AS total
                   FROM mc_tool_call_log
                  WHERE timestamp >= @sinceTs
-            `).get({sinceTs})?.total || 0;
+                   AND completed_at IS NOT NULL
+            `).get({sinceTs})?.total || 0,
+            totalUnfinished = this.db.prepare(`
+                SELECT COUNT(*) AS total
+                  FROM mc_tool_call_log
+                 WHERE timestamp >= @sinceTs
+                   AND completed_at IS NULL
+            `).get({sinceTs})?.total || 0,
+            unfinishedRows = this.db.prepare(`
+                SELECT id, timestamp, tool
+                  FROM mc_tool_call_log
+                 WHERE timestamp >= @sinceTs
+                   AND completed_at IS NULL
+                 ORDER BY timestamp ASC, id ASC
+                 LIMIT @limit
+            `).all({sinceTs, limit: safeLimit}),
+            now = Date.now();
 
         return {
             status    : 'ok',
             sinceMs   : safeSinceMs,
             limit     : safeLimit,
             totalCalls: total,
+            totalUnfinished,
             tools     : rows.map(row => ({
                 tool         : row.tool,
                 calls        : row.calls,
@@ -284,6 +405,12 @@ class MemoryCoreRecorderService extends Base {
                 avgDurationMs: row.avg_duration_ms ?? null,
                 maxDurationMs: row.max_duration_ms ?? null,
                 lastSeenAt   : row.last_seen_at ? new Date(row.last_seen_at).toISOString() : null
+            })),
+            unfinishedCalls: unfinishedRows.map(row => ({
+                callId   : row.id,
+                tool     : row.tool,
+                startedAt: new Date(row.timestamp).toISOString(),
+                elapsedMs: Math.max(0, now - row.timestamp)
             }))
         };
     }
