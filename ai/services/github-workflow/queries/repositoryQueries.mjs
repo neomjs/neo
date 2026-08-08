@@ -20,6 +20,7 @@ export const GET_VIEWER_PERMISSION = `
     $repo: String!
   ) {
     repository(owner: $owner, name: $repo) {
+      isPrivate
       viewerPermission
     }
   }

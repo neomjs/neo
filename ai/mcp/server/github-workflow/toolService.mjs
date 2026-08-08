@@ -14,6 +14,11 @@ import ToolService                                                              
 import {assertExpectedIdentity as assertExpectedGitHubIdentity, IdentityAssertionCode} from '../../../graph/assertExpectedIdentity.mjs';
 import RequestContextService                                                           from '../shared/services/RequestContextService.mjs';
 import config                                                                          from './config.mjs';
+import {
+    SCAN_REASON,
+    isPublishBlocked,
+    scanForConfidentialTokens
+}                                                                                      from '../../../services/shared/confidentiality/confidentialTokenScanner.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
@@ -312,6 +317,82 @@ function isPublicGitHubWriteTool(toolName) {
 }
 
 /**
+ * @summary Collects every string an argument tree could publish.
+ *
+ * Deliberately not a field allow-list (`body`, `title`, …). A denylist of *fields* has the same
+ * failure mode as the hand-written surface list this guard replaces: the field added next year is
+ * unscanned and silent. Walking every string is the only version whose coverage does not decay, and
+ * the cost is a shallow walk over an argument object.
+ *
+ * @param {*} value Argument tree.
+ * @param {Number} [depth=0] Recursion bound; argument trees are shallow and a cycle must not hang a write.
+ * @returns {String[]}
+ * @private
+ */
+function collectPublishableStrings(value, depth = 0) {
+    if (depth > 6) return [];
+    if (typeof value === 'string') return [value];
+    if (Array.isArray(value)) return value.flatMap(item => collectPublishableStrings(item, depth + 1));
+
+    if (value && typeof value === 'object') {
+        return Object.values(value).flatMap(item => collectPublishableStrings(item, depth + 1));
+    }
+
+    return []
+}
+
+/**
+ * @summary Refuses a public write whose payload carries a confidential token.
+ *
+ * Sits on the SAME derived set as the identity guard, which is the point: `PUBLIC_GITHUB_WRITE_TOOLS`
+ * is computed from the access classification, and `assertNoUnclassifiedGitHubTools` already fails
+ * closed on a tool that forgets to classify itself. So a public-write tool added later is scanned
+ * automatically. Wiring this into each service by hand would leave the next surface unguarded and
+ * silent — the same recurrence mechanism this guard exists to end, one level up.
+ *
+ * The scan resolves the TARGET's visibility rather than reading it off the tool class. `owner` is an
+ * overridable leaf, so "mutates public GitHub state" describes what the tool does to github.com, not
+ * whether the repository is public — and a private repository is the sanctioned home for client
+ * specifics. Blocking there would refuse the one surface allowed to carry them.
+ *
+ * @param {Function} delegate Wrapped handler.
+ * @param {Object} [options]
+ * @param {Function} [options.resolveDenylist] Injectable for tests.
+ * @param {Function} [options.resolveVisibility] Injectable for tests.
+ * @returns {Function}
+ * @private
+ */
+function buildConfidentialContentGuard(delegate, {
+    resolveDenylist   = () => config.confidentialTokenDenylist,
+    resolveVisibility = () => RepositoryService.getRepositoryVisibility()
+} = {}) {
+    return async function confidentialContentGuard(...args) {
+        const result = scanForConfidentialTokens(collectPublishableStrings(args).join('\n'), {
+            denylist        : resolveDenylist(),
+            targetVisibility: resolveVisibility()
+        });
+
+        if (isPublishBlocked(result)) {
+            return {
+                error: 'Confidential content',
+                code : 'CONFIDENTIAL_TOKEN_IN_PUBLIC_WRITE',
+                // The reason, not just the verdict. `target-unknown` means visibility never resolved
+                // — a token scope or authorization fault several layers away — and an operator told
+                // only "token matched" would redact a legitimate name and be blocked again on the
+                // next one, with nothing pointing at the real cause.
+                reason : result.reason,
+                matches: result.matches,
+                message: result.reason === SCAN_REASON.targetUnknown
+                    ? 'Refused: a confidential token is present and the target repository\'s visibility could not be resolved, so it is treated as public. If this deployment targets a private repository, fix the repository-metadata fetch rather than redacting.'
+                    : 'Refused: the payload contains a confidential token and the target repository is public. Scrub the named token before publishing.'
+            };
+        }
+
+        return delegate(...args);
+    };
+}
+
+/**
  * @summary Applies the GitHub write-boundary identity guard to mutating tool handlers only.
  * @param {Object} mapping Operation id to handler function.
  * @param {Object} [guardOptions] Resolver injection for tests.
@@ -323,8 +404,14 @@ function guardGitHubWriteTools(mapping, guardOptions) {
     return Object.fromEntries(
         Object.entries(mapping).map(([toolName, handler]) => [
             toolName,
+            // Confidentiality is the OUTER guard: a body carrying a client name must be refused
+            // before an identity assertion can make a network call on its behalf. Both key on the
+            // same derived set, so neither can drift from the other's coverage.
             isPublicGitHubWriteTool(toolName)
-                ? buildGitHubWriteIdentityGuard(handler, guardOptions)
+                ? buildConfidentialContentGuard(
+                    buildGitHubWriteIdentityGuard(handler, guardOptions),
+                    guardOptions
+                )
                 : handler
         ])
     );
@@ -455,7 +542,9 @@ export {
     GITHUB_TOOL_ACCESS,
     assertCompleteGitHubToolAccessPolicy,
     assertNoUnclassifiedGitHubTools,
+    buildConfidentialContentGuard,
     buildGitHubWriteIdentityGuard,
+    collectPublishableStrings,
     getConversationRouter,
     guardGitHubWriteTools,
     isPublicGitHubWriteTool,

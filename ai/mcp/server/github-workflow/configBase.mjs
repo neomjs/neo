@@ -80,7 +80,30 @@ class ConfigBase extends ConfigProvider {
              */
             minGhVersion: leaf('2.0.0'),
             /**
+             * Confidential tokens — client and partner names — that must never reach a public
+             * artifact. Scanned at the public-write boundary before publication.
+             *
+             * **Empty here on purpose, and empty is NOT permission to publish.** Committing the list
+             * would publish the exact names the check exists to protect, so values are supplied by
+             * local/env config only. The `productNameDenylist` sibling below uses the same storage for
+             * the opposite direction — it sanitizes content coming IN, where an empty list is a safe
+             * no-op. On this outbound path an empty list means *enforcement did not run*, and the
+             * scanner reports `unchecked` rather than a pass so the two are never confused.
+             *
+             * Hashing the entries instead would not let them be committed either: an unkeyed hash of a
+             * company name is brute-forceable from any wordlist of company names, so committed hashes
+             * publish the list to anyone willing to spend an afternoon.
+             * @type {string[]}
+             */
+            confidentialTokenDenylist: leaf([], 'NEO_CONFIDENTIAL_TOKEN_DENYLIST', 'csv'),
+            /**
              * The owner of the GitHub repository.
+             *
+             * Overridable, which is why the public-write access class cannot stand in for "targets a
+             * public repository": that class states what a TOOL mutates on github.com, not what the
+             * TARGET is. A deployment repointing this at a private repo is the sanctioned place for
+             * client specifics, so the confidentiality scan resolves the target's visibility rather
+             * than assuming it from the tool.
              * @type {string}
              */
             owner: leaf('neomjs'),
