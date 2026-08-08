@@ -824,7 +824,8 @@ export function registerOwnedChild({children, entry, watch, onUnobservedExit = n
  * - **reuse** (port held + canonical same-bearer/viewer proof): adopt; `spawn`/`registerChild`
  *   are NEVER invoked.
  * - **foreign-listener** (port held, proof refused): `up: false` with the named refusal routed to
- *   `onOutcome`; NEVER adopt, NEVER spawn — and never throw: a UI window must not brick on a
+ *   `onOutcome` AND carried on the outcome's `reason` (the cockpit banner renders the named
+ *   case); NEVER adopt, NEVER spawn — and never throw: a UI window must not brick on a
  *   squatted port.
  * - **spawn** (port free): the child registers `observeBrain: false` BY THE COMPOSITION — the
  *   ownership≠observation invariant is wired here, not left to the caller — then real wire
@@ -840,7 +841,7 @@ export function registerOwnedChild({children, entry, watch, onUnobservedExit = n
  * @param {Function} options.registerChild Owner registration (`registerOwnedChild` wiring).
  * @param {Function} options.awaitReady Real wire-readiness gate.
  * @param {Function} [options.onOutcome] Diagnostic sink, one line per outcome.
- * @returns {Promise<{fleetPort: Number, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}>}
+ * @returns {Promise<{fleetPort: Number, mode: 'reuse'|'spawn'|'foreign-listener', reason?: String, up: Boolean}>}
  */
 export async function resolveUiFleetTransport({
     bearerToken,
@@ -862,8 +863,13 @@ export async function resolveUiFleetTransport({
             return {fleetPort, mode: 'reuse', up: true}
         }
 
-        onOutcome(`foreign-listener fleetPort=${fleetPort} reason=${probe.reason || 'listener did not prove canonical Fleet identity'}`);
-        return {fleetPort, mode: 'foreign-listener', up: false}
+        const reason = probe.reason || 'listener did not prove canonical Fleet identity';
+
+        onOutcome(`foreign-listener fleetPort=${fleetPort} reason=${reason}`);
+        // The refusal travels IN the outcome, not only the log: the cockpit's banner renders the
+        // named case ("another fleet server holds the port"), so the shell log must not be the
+        // only place the reason exists.
+        return {fleetPort, mode: 'foreign-listener', reason, up: false}
     }
 
     const child = spawn({fleetPort});

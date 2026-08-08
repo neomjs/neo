@@ -37,7 +37,7 @@ export const ADAPTER_STATES = Object.freeze(['live', 'sample', 'stale', 'degrade
  * @type {Object}
  */
 export const ROSTER_STATE_LABELS = Object.freeze({
-    live: '', sample: 'static roster · offline', stale: 'stale — reconnecting', degraded: ''
+    live: '', sample: 'static roster', stale: 'stale — reconnecting', degraded: ''
 });
 
 /**

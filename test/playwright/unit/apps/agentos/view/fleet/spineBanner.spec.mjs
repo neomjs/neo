@@ -173,5 +173,92 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         const result = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}});
 
         expect(result).toEqual({hidden: true, kind: 'live', text: ''})
+    });
+
+    // ⭐ The topology-owned cold fallback: the generic "start it: npm run ai:fleet-server"
+    // advice was actively wrong inside the shell — the shell SELF-SUPPLIES its transport, so that
+    // advice CAUSES the foreign-listener refusal it then mislabels as "offline". The shell's boot
+    // fact (riding the brain-health wire) picks the honest line for SILENCE; a retained surface
+    // reason still outranks any topology guess; the plain browser (no fact) keeps the classic copy.
+    test.describe('⭐ transport-aware cold fallback — the shell fact picks the honest line', () => {
+        const coldSpine = {grid: {state: 'sample'}, stream: {state: 'live'}};
+
+        test('no shell fact (plain browser, or an unreachable shell) keeps the classic offline copy', () => {
+            for (const transport of [undefined, null]) {
+                const {text} = deriveSpineBanner({...coldSpine, transport});
+
+                expect(text, JSON.stringify(transport)).toContain('Fleet server offline');
+                expect(text, JSON.stringify(transport)).toContain('npm run ai:fleet-server')
+            }
+        });
+
+        test('a boot in flight names itself — and never advises a manual start', () => {
+            const {kind, text} = deriveSpineBanner({...coldSpine, transport: {phase: 'starting'}});
+
+            expect(kind).toBe('cold');
+            expect(text).toContain('Fleet transport starting');
+            expect(text).not.toContain('npm run ai:fleet-server')
+        });
+
+        test('foreign-listener renders the named refusal, the port, and the Reconnect remedy', () => {
+            // The exact case the old copy inverted: "start it" is what CREATES this state.
+            const {text} = deriveSpineBanner({...coldSpine, transport: {
+                fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', reason: 'viewer mismatch on the reuse probe', up: false
+            }});
+
+            expect(text).toContain('another fleet server holds port 8083');
+            expect(text).toContain('quit it, then Reconnect');
+            expect(text).toContain('viewer mismatch on the reuse probe');
+            expect(text).not.toContain('npm run ai:fleet-server')
+        });
+
+        test('foreign-listener without a carried reason falls back to the generic refusal line', () => {
+            const {text} = deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', up: false}});
+
+            expect(text).toContain('another fleet server holds port 8083');
+            expect(text).toContain('listener did not prove canonical Fleet identity')
+        });
+
+        test('a settled failed boot names the failure — with and without an error detail', () => {
+            const withDetail = deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false, error: 'fleet readiness timed out'}}),
+                  bareFail   = deriveSpineBanner({...coldSpine, transport: {mode: 'spawn', phase: 'settled', up: false}});
+
+            expect(withDetail.text).toContain('Fleet transport failed to start');
+            expect(withDetail.text).toContain('fleet readiness timed out');
+            expect(bareFail.text).toContain('Fleet transport failed to start');
+            expect(bareFail.text).not.toContain('npm run ai:fleet-server')
+        });
+
+        test('a ready transport with cold surfaces points at Reconnect — the server just answered', () => {
+            for (const mode of ['spawn', 'reuse']) {
+                const {text} = deriveSpineBanner({...coldSpine, transport: {fleetPort: 8083, mode, phase: 'settled', up: true}});
+
+                expect(text, mode).toContain('Fleet transport ready');
+                expect(text, mode).toContain('Reconnect');
+                expect(text, mode).not.toContain('npm run ai:fleet-server')
+            }
+        });
+
+        test('⭐ a retained surface reason OUTRANKS the fact — the producer spoke, the topology only guesses', () => {
+            // The roster's answered-empty retention (loadRoster's empty-unselected path) must win
+            // over any transport-derived guess: what the producer SAID beats what the boot implies.
+            const {text} = deriveSpineBanner({
+                grid     : {state: 'sample', reason: 'server connected · fleet registry empty — define agents to go live'},
+                stream   : {state: 'live'},
+                transport: {mode: 'foreign-listener', phase: 'settled', up: false}
+            });
+
+            expect(text).toContain('Fleet data unavailable');
+            expect(text).toContain('fleet registry empty');
+            expect(text).not.toContain('another fleet server holds')
+        });
+
+        test('the fact never reaches non-cold branches: stale, daemon and live verdicts ignore it', () => {
+            const transport = {mode: 'foreign-listener', phase: 'settled', up: false};
+
+            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}, transport}).text).toContain('last-known');
+            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, daemon: {state: 'stopped'}, transport}).text).toContain('Agent OS stopped');
+            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, transport})).toEqual({hidden: true, kind: 'live', text: ''})
+        })
     })
 });

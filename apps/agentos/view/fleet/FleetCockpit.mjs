@@ -341,6 +341,18 @@ class FleetCockpit extends Container {
      */
     daemonState = null
     /**
+     * The shell's transport-boot fact for the spine banner's cold-case guidance — the
+     * `{phase, mode, up, fleetPort, reason, error}` snapshot the lifecycle owner attaches to the
+     * brain-health wire payload (`transport`), or `null` where no shell fact exists (the plain
+     * browser, or a shell the pull could not reach — an unreachable shell has no standing to keep
+     * asserting one). `null` deliberately renders the browser copy: absence of a shell is not a
+     * shell fault. Written only by {@link #applyBrainHealth}; render-only truth like its daemon
+     * siblings.
+     * @member {Object|null} shellTransport=null
+     * @protected
+     */
+    shellTransport = null
+    /**
      * The grid's held `adapterState` — absent-item materialization reads from HERE, so a committed
      * layout change can never reset a live grid back to its sample badge.
      * @member {String} gridAdapterState='sample'
@@ -1014,6 +1026,18 @@ class FleetCockpit extends Container {
                     hidden   : true,
                     reference: 'fleet-spine-banner',
                     role     : 'status'
+                }, {
+                    // the banner's manual recovery affordance: one click re-drives every liveness
+                    // seam through the existing authenticated bridge — no reload, no new transport.
+                    // Visibility is the banner's verdict (synced by syncSpineBanner); a live spine
+                    // hides both.
+                    module   : Button,
+                    cls      : ['fm-reconnect-button'],
+                    handler  : me.reconnectFleet.bind(me),
+                    hidden   : true,
+                    iconCls  : 'fa-solid fa-rotate',
+                    reference: 'fleet-reconnect-button',
+                    text     : 'Reconnect'
                 },
                 '->', {
                     // The fleet-start outcome summary — written by the controller after the
@@ -2246,6 +2270,14 @@ class FleetCockpit extends Container {
             // snapshot made the surface live, empty regains its ordinary authoritative meaning
             // (the real fleet may genuinely drain).
             if (!me.rosterWired && mapped.length === 0 && !bridge?.selected && me.rosterSourceMode !== 'selected') {
+                // The server ANSWERED — but an answer is not silence (the activity twin's not-wired
+                // discipline): retain the cause so the spine banner names "connected · registry
+                // empty" instead of falling back to "server offline · start it" — advice to restart
+                // a process that just replied, and the exact reachable-server case the spineBanner
+                // module documents as needing a retained reason. Cleared by the ordinary paths: a
+                // populated snapshot clears it below; a transport failure retracts it in
+                // {@link #degradeWiredSurface} (the claim must not outlive the connection).
+                me.gridDegradedReason = 'server connected · fleet registry empty — define agents to go live';
                 return
             }
 
@@ -2731,6 +2763,24 @@ class FleetCockpit extends Container {
     }
 
     /**
+     * @summary The Reconnect affordance's one-click re-drive: every liveness seam, immediately.
+     *
+     * Deliberately NOT gated on {@link #maxReadsInFlight} — per that cap's contract, only the
+     * cadence honours it; a direct call is operator-meant and never suppressed. Recovery needs no
+     * new machinery beyond this: the reads route through the same authenticated bridge, the same
+     * generation fences drop stale answers, and the same routing matrices write the state — the
+     * button only collapses the up-to-one-cadence wait into "now". Works identically in both
+     * topologies (the browser flow has the same stale-offline problem after a late server start).
+     */
+    reconnectFleet() {
+        let me = this;
+
+        me.loadActivity();
+        me.loadRoster();
+        me.loadBrainHealth()
+    }
+
+    /**
      * @summary Applies one Brain-health wire answer onto the owner-held daemon surface, then re-syncs.
      *
      * The vocabulary check keeps the documented member contract honest: anything that is not a
@@ -2746,11 +2796,23 @@ class FleetCockpit extends Container {
 
         if (me.isDestroyed) return;
 
+        // The shell transport fact rides the same wire but is ITS OWN truth, valid on a payload
+        // whose daemon state never validates — and dropped back to `null` when the pull failed
+        // (an unreachable shell has no standing to keep asserting a boot fact). The banner's cold
+        // fallback is the only consumer.
+        const transport        = Neo.isObject(response?.transport) ? response.transport : null,
+              transportChanged = !Neo.isEqual(transport, me.shellTransport ?? null);
+
+        me.shellTransport = transport;
+
         if (!state) {
             // Transport truth is not daemon truth in EITHER direction: a rejection, timeout,
             // unavailable envelope, or malformed payload must not fabricate a fault — and it must
             // not ERASE a last-known one. A visible fault stays visible until the lifecycle owner
-            // itself answers otherwise; only a valid answer moves this surface.
+            // itself answers otherwise; only a valid answer moves this surface. A CHANGED transport
+            // fact still re-renders (it moved independently of the daemon verdict — e.g. the boot
+            // settling, or the fact dropping with a dead shell); an unchanged one repaints nothing.
+            transportChanged && me.syncSpineBanner();
             return
         }
 
@@ -2817,8 +2879,14 @@ class FleetCockpit extends Container {
             field  = surface === 'grid' ? 'gridAdapterState' : 'streamAdapterState',
             reason = surface === 'grid' ? 'gridDegradedReason' : 'streamDegradedReason';
 
-        // never-wired stays cold-honest: 'sample' already says "this is fixture data"
-        if (me[field] === 'sample') return;
+        // never-wired stays cold-honest: 'sample' already says "this is fixture data" — and a
+        // transport failure RETRACTS any answered-state cause this surface retained (the
+        // "connected · registry empty" claim must not outlive the connection it describes; back
+        // on silence, the banner's generic cold copy is the honest line again).
+        if (me[field] === 'sample') {
+            me[reason] = null;
+            return
+        }
 
         me[field]  = 'stale';
         // this surface's cause, on this surface's field — never a shared slot a sibling can clear
@@ -2856,8 +2924,9 @@ class FleetCockpit extends Container {
      * @protected
      */
     syncSpineBanner() {
-        let me     = this,
-            banner = me.getReference('fleet-spine-banner');
+        let me        = this,
+            banner    = me.getReference('fleet-spine-banner'),
+            reconnect = me.getReference('fleet-reconnect-button');
 
         if (banner) {
             // each state travels WITH its own cause: the derivation reports the reason of the
@@ -2868,8 +2937,16 @@ class FleetCockpit extends Container {
                 // Silent while `daemonState` is null — absence is unknown, never nominal.
                 daemon: {state: me.daemonState,        reason: me.daemonDegradedReason},
                 grid  : {state: me.gridAdapterState,   reason: me.gridDegradedReason},
-                stream: {state: me.streamAdapterState, reason: me.streamDegradedReason}
+                stream: {state: me.streamAdapterState, reason: me.streamDegradedReason},
+                // the shell's boot fact (null outside the shell) — only the cold fallback reads it
+                transport: me.shellTransport
             });
+
+            // The manual recovery affordance shares the banner's visibility verdict: a fully live
+            // spine earns zero pixels from BOTH; any visible verdict (cold or degraded) offers the
+            // one-click re-drive. Same control in both topologies — the browser flow has the
+            // identical stale-offline problem after a late server start.
+            reconnect?.set({hidden});
 
             // `text`, never `html`. The line now interpolates a RETAINED TRANSPORT STRING — the
             // adapter's own `capability.reason`, which arrives over the fleet wire — and `html`
