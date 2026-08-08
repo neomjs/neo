@@ -19,7 +19,7 @@
  * @see ai/services/github-workflow/sync/IssueSyncer.mjs (migrateArchiveBuckets)
  * @see ai/services/github-workflow/SyncService.mjs (facade)
  */
-import {GH_SyncService} from '../../services.mjs';
+import {GH_SyncService} from '../../services.host.mjs';
 
 async function main() {
     const dryRun = process.argv.includes('--dry-run');

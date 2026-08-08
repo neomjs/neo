@@ -179,6 +179,56 @@ test.describe('host-plane import reach — a store handle must be unreachable by
         })
     }
 
+    test('every module that adopts the host barrel stays store-free', () => {
+        // A PREDICATE over the population, not a census of today's five migrants. A hardcoded list
+        // guards the files someone remembered and silently exempts the next adopter — which is the
+        // file most likely to carry the defect. Declaring the host barrel is the membership test, so
+        // a module joins this guard by the same act that makes it a host entrypoint.
+        const
+            aiDir       = path.join(repoRoot, 'ai'),
+            buildDir    = path.join(repoRoot, 'buildScripts'),
+            cloudBarrel = path.join(repoRoot, 'ai/services.mjs'),
+            adopters    = [];
+
+        /**
+         * @summary Collects `.mjs` files that statically import the host barrel.
+         * @param {String} dir Directory to walk.
+         */
+        function collectAdopters(dir) {
+            for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+                if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+
+                const full = path.join(dir, entry.name);
+
+                if (entry.isDirectory()) {
+                    collectAdopters(full)
+                } else if (entry.name.endsWith('.mjs') && full !== cloudBarrel) {
+                    // `ai/services.mjs` is excluded by name, and it is the ONLY exclusion. It imports
+                    // the host barrel in order to re-export it, so it satisfies the membership test
+                    // while legitimately reaching cloud packages — it IS the cloud root. Cloud
+                    // importing host is the permitted direction; the guard exists for the reverse.
+                    /from\s+'[^']*services\.host\.mjs'/.test(fs.readFileSync(full, 'utf8'))
+                        && adopters.push(full)
+                }
+            }
+        }
+
+        collectAdopters(aiDir);
+        collectAdopters(buildDir);
+
+        expect(adopters.length, 'the guard must have a population to guard').toBeGreaterThan(0);
+
+        const offenders = adopters
+            .map(file => ({
+                file   : path.relative(repoRoot, file),
+                reached: [...walkStaticImports(file).externals]
+                    .filter(name => STATICALLY_REACHED_CLOUD_PACKAGES.includes(name))
+            }))
+            .filter(entry => entry.reached.length);
+
+        expect(offenders, 'a host-barrel adopter must not statically reach a cloud-plane package').toEqual([])
+    });
+
     test('the host barrel reaches strictly fewer externals than the cloud barrel', () => {
         const
             host  = walkStaticImports(path.join(repoRoot, 'ai/services.host.mjs')),
