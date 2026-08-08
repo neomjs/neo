@@ -20,6 +20,7 @@ import {
     probePort,
     registerOwnedChild,
     resolveRealPath,
+    resolveUiFleetTransport,
     startBrainChild,
     stopBrainChild,
     stopBrainTree,
@@ -625,5 +626,76 @@ test.describe('registerOwnedChild — teardown ownership is unconditional; Brain
 
         expect(watched).toEqual(['orchestrator']);
         expect(logged).toEqual([])
+    })
+});
+
+test.describe('resolveUiFleetTransport — the reuse|spawn|foreign OWNER COMPOSITION is witnessed, not just its parts', () => {
+    test('reuse: a canonical same-bearer listener is adopted — spawn and registration are NEVER invoked', async () => {
+        const
+            calls   = {registered: [], spawned: 0},
+            outcome = [];
+
+        const result = await resolveUiFleetTransport({
+            awaitReady    : async () => { throw new Error('awaitReady must not run on reuse') },
+            bearerToken   : 'shell-held-bearer',
+            fleetPort     : 18083,
+            onOutcome     : line => outcome.push(line),
+            probePortFn   : async () => true,
+            probeServingFn: async () => ({reusable: true}),
+            registerChild : entry => calls.registered.push(entry),
+            spawn         : () => { calls.spawned++; throw new Error('spawn must not run on reuse') }
+        });
+
+        expect(result).toEqual({fleetPort: 18083, mode: 'reuse', up: true});
+        expect(calls.spawned).toBe(0);
+        expect(calls.registered).toEqual([]);
+        expect(outcome).toEqual(['reuse fleetPort=18083'])
+    });
+
+    test('foreign listener: refusal is named, up stays false, the window path never throws — and nothing spawns', async () => {
+        const
+            calls   = {registered: [], spawned: 0},
+            outcome = [];
+
+        const result = await resolveUiFleetTransport({
+            awaitReady    : async () => { throw new Error('awaitReady must not run on foreign') },
+            bearerToken   : 'shell-held-bearer',
+            fleetPort     : 18083,
+            onOutcome     : line => outcome.push(line),
+            probePortFn   : async () => true,
+            probeServingFn: async () => ({reusable: false, reason: 'bearer subject mismatch'}),
+            registerChild : entry => calls.registered.push(entry),
+            spawn         : () => { calls.spawned++; throw new Error('spawn must not run on foreign') }
+        });
+
+        expect(result).toEqual({fleetPort: 18083, mode: 'foreign-listener', up: false});
+        expect(calls.spawned).toBe(0);
+        expect(calls.registered).toEqual([]);
+        expect(outcome).toEqual(['foreign-listener fleetPort=18083 reason=bearer subject mismatch'])
+    });
+
+    test('spawn: the composition itself registers observeBrain:false and gates up:true on real readiness', async () => {
+        const
+            child    = new EventEmitter(),
+            sequence = [],
+            calls    = {registered: []};
+
+        const result = await resolveUiFleetTransport({
+            awaitReady    : async ({bearerToken, port}) => sequence.push(`ready:${bearerToken}:${port}`),
+            bearerToken   : 'shell-held-bearer',
+            fleetPort     : 18083,
+            onOutcome     : line => sequence.push(line),
+            probePortFn   : async () => false,
+            probeServingFn: async () => { throw new Error('serving probe must not run on a free port') },
+            registerChild : entry => { calls.registered.push(entry); sequence.push('registered') },
+            spawn         : ({fleetPort}) => { sequence.push(`spawn:${fleetPort}`); return child }
+        });
+
+        expect(result).toEqual({fleetPort: 18083, mode: 'spawn', up: true});
+        // The cycle-1 invariant is wired IN the composition: ownership without Brain observation.
+        expect(calls.registered).toEqual([{child, label: 'fleet', observeBrain: false}]);
+        // Registration precedes readiness (an early quit must find the owner non-empty), and
+        // readiness precedes the up:true outcome line.
+        expect(sequence).toEqual(['spawn:18083', 'registered', 'ready:shell-held-bearer:18083', 'spawn fleetPort=18083'])
     })
 });

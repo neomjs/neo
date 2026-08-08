@@ -45,10 +45,10 @@ import {
     detectLiveBrain,
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
-    probeFleetServing,
     probePort,
     registerOwnedChild,
     resolveBrainMode,
+    resolveUiFleetTransport,
     resolveBrainPaths,
     loadFleetRuntimeContracts,
     startBrainChild,
@@ -992,42 +992,24 @@ async function bootProductBrain() {
  * @returns {Promise<Object>} `{fleetPort, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}`
  */
 async function bootUiFleetTransport() {
-    const
-        fleetPort = Number(process.env.NEO_FLEET_PORT) || 8083,
-        held      = await probePort({port: fleetPort});
-
-    if (held) {
-        const probe = await probeFleetServing({
-            agentIdentityNodeId: process.env.NEO_AGENT_IDENTITY,
-            bearerToken        : fleetBearerToken,
-            port               : fleetPort,
-            repoRoot           : organismRoot
-        });
-
-        if (probe.reusable === true) {
-            console.log(`HARNESS_UI_FLEET reuse fleetPort=${fleetPort}`);
-            return {fleetPort, mode: 'reuse', up: true}
-        }
-
-        console.log(`HARNESS_UI_FLEET foreign-listener fleetPort=${fleetPort} reason=${probe.reason || 'listener did not prove canonical Fleet identity'}`);
-        return {fleetPort, mode: 'foreign-listener', up: false}
-    }
-
-    const fleet = startBrainChild({
-        entry   : FLEET_SERVER_ENTRY,
-        env     : {NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
-        onLog   : brainLog,
-        repoRoot: organismRoot
-    });
-
-    // Drain-owned, NOT Brain-observed: a UI-mode transport death must never move whole-Brain
-    // health (the cycle-1 falsifier — registerBrainChild's default watcher flipped the tray to
-    // degraded where no Brain exists). Faults stay visible: the diagnostic sink logs the exit,
-    // and the cockpit's fail-closed reads render the honest offline state.
-    registerBrainChild({child: fleet, label: 'fleet', observeBrain: false});
-    await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort});
-    console.log(`HARNESS_UI_FLEET spawn fleetPort=${fleetPort}`);
-    return {fleetPort, mode: 'spawn', up: true}
+    // The three-outcome routing AND the ownership≠observation invariant live in the witnessable
+    // composition (brain.mjs#resolveUiFleetTransport); this wrapper only binds the real
+    // collaborators: env coordinates, the shell bearer, the child spawner, and the owner registry.
+    return resolveUiFleetTransport({
+        agentIdentityNodeId: process.env.NEO_AGENT_IDENTITY,
+        awaitReady         : awaitFleetReady,
+        bearerToken        : fleetBearerToken,
+        fleetPort          : Number(process.env.NEO_FLEET_PORT) || 8083,
+        onOutcome          : summary => console.log(`HARNESS_UI_FLEET ${summary}`),
+        registerChild      : registerBrainChild,
+        repoRoot           : organismRoot,
+        spawn              : ({fleetPort}) => startBrainChild({
+            entry   : FLEET_SERVER_ENTRY,
+            env     : {NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
+            onLog   : brainLog,
+            repoRoot: organismRoot
+        })
+    })
 }
 
 /**
