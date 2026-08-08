@@ -50,6 +50,21 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         expect(records[0]).toMatchObject({model: 'kimi-code/k3', family: 'kimi', freshInput: 10, cacheRead: 20, output: 5});
     });
 
+    test('kimi wire dedupe keeps a same-time/same-tokens pair whose model cell disagrees', () => {
+        // Emmy's falsifier: identical time + tokens with kimi-code/k3 then openai/gpt-5 must
+        // return count=2 — a mid-session provider switch, not a double-write; erasing the
+        // second record drops the gpt family's usage from the report.
+        const usage   = {inputOther: 10, inputCacheRead: 20, inputCacheCreation: 0, output: 5};
+        const records = parseKimiWire([
+            JSON.stringify({type: 'usage.record', time: 1785600000000, model: 'kimi-code/k3', usage}),
+            JSON.stringify({type: 'usage.record', time: 1785600000000, model: 'openai/gpt-5', usage})
+        ].join('\n'));
+
+        expect(records).toHaveLength(2);
+        expect(records[0]).toMatchObject({model: 'kimi-code/k3', family: 'kimi'});
+        expect(records[1]).toMatchObject({model: 'openai/gpt-5', family: 'gpt', freshInput: 10, cacheRead: 20, output: 5});
+    });
+
     test('opencode parsing enforces the assistant-role boundary at the parser, not the query', () => {
         const records = parseOpencodeRows([
             // Emmy's falsifier: a token-bearing role:user row must NOT be counted

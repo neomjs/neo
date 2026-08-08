@@ -18,7 +18,9 @@ import {fileURLToPath} from 'node:url';
  *   - kimi-code: `~/.kimi-code/sessions/<wd>/<session>/agents/main/wire.jsonl` `usage.record`
  *     lines (`inputOther` / `inputCacheRead` / `inputCacheCreation` / `output`, plus `model`
  *     for provider-family classification). Consecutive records that are identical on every
- *     field (including `time`) are wire double-writes and are deduped. The `agents/main`
+ *     consumed field (including `time` AND `model`) are wire double-writes and are deduped;
+ *     a same-time/same-tokens pair whose model disagrees is two real records (a mid-session
+ *     provider switch) and both are kept. The `agents/main`
  *     scope is contractual: subagent wires are excluded —
  *     empirically 1 usage record across 32 wires on the reference machine (2026-08-08 census).
  *   - opencode: `~/.local/share/opencode/opencode.db` `message.data` JSON (`tokens.input` /
@@ -120,7 +122,8 @@ export function resolveSeatFamily(records) {
 
 /**
  * Parses kimi-code `wire.jsonl` content into usage records, deduping consecutive
- * double-written lines (identical on every field including `time`). Each record keeps
+ * double-written lines (identical on every consumed field including `time` AND `model` —
+ * a model-disagreeing pair is a provider switch, not a double-write). Each record keeps
  * its `model` identity for provider-family classification.
  *
  * @param {String} content
@@ -148,7 +151,8 @@ export function parseKimiWire(content) {
 
             const isDupe = prev && prev.time === row.time
                 && prev.freshInput === row.freshInput && prev.cacheRead === row.cacheRead
-                && prev.cacheWrite  === row.cacheWrite && prev.output    === row.output;
+                && prev.cacheWrite  === row.cacheWrite && prev.output    === row.output
+                && prev.model      === row.model;
 
             if (!isDupe) records.push(row);
             prev = row;
