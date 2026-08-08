@@ -55,6 +55,10 @@ import {pathToFileURL} from 'node:url';
 
 import {loadWakeReceiverManifest} from './receiver.mjs';
 import {withOutboxLock}           from './outboxLock.mjs';
+import {
+    DEFAULT_CONTEXT_GATE_MAX_TOKENS,
+    DEFAULT_CONTEXT_GATE_WARN_TOKENS
+} from './contextGatePolicy.mjs';
 
 import {
     isActiveWakeSubscriptionStatus,
@@ -69,6 +73,19 @@ import {
  * @type {Number}
  */
 export const DEFAULT_ATTEMPT_TIMEOUT_MS = 10000;
+
+/**
+ * The per-route context-gate policy stamped on every generated route. The receiver
+ * declares no gate defaults of its own — every route states its policy, mirroring
+ * `attemptTimeoutMs`; a legacy route carried forward without `contextGate` simply delivers
+ * ungated until its identity's routes are rebuilt. Per-route overrides arrive through the
+ * `--adapter-config` map's `contextGate` key and are merged over these defaults.
+ * @type {Object}
+ */
+export const DEFAULT_CONTEXT_GATE = Object.freeze({
+    maxContextTokens : DEFAULT_CONTEXT_GATE_MAX_TOKENS,
+    warnContextTokens: DEFAULT_CONTEXT_GATE_WARN_TOKENS
+});
 
 /**
  * The only `harnessTarget` the Shape-B container path can deliver to.
@@ -261,12 +278,19 @@ export function buildWakeReceiverManifest({
         // Per-route adapter config comes from the caller, keyed by subscription id. The subscription
         // record carries none, so without this a Codex seat could never satisfy the receiver's
         // `codexBinary` requirement from any supported input — the route would be unbuildable rather
-        // than merely unconfigured.
+        // than merely unconfigured. The context gate rides the same channel: every route
+        // states its gate policy explicitly (generator defaults, caller override merged per key).
+        const {contextGate: contextGateOverride, ...adapterConfigExtra} = adapterConfigById[id] || {};
+
         routes[id] = {
             agentIdentity,
             signingKey,
             harnessTargetMetadata: receiverMetadata,
-            adapterConfig        : {attemptTimeoutMs, ...(adapterConfigById[id] || {})}
+            adapterConfig        : {
+                attemptTimeoutMs,
+                contextGate: {...DEFAULT_CONTEXT_GATE, ...(contextGateOverride || {})},
+                ...adapterConfigExtra
+            }
         };
 
         routeSummaries.push({
