@@ -256,6 +256,10 @@ export function assertOrchestratorPlane({aiConfig = AiConfig, rootDir = REPO_ROO
         throw new Error('[Orchestrator] booted without a resolved `plane` subtree — Tier-1 config not loaded?');
     }
 
+    // Guards overlay-onto-durable mutation. It does NOT guard against serving the wrong store:
+    // `canonicalDataRoot` is derived from this module's own location, so a daemon booted from the
+    // wrong checkout computes a canonical that agrees with itself and passes. See the CANNOT-detect
+    // section on `assertPlaneCoherence` — divergence needs a served-root fact from outside.
     const observed = assertPlaneCoherence({
         planeId          : plane.id,
         dataRoot         : plane.dataRoot,
