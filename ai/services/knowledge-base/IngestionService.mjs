@@ -16,6 +16,8 @@ import {createTenantRepoMaterializationDigest}
                             from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isChromaConnectionError}
                             from '../shared/vector/chromaClientPrimitives.mjs';
+import {classifyEmbedFailureCode}
+                            from './helpers/embedFailureClassification.mjs';
 import VectorService   from './VectorService.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
@@ -385,7 +387,11 @@ class IngestionService extends Base {
 
                 if (result?.error) {
                     summary.errors.push(this.createError({
-                        code   : result.code || 'KB_VECTOR_EMBED_FAILED',
+                        // Classified rather than defaulted. A provider code is truthy, so the old
+                        // `|| 'KB_VECTOR_EMBED_FAILED'` never fired for one — it recorded the
+                        // provider's own vocabulary, which the durable `^KB_` filter then dropped to
+                        // null. See `embedFailureClassification` for why the fix is a translation.
+                        code   : classifyEmbedFailureCode(result.code),
                         message: result.message || result.error,
                         details: result
                     }));
@@ -403,7 +409,10 @@ class IngestionService extends Base {
                 });
             } catch (error) {
                 summary.errors.push(this.createError({
-                    code   : error.code || 'KB_VECTOR_EMBED_FAILED',
+                    // The throw path carries the provider's code most often — a consumer-deadline
+                    // timeout or an upstream abort — so this is the site where the inversion bit
+                    // hardest: the better-classified the failure, the emptier the receipt.
+                    code   : classifyEmbedFailureCode(error.code),
                     message: error.message,
                     details: {repoSlug}
                 }));
