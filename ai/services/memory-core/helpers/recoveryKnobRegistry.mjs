@@ -71,7 +71,8 @@ const CONTAINER_MEMORY_CEILING_MAX_BYTES = 16 * 1024 ** 3;
  * @returns {Object} frozen knob descriptor
  */
 function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
-    const liveLimitLeaf = `runtime.${serviceKey}.liveMemoryLimitBytes`;
+    const liveLimitLeaf = `runtime.${serviceKey}.liveMemoryLimitBytes`,
+          nonHeapLeaf   = `runtime.${serviceKey}.observedNonHeapBytes`;
 
     return Object.freeze({
         description: `Raise ${serviceKey}'s declared V8 old-space ceiling. Distinct from the store's ` +
@@ -93,7 +94,7 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
          * FAILS CLOSED on this knob. A controller that cannot see the container limit must not be
          * able to raise a ceiling past it, and refusing is the safe half of that trade.
          */
-        requires: Object.freeze([liveLimitLeaf]),
+        requires: Object.freeze([liveLimitLeaf, nonHeapLeaf]),
         leaves  : Object.freeze([
             // `resource` is load-bearing, not descriptive: a consumer authorising a CGROUP move must
             // not match this leaf. `role: 'ceiling'` spans both, and the envelope boundary matched on
@@ -112,10 +113,12 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
             }),
             Object.freeze({
                 id    : 'strictly-below-container-limit',
-                reason: 'A V8 ceiling at or above the cgroup limit converts a clean self-abort into an ' +
-                        'OOMKill — strictly worse, because the kernel kills mid-write with no chance ' +
-                        'to flush. An unresolved or non-positive live limit REFUSES rather than ' +
-                        'passes: an unknown bound is a refusal, never an absent one.',
+                reason: 'The NECESSARY half of the pair, and deliberately not described as the ' +
+                        'sufficient one: a ceiling at or above the cgroup limit is incoherent on its ' +
+                        'face. It does NOT establish that the ceiling leaves room for non-heap RSS — ' +
+                        'see `headroom-for-non-heap-rss`, which is the bound that actually prevents ' +
+                        'the OOMKill conversion. An unresolved or non-positive live limit REFUSES ' +
+                        'rather than passes: an unknown bound is a refusal, never an absent one.',
                 holds : (values, context = {}) => {
                     const liveLimitBytes = context[liveLimitLeaf];
 
@@ -125,6 +128,30 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
                     // one place both units meet, is the whole reason the leaf stays in MB: a knob
                     // declared in bytes would need this conversion at every writer instead.
                     return values[leafPath] * 1024 * 1024 < liveLimitBytes
+                }
+            }),
+            Object.freeze({
+                id    : 'headroom-for-non-heap-rss',
+                reason: 'The bound that actually prevents the OOMKill conversion. A V8 heap ceiling ' +
+                        'caps the old space, NOT the process footprint: RSS is the ceiling plus new ' +
+                        'space, code, external buffers and native allocations. So the conversion from ' +
+                        'a catchable `FATAL ERROR: heap limit` to an uncatchable kernel kill happens ' +
+                        'as soon as ceiling + non-heap exceeds the cgroup — far BELOW the limit, not ' +
+                        'at it. Measured by @neo-opus-grace on this plane: a 768 MB ceiling in a ' +
+                        '1024 MiB container carries RSS to 860.7 MiB (84%), so non-heap ran ~93 MiB ' +
+                        'and only ~163 MiB separated a healthy service from a silent kill. The ' +
+                        'non-heap figure is therefore REQUIRED context, and it is refused when ' +
+                        'unresolved rather than assumed to be zero — assuming zero is what lets a ' +
+                        'ceiling one byte under the limit read as safe. This knob stays fail-closed ' +
+                        'until a service publishes that observation.',
+                holds : (values, context = {}) => {
+                    const liveLimitBytes = context[liveLimitLeaf],
+                          nonHeapBytes   = context[nonHeapLeaf];
+
+                    if (!Number.isFinite(liveLimitBytes) || liveLimitBytes <= 0) return false;
+                    if (!Number.isFinite(nonHeapBytes)   || nonHeapBytes   <  0) return false;
+
+                    return values[leafPath] * 1024 * 1024 + nonHeapBytes < liveLimitBytes
                 }
             })
         ])

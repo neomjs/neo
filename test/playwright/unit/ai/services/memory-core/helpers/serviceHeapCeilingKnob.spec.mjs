@@ -13,8 +13,17 @@ const
     KB_LEAF = 'deploy.kbServer.heapCeilingMb',
     MC_LEAF = 'deploy.mcServer.heapCeilingMb',
     KB_LIVE = 'runtime.kb-server.liveMemoryLimitBytes',
+    KB_NONHEAP = 'runtime.kb-server.observedNonHeapBytes',
     // The live plane on 2026-08-08: 1 GiB cgroup, 768 MB declared ceiling.
-    GIB     = 1024 * 1024 * 1024;
+    GIB     = 1024 * 1024 * 1024,
+    MIB     = 1024 * 1024,
+    // Measured by @neo-opus-grace on that plane: a 768 MB ceiling carried RSS to 860.7 MiB, so
+    // non-heap ran ~93 MiB. Used as the realistic fixture rather than a round number, because a
+    // round number invites treating the bound as a policy constant instead of an observation.
+    NON_HEAP = Math.round(92.7 * MIB),
+    // Every valid transaction must now supply BOTH runtime facts. A fixture that omits the non-heap
+    // observation is exercising the fail-closed path, not the happy path.
+    liveContext = (nonHeapBytes = NON_HEAP) => ({[KB_LIVE]: GIB, [KB_NONHEAP]: nonHeapBytes});
 
 test.describe('service-heap ceiling knobs — two knobs, relational bounds, no constants', () => {
     test('both knobs exist and are SEPARATE — serviceKey is singular', () => {
@@ -41,16 +50,56 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
         }
     });
 
-    test('the container limit is declared as RUNTIME context, not config', () => {
-        expect(knobRequiredContext(KB_KNOB)).toEqual([KB_LIVE]);
-        expect(knobRequiredContext(MC_KNOB)).toEqual(['runtime.mc-server.liveMemoryLimitBytes']);
+    test('BOTH runtime facts are declared as context, not config', () => {
+        // The non-heap observation joined the limit here after @neo-opus-grace measured that the
+        // limit alone cannot express the bound. Neither is derivable from config: cgroup limits and
+        // process footprints are observed at runtime by design.
+        expect(knobRequiredContext(KB_KNOB)).toEqual([KB_LIVE, KB_NONHEAP]);
+        expect(knobRequiredContext(MC_KNOB)).toEqual([
+            'runtime.mc-server.liveMemoryLimitBytes',
+            'runtime.mc-server.observedNonHeapBytes'
+        ]);
+    });
+
+    test('a ceiling UNDER the limit but over it once non-heap is counted is REFUSED', () => {
+        // The counterfactual for the whole fix, and the case the previous bound passed. 1000 MB is
+        // strictly below a 1 GiB cgroup, so `strictly-below-container-limit` admits it — but the
+        // process footprint is the ceiling PLUS non-heap, which lands at ~1092 MiB and the kernel
+        // kills mid-write with no diagnostic. The old bound's own stated purpose was preventing
+        // exactly this conversion, and it could not.
+        const refused = validateKnobTransaction({
+            knob   : KB_KNOB,
+            values : {[KB_LEAF]: 1000},
+            context: liveContext()
+        });
+
+        expect(refused.valid).toBe(false);
+
+        // Run the REJECTED predicate inline, so this test proves the new bound is what refuses it
+        // rather than some unrelated invariant: the old check passes the same input.
+        expect(1000 * MIB < GIB).toBe(true);
+        expect(1000 * MIB + NON_HEAP < GIB).toBe(false);
+    });
+
+    test('a MISSING non-heap observation refuses — zero is never assumed', () => {
+        // Assuming zero non-heap is precisely what lets a ceiling one byte under the cgroup read as
+        // safe. The knob therefore stays fail-closed until a service publishes the observation.
+        for (const nonHeapBytes of [undefined, null, NaN, -1]) {
+            const result = validateKnobTransaction({
+                knob   : KB_KNOB,
+                values : {[KB_LEAF]: 800},
+                context: {[KB_LIVE]: GIB, [KB_NONHEAP]: nonHeapBytes}
+            });
+
+            expect(result.valid, `nonHeap=${nonHeapBytes}`).toBe(false);
+        }
     });
 
     test('a raise strictly below the container limit is VALID', () => {
         const result = validateKnobTransaction({
             knob   : KB_KNOB,
             values : {[KB_LEAF]: 896},
-            context: {[KB_LIVE]: GIB}
+            context: liveContext()
         });
 
         expect(result.valid).toBe(true);
@@ -62,7 +111,7 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
         const result = validateKnobTransaction({
             knob   : KB_KNOB,
             values : {[KB_LEAF]: 1024},
-            context: {[KB_LIVE]: GIB}
+            context: liveContext()
         });
 
         expect(result.valid).toBe(false);
@@ -72,7 +121,7 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
         expect(validateKnobTransaction({
             knob   : KB_KNOB,
             values : {[KB_LEAF]: 2048},
-            context: {[KB_LIVE]: GIB}
+            context: liveContext()
         }).valid).toBe(false);
     });
 
@@ -84,14 +133,14 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
         expect(validateKnobTransaction({
             knob   : KB_KNOB,
             values : {[KB_LEAF]: 900},
-            context: {[KB_LIVE]: GIB}
+            context: liveContext()
         }).valid).toBe(true);
 
         // …and 1100 MB exceeds 1 GiB only once converted. Unconverted, 1100 < 1073741824 passes.
         expect(validateKnobTransaction({
             knob   : KB_KNOB,
             values : {[KB_LEAF]: 1100},
-            context: {[KB_LIVE]: GIB}
+            context: liveContext()
         }).valid).toBe(false);
     });
 
@@ -117,7 +166,7 @@ test.describe('service-heap ceiling knobs — two knobs, relational bounds, no c
             expect(validateKnobTransaction({
                 knob   : KB_KNOB,
                 values : {[KB_LEAF]: v},
-                context: {[KB_LIVE]: GIB}
+                context: liveContext()
             }).valid).toBe(false);
         }
     });
