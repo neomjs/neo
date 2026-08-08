@@ -314,7 +314,54 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         expect(grid.store.added).toEqual([]);
         expect(grid.adapterState).toBe('sample');
         expect(cockpit.rosterSourceMode).toBe('sample');
-        expect(cockpit.rosterWired).toBe(false)
+        expect(cockpit.rosterWired).toBe(false);
+        // the ANSWERED-empty retention: the sample stays, but the cause is on record — the banner
+        // names "connected · registry empty" instead of claiming "server offline" against a
+        // transport that just replied
+        expect(cockpit.gridDegradedReason).toBe('server connected · fleet registry empty — define agents to go live')
+    });
+
+    test('the answered-empty reason is RETRACTED on silence — the claim must not outlive the connection', async () => {
+        // empty answer retains the cause…
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toContain('registry empty');
+
+        // …then the transport dies: back on silence, the generic cold copy is the honest line
+        // again, so the never-wired loss edge must drop the retained answered-state cause.
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {fleetRoster: async () => { throw new Error('transport lost') }}};
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.gridAdapterState).toBe('sample');
+        expect(cockpit.gridDegradedReason).toBe(null)
+    });
+
+    test('answered-empty → bridge ABSENT also retracts — absence is its own transition, not a thrown-call proxy', async () => {
+        // the exact-head reviewer falsifier: an answered producer-specific cause survived the
+        // no-bridge early return while the surface stayed sample — "server connected" rendering
+        // against NO bridge at all. Absence must withdraw the answered cause exactly like a
+        // thrown call does.
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toContain('registry empty');
+
+        clearBridge();
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.gridAdapterState).toBe('sample');
+        expect(cockpit.gridDegradedReason).toBe(null)
+    });
+
+    test('answered-empty → verb ABSENT retracts too — a bridge without the verb is the same cold truth', async () => {
+        const {cockpit} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
+
+        expect(cockpit.gridDegradedReason).toContain('registry empty');
+
+        (globalThis.AgentOS ??= {}).fleet = {registryBridge: {}};
+        await FleetCockpit.prototype.loadRoster.call(cockpit);
+
+        expect(cockpit.gridAdapterState).toBe('sample');
+        expect(cockpit.gridDegradedReason).toBe(null)
     });
 
     test('a resolved EMPTY first snapshot is authoritative after explicit source selection', async () => {
@@ -1419,6 +1466,67 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         expect(banner.calls[0]).toEqual({cls: ['fm-spine-banner', 'fm-spine-banner-live'], hidden: true, text: ''})
     });
 
+    test('the Reconnect affordance shares the banner verdict: visible on any spoken line, hidden on live', () => {
+        const banner    = makeBanner(),
+              reconnect = makeBanner(),
+              host      = {
+                  ...makeHost('sample', 'sample', banner),
+                  getReference: reference =>
+                      reference === 'fleet-spine-banner'     ? banner :
+                      reference === 'fleet-reconnect-button' ? reconnect : null
+              };
+
+        host.syncSpineBanner();
+        expect(reconnect.calls[0]).toEqual({hidden: false});
+
+        host.gridAdapterState   = 'live';
+        host.streamAdapterState = 'live';
+        host.syncSpineBanner();
+        expect(reconnect.calls[1]).toEqual({hidden: true})
+    });
+
+    test('reconnectFleet re-drives every liveness seam immediately — the one-click recovery', () => {
+        const driven = [];
+
+        FleetCockpit.prototype.reconnectFleet.call({
+            loadActivity   : () => driven.push('activity'),
+            loadBrainHealth: () => driven.push('brainHealth'),
+            loadRoster     : () => driven.push('roster')
+        });
+
+        expect(driven.sort()).toEqual(['activity', 'brainHealth', 'roster'])
+    });
+
+    test('⭐ the shell transport fact reaches the cold copy through the health pull — daemon truth untouched', () => {
+        const banner  = makeBanner(),
+              cockpit = {
+                  ...makeHost('sample', 'live', banner),
+                  applyBrainHealth    : FleetCockpit.prototype.applyBrainHealth,
+                  daemonDegradedReason: null,
+                  daemonState         : null
+              };
+
+        // a state-less payload carrying only the fact: the daemon surface stays unfed (absence
+        // claims nothing), while the cold copy moves to the shell's honest line
+        cockpit.applyBrainHealth({state: null, transport: {phase: 'starting'}});
+
+        expect(cockpit.daemonState).toBeNull();
+        expect(cockpit.shellTransport).toEqual({phase: 'starting'});
+        expect(banner.calls.at(-1).text).toContain('Fleet transport starting');
+
+        // the boot settles foreign — the SAME wire moves the copy to the named case
+        cockpit.applyBrainHealth({state: null, transport: {fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', reason: 'viewer mismatch', up: false}});
+
+        expect(banner.calls.at(-1).text).toContain('another fleet server holds port 8083');
+
+        // an UNCHANGED fact repaints nothing — the same no-visible-change discipline the daemon
+        // surface holds for transport-failure answers
+        const paints = banner.calls.length;
+
+        cockpit.applyBrainHealth({state: null, transport: {fleetPort: 8083, mode: 'foreign-listener', phase: 'settled', reason: 'viewer mismatch', up: false}});
+        expect(banner.calls.length).toBe(paints)
+    });
+
     /**
      * @summary Builds a live host driving the REAL loadActivity through the REAL loss edge.
      */
@@ -1513,6 +1621,42 @@ test.describe('Fleet cockpit — the spine-banner slot sync (syncSpineBanner)', 
         // 'stale' would tell the operator we are showing last-known data that never existed
         expect(host.streamAdapterState).toBe('sample');
         expect(host.streamDegradedReason).toBe(null)
+    });
+
+    test('not-wired → bridge ABSENT retracts the activity cause — the answer must not outlive its producer', async () => {
+        // the activity half of the reviewer falsifier: the producer ANSWERED not-wired (reason
+        // retained, honest sample), then the bridge vanished — the retained cause must go with it.
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        host.streamAdapterState = 'sample';
+
+        await withBridge(async () => ({capability: {state: 'not-wired', reason: 'activity source not wired'}, events: []}), host);
+        expect(host.streamDegradedReason).toBe('activity source not wired');
+        expect(host.streamAdapterState).toBe('sample');
+
+        // withBridge already removed the bridge in its finally — this drive hits the absence exit
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('sample');
+        expect(host.streamDegradedReason).toBe(null)
+    });
+
+    test('CONTROL — a wired surface keeps its stale reason through bridge absence (last-known truth survives)', async () => {
+        // the retraction is scoped to never-wired ANSWERED causes; a surface that reached live and
+        // degraded holds last-known data, and its cause explains exactly that — absence must not
+        // erase it (the per-surface-reason doctrine's other half).
+        const banner = makeBanner(),
+              host   = makeLivenessHost(banner);
+
+        await withBridge(async () => { throw new Error('transport lost') }, host);
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost');
+
+        await host.loadActivity();
+
+        expect(host.streamAdapterState).toBe('stale');
+        expect(host.streamDegradedReason).toBe('transport lost')
     });
 
     test('the degraded reason is redacted + bounded before it reaches operator-visible chrome', async () => {

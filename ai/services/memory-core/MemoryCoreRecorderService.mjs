@@ -330,22 +330,53 @@ class MemoryCoreRecorderService extends Base {
     }
 
     /**
-     * Returns aggregate Memory Core MCP tool-call metrics without exposing raw payloads.
+     * @summary Returns aggregate, unfinished, and recent-slow Memory Core MCP tool-call metrics without
+     * exposing raw payloads or caller identity. A completed slow row preserves the exact timeline
+     * after it disappears from `unfinishedCalls`; it proves server code returned, never that a
+     * timed-out client received the response.
      * @param {Object} options
      * @param {Number} [options.sinceMs=config.toolTelemetry.aggregateWindowMs] Lookback window.
-     * @param {Number} [options.limit=config.toolTelemetry.aggregateLimit] Max grouped tools.
+     * @param {Number} [options.limit=config.toolTelemetry.aggregateLimit] Max rows per projection.
+     * @param {Number} [options.slowAfterMs=config.toolTelemetry.slowAfterMs] Minimum completed-call
+     *     duration included in `recentSlowCalls`; the resolved leaf defaults to the canonical MCP
+     *     client request deadline, so a matching server call may have outlived its caller.
      * @returns {Object}
      */
     getMemoryCoreToolMetrics({
-        sinceMs = config.toolTelemetry.aggregateWindowMs,
-        limit   = config.toolTelemetry.aggregateLimit
+        sinceMs     = config.toolTelemetry.aggregateWindowMs,
+        limit       = config.toolTelemetry.aggregateLimit,
+        slowAfterMs = config.toolTelemetry.slowAfterMs
     } = {}) {
+        const safeSlowAfterMs = Number.isFinite(slowAfterMs) && slowAfterMs > 0
+            ? slowAfterMs
+            : config.toolTelemetry.slowAfterMs;
+
         if (!config.toolTelemetry.enabled) {
-            return {status: 'disabled', sinceMs, limit, totalCalls: 0, totalUnfinished: 0, tools: [], unfinishedCalls: []};
+            return {
+                status         : 'disabled',
+                sinceMs,
+                limit,
+                slowAfterMs    : safeSlowAfterMs,
+                totalCalls     : 0,
+                totalUnfinished: 0,
+                tools          : [],
+                unfinishedCalls: [],
+                recentSlowCalls: []
+            };
         }
 
         if (!this.db) {
-            return {status: 'unavailable', sinceMs, limit, totalCalls: 0, totalUnfinished: 0, tools: [], unfinishedCalls: []};
+            return {
+                status         : 'unavailable',
+                sinceMs,
+                limit,
+                slowAfterMs    : safeSlowAfterMs,
+                totalCalls     : 0,
+                totalUnfinished: 0,
+                tools          : [],
+                unfinishedCalls: [],
+                recentSlowCalls: []
+            };
         }
 
         this.ensureSchema();
@@ -389,15 +420,25 @@ class MemoryCoreRecorderService extends Base {
                  ORDER BY timestamp ASC, id ASC
                  LIMIT @limit
             `).all({sinceTs, limit: safeLimit}),
+            slowRows = this.db.prepare(`
+                SELECT id, timestamp, completed_at, duration_ms, tool, success, failure_stage
+                  FROM mc_tool_call_log
+                 WHERE completed_at >= @sinceTs
+                   AND completed_at IS NOT NULL
+                   AND duration_ms >= @slowAfterMs
+                 ORDER BY completed_at DESC, id ASC
+                 LIMIT @limit
+            `).all({sinceTs, slowAfterMs: safeSlowAfterMs, limit: safeLimit}),
             now = Date.now();
 
         return {
-            status    : 'ok',
-            sinceMs   : safeSinceMs,
-            limit     : safeLimit,
-            totalCalls: total,
+            status     : 'ok',
+            sinceMs    : safeSinceMs,
+            limit      : safeLimit,
+            slowAfterMs: safeSlowAfterMs,
+            totalCalls : total,
             totalUnfinished,
-            tools     : rows.map(row => ({
+            tools      : rows.map(row => ({
                 tool         : row.tool,
                 calls        : row.calls,
                 failures     : row.failures || 0,
@@ -411,6 +452,15 @@ class MemoryCoreRecorderService extends Base {
                 tool     : row.tool,
                 startedAt: new Date(row.timestamp).toISOString(),
                 elapsedMs: Math.max(0, now - row.timestamp)
+            })),
+            recentSlowCalls: slowRows.map(row => ({
+                callId      : row.id,
+                tool        : row.tool,
+                startedAt   : new Date(row.timestamp).toISOString(),
+                completedAt : new Date(row.completed_at).toISOString(),
+                durationMs  : row.duration_ms,
+                success     : row.success === 1,
+                failureStage: row.failure_stage ?? null
             }))
         };
     }

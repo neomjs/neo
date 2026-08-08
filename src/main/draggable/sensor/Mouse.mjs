@@ -72,11 +72,7 @@ class Mouse extends Base {
         let me = this;
 
         if (me.currentElement) {
-            // Lost-release recovery: the gesture's own move stream observes the primary button
-            // gone, so its mouseup happened off-document — terminate as the release never
-            // received. The delay-timeout re-entry passes a plain coords object with no
-            // `buttons` to inspect, so it skips this check by construction.
-            if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+            if (me.isLostReleaseSignal(event)) {
                 me.endGesture(event);
                 return
             }
@@ -93,6 +89,41 @@ class Mouse extends Base {
                 me.startDrag()
             }
         }
+    }
+
+    /**
+     * The trust read, isolated as its own seam so unit specs can stub ONLY the boundary and
+     * keep the shipped buttons logic under test. JS-constructed events can never forge
+     * `isTrusted` (read-only, and absent entirely in the unit harness), so the positive branch
+     * of {@link #isLostReleaseSignal} is sandbox-unreachable without this seam.
+     * @param {MouseEvent|Object} event
+     * @returns {Boolean}
+     * @protected
+     */
+    isTrustedEvent(event) {
+        return Boolean(event.isTrusted)
+    }
+
+    /**
+     * Lost-release recovery predicate: a move reporting the primary button gone means the
+     * gesture's mouseup happened off-document — terminate as the release never received.
+     *
+     * TRUSTED streams only. Synthetic dispatches (EventSimulator, InteractionService) construct
+     * MouseEvents without the buttons bitmask — `buttons` reads 0 by default — and always
+     * deliver their own explicit mouseup, so there is no lost release to recover from; reading
+     * buttons=0 as a released button would kill every synthetic gesture on its first move
+     * (the synthetic drag-start wedge). The delay-timeout re-entry passes a plain coords object
+     * with no `buttons` to inspect, so it skips the recovery by construction.
+     *
+     * Named seams rather than an inline condition: `isTrusted` cannot be forged in the unit
+     * harness (it is `undefined` there, not even `false`), so specs stub {@link #isTrustedEvent}
+     * and drive the REAL buttons branch — a dead predicate reds the recovery tests.
+     * @param {MouseEvent|Object} event
+     * @returns {Boolean}
+     * @protected
+     */
+    isLostReleaseSignal(event) {
+        return this.isTrustedEvent(event) && event.buttons !== undefined && (event.buttons & 1) === 0
     }
 
     /**
@@ -146,7 +177,7 @@ class Mouse extends Base {
         let me = this;
 
         // Same lost-release recovery for an engaged drag (see onDistanceChange).
-        if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        if (me.isLostReleaseSignal(event)) {
             me.endGesture(event);
             return
         }

@@ -267,6 +267,25 @@ export function createWakeReceiver({
                         );
                         continue;
                     }
+
+                    // The session-cost digest line (AC-2): a wake delivered through a
+                    // gated route whose probe succeeded carries the session's context position
+                    // in the injected digest. The envelope COPY keeps the durable record
+                    // byte-identical to the signed, accepted payload; absent probe data (the
+                    // fail-open 'unknown' arm) adds no field — no line, no noise.
+                    if (gate.gateOutcome === 'within' || gate.gateOutcome === 'warn') {
+                        dispatching.envelope = {
+                            ...dispatching.envelope,
+                            payload: {
+                                ...dispatching.envelope?.payload,
+                                sessionContext: {
+                                    contextTokens   : gate.contextTokens,
+                                    maxContextTokens: gateConfig.maxContextTokens
+                                }
+                            }
+                        };
+                    }
+
                     if (gate.gateOutcome === 'unknown') {
                         logger.warn?.(
                             `[Wake Receiver] context gate could not probe ${record.subscriptionId}; ` +

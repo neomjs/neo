@@ -626,6 +626,7 @@
         "toolTelemetry.aggregateWindowMs",
         "toolTelemetry.enabled",
         "toolTelemetry.errorMaxChars",
+        "toolTelemetry.slowAfterMs",
         "transport",
         "turnPresence",
         "turnPresence.freshMs",

@@ -75,6 +75,42 @@ function reasonFor(surfaces, state) {
 const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
 
 /**
+ * @summary Picks the cold-case fallback line for SILENCE, from the topology that owns the truth.
+ *
+ * The generic "start it: npm run ai:fleet-server" advice is only ever right in the plain-browser
+ * flow. Inside the shell it is actively wrong in every branch: the shell SELF-SUPPLIES its
+ * transport, so a manual start is what CAUSES the foreign-listener refusal — the fact object the
+ * lifecycle owner hands over on the brain-health wire names which shell case is live instead.
+ * `null` (no shell fact — plain browser, or an unreachable shell with no standing to assert one)
+ * keeps the classic copy: there, silence really does imply a server the operator must start.
+ * @param {Object|null} transport The shell transport-boot fact
+ *     `{phase: 'starting'|'settled', mode, up, fleetPort, reason, error}`, or `null` outside the shell.
+ * @returns {String}
+ * @private
+ */
+function coldFallbackFor(transport) {
+    if (!transport) {
+        return 'Fleet server offline — showing the static roster · start it: npm run ai:fleet-server'
+    }
+
+    if (transport.phase === 'starting') {
+        return 'Fleet transport starting — the cockpit connects automatically'
+    }
+
+    if (transport.mode === 'foreign-listener') {
+        const port = transport.fleetPort ?? 'the fleet port';
+
+        return `another fleet server holds port ${port} — quit it, then Reconnect · ${transport.reason || 'listener did not prove canonical Fleet identity'}`
+    }
+
+    if (transport.up !== true) {
+        return `Fleet transport failed to start — showing the static roster${transport.error ? ` · ${transport.error}` : ''}`
+    }
+
+    return 'Fleet transport ready — cockpit loading · use Reconnect if this persists'
+}
+
+/**
  * @summary Derives the spine banner from the owner-held surface truths.
  * @param {Object} options
  * @param {{state: String, reason: ?String}} options.grid The roster surface: `'sample'|'stale'|'live'`
@@ -83,10 +119,13 @@ const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
  * @param {{state: String, reason: ?String}} [options.daemon] Brain daemon health:
  *     `'running'|'degraded'|'stopped'`, with the diagnosis pointer as its reason. Optional — a caller
  *     that has not pulled daemon truth passes nothing rather than guessing `running`.
+ * @param {Object|null} [options.transport] The shell transport-boot fact (see {@link coldFallbackFor}).
+ *     Optional and `null`-safe — only the cold fallback consults it, so a retained surface reason
+ *     still outranks any topology guess.
  * @returns {{hidden: Boolean, kind: String, text: String}} `kind` is `'live'|'cold'|'degraded'`
  *     — the class hook; `hidden` is `true` only for the fully live spine.
  */
-export function deriveSpineBanner({daemon, grid, stream}) {
+export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
     const surfaces = [grid, stream],
           states   = surfaces.map(surface => surface?.state);
 
@@ -99,12 +138,12 @@ export function deriveSpineBanner({daemon, grid, stream}) {
             // Same discipline the `stale` line follows: name the retained cause when the owner HAS
             // one, guess only when it does not. A reachable server whose source is unconfigured
             // answers `not-wired` — the seed stays, so the data really is sample, but "start the
-            // server" would be advice to restart a process that just replied. The generic copy is
-            // the fallback for SILENCE, which is the only state that actually implies an offline
-            // server.
+            // server" would be advice to restart a process that just replied. The fallback for
+            // SILENCE is topology-owned: the shell's transport fact picks the honest line, and
+            // only the plain-browser flow keeps the classic "start the server" advice.
             text: reason
                 ? `Fleet data unavailable — showing the static roster · ${reason}`
-                : 'Fleet server offline — showing the static roster · start it: npm run ai:fleet-server'
+                : coldFallbackFor(transport)
         }
     }
 

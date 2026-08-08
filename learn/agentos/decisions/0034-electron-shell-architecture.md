@@ -1,16 +1,18 @@
 # ADR 0034: Electron Shell Architecture — Process Model, Window Topology, Security Posture, Distribution
 
 > Architectural Decision Record settling the six load-bearing questions every Electron-shell leaf
-> inherits (epic #13377): how the main process hosts the Brain and what its window/app lifecycle
-> means for the organism, under which constraints Chromium shares Neo's SharedWorkers across OS
-> windows (verified empirically, not asserted), the fail-closed renderer security contract, the
-> dock/OS-window fusion mapping, the distribution channel, and dev/prod parity. Everything here is
-> **additive on ADR 0020 §3** (the shell decision itself — Electron, decided) and consumes the
-> landed window-manager substrate as boundaries — it reopens nothing.
+> inherits (epic #13377): how the packaged shell BOOTSTRAPS the bundled local Agent OS plane —
+> the cockpit itself always connects over the authenticated fleet wire (ADR 0038) — and what its
+> window/app lifecycle means for the organism, under which constraints Chromium shares Neo's
+> SharedWorkers across OS windows (verified empirically, not asserted), the fail-closed renderer
+> security contract, the dock/OS-window fusion mapping, the distribution channel, and dev/prod
+> parity. Everything here is **additive on ADR 0020 §3** (the shell decision itself — Electron,
+> decided) and consumes the landed window-manager substrate as boundaries — it reopens nothing.
 
 | Attribute | Value |
 |---|---|
 | **Status** | Accepted — 2026-07-10 (#14786; PR #14924 merged to `dev`). |
+| **Amended** | 2026-08-08 (#16747, [ADR 0038](0038-fm-client-topology.md) — the FM client topology, graduated from D#16720): §2.1's hosting frame and §2.6.4's dev-attaches/packaged-hosts dichotomy are re-scoped for the pure-client cockpit — the main process's hosting/supervision is the packaged product's local-plane BOOTSTRAP (role-3 host machinery; bundle = organism), never the cockpit's runtime identity. The cockpit connects to the (bundled or remote) plane's fleet service in every topology; identity, registry, credential, and authorization policy are plane-owned; lifecycle affordances surface behind `CAN_ADMINISTER_FLEET_OF` over the authenticated fleet wire. The retrieval statements themselves are rewritten in place (epigraph, §1 anchors, §2.1 heading + settled frame + binding 1, §2.6.4) with provenance brackets; ADR 0038 §3.3 is the canonical statement. |
 | **Author** | @neo-opus-vega (Vega, Claude Fable 5, Claude Code) — #13377 epic steward. |
 | **Resolves** | #14786 — the #13377 gate leaf: settle the shared shell questions ONCE, decision-record tier, before the E-leaves multiply incoherently (the ADR-0029 settle-shared-questions pattern). |
 | **Parent epic** | #13377 (*Electron shell — package + host the Agent OS*) under #13012 (Agent Harness). |
@@ -25,9 +27,10 @@
 ## 1. Context
 
 ADR 0020 §3 decided the shell (operator, 2026-06-12): **Electron — always Chromium + always
-Node.js**, Tauri retired, Agent OS **in-process in the Electron main as target** with
-**child-process supervision as the sanctioned fallback**, and web-served mode staying the dev
-convenience. The #13377 epic added the decisive boundary (operator correction, 2026-06-15):
+Node.js**, Tauri retired, the packaged product **bootstrapping the local Agent OS plane from the
+Electron main** (in-process as the target arm, **child-process supervision as the sanctioned
+fallback**) while the cockpit's runtime identity stays a pure client of the plane's fleet wire
+(ADR 0038), and web-served mode staying the dev convenience. The #13377 epic added the decisive boundary (operator correction, 2026-06-15):
 **Electron is the shell only — it does not own the additional windows.** Multi-window remains
 Chromium popups on Neo's own window substrate (browser-native → Electron-agnostic → the web
 version stays alive).
@@ -35,26 +38,28 @@ version stays alive).
 What no record settles is everything a *packaged* shell adds on top of those two anchors: the exact
 constraints under which Chromium shares Neo's SharedWorkers across OS windows (the whole
 architecture rides this — asserted often, verified never), what last-window-close means when the
-shell hosts the Brain, the renderer security contract, how `window.open` popups materialize, what
+shell bootstraps the bundled plane, the renderer security contract, how `window.open` popups materialize, what
 artifact a stranger downloads, and how the packaged boot path stays identical to `npm run dev`.
 Six questions, named by #14786; made implicitly per-leaf, they diverge — the access-ban lesson
 (disconnected surfaces, no coherent shell) repeats at the OS level. This record settles them once.
 
 ## 2. Decision
 
-### §2.1 Process model — the Brain rides in the shell, one lifecycle owner (Q1)
+### §2.1 Process model — the shell bootstraps the bundled plane, one bootstrap supervisor (Q1)
 
-**Settled frame (carrying ADR 0020 §3, not re-deciding it):** the packaged app boots the whole
-organism — the Electron main process *hosts* the Agent OS (orchestrator + MCP servers) in-process
-as the target topology, or *supervises it as a child process* as the sanctioned fallback. Which arm
-wins is **#13033's spike outcome and stays that leaf's property**; this ADR binds what is true in
-EITHER arm:
+**Settled frame (carrying ADR 0020 §3 as amended, not re-deciding it):** the packaged app boots
+the whole organism — **the cockpit always connects over the authenticated fleet wire; packaged
+mode additionally BOOTSTRAPS the bundled local plane** from the Electron main (orchestrator + MCP
+servers in-process as the target arm, or supervised as a child process as the sanctioned
+fallback). Which arm wins is **#13033's spike outcome and stays that leaf's property**; this ADR
+binds what is true in EITHER arm:
 
-1. **One lifecycle owner.** The main process is the single authority for Brain start/stop/restart —
-   whether that means in-process module lifecycles or child-process supervision. No second
-   supervisor, no daemon fork: a packaged install and an externally-run daemon topology never
-   manage the same Brain state concurrently. Attach-to-external stays a **dev-mode** capability
-   (§2.6), never a packaged-app default.
+1. **One bootstrap supervisor.** The main process is the single bootstrap authority for the
+   bundled plane's start/stop/restart — whether that means in-process module lifecycles or
+   child-process supervision. No second supervisor, no daemon fork: a packaged install and an
+   externally-run daemon topology never manage the same plane state concurrently. **Dev and
+   packaged share ONE wire-only client contract:** dev connects to an externally-run plane;
+   packaged bootstraps the bundled plane and connects (ADR 0038 §2.7).
 2. **Restart affordances settle-or-reject.** Runtime MCP-server restarts resolve or reject every
    pending promise (the #13015 lifecycle guardrail, carried from ADR 0020 §4) — no orphaned
    in-flight calls across a restart, in either hosting arm.
@@ -77,6 +82,14 @@ EITHER arm:
 **Falsifier:** if #13033's spike shows in-process hosting cannot satisfy settle-or-reject restarts
 (e.g. MCP server state cannot be torn down cleanly in-process), the child-process arm becomes the
 recorded topology — this section's five bindings survive unchanged; only the arm flips.
+
+*[Statements above amended in place 2026-08-08 — ADR 0038 §3.3 (#16747, from D#16720). Previously
+the frame read "the Electron main process hosts the Agent OS in-process as the target topology"
+and binding 1 kept attach-to-external as a dev-mode-only capability. The #13033 hosting-arm
+decision is unchanged; identity, registry, credential, and authorization policy are plane-owned
+(role-3 host machinery; bundle = organism, Body-first first-render); binding 2's settle-or-reject
+semantics stay plane-side contracts whose affordances surface behind `CAN_ADMINISTER_FLEET_OF`;
+attach-or-own as cockpit identity is retired (C5 #16746, blast-radius inventory first).]*
 
 ### §2.2 Window topology — the SharedWorker constraint set, verified (Q2)
 
@@ -258,9 +271,12 @@ partial updates are the recorded alternative.
 3. **Web-served mode stays the dev convenience + goodie** (ADR 0020 §3) — the shell never becomes
    a dev-loop dependency; nothing in `src/` or `apps/` may import from or feature-detect the
    packaging root (the hemisphere discipline, enforced at review).
-4. **Brain parity:** dev attaches to externally-run daemons (today's topology); packaged hosts per
-   §2.1. The seam that makes both true is §2.1.3's injectable data-root + §2.1.4's managed ports —
-   the SAME Brain code, two lifecycle owners, never both at once.
+4. **Brain parity:** ONE wire-only client contract in both arms — dev connects to an externally-run
+   plane; packaged BOOTSTRAPS the bundled plane per §2.1 and connects over the same authenticated
+   fleet wire. The seam that makes both true is §2.1.3's injectable data-root + §2.1.4's managed
+   ports — the SAME Brain code, one bootstrap supervisor per plane, never two supervisors on one
+   plane's state. *[Amended in place 2026-08-08 — ADR 0038 §3.3 (#16747); previously "dev attaches
+   to externally-run daemons; packaged hosts per §2.1 … two lifecycle owners, never both at once".]*
 
 **Falsifier:** any leaf introducing a `process.versions.electron` branch inside `src/` or `apps/`
 violates this section on its face — shell awareness lives in the packaging root and

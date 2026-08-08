@@ -216,10 +216,11 @@ paths:
         readOnlyHint: true
       description: |
         Returns aggregate Memory Core MCP tool-call telemetry without exposing raw tool
-        arguments or results. Completed calls provide latency/failure aggregates; calls that
-        have crossed the start boundary but not the completion boundary are returned separately
-        with redacted operation identity and elapsed time. Use this to diagnose slow, failing,
-        or process-wedging tools in long-running local and shared deployments.
+        arguments, results, or caller identity. Completed calls provide latency/failure aggregates;
+        calls that have crossed the start boundary but not the completion boundary are returned
+        separately with redacted operation identity and elapsed time; recent completed calls above
+        a caller-selected duration retain their exact redacted timeline after recovery. Use this to
+        diagnose slow, failing, or process-wedging tools in long-running local and shared deployments.
       tags: [Diagnostics]
       requestBody:
         required: false
@@ -235,7 +236,11 @@ paths:
                 limit:
                   type: integer
                   minimum: 1
-                  description: Maximum number of per-tool aggregate rows. Defaults to the Memory Core telemetry config leaf.
+                  description: Maximum rows per aggregate/unfinished/slow projection. Defaults to the Memory Core telemetry config leaf.
+                slowAfterMs:
+                  type: integer
+                  minimum: 1
+                  description: Minimum completed-call duration included in recentSlowCalls. Defaults to the canonical 60000 ms MCP request deadline.
       responses:
         '200':
           description: Aggregate Memory Core MCP tool-call metrics.
@@ -2546,10 +2551,12 @@ components:
         - status
         - sinceMs
         - limit
+        - slowAfterMs
         - totalCalls
         - totalUnfinished
         - tools
         - unfinishedCalls
+        - recentSlowCalls
       properties:
         status:
           type: string
@@ -2562,8 +2569,13 @@ components:
           example: 86400000
         limit:
           type: integer
-          description: Effective maximum number of grouped tool rows.
+          description: Effective maximum number of rows per projection.
           example: 50
+        slowAfterMs:
+          type: integer
+          minimum: 1
+          description: Effective completed-call duration threshold in milliseconds.
+          example: 60000
         totalCalls:
           type: integer
           description: Total matching completed tool calls across all tools.
@@ -2644,6 +2656,46 @@ components:
                 minimum: 0
                 description: Elapsed wall-clock time at metrics-read time.
                 example: 474347
+        recentSlowCalls:
+          type: array
+          description: Newest-completed calls whose completion falls inside sinceMs and whose duration is at or above slowAfterMs. Server completion does not prove a timed-out client received the response; arguments, results, and caller identity are intentionally absent.
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - callId
+              - tool
+              - startedAt
+              - completedAt
+              - durationMs
+              - success
+              - failureStage
+            properties:
+              callId:
+                type: string
+                description: Opaque telemetry row id shared with the unfinished-call projection.
+              tool:
+                type: string
+                description: MCP operation id.
+              startedAt:
+                type: string
+                format: date-time
+                description: ISO timestamp captured immediately before tool dispatch.
+              completedAt:
+                type: string
+                format: date-time
+                description: ISO timestamp captured when server-side tool execution returned.
+              durationMs:
+                type: integer
+                minimum: 0
+                description: Server-side elapsed wall-clock duration.
+              success:
+                type: boolean
+                description: Whether server-side tool execution completed successfully.
+              failureStage:
+                type: string
+                nullable: true
+                description: Redacted recorder stage when the call failed, or null on success.
 
     RemPipelineStateResponse:
       type: object

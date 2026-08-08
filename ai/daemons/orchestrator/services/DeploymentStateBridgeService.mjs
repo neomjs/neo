@@ -1697,11 +1697,16 @@ function summarizeTenantRepoState({
                 || normalizedCheckpoint?.lastErrorCode
                 || null)
             : null,
-        lastErrorCode                     : failures > 0 ? (normalizedCheckpoint?.lastErrorCode ?? null) : null,
-        lastSourceErrorCode               : failures > 0 ? (normalizedCheckpoint?.lastSourceErrorCode ?? null) : null,
-        lastAccessCode                    : failures > 0 ? (normalizedCheckpoint?.lastAccessCode ?? null) : null,
+        lastErrorCode      : failures > 0 ? (normalizedCheckpoint?.lastErrorCode ?? null) : null,
+        lastSourceErrorCode: failures > 0 ? (normalizedCheckpoint?.lastSourceErrorCode ?? null) : null,
+        lastAccessCode     : failures > 0 ? (normalizedCheckpoint?.lastAccessCode ?? null) : null,
         recoveryState,
         checkpointStatus,
+        // Published unconditionally, NOT gated on `failures > 0` like the cause codes above. A repo
+        // deferring against a slow provider holds its streak at zero by design, so gating this on the
+        // failure count would hide the backlog in precisely the state it was built to explain. It
+        // carries no identity and no message — a count, a state, and two timestamps.
+        corpusOutstanding                 : normalizedCheckpoint?.corpusOutstanding ?? null,
         ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
         lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,
         effectiveCadenceMs                : dueState.effectiveCadenceMs,

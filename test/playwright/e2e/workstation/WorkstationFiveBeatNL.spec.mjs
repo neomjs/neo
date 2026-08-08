@@ -755,7 +755,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         });
 
         session.on('Page.screencastFrame', frame => {
-            frames.push(frame.data);
+            // The arrival time travels WITH the frame so the window can be split after the fact.
+            // CDP reports seconds since epoch; the page reports milliseconds, so normalise here —
+            // one conversion, at the only place both units meet.
+            frames.push({data: frame.data, timestampMs: frame.metadata.timestamp * 1000});
             resolveFirstFrame?.();
             resolveFirstFrame = null;
             acks.push(session.send('Page.screencastFrameAck', {sessionId: frame.sessionId})
@@ -811,7 +814,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             ]);
             clearTimeout(frameTimer);
 
-            baseline = frames.at(-1);
+            baseline = frames.at(-1).data;
             frames.length = 0;
 
             result = await action();
@@ -890,7 +893,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             }, {
                 baseline,
                 box,
-                frames: actionFrames,
+                frames: actionFrames.map(frame => frame.data),
                 viewport
             });
 
@@ -899,10 +902,124 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             minEntropy      = Math.min(...entropies),
             minFrameIndex   = entropies.indexOf(minEntropy);
 
+        /**
+         * Reduces one region's frames to the receipt every consumer reads.
+         *
+         * The whole-window figures above stay the headline because they are what every existing
+         * consumer reads, and they remain the honest answer to *did any frame clear* — a region is a
+         * narrower question, never a weaker one. What a region adds is ATTRIBUTION: a window spanning
+         * more than the step it is named for can report a real defect against the wrong beat, which
+         * is exactly what happened here (`scene-1-run-1-resize` was reporting an entry-time frame).
+         * @param {Object[]} rows Frames of one region, each carrying `entropy`, `index`, `timestampMs`.
+         * @returns {Object|null} Region receipt, or null when the region observed no frame.
+         */
+        function summarise(rows) {
+            if (!rows.length) return null;
+
+            const lowest = rows.reduce((min, row) => row.entropy < min.entropy ? row : min);
+
+            // `minFrameIndex` is the index into the FULL frame list, not into the region, so an
+            // attachment resolves against `frames` without the caller knowing the region's offset.
+            return {
+                frameCount   : rows.length,
+                minEntropy   : lowest.entropy,
+                minFrameIndex: lowest.index
+            }
+        }
+
+        const entryCompletedAt = result?.phases?.entryCompletedAt ?? null;
+
+        /**
+         * Splits the capture at the entry/replay boundary into three regions, ORDINALLY.
+         *
+         * `entryCompletedAt` is stamped in the App Worker when `refreshDockWorkspace()` resolves —
+         * DOM acknowledgement, not presentation. The compositor can swap an entry-caused frame after
+         * that reply leaves, so a plain `timestamp <` predicate can file an entry frame under the
+         * resize label: the exact misattribution this capture exists to remove, one layer down.
+         *
+         * The uncertainty is ONE-SIDED. The stamp is sampled immediately before `runner.start()`, so
+         * a frame presenting before it cannot belong to the replay — program order already proves
+         * ownership, and a symmetric band would report uncertainty on the side that has none.
+         *
+         * The ambiguous unit is one FRAME, not one interval. A per-run median cadence is better than
+         * a 16.7ms constant and still fails the case that matters: a first post-boundary frame
+         * arriving 31ms after the stamp under a 16ms median falls back into the replay region and
+         * recreates the defect. Deriving from presentation ORDER removes the statistic from the
+         * correctness path; median and adjacent gaps stay below as diagnostics only.
+         *
+         * The model is falsifiable and was falsified-tested rather than asserted: more than one
+         * entry-owned presented frame after the stamp would disprove it. Measured at this head with
+         * the replay reduced to a no-op — so every post-stamp change is entry-owned by construction —
+         * exactly one entry-owned frame presented after the stamp, at ordinal 0, across 58 observed
+         * post-stamp frames and with the boundary tightened from 247ms of slack to 29ms.
+         * @returns {Object|null} Region receipts, or null when the phase stamp is unavailable.
+         */
+        function partition() {
+            if (entryCompletedAt === null) return null;
+
+            const
+                rows          = actionFrames.map((frame, index) => ({
+                    entropy    : entropies[index],
+                    index,
+                    timestampMs: frame.timestampMs
+                })),
+                entryCertain  = rows.filter(row => row.timestampMs <  entryCompletedAt),
+                postStamp     = rows.filter(row => row.timestampMs >= entryCompletedAt),
+                // The EARLIEST post-stamp timestamp, never the first DELIVERED one. Chromium stamps
+                // `metadata.timestamp` before handing each bitmap to a shared thread-pool encoder and
+                // emits one event per independent reply, so `Page.screencastFrame` arrival order does
+                // not establish presentation order. Reading `postStamp[0]` treated transport order as
+                // presentation order and could leave a frame in NEITHER region — arrival
+                // `[90, 120, 110, 130]` against a stamp of 100 selected 120 as the boundary and
+                // dropped 110 from all three, while every non-empty check still passed and both band
+                // minima read healthy over a cleared frame (@neo-gpt, cycle-2 re-review).
+                //
+                // Ties share the boundary frame's fate: two frames stamped identically cannot be
+                // ordered by the receipt, so neither may be promoted to `resizeCertain` alone.
+                boundaryMs    = postStamp.length
+                    ? Math.min(...postStamp.map(row => row.timestampMs))
+                    : undefined,
+                ambiguous     = postStamp.filter(row => row.timestampMs === boundaryMs),
+                resizeCertain = postStamp.filter(row => row.timestampMs >  boundaryMs),
+                // Sorted before differencing for the same reason: an unsorted delta over delivery
+                // order yields negative "gaps" that are transport artefacts, not cadence.
+                ordered       = rows.map(row => row.timestampMs).sort((left, right) => left - right),
+                gaps          = ordered.slice(1).map((value, index) => value - ordered[index])
+                    .sort((left, right) => left - right);
+
+            return {
+                // The asserted regions. Continuity covers `entryCertain ∪ ambiguous` because the two
+                // misattributions are not equally costly: an entry frame called "resize" is the
+                // defect being removed, while a resize frame called "entry" is an investigable false
+                // red. The tie-break is deliberately not neutral, and the residual stays visible
+                // below rather than being folded into a single confident number.
+                entry : summarise([...entryCertain, ...ambiguous]),
+                resize: summarise(resizeCertain),
+
+                // Diagnostics. `medianGapMs` is reported so a reader can see the cadence the
+                // partition did NOT use; it must never re-enter the correctness path.
+                ambiguousFrameCount  : ambiguous.length,
+                ambiguousFrameIndices: ambiguous.map(row => row.index),
+                entryCertainCount    : entryCertain.length,
+                medianGapMs          : gaps.length ? gaps[Math.floor(gaps.length / 2)] : null,
+                // CONSERVATION. Reported so the assertion can check it rather than trust the
+                // predicates: three regions that are pairwise disjoint can still fail to cover the
+                // capture, and a frame belonging to no region is invisible to every band assertion
+                // while every non-empty check passes. Disjointness was proven and coverage was
+                // merely assumed — this is the number that makes the assumption checkable.
+                partitionedFrameCount: entryCertain.length + ambiguous.length + resizeCertain.length,
+                resizeCertainCount   : resizeCertain.length
+            }
+        }
+
         return {
             baselineEntropy,
+            // Absent only when `runTourSpec` did not publish the boundary — an older workspace, or a
+            // different action entirely. Null rather than a guessed split: attributing frames on an
+            // assumed boundary is the defect this exists to remove, one layer down.
+            bands     : partition(),
             frameCount: actionFrames.length,
-            frames    : actionFrames,
+            frames    : actionFrames.map(frame => frame.data),
             minEntropy,
             minFrameIndex,
             result
@@ -915,44 +1032,118 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @param {Object} config.continuity Receipt returned by captureWorkspaceContinuity().
      * @param {String} config.label Stable attachment and log label.
      * @param {Object} config.testInfo Playwright test metadata.
+     * @param {String|null} [config.band=null] `'entry'` (certain ∪ ambiguous) or `'resize'`
+     * (certain only). Omitted keeps whole-window semantics for every pre-existing caller, and
+     * naming a region additionally fails closed unless all three regions were observed.
      * @param {Boolean} [config.expectedCleared=false] Known-defect red-control direction.
      * @param {Object} [config.receipt] Additional action-specific log fields.
      * @returns {Promise<void>}
      */
     async function assertWorkspaceContinuity({
+        band=null,
         continuity,
         expectedCleared=false,
         label,
         receipt={},
         testInfo
     }) {
+        // Whole-window when no band is named, so every existing caller keeps its exact semantics.
+        const
+            regions = continuity.bands,
+            scoped  = band ? regions?.[band] : continuity;
+
+        // A named band that produced NO frames must fail here rather than pass silently. Zero frames
+        // means the phase was never observed, and an oracle that reports green on an unobserved phase
+        // is worse than one that reports nothing — it manufactures coverage.
+        expect(scoped,
+            `${label}: band '${band}' produced no frames, so it proves nothing about that phase`).toBeTruthy();
+
+        // Fail closed on the partition itself, not just on the asserted band. All three regions must
+        // have been observed: an unobserved `entryCertain` means the capture opened too late, an
+        // unobserved `resizeCertain` means it closed too early, and a missing ambiguous frame means
+        // the boundary was never crossed — none of which a green band can distinguish from health.
+        // `document.hidden` swaps the frame path for `setTimeout`, which carries no presentation
+        // guarantee at all; that case must surface here as an unobserved phase rather than be
+        // absorbed by a region that happens to be non-empty.
+        if (band) {
+            expect(regions.entryCertainCount,
+                `${label}: no frame presented before the entry boundary, so the capture opened too late`
+            ).toBeGreaterThan(0);
+
+            expect(regions.ambiguousFrameCount,
+                `${label}: no frame presented at or after the entry boundary, so it was never crossed`
+            ).toBeGreaterThan(0);
+
+            expect(regions.resizeCertainCount,
+                `${label}: no frame presented past the boundary frame, so the replay went unobserved`
+            ).toBeGreaterThan(0);
+
+            // Conservation, asserted rather than assumed. Every captured frame must land in exactly
+            // one region: the three predicates are pairwise disjoint, but disjointness does not imply
+            // coverage, and a frame in no region is measured by no band while all three non-empty
+            // checks still pass. A cleared frame can hide in that gap with both band minima reading
+            // healthy — which is this oracle's own defect, one layer further down.
+            expect(regions.partitionedFrameCount,
+                `${label}: the regions must account for every captured frame — ` +
+                `${regions.partitionedFrameCount} of ${continuity.frameCount} attributed, so a frame ` +
+                `belongs to no region and no band assertion can see it`
+            ).toBe(continuity.frameCount)
+        }
+
+        // An entry red whose minimum IS the boundary frame is attributed, not confirmed. The
+        // tie-break resolved it toward entry deliberately, and the receipt has to keep saying so —
+        // a reader chasing this number must know whether the frame was proven entry-owned by program
+        // order or assigned to entry by the tie-break.
+        const minFrameAttribution = band === 'entry' && regions.ambiguousFrameIndices.includes(scoped.minFrameIndex)
+            ? 'entry-attributed / boundary-ambiguous'
+            : band ?? 'whole-window';
+
         console.log('[rendered-continuity]', JSON.stringify({
-            baselineEntropy: continuity.baselineEntropy,
-            frameCount     : continuity.frameCount,
+            ambiguousFrameCount: regions?.ambiguousFrameCount ?? null,
+            band               : band ?? 'whole-window',
+            baselineEntropy    : continuity.baselineEntropy,
+            entryCertainCount  : regions?.entryCertainCount ?? null,
+            frameCount         : scoped.frameCount,
             label,
-            minEntropy     : continuity.minEntropy,
-            minFrameIndex  : continuity.minFrameIndex,
+            medianGapMs        : regions?.medianGapMs ?? null,
+            minEntropy         : scoped.minEntropy,
+            minFrameAttribution,
+            minFrameIndex      : scoped.minFrameIndex,
+            resizeCertainCount : regions?.resizeCertainCount ?? null,
             ...receipt
         }));
 
-        expect(continuity.frameCount,
-            `${label} must expose consecutive compositor frames`).toBeGreaterThan(2);
+        // The whole window must show a real sequence. A band is a slice of that sequence, so it can
+        // legitimately be short — the entry projection is fast — and the floor there is only that it
+        // was observed at all.
+        expect(scoped.frameCount,
+            `${label} must expose consecutive compositor frames`).toBeGreaterThan(band ? 0 : 2);
 
+        // The baseline stays the WHOLE capture's pre-action frame in both cases: it is the reference
+        // for "what the workspace looks like when nothing is wrong", and re-deriving a per-region
+        // baseline would let a region that starts mid-defect normalise the defect away.
+        //
+        // Floor provenance, measured not chosen: confirmed whole-body clears measure ~0.08x
+        // baseline (the repaired tour-entry blank: 0.4088 against 5.30-5.35 baselines), while
+        // healthy film-paced minima hold >=0.93x baseline (5.30/5.31 on the same stages). 0.65
+        // separates the measured populations with >=8x margin on the red side and >=1.4x on the
+        // green side; retune it only against fresh measured receipts of both populations.
         const entropyFloor = continuity.baselineEntropy * 0.65;
 
-        if (continuity.minEntropy < entropyFloor) {
+        if (scoped.minEntropy < entropyFloor) {
             await testInfo.attach(`${label}-minimum-entropy-frame`, {
-                body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
+                body       : Buffer.from(continuity.frames[scoped.minFrameIndex], 'base64'),
                 contentType: 'image/jpeg'
             })
         }
 
         if (expectedCleared) {
-            expect(continuity.minEntropy,
+            expect(scoped.minEntropy,
                 `${label} red control must expose the confirmed cleared-body frame`).toBeLessThan(entropyFloor)
         } else {
-            expect(continuity.minEntropy,
-                `${label} must not present a cleared dense workspace body`).toBeGreaterThanOrEqual(entropyFloor)
+            expect(scoped.minEntropy,
+                `${label} must not present a cleared dense workspace body (${minFrameAttribution})`
+            ).toBeGreaterThanOrEqual(entropyFloor)
         }
     }
 
@@ -1013,7 +1204,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 spec       = continuity ? continuity.result : await runSpec();
 
             if (continuity) {
+                // Two beats, asserted separately, because `runTourSpec` performs both inside one
+                // call: it re-stages the workspace from `initialDocument` (entry) and only then
+                // replays the resize. Measuring the pair under the resize label is what let an
+                // entry-time cleared frame be reported as a resize defect for this oracle's whole
+                // life — the minimum sat at frame 7 of 59, at the START of the window, before the
+                // step it was named for had run.
+                //
+                // Both bands are asserted, not just the renamed one. Narrowing the resize oracle
+                // WITHOUT covering entry would have converted a caught defect into an uncaught one:
+                // the same blank would simply have fallen outside the window and gone green.
                 await assertWorkspaceContinuity({
+                    band   : 'entry',
+                    continuity,
+                    label  : `scene-1-run-${run + 1}-entry-projection`,
+                    receipt: {run: run + 1},
+                    testInfo
+                });
+
+                await assertWorkspaceContinuity({
+                    band   : 'resize',
                     continuity,
                     label  : `scene-1-run-${run + 1}-resize`,
                     receipt: {run: run + 1},
@@ -1567,6 +1777,71 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
             expect(ownerResult.errors).toEqual([]);
             expect(ownerResult.applied, 'the continuity guard must still complete its first tear-out commit').toBe(true);
+            expect(pageErrors).toEqual([])
+        }
+    );
+
+    test('continuity guard red-control: a deliberate whole-body clear reds the guard',
+        async ({page, neuralLink}, testInfo) => {
+            const userAgent = await page.evaluate(() => navigator.userAgent);
+
+            test.skip(
+                userAgent.includes('HeadlessChrome'),
+                'run with --headed because CDP screencast compositor frames are required'
+            );
+
+            // Instrument-integrity fixture, never a scene: a film take runs this whole file
+            // with cameras rolling, and a staged whole-body clear must not enter take footage
+            // (frame audits sweep the take for exactly this signature).
+            test.skip(filmTake, 'the staged clear is excluded from film takes by design');
+
+            const {pageErrors} = await boot({page, neuralLink});
+
+            // The action IS the fixture: hold the dock host fully transparent across enough
+            // compositor frames for the screencast to capture the exposed backdrop, then
+            // restore. A red-control direction that has never fired is instrument theater —
+            // this run proves the guard can convict the exact state it exists to catch.
+            const continuity = await captureWorkspaceContinuity(page, () =>
+                page.evaluate(() => new Promise(resolve => {
+                    const host = document.querySelector('.workstation-dock-host');
+
+                    host.style.opacity = '0';
+
+                    let held = 0;
+
+                    const step = () => {
+                        if (++held >= 10) {
+                            host.style.opacity = '';
+                            resolve()
+                        } else {
+                            requestAnimationFrame(step)
+                        }
+                    };
+
+                    requestAnimationFrame(step)
+                }))
+            );
+
+            // Discrimination needs both directions on one capture: the baseline must read as a
+            // healthy dense room, so the red below is the staged clear's doing — never a broken
+            // instrument measuring an empty stage.
+            expect(continuity.baselineEntropy,
+                'the red-control baseline must be a healthy dense workspace')
+                .toBeGreaterThan(2);
+
+            await assertWorkspaceContinuity({
+                continuity,
+                expectedCleared: true,
+                label          : 'red-control-staged-whole-body-clear',
+                receipt        : {stagedClear: 'dock-host opacity 0 held across 10 rAF frames'},
+                testInfo
+            });
+
+            const restoredOpacity = await page.evaluate(() =>
+                getComputedStyle(document.querySelector('.workstation-dock-host')).opacity
+            );
+
+            expect(restoredOpacity, 'the staged clear must leave no residue on the host').toBe('1');
             expect(pageErrors).toEqual([])
         }
     );

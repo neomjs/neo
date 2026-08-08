@@ -117,6 +117,17 @@ const
     VALID_LIFETIME = new Set(['in-cycle', 'process-local', 'persisted']),
     VALID_CARRIER  = new Set(['max-delay', 'max-attempts', 'max-window', 'terminal-state']);
 
+// The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
+// verdict to stay reproducible at PR time. Derived from SCAN_ROOTS so a new root widens this
+// surface in the same edit; the registry JSON is a verdict input, so it belongs here too.
+// The walker skips test dirs (SKIP_DIR), so the root globs are a deliberate superset of the
+// files actually scanned — watched ⊇ scanned is the invariant, and a superset never under-watches.
+// Consumed by lintWorkflowScanRootParity.spec.mjs.
+export const SCAN_SURFACE = Object.freeze([
+    ...SCAN_ROOTS.map(root => `${root}/**/*.mjs`),
+    REGISTRY_REL
+]);
+
 /**
  * Whether a source line is code rather than comment/JSDoc prose.
  *

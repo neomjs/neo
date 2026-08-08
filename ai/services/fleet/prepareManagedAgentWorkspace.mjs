@@ -1,19 +1,20 @@
-import {constants as fsConstants} from 'node:fs';
-import fs                         from 'node:fs/promises';
-import path                       from 'node:path';
-import crypto                     from 'node:crypto';
-import {fileURLToPath}            from 'node:url';
-import {hydrateCurrentWorktree}   from '../../scripts/migrations/bootstrapWorktree.mjs';
+import {constants as fsConstants}                  from 'node:fs';
+import fs                                          from 'node:fs/promises';
+import path                                        from 'node:path';
+import crypto                                      from 'node:crypto';
+import {fileURLToPath}                             from 'node:url';
+import {isDeepStrictEqual}                         from 'node:util';
+import {hydrateCurrentWorktree}                    from '../../scripts/migrations/bootstrapWorktree.mjs';
+import {MCP_SERVERS, resolveMcpMatrix}             from './mcpServers.mjs';
+import {deriveAgentInstanceHome}                   from './deriveAgentInstanceHome.mjs';
+import {KIMI_SEAT_SERVERS, generateKimiSeatConfig} from './generateKimiSeatConfig.mjs';
 import {
-    MCP_SERVERS,
-    REMOTE_MCP_CREDENTIAL_ENV_VAR,
-    resolveMcpMatrix,
-    supportsTenantMcpTarget
-} from './mcpServers.mjs';
-import {deriveAgentInstanceHome}                           from './deriveAgentInstanceHome.mjs';
-import {LAUNCHABLE_HARNESS_TYPES}                          from './deriveHarnessLaunchSpec.mjs';
-import {KIMI_SEAT_SERVERS, generateKimiSeatConfig}         from './generateKimiSeatConfig.mjs';
+    MANAGED_WORKSPACE_MCP_SERVER_DESCRIPTORS as MCP_SERVER_DESCRIPTORS,
+    createManagedAgentWorkspacePlan
+} from './managedAgentWorkspacePlan.mjs';
 import {OPENCODE_SEAT_SERVERS, generateOpenCodeSeatConfig} from './generateOpenCodeSeatConfig.mjs';
+
+export {createManagedAgentWorkspacePlan} from './managedAgentWorkspacePlan.mjs';
 
 const
     __filename               = fileURLToPath(import.meta.url),
@@ -36,87 +37,6 @@ export const WORKSPACE_ARTIFACT_STATES = Object.freeze({
     DIVERGENT: 'DIVERGENT'
 });
 
-// One executable descriptor per shared catalog key. The catalog remains the durable key/default
-// authority; these Node-only leaves add the installed-checkout-relative entrypoint + environment
-// transport facts the Body-safe catalog deliberately cannot carry. Import-time lockstep below turns catalog drift into a
-// loud failure rather than silently omitting a newly registered server.
-const MCP_SERVER_DESCRIPTORS = Object.freeze({
-    'memory-core': Object.freeze({
-        entrypoint: 'ai/mcp/server/memory-core/mcp-server.mjs',
-        runtimeEnv: Object.freeze([
-            'NEO_AGENT_IDENTITY',
-            'NEO_CHROMA_EMBEDDING_PROVIDER',
-            'NEO_CHROMA_UNIFIED',
-            'NEO_EMBEDDING_PROVIDER',
-            'NEO_MEM_AUTO_START_DATABASE',
-            'NEO_MEM_AUTO_START_INFERENCE',
-            'NEO_MODEL_PROVIDER',
-            'NEO_OPENAI_COMPATIBLE_API_KEY',
-            'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
-            'NEO_OPENAI_COMPATIBLE_HOST',
-            'NEO_OPENAI_COMPATIBLE_MODEL'
-        ]),
-        requiredRuntimeEnv: Object.freeze(['NEO_AGENT_IDENTITY'])
-    }),
-    'knowledge-base': Object.freeze({
-        entrypoint: 'ai/mcp/server/knowledge-base/mcp-server.mjs',
-        runtimeEnv: Object.freeze([
-            'NEO_AGENT_IDENTITY',
-            'NEO_CHROMA_EMBEDDING_PROVIDER',
-            'NEO_CHROMA_UNIFIED',
-            'NEO_EMBEDDING_PROVIDER',
-            'NEO_KB_ASK_API_KEY',
-            'NEO_KB_AUTO_START_DATABASE',
-            'NEO_OPENAI_COMPATIBLE_API_KEY',
-            'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
-            'NEO_OPENAI_COMPATIBLE_HOST',
-            'NEO_OPENAI_COMPATIBLE_MODEL'
-        ]),
-        requiredRuntimeEnv: Object.freeze(['NEO_AGENT_IDENTITY'])
-    }),
-    'neural-link': Object.freeze({
-        entrypoint: 'ai/mcp/server/neural-link/mcp-server.mjs',
-        runtimeEnv: Object.freeze([
-            'NEO_AGENT_IDENTITY',
-            'NEO_FLEET_BRIDGE_TOKEN',
-            'NEO_NL_TOOL_PROJECTION_MODE'
-        ]),
-        requiredRuntimeEnv: Object.freeze([
-            'NEO_AGENT_IDENTITY',
-            'NEO_NL_TOOL_PROJECTION_MODE'
-        ]),
-        secretEnv: Object.freeze(['NEO_FLEET_BRIDGE_TOKEN'])
-    }),
-    'github-workflow': Object.freeze({
-        entrypoint        : 'ai/mcp/server/github-workflow/mcp-server.mjs',
-        runtimeEnv        : Object.freeze(['GH_TOKEN', 'GITHUB_TOKEN', 'NEO_AGENT_IDENTITY']),
-        requiredRuntimeEnv: Object.freeze(['GH_TOKEN', 'NEO_AGENT_IDENTITY']),
-        secretEnv         : Object.freeze(['GH_TOKEN'])
-    }),
-    'gitlab-workflow': Object.freeze({
-        entrypoint        : 'ai/mcp/server/gitlab-workflow/mcp-server.mjs',
-        runtimeEnv        : Object.freeze(['NEO_AGENT_IDENTITY', 'NEO_GITLAB_HOST', 'NEO_GITLAB_PAT', 'NEO_GITLAB_PROJECT']),
-        requiredRuntimeEnv: Object.freeze(['NEO_AGENT_IDENTITY', 'NEO_GITLAB_PAT']),
-        secretEnv         : Object.freeze(['NEO_GITLAB_PAT']),
-        unsupportedReason : 'FleetLifecycleService has no GitLab credential injection contract'
-    })
-});
-
-{
-    const catalogKeys = new Set(MCP_SERVERS.map(entry => entry.key));
-
-    for (const key of catalogKeys) {
-        if (!MCP_SERVER_DESCRIPTORS[key]) {
-            throw new Error(`prepareManagedAgentWorkspace: MCP catalog key '${key}' has no executable descriptor.`);
-        }
-    }
-    for (const key of Object.keys(MCP_SERVER_DESCRIPTORS)) {
-        if (!catalogKeys.has(key)) {
-            throw new Error(`prepareManagedAgentWorkspace: executable descriptor '${key}' is absent from the shared MCP catalog.`);
-        }
-    }
-}
-
 /**
  * @summary Error for a fail-closed workspace preparation result. `code` is stable for callers;
  * `artifact` contains paths, owned-key names, and state only — never file contents or secret values.
@@ -131,9 +51,311 @@ export class ManagedWorkspacePreparationError extends Error {
 }
 
 /**
- * @summary Hydrate and converge one Fleet-managed checkout plus its isolated harness home before
- * process spawn. This is the missing lifecycle seam between `ensureAgentRepo` and
- * `FleetLifecycleService.start`: no install/build, no operator-dotfile reads, no secret rendering.
+ * @typedef {Object} ManagedAgentWorkspacePlanInput
+ * @property {{id: String, harnessType: String}} agent Closed opaque seat + harness intent.
+ * @property {Object<String, Boolean>} mcpMatrix Complete canonical MCP enablement matrix.
+ * @property {Object|null} [mcpTarget=null] Closed non-secret tenant resource intent.
+ */
+
+/**
+ * @typedef {Object} ManagedAgentWorkspaceMcpPlan
+ * @property {String} key Canonical MCP catalog key.
+ * @property {String} name Curated harness-facing server name.
+ * @property {Boolean} enabled Whether the server is enabled for this seat.
+ * @property {'resident'|'tenant'} target Resource ownership intent.
+ * @property {'stdio'|'streamable-http'} transport Curated transport intent.
+ * @property {String|null} entrypoint Repository-relative curated entrypoint.
+ * @property {String|null} url Public remote resource URL.
+ * @property {String|null} credentialEnvVar Credential slot name, never its value.
+ * @property {String[]} runtimeEnv Child-runtime environment slot names.
+ * @property {String[]} requiredRuntimeEnv Required child-runtime environment slot names.
+ * @property {String[]} secretEnv Secret-bearing child-runtime environment slot names.
+ */
+
+/**
+ * @typedef {Object} ManagedAgentWorkspacePlan
+ * @property {{id: String, harnessType: String}} agent Closed opaque seat + harness intent.
+ * @property {String} artifactProfile Curated harness artifact profile.
+ * @property {Object<String, Boolean>} mcpMatrix Complete canonical MCP enablement matrix.
+ * @property {ManagedAgentWorkspaceMcpPlan[]} mcpServers Closed logical MCP plan.
+ */
+
+const
+    LOGICAL_PLAN_KEYS   = Object.freeze(['agent', 'artifactProfile', 'mcpMatrix', 'mcpServers']),
+    LOGICAL_SERVER_KEYS = Object.freeze([
+        'key',
+        'name',
+        'enabled',
+        'target',
+        'transport',
+        'entrypoint',
+        'url',
+        'credentialEnvVar',
+        'runtimeEnv',
+        'requiredRuntimeEnv',
+        'secretEnv'
+    ]),
+    FORBIDDEN_LOGICAL_FIELDS = new Set([
+        'args',
+        'auth',
+        'authorization',
+        'bearer',
+        'command',
+        'credential',
+        'cwd',
+        'grant',
+        'grants',
+        'instanceRoot',
+        'mainCheckout',
+        'nodePath',
+        'owner',
+        'ownerPrincipal',
+        'repoPath',
+        'secret',
+        'token'
+    ].map(key => key.toLowerCase()));
+
+/**
+ * @summary Prove that one closed logical plan is internally coherent by re-deriving its canonical
+ * projection from the plan's own agent, MCP-matrix, and tenant-resource inputs. This is a coherence
+ * gate, not a provenance gate: it does not prove that a registry authorized those logical inputs.
+ * A future cross-process plan/apply seam must authenticate that origin independently.
+ * @param {ManagedAgentWorkspacePlan} plan Candidate logical plan.
+ * @returns {ManagedAgentWorkspacePlan} The recursively frozen canonical projection.
+ * @private
+ */
+function validateManagedAgentWorkspacePlan(plan) {
+    assertSafeLogicalTree(plan, 'plan');
+    assertExactRecord(plan, 'plan', LOGICAL_PLAN_KEYS);
+    assertLogicalString(plan.artifactProfile, 'plan.artifactProfile');
+
+    if (!Array.isArray(plan.mcpServers) ||
+        plan.mcpServers.length !== MCP_SERVERS.length ||
+        Object.keys(plan.mcpServers).some((key, index) => key !== String(index))) {
+        throw new TypeError('applyManagedAgentWorkspacePlan: plan.mcpServers must be a dense canonical array.')
+    }
+
+    for (const [index, server] of plan.mcpServers.entries()) {
+        const label = `plan.mcpServers[${index}]`;
+
+        assertExactRecord(server, label, LOGICAL_SERVER_KEYS);
+        assertLogicalString(server.key, `${label}.key`);
+        assertLogicalString(server.name, `${label}.name`);
+        if (typeof server.enabled !== 'boolean') {
+            throw new TypeError(`applyManagedAgentWorkspacePlan: '${label}.enabled' must be boolean.`)
+        }
+        if (!['resident', 'tenant'].includes(server.target)) {
+            throw new TypeError(`applyManagedAgentWorkspacePlan: '${label}.target' is malformed.`)
+        }
+        if (!['stdio', 'streamable-http'].includes(server.transport)) {
+            throw new TypeError(`applyManagedAgentWorkspacePlan: '${label}.transport' is malformed.`)
+        }
+        if (server.entrypoint !== null) assertLogicalString(server.entrypoint, `${label}.entrypoint`);
+        if (server.url !== null) assertLogicalString(server.url, `${label}.url`);
+        if (server.credentialEnvVar !== null) assertLogicalString(server.credentialEnvVar, `${label}.credentialEnvVar`);
+        assertLogicalStringArray(server.runtimeEnv, `${label}.runtimeEnv`);
+        assertLogicalStringArray(server.requiredRuntimeEnv, `${label}.requiredRuntimeEnv`);
+        assertLogicalStringArray(server.secretEnv, `${label}.secretEnv`)
+    }
+
+    const tenantRows = plan.mcpServers.filter(server => server.target === 'tenant');
+    let   mcpTarget  = null;
+
+    if (tenantRows.length) {
+        const
+            memoryCore    = tenantRows.find(server => server.key === 'memory-core'),
+            knowledgeBase = tenantRows.find(server => server.key === 'knowledge-base');
+
+        if (!memoryCore || !knowledgeBase || memoryCore.credentialEnvVar !== knowledgeBase.credentialEnvVar) {
+            throw new TypeError('applyManagedAgentWorkspacePlan: tenant plan must bind both canonical resources through one credential slot.')
+        }
+
+        mcpTarget = {
+            kind            : 'tenant',
+            credentialEnvVar: memoryCore.credentialEnvVar,
+            resources       : {
+                'memory-core'   : {url: memoryCore.url},
+                'knowledge-base': {url: knowledgeBase.url}
+            }
+        }
+    }
+
+    const expected = createManagedAgentWorkspacePlan({
+        agent    : plan.agent,
+        mcpMatrix: plan.mcpMatrix,
+        mcpTarget
+    });
+
+    if (!isDeepStrictEqual(plan, expected)) {
+        throw new TypeError('applyManagedAgentWorkspacePlan: plan does not match the canonical logical projection.')
+    }
+
+    return expected
+}
+
+/** @private */
+function bindManagedAgentWorkspacePlan({logicalPlan, repoPath, mainCheckout, nodePath}) {
+    return logicalPlan.mcpServers.map(server => ({
+        ...server,
+        command   : nodePath,
+        sourceRoot: mainCheckout,
+        args      : [
+            path.join(mainCheckout, server.entrypoint),
+            ...(server.key === 'neural-link' ? ['--cwd', repoPath] : [])
+        ],
+        runtimeEnv        : [...server.runtimeEnv],
+        requiredRuntimeEnv: [...server.requiredRuntimeEnv],
+        secretEnv         : [...server.secretEnv],
+        unsupportedReason : MCP_SERVER_DESCRIPTORS[server.key].unsupportedReason || null
+    }))
+}
+
+/**
+ * @summary Bind and apply one validated logical workspace plan at the host-only effect edge. This
+ * function alone introduces absolute repo/home/main-checkout/Node paths, then preserves the existing
+ * bounded effect census: `stat`/`lstat`/`access`, checkout hydration, bounded reads, `mkdir`,
+ * create-only and temporary writes, atomic `rename`, `chmod(0600)`, and receipt `unlink`. It never
+ * spawns a process. Completed hydration or atomic/create-only artifacts may remain after a later
+ * failure; retry converges that honest partial state without exposing partial file bytes.
+ *
+ * The sole production caller remains `startAgentProvisioned()` through the compatibility composer
+ * below. Renderers and convergence helpers consume the same host-bound plan shape as before.
+ * Canonical re-derivation proves internal coherence with the plan's own logical inputs; it does not
+ * prove registry authorization or cross-process provenance. That belongs to the later authenticated
+ * plan/apply envelope rather than this host edge.
+ * @param {Object} options
+ * @param {ManagedAgentWorkspacePlan} options.plan Closed logical plan; structural clones accepted
+ *     after schema and canonical-projection coherence validation.
+ * @param {String} options.repoPath Absolute provisioned checkout path.
+ * @param {String} options.instanceRoot Absolute Fleet harness-home root.
+ * @param {String} [options.mainCheckout] Installed canonical checkout.
+ * @param {String} [options.nodePath] Node executable used for installed MCP entrypoints.
+ * @param {Object} [options.remoteMcpCapability] Existing non-secret installed-adapter proof.
+ * @param {Function} [options.hydrateWorkspace] Import-safe checkout hydration seam.
+ * @param {Function} [options.deriveInstanceHome] Per-agent home derivation seam.
+ * @param {Object} [options.fileSystem] Promise filesystem seam.
+ * @param {Function} [options.log] Hydration logger.
+ * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
+ * @throws {ManagedWorkspacePreparationError} For invalid plans/bindings, unsafe paths, unsupported
+ *     capabilities, divergent content, or effect failures.
+ */
+export async function applyManagedAgentWorkspacePlan(options={}) {
+    try {
+        return await applyManagedAgentWorkspacePlanUnchecked(options)
+    } catch (error) {
+        if (error instanceof ManagedWorkspacePreparationError) throw error;
+        if (error instanceof RangeError) throw unsupported(error.message);
+
+        const wrapped = new ManagedWorkspacePreparationError(
+            error instanceof TypeError
+                ? `prepareManagedAgentWorkspace: host apply rejected its logical plan (${error.message}).`
+                : 'prepareManagedAgentWorkspace: host apply effect failed.'
+        );
+
+        wrapped.cause = error;
+        throw wrapped
+    }
+}
+
+/** @private */
+async function applyManagedAgentWorkspacePlanUnchecked({
+    plan: inputPlan,
+    repoPath,
+    instanceRoot,
+    mainCheckout = DEFAULT_MAIN_CHECKOUT,
+    nodePath = process.execPath,
+    remoteMcpCapability = null,
+    hydrateWorkspace = hydrateCurrentWorktree,
+    deriveInstanceHome = deriveAgentInstanceHome,
+    fileSystem = fs,
+    log = () => {}
+} = {}) {
+    const logicalPlan = validateManagedAgentWorkspacePlan(inputPlan);
+
+    assertAbsolutePath(repoPath, 'repoPath');
+    assertAbsolutePath(instanceRoot, 'instanceRoot');
+    assertAbsolutePath(mainCheckout, 'mainCheckout');
+    assertAbsolutePath(nodePath, 'nodePath');
+
+    const
+        canonicalRepoPath     = path.resolve(repoPath),
+        canonicalInstanceRoot = path.resolve(instanceRoot),
+        installedRoot         = path.resolve(mainCheckout),
+        agent                 = logicalPlan.agent,
+        instanceHome          = deriveInstanceHome({
+            instanceRoot: canonicalInstanceRoot,
+            agentId     : agent.id,
+            harnessType : agent.harnessType
+        }),
+        plan = bindManagedAgentWorkspacePlan({
+            logicalPlan,
+            repoPath    : canonicalRepoPath,
+            mainCheckout: installedRoot,
+            nodePath
+        });
+
+    assertAbsolutePath(instanceHome, 'instanceHome');
+    await assertRemoteBridgeCapability({
+        agent,
+        plan,
+        capability  : remoteMcpCapability,
+        mainCheckout: installedRoot,
+        nodePath,
+        fileSystem
+    });
+    await assertNoSymlinkSegments({
+        rootPath  : canonicalInstanceRoot,
+        targetPath: instanceHome,
+        fileSystem,
+        label     : 'resident home'
+    });
+
+    const hydration = await hydrateWorkspace({
+        mainCheckout: installedRoot,
+        projectRoot : canonicalRepoPath,
+        log
+    });
+
+    await assertRealDirectory(canonicalRepoPath, 'repoPath', fileSystem);
+    await assertExecutablePlan({plan, nodePath, fileSystem});
+    await assertNoSymlinkSegments({
+        rootPath  : canonicalInstanceRoot,
+        targetPath: instanceHome,
+        fileSystem,
+        label     : 'resident home'
+    });
+
+    const artifacts = await prepareHarnessArtifacts({
+        agent,
+        repoPath    : canonicalRepoPath,
+        instanceHome,
+        mainCheckout: installedRoot,
+        plan,
+        remoteMcpCapability,
+        fileSystem
+    });
+
+    return {
+        repoPath : canonicalRepoPath,
+        instanceHome,
+        mcpMatrix: {...logicalPlan.mcpMatrix},
+        mcpPlan  : plan.map(server => ({
+            ...server,
+            args              : [...server.args],
+            runtimeEnv        : [...server.runtimeEnv],
+            requiredRuntimeEnv: [...server.requiredRuntimeEnv],
+            secretEnv         : [...server.secretEnv]
+        })),
+        hydration,
+        artifacts
+    }
+}
+
+/**
+ * @summary Compatibility composer for the existing Fleet workspace preparation surface: resolve
+ * the sparse-at-rest MCP matrix once, project the closed logical input, plan once, then apply once.
+ * It preserves the established option names, six-field return, artifact bytes, safety gates, and
+ * local/remote transition behavior while exposing the plan/apply seam for later container ownership.
  *
  * Executable MCP entrypoints deliberately resolve from the installed `mainCheckout`: fresh managed
  * clones have no dependencies, dependency installation/build is outside this composer, and sharing
@@ -166,6 +388,8 @@ export class ManagedWorkspacePreparationError extends Error {
  * @param {Function}[options.log]                 Hydration logger.
  * @returns {Promise<{repoPath: String, instanceHome: String, mcpMatrix: Object, mcpPlan: Object[], hydration: Object, artifacts: Object[]}>}
  * @throws {ManagedWorkspacePreparationError} for unsupported adapters or divergent owned content.
+ * @see createManagedAgentWorkspacePlan
+ * @see applyManagedAgentWorkspacePlan
  */
 export async function prepareManagedAgentWorkspace({
     agent,
@@ -187,211 +411,115 @@ export async function prepareManagedAgentWorkspace({
 
     assertNonEmptyString(agent.id, 'agent.id');
     assertNonEmptyString(agent.harnessType, 'agent.harnessType');
-    assertAbsolutePath(repoPath, 'repoPath');
-    assertAbsolutePath(instanceRoot, 'instanceRoot');
-    assertAbsolutePath(mainCheckout, 'mainCheckout');
-    assertAbsolutePath(nodePath, 'nodePath');
-
-    const
-        canonicalRepoPath = path.resolve(repoPath),
-        installedRoot     = path.resolve(mainCheckout),
-        mcpMatrix         = resolveMatrix(agent.mcpServers),
-        plan              = createMcpPlan({mcpMatrix, repoPath: canonicalRepoPath, mainCheckout: installedRoot, nodePath, mcpTarget}),
-        instanceHome      = deriveInstanceHome({instanceRoot, agentId: agent.id, harnessType: agent.harnessType});
-
-    // Hardest/unsupported adapter gate runs before hydration or artifact writes. A failed product
-    // authority proof cannot leave a checkout looking partially resident-ready.
-    assertHarnessSupported({agent, plan});
-    await assertRemoteBridgeCapability({
-        agent,
-        plan,
-        capability  : remoteMcpCapability,
-        mainCheckout: installedRoot,
-        nodePath,
-        fileSystem
-    });
-    await assertNoSymlinkSegments({
-        rootPath  : path.resolve(instanceRoot),
-        targetPath: instanceHome,
-        fileSystem,
-        label     : 'resident home'
-    });
-
-    const hydration = await hydrateWorkspace({
-        mainCheckout: installedRoot,
-        projectRoot : canonicalRepoPath,
-        log
-    });
-
-    await assertRealDirectory(canonicalRepoPath, 'repoPath', fileSystem);
-    await assertExecutablePlan({plan, nodePath, fileSystem});
-
-    await assertNoSymlinkSegments({
-        rootPath  : path.resolve(instanceRoot),
-        targetPath: instanceHome,
-        fileSystem,
-        label     : 'resident home'
-    });
-
-    const artifacts = await prepareHarnessArtifacts({
-        agent,
-        repoPath    : canonicalRepoPath,
-        instanceHome,
-        mainCheckout: installedRoot,
-        plan,
-        remoteMcpCapability,
-        fileSystem
-    });
-
-    // The logical plan contains executable paths, public URLs, and ENV-SLOT NAMES only — never
-    // values. Direct-HTTP adapters return their exact renderer input for installed readback;
-    // Claude Desktop's command-only bridge is independently bound by the capability proof plus
-    // generated-artifact/real-transport tests, while this plan retains the transport intent.
-    return {
-        repoPath: canonicalRepoPath,
-        instanceHome,
-        mcpMatrix,
-        mcpPlan : plan.map(server => ({
-            ...server,
-            args              : [...server.args],
-            runtimeEnv        : [...server.runtimeEnv],
-            requiredRuntimeEnv: [...server.requiredRuntimeEnv],
-            secretEnv         : [...server.secretEnv]
-        })),
-        hydration,
-        artifacts
-    };
-}
-
-/** @private */
-function createMcpPlan({mcpMatrix, repoPath, mainCheckout, nodePath, mcpTarget}) {
-    assertMcpTargetPlan(mcpTarget);
-
-    return MCP_SERVERS.map(entry => {
-        const
-            descriptor = MCP_SERVER_DESCRIPTORS[entry.key],
-            resource   = mcpTarget?.kind === 'tenant' && mcpTarget.resources[entry.key];
-
-        return {
-            key             : entry.key,
-            name            : `${NEO_MCP_NAME_PREFIX}${entry.key}`,
-            enabled         : mcpMatrix[entry.key] === true,
-            target          : resource ? 'tenant' : 'resident',
-            transport       : resource ? 'streamable-http' : 'stdio',
-            url             : resource?.url ?? null,
-            credentialEnvVar: resource ? mcpTarget.credentialEnvVar : null,
-            command         : nodePath,
-            sourceRoot      : mainCheckout,
-            args            : [
-                path.join(mainCheckout, descriptor.entrypoint),
-                ...(entry.key === 'neural-link' ? ['--cwd', repoPath] : [])
-            ],
-            runtimeEnv        : [...descriptor.runtimeEnv],
-            requiredRuntimeEnv: [...descriptor.requiredRuntimeEnv],
-            secretEnv         : [...(descriptor.secretEnv || [])],
-            unsupportedReason : descriptor.unsupportedReason || null
-        };
-    });
-}
-
-/** @private */
-function assertMcpTargetPlan(target) {
-    if (target === null) return;
-
-    const topLevelKeys = new Set(['kind', 'credentialEnvVar', 'resources']);
-
-    if (!target ||
-        typeof target !== 'object' ||
-        Array.isArray(target) ||
-        Object.keys(target).some(key => !topLevelKeys.has(key)) ||
-        target.kind !== 'tenant' ||
-        target.credentialEnvVar !== REMOTE_MCP_CREDENTIAL_ENV_VAR ||
-        !target.resources ||
-        typeof target.resources !== 'object' ||
-        Array.isArray(target.resources)) {
-        throw unsupported('tenant MCP target plan is malformed')
-    }
-
-    const
-        allowed  = new Set(['memory-core', 'knowledge-base']),
-        suffixes = {
-            'memory-core'   : '/mc/mcp',
-            'knowledge-base': '/kb/mcp'
-        };
-    let deploymentBase = null;
-
-    for (const [key, resource] of Object.entries(target.resources)) {
-        let url;
-
-        try {
-            url = new URL(resource?.url)
-        } catch {
-            throw unsupported(`remote MCP resource '${key}' is malformed`)
-        }
-
-        const suffix = suffixes[key];
-
-        if (!allowed.has(key) ||
-            !resource ||
-            typeof resource !== 'object' ||
-            Array.isArray(resource) ||
-            Object.keys(resource).some(field => field !== 'url') ||
-            typeof resource.url !== 'string' ||
-            !resource.url ||
-            !['http:', 'https:'].includes(url.protocol) ||
-            url.username ||
-            url.password ||
-            url.search ||
-            url.hash ||
-            !url.pathname.endsWith(suffix)) {
-            throw unsupported(`remote MCP resource '${key}' is malformed`)
-        }
-
-        const candidateBase = `${url.origin}${url.pathname.slice(0, -suffix.length)}`;
-
-        if (deploymentBase !== null && deploymentBase !== candidateBase) {
-            throw unsupported('remote MCP resources do not share one canonical deployment base')
-        }
-
-        deploymentBase = candidateBase
-    }
-
-    if (![...allowed].every(key => target.resources[key])) {
-        throw unsupported('tenant MCP target requires both memory-core and knowledge-base resources')
-    }
-}
-
-/** @private */
-function assertHarnessSupported({agent, plan}) {
     if (agent.metadata?.launch) {
         throw unsupported('raw metadata.launch overrides bypass curated resident-home and MCP preparation');
     }
 
-    if (!LAUNCHABLE_HARNESS_TYPES.includes(agent.harnessType)) {
-        throw unsupported(`harness '${agent.harnessType}' has no launch/workspace adapter`);
+    let plan;
+    try {
+        plan = createManagedAgentWorkspacePlan({
+            agent    : {id: agent.id, harnessType: agent.harnessType},
+            mcpMatrix: resolveMatrix(agent.mcpServers),
+            mcpTarget
+        })
+    } catch (error) {
+        if (error instanceof ManagedWorkspacePreparationError) throw error;
+        throw unsupported(error.message)
     }
 
-    if (plan.some(server => server.target === 'tenant') &&
-        !supportsTenantMcpTarget(agent.harnessType)) {
-        throw unsupported(`harness '${agent.harnessType}' has no proven secret-safe tenant MCP grammar`)
-    }
+    return applyManagedAgentWorkspacePlan({
+        plan,
+        repoPath,
+        instanceRoot,
+        mainCheckout,
+        nodePath,
+        remoteMcpCapability,
+        hydrateWorkspace,
+        deriveInstanceHome,
+        fileSystem,
+        log
+    })
+}
 
-    const catalogUnsupported = plan.find(server => server.enabled && server.unsupportedReason);
-    if (catalogUnsupported) {
-        throw unsupported(`MCP server '${catalogUnsupported.key}' is enabled but unsupported: ${catalogUnsupported.unsupportedReason}`);
-    }
-
-    if (agent.harnessType === 'antigravity') {
-        throw unsupported('Antigravity 2.x exposes no proven contained per-resident MCP configuration root');
-    }
-
-    if (agent.harnessType === 'claude-desktop') {
-        const secretServer = plan.find(server => server.enabled &&
-            server.requiredRuntimeEnv.some(name => server.secretEnv.includes(name)));
-        if (secretServer) {
-            throw unsupported(`Claude Desktop cannot represent startup-required Fleet secret env for enabled MCP server '${secretServer.key}' without persisting secret bytes`);
+/** @private */
+function assertSafeLogicalTree(value, label, ancestors=new WeakSet()) {
+    if (typeof value === 'string') {
+        if (isPortableAbsolutePath(value)) {
+            throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must not contain an absolute host path.`)
         }
+        return
     }
+
+    if (value === null || value === undefined || typeof value !== 'object') return;
+
+    const prototype = Object.getPrototypeOf(value);
+    if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must contain plain data only.`)
+    }
+    if (Object.getOwnPropertySymbols(value).length) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must not contain symbol fields.`)
+    }
+    if (ancestors.has(value)) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must not contain a reference cycle.`)
+    }
+
+    ancestors.add(value);
+
+    try {
+        for (const key of Object.keys(value)) {
+            const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
+            if (!descriptor || descriptor.get || descriptor.set) {
+                throw new TypeError(`createManagedAgentWorkspacePlan: '${label}.${key}' must be a data field, not an accessor.`)
+            }
+            if (FORBIDDEN_LOGICAL_FIELDS.has(key.toLowerCase())) {
+                throw new TypeError(`createManagedAgentWorkspacePlan: forbidden logical field '${key}'.`)
+            }
+
+            assertSafeLogicalTree(descriptor.value, `${label}.${key}`, ancestors)
+        }
+    } finally {
+        ancestors.delete(value)
+    }
+}
+
+/** @private */
+function assertExactRecord(value, label, allowedKeys, requiredKeys=allowedKeys) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must be an object.`)
+    }
+
+    const
+        unknown = Object.keys(value).find(key => !allowedKeys.includes(key)),
+        missing = requiredKeys.find(key => !Object.hasOwn(value, key));
+
+    if (unknown) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: unknown field '${label}.${unknown}'.`)
+    }
+    if (missing) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: missing field '${label}.${missing}'.`)
+    }
+}
+
+/** @private */
+function assertLogicalString(value, label) {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new TypeError(`createManagedAgentWorkspacePlan: '${label}' must be a non-empty string.`)
+    }
+}
+
+/** @private */
+function assertLogicalStringArray(value, label) {
+    if (!Array.isArray(value) ||
+        Object.keys(value).some((key, index) => key !== String(index)) ||
+        value.some(item => typeof item !== 'string' || item.length === 0)) {
+        throw new TypeError(`applyManagedAgentWorkspacePlan: '${label}' must be a dense string array.`)
+    }
+}
+
+/** @private */
+function isPortableAbsolutePath(value) {
+    return path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value)
 }
 
 /**
