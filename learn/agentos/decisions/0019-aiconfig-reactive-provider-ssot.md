@@ -69,7 +69,7 @@ A reviewer checks a config-touching diff against this list; the lint (sub #2) me
 |---|---|---|---|
 | C1 ⛔ | **NEO imports ONLY in thread-entrypoints** (ZERO tolerance — `import Neo`/`_export`/`AiConfig` in a *non-entrypoint* script can BREAK things) | `[live: TaskDefinitions.mjs]` | keep the non-entrypoint Neo-free; it takes pure FUNCTIONS from a shared module, and any LITERAL it needs must earn §5.5's anchor reason — being a non-entrypoint is never itself the reason, and it must not carry a resolver for anything a leaf already binds |
 | C2 | duplicated primitives (`chromaClientPrimitives` re-implements the embedding dummy-fn; `chromaTestIsolation` hidden default DB names) | `[live-on-dev]` | fold into the SSOT leaves |
-| C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[live: #11976]` | tests import the canonical template |
+| C3 | tests import `config.mjs` (overlay) not `config.template.mjs` (canonical) | `[guarded: the lint's test config-authority rule (AST-resolved, scans `test/`), 0 on dev — #11976 repaired the backlog; #16628 wired the CI trigger to the scanned surface]` | tests import the canonical template |
 
 > **V-B-A classification correction (@neo-opus-4-7, `dev` line-evidence — Discussion #12453 `DC_kwDODSospM4BBgm5`):** the `ai/` daemon *entrypoints* (`bridge/daemon.mjs:3-6`, `orchestrator/daemon.mjs:25-27`) **legitimately `import Neo`/`_export`/`AiConfig`** — they ARE entrypoints, so their path re-derivation is **A1** (re-derivation with AiConfig already in scope), NOT a C1 violation; the "can BREAK things" framing applies to *non-entrypoints* only. The **single genuine C1×B5 site is `TaskDefinitions.mjs`** (no Neo import; `export const DEFAULT_DB_PATH`). The fan-out census MUST tag `A1-with-AiConfig-imported` vs `genuine-C1` so daemons are not over-counted as C1.
 
@@ -117,7 +117,7 @@ Before authoring or reviewing any `ai/` config work, you MUST:
 ## 7. Codification stack & sequencing
 
 1. **This ADR** (authority) + **the one-line AGENTS.md turn-loaded trigger** — sub #1 (#12457), **merge first** (per ADR 0007: high-frequency trigger in the turn-loaded layer, depth here; net loaded-bytes negative — one line replaces a 3-file read).
-2. **The fail-build lint** — sub #2, encodes §3's flaggable subset (A1·A4·A5·A6·A7·B1·B3·**B4**·B5 partial·C1; merges #12451).
+2. **The fail-build lint** — sub #2, encodes §3's flaggable subset (A1·A4·A5·A6·A7·B1·B3·**B4**·B5 partial·C1·C3; merges #12451). The C3 half is the test config-authority rule: AST-resolved overlay-import detection over `test/**/*.mjs`, precise against fixture strings and comments (its own spec red-proves both directions). Its CI workflow watches every surface the rules scan — `ai/**/*.mjs` + `test/**/*.mjs` — per the scanned ⊆ watched invariant (#16628; a filter narrower than the scan set produces late, misattributed enforcement on unrelated PRs).
 3. **Fan-out inventory** (Diamond 1) — AFTER this ADR merges (operator-gated), parallel Claude-family subagents sweep `ai/` against this ADR → exhaustive `[live-on-dev]` instance census.
 4. **Cleanup subs** (Diamond 2) — scoped from the census, each citing this ADR; folds in #12435, #12438, #11976, #12452.
 
