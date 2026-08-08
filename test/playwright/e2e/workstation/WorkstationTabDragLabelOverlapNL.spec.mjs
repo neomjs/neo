@@ -18,7 +18,10 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * `DockFlip.play()` branch classification is recorded alongside (wrapped `play`,
  * `hasPreservedMarkerSet`, `hasLandedInPlace`) — including the outcome where the defect sits
- * outside DockFlip entirely.
+ * outside DockFlip entirely. The branch trace, the designed same-row sort crossing, and the
+ * interference canary are terminal positive controls: an interaction-disabled or branch-absent
+ * run fails the witness even with an empty overlap set, so zero violations can never read green
+ * from a gesture that never entered the repaired path.
  *
  * CDP page.mouse is REQUIRED: the drag must ride the trusted-input path (the app-side synthetic
  * path does not exercise the real drag lifecycle — measured in the drag-selection lane).
@@ -221,6 +224,32 @@ test.describe('Workstation — a top-right tab drag never paints a header label 
         console.log('[overlap-diag] same-layer crossings (designed slide-past diagnostics):', JSON.stringify(sameLayerHistogram));
         console.log('[overlap-diag] flip log:', JSON.stringify(flipLog));
         console.log('[overlap-diag] canary:', JSON.stringify(canary));
+
+        // Terminal positive controls: a zero-overlap verdict is only meaningful when the intended
+        // drag path actually fired. Absence of the branch, the designed sort crossing, or the
+        // exact gesture signature fails the witness even when no overlap is sampled — an
+        // interaction-disabled run (e.g. pointer-events:none on the headers) is thereby red, not
+        // vacuously green.
+        expect(canary.mousedown, 'interference canary: exactly the two gesture presses').toBe(2);
+        expect(canary.mouseup,   'interference canary: exactly the two gesture releases').toBe(2);
+        expect(canary.mousemove, 'interference canary: the gesture move stream fired').toBeGreaterThanOrEqual(20);
+
+        expect(
+            sameLayer.length,
+            'positive control: phase A exercised the sort machinery (the designed same-row slide-past crossing occurred)'
+        ).toBeGreaterThan(0);
+
+        const playOptions = flipLog.filter(e => e.m === 'play').map(e => JSON.parse(e.opts));
+
+        expect(
+            playOptions.some(o => o.geometryOnly === false),
+            'positive control: phase B entered DockFlip.play with geometryOnly:false'
+        ).toBe(true);
+
+        expect(
+            flipLog.some(e => e.m === 'hasPreservedMarkerSet' && e.r === false),
+            'positive control: the replacement-tree branch classified (hasPreservedMarkerSet → false)'
+        ).toBe(true);
 
         // AC1/AC2: no header-layer label may ever share an overlapping box with a content-layer
         // label — the layer-boundary crossing is the defect's discriminating signature.
