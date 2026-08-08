@@ -2407,3 +2407,114 @@ test.describe('replay probe transaction (prototype-call)', () => {
         expect(refreshCalls).toHaveLength(1)
     });
 });
+
+
+test.describe('cross-zone dwell candidate re-verification (prototype-call)', () => {
+    // Drives `executeCrossZoneShowcaseStep` to its first dwell with a fake host, then applies
+    // `onDwell` to the indicators when the dwell-length timeout fires — covering both mid-dwell
+    // loss modes: expiry (the candidate is gone) and preemption (a different candidate is live).
+    const runDwellScenario = async onDwell => {
+        const
+            dwellDelay = 600,
+            events     = [],
+            timeouts   = [],
+            indicators = {
+                candidateSet: {
+                    zone : {nodeId: 'zone-a'},
+                    cross: [{preview: {placement: {kind: 'before'}, previewId: 'preview-a', target: {nodeId: 'zone-a'}}}]
+                },
+                activeCandidate     : {preview: {placement: {kind: 'before'}, previewId: 'preview-a', target: {nodeId: 'zone-a'}}},
+                getCandidateHitPoint: () => ({x: 360, y: 360})
+            },
+            button = {
+                id        : 'fake-tab-button',
+                windowId  : 'fake-cross-zone-window',
+                getDomRect: async () => [{height: 20, width: 40, x: 100, y: 100}]
+            },
+            sortZone = {enableProxyToPopup: true, isDestroyed: false},
+            host     = {
+                dockModel      : {nodes: {'source-tabs': {items: ['item-1'], type: 'tabs'}}},
+                id             : 'fake-workspace-cross-zone',
+                isDestroyed    : false,
+                refreshPromise : Promise.resolve(),
+                dragAffordances: {
+                    indicators,
+                    ensureGeometry: async () => ({zones: [
+                        {nodeId: 'zone-a', rect: {height: 100, width: 100, x: 300, y: 300}},
+                        {nodeId: 'zone-b', rect: {height: 100, width: 100, x: 500, y: 500}}
+                    ]})
+                },
+                interactionService: {
+                    simulateEvent(payload) {
+                        events.push(...payload.events);
+
+                        return Promise.resolve()
+                    }
+                },
+                getReference: () => ({down: () => ({getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+                timeout(ms) {
+                    timeouts.push(ms);
+
+                    if (ms >= dwellDelay) {
+                        onDwell(indicators)
+                    }
+
+                    return Promise.resolve()
+                },
+                cancelTearOutGesture   : async () => ({}),
+                retireFilmCursorDot    : async () => {},
+                waitForTearOutDragArmed: async () => true
+            },
+            step = {
+                itemId      : 'item-1',
+                sourceNodeId: 'source-tabs',
+                dwells      : [
+                    {placementKind: 'before', targetNodeId: 'zone-a'},
+                    {placementKind: 'after',  targetNodeId: 'zone-b'}
+                ]
+            };
+
+        // Dynamic import AFTER setup() — the manager singleton touches `Neo.currentWorker` at
+        // construct time, so a static import would run before the test env wires the worker and
+        // poison the whole file's module load (same reason the production method imports it lazily).
+        const {default: WindowManager} = await import('../../../../../src/manager/Window.mjs');
+
+        WindowManager.register({id: 'fake-cross-zone-window', innerRect: {height: 800, width: 1200, x: 0, y: 0}, windowId: 'fake-cross-zone-window'});
+
+        try {
+            return await Workspace.prototype.executeCrossZoneShowcaseStep.call(host, step, {dwellDelay});
+        } finally {
+            WindowManager.unregister('fake-cross-zone-window')
+        }
+    };
+
+    test('an active candidate lost during the dwell fails the step with a gate-named executor error', async () => {
+        // Expiry mode: a human-pause dwell outlives the gesture claim's arbitration TTL and the
+        // candidate is gone when the dwell elapses. The unguarded read threw an unattributed
+        // TypeError from inside the executor; the guard converts it into a gate-named receipt.
+        const result = await runDwellScenario(indicators => {
+            indicators.activeCandidate = null
+        });
+
+        expect(result.applied, 'the step fails closed').toBe(false);
+        expect(
+            result.errors[0],
+            'the loss surfaces as a gate-named executor receipt, not an unattributed null-read'
+        ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=null dwell=1\/2/);
+    });
+
+    test('an active candidate swapped during the dwell fails the step instead of adopting the wrong preview', async () => {
+        // Preemption mode: a different (truthy) candidate takes over mid-dwell. A presence-only
+        // guard would silently adopt the swap — the final preview, beat log, and committed
+        // operation would all name a candidate this gesture never verified.
+        const result = await runDwellScenario(indicators => {
+            indicators.activeCandidate = {preview: {placement: {kind: 'after'}, previewId: 'preview-b', target: {nodeId: 'zone-b'}}}
+        });
+
+        expect(result.applied, 'the step fails closed').toBe(false);
+        expect(
+            result.errors[0],
+            'the swap surfaces as the same gate-named receipt, with the live candidate named'
+        ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=preview-b dwell=1\/2/);
+    });
+});
