@@ -12,7 +12,11 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 let aiConfig, CHROMA_PRODUCTION_DATABASE;
 
 test.beforeAll(async () => {
-    ({default: aiConfig}       = await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs'));
+    // The COMMITTED template, never `config.mjs`: that entrypoint registers this machine's
+    // repo-local overlay as the Tier-1 root, so the verdict would vary per checkout — the exact
+    // defect this ticket exists to remove. Both toggles are env-driven leaves, so the swap changes
+    // nothing about what is asserted. `lint-config-template-ssot` enforces this mechanically.
+    ({default: aiConfig}       = await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs'));
     ({CHROMA_PRODUCTION_DATABASE} = await import('../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs'));
 });
 
