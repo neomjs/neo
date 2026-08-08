@@ -140,7 +140,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          # Parameterised for the same reason chroma's is: a hardcoded limit is unreachable by the
+          # recovery actuator. The declared heap ceiling above must stay strictly below this value,
+          # and that bound has to be expressed as a RELATIONSHIP against this leaf rather than as a
+          # constant — a constant goes stale the moment this moves. A YAML literal is reachable by
+          # neither config nor the overlay, so it cannot serve as the bound at all.
+          memory: "${NEO_KB_SERVER_MEMORY_LIMIT:-1g}"
           cpus: "1.0"
 
   mc-server:
@@ -263,7 +268,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          # Parameterised for the same reason chroma's is — see the kb-server note above. The
+          # strictly-below bound on the heap ceiling is a relationship against this leaf, so this
+          # value must be reachable by something other than a YAML literal.
+          memory: "${NEO_MC_SERVER_MEMORY_LIMIT:-1g}"
           cpus: "1.0"
 
   # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
