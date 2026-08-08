@@ -23,7 +23,7 @@ import {
     createPrActivityEvents,
     createStallActivityEvents
 } from '../../../../../../ai/services/fleet/fleetPrLaneActivityAdapter.mjs'
-import {FLEET_COCKPIT_SOURCES} from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
+import {FLEET_COCKPIT_SOURCES} from '../../../../../../ai/services/fleet/fleetCockpitStatus.mjs'
 
 test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
     test('maps PR facts without exposing the PR body', () => {
@@ -41,11 +41,11 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
         }])
 
         expect(event).toMatchObject({
-            type     : 'pr-activity',
-            source   : FLEET_COCKPIT_SOURCES.githubPr,
-            agentId  : 'neo-fable-clio',
+            type      : 'pr-activity',
+            source    : FLEET_COCKPIT_SOURCES.githubPr,
+            agentId   : 'neo-fable-clio',
             occurredAt: '2026-07-04T03:05:00.000Z',
-            payload  : {
+            payload   : {
                 kind          : 'pull-request',
                 number        : 14625,
                 relatedPrs    : [14625],
@@ -119,15 +119,15 @@ test.describe('fleetPrLaneActivityAdapter - PR/lane activity mapping', () => {
 
     test('maps work-graph stall findings as bounded cockpit events', () => {
         const [event] = createStallActivityEvents([{
-            observedAt          : '2026-07-04T03:08:00Z',
-            findingClass        : 'DECISION_STARVED',
-            grade               : 'verified-stall',
-            motionPredicate     : 'PR merges or receives changes requested',
-            evidenceRefs        : ['PR #14585', 'approvedAt:2026-07-04T03:00:00Z'],
-            verificationSource  : 'GitHub PR list reviews',
-            waitingSince        : '2026-07-04T03:00:00Z',
-            sourceFidelity      : 'verified',
-            subject             : {type: 'PR', number: 14585, owner: 'human-merge-gate', title: 'ADR 0033', url: 'https://github.com/neomjs/neo/pull/14585'}
+            observedAt        : '2026-07-04T03:08:00Z',
+            findingClass      : 'DECISION_STARVED',
+            grade             : 'verified-stall',
+            motionPredicate   : 'PR merges or receives changes requested',
+            evidenceRefs      : ['PR #14585', 'approvedAt:2026-07-04T03:00:00Z'],
+            verificationSource: 'GitHub PR list reviews',
+            waitingSince      : '2026-07-04T03:00:00Z',
+            sourceFidelity    : 'verified',
+            subject           : {type: 'PR', number: 14585, owner: 'human-merge-gate', title: 'ADR 0033', url: 'https://github.com/neomjs/neo/pull/14585'}
         }])
 
         expect(event).toMatchObject({

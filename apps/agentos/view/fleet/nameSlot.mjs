@@ -8,7 +8,7 @@
  * the sibling {@link module:apps/agentos/view/fleet/agentFreshness} contract fails toward
  * `unobserved`.
  *
- * **The fallback chain is folded Brain-side** (`src/ai/fleet/fleetCockpitStatus.mjs` — the
+ * **The fallback chain is folded Brain-side** (`ai/services/fleet/fleetCockpitStatus.mjs` — the
  * cockpit DTO assembler resolves `displayName → name → githubUsername → id` into ONE
  * `displayName` field, the CARD-CONTRACT row). This module deliberately does NOT re-implement
  * that chain: a Body-side copy would be a second truth that drifts. It consumes the folded field

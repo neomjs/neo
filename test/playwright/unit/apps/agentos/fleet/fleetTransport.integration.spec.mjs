@@ -18,7 +18,7 @@ import Neo                        from '../../../../../../src/Neo.mjs';
 import * as core                  from '../../../../../../src/core/_export.mjs';
 import FleetRegistryService       from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
 import {startFleetBridgeServer}   from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
-import {installFleetBridge}       from '../../../../../../src/ai/fleet/installFleetBridge.mjs';
+import {installFleetBridge}       from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
 import {generateLocalBearerToken} from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 import RequestContextService      from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import fs                         from 'fs';

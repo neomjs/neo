@@ -1,8 +1,8 @@
-import {HARNESS_TYPES} from '../../../src/ai/fleet/harnessTypes.mjs';
+import {HARNESS_TYPES} from './harnessTypes.mjs';
 import path            from 'node:path';
 
 // Per-family launch contracts — ONE entry per LAUNCHABLE family, keyed by the durable harness-type
-// from the shared registry authority (src/ai/fleet/harnessTypes.mjs). Every entry carries the three
+// from the harness-type authority (./harnessTypes.mjs). Every entry carries the three
 // template halves; all of them are CROSS-PROCESS CONTRACTS (each harness reads its exact env var /
 // command-line switch), so fixed module data, not configurable fields — an override would set a
 // name the harness never reads, silently collapsing the isolation (fail-OPEN):
@@ -93,7 +93,7 @@ const HARNESS_LAUNCH_CONTRACTS = {
 
     for (const type of Object.keys(HARNESS_LAUNCH_CONTRACTS)) {
         if (!registered.has(type)) {
-            throw new Error(`deriveHarnessLaunchSpec: launch contract '${type}' is not a registered harness type (src/ai/fleet/harnessTypes.mjs). Register the type there first — the launch vocabulary must stay a subset of the shared authority.`);
+            throw new Error(`deriveHarnessLaunchSpec: launch contract '${type}' is not a registered harness type (ai/services/fleet/harnessTypes.mjs). Register the type there first — the launch vocabulary must stay a subset of the authority.`);
         }
     }
 }

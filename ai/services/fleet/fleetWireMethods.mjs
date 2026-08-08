@@ -1,10 +1,11 @@
 /**
- * @summary The app↔fleet wire-level capability allowlist — the EXACT method names a transport may
- * carry between the agentos pane and {@link Neo.ai.services.fleet.FleetControlBridge}. The single
- * shared source of truth for BOTH ends of the wire: the Node-side `dispatchFleetRequest` (which
- * rejects anything off this list) and the browser-side `createFleetRegistryBridge` (which generates
- * exactly these methods) — so the client can never call an operation the server won't route, and the
- * two ends cannot drift.
+ * @summary The app↔fleet wire-level capability allowlist AUTHORITY — the EXACT method names a
+ * transport may carry between the agentos pane and {@link Neo.ai.services.fleet.FleetControlBridge}.
+ * The Node side binds it directly: `dispatchFleetRequest` rejects anything off this list, and
+ * `createFleetRegistryBridge` (the Node-side client factory) generates exactly these methods. The
+ * browser binds the operable-cold twin (`apps/agentos/config/fleetWireMethods.mjs`) instead of
+ * importing across the realm boundary — `ai/scripts/lint/lint-fleet-vocabulary-parity.mjs`
+ * deep-equals the two lists, so the ends of the wire cannot drift.
  *
  * Deliberately **narrower than FleetControlBridge's class surface**: it excludes the `getRegistry` /
  * `getManager` resolver seams (which return the lifecycle-powerful singletons) and every inherited
@@ -48,8 +49,8 @@
  * binding — the sender is never wire-carried, and caller-supplied identity fields never leave the
  * verb's payload whitelist.
  *
- * **Dependency-free by design** — imported by both a Node module and an App-Worker (browser) module,
- * so it MUST NOT pull in the Node-only FleetControlBridge / crypto / fs chain.
+ * **Dependency-free by design** — it MUST NOT pull in the Node-only FleetControlBridge / crypto /
+ * fs chain, so the client factory and every spec can load it without the server graph.
  * @type {String[]}
  */
 export const FLEET_WIRE_METHODS = Object.freeze([

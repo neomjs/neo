@@ -59,10 +59,12 @@ test.describe('control-plane/restartActuator — the R3 lifecycle-write restart 
 
     test('R3 FIREWALL: no client Bridge / readiness surface imports the restart actuator (physically off-client)', () => {
         const root = fileURLToPath(new URL('../../../../../../../', import.meta.url)),
-              // The client-reachable surfaces: the app↔fleet wire, the AgentOS pane, and the container healthcheck.
+              // The client-reachable surfaces: the app↔fleet wire (the app's bridge glue + the
+              // Node-side client factory), the AgentOS pane, and the container healthcheck.
               client = [
-                  ...collectMjs(`${root}src/ai/fleet`),
+                  ...collectMjs(`${root}apps/agentos/fleet`),
                   ...collectMjs(`${root}apps/agentos/view/fleet`),
+                  `${root}ai/services/fleet/createFleetRegistryBridge.mjs`,
                   `${root}ai/scripts/diagnostics/mcpHealthcheck.mjs`
               ];
 

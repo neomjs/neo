@@ -38,7 +38,7 @@
  *
  * @see ai/services/fleet/fleetBridgeServer.mjs
  * @see ai/services/fleet/fleetLaunchContract.mjs
- * @see src/ai/fleet/installFleetBridge.mjs (the App-Worker consumer)
+ * @see apps/agentos/fleet/installFleetBridge.mjs (the App-Worker consumer)
  */
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate globalThis.Neo so

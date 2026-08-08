@@ -1,5 +1,5 @@
 import Controller           from '../../../src/controller/Component.mjs';
-import {installFleetBridge} from '../../../src/ai/fleet/installFleetBridge.mjs';
+import {installFleetBridge} from '../fleet/installFleetBridge.mjs';
 
 /**
  * @class AgentOS.view.ViewportController

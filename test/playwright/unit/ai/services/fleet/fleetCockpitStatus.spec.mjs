@@ -22,7 +22,7 @@ import {
     createFleetCockpitStatus,
     FLEET_COCKPIT_EVENT_TYPES,
     FLEET_COCKPIT_SOURCES
-} from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
+} from '../../../../../../ai/services/fleet/fleetCockpitStatus.mjs'
 
 // Brain-side producer constants, imported HERE only: the module under test is a pure Body map that
 // must never import `ai/`. The spec is the one place both sides may meet — which is what lets it

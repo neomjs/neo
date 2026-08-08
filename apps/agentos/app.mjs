@@ -1,5 +1,5 @@
 import Viewport             from './view/Viewport.mjs';
-import {installFleetBridge} from '../../src/ai/fleet/installFleetBridge.mjs';
+import {installFleetBridge} from './fleet/installFleetBridge.mjs';
 import WindowManager        from '../../src/manager/Window.mjs';
 
 /**

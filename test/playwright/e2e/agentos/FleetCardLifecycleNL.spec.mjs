@@ -1,6 +1,6 @@
 import {test, expect}                                                          from '../../fixtures.mjs';
 import {NeuralLink_DataService}                                                from '../../../../ai/services.mjs';
-import {FLEET_WIRE_METHODS}                                                    from '../../../../src/ai/fleet/fleetWireMethods.mjs';
+import {FLEET_WIRE_METHODS}                                                    from '../../../../apps/agentos/config/fleetWireMethods.mjs';
 import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
 
 const TEST_AGENT_ID = 'nl-lifecycle-agent';
