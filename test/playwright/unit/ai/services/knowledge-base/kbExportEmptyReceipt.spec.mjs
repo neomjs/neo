@@ -64,6 +64,46 @@ test.describe('KB export receipt on an empty collection', () => {
         expect(receipt.expected).toBe(0);
     });
 
+    test('a collection that GREW during export is degraded, not complete', async () => {
+        // Review finding, reproduced as its repro: a binary empty-or-complete status certifies the
+        // classifier's `grew` outcome as a clean capture. That branch's own source says it is
+        // complete-or-better but NOT provably exact, because the export pages by offset — so the
+        // receipt would claim more than the producer can establish.
+        //
+        // One expected row, two returned. Pre-fix this reported {status: 'complete', count: 2,
+        // expected: 1}.
+        let   served     = 0;
+        const collection = {
+            id  : 'ab75f86b-1651-4865-96f4-0287acd42ea7',
+            name: 'neo-knowledge-base',
+            async count() { return 1 },
+            async get() {
+                // Two rows arrive where one was snapshotted — a late write landing mid-export.
+                if (served++ > 0) { return {ids: [], documents: [], embeddings: [], metadatas: []} }
+
+                return {
+                    ids       : ['a', 'b'],
+                    documents : ['one', 'two'],
+                    embeddings: [[0.1], [0.2]],
+                    metadatas : [{}, {}]
+                }
+            }
+        };
+
+        ChromaManager.getKnowledgeBaseCollection = async () => collection;
+
+        const receipt = await DatabaseService.exportDatabase({backupPath: root});
+
+        expect(receipt.count, 'the written total is reported').toBe(2);
+        expect(receipt.expected, 'the pre-pass snapshot is reported beside it').toBe(1);
+
+        // The property under test: growth is NOT certified as a clean capture.
+        expect(receipt.status).toBe('degraded');
+        expect(receipt.status).not.toBe('complete');
+        expect(receipt.reason).toBe('source-grew-during-export');
+        expect(receipt.message).not.toContain('Export complete');
+    });
+
     test('the receipt carries `expected`, so a zero has something to be zero against', async () => {
         const receipt = await exportWithCollectionCount(0);
 

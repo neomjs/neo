@@ -39,6 +39,39 @@ dotenv.config({
 });
 
 /**
+ * @summary Maps an export's completeness verdict onto the branchable receipt status.
+ *
+ * Derived from {@link classifyExportCompleteness}, never re-judged. The receipt's `status` is a
+ * SECOND vocabulary over the same facts, and a second vocabulary that decides for itself is how the
+ * two drift: a binary empty-or-complete test certifies `grew-during-export` as a clean capture,
+ * which that branch explicitly is not — it pages by offset, so it is complete-or-better but not
+ * provably exact.
+ *
+ * **Unknown verdicts degrade rather than default to complete.** `partial` and `indeterminate` throw
+ * upstream and cannot arrive here, but a verdict added to the classifier later would, and the safe
+ * direction for an unrecognised completeness state is "not certified".
+ *
+ * @param {Object} options
+ * @param {Number} options.exported Rows actually written.
+ * @param {String} options.verdict From {@link classifyExportCompleteness}.
+ * @returns {{status: String, reason: String|null}}
+ * @private
+ */
+function describeKbExportOutcome({exported, verdict}) {
+    if (exported === 0) {
+        return {status: 'degraded', reason: 'source-collection-empty'}
+    }
+
+    if (verdict === EXPORT_COMPLETENESS.grew) {
+        return {status: 'degraded', reason: 'source-grew-during-export'}
+    }
+
+    return verdict === EXPORT_COMPLETENESS.complete
+        ? {status: 'complete', reason: null}
+        : {status: 'degraded', reason: 'unclassified-export-verdict'}
+}
+
+/**
  * @summary Core engine for building and maintaining the AI's knowledge base.
  *
  * This service is the core engine for building and maintaining the AI's knowledge base.
@@ -146,8 +179,8 @@ class DatabaseService extends Base {
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting knowledge base export...');
-            const collection           = await ChromaManager.getKnowledgeBaseCollection();
-            const {expected, exported} = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
+            const collection                    = await ChromaManager.getKnowledgeBaseCollection();
+            const {expected, exported, verdict} = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
 
             // A zero-row export against a POPULATED collection already throws upstream
             // (`PARTIAL_COLLECTION_EXPORT`). What reaches here is a genuinely empty corpus — a real
@@ -157,14 +190,19 @@ class DatabaseService extends Base {
             // `status` is the branchable field: a consumer must not have to string-match the prose to
             // learn a bundle has no rows. `expected` is carried for the same reason the `mc` and
             // `graph` receipts carry it — without it a zero has nothing to be zero AGAINST.
-            const isEmpty = exported === 0;
+            // Derived from the classifier's verdict, never re-judged here. A binary
+            // empty-or-complete test silently certifies `grew-during-export` as a clean capture —
+            // and that branch's own source says it is complete-or-better but NOT provably exact,
+            // because the export pages by offset. A new branchable field must model every state the
+            // producer already had, or it over-certifies the one it was not written for.
+            const {reason, status} = describeKbExportOutcome({exported, verdict});
 
             return {
-                message     : isEmpty
-                    ? 'Export degraded: the knowledge base collection is empty, so this bundle is not a usable KB recovery source.'
-                    : `Export complete. Exported ${exported} knowledge base chunks.`,
-                status      : isEmpty ? 'degraded' : 'complete',
-                reason      : isEmpty ? 'source-collection-empty' : null,
+                message     : status === 'complete'
+                    ? `Export complete. Exported ${exported} knowledge base chunks.`
+                    : `Export degraded (${reason}). This bundle is not a clean KB capture.`,
+                status,
+                reason,
                 count       : exported,
                 expected,
                 collectionId: collection?.id ?? null
@@ -192,7 +230,9 @@ class DatabaseService extends Base {
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.
      * @param {String} filePrefix The prefix for the backup filename.
-     * @returns {Promise<Number>} The number of rows actually written to the artifact. An empty
+     * @returns {Promise<{expected: Number, exported: Number, verdict: String}>} `exported` is what was
+     *          WRITTEN, `expected` the pre-pass snapshot, `verdict` the classifier's judgement — so no
+     *          caller has to re-derive completeness from the two counts. The number of rows actually written to the artifact. An empty
      *          source short-circuits to `0` before any file is created, preserving the receipt
      *          substrate's "this source was empty" semantic.
      * @throws {Error} `PARTIAL_COLLECTION_EXPORT` when rows the snapshot counted are missing from
@@ -206,7 +246,7 @@ class DatabaseService extends Base {
         const count = await collection.count();
         if (count === 0) {
             logger.log(`No documents found in ${collection.name} to export.`);
-            return {expected: 0, exported: 0};
+            return {expected: 0, exported: 0, verdict: EXPORT_COMPLETENESS.complete};
         }
 
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
@@ -306,10 +346,11 @@ class DatabaseService extends Base {
 
         logger.log(`Successfully exported ${exported}/${count} documents to: ${backupFile}`);
 
-        // `expected` travels with `exported` so the receipt states what a zero is zero AGAINST. The
-        // `mc` and `graph` receipts already carry it; the KB's did not, which is why a zero-row
-        // bundle could not fail its own contract.
-        return {expected: count, exported};
+        // `expected` travels with `exported` so the receipt states what a zero is zero AGAINST, and
+        // `verdict` travels with both so the caller does not RE-DERIVE a completeness judgement the
+        // classifier already made. A second, coarser derivation is how a `grew` capture — complete
+        // -or-better but not provably exact — gets certified as a clean one.
+        return {expected: count, exported, verdict};
     }
 
     /**
