@@ -54,19 +54,19 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
-import {createPlaneWakeIdentitiesReader}      from './planeWakeIdentitiesReader.mjs';
-import {createPlaneWhoIsOnlineReader}         from './planeWhoIsOnlineReader.mjs';
-import {readActiveWakeSubscriptionIdentities} from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
+import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
+import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
+import {createPlaneWhoIsOnlineReader}                                    from './planeWhoIsOnlineReader.mjs';
+import {readActiveWakeSubscriptionIdentities}                            from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
-import {wireBootIdentityReadSource}           from './wireBootIdentityReadSource.mjs';
-import {wireFleetActivityReadSource}          from './wireFleetActivityReadSource.mjs';
-import {wireFleetCatchUpSource}               from './wireFleetCatchUpSource.mjs';
-import {wireFleetMemoriesSource}              from './wireFleetMemoriesSource.mjs';
-import {wireFleetWakeRoutesSource}            from './wireFleetWakeRoutesSource.mjs';
-import {wireOperatorComposeWriter}            from './wireOperatorComposeWriter.mjs';
-import path                                   from 'node:path';
-import {fileURLToPath, pathToFileURL}         from 'node:url';
+import {wireBootIdentityReadSource}                                      from './wireBootIdentityReadSource.mjs';
+import {wireFleetActivityReadSource}                                     from './wireFleetActivityReadSource.mjs';
+import {wireFleetCatchUpSource}                                          from './wireFleetCatchUpSource.mjs';
+import {wireFleetMemoriesSource}                                         from './wireFleetMemoriesSource.mjs';
+import {wireFleetWakeRoutesSource}                                       from './wireFleetWakeRoutesSource.mjs';
+import {wireOperatorComposeWriter}                                       from './wireOperatorComposeWriter.mjs';
+import path                                                              from 'node:path';
+import {fileURLToPath, pathToFileURL}                                    from 'node:url';
 
 /**
  * @summary Composes the launch contract and starts the authenticated Fleet transport.
@@ -154,7 +154,12 @@ async function boot() {
                 state     : 'unknown',
                 reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
                 byIdentity: new Map()
-            })
+            }),
+            // The signed host receiver survives the hard cut HOST-side in both modes, so its
+            // manifest coordinate is mode-independent truth: the `fleet.wakeReceiverManifestPath`
+            // leaf binds the SAME `NEO_WAKE_RECEIVER_MANIFEST` export the runbook materializes the
+            // receiver's plist from. Declared-empty ⇒ no local wake lane ⇒ arming typed-unobserved.
+            wakeReceiverManifestPath: AiConfig.fleet.wakeReceiverManifestPath
         };
 
         console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery axes honest-unknown pending a plane vouching surface)`)
@@ -165,7 +170,10 @@ async function boot() {
         FleetManager.wakeStateOptions = {
             pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
             deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
-            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
+            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities,
+            // Same mode-independent receiver-manifest coordinate as the plane branch — the signed
+            // host receiver is host-bound truth either way (see the plane-branch comment).
+            wakeReceiverManifestPath        : AiConfig.fleet.wakeReceiverManifestPath
         };
 
         console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
@@ -189,6 +197,13 @@ async function boot() {
                     deliveryFailureFilePath: FleetManager.wakeStateOptions.deliveryFailureFilePath
                 })
                 : null),
+        // Arming reads the published wake-receiver manifest through the receiver's own loader. The
+        // coordinate is deployment-declared through ONE env name (`NEO_WAKE_RECEIVER_MANIFEST`,
+        // bound by the `fleet.wakeReceiverManifestPath` leaf) and rides the same wakeStateOptions
+        // vehicle as its sibling read paths; the path→reader composition lives in the routes
+        // SOURCE, the Neo-free site the spec exercises. An explicit resolver stays the override seam.
+        resolveSeatArming       : FleetManager.wakeStateOptions.resolveSeatArming ?? null,
+        wakeReceiverManifestPath: FleetManager.wakeStateOptions.wakeReceiverManifestPath ?? null,
         readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
     });
 

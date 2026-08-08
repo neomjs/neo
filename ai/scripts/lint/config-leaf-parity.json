@@ -147,6 +147,7 @@
         "fleet.planeBearer",
         "fleet.port",
         "fleet.tenantProbeTimeoutMs",
+        "fleet.wakeReceiverManifestPath",
         "geminiApiKey",
         "graphProvider",
         "knowledgeBase",
