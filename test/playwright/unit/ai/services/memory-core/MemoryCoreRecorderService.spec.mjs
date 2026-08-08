@@ -26,6 +26,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
     let originalEnv;
     let testDbPath;
+    let memoryCoreConfig;
     let MemoryCoreRecorderService;
 
     test.beforeAll(async () => {
@@ -52,6 +53,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
         }
 
+        memoryCoreConfig          = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
         await MemoryCoreRecorderService.initAsync();
     });
@@ -262,6 +264,107 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         expect(JSON.stringify(metrics)).not.toContain('safe');
     });
 
+    test('returns bounded recent slow completions without caller identity or payloads', () => {
+        const
+            now    = Date.now(),
+            insert = MemoryCoreRecorderService.db.prepare(`
+                INSERT INTO mc_tool_call_log (
+                    id, agent_id, user_id, session_id, sequence_id, timestamp,
+                    tool, success, duration_ms, completed_at, failure_stage,
+                    error_message, args_bytes, result_bytes
+                ) VALUES (
+                    @id, @agentId, @userId, @sessionId, @sequenceId, @timestamp,
+                    @tool, @success, @durationMs, @completedAt, @failureStage,
+                    @errorMessage, @argsBytes, @resultBytes
+                )
+            `),
+            identity = '@private-agent',
+            payload  = 'PRIVATE_PAYLOAD';
+
+        for (const row of [
+            {
+                id        : 'slow-older', timestamp: now - 9_000, completedAt: now - 7_000,
+                durationMs: 2_000, tool: 'list_messages', success: 1, failureStage: null
+            },
+            {
+                id        : 'slow-newer-b', timestamp: now - 2_600, completedAt: now - 1_000,
+                durationMs: 1_600, tool: 'healthcheck', success: 1, failureStage: null
+            },
+            {
+                id        : 'slow-newer-a', timestamp: now - 2_500, completedAt: now - 1_000,
+                durationMs: 1_500, tool: 'add_message', success: 0, failureStage: 'dispatch'
+            },
+            {
+                id        : 'fast', timestamp: now - 900, completedAt: now - 850,
+                durationMs: 50, tool: 'get_message', success: 1, failureStage: null
+            },
+            {
+                id        : 'outside-window', timestamp: now - 120_000, completedAt: now - 118_000,
+                durationMs: 2_000, tool: 'query_summaries', success: 1, failureStage: null
+            },
+            {
+                id        : 'slow-cross-window', timestamp: now - 120_000, completedAt: now - 500,
+                durationMs: 119_500, tool: 'add_message', success: 1, failureStage: null
+            }
+        ]) {
+            insert.run({
+                ...row,
+                agentId     : identity,
+                userId      : 'private-user',
+                sessionId   : 'private-session',
+                sequenceId  : `sequence-${row.id}`,
+                errorMessage: payload,
+                argsBytes   : payload.length,
+                resultBytes : payload.length
+            });
+        }
+
+        const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({
+            sinceMs    : 60_000,
+            limit      : 10,
+            slowAfterMs: 1_000
+        });
+
+        expect(metrics.slowAfterMs).toBe(1_000);
+        expect(metrics.recentSlowCalls.map(row => row.callId)).toEqual([
+            'slow-cross-window',
+            'slow-newer-a',
+            'slow-newer-b',
+            'slow-older'
+        ]);
+        expect(metrics.recentSlowCalls[1]).toEqual({
+            callId      : 'slow-newer-a',
+            tool        : 'add_message',
+            startedAt   : new Date(now - 2_500).toISOString(),
+            completedAt : new Date(now - 1_000).toISOString(),
+            durationMs  : 1_500,
+            success     : false,
+            failureStage: 'dispatch'
+        });
+        expect(Object.keys(metrics.recentSlowCalls[0])).toEqual([
+            'callId',
+            'tool',
+            'startedAt',
+            'completedAt',
+            'durationMs',
+            'success',
+            'failureStage'
+        ]);
+        expect(JSON.stringify(metrics.recentSlowCalls)).not.toContain(identity);
+        expect(JSON.stringify(metrics.recentSlowCalls)).not.toContain(payload);
+
+        const bounded = MemoryCoreRecorderService.getMemoryCoreToolMetrics({
+            sinceMs    : 60_000,
+            limit      : 2,
+            slowAfterMs: 1_000
+        });
+
+        expect(bounded.recentSlowCalls.map(row => row.callId)).toEqual([
+            'slow-cross-window',
+            'slow-newer-a'
+        ]);
+    });
+
     test('captures Memory Core MCP wrapper success and dispatch failure', async () => {
         const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
 
@@ -311,6 +414,28 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         expect(JSON.stringify(rows)).not.toContain(secret);
     });
 
+    test('returns the bounded empty projection when telemetry is disabled', () => {
+        const originalEnabled = process.env.NEO_MC_TOOL_TELEMETRY_ENABLED;
+
+        try {
+            process.env.NEO_MC_TOOL_TELEMETRY_ENABLED = 'false';
+            memoryCoreConfig.refreshEnv();
+
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 1_000})).toMatchObject({
+                status         : 'disabled',
+                slowAfterMs    : 1_000,
+                totalCalls     : 0,
+                totalUnfinished: 0,
+                tools          : [],
+                unfinishedCalls: [],
+                recentSlowCalls: []
+            });
+        } finally {
+            process.env.NEO_MC_TOOL_TELEMETRY_ENABLED = originalEnabled;
+            memoryCoreConfig.refreshEnv();
+        }
+    });
+
     test('fails open when telemetry storage is unavailable', () => {
         const originalDb = MemoryCoreRecorderService.db;
         MemoryCoreRecorderService.db = null;
@@ -331,10 +456,17 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics()).toMatchObject({
                 status         : 'unavailable',
+                slowAfterMs    : 60_000,
                 totalCalls     : 0,
                 totalUnfinished: 0,
                 tools          : [],
-                unfinishedCalls: []
+                unfinishedCalls: [],
+                recentSlowCalls: []
+            });
+
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 0})).toMatchObject({
+                slowAfterMs    : 60_000,
+                recentSlowCalls: []
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;
