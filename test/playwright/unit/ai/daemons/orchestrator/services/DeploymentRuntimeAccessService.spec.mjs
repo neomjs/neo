@@ -174,6 +174,7 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             appliedSince: null,
             appliedUntil: null,
             bounded     : false,
+            containerId : 'container-abc',
             logs        : 'service booted',
             tail        : 25
         });
@@ -196,15 +197,40 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         });
 
         // The URL carries the interval — the bound is applied by the daemon, not simulated here.
-        expect(calls.some(call => call.path.includes('since=1786219200') && call.path.includes('until=1786219500')))
+        expect(calls.some(call => call.path.includes('since=') && call.path.includes('until=')))
             .toBe(true);
 
         // And the receipt proves what was applied, which is the ONLY thing a consumer may trust.
         expect(logs.data).toMatchObject({
-            appliedSince: 1786219200,
-            appliedUntil: 1786219500,
-            bounded     : true
+            appliedSince: '2026-08-08T20:00:00.000Z',
+            appliedUntil: '2026-08-08T20:05:00.000Z',
+            bounded     : true,
+            containerId : 'container-abc'
         });
+    });
+
+    test('sub-second precision survives — a floored upper bound would cut the fatal line', async () => {
+        const {service, calls} = createService({logText: 'FATAL ERROR'});
+
+        // V8 writes its fatal line in the final moments before the process dies. Flooring
+        // `until` to whole seconds discards up to a second of output at exactly that edge —
+        // the evidence being sought — while flooring `since` reaches back into the previous
+        // incarnation. Docker accepts RFC3339Nano, so neither rounding is imposed by transport.
+        const logs = await service.readObserve({
+            serviceKey: 'mc-server',
+            operation : 'logs',
+            since     : '2026-08-08T20:00:00.900Z',
+            until     : '2026-08-08T20:05:00.900Z'
+        });
+
+        const path = calls.find(call => call.path.includes('until='))?.path ?? '';
+
+        expect(decodeURIComponent(path), 'the endpoints reach Docker unrounded')
+            .toContain('until=2026-08-08T20:05:00.900Z');
+        expect(decodeURIComponent(path)).toContain('since=2026-08-08T20:00:00.900Z');
+
+        expect(logs.data.appliedUntil, 'the receipt echoes the precision it actually sent')
+            .toBe('2026-08-08T20:05:00.900Z');
     });
 
     test('an unusable bound stays unbounded rather than half-applied', async () => {

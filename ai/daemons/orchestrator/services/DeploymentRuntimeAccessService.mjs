@@ -654,14 +654,23 @@ export class DeploymentRuntimeAccessService extends Base {
             // `since` removes that poison, and `until` additionally excludes output from an
             // auto-restart that races after the inspect this interval was derived from. Both
             // bounds or none: a half-bounded slice is not the run the stopped fact names.
-            sinceSeconds  = toUnixSeconds(since),
-            untilSeconds  = toUnixSeconds(until),
-            bounded       = sinceSeconds !== null && untilSeconds !== null && untilSeconds >= sinceSeconds,
+            // The endpoints travel at FULL precision. Docker accepts RFC3339Nano, so flooring to
+            // whole seconds is a choice the transport never imposed — and it is wrong in both
+            // directions: a floored `since` reaches back into the previous incarnation, and a
+            // floored `until` cuts the final sub-second, which is exactly when V8 writes its fatal
+            // line. Truncating the upper edge can therefore discard the evidence being sought.
+            sinceStamp    = normalizeDockerTime(since),
+            untilStamp    = normalizeDockerTime(until),
+            bounded       = sinceStamp !== null && untilStamp !== null &&
+                            Date.parse(untilStamp) >= Date.parse(sinceStamp),
             query         = [
                 'stdout=1',
                 'stderr=1',
                 `tail=${encodeURIComponent(String(tailCount))}`,
-                ...(bounded ? [`since=${sinceSeconds}`, `until=${untilSeconds}`] : [])
+                ...(bounded ? [
+                    `since=${encodeURIComponent(sinceStamp)}`,
+                    `until=${encodeURIComponent(untilStamp)}`
+                ] : [])
             ].join('&'),
             response      = await this.dockerRequest({
                 method: 'GET',
@@ -674,11 +683,18 @@ export class DeploymentRuntimeAccessService extends Base {
             // slice as incarnation-bounded on the strength of this receipt — a caller-supplied
             // boolean would let the claim originate at the layer that wants it to be true.
             data : {
-                appliedSince: bounded ? sinceSeconds : null,
-                appliedUntil: bounded ? untilSeconds : null,
+                // The receipt echoes exactly what was SENT, at the precision it was sent — a
+                // rounded echo would let a consumer believe an endpoint it never got.
+                appliedSince: bounded ? sinceStamp : null,
+                appliedUntil: bounded ? untilStamp : null,
                 bounded,
-                logs        : response.body,
-                tail        : tailCount
+                // The container this slice actually came from. `readObserve` resolves a target per
+                // call, so inspect and logs can land on DIFFERENT containers across a recreate;
+                // without this the consumer cannot tell whether the interval was applied to the
+                // container whose death it is attributing.
+                containerId: target.containerId ?? null,
+                logs       : response.body,
+                tail       : tailCount
             },
             proof     : this.createProofMetadata({envelope: 'read-observe', operation: 'logs', target}),
             statusCode: response.statusCode
@@ -999,21 +1015,26 @@ function createRuntimeAccessError({Type = Error, reason, message, code = null, d
 export default Neo.setupClass(DeploymentRuntimeAccessService);
 
 /**
- * @summary Converts a Docker timestamp to whole Unix seconds, or null when it cannot be trusted.
+ * @summary Validates a Docker timestamp and returns it UNROUNDED, or null when it cannot be trusted.
  *
  * Docker reports an unset time as the zero instant (`0001-01-01T00:00:00Z`), which parses to a
  * valid but meaningless epoch — so a naive parse would hand the log query a bound that looks real.
  * Anything non-positive is therefore refused rather than passed through, which is what keeps the
  * interval fail-closed instead of silently unbounded.
+ *
+ * The value is validated but NOT rounded: Docker accepts RFC3339Nano, and truncating the upper
+ * endpoint would cut the final sub-second in which a fatal line is written.
  * @param {String|Number|null} value
- * @returns {Number|null}
+ * @returns {String|null}
  */
-function toUnixSeconds(value) {
+function normalizeDockerTime(value) {
     if (value === null || value === undefined) return null;
 
-    const parsed = typeof value === 'number' ? value * 1000 : Date.parse(value);
+    const
+        stamp  = typeof value === 'number' ? new Date(value * 1000).toISOString() : String(value),
+        parsed = Date.parse(stamp);
 
     if (!Number.isFinite(parsed) || parsed <= 0) return null;
 
-    return Math.floor(parsed / 1000)
+    return stamp
 }

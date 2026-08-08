@@ -372,10 +372,17 @@ export class DeploymentStateBridgeService extends Base {
             logs              = null,
             providerResidency = null;
 
+        // Retained per operation because target IDENTITY, not just the payload, decides whether two
+        // reads describe the same container. `readObserve` resolves a target per call, so a compose
+        // recreate between inspect and logs lands them on different containers — and the payloads
+        // alone cannot show it.
+        const proofByOperation = {};
+
         const read = async (operation, args = {}) => {
             try {
                 const result = await this.runtimeAccessService.readObserve({serviceKey, operation, ...args});
                 proofs.push(result.proof);
+                proofByOperation[operation] = result.proof;
                 return result.data;
             } catch (error) {
                 errors.push(summarizeRuntimeAccessError(error, {operation}));
@@ -423,7 +430,15 @@ export class DeploymentStateBridgeService extends Base {
         // place that decides what "a Node service" and "the log tail" mean.
         const
             inspectSummary = summarizeInspect(inspect),
-            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes);
+            // The interval proves a TIME RANGE; this proves it was applied to the container whose
+            // inspect produced the stopped fact. Both are required before a slice may be called
+            // incarnation-bounded — a matching range on a different container is not this run.
+            sameTarget     = Boolean(
+                proofByOperation.logs?.target?.containerId &&
+                proofByOperation.inspect?.target?.containerId &&
+                proofByOperation.logs.target.containerId === proofByOperation.inspect.target.containerId
+            ),
+            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget});
 
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
@@ -1171,7 +1186,7 @@ function summarizeStats(stats) {
     };
 }
 
-function summarizeLogs(logs, maxBytes) {
+function summarizeLogs(logs, maxBytes, {sameTarget = false} = {}) {
     if (!logs || typeof logs !== 'object') return null;
 
     const bounded = boundUtf8Tail(logs.logs, maxBytes);
@@ -1181,9 +1196,11 @@ function summarizeLogs(logs, maxBytes) {
         // caller-supplied flag and never inferred here. A consumer that attributes a death to this
         // slice is trusting that the daemon actually applied the interval, so the claim has to
         // originate where it was applied rather than where it is wanted.
-        appliedSince      : Number.isFinite(logs.appliedSince) ? logs.appliedSince : null,
-        appliedUntil      : Number.isFinite(logs.appliedUntil) ? logs.appliedUntil : null,
-        incarnationBounded: logs.bounded === true,
+        appliedSince: typeof logs.appliedSince === 'string' ? logs.appliedSince : null,
+        appliedUntil: typeof logs.appliedUntil === 'string' ? logs.appliedUntil : null,
+        // BOTH proofs or nothing: the producer applied a real interval, AND it applied it to the
+        // same container the stopped fact describes.
+        incarnationBounded: logs.bounded === true && sameTarget === true,
         maxBytes          : bounded.maxBytes,
         tail              : Number.isFinite(logs.tail) ? logs.tail : null,
         text              : bounded.text,

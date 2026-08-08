@@ -204,6 +204,64 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
     });
 
+    test('a logs read that landed on a DIFFERENT container is never incarnation-bounded', async () => {
+        // `readObserve` resolves a target per call, so a compose recreate between inspect and logs
+        // lands them on different containers. A legitimately-applied interval on the WRONG container
+        // is not this incarnation — and the payloads alone cannot show it, only the proof targets can.
+        const runtimeAccessService = {
+            async readObserve({operation}) {
+                if (operation === 'inspect') {
+                    return {
+                        data: {
+                            Config: {Cmd: ['node', 'server.mjs']},
+                            State : {
+                                FinishedAt: '2026-08-08T20:05:00.900Z',
+                                Health    : {Status: 'unhealthy'},
+                                StartedAt : '2026-08-08T20:00:00.900Z',
+                                Status    : 'exited'
+                            }
+                        },
+                        proof: {operation: 'inspect', target: {containerId: 'container-A'}}
+                    };
+                }
+
+                if (operation === 'logs') {
+                    return {
+                        data: {
+                            appliedSince: '2026-08-08T20:00:00.900Z',
+                            appliedUntil: '2026-08-08T20:05:00.900Z',
+                            bounded     : true,
+                            containerId : 'container-B',
+                            logs        : 'FATAL ERROR: Reached heap limit - JavaScript heap out of memory',
+                            tail        : 25
+                        },
+                        proof: {operation: 'logs', target: {containerId: 'container-B'}}
+                    };
+                }
+
+                return {data: null, proof: {operation}};
+            }
+        };
+
+        let diagnoseArgs = null;
+
+        const service = createService({
+            diagnosisService: {
+                diagnose(args) {
+                    diagnoseArgs = args;
+                    return {status: 'diagnosed'}
+                }
+            },
+            runtimeAccessService
+        });
+
+        const snapshot = await service.collectSnapshot();
+
+        expect(diagnoseArgs.logs.incarnationBounded,
+            'a producer bound on a different container must not read as this incarnation').toBe(false);
+        expect(snapshot.services[0].logs.incarnationBounded).toBe(false);
+    });
+
     test('the declared heap ceiling travels Config.Cmd → inspect → diagnostics through the OWNER', async () => {
         // The helper that decides this is unit-tested elsewhere, and that proves only the decision.
         // This drives `collectSnapshot()` itself, so it proves the WIRING: a correct selector that
