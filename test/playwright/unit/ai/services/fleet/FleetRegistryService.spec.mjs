@@ -226,7 +226,7 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
     });
 
     test('harnessTypes derives from the ONE shared registry (no second key list)', async () => {
-        const {HARNESS_TYPES} = await import('../../../../../../src/ai/fleet/harnessTypes.mjs');
+        const {HARNESS_TYPES} = await import('../../../../../../ai/services/fleet/harnessTypes.mjs');
 
         expect(FleetRegistryService.harnessTypes).toEqual(HARNESS_TYPES.map(entry => entry.type));
         // the drift the cycle-1 review convicted: the Brain-valid key the app copy was missing
@@ -481,7 +481,6 @@ test.describe('Neo.ai.services.fleet.FleetRegistryService.configureAgent — the
                     'ai/services/fleet/',
                     'apps/agentos/',
                     'learn/agentos/',
-                    'src/ai/fleet/',
                     'test/playwright/unit/ai/services/fleet/',
                     'test/playwright/unit/apps/agentos/'
                 ].some(prefix => relative.startsWith(prefix)) ||

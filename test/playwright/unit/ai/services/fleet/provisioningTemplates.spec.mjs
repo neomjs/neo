@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'node:fs';
 
-import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../../../../src/ai/fleet/mcpServers.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../../../../ai/services/fleet/mcpServers.mjs';
 
 const
     BRIDGE_ENTRYPOINT = 'ai/mcp/client/stdioToStreamableHttp.mjs',
@@ -64,7 +64,7 @@ function codexTable(source, serverName) {
  *
  * The Fleet seat generators emit the remote form from code and cannot drift; these two files are
  * maintained by hand and can. Every assertion here is anchored to a live authority — the credential
- * slot to `src/ai/fleet/mcpServers.mjs`, the port to the Compose binding, the Claude Desktop bridge
+ * slot to `ai/services/fleet/mcpServers.mjs`, the port to the Compose binding, the Claude Desktop bridge
  * to the entrypoint on disk — so a template that goes stale fails here rather than at a resident's
  * first tool call.
  */

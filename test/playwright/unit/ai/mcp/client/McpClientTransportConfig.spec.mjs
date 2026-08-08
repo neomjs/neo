@@ -20,7 +20,7 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 
 import Neo                             from '../../../../../../src/Neo.mjs';
 import * as core                       from '../../../../../../src/core/_export.mjs';
-import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../../../../src/ai/fleet/mcpServers.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../../../../ai/services/fleet/mcpServers.mjs';
 import Client                          from '../../../../../../ai/mcp/client/Client.mjs';
 import ClientConfig                    from '../../../../../../ai/mcp/client/config.mjs';
 

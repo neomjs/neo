@@ -1,4 +1,4 @@
-import {createFleetRegistryBridge} from './createFleetRegistryBridge.mjs';
+import {FLEET_WIRE_METHODS} from '../config/fleetWireMethods.mjs';
 
 /**
  * Canonical shape of the Fleet process bearer: 32 random bytes as unpadded base64url (43 chars).
@@ -20,11 +20,14 @@ const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer',
 /**
  * @summary Wire one topology-owned app↔fleet transport into the App Worker. Direct-browser mode
  * builds a `fetch`-backed `send` against the Fleet URL; the packaged Electron shell injects a named
- * preload/main `send` whose bearer never enters this realm. Both wrap
- * {@link createFleetRegistryBridge} and publish the result at
+ * preload/main `send` whose bearer never enters this realm. Both feed the proxy map generated here
+ * over the app's wire-method twin (`../config/fleetWireMethods.mjs`) and publish it at
  * `globalThis.AgentOS.fleet.registryBridge` — the exact slot the AgentOS
  * pane resolves (`apps/agentos/view/Accounts.mjs:260`). Once this has run, the pane's fail-closed
  * `submitToFleetRegistryBridge` path goes live instead of throwing "Fleet Registry bridge unavailable".
+ * The Node-side dual (`ai/services/fleet/createFleetRegistryBridge.mjs`, consumed by CLI tools)
+ * binds the AUTHORITY list; the vocabulary-parity lint keeps the two lists identical, so the ends
+ * of the wire cannot drift while neither realm imports across the boundary.
  *
  * **The Fleet ingress trust boundary, client half.** Direct-browser requests carry
  * `Authorization: Bearer <token>` — the process-lifetime secret its launch path injects as an
@@ -125,8 +128,22 @@ export function installFleetBridge({
             }
     }
 
-    const registryBridge = createFleetRegistryBridge(transportSend),
-          agentOS        = target.AgentOS = target.AgentOS || {};
+    // The browser's half of the wire contract: one async proxy per twin-listed verb, unwrapping the
+    // `{ok, result|error}` envelope — resolve `result`, throw on `error`.
+    const request = async (method, params) => {
+        const envelope = await transportSend({method, params});
+
+        if (!envelope?.ok) {
+            throw new Error(envelope?.error || `fleet: '${method}' failed`);
+        }
+
+        return envelope.result
+    };
+
+    const registryBridge = Object.fromEntries(
+              FLEET_WIRE_METHODS.map(method => [method, params => request(method, params)])
+          ),
+          agentOS = target.AgentOS = target.AgentOS || {};
 
     Object.defineProperty(registryBridge, 'credentialIngress', {
         configurable: true,

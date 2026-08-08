@@ -15,7 +15,7 @@ import {
     createFleetCockpitStatus,
     createNotWiredCapability,
     FLEET_COCKPIT_SOURCES
-} from '../../../src/ai/fleet/fleetCockpitStatus.mjs';
+} from './fleetCockpitStatus.mjs';
 
 /**
  * @class Neo.ai.services.fleet.FleetControlBridge

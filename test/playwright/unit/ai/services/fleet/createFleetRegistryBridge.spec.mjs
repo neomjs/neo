@@ -16,8 +16,8 @@ setup({
 import {test, expect}              from '@playwright/test';
 import Neo                         from '../../../../../../src/Neo.mjs';
 import * as core                   from '../../../../../../src/core/_export.mjs';
-import {createFleetRegistryBridge} from '../../../../../../src/ai/fleet/createFleetRegistryBridge.mjs';
-import {FLEET_WIRE_METHODS}        from '../../../../../../src/ai/fleet/fleetWireMethods.mjs';
+import {createFleetRegistryBridge} from '../../../../../../ai/services/fleet/createFleetRegistryBridge.mjs';
+import {FLEET_WIRE_METHODS}        from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
 
 // createFleetRegistryBridge is the browser-side (App-Worker) factory: given a transport `send`, it
 // returns the object the agentos pane resolves at globalThis.AgentOS.fleet.registryBridge. No live

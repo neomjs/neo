@@ -28,7 +28,7 @@ import {
     MAX_FLEET_MAILBOX_MIRROR_LIMIT,
     readFleetMailboxMirror
 } from '../../../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs'
-import {FLEET_COCKPIT_SOURCES} from '../../../../../../src/ai/fleet/fleetCockpitStatus.mjs'
+import {FLEET_COCKPIT_SOURCES} from '../../../../../../ai/services/fleet/fleetCockpitStatus.mjs'
 
 const CAPTURED_AT = '2026-07-16T12:00:00.000Z'
 
