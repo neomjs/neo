@@ -4,6 +4,7 @@ import logger                          from '../../mcp/server/knowledge-base/log
 import Base                            from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService        from './DatabaseLifecycleService.mjs';
 import {assertDisposableRestoreTarget} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {ensureChromaTestDatabase}      from '../shared/vector/chromaTestIsolation.mjs';
 import {
     chromaConnect,
     chromaDeleteCollection,
@@ -75,9 +76,15 @@ class ChromaManager extends Base {
     construct(config) {
         super.construct(config);
 
-        // The client is created here, but the connection is established in initAsync
-        const {host, port} = aiConfig;
-        this.client = new ChromaClient({host, port, ssl: false});
+        // The client is created here, but the connection is established in initAsync.
+        //
+        // `database` is passed EXPLICITLY. Omitting it landed every client on Chroma's default
+        // database, which is why a `unit/` spec could reach the live canonical collection — the
+        // isolation Memory Core has had all along was simply absent here. The value is resolved by
+        // the config's `chromaDatabase` formula, so this reads one value and carries no env ternary.
+        const {host, port, chromaDatabase: database} = aiConfig;
+
+        this.client = new ChromaClient({host, port, ssl: false, database});
     }
 
     /**
@@ -95,6 +102,19 @@ class ChromaManager extends Base {
      */
     async connect() {
         this.connected = await chromaConnect({client: this.client, logger});
+
+        // The test database must EXIST before the first lazy getOrCreateCollection, or the isolated
+        // client connects to a database Chroma has never been told to create. Idempotent, and the
+        // production path is untouched because the toggle is false there. Same call and same ordering
+        // Memory Core uses — one isolation authority, not a second beside it.
+        if (this.connected && aiConfig.chromaUseTestDatabase === true) {
+            await ensureChromaTestDatabase({
+                host    : aiConfig.host,
+                port    : aiConfig.port,
+                database: aiConfig.chromaDatabase
+            });
+        }
+
         return this.connected
     }
 

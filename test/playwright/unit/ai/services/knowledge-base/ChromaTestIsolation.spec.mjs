@@ -1,0 +1,58 @@
+import {setup} from '../../../../setup.mjs';
+
+setup({
+    neoConfig: {unitTestMode: true},
+    appConfig: {name: 'KbChromaTestIsolationTest', isMounted: () => true, vnodeInitialising: false}
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+
+let aiConfig, CHROMA_PRODUCTION_DATABASE;
+
+test.beforeAll(async () => {
+    ({default: aiConfig}       = await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs'));
+    ({CHROMA_PRODUCTION_DATABASE} = await import('../../../../../../ai/services/shared/vector/chromaTestIsolation.mjs'));
+});
+
+test.describe('KB Chroma isolation — a unit spec cannot reach the live canonical database', () => {
+    test('SOME declared toggle selected test mode — the precondition for everything below', () => {
+        // Without this, every assertion below is vacuous: a spec asserting isolation while nothing
+        // selected it proves only that the config loaded.
+        //
+        // Deliberately checks EITHER toggle rather than naming one. The harness sets
+        // `NEO_TEST_CONFIG_TEMPLATES` (via `configTemplateResolver`, imported by
+        // `playwright.config.mjs`), NOT `UNIT_TEST_MODE` — I first asserted the latter alone and it
+        // failed while the isolation was working correctly. The property that matters is that a
+        // DECLARED leaf drove the selection, not which one.
+        expect(aiConfig.chromaUseTestDatabase || aiConfig.memoryCoreDbUseTestHarness).toBe(true);
+    });
+
+    test('the resolved database is the TEST one, and it differs from production', () => {
+        expect(aiConfig.chromaDatabase).toBe(aiConfig.chromaDatabaseTest);
+        expect(aiConfig.chromaDatabase).not.toBe(aiConfig.chromaDatabaseProd);
+    });
+
+    test('production resolves to the shared constant, not a local invention', () => {
+        // The isolation module owns the name. A manager or config that spelled it itself would drift
+        // from the one place that knows what production is called.
+        expect(aiConfig.chromaDatabaseProd).toBe(CHROMA_PRODUCTION_DATABASE);
+    });
+
+    test('the test database is PER-WORKER, so fullyParallel workers cannot collide', () => {
+        // Config-load-time generation keyed on pid. A shared name would let two workers create and
+        // drop each other's collections — the failure this isolation exists to prevent, one level in.
+        expect(aiConfig.chromaDatabaseTest).toContain(String(process.pid));
+        expect(aiConfig.chromaDatabaseTest).not.toBe(CHROMA_PRODUCTION_DATABASE);
+    });
+
+    test('the FORMULA selects — no inline env read in the manager', () => {
+        // Both leaf values are present and distinct, and the resolved value equals one of them.
+        // That is what makes the selection declarative: the manager reads `chromaDatabase` and never
+        // asks which mode it is in.
+        expect(typeof aiConfig.chromaDatabaseProd).toBe('string');
+        expect(typeof aiConfig.chromaDatabaseTest).toBe('string');
+        expect([aiConfig.chromaDatabaseProd, aiConfig.chromaDatabaseTest]).toContain(aiConfig.chromaDatabase);
+    });
+});
