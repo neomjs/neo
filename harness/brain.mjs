@@ -758,6 +758,94 @@ export async function stopBrainChild(child, {graceMs = 10000, pollMs = 200, kill
 }
 
 /**
+ * @summary Registers one owned child for teardown, routing Brain-health observation by the
+ * entry's `observeBrain` flag. Teardown ownership is UNCONDITIONAL — every registered entry
+ * joins the drain list (§2.1.1 one lifecycle owner) — while tray/whole-Brain-health observation
+ * attaches only for organism children (`observeBrain !== false`). A UI-mode fleet transport is
+ * drain-owned but never a Brain claim: its faults surface through the diagnostic sink and the
+ * cockpit's own fail-closed reads, never through whole-Brain health — the tray reports the
+ * organism, not the UI's transport convenience.
+ * @param {Object} options
+ * @param {Object[]} options.children The owner's drain list.
+ * @param {Object} options.entry `{child, label, observeBrain=true, ...}` — the child record.
+ * @param {Function} options.watch Attaches Brain-health observation (error/exit → degraded).
+ * @param {Function} [options.onUnobservedExit] Diagnostic-only sink for unobserved children's
+ *     error/exit — visibility without health mutation.
+ * @returns {Object} The registered entry.
+ */
+export function registerOwnedChild({children, entry, watch, onUnobservedExit = null}) {
+    children.push(entry);
+
+    if (entry.observeBrain === false) {
+        if (onUnobservedExit) {
+            entry.child.once('error', error => onUnobservedExit(`${entry.label ?? 'child'}: error ${String(error?.message ?? error ?? 'unknown')}`));
+            entry.child.once('exit', (code, signal) => onUnobservedExit(`${entry.label ?? 'child'}: ${signal ? `exit signal ${signal}` : `exit code ${code}`}`))
+        }
+    } else {
+        watch(entry.child, entry.label)
+    }
+
+    return entry
+}
+
+/**
+ * @summary The UI-only transport composition: probe-then-route across the three fail-honest
+ * outcomes, with every collaborator injectable so the OWNER COMPOSITION itself is witnessable —
+ * not just its parts. The routing invariants this function owns:
+ * - **reuse** (port held + canonical same-bearer/viewer proof): adopt; `spawn`/`registerChild`
+ *   are NEVER invoked.
+ * - **foreign-listener** (port held, proof refused): `up: false` with the named refusal routed to
+ *   `onOutcome`; NEVER adopt, NEVER spawn — and never throw: a UI window must not brick on a
+ *   squatted port.
+ * - **spawn** (port free): the child registers `observeBrain: false` BY THE COMPOSITION — the
+ *   ownership≠observation invariant is wired here, not left to the caller — then real wire
+ *   readiness gates `up: true`.
+ * @param {Object} options
+ * @param {String} options.bearerToken The shell-held process bearer the spawned/probed transport must match.
+ * @param {Number} options.fleetPort Loopback fleet port.
+ * @param {String|null} [options.agentIdentityNodeId] Viewer claim for the reuse probe.
+ * @param {String} [options.repoRoot=DEFAULT_REPO_ROOT]
+ * @param {Function} [options.probePortFn=probePort] Raw occupancy probe (cheap, first).
+ * @param {Function} [options.probeServingFn=probeFleetServing] Canonical-identity reuse probe.
+ * @param {Function} options.spawn `({fleetPort}) => child` — starts the owned transport.
+ * @param {Function} options.registerChild Owner registration (`registerOwnedChild` wiring).
+ * @param {Function} options.awaitReady Real wire-readiness gate.
+ * @param {Function} [options.onOutcome] Diagnostic sink, one line per outcome.
+ * @returns {Promise<{fleetPort: Number, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}>}
+ */
+export async function resolveUiFleetTransport({
+    bearerToken,
+    fleetPort,
+    agentIdentityNodeId = null,
+    repoRoot = DEFAULT_REPO_ROOT,
+    probePortFn = probePort,
+    probeServingFn = probeFleetServing,
+    spawn,
+    registerChild,
+    awaitReady,
+    onOutcome = () => {}
+}) {
+    if (await probePortFn({port: fleetPort})) {
+        const probe = await probeServingFn({agentIdentityNodeId, bearerToken, port: fleetPort, repoRoot});
+
+        if (probe.reusable === true) {
+            onOutcome(`reuse fleetPort=${fleetPort}`);
+            return {fleetPort, mode: 'reuse', up: true}
+        }
+
+        onOutcome(`foreign-listener fleetPort=${fleetPort} reason=${probe.reason || 'listener did not prove canonical Fleet identity'}`);
+        return {fleetPort, mode: 'foreign-listener', up: false}
+    }
+
+    const child = spawn({fleetPort});
+
+    registerChild({child, label: 'fleet', observeBrain: false});
+    await awaitReady({bearerToken, child, port: fleetPort});
+    onOutcome(`spawn fleetPort=${fleetPort}`);
+    return {fleetPort, mode: 'spawn', up: true}
+}
+
+/**
  * @summary Tears down every supervised child (fleet first — it consumes the orchestrator's
  * organism, so reverse-dependency order) and reports per-child.
  * @param {Object[]} children `{label, child}` entries.

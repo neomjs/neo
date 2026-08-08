@@ -46,7 +46,9 @@ import {
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
     probePort,
+    registerOwnedChild,
     resolveBrainMode,
+    resolveUiFleetTransport,
     resolveBrainPaths,
     loadFleetRuntimeContracts,
     startBrainChild,
@@ -880,14 +882,20 @@ const appLifecycle = createAppLifecycle({
 });
 
 /**
- * @summary Registers one owned Brain child for both teardown and event-derived tray degradation.
- * @param {Object} entry The existing brainState child record.
+ * @summary Registers one owned child: teardown ownership unconditionally, Brain-health
+ * observation only for organism children — the split lives in {@link registerOwnedChild}
+ * (brain.mjs), where its owner-coverage witness also lives. `observeBrain: false` (the UI-mode
+ * fleet transport) is drain-owned with diagnostic-log-only fault visibility.
+ * @param {Object} entry The brainState child record (`{child, label, observeBrain?, ...}`).
  * @returns {Object}
  */
 function registerBrainChild(entry) {
-    brainState.children.push(entry);
-    appLifecycle.watchBrainChild(entry.child, entry.label);
-    return entry
+    return registerOwnedChild({
+        children        : brainState.children,
+        entry,
+        onUnobservedExit: summary => console.log(`HARNESS_UI_FLEET_CHILD ${summary}`),
+        watch           : appLifecycle.watchBrainChild
+    })
 }
 
 /**
@@ -958,6 +966,50 @@ async function bootProductBrain() {
 
     console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
     return {fleetPort, mode, up: true}
+}
+
+/**
+ * The UI-only transport boot: plain `npm start` self-supplies the fleet transport instead of
+ * demanding a hand-carried `NEO_FLEET_BEARER` across two terminals (the first live operator run
+ * proved that coordination model unusable — and `fleetCapability` gates every renderer request on
+ * this boot receipt, so WITHOUT it the UI-only window could never reach a transport at all, even
+ * a perfectly-coordinated external one).
+ *
+ * Three outcomes, fail-honest:
+ * - **reuse** — a listener on the port proves canonical Fleet identity for THIS bearer + viewer
+ *   (the same-token-same-viewer probe): the shell adopts it and spawns nothing.
+ * - **spawn** — the port is free: the shell starts `devFleetServer` as an OWNED child with the
+ *   bearer it already holds (zero coordination — the packaged topology's behavior), awaits real
+ *   wire readiness, and the existing quit drain tears it down (`brainState.children` is the one
+ *   ownership set; the drain keys on membership, not on Brain mode). Ownership ≠ observation:
+ *   the child registers `observeBrain: false`, so its death logs diagnostically and renders as
+ *   the cockpit's honest offline — never as whole-Brain `degraded` (the tray reports the
+ *   organism, not the UI's transport convenience).
+ * - **foreign-listener** — something else holds the port: the WINDOW must not brick (contrast:
+ *   organism boot fails closed), so the cockpit keeps its honest offline state and the named
+ *   refusal lands in the shell log.
+ * @summary Probes-then-spawns the app↔fleet transport for UI-only mode; never touches tray Brain state.
+ * @returns {Promise<Object>} `{fleetPort, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}`
+ */
+async function bootUiFleetTransport() {
+    // The three-outcome routing AND the ownership≠observation invariant live in the witnessable
+    // composition (brain.mjs#resolveUiFleetTransport); this wrapper only binds the real
+    // collaborators: env coordinates, the shell bearer, the child spawner, and the owner registry.
+    return resolveUiFleetTransport({
+        agentIdentityNodeId: process.env.NEO_AGENT_IDENTITY,
+        awaitReady         : awaitFleetReady,
+        bearerToken        : fleetBearerToken,
+        fleetPort          : Number(process.env.NEO_FLEET_PORT) || 8083,
+        onOutcome          : summary => console.log(`HARNESS_UI_FLEET ${summary}`),
+        registerChild      : registerBrainChild,
+        repoRoot           : organismRoot,
+        spawn              : ({fleetPort}) => startBrainChild({
+            entry   : FLEET_SERVER_ENTRY,
+            env     : {NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
+            onLog   : brainLog,
+            repoRoot: organismRoot
+        })
+    })
 }
 
 /**
@@ -1078,7 +1130,16 @@ app.whenReady().then(async () => {
                 appLifecycle.settleBrainBoot(boot.up === true);
                 return boot
             })
-        : Promise.resolve(null);
+        : (diagnosticMode
+            // Plain smoke keeps its isolation contract: UI-only legs spawn nothing (a dev machine
+            // may carry a live transport); the fleet leg's evidence lives in smoke:brain.
+            ? Promise.resolve(null)
+            // UI-only product path: self-supply the transport. Tray Brain state is deliberately
+            // untouched — a fleet transport is not a Brain claim.
+            : bootUiFleetTransport().catch(error => {
+                console.log('HARNESS_UI_FLEET_BOOT_FAILED ' + error.message);
+                return {error: error.message, up: false}
+            }));
 
     if (!smokeMode) {
         try {
