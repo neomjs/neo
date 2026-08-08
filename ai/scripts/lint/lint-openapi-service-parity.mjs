@@ -207,20 +207,33 @@ export function discoverServiceBarrels(rootDir) {
  * @returns {Array<{serviceName: String, modulePath: String, specPath: String}>}
  */
 export function extractWrappedServices(rootDir) {
-    const discovered = discoverServiceBarrels(rootDir),
-          collected  = discovered.flatMap(barrelPath => extractWrappedServicesFromBarrel(rootDir, barrelPath));
+    return discoverServiceBarrels(rootDir)
+        .flatMap(barrelPath => extractWrappedServicesFromBarrel(rootDir, barrelPath))
+}
 
-    if (collected.length < MIN_WRAPPED_SERVICES) {
-        throw new Error(
-            `[lint-openapi-service-parity] discovered ${collected.length} wrapped service(s) across ` +
-            `${discovered.length} barrel(s) (${discovered.map(f => path.basename(f)).join(', ')}), ` +
-            `below the ${MIN_WRAPPED_SERVICES} floor. Either a barrel stopped being discovered or ` +
-            'services were removed — a silent drop is the failure this gate exists to prevent, so it ' +
-            'fails closed rather than reporting OK on reduced coverage.'
-        );
-    }
+/**
+ * @summary Fails closed when discovery over the REAL tree returns fewer services than the floor.
+ *
+ * Scoped to the real repository on purpose. The end-to-end specs drive this lint against small
+ * synthetic fixture roots holding two or three services, so a floor inside the shared extractor
+ * would reject every fixture — the guard would be "working" while making its own test suite
+ * unrunnable, which is a worse failure than the one it prevents.
+ * @param {Object[]} services Discovered services.
+ * @param {String}   rootDir  Root the discovery ran against.
+ * @throws {Error} When the real tree drops below the floor.
+ */
+function assertDiscoveryFloor(services, rootDir) {
+    if (rootDir !== ROOT_DIR || services.length >= MIN_WRAPPED_SERVICES) return;
 
-    return collected
+    const discovered = discoverServiceBarrels(rootDir).map(file => path.basename(file));
+
+    throw new Error(
+        `[lint-openapi-service-parity] discovered ${services.length} wrapped service(s) across ` +
+        `${discovered.length} barrel(s) (${discovered.join(', ')}), below the ${MIN_WRAPPED_SERVICES} ` +
+        'floor. Either a barrel stopped being discovered or services were removed — a silent drop is ' +
+        'the failure this gate exists to prevent, so it fails closed rather than reporting OK on ' +
+        'reduced coverage.'
+    )
 }
 
 /**
@@ -500,6 +513,8 @@ export function lintOpenApiServiceParity({rootDir = ROOT_DIR} = {}) {
           unusedDeclarations = [],
           perOperation       = new Map(),
           specCache          = new Map();
+
+    assertDiscoveryFloor(services, rootDir);
 
     let operationsMatched = 0;
 
