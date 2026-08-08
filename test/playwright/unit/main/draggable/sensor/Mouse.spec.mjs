@@ -120,7 +120,9 @@ function mouseDown() {
  * the gesture's own move stream observes the primary button gone (a release that happened
  * off-document never reaches onMouseUp, so the move stream is the independent terminal
  * witness). The delay-timeout's coords-only re-entry carries no `buttons` and must never
- * trigger the recovery.
+ * trigger the recovery. The recovery fires on TRUSTED streams only: synthetic dispatches
+ * carry `isTrusted === false` and no buttons bitmask, so the terminal-contract tests stub
+ * the `isLostReleaseSignal` seam while the trust boundary gets its own pinning test.
  */
 test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal contract', () => {
     test.beforeEach(() => {
@@ -149,6 +151,10 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
     test('pre-threshold lost release: a move reporting the primary button gone retires the guard', () => {
         const sensor = createSensor();
 
+        // Stub the trust boundary (JS-constructed events always carry isTrusted === false) so
+        // the terminal contract is exercised against the buttons signal alone.
+        sensor.isLostReleaseSignal = event => event.buttons !== undefined && (event.buttons & 1) === 0;
+
         Mouse.prototype.attach.call(sensor);
 
         documentRef.dispatchEvent(mouseDown());
@@ -167,6 +173,9 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
     test('mid-drag lost release emits exactly one drag:end, retires the guard, and ignores a later mouseup', () => {
         const ends   = [],
               sensor = createSensor();
+
+        // Same trust-boundary stub as the pre-threshold sibling.
+        sensor.isLostReleaseSignal = event => event.buttons !== undefined && (event.buttons & 1) === 0;
 
         Mouse.prototype.attach.call(sensor);
         documentRef.addEventListener('drag:end', event => ends.push(event.detail));
@@ -205,6 +214,28 @@ test.describe('Neo.main.draggable.sensor.Mouse — selection-guard terminal cont
 
         expect(bodyClasses.has('neo-drag-active')).toBe(true);
         expect(sensor.dragging).toBe(false);
+
+        clearTimeout(sensor.mouseDownTimeout);
+        sensor.detach()
+    });
+
+    test('trust boundary: an untrusted (JS-constructed) buttons=0 move never triggers the recovery', () => {
+        const sensor = createSensor();
+
+        // The REAL predicate, no stub: synthetic streams (EventSimulator, InteractionService)
+        // construct events without the buttons bitmask — buttons reads 0 by default — and
+        // isTrusted is false by construction. Reading that as a lost release wedged every
+        // synthetic drag on its first move.
+        Mouse.prototype.attach.call(sensor);
+
+        documentRef.dispatchEvent(mouseDown());
+        expect(bodyClasses.has('neo-drag-active')).toBe(true);
+
+        documentRef.dispatchEvent(mouseEvent('mousemove', {buttons: 0, clientX: 30, clientY: 30, pageX: 30, pageY: 30}));
+
+        // The gesture must SURVIVE: guard held, no termination, delay/distance path still open.
+        expect(bodyClasses.has('neo-drag-active')).toBe(true);
+        expect(sensor.currentElement).not.toBe(null);
 
         clearTimeout(sensor.mouseDownTimeout);
         sensor.detach()

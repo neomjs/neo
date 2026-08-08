@@ -72,11 +72,7 @@ class Mouse extends Base {
         let me = this;
 
         if (me.currentElement) {
-            // Lost-release recovery: the gesture's own move stream observes the primary button
-            // gone, so its mouseup happened off-document — terminate as the release never
-            // received. The delay-timeout re-entry passes a plain coords object with no
-            // `buttons` to inspect, so it skips this check by construction.
-            if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+            if (me.isLostReleaseSignal(event)) {
                 me.endGesture(event);
                 return
             }
@@ -93,6 +89,28 @@ class Mouse extends Base {
                 me.startDrag()
             }
         }
+    }
+
+    /**
+     * Lost-release recovery predicate: a move reporting the primary button gone means the
+     * gesture's mouseup happened off-document — terminate as the release never received.
+     *
+     * TRUSTED streams only. Synthetic dispatches (EventSimulator, InteractionService) construct
+     * MouseEvents without the buttons bitmask — `buttons` reads 0 by default — and always
+     * deliver their own explicit mouseup, so there is no lost release to recover from; reading
+     * buttons=0 as a released button would kill every synthetic gesture on its first move
+     * (the synthetic drag-start wedge). The delay-timeout re-entry passes a plain coords object
+     * with no `buttons` to inspect, so it skips the recovery by construction.
+     *
+     * A named seam rather than an inline condition so unit specs can stub the trust boundary
+     * (JS-constructed events always carry `isTrusted === false`) while still exercising the
+     * terminal contract the predicate gates.
+     * @param {MouseEvent|Object} event
+     * @returns {Boolean}
+     * @protected
+     */
+    isLostReleaseSignal(event) {
+        return Boolean(event.isTrusted) && event.buttons !== undefined && (event.buttons & 1) === 0
     }
 
     /**
@@ -146,7 +164,7 @@ class Mouse extends Base {
         let me = this;
 
         // Same lost-release recovery for an engaged drag (see onDistanceChange).
-        if (event.buttons !== undefined && (event.buttons & 1) === 0) {
+        if (me.isLostReleaseSignal(event)) {
             me.endGesture(event);
             return
         }
