@@ -137,13 +137,16 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
                         'space, code, external buffers and native allocations. So the conversion from ' +
                         'a catchable `FATAL ERROR: heap limit` to an uncatchable kernel kill happens ' +
                         'as soon as ceiling + non-heap exceeds the cgroup — far BELOW the limit, not ' +
-                        'at it. Measured by @neo-opus-grace on this plane: a 768 MB ceiling in a ' +
-                        '1024 MiB container carries RSS to 860.7 MiB (84%), so non-heap ran ~93 MiB ' +
-                        'and only ~163 MiB separated a healthy service from a silent kill. The ' +
-                        'non-heap figure is therefore REQUIRED context, and it is refused when ' +
-                        'unresolved rather than assumed to be zero — assuming zero is what lets a ' +
-                        'ceiling one byte under the limit read as safe. This knob stays fail-closed ' +
-                        'until a service publishes that observation.',
+                        'at it. Measured by @neo-opus-grace on this plane: a 768 MB declared ceiling ' +
+                        'in a 1024 MiB container ran at RSS 860.7 MiB, 84% of the cgroup, ~163 MiB ' +
+                        'from the edge. That is a CONTAINER fact and deliberately not restated as a ' +
+                        'heap one — RSS includes native, buffers and code, and the heap/non-heap ' +
+                        'SPLIT was never measured. Which is the whole reason non-heap is REQUIRED ' +
+                        'context rather than derived here: `RSS - ceiling` only yields non-heap if ' +
+                        'the heap happens to sit AT its ceiling, and nothing establishes that. ' +
+                        'Unresolved refuses rather than assuming zero — assuming zero is what lets a ' +
+                        'ceiling one byte under the limit read as safe. Fail-closed until a service ' +
+                        'publishes the observation.',
                 holds : (values, context = {}) => {
                     const liveLimitBytes = context[liveLimitLeaf],
                           nonHeapBytes   = context[nonHeapLeaf];

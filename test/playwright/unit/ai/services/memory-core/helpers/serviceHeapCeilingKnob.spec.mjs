@@ -17,9 +17,11 @@ const
     // The live plane on 2026-08-08: 1 GiB cgroup, 768 MB declared ceiling.
     GIB     = 1024 * 1024 * 1024,
     MIB     = 1024 * 1024,
-    // Measured by @neo-opus-grace on that plane: a 768 MB ceiling carried RSS to 860.7 MiB, so
-    // non-heap ran ~93 MiB. Used as the realistic fixture rather than a round number, because a
-    // round number invites treating the bound as a policy constant instead of an observation.
+    // An ILLUSTRATIVE fixture, not a measurement. It is the gap between the observed 860.7 MiB RSS
+    // and the 768 MB ceiling on that plane, which equals non-heap ONLY if the heap sat at its
+    // ceiling — unestablished, and @neo-opus-grace explicitly withdrew reading her RSS numbers as
+    // heap facts. The production value must come from a real observation; this constant exists so
+    // the arithmetic is exercised, and no production path may derive non-heap this way.
     NON_HEAP = Math.round(92.7 * MIB),
     // Every valid transaction must now supply BOTH runtime facts. A fixture that omits the non-heap
     // observation is exercising the fail-closed path, not the happy path.
