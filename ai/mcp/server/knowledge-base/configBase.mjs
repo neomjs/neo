@@ -14,6 +14,12 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
 // The single plane-member anchor (env-free twin resolution — the leaf machinery owns env binding).
 const planeDataRoot = resolvePlaneDataRoot({rootDir: neoRootDir});
 
+// Per-worker-unique Chroma test database, generated at config-load. Each Playwright worker is a
+// separate process that re-evaluates this module, so `fullyParallel` workers never share one.
+// Generated here rather than inside a leaf default so the leaves stay declarative — the same
+// rationale Memory Core's config records for its per-worker test collection names.
+const kbChromaTestDatabase = `neo-kb-unit-test-${process.pid}`;
+
 /**
  * @summary Extendable defaults and formulas for the Knowledge Base MCP server.
  *
@@ -321,6 +327,25 @@ class ConfigBase extends ConfigProvider {
              */
             collectionName: leaf('neo-knowledge-base'),
             /**
+             * @summary Chroma database name in production. Memory Core already isolates its Chroma
+             * writes this way; the Knowledge Base did not, so a `unit/` spec could reach the live
+             * canonical collection because its client passed no `database` at all.
+             * @type {String}
+             */
+            chromaDatabaseProd: leaf('default_database', 'NEO_KB_CHROMA_DATABASE', 'string'),
+            /**
+             * @summary Chroma database under Playwright — droppable, and per-worker so `fullyParallel`
+             * workers never share one.
+             * @type {String}
+             */
+            chromaDatabaseTest: leaf(kbChromaTestDatabase, 'NEO_KB_CHROMA_DATABASE_TEST', 'string'),
+            /**
+             * @summary Selects the disposable Chroma database. Same shape as the telemetry toggle
+             * above, deliberately: one mechanism for test isolation, not a second beside it.
+             * @type {Boolean}
+             */
+            chromaUseTestDatabase: leaf(false, 'UNIT_TEST_MODE', 'boolean'),
+            /**
              * @summary Bounded retry policy for resolving the canonical Chroma KB collection.
              *
              * Long-running syncs can overlap a local Chroma restart or recycle. `ChromaManager`
@@ -554,7 +579,11 @@ class ConfigBase extends ConfigProvider {
         },
         formulas: {
             'memoryCoreDbPath': data => data.memoryCoreDbUseTestDatabase || data.memoryCoreDbUseTestHarness ?
-                data.memoryCoreDbPathTest : data.memoryCoreDbPathProd
+                data.memoryCoreDbPathTest : data.memoryCoreDbPathProd,
+            // Resolved in the config so the manager reads ONE value and carries no inline env ternary.
+            // Mirrors `memoryCoreDbPath` above rather than inventing a second selection shape.
+            'chromaDatabase': data => data.chromaUseTestDatabase || data.memoryCoreDbUseTestHarness ?
+                data.chromaDatabaseTest : data.chromaDatabaseProd
         }
     }
 }
