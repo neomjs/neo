@@ -20,6 +20,28 @@ const OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE   = /openAiCompatible embedding
 const EMBEDDING_OPERATION_LABEL_MAX_LENGTH         = 120;
 
 /**
+ * @summary Source-owned code for an embedding request whose configured model is not resident.
+ *
+ * This shared Memory Core service must not mint a downstream Knowledge Base `KB_*` code. The KB
+ * ingestion boundary translates this provider-neutral cause into its own durable vocabulary.
+ * @type {String}
+ */
+export const EMBEDDING_MODEL_NOT_RESIDENT_CODE = 'EMBEDDING_MODEL_NOT_RESIDENT';
+
+/**
+ * @summary Carries a known model-residency cause separately from its diagnostic message.
+ *
+ * Model-load messages include configured model identifiers, observed resident ids and provider
+ * payloads, so consumers must classify on this owned code rather than persist or project the text.
+ * @param {Error} error The model-load failure recognized at the source boundary.
+ * @returns {Error} The same error with its source-owned cause code.
+ */
+function markEmbeddingModelNotResidentError(error) {
+    error.code = EMBEDDING_MODEL_NOT_RESIDENT_CODE;
+    return error
+}
+
+/**
  * @summary Normalizes the additive embedding-call options without widening provider authority.
  * @param {Object} options Caller options.
  * @param {String} defaultOperationLabel Provider-scoped fallback label.
@@ -571,7 +593,9 @@ class TextEmbeddingService extends Base {
 
         if (!loadedModel) {
             const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none';
-            throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`);
+            throw markEmbeddingModelNotResidentError(
+                new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
+            );
         }
         if (!Neo.isNumber(loadedModel.contextLength)) {
             throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' has unknown loaded context; configured>=${configuredContextLength}`);
@@ -783,6 +807,10 @@ class TextEmbeddingService extends Base {
                 (err.message.includes('Failed to load model') &&            // Shape B — JIT-warm-load-canceled
                  err.message.includes('Operation canceled'))
             )) || err.message.includes('HTTP 404');                         // Shape C — model not resident
+
+            if (isModelLoadError) {
+                markEmbeddingModelNotResidentError(err)
+            }
 
             if (unloadRetriesLeft > 0 && isModelLoadError) {
                 logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : err.message.includes('HTTP 404') ? 'C' : 'B'}), retrying (remaining retries: ${unloadRetriesLeft})`);
