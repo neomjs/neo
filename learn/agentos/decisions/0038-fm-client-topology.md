@@ -1,4 +1,4 @@
-# ADR 0030: The FM client topology — the cockpit connects; the plane owns fleet truth
+# ADR 0038: The FM client topology — the cockpit connects; the plane owns fleet truth
 
 > The Frontier-Model cockpit (FM) is a **pure client** of the Agent OS plane: it renders plane-owned state and sends typed requests over an authenticated wire — it **never runs organism children**, never imports runtime trust primitives from a checkout, and never reconstructs fleet truth from local files or intercepted traffic. The fleet surface lives **in the composition** as an optional-per-profile service. Identity, visibility, and content access are **four non-aliased facts** guarded by **two never-aggregated grant families** with an at-rest coherence invariant. This ADR is the durable client-topology anchor the D#16720 subs cite; the Discussion is archaeology after merge.
 
@@ -135,4 +135,4 @@ A future session picks this up in three steps: (1) read THIS ADR (~4 minutes); (
 
 Origin Session ID: `e676cd5d-52ce-4d38-89ab-a4621c88a382`
 
-Retrieval Hint: `query_raw_memories("FM client topology four identity facts two grant families ownerPrincipal ADR 0030")`
+Retrieval Hint: `query_raw_memories("FM client topology four identity facts two grant families ownerPrincipal ADR 0038")`
