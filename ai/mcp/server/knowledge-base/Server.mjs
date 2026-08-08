@@ -96,6 +96,24 @@ class Server extends BaseServer {
     }
 
     /**
+     * @summary Starts the lifecycle-owned embedding producer and awaits its first bounded
+     * observation before the server publishes startup health.
+     *
+     * Health reads remain pure snapshots. The explicit 30-second consumer deadline bounds boot
+     * even when a provider accepts the request and never answers; process exit disarms scheduling.
+     * @returns {Promise<void>}
+     */
+    async beforeHealthcheck() {
+        const firstObservation = HealthService.startEmbeddingProbe();
+
+        process.once('exit', () => HealthService.stopEmbeddingProbe());
+
+        if (firstObservation) {
+            await firstObservation;
+        }
+    }
+
+    /**
      * @summary Tools allowed without the healthcheck gate.
      * @returns {Array<String>}
      */
