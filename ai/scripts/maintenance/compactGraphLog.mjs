@@ -24,6 +24,7 @@ import {
  * Usage:
  *   node ai/scripts/maintenance/compactGraphLog.mjs
  *   node ai/scripts/maintenance/compactGraphLog.mjs --apply
+ *   node ai/scripts/maintenance/compactGraphLog.mjs --apply --json
  *   node ai/scripts/maintenance/compactGraphLog.mjs --apply --vacuum
  *   node ai/scripts/maintenance/compactGraphLog.mjs --consumer-watermark remote=123456
  *
@@ -450,6 +451,40 @@ export function runGraphLogCompaction({
 }
 
 /**
+ * @summary Projects a bounded scheduler outcome from a completed GraphLog compaction result.
+ * @param {Object} result Compaction result returned by `runGraphLogCompaction()`.
+ * @param {Object} options
+ * @param {Boolean} [options.apply=false] Whether the invocation requested deletion.
+ * @returns {{success:Boolean, deferred:Boolean, status:String, reason:(String|null), beforeRows:Number, afterRows:Number, cutoffLogId:Number, eligibleRows:Number, deletedRows:Number}}
+ */
+export function buildGraphLogCompactionOutcome(result, {apply = false} = {}) {
+    const {before = {}, after = {}, plan = {}, compaction = {}} = result || {};
+    const safetyBlocked = plan.canApply === false && (
+        plan.reason === 'unknown-consumer-watermark' ||
+        plan.reason === 'no-known-consumer-watermark'
+    );
+    const status = safetyBlocked
+        ? 'safety-blocked'
+        : !apply
+            ? 'dry-run'
+            : compaction.deletedRows > 0
+                ? 'applied'
+                : 'up-to-date';
+
+    return {
+        success     : true,
+        deferred    : safetyBlocked,
+        status,
+        reason      : plan.reason || null,
+        beforeRows  : before.rowCount || 0,
+        afterRows   : after.rowCount || 0,
+        cutoffLogId : plan.cutoffLogId || 0,
+        eligibleRows: compaction.eligibleRows || 0,
+        deletedRows : compaction.deletedRows || 0
+    };
+}
+
+/**
  * @summary Logs a concise human-readable compaction report.
  * @param {Object} result
  * @param {Object} options
@@ -503,6 +538,7 @@ export function createCommand({aiConfig} = {}) {
         .option('--safety-margin <rows>', 'Rows to retain below the minimum known consumer watermark.', String(defaults.safetyMarginRows))
         .option('--consumer-watermark <name=logId>', 'Additional durable consumer watermark. May be repeated.', collect, [])
         .option('--wake-live-cursor <logId>', 'Current WakeSubscriptionService liveCursor when active mcp-notifications consumers exist.')
+        .option('--json', 'Emit one bounded machine-readable outcome on stdout instead of the human report.', false)
         .option('--vacuum', 'Run VACUUM after deletion to physically shrink the SQLite db. Operator-gated heavy maintenance.', false);
 }
 
@@ -533,7 +569,7 @@ export async function runCli(argv = process.argv, {aiConfig = null} = {}) {
 
     const options = command.opts();
 
-    return runGraphLogCompaction({
+    const result = runGraphLogCompaction({
         dbPath           : path.resolve(options.db),
         bridgeStateFile : path.resolve(options.bridgeStateFile),
         wakeStateFile   : path.resolve(options.wakeStateFile),
@@ -542,9 +578,16 @@ export async function runCli(argv = process.argv, {aiConfig = null} = {}) {
         wakeLiveCursor  : options.wakeLiveCursor === undefined
             ? null
             : parseNonNegativeInteger(options.wakeLiveCursor, 'wake-live-cursor'),
-        apply           : options.apply,
-        vacuum          : options.vacuum
+        apply : options.apply,
+        vacuum: options.vacuum,
+        logger: options.json ? {log() {}} : console
     });
+
+    if (options.json) {
+        console.log(JSON.stringify(buildGraphLogCompactionOutcome(result, {apply: options.apply})));
+    }
+
+    return result;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

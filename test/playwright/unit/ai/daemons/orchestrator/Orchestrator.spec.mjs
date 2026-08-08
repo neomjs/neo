@@ -1411,12 +1411,13 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         expect(taskDefinitions['graphlog-compaction']).toEqual({
-            label          : 'GraphLog compaction',
-            command        : '/node',
-            args           : ['/repo/ai/scripts/maintenance/compactGraphLog.mjs', '--apply'],
-            pidFileName    : 'graphlog-compaction.pid',
-            expectedCommand: 'compactGraphLog.mjs',
-            authorityClass : 'container-plane'
+            label            : 'GraphLog compaction',
+            command          : '/node',
+            args             : ['/repo/ai/scripts/maintenance/compactGraphLog.mjs', '--apply', '--json'],
+            pidFileName      : 'graphlog-compaction.pid',
+            expectedCommand  : 'compactGraphLog.mjs',
+            captureStdoutJson: true,
+            authorityClass   : 'container-plane'
         });
 
         const orchestrator = createTestOrchestrator({
@@ -1429,6 +1430,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         })['graphlog-compaction'].args).toEqual([
             '/repo/ai/scripts/maintenance/compactGraphLog.mjs',
             '--apply',
+            '--json',
             '--vacuum'
         ]);
     });

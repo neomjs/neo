@@ -150,7 +150,7 @@ test.describe('compactGraphLog maintenance guard', () => {
         });
     });
 
-    test('standalone CLI bootstraps the Neo realm before loading runtime config', async () => {
+    test('#16681: standalone CLI boots runtime config and distinguishes structured apply outcomes', async () => {
         insertGraphLogRows(3);
         db.close();
         db = null;
@@ -163,24 +163,88 @@ test.describe('compactGraphLog maintenance guard', () => {
             await fs.copy(templateConfigPath, runtimeConfigPath);
         }
 
-        try {
-            const result = spawnSync('node', [
-                'ai/scripts/maintenance/compactGraphLog.mjs',
-                '--db', dbPath,
-                '--bridge-state-file', bridgeStateFile,
-                '--wake-state-file', wakeStateFile,
-                '--safety-margin', '1',
-                '--consumer-watermark', 'test=3'
-            ], {
-                cwd     : process.cwd(),
-                encoding: 'utf8',
-                env     : {...process.env, UNIT_TEST_MODE: 'true'}
-            });
+        const pathArgs = [
+            '--db', dbPath,
+            '--bridge-state-file', bridgeStateFile,
+            '--wake-state-file', wakeStateFile,
+            '--safety-margin', '1',
+            '--consumer-watermark', 'test=3'
+        ];
+        const run = flags => spawnSync('node', [
+            'ai/scripts/maintenance/compactGraphLog.mjs',
+            ...flags,
+            ...pathArgs
+        ], {
+            cwd     : process.cwd(),
+            encoding: 'utf8',
+            env     : {...process.env, UNIT_TEST_MODE: 'true'}
+        });
 
-            expect(result.status).toBe(0);
-            expect(result.stderr).not.toContain('ReferenceError: Neo is not defined');
-            expect(result.stdout).toContain('GraphLog compaction DRY-RUN');
-            expect(result.stdout).toContain('eligible rows: 2');
+        try {
+            const humanReadable = run([]);
+
+            expect(humanReadable.status).toBe(0);
+            expect(humanReadable.stderr).not.toContain('ReferenceError: Neo is not defined');
+            expect(humanReadable.stdout).toContain('GraphLog compaction DRY-RUN');
+            expect(humanReadable.stdout).toContain('eligible rows: 2');
+
+            const applied = run(['--apply', '--json']);
+
+            expect(applied.status).toBe(0);
+            expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
+                success     : true,
+                deferred    : false,
+                status      : 'applied',
+                reason      : 'ready',
+                beforeRows  : 3,
+                afterRows   : 1,
+                cutoffLogId : 2,
+                eligibleRows: 2,
+                deletedRows : 2
+            }));
+
+            const upToDate = run(['--apply', '--json']);
+
+            expect(upToDate.status).toBe(0);
+            expect(JSON.parse(upToDate.stdout)).toEqual(expect.objectContaining({
+                success     : true,
+                deferred    : false,
+                status      : 'up-to-date',
+                reason      : 'ready',
+                beforeRows  : 1,
+                afterRows   : 1,
+                cutoffLogId : 2,
+                eligibleRows: 0,
+                deletedRows : 0
+            }));
+
+            const mutationDb = new Database(dbPath);
+            mutationDb.prepare('INSERT INTO Nodes(id, data) VALUES (?, ?)').run('WAKE_SUB:mcp', JSON.stringify({
+                id        : 'WAKE_SUB:mcp',
+                label     : 'WAKE_SUBSCRIPTION',
+                properties: {
+                    agentIdentity: '@neo-gpt-emmy',
+                    harnessTarget: 'mcp-notifications',
+                    status       : 'active',
+                    trigger      : 'SENT_TO_ME'
+                }
+            }));
+            mutationDb.close();
+
+            const blocked = run(['--apply', '--json']);
+
+            expect(blocked.status).toBe(0);
+            expect(JSON.parse(blocked.stdout)).toEqual(expect.objectContaining({
+                success     : true,
+                deferred    : true,
+                status      : 'safety-blocked',
+                reason      : 'unknown-consumer-watermark',
+                beforeRows  : 1,
+                afterRows   : 1,
+                cutoffLogId : 0,
+                eligibleRows: 0,
+                deletedRows : 0
+            }));
         } finally {
             if (!hadRuntimeConfig) {
                 await fs.remove(runtimeConfigPath);
