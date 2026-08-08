@@ -72,7 +72,7 @@ decision owns; *Parent* = the composition record that already aggregates it, whe
 | 0035 | Brain / orchestration | Live-lane awareness federation: typed GP route, lifecycle frontier, fenced hook projection, and Bird-View references | composes 0020/0028/0033 |
 | 0036 | Brain / community activity | Durable provider-neutral source registration/admission, zero-authority attention, and atomic Task claim | composes 0015/0019/0035 |
 | 0037 | Deployment / product boundary | Fleet Manager outward-door topology: source-less-of-product storefront, one canonical launch URL, download sequencing | extends 0034 |
-| 0038 | Body ↔ Brain seam | FM client topology: the cockpit connects (three roles / two registries), four non-aliased identity facts, two never-aggregated grant families + at-rest coherence | amends 0020/0026 |
+| 0038 | Body ↔ Brain seam | FM client topology: the cockpit connects (three roles / two registries), four non-aliased identity facts, two never-aggregated grant families + at-rest coherence | amends 0020/0026/0034 |
 
 ## §3 Trajectory Invariants
 
