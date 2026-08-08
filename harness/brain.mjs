@@ -9,15 +9,15 @@
 //   §2.1.4  port discipline — smoke ports are runtime-allocated by this lifecycle owner
 //   §2.1.5  teardown on quit — process-GROUP SIGINT, bounded grace, group SIGKILL; settle-or-reject
 //
-// ATTACH-OR-OWN (the dev-machine safety contract): the orchestrator daemon performs
-// single-instance TAKEOVER — on boot it SIGTERMs any PID in its PID file — and its supervised
-// children hold singleton ports it reaps foreign listeners from. A second organism beside a live
-// canonical Brain is therefore never safe OR useful (the Fleet Manager should manage the REAL
-// fleet). So the product boot ATTACHES when a Brain is already alive (supervising only the missing
-// fleet transport) and OWNS the full organism only when nothing is up (a fresh machine — the
-// packaged-app shape). Full isolation exists for the SMOKE profile only, where every mutable
-// path/listener the spawned tree consumes is bound under one throwaway root and asserted through
-// the config SSOT itself (resolveBrainPaths) before anything spawns.
+// PLANE-ATTACH / ATTACH / OWN (the dev-machine safety contract): a declared containerized plane
+// outranks host-process observation and admits only the missing Fleet transport. Without that
+// declaration, a live host orchestrator selects attach; only a truly fresh machine selects full
+// ownership. This order matters because the orchestrator daemon performs single-instance TAKEOVER
+// and its supervised children reap foreign singleton listeners — starting a host organism while a
+// declared plane is merely down would be the most destructive fallback. Full isolation exists for
+// the SMOKE profile only, where every mutable path/listener the spawned tree consumes is bound
+// under one throwaway root and asserted through the config SSOT itself (resolveBrainPaths) before
+// anything spawns.
 //
 // Teardown is process-GROUP-based: children spawn `detached` into their own group, so
 // SIGINT/SIGKILL on `-pid` reaches every descendant — including grandchildren the orchestrator's
@@ -94,6 +94,31 @@ export function resolveBrainMode({packaged, env}) {
 }
 
 /**
+ * @summary Resolves the product Brain launch plan from declared topology plus observed local
+ * processes. A configured plane is authority even when its ingress is currently unreachable:
+ * selecting full host ownership at that moment would create the competing organism this guard is
+ * meant to prevent. Readiness remains the Fleet transport's authenticated responsibility.
+ * @param {Object} options
+ * @param {String} options.planeBase Resolved `AiConfig.fleet.planeBase` declaration.
+ * @param {Boolean} options.orchestratorAlive Observed host-orchestrator liveness.
+ * @param {Boolean} options.fleetServing Observed canonical Fleet transport availability.
+ * @returns {{mode: 'plane-attach'|'attach'|'own', planeBase: String|null, startFleet: Boolean, startOrchestrator: Boolean}}
+ */
+export function resolveProductBrainPlan({planeBase, orchestratorAlive, fleetServing}) {
+    const configuredPlaneBase = typeof planeBase === 'string' ? planeBase.trim() : '';
+    const mode                = configuredPlaneBase
+        ? 'plane-attach'
+        : orchestratorAlive ? 'attach' : 'own';
+
+    return {
+        mode,
+        planeBase        : configuredPlaneBase || null,
+        startFleet       : fleetServing !== true,
+        startOrchestrator: mode === 'own'
+    }
+}
+
+/**
  * @summary Allocates a free loopback TCP port via a zero-port listen. The classic race (another
  * process binding between close and child bind) is accepted: the child's own bind failure exits
  * it early, which the readiness contract converts into a deterministic boot rejection.
@@ -146,7 +171,7 @@ export function probePort({port, host = '127.0.0.1', timeoutMs = 1500}) {
  * @param {String} options.repoRoot
  * @param {Object} [options.env] Env fragment merged over process.env for the resolver child.
  * @param {Function} [options.execFileFn=execFile] Injection seam for tests.
- * @returns {Promise<Object>} `{chromaDataDir, chromaPort, dbPath, fleetInstanceRoot, orchestratorDataDir}`
+ * @returns {Promise<Object>} Resolved Brain paths, ports, and `fleetPlaneBase` topology declaration.
  */
 export function resolveBrainPaths({repoRoot, env = {}, execFileFn = execFile}) {
     const script = [
@@ -161,6 +186,7 @@ export function resolveBrainPaths({repoRoot, env = {}, execFileFn = execFile}) {
         "    chromaPort         : AiConfig.engines.chroma.port,",
         "    dbPath             : AiConfig.orchestrator.dbPath,",
         "    fleetInstanceRoot  : AiConfig.fleet.instanceRoot,",
+        "    fleetPlaneBase     : AiConfig.fleet.planeBase,",
         "    orchestratorDataDir: AiConfig.orchestrator.dataDir",
         "}));"
     ].join('\n');
@@ -218,8 +244,10 @@ export function buildBrainProfile({isolationRoot, chromaPort, fleetPort}) {
         NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'container-plane',
 
         // Listeners the smoke exercises → runtime-allocated ports
-        NEO_CHROMA_PORT_TEST: String(chromaPort),
-        NEO_FLEET_PORT      : String(fleetPort),
+        NEO_CHROMA_PORT_TEST  : String(chromaPort),
+        NEO_FLEET_PLANE_BASE  : '',
+        NEO_FLEET_PLANE_BEARER: '',
+        NEO_FLEET_PORT        : String(fleetPort),
 
         // Every other port-bearing or shared-state lane → OFF. The smoke proves the harness can
         // OWN the organism's lifecycle; it must not double-run swarm lanes or reap live listeners.
@@ -407,7 +435,8 @@ export async function probeFleetServing({
  * PID-file + command-line liveness idiom (read from the RESOLVED dataDir leaf, so an env-shifted
  * setup is honored) plus fleet-transport PROTOCOL identity — `fleetServing` requires a real wire
  * envelope, while `fleetPortHeld` reports raw occupancy so a foreign listener fails the boot
- * closed instead of masquerading as an attach target. Drives the attach-or-own decision.
+ * closed instead of masquerading as an attach target. Supplies observation to the config-first
+ * product launch plan; it never decides whether a declared plane exists.
  * @param {Object} options
  * @param {String} options.orchestratorDataDir Resolved `AiConfig.orchestrator.dataDir`.
  * @param {Number|String} options.fleetPort Fleet transport port to probe.
@@ -755,6 +784,94 @@ export async function stopBrainChild(child, {graceMs = 10000, pollMs = 200, kill
     }
 
     return {exited: true, forced: true, groupEmpty: !groupAlive(pgid, killFn)}
+}
+
+/**
+ * @summary Registers one owned child for teardown, routing Brain-health observation by the
+ * entry's `observeBrain` flag. Teardown ownership is UNCONDITIONAL — every registered entry
+ * joins the drain list (§2.1.1 one lifecycle owner) — while tray/whole-Brain-health observation
+ * attaches only for organism children (`observeBrain !== false`). A UI-mode fleet transport is
+ * drain-owned but never a Brain claim: its faults surface through the diagnostic sink and the
+ * cockpit's own fail-closed reads, never through whole-Brain health — the tray reports the
+ * organism, not the UI's transport convenience.
+ * @param {Object} options
+ * @param {Object[]} options.children The owner's drain list.
+ * @param {Object} options.entry `{child, label, observeBrain=true, ...}` — the child record.
+ * @param {Function} options.watch Attaches Brain-health observation (error/exit → degraded).
+ * @param {Function} [options.onUnobservedExit] Diagnostic-only sink for unobserved children's
+ *     error/exit — visibility without health mutation.
+ * @returns {Object} The registered entry.
+ */
+export function registerOwnedChild({children, entry, watch, onUnobservedExit = null}) {
+    children.push(entry);
+
+    if (entry.observeBrain === false) {
+        if (onUnobservedExit) {
+            entry.child.once('error', error => onUnobservedExit(`${entry.label ?? 'child'}: error ${String(error?.message ?? error ?? 'unknown')}`));
+            entry.child.once('exit', (code, signal) => onUnobservedExit(`${entry.label ?? 'child'}: ${signal ? `exit signal ${signal}` : `exit code ${code}`}`))
+        }
+    } else {
+        watch(entry.child, entry.label)
+    }
+
+    return entry
+}
+
+/**
+ * @summary The UI-only transport composition: probe-then-route across the three fail-honest
+ * outcomes, with every collaborator injectable so the OWNER COMPOSITION itself is witnessable —
+ * not just its parts. The routing invariants this function owns:
+ * - **reuse** (port held + canonical same-bearer/viewer proof): adopt; `spawn`/`registerChild`
+ *   are NEVER invoked.
+ * - **foreign-listener** (port held, proof refused): `up: false` with the named refusal routed to
+ *   `onOutcome`; NEVER adopt, NEVER spawn — and never throw: a UI window must not brick on a
+ *   squatted port.
+ * - **spawn** (port free): the child registers `observeBrain: false` BY THE COMPOSITION — the
+ *   ownership≠observation invariant is wired here, not left to the caller — then real wire
+ *   readiness gates `up: true`.
+ * @param {Object} options
+ * @param {String} options.bearerToken The shell-held process bearer the spawned/probed transport must match.
+ * @param {Number} options.fleetPort Loopback fleet port.
+ * @param {String|null} [options.agentIdentityNodeId] Viewer claim for the reuse probe.
+ * @param {String} [options.repoRoot=DEFAULT_REPO_ROOT]
+ * @param {Function} [options.probePortFn=probePort] Raw occupancy probe (cheap, first).
+ * @param {Function} [options.probeServingFn=probeFleetServing] Canonical-identity reuse probe.
+ * @param {Function} options.spawn `({fleetPort}) => child` — starts the owned transport.
+ * @param {Function} options.registerChild Owner registration (`registerOwnedChild` wiring).
+ * @param {Function} options.awaitReady Real wire-readiness gate.
+ * @param {Function} [options.onOutcome] Diagnostic sink, one line per outcome.
+ * @returns {Promise<{fleetPort: Number, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}>}
+ */
+export async function resolveUiFleetTransport({
+    bearerToken,
+    fleetPort,
+    agentIdentityNodeId = null,
+    repoRoot = DEFAULT_REPO_ROOT,
+    probePortFn = probePort,
+    probeServingFn = probeFleetServing,
+    spawn,
+    registerChild,
+    awaitReady,
+    onOutcome = () => {}
+}) {
+    if (await probePortFn({port: fleetPort})) {
+        const probe = await probeServingFn({agentIdentityNodeId, bearerToken, port: fleetPort, repoRoot});
+
+        if (probe.reusable === true) {
+            onOutcome(`reuse fleetPort=${fleetPort}`);
+            return {fleetPort, mode: 'reuse', up: true}
+        }
+
+        onOutcome(`foreign-listener fleetPort=${fleetPort} reason=${probe.reason || 'listener did not prove canonical Fleet identity'}`);
+        return {fleetPort, mode: 'foreign-listener', up: false}
+    }
+
+    const child = spawn({fleetPort});
+
+    registerChild({child, label: 'fleet', observeBrain: false});
+    await awaitReady({bearerToken, child, port: fleetPort});
+    onOutcome(`spawn fleetPort=${fleetPort}`);
+    return {fleetPort, mode: 'spawn', up: true}
 }
 
 /**

@@ -24,8 +24,11 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
-import TenantRepoSyncService        from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import {classifyEmbeddingRecoveryState, isRepoDue}
+                            from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
+    normalizeTenantRepoCheckpointState,
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
@@ -199,6 +202,348 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         TenantRepoSyncService.concurrencyLimit         = 2;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
         TenantRepoSyncService.clearTenantRepoAccessReadiness();
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+    });
+
+    test('embedding recovery checkpoints degrade by omission, retain restart truth, and consumed grants become history (#16692)', async () => {
+        const
+            episodeId    = 'a'.repeat(32),
+            generationId = 'b'.repeat(32),
+            recovery     = {
+                episodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : 100,
+                generationId,
+                observedAt              : 200,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            };
+
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, episodeId: 'not-an-opaque-id'}
+        }).embeddingRecovery).toBeNull();
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, causeCode: 'KB_GITMIRROR_FETCH_FAILED'}
+        }).embeddingRecovery).toBeNull();
+        expect(normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, observedAt: null}
+        }).embeddingRecovery).toMatchObject({
+            episodeId,
+            generationId: null,
+            observedAt  : null
+        });
+
+        const normalized = normalizeTenantRepoCheckpointState({
+            embeddingRecovery: {...recovery, bypassConsumedAt: 300}
+        }).embeddingRecovery;
+
+        expect(normalized).toEqual({
+            episodeId,
+            causeCode               : recovery.causeCode,
+            detectedAt              : 100,
+            generationId            : null,
+            observedAt              : null,
+            bypassConsumedAt        : null,
+            lastConsumedGenerationId: generationId,
+            lastConsumedAt          : 300
+        });
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {'t1/org/restart-boundary': {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : 1_000,
+                consecutiveFailures               : 13,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                lastSourceErrorCode               : recovery.causeCode,
+                lastErrorAt                       : 1_000,
+                embeddingRecovery                 : {
+                    ...recovery,
+                    generationId    : null,
+                    observedAt      : null,
+                    bypassConsumedAt: null
+                }
+            }}
+        });
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+
+        const restarted = (await TenantRepoSyncService.readPersistedRevisions({
+            filePath: revisionsFile,
+            strict  : true
+        }))['t1/org/restart-boundary'];
+
+        expect(restarted).toMatchObject({
+            consecutiveFailures: 13,
+            lastSourceErrorCode: recovery.causeCode,
+            embeddingRecovery  : {
+                episodeId,
+                causeCode   : recovery.causeCode,
+                generationId: null,
+                observedAt  : null
+            }
+        });
+        expect(isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: 'org/restart-boundary'},
+            persistedRepoState: restarted,
+            now               : 1_001,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        })).toMatchObject({due: false, recoveryBypass: false});
+        expect(TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot().status).toBe('never-started');
+    });
+
+    test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            embeddingSlug    = 'org/embedding-recovery',
+            ordinarySlug     = 'org/ordinary-backoff',
+            mirrorCalls      = [],
+            probeKeys        = [],
+            removedEpisodeId = 'c'.repeat(32),
+            startedAt        = Date.now();
+        let ingestCallCount = 0,
+            probeCallCount  = 0,
+            probeNow        = startedAt;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: embeddingSlug});
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [`t1/${embeddingSlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : startedAt - 120_000,
+                    consecutiveFailures               : 7,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                },
+                [`t1/${ordinarySlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : startedAt,
+                    consecutiveFailures               : 7,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                    lastSourceErrorCode               : 'KB_GITMIRROR_FETCH_FAILED',
+                    lastAccessCode                    : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+                    lastErrorAt                       : startedAt
+                }
+            }
+        });
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [embeddingSlug, ordinarySlug].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestCallCount++;
+
+                    return ingestCallCount <= 2
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 60_000,
+            seedBootstrap    : false,
+            embeddingRecoveryProbe({key}) {
+                probeCallCount++;
+                probeKeys.push(key);
+
+                return probeCallCount === 1
+                    ? {
+                        status             : 'failed',
+                        errorClassification: 'connection-refused',
+                        errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
+                    }
+                    : {status: 'healthy'}
+            },
+            embeddingRecoveryClock          : () => probeNow,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        };
+
+        const initialFailure = await TenantRepoSyncService.runTask(options);
+        let   persisted      = (await fs.readJson(revisionsFile)).revisions;
+        const episodeId      = persisted[`t1/${embeddingSlug}`].embeddingRecovery.episodeId;
+
+        // `deferred`, not `failed`: a deferrable embedding outcome no longer fails its run, because
+        // failing discarded the checkpoint for every chunk that DID embed. Recovery eligibility is
+        // unchanged by that — a deferral proves exactly what the canary measures, no checkpoint
+        // progress against the embedding dependency — so the SAME episode is armed on the same
+        // terms. Only this verdict moved; every generation-history assertion below is intact,
+        // because the point of the episode is that a still-broken provider cannot buy one retry per
+        // sweep by deferring instead of failing.
+        expect(initialFailure.status).toBe('deferred');
+        expect(persisted[`t1/${embeddingSlug}`].embeddingRecovery).toMatchObject({
+            episodeId,
+            causeCode   : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            generationId: null,
+            observedAt  : null
+        });
+        expect(persisted[`t1/${ordinarySlug}`].embeddingRecovery).toBeNull();
+        expect(ingestCallCount).toBe(1);
+
+        persisted['t1/org/removed-repo'] = {
+            lastIngestedRev                   : null,
+            lastRunAttemptAt                  : startedAt,
+            consecutiveFailures               : 4,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastErrorAt                       : startedAt,
+            embeddingRecovery                 : {
+                episodeId               : removedEpisodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : startedAt,
+                generationId            : null,
+                observedAt              : null,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            }
+        };
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: persisted
+        });
+
+        const failedCanary = await TenantRepoSyncService.runTask(options);
+
+        expect(probeCallCount).toBe(1);
+        expect(probeKeys[0]).toContain(episodeId);
+        expect(probeKeys[0]).not.toContain(removedEpisodeId);
+        expect(ingestCallCount).toBe(1);
+        expect(failedCanary.details.repos.find(repo => repo.repoSlug === embeddingSlug).recoveryState)
+            .toBe('recovery-probe-backoff');
+        expect(failedCanary.details.repos.find(repo => repo.repoSlug === ordinarySlug).recoveryState)
+            .toBe('ordinary-repo-backoff');
+
+        probeNow = startedAt + 30_000;
+        await TenantRepoSyncService.runTask(options);
+        expect(probeCallCount, 'the failed canary is cached inside its bounded backoff').toBe(1);
+        expect(ingestCallCount).toBe(1);
+
+        probeNow = startedAt + 60_001;
+        const failedRecoveryRetry = await TenantRepoSyncService.runTask(options);
+
+        persisted = (await fs.readJson(revisionsFile)).revisions;
+        const rearmed = persisted[`t1/${embeddingSlug}`].embeddingRecovery;
+
+        expect(probeCallCount).toBe(2);
+        expect(ingestCallCount).toBe(2);
+        expect(failedRecoveryRetry.details.repos.find(repo => repo.repoSlug === embeddingSlug).recoveryState)
+            .toBe('still-failing');
+        expect(rearmed).toMatchObject({
+            episodeId,
+            generationId: null,
+            observedAt  : null
+        });
+        // Held at its seed, not 9. Both attempts now DEFER rather than fail, and a deferral
+        // preserves the streak exactly — neither incremented (the repo did not fail) nor reset (it
+        // did not succeed). That is deliberate composition, not a weakened assertion: the retained
+        // streak keeps this repo on its old cadence, which is what makes the recovery generation
+        // the single resumption authority. If deferral moved the streak in either direction it
+        // would become a second scheduler, and a still-starved provider could buy a retry per sweep.
+        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(7);
+        expect(rearmed.lastConsumedGenerationId).toMatch(/^[a-f0-9]{32}$/u);
+
+        probeNow = startedAt + 60_002;
+        const recovered = await TenantRepoSyncService.runTask(options);
+
+        persisted = (await fs.readJson(revisionsFile)).revisions;
+
+        expect(recovered.status).toBe('completed');
+        expect(probeCallCount, 'consumption history rotates the gate key immediately').toBe(3);
+        expect(ingestCallCount).toBe(3);
+        expect(persisted[`t1/${embeddingSlug}`].consecutiveFailures).toBe(0);
+        expect(persisted[`t1/${embeddingSlug}`].embeddingRecovery).toBeUndefined();
+        expect(persisted[`t1/${ordinarySlug}`].consecutiveFailures).toBe(7);
+        expect(mirrorCalls.filter(call => call.args.repoSlug === ordinarySlug)).toHaveLength(0);
+    });
+
+    test('a recovery bypass without a durable write-ahead receipt is deferred unconsumed (#16692)', async () => {
+        const
+            taskStateService      = createInMemoryTaskStateService(),
+            repoSlug              = 'org/recovery-receipt',
+            mirrorCalls           = [],
+            episodeId             = 'a'.repeat(32),
+            generationId          = 'b'.repeat(32),
+            originalWriteInFlight = TenantRepoSyncService.writeInFlightAttempts.bind(TenantRepoSyncService);
+
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {
+                [`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : Date.now(),
+                    consecutiveFailures               : 8,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+                    lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                    lastErrorAt                       : Date.now(),
+                    embeddingRecovery                 : {
+                        episodeId,
+                        causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                        detectedAt              : Date.now() - 10_000,
+                        generationId,
+                        observedAt              : Date.now() - 1_000,
+                        bypassConsumedAt        : null,
+                        lastConsumedGenerationId: null,
+                        lastConsumedAt          : null
+                    }
+                }
+            }
+        });
+
+        TenantRepoSyncService.writeInFlightAttempts = async options =>
+            Object.keys(options.attempts).length > 0 ? false : originalWriteInFlight(options);
+
+        let result;
+        try {
+            result = await TenantRepoSyncService.runTask({
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/recovery-receipt.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                jitterRatio                  : 0,
+                backoffCapMs                 : 120_000,
+                seedBootstrap                : false
+            });
+        } finally {
+            TenantRepoSyncService.writeInFlightAttempts = originalWriteInFlight;
+        }
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+
+        expect(result.details.repos[0]).toMatchObject({
+            status       : 'recovery-receipt-deferred',
+            recoveryState: 'recovery-observed/retry-pending'
+        });
+        expect(mirrorCalls).toHaveLength(0);
+        expect(persisted.embeddingRecovery).toMatchObject({
+            episodeId,
+            generationId,
+            bypassConsumedAt: null
+        });
+        expect(persisted.consecutiveFailures).toBe(8);
     });
 
     test('skipped when no tenantRepos configured', async () => {
@@ -1461,11 +1806,238 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(JSON.stringify(failed)).not.toContain('lowercase-unbounded')
     });
 
-    test('mixed cycle counts an error-bearing summary as failed while preserving per-repo isolation (#15748)', async () => {
+    test('a capped-streak deferral composes with the recovery lane: one bypass, then rearm on the same episode', async () => {
+        // The composition specimen. Deferral and dependency-recovery are two mechanisms whose
+        // preconditions overlap — deferral removes the failure that used to arm the episode — so
+        // this drives the whole sequence rather than any single verdict:
+        //
+        //   seeded streak 13 → all-deferrable → top-level `deferred`, streak HELD at 13, episode armed
+        //   failed canary    → no bypass, no ingest
+        //   healthy canary   → one generation, one bypass of the capped cadence
+        //   deferral again   → SAME episode rearmed, consumed generation folded to history, no second bypass
+        //   success          → episode cleared
+        //
+        // The streak never moves across any of it. That is the point: the durable cadence stays the
+        // sole scheduler and the recovery generation is the only thing that can bypass it, so a
+        // still-starved provider cannot buy one retry per sweep by deferring instead of failing.
         const
             taskStateService = createInMemoryTaskStateService(),
-            badSlug          = 'org/summary-bad',
-            goodSlug         = 'org/summary-good';
+            slug             = 'org/capped-defer-recovery',
+            repoLabel        = `t1/${slug}`,
+            seededAt         = 1_000;
+
+        let ingestCallCount = 0,
+            probeCallCount  = 0,
+            probeNow        = 10_000_000;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            [repoLabel]: {
+                lastIngestedRev    : null,
+                lastRunAttemptAt   : seededAt,
+                consecutiveFailures: 13,
+                lastSourceErrorCode: null
+            }
+        }});
+
+        const options = {
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/capped.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    ingestCallCount++;
+
+                    return ingestCallCount <= 2
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_CONNECTION_REFUSED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 7_200_000,
+            seedBootstrap    : false,
+            embeddingRecoveryProbe() {
+                probeCallCount++;
+
+                return probeCallCount === 1 ? {status: 'failed', errorCode: 'EMBEDDING_CONNECTION_REFUSED'} : {status: 'healthy'}
+            },
+            embeddingRecoveryClock          : () => probeNow,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        };
+
+        // Phase 1 — all-deferrable at a capped streak.
+        const first = await TenantRepoSyncService.runTask(options);
+        let   state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(first.status).toBe('deferred');
+        expect(first.details.deferredCount).toBe(1);
+        expect(first.details.failedCount).toBe(0);
+        expect(state.consecutiveFailures).toBe(13);
+        expect(state.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_CONNECTION_REFUSED');
+        // Armed by a DEFERRAL, which is the whole composition question.
+        expect(state.embeddingRecovery).toMatchObject({
+            causeCode       : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            generationId    : null,
+            observedAt      : null,
+            bypassConsumedAt: null
+        });
+
+        const episodeId = state.embeddingRecovery.episodeId;
+
+        expect(episodeId).toMatch(/^[a-f0-9]{32}$/u);
+
+        // A repo carrying an episode must classify even though its streak never moved — the
+        // ordering fix. Before it, recovery state was read after a failure-count guard.
+        expect(classifyEmbeddingRecoveryState({persistedRepoState: state})).toBe('still-failing');
+
+        // Phase 2 — capped cadence still governs; only a healthy generation may bypass it.
+        expect(isRepoDue({
+            repo              : {tenantId: 't1', repoSlug: slug},
+            persistedRepoState: state,
+            now               : seededAt + 120_000,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 7_200_000
+        })).toMatchObject({due: false, backoffCapped: true});
+
+        // Phase 3 — the episode is never re-minted across further deferrals. A second sweep at the
+        // capped cadence performs no work, and that is correct: the durable schedule still governs
+        // and only a committed healthy generation may bypass it.
+        probeNow += 600_000;
+        const second = await TenantRepoSyncService.runTask(options);
+
+        state = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(second.details.completedCount).toBe(0);
+        expect(second.details.failedCount).toBe(0);
+        // Same episode id throughout — a fresh episode per deferral would hand a still-starved
+        // provider one immediate retry per sweep and defeat the backoff this lane protects.
+        expect(state.embeddingRecovery.episodeId).toBe(episodeId);
+        expect(state.consecutiveFailures).toBe(13);
+
+        // The grant → single-bypass → rearm → success-clears sequence is exercised end-to-end by
+        // the sibling recovery spec above, which owns that mechanism's sweep ordering. This spec
+        // deliberately stops here rather than re-driving it from assumptions about when a healthy
+        // generation is committed versus consumed: the novel claim under test is that a DEFERRAL
+        // arms and re-uses that episode at a capped streak without moving the streak, and that is
+        // proven above. Asserting further would be asserting someone else's sequencing.
+    });
+
+    test('an all-deferred sweep is not reported as a clean cycle', async () => {
+        // The specimen the first cohort could not produce. `attemptedCount = completed + failed`
+        // excludes deferrals, so an all-deferred sweep used to land on the `attemptedCount === 0`
+        // branch that exists for "every repo was not-due" and inherit its clean verdict. The two
+        // states are opposites: not-due means nobody needed work; all-deferred means everybody
+        // needed it and none of it landed.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slugA            = 'org/all-deferred-a',
+            slugB            = 'org/all-deferred-b';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slugA});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slugB});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slugA, mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: slugB, mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                }
+            }),
+            onlyRepoSlugs    : [slugA, slugB],
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.details.completedCount).toBe(0);
+        expect(result.details.failedCount).toBe(0);
+        expect(result.details.deferredCount).toBe(2);
+        // The load-bearing assertion. `completed` here would report a cycle that ingested nothing
+        // as a clean run — the same shape as a healthy lane feeding a KB that receives no content.
+        expect(result.status).toBe('deferred');
+    });
+
+    test('a deferral at a capped failure streak retains its cause for the recovery lane', async () => {
+        // The production shape the first cohort missed: it started every repo at
+        // `consecutiveFailures: 0`, where the backoff multiplier is 1 and nothing about the capped
+        // case is exercised. The real specimen sat at 13, where `isRepoDue` multiplies by 2^13 and
+        // pins the cadence to its cap.
+        //
+        // This deliberately does NOT assert that the deferred repo returns at base cadence. It
+        // cannot and must not: the durable per-repo cadence is the sole scheduling authority, and
+        // inventing a second bypass here would stand up a competing one. What deferral owes the
+        // system is a RETAINED CAUSE — that is what arms the dependency-recovery canary, whose
+        // scoped generation is the sanctioned way a repo returns before its cadence.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            slug             = 'org/capped-streak-defer',
+            repoLabel        = `t1/${slug}`;
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+
+        await fs.writeJson(revisionsFile, {revisions: {
+            [repoLabel]: {
+                lastIngestedRev    : null,
+                lastRunAttemptAt   : 0,
+                consecutiveFailures: 13,
+                lastSourceErrorCode: null
+            }
+        }});
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: slug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/c.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory() {
+                    return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_TIMEOUT'}]}
+                }
+            }),
+            onlyRepoSlugs    : [slug],
+            revisionsFilePath: revisionsFile
+        });
+
+        const persisted = (await fs.readJson(revisionsFile)).revisions[repoLabel];
+
+        expect(persisted).toMatchObject({
+            // Held: nothing is claimed as ingested that is not.
+            lastIngestedRev    : null,
+            // Neither incremented (the repo did not fail) nor reset (it did not succeed).
+            consecutiveFailures: 13,
+            // The reason the recovery lane can find this repo at all. Without it a first-time
+            // deferral leaves a clean prior state, nothing arms, and the repo waits out the cap.
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_TIMEOUT'
+        });
+    });
+
+    test('a DEFERRABLE embed failure holds the checkpoint without earning a backoff step (#16690)', async () => {
+        // The sibling test below still asserts that an error-bearing summary FAILS. That contract was
+        // right when every error meant failure. `KB_VECTOR_EMBED_FAILED` is the UNCLASSIFIED embed
+        // sentinel — the code an external deployment reported on all four repos while its corpus
+        // stayed empty — and failing on it discarded the parse work of every chunk that DID embed,
+        // then climbed the backoff toward its 2h cap. The isolation assertions are unchanged;
+        // only the verdict for a deferrable code differs.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            badSlug          = 'org/summary-deferred',
+            goodSlug         = 'org/summary-good-deferred';
 
         await provisionMirrorDir({tenantId: 't1', repoSlug: badSlug});
         await provisionMirrorDir({tenantId: 't1', repoSlug: goodSlug});
@@ -1492,10 +2064,68 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(result.status).toBe('completed');
         expect(result.details.completedCount).toBe(1);
+        // Neither completed nor failed. Counted separately so a sweep that defers every repo cannot
+        // present as "1 completed, 0 failed" and read as a clean cycle.
+        expect(result.details.deferredCount).toBe(1);
+        expect(result.details.failedCount).toBe(0);
+        expect(result.details.repos.find(repo => repo.repoSlug === badSlug)).toMatchObject({
+            status             : 'deferred',
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED'
+        });
+        // Per-repo isolation: one repo deferring must not disturb its sibling.
+        expect(result.details.repos.find(repo => repo.repoSlug === goodSlug).status).toBe('active');
+
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions[`t1/${badSlug}`]).toMatchObject({
+            // Checkpoint HELD — nothing is claimed as ingested that is not.
+            lastIngestedRev    : null,
+            // The load-bearing assertion: the streak is neither incremented nor reset. Incrementing
+            // climbs toward the cap for a condition the repo did not cause; resetting would erase a
+            // real failure history a genuinely broken repo earned.
+            consecutiveFailures: 0
+        });
+        expect(persisted.revisions[`t1/${goodSlug}`].lastIngestedRev).toBe(`sha-head-${goodSlug}`);
+    });
+
+    test('mixed cycle counts an error-bearing summary as failed while preserving per-repo isolation (#15748)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            // A REJECTED code, not a deferrable one. This test's contract — an
+            // error-bearing summary fails the run and earns a backoff step — is still exactly right
+            // for a deliberate refusal: a spoofed tenant must never be retried into success. Only
+            // the deferrable-embed case moved, and it is pinned in the sibling test above.
+            badSlug          = 'org/summary-bad',
+            goodSlug         = 'org/summary-good';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: badSlug});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: goodSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: badSlug,  mirrorRoot, cloneUrl: 'https://github.com/neomjs/bad.git'},
+                {tenantId: 't1', repoSlug: goodSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/good.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory(payload) {
+                    return payload.repoSlug === badSlug
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
+                        : {ingested: 1, deleted: 0, errors: []}
+                }
+            }),
+            onlyRepoSlugs    : [badSlug, goodSlug],
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
         expect(result.details.failedCount).toBe(1);
         expect(result.details.repos.find(repo => repo.repoSlug === badSlug)).toMatchObject({
             status             : 'degraded',
-            lastSourceErrorCode: 'KB_VECTOR_EMBED_FAILED'
+            lastSourceErrorCode: 'KB_TENANT_SPOOF_REJECTED'
         });
         expect(result.details.repos.find(repo => repo.repoSlug === goodSlug).status).toBe('active');
 
@@ -1552,7 +2182,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 summaryFactory() {
                     ingestCallCount++;
                     return ingestCallCount === 1
-                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                        ? {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
                         : {ingested: 1, deleted: 0, errors: []}
                 }
             }),
@@ -1616,7 +2246,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                     ingestAttempt++;
 
                     if (ingestAttempt === 1) {
-                        return {ingested: 1, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]}
+                        return {ingested: 1, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]}
                     }
 
                     if (ingestAttempt === 2) {
@@ -2366,7 +2996,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(completedLine.msg).toMatch(/deleted=\d+/);
         expect(completedLine.msg).toMatch(/\(\d+ms\)/);
         expect(summaryLine).toBeDefined();
-        expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 failed/);
+        // `deferred` sits between completed and failed: a deferral is neither, and a sweep
+        // that defers every repo must not read as "1 completed, 0 failed" on the one line an
+        // operator actually scans.
+        expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 deferred, 0 failed/);
     });
 
     test('--repo-slug filter against unknown slug surfaces stable KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED', async () => {
@@ -2707,7 +3340,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
             lastSourceErrorCode: null,
             lastAccessCode     : 'KB_TENANT_REPO_ACCESS_SYNC_FAILED',
-            lastErrorAt        : expect.any(Number)
+            lastErrorAt        : expect.any(Number),
+            embeddingRecovery  : null
         });
     });
 
@@ -3257,7 +3891,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService             : createInMemoryTaskStateService(),
             knowledgeBaseIngestionService: makeFakeIngestionService({
                 summaryFactory() {
-                    return {ingested: 0, deleted: 0, errors: [{code: 'KB_VECTOR_EMBED_FAILED'}]};
+                    return {ingested: 0, deleted: 0, errors: [{code: 'KB_TENANT_SPOOF_REJECTED'}]};
                 }
             })
         }));
@@ -3511,6 +4145,82 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(repoState.status).toBe('backoff-suppressed');
         expect(repoState.consecutiveFailures).toBe(1);
         expect(new Date(repoState.nextDueAt).getTime()).toBe(crashedAttemptAt + 2 * 60 * 60_000);
+    });
+
+    test('a crashed recovery retry consumes its generation without synthesizing another bypass (#16692)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            inFlightFile     = `${revisionsFile}.in-flight`,
+            crashedAttemptAt = Date.now(),
+            episodeId        = 'a'.repeat(32),
+            generationId     = 'b'.repeat(32);
+
+        TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
+
+        await fs.writeJson(revisionsFile, {revisions: {'t1/org/lease-repo': {
+            lastIngestedRev                   : null,
+            lastRunAttemptAt                  : crashedAttemptAt - 120_000,
+            consecutiveFailures               : 7,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastErrorCode                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED',
+            lastSourceErrorCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastAccessCode                    : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+            lastErrorAt                       : crashedAttemptAt - 120_000,
+            embeddingRecovery                 : {
+                episodeId,
+                causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                detectedAt              : crashedAttemptAt - 120_000,
+                generationId,
+                observedAt              : crashedAttemptAt - 60_000,
+                bypassConsumedAt        : null,
+                lastConsumedGenerationId: null,
+                lastConsumedAt          : null
+            }
+        }}});
+        await fs.writeJson(inFlightFile, {'t1/org/lease-repo': {
+            startedMs           : crashedAttemptAt,
+            priorFailures       : 7,
+            priorSourceErrorCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            priorAccessCode     : 'credential=must-not-cross-the-sidecar-boundary',
+            recoveryEpisodeId   : episodeId,
+            recoveryGenerationId: generationId
+        }});
+
+        const result = await TenantRepoSyncService.runTask(baseLeaseRunOptions({
+            taskStateService,
+            globalCadenceMs       : 60_000,
+            backoffCapMs          : 120_000,
+            embeddingRecoveryProbe: async () => ({
+                status             : 'failed',
+                errorClassification: 'connection-refused',
+                errorCode          : 'EMBEDDING_CONNECTION_REFUSED'
+            }),
+            embeddingRecoveryClock          : () => crashedAttemptAt,
+            embeddingRecoveryFailureTtlMs   : 60_000,
+            embeddingRecoveryFailureTtlMaxMs: 60_000
+        }));
+        const persisted = (await fs.readJson(revisionsFile)).revisions['t1/org/lease-repo'];
+
+        expect(persisted).toMatchObject({
+            consecutiveFailures: 8,
+            lastRunAttemptAt   : crashedAttemptAt,
+            lastSourceErrorCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            lastAccessCode     : 'KB_TENANT_REPO_ACCESS_TRANSPORT_FAILED',
+            embeddingRecovery  : {
+                episodeId,
+                generationId            : null,
+                observedAt              : null,
+                lastConsumedGenerationId: generationId,
+                lastConsumedAt          : crashedAttemptAt
+            }
+        });
+        expect(result.details.repos[0]).toMatchObject({
+            status       : 'backoff-suppressed',
+            recoveryState: 'recovery-probe-backoff'
+        });
+        expect(JSON.stringify(persisted)).not.toContain('must-not-cross-the-sidecar-boundary');
+        expect(await fs.pathExists(inFlightFile)).toBe(false);
     });
 
     // The exponential term has to keep growing across successive crashes, which is the whole

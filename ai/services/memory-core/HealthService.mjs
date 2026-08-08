@@ -13,8 +13,12 @@ import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../../mcp/server/memory-core/logger.mjs';
 import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {createBoundedRetryGate} from '../shared/boundedRetryGate.mjs';
-import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
+import {
+    buildEmbeddingProbeBlock,
+    createEmbeddingProbeTimeoutError
+}                               from '../shared/embeddingProbe.mjs';
+import RequestContextService   from '../../mcp/server/shared/services/RequestContextService.mjs';
+import WakeSubscriptionService from './WakeSubscriptionService.mjs';
 import {
     DELIVERABLE_HARNESS_TARGET,
     isServerIssuedSigningKey
@@ -185,47 +189,7 @@ export function buildEmbeddingProviderBlock(cfg) {
  * @param {Number} timeoutMs Consumer-owned deadline in milliseconds.
  * @returns {Error}
  */
-export function createEmbeddingProbeTimeoutError(operationLabel, timeoutMs) {
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-        throw new TypeError(`Embedding probe timeoutMs must be a positive number, got ${timeoutMs}`);
-    }
-
-    const error = new Error(`${operationLabel} timed out after ${timeoutMs}ms`);
-    error.code           = 'EMBEDDING_PROBE_TIMEOUT';
-    error.operationLabel = operationLabel;
-    error.timeoutMs      = timeoutMs;
-
-    return error;
-}
-
-const EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH = 96;
-
-/**
- * @summary Maps provider failures to a bounded public receipt without exposing provider payloads.
- * @param {Error} error Embedding failure observed by the health consumer.
- * @returns {{error: String, errorClassification: String, errorCode: String}}
- */
-function describeEmbeddingProbeFailure(error) {
-    const knownCode = [
-        'ABORT_ERR',
-        'EMBEDDING_PROBE_TIMEOUT',
-        'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
-        'PROVIDER_TIMEOUT'
-    ].includes(error?.code) ? error.code : error?.name === 'AbortError' ? 'ABORT_ERR' : 'EMBEDDING_PROVIDER_ERROR';
-    const errorClassification = knownCode === 'EMBEDDING_PROBE_TIMEOUT'
-        ? 'consumer-probe-timeout'
-        : ['OPENAI_COMPATIBLE_REQUEST_TIMEOUT', 'PROVIDER_TIMEOUT'].includes(knownCode)
-            ? 'provider-timeout'
-            : knownCode === 'ABORT_ERR'
-                ? 'upstream-abort'
-                : 'provider-failure';
-
-    return {
-        error    : `${errorClassification}:${knownCode}`.substring(0, EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH),
-        errorClassification,
-        errorCode: knownCode
-    };
-}
+export {createEmbeddingProbeTimeoutError};
 
 /**
  * @summary Probes the active embedding write path used by Memory Core writes.
@@ -252,80 +216,19 @@ export async function buildEmbeddingWriteCanaryBlock({
     now       = Date.now,
     timeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
 } = {}) {
-    const readNow            = typeof now === 'function' ? now : () => (typeof now === 'number' ? now : now.getTime()),
-          startedAt          = readNow(),
-          provider           = cfg.embeddingProvider || 'openAiCompatible',
-          expectedDimensions = cfg.vectorDimension ?? null,
-          operationLabel     = 'Embedding write canary';
+    const probe = embedText || (async (text, explicitProvider, options) => {
+        const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
+        return TextEmbeddingService.embedText(text, explicitProvider, options);
+    });
 
-    let timeoutId;
-
-    try {
-        const probe = embedText || (async (text, explicitProvider, options) => {
-            const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
-            return TextEmbeddingService.embedText(text, explicitProvider, options);
-        });
-        const controller    = new AbortController(),
-              timeoutError  = createEmbeddingProbeTimeoutError(operationLabel, timeoutMs),
-              deadline      = new Promise((_, reject) => {
-                  timeoutId = setTimeout(() => {
-                      reject(timeoutError);
-                      controller.abort(timeoutError);
-                  }, timeoutMs);
-              }),
-              embedding    = await Promise.race([
-                  Promise.resolve(probe(input, provider, {
-                      signal: controller.signal,
-                      operationLabel
-                  })),
-                  deadline
-              ]),
-              dimensions = Array.isArray(embedding) ? embedding.length : null,
-              durationMs = Math.max(0, readNow() - startedAt);
-
-        if (!Array.isArray(embedding) || embedding.length === 0) {
-            return {
-                status: 'failed',
-                provider,
-                dimensions,
-                expectedDimensions,
-                durationMs,
-                error : 'Embedding write canary returned no vector.'
-            };
-        }
-
-        if (expectedDimensions && dimensions !== expectedDimensions) {
-            return {
-                status: 'failed',
-                provider,
-                dimensions,
-                expectedDimensions,
-                durationMs,
-                error : `Embedding write canary returned ${dimensions} dimensions; expected ${expectedDimensions}.`
-            };
-        }
-
-        return {
-            status: 'healthy',
-            provider,
-            dimensions,
-            expectedDimensions,
-            durationMs
-        };
-    } catch (error) {
-        const failure = describeEmbeddingProbeFailure(error);
-
-        return {
-            status    : 'failed',
-            provider,
-            dimensions: null,
-            expectedDimensions,
-            durationMs: Math.max(0, readNow() - startedAt),
-            ...failure
-        };
-    } finally {
-        clearTimeout(timeoutId);
-    }
+    return buildEmbeddingProbeBlock({
+        cfg,
+        embedText     : probe,
+        input,
+        now,
+        operationLabel: 'Embedding write canary',
+        timeoutMs
+    });
 }
 
 /**
@@ -2052,7 +1955,7 @@ class HealthService extends Base {
             // emitted, `unknown` when no build wrote a revision, because an omitted field reads as
             // current to a consumer computing deployment skew.
             deployedRevision: readDeployedRevision(),
-            uptime : process.uptime()
+            uptime          : process.uptime()
         };
 
         // Step 1: Check Database connectivity

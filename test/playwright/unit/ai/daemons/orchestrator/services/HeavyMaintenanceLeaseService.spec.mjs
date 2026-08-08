@@ -21,6 +21,12 @@ import {
     shouldYieldHeavyMaintenanceLease,
     withHeavyMaintenanceLease as _rawWithHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
+import {
+    enterLifecycleGuard,
+    enterLifecycleGuardSync,
+    exitLifecycleGuard,
+    exitLifecycleGuardSync
+} from '../../../../../../../ai/daemons/shared/lifecycleGuard.mjs';
 
 // Test convenience: the lease primitive now requires `staleAfterMs` (the AiConfig-aware boundary
 // resolves it; the Neo/Base-free primitive carries no default). These suites exercise
@@ -41,6 +47,50 @@ function createLeasePath(name) {
     const dir = path.join(process.cwd(), 'tmp', `heavy-maintenance-lease-${process.pid}-${Date.now()}-${Math.random()}`);
     fs.ensureDirSync(dir);
     return path.join(dir, `${name}.json`);
+}
+
+// Windows reports EPERM when rename targets an existing directory, while POSIX reports EEXIST.
+// Keep the production fs seam untouched and normalize only this test's real-guard contention path.
+const contentionFs = {
+    ...fs,
+    rename: async (...args) => {
+        try {
+            return await fs.rename(...args);
+        } catch (error) {
+            if (error.code === 'EPERM' && fs.pathExistsSync(args[1])) error.code = 'EEXIST';
+            throw error;
+        }
+    },
+    renameSync: (...args) => {
+        try {
+            return fs.renameSync(...args);
+        } catch (error) {
+            if (error.code === 'EPERM' && fs.pathExistsSync(args[1])) error.code = 'EEXIST';
+            throw error;
+        }
+    }
+};
+
+async function withHeldLifecycleGuard(leasePath, callback) {
+    const guardEntry = await enterLifecycleGuard({leasePath, fsModule: contentionFs});
+    expect(guardEntry).toBeTruthy();
+
+    try {
+        return await callback();
+    } finally {
+        await exitLifecycleGuard({ownerFilePath: guardEntry.ownerFilePath, fsModule: contentionFs});
+    }
+}
+
+function withHeldLifecycleGuardSync(leasePath, callback) {
+    const guardEntry = enterLifecycleGuardSync({leasePath, fsModule: contentionFs});
+    expect(guardEntry).toBeTruthy();
+
+    try {
+        return callback();
+    } finally {
+        exitLifecycleGuardSync({ownerFilePath: guardEntry.ownerFilePath, fsModule: contentionFs});
+    }
 }
 
 test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', () => {
@@ -1355,6 +1405,64 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(await fs.pathExists(liveOwnerFile)).toBe(true);
 
         await fs.remove(guardPath);
+    });
+
+    test('#16632: async release reports the contended guard path', async () => {
+        const leasePath = createLeasePath('release-contention-async');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await withHeldLifecycleGuard(leasePath, async () => {
+            await expect(releaseHeavyMaintenanceLease({
+                leasePath,
+                token             : 'release-token',
+                guardStaleAfterMs : 60000,
+                fsModule          : contentionFs
+            })).rejects.toThrow(guardPath);
+        });
+    });
+
+    test('#16632: async renewal reports the contended guard path', async () => {
+        const leasePath = createLeasePath('renew-contention-async');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        await withHeldLifecycleGuard(leasePath, async () => {
+            await expect(renewHeavyMaintenanceLease({
+                leasePath,
+                token             : 'renew-token',
+                staleAfterMs      : TEST_LEASE_STALE_MS,
+                guardStaleAfterMs : 60000,
+                fsModule          : contentionFs
+            })).rejects.toThrow(guardPath);
+        });
+    });
+
+    test('#16632: sync release reports the contended guard path', () => {
+        const leasePath = createLeasePath('release-contention-sync');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        withHeldLifecycleGuardSync(leasePath, () => {
+            expect(() => releaseHeavyMaintenanceLeaseSync({
+                leasePath,
+                token             : 'release-token',
+                guardStaleAfterMs : 60000,
+                fsModule          : contentionFs
+            })).toThrow(guardPath);
+        });
+    });
+
+    test('#16632: sync renewal reports the contended guard path', () => {
+        const leasePath = createLeasePath('renew-contention-sync');
+        const guardPath = `${leasePath}${LIFECYCLE_GUARD_SUFFIX}`;
+
+        withHeldLifecycleGuardSync(leasePath, () => {
+            expect(() => renewHeavyMaintenanceLeaseSync({
+                leasePath,
+                token             : 'renew-token',
+                staleAfterMs      : TEST_LEASE_STALE_MS,
+                guardStaleAfterMs : 60000,
+                fsModule          : contentionFs
+            })).toThrow(guardPath);
+        });
     });
 
     test('two contenders recovering one abandoned guard admit exactly one entrant (#15763)', async () => {

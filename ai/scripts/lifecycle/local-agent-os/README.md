@@ -98,6 +98,34 @@ docker compose --env-file .env \
   --profile cloud exec mc-server cat /app/.neo-revision
 ```
 
+## Bind the host Fleet transport to this plane
+
+The local canonical ingress is `http://127.0.0.1:3102`. Declare it in the
+environment that launches the harness, together with a dedicated,
+identity-bound plane credential for that resident:
+
+```sh
+export NEO_FLEET_PLANE_BASE="http://127.0.0.1:3102"
+: "${NEO_FLEET_PLANE_BEARER:?load a dedicated identity-bound plane credential from the external secret store first}"
+export NEO_FLEET_PLANE_BEARER
+```
+
+Persist those two names in the external launcher or secret store when the
+harness must survive a shell restart; never put the bearer in this repository.
+`NEO_FLEET_PLANE_BEARER` is MCP admission for this resident's Fleet transport.
+It is a different credential class from the app-to-Fleet
+`NEO_FLEET_BEARER`, the seat-side MCP slot `NEO_MCP_REMOTE_TOKEN`, and any
+repository-workflow credential such as `GH_TOKEN`; do not copy or alias one of
+those values into it.
+
+A nonempty `NEO_FLEET_PLANE_BASE` is a topology declaration, not a health
+probe. `npm --prefix harness run start:brain` will therefore start or reuse only
+the host Fleet transport. If the ingress is down or the bearer resolves to the
+wrong viewer, the transport's authenticated init fails closed and the harness
+reports the boot failure; it never falls through to a host-native organism.
+Leave the base empty only on a machine intentionally using the host-native
+fresh-install path.
+
 ## Install the host edge (macOS, supervised)
 
 This section is macOS-only: `launchctl` and `plutil` do not exist elsewhere. It

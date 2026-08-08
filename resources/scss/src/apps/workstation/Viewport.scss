@@ -284,8 +284,22 @@
     flex-direction: column;
     height        : 100%;
     min-height    : 0;
+    // The card's own box is a paint boundary: between disclosure tiers a transient layout may
+    // hand the stack less room than its clamp minimums, and the escape hatch must be clipping
+    // at THIS box — not painting over the pane below (#16716's title-below-card finding). The
+    // tiers keep settled states out of this branch; clip only owns the transients.
+    overflow: clip;
     padding : clamp(12px, 2px + 5cqh, 24px);
     position: relative;
+}
+
+// The text rows share the wave's rule: none of them may flex-collapse toward 0 — every
+// disappearance in this card is a declared tier below, never slack math.
+.workstation-resident-kicker,
+.workstation-resident-icon,
+.workstation-resident-metric,
+.workstation-resident-title {
+    flex-shrink: 0;
 }
 
 .workstation-resident-kicker {
@@ -389,6 +403,36 @@
 
 @container workstation-pane (max-height: 145px) {
     .workstation-resident-footer {display: none}
+}
+
+// The ladder continues below the trim tiers, so a pane shorter than the card's content
+// keeps a DECLARED presentation instead of shedding children to slack math or painting past its
+// box. Same fit arithmetic as above, at clamp minimums (padding 24 + kicker 12 + icon 26 +
+// metric 22.8 + title 21): icon visible needs ~106 → 118; title-without-icon ~80 → 92; the
+// compact chip re-pads to 6px 12px and keeps the metric alone — the number IS the card on
+// camera — (~35 → engaged at 64); below 40 the card yields to the pane's shell (gradient +
+// signal line) as the declared empty state, and padding drops to 0 so the box-model floor
+// (2×12px padding) can never make the card taller than its own pane.
+@container workstation-pane (max-height: 118px) {
+    .workstation-resident-icon {display: none}
+}
+
+@container workstation-pane (max-height: 92px) {
+    .workstation-resident-title {display: none}
+}
+
+@container workstation-pane (max-height: 64px) {
+    .workstation-resident-card {
+        justify-content: center;
+        padding        : 6px 12px;
+    }
+
+    .workstation-resident-kicker {display: none}
+}
+
+@container workstation-pane (max-height: 40px) {
+    .workstation-resident-card   {padding: 0}
+    .workstation-resident-metric {display: none}
 }
 
 // ScalePane's grid CELL classes — they ride the pane's own grid, so they travel with it.

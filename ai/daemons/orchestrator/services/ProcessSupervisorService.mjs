@@ -914,13 +914,13 @@ export class ProcessSupervisorService extends Base {
      * @returns {Object}
      */
     classifySuccessfulChildOutcome(taskName, outcome) {
-        if (!outcome || (taskName !== 'memory-summary-backfill' && taskName !== 'kbSync')) {
+        if (!outcome) {
             return {status: 'completed'};
         }
 
-        // Generic deferred envelope: a child that exited 0 without doing work (lease-held /
-        // no-op) emits `{deferred: true, reason}`. Both kbSync (lease-held → no embedding) and
-        // the summary backfill use it — the false-green case that must NOT refresh lastSuccessAt.
+        // Generic deferred envelope: any structured-outcome child that exited 0 without doing
+        // work emits `{deferred: true, reason}`. The task-specific payload stays observable, but
+        // the false-green attempt must NOT refresh lastSuccessAt.
         if (outcome.deferred === true && outcome.reason) {
             return {status: 'skipped', reasonCode: outcome.reason};
         }

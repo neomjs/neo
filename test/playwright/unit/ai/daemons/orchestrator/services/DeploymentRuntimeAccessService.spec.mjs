@@ -6,6 +6,7 @@ import {
     DeploymentRuntimeAccessService,
     DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
+import {RECOVERY_KNOBS} from '../../../../../../../ai/services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
 const BASE_CONFIG = {
     enabled                     : true,
@@ -613,6 +614,28 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             expect(error.reason).toBe('runtime-memory-limit-unsanctioned-target');
             expect(calls).toHaveLength(1);
             expect(calls.some(call => String(call.path).endsWith('/update'))).toBe(false);
+        });
+
+        test('every container-memory ceiling leaf declares a FINITE band — an unbanded one would delete the cap', () => {
+            // Asserted on the DATA rather than on the branch, deliberately. The boundary's unbanded
+            // refusal is unreachable while chroma is the only envelope knob, so a branch test would
+            // need a synthetic registry and would prove only that the fixture was built correctly.
+            // The hazard is a FUTURE leaf, and it is silent: `value < undefined || value > undefined`
+            // is NaN-false in both directions, so an unbanded envelope knob does not tighten the cap,
+            // it removes it — leaving raise-only as the sole surviving bound and the autonomous
+            // ratchet unterminated.
+            const envelopeLeaves = Object.values(RECOVERY_KNOBS).flatMap(knob =>
+                knob.leaves.filter(leaf => leaf.role === 'ceiling' && leaf.resource === 'container-memory')
+            );
+
+            // Guards the guard: if the discriminator were ever dropped from the registry this would
+            // silently become a vacuous loop over an empty array.
+            expect(envelopeLeaves.length).toBeGreaterThan(0);
+
+            for (const leaf of envelopeLeaves) {
+                expect(Number.isFinite(leaf.min), leaf.path).toBe(true);
+                expect(Number.isFinite(leaf.max), leaf.path).toBe(true);
+            }
         });
 
         test('a value outside the registry band is refused BEFORE any Docker read — the cap holds at L0 too', async () => {

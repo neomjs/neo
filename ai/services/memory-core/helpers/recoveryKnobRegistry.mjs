@@ -81,13 +81,20 @@ export const RECOVERY_KNOBS = Object.freeze({
          */
         requires: Object.freeze(['runtime.chroma.liveMemoryLimitBytes']),
         leaves  : Object.freeze([
+            // `resource` is load-bearing rather than descriptive. `role: 'ceiling'` says a leaf is an
+            // upper bound; it does not say of WHAT. The envelope boundary in
+            // `DeploymentRuntimeAccessService` matched on the role alone, so any future ceiling leaf
+            // governing a different resource — a process-internal V8 old-space cap, say — would have
+            // silently become a legal target for a cgroup move. Declared here so that guard can
+            // REQUIRE it; a leaf omitting it matches nothing rather than defaulting to envelope.
             Object.freeze({
-                path: 'deploy.chroma.memoryCeilingBytes',
-                env : 'NEO_CHROMA_MEMORY_LIMIT',
-                role: 'ceiling',
-                type: 'number',
-                min : CONTAINER_MEMORY_CEILING_MIN_BYTES,
-                max : CONTAINER_MEMORY_CEILING_MAX_BYTES
+                path    : 'deploy.chroma.memoryCeilingBytes',
+                env     : 'NEO_CHROMA_MEMORY_LIMIT',
+                role    : 'ceiling',
+                resource: 'container-memory',
+                type    : 'number',
+                min     : CONTAINER_MEMORY_CEILING_MIN_BYTES,
+                max     : CONTAINER_MEMORY_CEILING_MAX_BYTES
             })
         ]),
         invariants: Object.freeze([

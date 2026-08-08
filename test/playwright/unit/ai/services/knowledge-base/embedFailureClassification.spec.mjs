@@ -9,8 +9,11 @@ import '../../../../../../src/core/Base.mjs';
 
 import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
+    EMBED_DISPOSITION,
     KB_VECTOR_EMBED_UNCLASSIFIED,
-    classifyEmbedFailureCode
+    classifyEmbedDisposition,
+    classifyEmbedFailureCode,
+    isEmbedFailureCode
 } from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {normalizeTenantRepoCheckpointState}
     from '../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -306,5 +309,113 @@ test.describe('embed failure classification — read boundary only', () => {
         // The raw provider code — what the pre-fix producer handed over — is refused by the reader.
         // That is the exact mechanism by which the cause was lost.
         expect(rejected).toBeNull();
+    });
+});
+
+/**
+ * @summary A failed embed decides the fate of a whole ingest run, so the disposition must be right
+ * for the failure we actually observed — not for the failure that is easiest to recognise.
+ *
+ * The specimen these specs are built around is `KB_VECTOR_EMBED_FAILED`: the code an external
+ * deployment reported on all four of its tenant repos while its collection stayed empty. It is the
+ * UNCLASSIFIED sentinel — the provider's own code matched no entry in either vocabulary. Any design
+ * that defers only recognised-transient faults rejects that specimen, which is why the first test
+ * below is the load-bearing one rather than the boring one.
+ */
+test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
+    test('the UNCLASSIFIED code defers — the specimen the broken deployment actually produced', () => {
+        // If this ever reads `rejected`, the fix does not fire on the failure it was written for.
+        // Asserting through the exported constant rather than the literal keeps the two bound: a
+        // rename of the sentinel cannot quietly leave this test pointing at a dead string.
+        expect(classifyEmbedDisposition(KB_VECTOR_EMBED_UNCLASSIFIED)).toBe(EMBED_DISPOSITION.deferrable);
+    });
+
+    test('an unmapped provider code defers through the real translate-then-dispose composition', () => {
+        // Drives the actual call path a caller uses, not the predicate in isolation. `ETIMEDOUT` is
+        // deliberately a code the map does NOT carry: it stands for the open set of provider
+        // vocabularies we will never finish enumerating, which is the whole reason deferral is the
+        // default. A transient-allow-list implementation passes the isolated predicate test above
+        // and fails HERE, so this is the mutation that separates the two designs.
+        expect(classifyEmbedDisposition(classifyEmbedFailureCode('ETIMEDOUT')))
+            .toBe(EMBED_DISPOSITION.deferrable);
+    });
+
+    for (const code of ['KB_EMBEDDING_INPUT_SIZE_EXCEEDED', 'KB_SYNC_VOLUME_EXCEEDED', 'KB_TENANT_SPOOF_REJECTED']) {
+        test(`${code} rejects — retrying is futile or launders a deliberate refusal`, () => {
+            expect(classifyEmbedDisposition(code)).toBe(EMBED_DISPOSITION.rejected);
+        });
+    }
+
+    for (const code of [
+        'KB_VECTOR_EMBED_ABORTED',
+        'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+        'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
+        'KB_VECTOR_EMBED_TIMEOUT',
+        'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'
+    ]) {
+        test(`${code} defers — a slow or absent provider is not a reason to discard parsed work`, () => {
+            expect(classifyEmbedDisposition(code)).toBe(EMBED_DISPOSITION.deferrable);
+        });
+    }
+
+    test('the rejected set is genuinely capable of rejecting — the non-vacuity control', () => {
+        // Without this, every `deferrable` assertion above would also hold against an implementation
+        // that returns `deferrable` unconditionally. This is the one input that must come back
+        // different, and it exercises the hard shape (a real member of the closed set) rather than a
+        // stub that could not carry the signal either way.
+        const dispositions = new Set([
+            classifyEmbedDisposition('KB_TENANT_SPOOF_REJECTED'),
+            classifyEmbedDisposition(KB_VECTOR_EMBED_UNCLASSIFIED)
+        ]);
+
+        expect(dispositions.size).toBe(2);
+    });
+
+    test('the embed DOMAIN is what makes deferral safe on a mixed error stream', () => {
+        // An ingestion summary carries parse failures and tenant-guard rejections alongside embed
+        // failures — 14 distinct push sites, only two of them the embed path. Routed through the
+        // disposition alone, a permanently-malformed file would defer forever: never failing, never
+        // advancing, never surfacing a cause. This is the guard that keeps deferral opt-in by domain.
+        expect(isEmbedFailureCode(KB_VECTOR_EMBED_UNCLASSIFIED)).toBe(true);
+        expect(isEmbedFailureCode('KB_VECTOR_EMBED_TIMEOUT')).toBe(true);
+        expect(isEmbedFailureCode('KB_TENANT_SPOOF_REJECTED')).toBe(true);
+
+        // A real non-embed code from a sibling stage. It is bounded and legitimate, and it must NOT
+        // be admitted to the domain — otherwise the disposition's deferrable default swallows it.
+        expect(isEmbedFailureCode('KB_TENANT_REPO_SYNC_SYNC_FAILED')).toBe(false);
+        expect(isEmbedFailureCode('KB_SOMETHING_ELSE_ENTIRELY')).toBe(false);
+        expect(isEmbedFailureCode(undefined)).toBe(false);
+        expect(isEmbedFailureCode('constructor')).toBe(false);
+    });
+
+    test('the domain is DERIVED from the classifier, not restated beside it', () => {
+        // The drift falsifier. Every code classifyEmbedFailureCode can actually emit must be in the
+        // domain — if someone adds a provider mapping and the domain were a hand-maintained literal,
+        // that new code would classify fine and then be silently refused deferral. Driving the real
+        // function over its real inputs is what makes this a check rather than a restatement.
+        const emitted = [
+            classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT'),
+            classifyEmbedFailureCode('OPENAI_COMPATIBLE_REQUEST_TIMEOUT'),
+            classifyEmbedFailureCode('ECONNREFUSED'),
+            classifyEmbedFailureCode('EMBEDDING_MODEL_NOT_RESIDENT'),
+            classifyEmbedFailureCode('ABORT_ERR'),
+            classifyEmbedFailureCode('KB_EMBEDDING_INPUT_SIZE_EXCEEDED'),
+            classifyEmbedFailureCode('an unmapped provider code')
+        ];
+
+        for (const code of emitted) {
+            expect(isEmbedFailureCode(code)).toBe(true);
+        }
+    });
+
+    test('total over hostile and absent input', () => {
+        // A codeless failure is the case the sentinel exists for, so it must not throw its way out of
+        // a disposition. `constructor` is the prototype-pollution probe: a bare object index would
+        // resolve it against Object.prototype, and the answer must still be a disposition string.
+        expect(classifyEmbedDisposition(undefined)).toBe(EMBED_DISPOSITION.deferrable);
+        expect(classifyEmbedDisposition(null)).toBe(EMBED_DISPOSITION.deferrable);
+        expect(classifyEmbedDisposition('')).toBe(EMBED_DISPOSITION.deferrable);
+        expect(classifyEmbedDisposition('constructor')).toBe(EMBED_DISPOSITION.deferrable);
+        expect(classifyEmbedDisposition({code: 'KB_TENANT_SPOOF_REJECTED'})).toBe(EMBED_DISPOSITION.deferrable);
     });
 });

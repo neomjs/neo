@@ -16,8 +16,9 @@ import path            from 'node:path';
 import {watch}         from 'node:fs';
 import {pathToFileURL} from 'node:url';
 
-import {WakeReceiverState} from './receiverState.mjs';
-import {dispatchLocalWake} from './localWakeAdapters.mjs';
+import {WakeReceiverState}                      from './receiverState.mjs';
+import {evaluateContextGate}                    from './contextGatePolicy.mjs';
+import {dispatchLocalWake, probeSessionContext} from './localWakeAdapters.mjs';
 
 const DEFAULT_MAX_BODY_BYTES = 256 * 1024;
 /**
@@ -41,7 +42,16 @@ const MANIFEST_RECONCILE_INTERVAL_MS = 30 * 1000;
  */
 const MANIFEST_READ_ATTEMPTS = 3;
 const LOOPBACK_HOSTS         = new Set(['127.0.0.1', 'localhost', '::1']);
-const PRODUCTION_ADAPTERS    = new Set([
+/**
+ * How often the receiver re-drains `pending` records without a new wake arriving. A wake deferred
+ * by the context gate flushes when the target session compacts or rotates — both visible
+ * only on re-evaluation — so deferrals need their own clock; a flush that waited for the next wake
+ * could wait forever on a quiet seat. Sized well under any provider cache warm window so a
+ * legitimately-flushed deferral still lands warm.
+ * @type {Number}
+ */
+const DRAIN_RETRY_INTERVAL_MS = 60 * 1000;
+const PRODUCTION_ADAPTERS     = new Set([
     'osascript',
     'tmux',
     'codex-app-server',
@@ -96,6 +106,20 @@ export async function loadWakeReceiverManifest(manifestPath) {
             route.adapterConfig.attemptTimeoutMs > 300_000
         ) {
             throw new Error(`Wake receiver route '${subscriptionId}' requires positive adapterConfig.attemptTimeoutMs`);
+        }
+        if (route.adapterConfig?.contextGate !== undefined) {
+            const gate = route.adapterConfig.contextGate;
+
+            if (
+                !Number.isInteger(gate?.maxContextTokens)  || gate.maxContextTokens <= 0 ||
+                !Number.isInteger(gate?.warnContextTokens) || gate.warnContextTokens <= 0 ||
+                gate.warnContextTokens > gate.maxContextTokens
+            ) {
+                throw new Error(
+                    `Wake receiver route '${subscriptionId}' has an invalid adapterConfig.contextGate ` +
+                    `(requires positive integers with warnContextTokens <= maxContextTokens)`
+                );
+            }
         }
         if (adapter === 'codex-app-server' && (
             metadata.appName !== 'Codex' ||
@@ -160,6 +184,8 @@ export function verifyWakeSignature(rawBody, signingKey, signature) {
  * @param {Object} options.manifest Loaded route manifest.
  * @param {WakeReceiverState} options.state
  * @param {Function} [options.dispatch=dispatchLocalWake] Local adapter `(record) => outcome`.
+ * @param {Function} [options.contextProbe=probeSessionContext] Session context probe
+ *   `(record) => {contextTokens, lastActivityAt, sessionId}|null` for the delivery-time context gate.
  * @param {Object} [options.logger=console]
  * @param {Number} [options.maxBodyBytes=DEFAULT_MAX_BODY_BYTES]
  * @returns {{server:http.Server,drain:Function}}
@@ -167,8 +193,9 @@ export function verifyWakeSignature(rawBody, signingKey, signature) {
 export function createWakeReceiver({
     manifest,
     state,
-    dispatch = dispatchLocalWake,
-    logger   = console,
+    dispatch     = dispatchLocalWake,
+    contextProbe = probeSessionContext,
+    logger       = console,
     maxBodyBytes = DEFAULT_MAX_BODY_BYTES
 } = {}) {
     if (!manifest?.routes || !(state instanceof WakeReceiverState)) {
@@ -209,6 +236,49 @@ export function createWakeReceiver({
                     dispatchStartedAt: new Date().toISOString()
                 });
                 if (!dispatching) continue;
+
+                // The context gate: after the non-idempotency marker, before the adapter runs.
+                // A defer returns the record to `pending` — the wake waits for the target session
+                // to compact or rotate; the mailbox stays the authority, so nothing is ever lost.
+                const gateConfig = dispatching.route?.adapterConfig?.contextGate;
+
+                if (gateConfig && contextProbe) {
+                    const probe = await contextProbe(dispatching).catch(() => null);
+                    const gate  = evaluateContextGate({
+                        probe,
+                        maxContextTokens : gateConfig.maxContextTokens,
+                        warnContextTokens: gateConfig.warnContextTokens
+                    });
+
+                    if (gate.action === 'defer') {
+                        const deferCount = (dispatching.deferCount || 0) + 1;
+
+                        await state.transition(record.recordKey, 'dispatching', 'pending', {
+                            deferCount,
+                            deferredAt         : new Date().toISOString(),
+                            deferReason        : `context-gate:${gate.contextTokens}>${gateConfig.maxContextTokens}`,
+                            lastGateOutcome    : gate.gateOutcome,
+                            probedContextTokens: gate.contextTokens
+                        });
+                        logger.warn?.(
+                            `[Wake Receiver] context gate DEFERRED ${record.subscriptionId}: session at ` +
+                            `${gate.contextTokens} tokens (> ${gateConfig.maxContextTokens}); the wake waits for ` +
+                            `compaction or session rotation, mailbox stays authoritative (defer #${deferCount})`
+                        );
+                        continue;
+                    }
+                    if (gate.gateOutcome === 'unknown') {
+                        logger.warn?.(
+                            `[Wake Receiver] context gate could not probe ${record.subscriptionId}; ` +
+                            `delivering fail-open (never silently withheld)`
+                        );
+                    } else if (gate.gateOutcome === 'warn') {
+                        logger.warn?.(
+                            `[Wake Receiver] context gate warns ${record.subscriptionId}: session at ` +
+                            `${gate.contextTokens} tokens, defers above ${gateConfig.maxContextTokens}; delivering`
+                        );
+                    }
+                }
 
                 let outcome = 'failed';
                 let outcomeReason;
@@ -323,6 +393,8 @@ export function createWakeReceiver({
  * @param {String} options.host Explicit IP literal on which the host receiver listens.
  * @param {Number} options.port
  * @param {Object} [options.logger=console]
+ * @param {Number} [options.reconcileIntervalMs]
+ * @param {Number} [options.drainIntervalMs=DRAIN_RETRY_INTERVAL_MS]
  * @returns {Promise<{server:http.Server,state:WakeReceiverState,drain:Function}>}
  */
 export async function startWakeReceiver({
@@ -331,7 +403,8 @@ export async function startWakeReceiver({
     host,
     port,
     logger = console,
-    reconcileIntervalMs = MANIFEST_RECONCILE_INTERVAL_MS
+    reconcileIntervalMs = MANIFEST_RECONCILE_INTERVAL_MS,
+    drainIntervalMs     = DRAIN_RETRY_INTERVAL_MS
 } = {}) {
     if (net.isIP(host) === 0) {
         throw new Error('Wake receiver requires an explicit IP-literal --host');
@@ -462,6 +535,11 @@ export async function startWakeReceiver({
 
     reconcileTimer.unref?.();
 
+    // The context gate's flush clock — see DRAIN_RETRY_INTERVAL_MS.
+    const drainTimer = setInterval(() => { void drain() }, drainIntervalMs);
+
+    drainTimer.unref?.();
+
     /**
      * @summary Releases only the filesystem watcher, leaving the periodic sweep running.
      *
@@ -476,13 +554,15 @@ export async function startWakeReceiver({
     };
 
     /**
-     * @summary Releases the watcher and the sweep. Callers that own the process lifetime (tests, a
-     * supervisor) need a way to stop them; the daemon itself never calls this.
+     * @summary Releases the watcher, the sweep, and the gate's drain retry timer. Callers that own
+     * the process lifetime (tests, a supervisor) need a way to stop them; the daemon itself never
+     * calls this.
      * @returns {void}
      */
     const stopWatchingManifest = () => {
         stopManifestWatcher();
         clearInterval(reconcileTimer);
+        clearInterval(drainTimer);
     };
 
     // SIGHUP stays. It is the documented escape hatch and the delivered contract of the predecessor

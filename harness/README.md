@@ -65,24 +65,31 @@ falsified in this repo by the native-ABI split: `better-sqlite3` builds for one 
 shared `node_modules` must keep serving the system-Node dev loop (the verdict + reproduction
 probe live on the hosting-spike ticket).
 
-**`start:brain` is ATTACH-OR-OWN (the dev-machine safety contract).** The orchestrator performs
-single-instance TAKEOVER (on boot it SIGTERMs any PID in its PID file) and its supervisor REAPS
-foreign listeners on supervised singleton ports — a second organism beside a live canonical Brain
-is never safe, and never useful (the Fleet Manager should manage the REAL fleet). So the product
-boot resolves the live state through the config SSOT and:
+**`start:brain` is PLANE-ATTACH / ATTACH / OWN (the dev-machine safety contract).** The topology
+declaration is resolved through the config SSOT before host liveness can select ownership:
 
-- **attach** — a live orchestrator is detected (PID file + command check): the harness starts
-  only what is missing (the fleet transport, when `:8083` is not already listening) and on quit
-  stops exactly what IT started. The canonical Brain is never touched.
-- **own** — nothing is up (the fresh-machine / packaged-app shape): the harness starts the whole
-  organism on the default canonical-layout paths, and quitting tears the full tree down.
+- **plane-attach** — `fleet.planeBase` is nonempty: the harness starts only the missing Fleet
+  transport. Full host own-mode is unreachable even when the configured plane is down; the
+  transport's existing authenticated admission refuses that boot instead of creating a competing
+  organism.
+- **attach** — no plane is declared and a live orchestrator is detected (PID file + command
+  check): the harness starts only the missing Fleet transport and stops exactly what IT started.
+- **own** — no plane is declared and no host orchestrator is live (the true fresh-machine /
+  packaged-app shape): the harness starts the whole organism on the default canonical-layout paths,
+  and quitting tears the full tree down.
+
+This order is the safety property. The orchestrator performs single-instance TAKEOVER and its
+supervisor REAPS foreign listeners on singleton ports; temporary plane unavailability must never
+fall through to a second host organism.
 
 **The smoke runs a fully ISOLATED organism instead.** `brain.mjs#buildBrainProfile` binds every
 mutable path the spawned tree consumes under `harness/.brain/smoke/` (orchestrator data dir, the
 graph sqlite, Chroma persist dir, fleet instance root, backup target, REM run-state), moves every
 exercised listener to a runtime-allocated port, and gates every other lane OFF via its config
 env switch (dev server, Neural Link, embed/message daemons, mlx/ollama/lms, swarm heartbeat, the
-sync + enrichment lanes, deployment-state bridge). The matrix is EXECUTABLE, not documentation:
+sync + enrichment lanes, deployment-state bridge). Both plane-binding leaves are explicitly empty
+in smoke, so machine-level exports cannot redirect its Fleet process into the canonical plane. The
+matrix is EXECUTABLE, not documentation:
 `resolveBrainPaths` re-resolves the leaves through `ai/config.mjs` itself under the profile env,
 and the smoke fails on any leaf escaping the isolation root — by FILESYSTEM IDENTITY (ancestor
 symlinks resolved on both sides), asserting what the tree actually consumes, not what the profile

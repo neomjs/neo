@@ -1089,8 +1089,14 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             `${label} must expose consecutive compositor frames`).toBeGreaterThan(band ? 0 : 2);
 
         // The baseline stays the WHOLE capture's pre-action frame in both cases: it is the reference
-        // for "what the workspace looks like when nothing is wrong", and re-deriving a per-band
-        // baseline would let a band that starts mid-defect normalise the defect away.
+        // for "what the workspace looks like when nothing is wrong", and re-deriving a per-region
+        // baseline would let a region that starts mid-defect normalise the defect away.
+        //
+        // Floor provenance, measured not chosen: confirmed whole-body clears measure ~0.08x
+        // baseline (the repaired tour-entry blank: 0.4088 against 5.30-5.35 baselines), while
+        // healthy film-paced minima hold >=0.93x baseline (5.30/5.31 on the same stages). 0.65
+        // separates the measured populations with >=8x margin on the red side and >=1.4x on the
+        // green side; retune it only against fresh measured receipts of both populations.
         const entropyFloor = continuity.baselineEntropy * 0.65;
 
         if (scoped.minEntropy < entropyFloor) {
@@ -1740,6 +1746,71 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             });
             expect(ownerResult.errors).toEqual([]);
             expect(ownerResult.applied, 'the continuity guard must still complete its first tear-out commit').toBe(true);
+            expect(pageErrors).toEqual([])
+        }
+    );
+
+    test('continuity guard red-control: a deliberate whole-body clear reds the guard',
+        async ({page, neuralLink}, testInfo) => {
+            const userAgent = await page.evaluate(() => navigator.userAgent);
+
+            test.skip(
+                userAgent.includes('HeadlessChrome'),
+                'run with --headed because CDP screencast compositor frames are required'
+            );
+
+            // Instrument-integrity fixture, never a scene: a film take runs this whole file
+            // with cameras rolling, and a staged whole-body clear must not enter take footage
+            // (frame audits sweep the take for exactly this signature).
+            test.skip(filmTake, 'the staged clear is excluded from film takes by design');
+
+            const {pageErrors} = await boot({page, neuralLink});
+
+            // The action IS the fixture: hold the dock host fully transparent across enough
+            // compositor frames for the screencast to capture the exposed backdrop, then
+            // restore. A red-control direction that has never fired is instrument theater —
+            // this run proves the guard can convict the exact state it exists to catch.
+            const continuity = await captureWorkspaceContinuity(page, () =>
+                page.evaluate(() => new Promise(resolve => {
+                    const host = document.querySelector('.workstation-dock-host');
+
+                    host.style.opacity = '0';
+
+                    let held = 0;
+
+                    const step = () => {
+                        if (++held >= 10) {
+                            host.style.opacity = '';
+                            resolve()
+                        } else {
+                            requestAnimationFrame(step)
+                        }
+                    };
+
+                    requestAnimationFrame(step)
+                }))
+            );
+
+            // Discrimination needs both directions on one capture: the baseline must read as a
+            // healthy dense room, so the red below is the staged clear's doing — never a broken
+            // instrument measuring an empty stage.
+            expect(continuity.baselineEntropy,
+                'the red-control baseline must be a healthy dense workspace')
+                .toBeGreaterThan(2);
+
+            await assertWorkspaceContinuity({
+                continuity,
+                expectedCleared: true,
+                label          : 'red-control-staged-whole-body-clear',
+                receipt        : {stagedClear: 'dock-host opacity 0 held across 10 rAF frames'},
+                testInfo
+            });
+
+            const restoredOpacity = await page.evaluate(() =>
+                getComputedStyle(document.querySelector('.workstation-dock-host')).opacity
+            );
+
+            expect(restoredOpacity, 'the staged clear must leave no residue on the host').toBe('1');
             expect(pageErrors).toEqual([])
         }
     );

@@ -88,6 +88,122 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         `).get();
 
         expect(table.name).toBe('mc_tool_call_log');
+
+        const columns = MemoryCoreRecorderService.db.prepare('PRAGMA table_info(mc_tool_call_log)').all();
+        expect(columns.some(column => column.name === 'completed_at')).toBe(true);
+        expect(MemoryCoreRecorderService.db.pragma('busy_timeout', {simple: true})).toBe(50);
+    });
+
+    test('migrates completed legacy rows without relabeling them as unfinished', async () => {
+        const
+            Database = (await import('better-sqlite3')).default,
+            db       = new Database(':memory:');
+
+        try {
+            db.exec(`
+                CREATE TABLE mc_tool_call_log (
+                    id            TEXT PRIMARY KEY,
+                    agent_id      TEXT,
+                    user_id       TEXT,
+                    session_id    TEXT,
+                    sequence_id   TEXT NOT NULL,
+                    timestamp     INTEGER NOT NULL,
+                    tool          TEXT NOT NULL,
+                    success       INTEGER DEFAULT 0,
+                    duration_ms   INTEGER,
+                    failure_stage TEXT,
+                    error_code    TEXT,
+                    error_name    TEXT,
+                    error_message TEXT,
+                    args_bytes    INTEGER DEFAULT 0,
+                    result_bytes  INTEGER DEFAULT 0
+                );
+                INSERT INTO mc_tool_call_log (
+                    id, sequence_id, timestamp, tool, success, duration_ms
+                ) VALUES ('legacy-call', 'legacy-sequence', 1000, 'healthcheck', 1, 25);
+            `);
+
+            MemoryCoreRecorderService.ensureSchema.call({db});
+
+            const row = db.prepare(`
+                SELECT completed_at
+                  FROM mc_tool_call_log
+                 WHERE id = 'legacy-call'
+            `).get();
+
+            expect(row.completed_at).toBe(1025);
+
+            // Simulate a process dying after ALTER TABLE but before its legacy-row backfill.
+            db.prepare(`
+                UPDATE mc_tool_call_log
+                   SET completed_at = NULL
+                 WHERE id = 'legacy-call'
+            `).run();
+
+            MemoryCoreRecorderService.ensureSchema.call({db});
+
+            expect(db.prepare(`
+                SELECT completed_at
+                  FROM mc_tool_call_log
+                 WHERE id = 'legacy-call'
+            `).get().completed_at).toBe(1025);
+        } finally {
+            db.close();
+        }
+    });
+
+    test('persists an in-flight start boundary and completes the same redacted row', () => {
+        const
+            t0 = Date.now() - 8,
+            id = MemoryCoreRecorderService.beginToolCall({
+                toolName: 'list_messages',
+                args    : {body: secret, status: 'unread'},
+                t0
+            });
+
+        const active = MemoryCoreRecorderService.db.prepare(`
+            SELECT *
+              FROM mc_tool_call_log
+             WHERE id = ?
+        `).get(id);
+
+        expect(id).toBeTruthy();
+        expect(active.tool).toBe('list_messages');
+        expect(active.duration_ms).toBeNull();
+        expect(active.completed_at).toBeNull();
+        expect(JSON.stringify(active)).not.toContain(secret);
+
+        const during = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 10});
+        expect(during.totalCalls).toBe(0);
+        expect(during.totalUnfinished).toBe(1);
+        expect(during.unfinishedCalls[0]).toMatchObject({callId: id, tool: 'list_messages'});
+        expect(during.unfinishedCalls[0]).not.toHaveProperty('agentId');
+        expect(during.unfinishedCalls[0]).not.toHaveProperty('sessionId');
+        expect(JSON.stringify(during)).not.toContain(secret);
+
+        MemoryCoreRecorderService.logToolCall({
+            id,
+            toolName: 'list_messages',
+            args    : {body: secret, status: 'unread'},
+            result  : {messages: []},
+            success : true,
+            t0
+        });
+
+        const completed = MemoryCoreRecorderService.db.prepare(`
+            SELECT *
+              FROM mc_tool_call_log
+             WHERE id = ?
+        `).get(id);
+
+        expect(completed.completed_at).toBeGreaterThanOrEqual(t0);
+        expect(completed.duration_ms).toBeGreaterThanOrEqual(0);
+        expect(MemoryCoreRecorderService.db.prepare('SELECT COUNT(*) AS count FROM mc_tool_call_log').get().count).toBe(1);
+
+        const after = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 10});
+        expect(after.totalCalls).toBe(1);
+        expect(after.totalUnfinished).toBe(0);
+        expect(after.unfinishedCalls).toEqual([]);
     });
 
     test('records bounded metadata without raw Memory Core payloads', () => {
@@ -108,6 +224,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         `).get();
 
         expect(row.success).toBe(0);
+        expect(row.completed_at).not.toBeNull();
         expect(row.failure_stage).toBe('dispatch');
         expect(row.args_bytes).toBeGreaterThan(0);
         expect(row.result_bytes).toBeGreaterThan(0);
@@ -148,7 +265,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
     test('captures Memory Core MCP wrapper success and dispatch failure', async () => {
         const {callTool} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
 
-        await callTool('get_memory_core_tool_metrics', {sinceMs: 60_000, limit: 5});
+        const metrics = await callTool('get_memory_core_tool_metrics', {sinceMs: 60_000, limit: 5});
+
+        expect(metrics.totalUnfinished).toBe(0);
+        expect(metrics.unfinishedCalls).toEqual([]);
+
         await expect(callTool('missing_memory_core_tool', {})).rejects.toThrow(/not found/);
 
         const rows = MemoryCoreRecorderService.db.prepare(`
@@ -202,10 +323,18 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 t0      : Date.now()
             })).not.toThrow();
 
+            expect(MemoryCoreRecorderService.beginToolCall({
+                toolName: 'add_memory',
+                args    : {prompt: secret},
+                t0      : Date.now()
+            })).toBeNull();
+
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics()).toMatchObject({
-                status    : 'unavailable',
-                totalCalls: 0,
-                tools     : []
+                status         : 'unavailable',
+                totalCalls     : 0,
+                totalUnfinished: 0,
+                tools          : [],
+                unfinishedCalls: []
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;

@@ -46,8 +46,11 @@ import {
     FLEET_SERVER_ENTRY,
     ORCHESTRATOR_ENTRY,
     probePort,
+    registerOwnedChild,
     resolveBrainMode,
+    resolveUiFleetTransport,
     resolveBrainPaths,
+    resolveProductBrainPlan,
     loadFleetRuntimeContracts,
     startBrainChild,
     stopBrainTree,
@@ -880,22 +883,28 @@ const appLifecycle = createAppLifecycle({
 });
 
 /**
- * @summary Registers one owned Brain child for both teardown and event-derived tray degradation.
- * @param {Object} entry The existing brainState child record.
+ * @summary Registers one owned child: teardown ownership unconditionally, Brain-health
+ * observation only for organism children — the split lives in {@link registerOwnedChild}
+ * (brain.mjs), where its owner-coverage witness also lives. `observeBrain: false` (the UI-mode
+ * fleet transport) is drain-owned with diagnostic-log-only fault visibility.
+ * @param {Object} entry The brainState child record (`{child, label, observeBrain?, ...}`).
  * @returns {Object}
  */
 function registerBrainChild(entry) {
-    brainState.children.push(entry);
-    appLifecycle.watchBrainChild(entry.child, entry.label);
-    return entry
+    return registerOwnedChild({
+        children        : brainState.children,
+        entry,
+        onUnobservedExit: summary => console.log(`HARNESS_UI_FLEET_CHILD ${summary}`),
+        watch           : appLifecycle.watchBrainChild
+    })
 }
 
 /**
- * The product Brain boot — ATTACH-OR-OWN (see brain.mjs): on a machine with a live Brain the
- * harness supervises only the missing fleet transport against the REAL organism; on a fresh
- * machine it owns the whole organism on the default (canonical-layout) paths. It never boots a
- * second organism beside a live one — the daemon's single-instance takeover and the supervisor's
- * singleton-port reaping make that unsafe by construction.
+ * The product Brain boot — PLANE-ATTACH / ATTACH / OWN (see brain.mjs): a declared containerized
+ * plane starts only the missing Fleet transport, a live host Brain is attached, and only a truly
+ * fresh machine owns the full organism. It never boots a second organism beside either declared
+ * authority — the daemon's single-instance takeover and the supervisor's singleton-port reaping
+ * make that unsafe by construction.
  * @summary Boots or attaches the Brain for `start:brain`, supervising only what is missing.
  * @returns {Promise<Object>}
  */
@@ -920,9 +929,14 @@ async function bootProductBrain() {
             orchestratorDataDir: paths.orchestratorDataDir,
             repoRoot           : organismRoot
         }),
-        mode      = live.orchestratorAlive ? 'attach' : 'own';
+        plan      = resolveProductBrainPlan({
+            fleetServing     : live.fleetServing,
+            orchestratorAlive: live.orchestratorAlive,
+            planeBase        : paths.fleetPlaneBase
+        }),
+        {mode}    = plan;
 
-    if (mode === 'own') {
+    if (plan.startOrchestrator) {
         // Coexistence guard (dev machines): a packaged app's own-mode organism runs the DEFAULT
         // ports — a checkout Brain's Chroma already on that port would be REAPED by the spawned
         // supervisor (singleton-port reconciliation). A held Chroma port without a serving fleet
@@ -937,7 +951,7 @@ async function bootProductBrain() {
         await awaitOrchestratorReady({child: orchestrator})
     }
 
-    if (!live.fleetServing) {
+    if (plan.startFleet) {
         // Protocol identity, fail closed: a listener that does NOT answer the fleet wire verb is
         // a foreign server squatting the port — spawning into it would EADDRINUSE, and skipping
         // the spawn would report a Brain that the window cannot actually reach.
@@ -956,8 +970,52 @@ async function bootProductBrain() {
         await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
     }
 
-    console.log(`HARNESS_BRAIN_MODE ${mode} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
-    return {fleetPort, mode, up: true}
+    console.log(`HARNESS_BRAIN_MODE ${mode}${plan.planeBase ? ` planeBase=${plan.planeBase}` : ''} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
+    return {fleetPort, mode, planeBase: plan.planeBase, up: true}
+}
+
+/**
+ * The UI-only transport boot: plain `npm start` self-supplies the fleet transport instead of
+ * demanding a hand-carried `NEO_FLEET_BEARER` across two terminals (the first live operator run
+ * proved that coordination model unusable — and `fleetCapability` gates every renderer request on
+ * this boot receipt, so WITHOUT it the UI-only window could never reach a transport at all, even
+ * a perfectly-coordinated external one).
+ *
+ * Three outcomes, fail-honest:
+ * - **reuse** — a listener on the port proves canonical Fleet identity for THIS bearer + viewer
+ *   (the same-token-same-viewer probe): the shell adopts it and spawns nothing.
+ * - **spawn** — the port is free: the shell starts `devFleetServer` as an OWNED child with the
+ *   bearer it already holds (zero coordination — the packaged topology's behavior), awaits real
+ *   wire readiness, and the existing quit drain tears it down (`brainState.children` is the one
+ *   ownership set; the drain keys on membership, not on Brain mode). Ownership ≠ observation:
+ *   the child registers `observeBrain: false`, so its death logs diagnostically and renders as
+ *   the cockpit's honest offline — never as whole-Brain `degraded` (the tray reports the
+ *   organism, not the UI's transport convenience).
+ * - **foreign-listener** — something else holds the port: the WINDOW must not brick (contrast:
+ *   organism boot fails closed), so the cockpit keeps its honest offline state and the named
+ *   refusal lands in the shell log.
+ * @summary Probes-then-spawns the app↔fleet transport for UI-only mode; never touches tray Brain state.
+ * @returns {Promise<Object>} `{fleetPort, mode: 'reuse'|'spawn'|'foreign-listener', up: Boolean}`
+ */
+async function bootUiFleetTransport() {
+    // The three-outcome routing AND the ownership≠observation invariant live in the witnessable
+    // composition (brain.mjs#resolveUiFleetTransport); this wrapper only binds the real
+    // collaborators: env coordinates, the shell bearer, the child spawner, and the owner registry.
+    return resolveUiFleetTransport({
+        agentIdentityNodeId: process.env.NEO_AGENT_IDENTITY,
+        awaitReady         : awaitFleetReady,
+        bearerToken        : fleetBearerToken,
+        fleetPort          : Number(process.env.NEO_FLEET_PORT) || 8083,
+        onOutcome          : summary => console.log(`HARNESS_UI_FLEET ${summary}`),
+        registerChild      : registerBrainChild,
+        repoRoot           : organismRoot,
+        spawn              : ({fleetPort}) => startBrainChild({
+            entry   : FLEET_SERVER_ENTRY,
+            env     : {NEO_FLEET_BEARER: fleetBearerToken, NEO_FLEET_PORT: String(fleetPort)},
+            onLog   : brainLog,
+            repoRoot: organismRoot
+        })
+    })
 }
 
 /**
@@ -985,6 +1043,8 @@ async function bootSmokeBrain() {
                 ELECTRON_RUN_AS_NODE    : '1',
                 NEO_CHROMA_PORT         : String(chromaPort),
                 NEO_FLEET_BEARER        : fleetBearerToken,
+                NEO_FLEET_PLANE_BASE    : '',
+                NEO_FLEET_PLANE_BEARER  : '',
                 NEO_FLEET_PORT          : String(fleetPort),
                 NEO_HARNESS_ELECTRON_BIN: process.execPath
             }
@@ -1078,7 +1138,16 @@ app.whenReady().then(async () => {
                 appLifecycle.settleBrainBoot(boot.up === true);
                 return boot
             })
-        : Promise.resolve(null);
+        : (diagnosticMode
+            // Plain smoke keeps its isolation contract: UI-only legs spawn nothing (a dev machine
+            // may carry a live transport); the fleet leg's evidence lives in smoke:brain.
+            ? Promise.resolve(null)
+            // UI-only product path: self-supply the transport. Tray Brain state is deliberately
+            // untouched — a fleet transport is not a Brain claim.
+            : bootUiFleetTransport().catch(error => {
+                console.log('HARNESS_UI_FLEET_BOOT_FAILED ' + error.message);
+                return {error: error.message, up: false}
+            }));
 
     if (!smokeMode) {
         try {

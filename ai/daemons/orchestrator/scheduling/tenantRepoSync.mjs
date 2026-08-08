@@ -83,6 +83,63 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
 }
 
 /**
+ * @summary Returns whether durable recovery evidence grants one immediate sync attempt.
+ *
+ * This stays inside the existing per-repo due computation: the persisted scheduler remains the sole
+ * authority, while the process-local canary can only write a generation receipt for it to consume.
+ * A generation with a consumption timestamp is spent and can never bypass cadence again.
+ *
+ * @param {Object|null} persistedRepoState Normalized durable checkpoint state.
+ * @returns {Boolean}
+ */
+export function hasPendingEmbeddingRecoveryBypass(persistedRepoState) {
+    const recovery = persistedRepoState?.embeddingRecovery;
+
+    return Boolean(
+        recovery?.episodeId
+        && recovery.generationId
+        && recovery.observedAt
+        && !recovery.bypassConsumedAt
+    );
+}
+
+/**
+ * @summary Classifies the recovery dimension of one backoff-suppressed repository.
+ * @param {Object} options
+ * @param {Object|null} options.persistedRepoState Normalized durable checkpoint state.
+ * @param {Object|null} [options.probeSnapshot] Process-owned canary snapshot.
+ * @param {Number} [options.observedAt=Date.now()] Observation epoch.
+ * @returns {String|null}
+ */
+export function classifyEmbeddingRecoveryState({persistedRepoState, probeSnapshot = null, observedAt = Date.now()} = {}) {
+    const failures = persistedRepoState?.consecutiveFailures ?? 0,
+          recovery = persistedRepoState?.embeddingRecovery;
+
+    // Recovery is inspected BEFORE the failure count, and the order is load-bearing. A repo can own
+    // a real episode at a zero streak: a deferred embedding outcome arms recovery without
+    // incrementing failures, because the run neither succeeded nor failed. Reading the streak first
+    // returned `null` for exactly that repo — the one waiting on the dependency the canary
+    // measures — so its canary/backoff/retry-pending state was invisible on every surface that
+    // consumes this classification. The failure count only decides the ORDINARY-backoff case,
+    // which is the one question it can actually answer.
+    if (recovery) {
+        if (hasPendingEmbeddingRecoveryBypass(persistedRepoState)) return 'recovery-observed/retry-pending';
+
+        if (
+            Number.isFinite(probeSnapshot?.nextAttemptAt)
+            && probeSnapshot.nextAttemptAt > observedAt
+        ) {
+            return 'recovery-probe-backoff';
+        }
+
+        return 'still-failing';
+    }
+
+    if (failures <= 0) return null;
+    return 'ordinary-repo-backoff';
+}
+
+/**
  * @summary Decides whether a per-repo sync attempt is currently due.
  *
  * Per-repo due-check applies to each `tenantRepos[]` entry independently. The
@@ -108,7 +165,8 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
  * @param {Number} options.globalCadenceMs Global cadence fallback when repo has no override.
  * @param {Number} [options.jitterRatio=0] Caller (typically `TenantRepoSyncService`) passes the value from `aiConfig.orchestrator.tenantRepoSync.jitterRatio`. Default `0` (no jitter) keeps the pure function config-free.
  * @param {Number} [options.backoffCapMs=0] Caller passes the value from `aiConfig.orchestrator.tenantRepoSync.backoffCapMs`. Default `0` (no cap) keeps pure-function behavior config-free. Must exceed the repo's base cadence to bind only on failure streaks.
- * @returns {{due: Boolean, effectiveCadenceMs: Number, jitterMs: Number, backoffMultiplier: Number, backoffCapped: Boolean, lastRunAttemptAt: Number}}
+ * @returns {{due: Boolean, dueReason: String, recoveryBypass: Boolean, effectiveCadenceMs: Number,
+ *     jitterMs: Number, backoffMultiplier: Number, backoffCapped: Boolean, lastRunAttemptAt: Number}}
  */
 export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = 0, backoffCapMs = 0}) {
     const baseCadenceMs       = Number.isFinite(repo?.cadenceMs) && repo.cadenceMs > 0 ? repo.cadenceMs : globalCadenceMs;
@@ -124,9 +182,21 @@ export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitte
     const uncappedCadenceMs  = (baseCadenceMs + jitterMs) * backoffMultiplier;
     const backoffCapped      = Number.isFinite(backoffCapMs) && backoffCapMs > 0 && uncappedCadenceMs > backoffCapMs;
     const effectiveCadenceMs = backoffCapped ? backoffCapMs : uncappedCadenceMs;
-    const due                = (now - lastRunAttemptAt) >= effectiveCadenceMs;
+    const recoveryBypass     = hasPendingEmbeddingRecoveryBypass(persistedRepoState),
+          cadenceDue     = (now - lastRunAttemptAt) >= effectiveCadenceMs,
+          due            = recoveryBypass || cadenceDue,
+          dueReason      = recoveryBypass ? 'embedding-recovery' : (cadenceDue ? 'cadence' : 'not-due');
 
-    return {due, effectiveCadenceMs, jitterMs, backoffMultiplier, backoffCapped, lastRunAttemptAt};
+    return {
+        due,
+        dueReason,
+        recoveryBypass,
+        effectiveCadenceMs,
+        jitterMs,
+        backoffMultiplier,
+        backoffCapped,
+        lastRunAttemptAt
+    };
 }
 
 /**

@@ -32,6 +32,7 @@ import {
 } from './ContainerHealthDiagnosisService.mjs';
 import {
     buildTenantRepoSyncTrigger,
+    classifyEmbeddingRecoveryState,
     isRepoDue
 } from '../scheduling/tenantRepoSync.mjs';
 import {
@@ -70,6 +71,13 @@ const KB_CONFIG_BOOTSTRAP_FAILURE_STATUSES = new Set([
     'read-failed',
     'parse-failed',
     'invalid-shape'
+]);
+const EMBEDDING_RECOVERY_PROBE_STATUSES = new Set([
+    'never-started',
+    'pending',
+    'healthy',
+    'failed',
+    'terminal'
 ]);
 
 /**
@@ -472,6 +480,7 @@ export class DeploymentStateBridgeService extends Base {
             failureReasonCounts    = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.reason || 'unknown'))),
             operationFailureCounts = countBy(serviceList.flatMap(service => (service.errors || []).map(error => error.operation || 'unknown'))),
             lookupFailureCount     = serviceList.filter(hasLookupFailure).length,
+            undeclaredHeapCeilingServices = selectUndeclaredHeapCeilingServices(serviceList),
             allServicesDegraded    = serviceList.length > 0 && degradedServices.length === serviceList.length,
             broadLookupFailure     = serviceList.length > 0 && lookupFailureCount === serviceList.length,
             reason                 = broadLookupFailure
@@ -510,7 +519,18 @@ export class DeploymentStateBridgeService extends Base {
                 lookupFailureCount,
                 failureReasonCounts,
                 operationFailureCounts,
-                services            : serviceFailureStates
+                services            : serviceFailureStates,
+                // Observe-only, `record`-terminal: no action, no privilege, no restart. It states
+                // that a Node service was started with no `--max-old-space-size`, which is the
+                // condition under which V8 picks a heuristic well below the container's allowance
+                // and self-aborts with ExitCode 0 and OOMKilled false — a failure with no signature.
+                //
+                // Deliberately NOT a member of the `facts` array. `selectEvidenceFacts(facts, …)`
+                // is called with the WHOLE array at every classification branch, so anything added
+                // there becomes candidate evidence for every diagnosis. That is what the earlier
+                // attempt got wrong, and an observability statement is the wrong shape for an
+                // evidence array regardless.
+                undeclaredHeapCeilingServices
             },
             hints: buildBridgeHints({reason, failureReasonCounts})
         };
@@ -921,6 +941,10 @@ export class DeploymentStateBridgeService extends Base {
             errors.push(summarizeDiagnosticError(error, 'tenant-repo-revision-state-read-failed'));
         }
 
+        const embeddingRecoveryProbe = summarizeEmbeddingRecoveryProbe(
+            readEmbeddingRecoveryProbeSnapshot(this.tenantRepoSyncService)
+        );
+
         const repoStates = repos.map(repo => summarizeTenantRepoState({
             repo,
             observedAt,
@@ -930,11 +954,12 @@ export class DeploymentStateBridgeService extends Base {
             globalCadenceMs   : scheduler.globalCadenceMs,
             jitterRatio       : scheduler.jitterRatio,
             backoffCapMs      : scheduler.backoffCapMs,
-            accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt)
+            accessReadiness   : readTenantRepoAccessReadiness(this.tenantRepoSyncService, repo, observedAt),
+            embeddingRecoveryProbe
         }));
 
         return {
-            schemaVersion: 2,
+            schemaVersion: 3,
             recordType   : 'tenant-repo-sync-deployment-state',
             source,
             observedAt,
@@ -958,7 +983,8 @@ export class DeploymentStateBridgeService extends Base {
                 repoStates,
                 stateAvailable: configEnumerationAvailable
             }),
-            repos : repoStates,
+            embeddingRecoveryProbe,
+            repos                 : repoStates,
             errors
         };
     }
@@ -998,6 +1024,84 @@ function resolveConfiguredDurabilityPosture() {
     })
 }
 
+/**
+ * @summary Reads the V8 old-space ceiling a container was STARTED with, from its command.
+ *
+ * Three states, and the third is the point. `Config.Cmd` records the argument the container was
+ * launched with; when a command has several `node` invocations (the overlay/no-overlay branches the
+ * MCP servers carry) it does NOT say which branch is executing. So a divergent pair is not a
+ * value to choose between — reporting either one would be a guess with a number attached. It
+ * reports `'unknown'` instead, and the caller treats that as "not observable", never as a reading.
+ *
+ * This is what the container was TOLD, never what V8 enforces. No V8-scoped metric exists for a
+ * sibling container anywhere in `ai/`, so the field name says `declared` and means it.
+ *
+ * @param {String[]|String} cmd `Config.Cmd`, as Docker returns it.
+ * @returns {Number|String|null} the agreed ceiling in MB · `'unknown'` when declarations diverge ·
+ * `null` when none is declared.
+ */
+export function parseDeclaredHeapCeilingMb(cmd) {
+    const
+        text     = commandText(cmd),
+        declared = [...text.matchAll(/--max-old-space-size=(\d+)/g)].map(match => Number(match[1]));
+
+    if (declared.length === 0)               return null;
+    if (new Set(declared).size > 1)          return 'unknown';
+
+    return declared[0]
+}
+
+/**
+ * @summary Flattens `Config.Cmd` to searchable text, tolerating the array and string forms Docker uses.
+ * @param {String[]|String} cmd
+ * @returns {String}
+ */
+function commandText(cmd) {
+    return Array.isArray(cmd) ? cmd.join(' ') : typeof cmd === 'string' ? cmd : ''
+}
+
+/**
+ * @summary Whether a container's command launches Node at all.
+ *
+ * A missing heap ceiling only means something for a **Node** service — `chroma` runs
+ * `["run", "/config.yaml"]` and has no V8 to bound, so an undeclared-ceiling finding against it
+ * would be noise the reader has to learn to ignore.
+ *
+ * Derived from the command rather than inferred from the image name. The image is a **proxy** for
+ * runtime — it holds until someone adds a Node service on a different base or a non-Node entrypoint
+ * to the shared image, and then it holds silently and wrongly. The command is the direct
+ * observation.
+ *
+ * @param {String[]|String} cmd `Config.Cmd`, as Docker returns it.
+ * @returns {Boolean}
+ */
+export function isNodeCommand(cmd) {
+    return /(^|[\s;&|"'`(])node(\s|$)/.test(commandText(cmd))
+}
+
+/**
+ * @summary Names the Node services that were started with no declared heap ceiling.
+ *
+ * Pure on purpose — the enclosing `collectBridgeDiagnostics` reads `AiConfig` and runtime-holder
+ * state, so folding this inline would make the rule testable only through a live service. The rule
+ * is the part worth guarding.
+ *
+ * Three populations are deliberately NOT findings:
+ * - **non-Node** services — nothing with a V8 heap to bound.
+ * - **`'unknown'`** — divergent declarations mean the ceiling could not be OBSERVED. Listing it
+ *   would publish *observed an absence* where the truth is *could not observe*.
+ * - an **unreadable `inspect`** — a failed read is already reported as a degraded service.
+ *
+ * @param {Object[]} services Per-service snapshots carrying `summarizeInspect()` output.
+ * @returns {String[]} service keys, in input order.
+ */
+export function selectUndeclaredHeapCeilingServices(services) {
+    return (Array.isArray(services) ? services : [])
+        .filter(service => service?.inspect?.nodeCommand === true &&
+                           service?.inspect?.declaredHeapCeilingMb === null)
+        .map(service => service.serviceKey)
+}
+
 function summarizeInspect(inspect) {
     if (!inspect || typeof inspect !== 'object') return null;
 
@@ -1007,7 +1111,17 @@ function summarizeInspect(inspect) {
         name        : inspect.Name || null,
         image       : inspect.Config?.Image || inspect.Image || null,
         restartCount: Number.isFinite(inspect.RestartCount) ? inspect.RestartCount : null,
-        state       : {
+        // Admitted by this ticket's Contract Ledger. Paired with `stats.memoryLimitBytes`, which is
+        // already published, it lets a reader see a ceiling declared BELOW the container's own
+        // allowance — the shape that aborts Node while the cgroup still looks half-idle.
+        //
+        // `nodeCommand` travels WITH it because the two are only meaningful together: a null ceiling
+        // is a finding on a Node service and a non-event on anything else. Publishing the ceiling
+        // alone would make every reader re-derive the qualifier, and re-derivation is where the
+        // image-name proxy gets invented.
+        declaredHeapCeilingMb: parseDeclaredHeapCeilingMb(inspect.Config?.Cmd),
+        nodeCommand          : isNodeCommand(inspect.Config?.Cmd),
+        state                : {
             status    : state.Status || null,
             health    : state.Health?.Status || null,
             startedAt : state.StartedAt || null,
@@ -1359,6 +1473,72 @@ function readTenantRepoAccessReadiness(service, repo, observedAt) {
 }
 
 /**
+ * @summary Reads process-local embedding evidence without letting diagnostics perturb the lane.
+ * @param {Object|null} service TenantRepoSyncService-compatible source.
+ * @returns {Object|null}
+ */
+function readEmbeddingRecoveryProbeSnapshot(service) {
+    if (typeof service?.getEmbeddingRecoveryProbeSnapshot !== 'function') {
+        return null;
+    }
+
+    try {
+        return service.getEmbeddingRecoveryProbeSnapshot();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * @summary Reduces one recovery-probe snapshot to its strict public allowlist.
+ * @param {Object|null} candidate Process-owned canary snapshot.
+ * @returns {Object}
+ */
+function summarizeEmbeddingRecoveryProbe(candidate) {
+    const
+        status = EMBEDDING_RECOVERY_PROBE_STATUSES.has(candidate?.status)
+            ? candidate.status
+            : 'unavailable',
+        checkedAt = Number.isFinite(candidate?.checkedAt) && candidate.checkedAt >= 0
+            ? candidate.checkedAt
+            : null,
+        nextAttemptAt = Number.isFinite(candidate?.nextAttemptAt) && candidate.nextAttemptAt >= 0
+            ? candidate.nextAttemptAt
+            : null,
+        stopReason = typeof candidate?.stopReason === 'string'
+            && /^attempt budget exhausted \(streak \d+, budget \d+\)$/u.test(candidate.stopReason)
+                ? candidate.stopReason
+                : null,
+        errorClassification = typeof candidate?.errorClassification === 'string'
+            && /^[a-z][a-z-]{0,63}$/u.test(candidate.errorClassification)
+                ? candidate.errorClassification
+                : null,
+        errorCode = typeof candidate?.errorCode === 'string'
+            && /^[A-Z][A-Z0-9_]{0,95}$/u.test(candidate.errorCode)
+                ? candidate.errorCode
+                : null;
+
+    return {
+        status,
+        checkedAt,
+        lastDemandCached: typeof candidate?.lastDemandCached === 'boolean'
+            ? candidate.lastDemandCached
+            : null,
+        failureStreak: Number.isSafeInteger(candidate?.failureStreak) && candidate.failureStreak >= 0
+            ? candidate.failureStreak
+            : 0,
+        backoffMs: Number.isFinite(candidate?.backoffMs) && candidate.backoffMs >= 0
+            ? candidate.backoffMs
+            : 0,
+        nextAttemptAt,
+        terminal: status === 'terminal' && candidate?.terminal === true,
+        stopReason,
+        errorClassification,
+        errorCode
+    };
+}
+
+/**
  * @summary Reduces one cached access result to its strict public allowlist.
  * @param {Object|null} candidate Process-local readiness candidate.
  * @param {Boolean} disabled Whether the repository is disabled.
@@ -1460,6 +1640,7 @@ function summarizeTenantRepoAccessReadiness({repoStates, stateAvailable}) {
  * @param {Number} options.jitterRatio Deterministic jitter ratio.
  * @param {Number} [options.backoffCapMs] Failure-backoff ceiling (the `tenantRepoSync.backoffCapMs` leaf); keeps the observed due-state identical to the lane's own computation.
  * @param {Object|null} options.accessReadiness Process-local access evidence.
+ * @param {Object|null} options.embeddingRecoveryProbe Process-owned embedding canary snapshot.
  * @returns {Object}
  */
 function summarizeTenantRepoState({
@@ -1471,7 +1652,8 @@ function summarizeTenantRepoState({
     globalCadenceMs,
     jitterRatio,
     backoffCapMs,
-    accessReadiness
+    accessReadiness,
+    embeddingRecoveryProbe
 }) {
     const
         normalizedCheckpoint = normalizeTenantRepoCheckpointState(persistedRepoState),
@@ -1482,26 +1664,43 @@ function summarizeTenantRepoState({
         dueState              = disabled
             ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
             : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio, backoffCapMs}),
-        nextDueAtMs           = Number.isFinite(dueState.effectiveCadenceMs)
-            ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
-            : null,
+        nextDueAtMs           = dueState.recoveryBypass
+            ? observedAt
+            : (Number.isFinite(dueState.effectiveCadenceMs)
+                ? ((dueState.lastRunAttemptAt || 0) > 0 ? dueState.lastRunAttemptAt + dueState.effectiveCadenceMs : observedAt)
+                : null),
         lastOutcome           = findTenantRepoOutcome(taskState?.lastCompletion, repo),
         lastAttempt           = normalizedCheckpoint?.lastRunAttemptAt || 0,
-        failures              = normalizedCheckpoint?.consecutiveFailures ?? 0;
+        failures              = normalizedCheckpoint?.consecutiveFailures ?? 0,
+        recoveryState         = classifyEmbeddingRecoveryState({
+            persistedRepoState: normalizedCheckpoint,
+            probeSnapshot     : embeddingRecoveryProbe,
+            observedAt
+        });
 
     return {
-        identityHash                      : hashTenantRepoIdentity(repo),
-        tenantHash                        : hashValue(repo.tenantId),
-        repoHash                          : hashValue(repo.repoSlug),
-        configTier                        : repo.configTier || 'unreported',
+        identityHash       : hashTenantRepoIdentity(repo),
+        tenantHash         : hashValue(repo.tenantId),
+        repoHash           : hashValue(repo.repoSlug),
+        configTier         : repo.configTier || 'unreported',
         disabled,
-        accessReadiness                   : summarizeTenantRepoAccessState(accessReadiness, disabled),
-        status                            : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
-        due                               : disabled ? false : dueState.due,
-        nextDueAt                         : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
-        lastIngestedRev                   : shortRevision(normalizedCheckpoint?.lastIngestedRev),
-        lastRunAttemptAt                  : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
-        consecutiveFailures               : failures,
+        accessReadiness    : summarizeTenantRepoAccessState(accessReadiness, disabled),
+        status             : classifyTenantRepoState({disabled, due: dueState.due, persistedRepoState: normalizedCheckpoint, lastOutcome}),
+        due                : disabled ? false : dueState.due,
+        nextDueAt          : Number.isFinite(nextDueAtMs) ? new Date(nextDueAtMs).toISOString() : null,
+        lastIngestedRev    : shortRevision(normalizedCheckpoint?.lastIngestedRev),
+        lastRunAttemptAt   : lastAttempt > 0 ? new Date(lastAttempt).toISOString() : null,
+        consecutiveFailures: failures,
+        stopReasonCode     : failures > 0
+            ? (normalizedCheckpoint?.embeddingRecovery?.causeCode
+                || normalizedCheckpoint?.lastSourceErrorCode
+                || normalizedCheckpoint?.lastErrorCode
+                || null)
+            : null,
+        lastErrorCode                     : failures > 0 ? (normalizedCheckpoint?.lastErrorCode ?? null) : null,
+        lastSourceErrorCode               : failures > 0 ? (normalizedCheckpoint?.lastSourceErrorCode ?? null) : null,
+        lastAccessCode                    : failures > 0 ? (normalizedCheckpoint?.lastAccessCode ?? null) : null,
+        recoveryState,
         checkpointStatus,
         ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
         lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,
