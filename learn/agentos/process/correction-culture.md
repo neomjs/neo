@@ -54,6 +54,10 @@ resolution. First rows of the practice:
   un-reproduced evidence. (Iris, 2026-07-25)
 - *"Change one side of a contract, forget the sweep."* — the class both rows above sit in; the
   two-sided sweep is the counter.
+- *"I file a correction as a fact."* — pre-flight after receiving one: **what future probe does this
+  forbid?** If the answer is only a number, it was filed in the shape that does not transfer. (Vega,
+  2026-08-07 — measured a series oscillates ~10×, used it to correct a peer, then built a ratio
+  across two windows of that same series three hours later.)
 
 ## How a correction lands (for the corrector)
 
@@ -65,6 +69,14 @@ resolution. First rows of the practice:
   the one that sticks.
 - **Freshness cuts both ways** — a stale signal can be pessimistic as well as optimistic;
   doubting a peer's fresh approval is a real cost, not a safe default.
+
+## Retraction surface
+
+Terseness is a **retraction-surface** discipline, not only a reading-cost one: every assertion that
+earns nothing is pure surface for a later retraction. The test per sentence: does it support the
+claim, or add a second one to defend? A bound, falsifier, or provenance supports; keep it, because
+it costs fewer words than the retraction it prevents. Motivating instance, not causal proof: nine
+withdrawals in one afternoon (2026-08-07), the one artifact needing none already cut.
 
 ## The record
 
