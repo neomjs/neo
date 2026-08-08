@@ -68,6 +68,20 @@ import _NeuralLink_InteractionService   from './services/neural-link/Interaction
 import _NeuralLink_RuntimeService       from './services/neural-link/RuntimeService.mjs';
 import NeuralLink_Config                from './mcp/server/neural-link/config.mjs';
 
+// --- Import-time boot policy (carried from the pre-split barrel, NOT new) ---
+//
+// These two assignments were applied by `ai/services.mjs` before the split, so every consumer of the
+// old barrel inherited them at import time. A host consumer migrating to this file must see the same
+// initialization policy it had, or the split changes behaviour while claiming to be a regrouping.
+//
+// Dropping them is silent, which is why it must stay pinned here: this file already imports and
+// re-exports both configs, so the export surface looks identical either way. `configBase.mjs`
+// defaults `autoConnect` to `true`, and `ConnectionService.initAsync()` calls `ensureBridgeAndConnect()`
+// while it stays true — so the omission does not fail at import, it spawns a Bridge at connect time.
+// A missing export would fail loudly; this fails at connect time, in a process that booted clean.
+GH_Config.data.syncOnStartup     = false;
+NeuralLink_Config.data.autoConnect = false;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
