@@ -240,8 +240,17 @@ The agent runtime (`ai/agent/Loop.mjs`) implements a four-phase cognitive loop:
 
 ### The SDK Bouncer Pattern
 
-`ai/services.mjs` is the critical safety layer. It loads OpenAPI specs from each MCP server and
-wraps each method with `makeSafe()` — a function that generates Zod validators at startup.
+The SDK is **two barrels, one safety layer**. `ai/services.host.mjs` serves the host plane and
+`ai/services.mjs` serves the cloud plane while re-exporting the host services, so it remains the
+composition root for containerised work. Both load OpenAPI specs from each MCP server and wrap each
+method with `makeSafe()` — a function that generates Zod validators at startup.
+
+The validating-Proxy machinery lives below both barrels, so a service is the **same Proxy instance**
+whichever barrel imports it. The split exists because a host process has only the base package tier:
+importing the cloud root eagerly reaches packages it does not have, and **a host entrypoint must not
+be able to reach a durable store by import alone.** See
+[ADR 0039](../agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) — including why that property
+needs both a static walk and a runtime denial witness, and why neither alone establishes it.
 
 - **Frontier models** access services via MCP protocol (stdio) with unbounded
   tool access.
@@ -443,7 +452,9 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/config.template.mjs`, `ai/ConfigProvider.mjs` | Tier-1 Agent OS config template and shared config provider consumed by top-level and MCP server configs | `Config`, `ConfigProvider` | — |
 | `ai/context/` | Context window management | `Assembler` | — |
 | `ai/provider/` | LLM abstraction | `Gemini`, `Ollama`, `OpenAiCompatible` | — |
-| `ai/services.mjs` | SDK with Zod validation aggregator | — | — |
+| `ai/services.mjs` | SDK aggregator, cloud plane — re-exports the host barrel | — | [ADR 0039](../agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
+| `ai/services.host.mjs` | SDK aggregator, host plane — cannot reach a cloud-plane package | — | [ADR 0039](../agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
+| `ai/services/shared/serviceProxy.mjs` | Validating-Proxy machinery below both barrels (one Proxy identity per service) | — | [ADR 0039](../agentos/decisions/0039-two-plane-sdk-barrel-boundary.md) |
 | `ai/services/knowledge-base/` | Semantic RAG services (post-M6 SDK location) | `QueryService`, `SearchService`, `KBRecorderService` | — |
 | `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md), [ADR 0030](../agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](../agentos/decisions/0035-live-lane-awareness-composition.md), [ADR 0036](../agentos/decisions/0036-durable-community-activity-authority.md) |
 | `ai/services/graph/` | Dream Pipeline graph analysis, Golden Path synthesis, handoff rendering, and deterministic gap/finding inference | `GapInferenceEngine`, `GoldenPathSynthesizer`, graph-section helpers | [ADR 0023](../agentos/decisions/0023-dreamservice-organism-map-fidelity-consolidation-liveness.md), [ADR 0024](../agentos/decisions/0024-native-edge-graph-model.md), [ADR 0030](../agentos/decisions/0030-work-graph-stall-inference.md), [ADR 0035](../agentos/decisions/0035-live-lane-awareness-composition.md) |
