@@ -4,14 +4,17 @@ import {StdioClientTransport}          from '@modelcontextprotocol/sdk/client/st
 import {createMcpExpressApp}           from '@modelcontextprotocol/sdk/server/express.js';
 import {McpServer}                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import {spawnSync}                     from 'node:child_process';
 import crypto                          from 'node:crypto';
 import fs                              from 'node:fs/promises';
 import os                              from 'node:os';
 import path                            from 'node:path';
-import {fileURLToPath}                 from 'node:url';
+import {fileURLToPath, pathToFileURL}  from 'node:url';
 import {
     ManagedWorkspacePreparationError,
     WORKSPACE_ARTIFACT_STATES,
+    applyManagedAgentWorkspacePlan,
+    createManagedAgentWorkspacePlan,
     prepareManagedAgentWorkspace
 } from '../../../../../../ai/services/fleet/prepareManagedAgentWorkspace.mjs';
 
@@ -42,6 +45,19 @@ const MCP_ENTRYPOINTS = [
     'ai/mcp/server/github-workflow/mcp-server.mjs',
     'ai/mcp/server/gitlab-workflow/mcp-server.mjs'
 ];
+
+const BOUNDED_APPLY_EFFECTS = new Set([
+    'access',
+    'chmod',
+    'hydrateWorkspace',
+    'lstat',
+    'mkdir',
+    'readFile',
+    'rename',
+    'stat',
+    'unlink',
+    'writeFile'
+]);
 
 let root, mainCheckout, repoRoot, instanceRoot, hydrationCalls;
 
@@ -115,6 +131,22 @@ function claudeDesktopRemoteCapability(checkout, nodePath=NODE_PATH) {
 
 async function read(filePath) {
     return fs.readFile(filePath, 'utf8');
+}
+
+async function sourceFiles(directoryPath) {
+    const result = [];
+
+    for (const entry of await fs.readdir(directoryPath, {withFileTypes: true})) {
+        const filePath = path.join(directoryPath, entry.name);
+
+        if (entry.isDirectory()) {
+            result.push(...await sourceFiles(filePath))
+        } else if (entry.isFile() && entry.name.endsWith('.mjs')) {
+            result.push(filePath)
+        }
+    }
+
+    return result
 }
 
 /**
@@ -198,6 +230,44 @@ function tenantTarget(endpoint='https://tenant.example.com/agentos') {
     }
 }
 
+function canonicalMcpMatrix(overrides={}) {
+    return {
+        'memory-core'    : true,
+        'knowledge-base' : true,
+        'neural-link'    : true,
+        'github-workflow': false,
+        'gitlab-workflow': false,
+        ...overrides
+    }
+}
+
+function logicalInput({harnessType='codex', mcpMatrix=canonicalMcpMatrix(), mcpTarget=null}={}) {
+    return {
+        agent: {id: 'agent-a', harnessType},
+        mcpMatrix,
+        mcpTarget
+    }
+}
+
+function recursivelyFrozen(value) {
+    if (!value || typeof value !== 'object' || !Object.isFrozen(value)) return false;
+
+    return Object.values(value).every(child =>
+        !child || typeof child !== 'object' || recursivelyFrozen(child))
+}
+
+function collectStrings(value, result=[]) {
+    if (typeof value === 'string') {
+        result.push(value)
+    } else if (Array.isArray(value)) {
+        value.forEach(child => collectStrings(child, result))
+    } else if (value && typeof value === 'object') {
+        Object.values(value).forEach(child => collectStrings(child, result))
+    }
+
+    return result
+}
+
 function parseJsonc(content) {
     return JSON.parse(content.split(/\r?\n/).filter(line => !line.trimStart().startsWith('//')).join('\n'))
 }
@@ -211,6 +281,325 @@ function tomlMcpTable(content, name) {
 
     return start < 0 ? '' : marker + (next < 0 ? tail : tail.slice(0, next))
 }
+
+test.describe('managed workspace logical plan → host apply boundary', () => {
+    test('the compatibility composer has one production caller', async () => {
+        const callers = [];
+
+        for (const rootName of ['ai', 'apps', 'buildScripts', 'src']) {
+            for (const filePath of await sourceFiles(path.join(PROJECT_ROOT, rootName))) {
+                if ((await read(filePath)).includes('prepareManagedAgentWorkspace.mjs')) {
+                    callers.push(path.relative(PROJECT_ROOT, filePath))
+                }
+            }
+        }
+
+        expect(callers.sort()).toEqual(['ai/services/fleet/startAgentProvisioned.mjs'])
+    });
+
+    test('planner module loads and executes with filesystem, process, and config authority denied', () => {
+        const
+            moduleUrl = pathToFileURL(path.join(PROJECT_ROOT, 'ai/services/fleet/managedAgentWorkspacePlan.mjs')).href,
+            loader    = `
+                const denied = new Set(['fs', 'fs/promises', 'fs-extra', 'node:fs', 'node:fs/promises']);
+                const configFiles = ['config.mjs', 'config.template.mjs', 'configBase.mjs', 'ConfigProvider.mjs'];
+
+                export async function resolve(specifier, context, nextResolve) {
+                    if (denied.has(specifier) || configFiles.some(name =>
+                        specifier === name || specifier.endsWith('/' + name))) {
+                        throw new Error('denied planner import: ' + specifier)
+                    }
+                    return nextResolve(specifier, context)
+                }
+            `,
+            childScript = `
+                import {register} from 'node:module';
+
+                const realProcess = globalThis.process;
+                register('data:text/javascript,' + encodeURIComponent(${JSON.stringify(loader)}), import.meta.url);
+                Object.defineProperty(globalThis, 'process', {
+                    configurable: true,
+                    get() {
+                        throw new Error('denied planner process access')
+                    }
+                });
+                for (const name of ['AiConfig', 'Config', 'Neo']) {
+                    Object.defineProperty(globalThis, name, {
+                        configurable: true,
+                        get() {
+                            throw new Error('denied planner global config access: ' + name)
+                        }
+                    })
+                }
+
+                const {createManagedAgentWorkspacePlan} = await import(${JSON.stringify(`${moduleUrl}?deny-authority=1`)});
+                const plan = createManagedAgentWorkspacePlan({
+                    agent: {id: 'deny-authority-seat', harnessType: 'codex'},
+                    mcpMatrix: {
+                        'memory-core': true,
+                        'knowledge-base': true,
+                        'neural-link': true,
+                        'github-workflow': false,
+                        'gitlab-workflow': false
+                    }
+                });
+
+                realProcess.stdout.write(JSON.stringify({
+                    artifactProfile: plan.artifactProfile,
+                    frozen: Object.isFrozen(plan),
+                    serverCount: plan.mcpServers.length
+                }))
+            `,
+            result = spawnSync(NODE_PATH, ['--input-type=module', '--eval', childScript], {
+                encoding: 'utf8'
+            });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(JSON.parse(result.stdout)).toEqual({
+            artifactProfile: 'codex',
+            frozen         : true,
+            serverCount    : 5
+        })
+    });
+
+    test('pure planning is deterministic, recursively frozen, closed, and path-free', () => {
+        const
+            input  = logicalInput({mcpTarget: tenantTarget()}),
+            first  = createManagedAgentWorkspacePlan(input),
+            second = createManagedAgentWorkspacePlan(structuredClone(input));
+
+        expect(first).toEqual(second);
+        expect(first).not.toBe(second);
+        expect(recursivelyFrozen(first)).toBe(true);
+        expect(Object.keys(first)).toEqual(['agent', 'artifactProfile', 'mcpMatrix', 'mcpServers']);
+        expect(Object.keys(first.agent)).toEqual(['id', 'harnessType']);
+        expect(first.artifactProfile).toBe('codex');
+        expect(first.mcpServers).toHaveLength(5);
+        expect(Object.keys(first.mcpServers[0])).toEqual([
+            'key',
+            'name',
+            'enabled',
+            'target',
+            'transport',
+            'entrypoint',
+            'url',
+            'credentialEnvVar',
+            'runtimeEnv',
+            'requiredRuntimeEnv',
+            'secretEnv'
+        ]);
+        expect(first.mcpServers.filter(server => server.target === 'tenant').map(server => server.key))
+            .toEqual(['memory-core', 'knowledge-base']);
+        expect(first.mcpServers.find(server => server.key === 'neural-link')).toMatchObject({
+            target   : 'resident',
+            transport: 'stdio',
+            url      : null
+        });
+        expect(first.mcpServers.every(server => server.entrypoint && !path.isAbsolute(server.entrypoint))).toBe(true);
+        expect(collectStrings(first).filter(value => !/^https?:/.test(value)).every(value => !path.isAbsolute(value))).toBe(true);
+        expect(JSON.stringify(first)).not.toMatch(/"(?:args|command|cwd|mainCheckout|nodePath|owner|grant|authorization)"/);
+    });
+
+    test('planner rejects forbidden/unknown/absolute fields without evaluating effectful accessors', () => {
+        const forbidden = [{
+            name  : 'owner',
+            mutate: input => { input.owner = '@someone' }
+        }, {
+            name  : 'nested repoPath',
+            mutate: input => { input.agent.repoPath = '/tmp/repo' }
+        }, {
+            name  : 'bearer value',
+            mutate: input => { input.mcpTarget = {...tenantTarget(), bearer: 'secret-value'} }
+        }, {
+            name  : 'authorization field',
+            mutate: input => { input.mcpTarget = {...tenantTarget(), authorization: {grant: 'admin'}} }
+        }, {
+            name  : 'resource headers',
+            mutate: input => {
+                input.mcpTarget = tenantTarget();
+                input.mcpTarget.resources['memory-core'].headers = {Authorization: 'Bearer secret'}
+            }
+        }, {
+            name  : 'absolute opaque id',
+            mutate: input => { input.agent.id = '/tmp/agent-a' }
+        }];
+
+        for (const entry of forbidden) {
+            const input = logicalInput();
+
+            entry.mutate(input);
+            expect(() => createManagedAgentWorkspacePlan(input), entry.name).toThrow(TypeError)
+        }
+
+        const cyclic = logicalInput();
+        cyclic.agent.loop = cyclic.agent;
+
+        expect(() => createManagedAgentWorkspacePlan(cyclic)).toThrow(TypeError);
+
+        for (const field of ['fileSystem', 'env', 'process', 'globalConfig']) {
+            const input = logicalInput();
+            let   reads = 0;
+
+            Object.defineProperty(input, field, {
+                enumerable: true,
+                get() {
+                    reads++;
+                    throw new Error(`${field} getter was evaluated`)
+                }
+            });
+
+            expect(() => createManagedAgentWorkspacePlan(input), field).toThrow(TypeError);
+            expect(reads, field).toBe(0)
+        }
+    });
+
+    test('unsupported harness, MCP, and transport combinations are RangeErrors', () => {
+        expect(() => createManagedAgentWorkspacePlan(logicalInput({harnessType: 'unknown'}))).toThrow(RangeError);
+        expect(() => createManagedAgentWorkspacePlan(logicalInput({harnessType: 'antigravity'}))).toThrow(RangeError);
+        expect(() => createManagedAgentWorkspacePlan(logicalInput({
+            mcpMatrix: canonicalMcpMatrix({'gitlab-workflow': true})
+        }))).toThrow(RangeError);
+        expect(() => createManagedAgentWorkspacePlan(logicalInput({
+            harnessType: 'claude-desktop',
+            mcpMatrix  : canonicalMcpMatrix({'github-workflow': true})
+        }))).toThrow(RangeError);
+    });
+
+    test('host apply accepts a structural clone and records only the bounded effect vocabulary', async () => {
+        const
+            plan       = createManagedAgentWorkspacePlan(logicalInput()),
+            operations = [],
+            fileSystem = new Proxy(fs, {
+                get(target, property, receiver) {
+                    const value = Reflect.get(target, property, receiver);
+
+                    return typeof value !== 'function'
+                        ? value
+                        : async (...args) => {
+                            operations.push(String(property));
+                            return value.call(target, ...args)
+                        }
+                }
+            });
+
+        expect(operations).toEqual([]);
+
+        const result = await applyManagedAgentWorkspacePlan({
+            plan            : structuredClone(plan),
+            repoPath        : path.join(repoRoot, 'direct-apply'),
+            instanceRoot,
+            mainCheckout,
+            nodePath        : NODE_PATH,
+            hydrateWorkspace: async args => {
+                operations.push('hydrateWorkspace');
+                await fs.mkdir(args.projectRoot, {recursive: true});
+                return {hydrated: true}
+            },
+            fileSystem
+        });
+
+        expect([...new Set(operations)].every(operation => BOUNDED_APPLY_EFFECTS.has(operation))).toBe(true);
+        expect(operations).toContain('hydrateWorkspace');
+        expect(operations).toContain('writeFile');
+        expect(Object.keys(result)).toEqual([
+            'repoPath',
+            'instanceHome',
+            'mcpMatrix',
+            'mcpPlan',
+            'hydration',
+            'artifacts'
+        ]);
+        expect(result.mcpPlan[0].args[0]).toBe(path.join(mainCheckout, MCP_ENTRYPOINTS[0]));
+        expect(path.isAbsolute(result.mcpPlan[0].args[0])).toBe(true)
+    });
+
+    test('invalid host input is normalized and a completed artifact converges after a mid-apply failure', async () => {
+        const
+            plan     = createManagedAgentWorkspacePlan(logicalInput()),
+            badPlan  = structuredClone(plan),
+            repoPath = path.join(repoRoot, 'partial-apply');
+
+        badPlan.agent.id = '/tmp/escaped-agent';
+
+        await expect(applyManagedAgentWorkspacePlan({
+            plan            : badPlan,
+            repoPath,
+            instanceRoot,
+            mainCheckout,
+            nodePath        : NODE_PATH,
+            hydrateWorkspace: makeHydrate()
+        })).rejects.toBeInstanceOf(ManagedWorkspacePreparationError);
+        expect(hydrationCalls).toEqual([]);
+
+        let   writes            = 0;
+        const failingFileSystem = new Proxy(fs, {
+            get(target, property, receiver) {
+                const value = Reflect.get(target, property, receiver);
+
+                if (property !== 'writeFile') return typeof value === 'function' ? value.bind(target) : value;
+
+                return async (...args) => {
+                    writes++;
+                    if (writes === 2) throw Object.assign(new Error('injected mid-apply failure'), {code: 'EIO'});
+                    return value.call(target, ...args)
+                }
+            }
+        });
+        const applyOptions = {
+            plan,
+            repoPath,
+            instanceRoot,
+            mainCheckout,
+            nodePath        : NODE_PATH,
+            hydrateWorkspace: makeHydrate()
+        };
+
+        await expect(applyManagedAgentWorkspacePlan({...applyOptions, fileSystem: failingFileSystem}))
+            .rejects.toBeInstanceOf(ManagedWorkspacePreparationError);
+        expect(await read(path.join(repoPath, '.codex', 'config.toml'))).toContain('neo-mjs-memory-core');
+
+        const retry = await applyManagedAgentWorkspacePlan(applyOptions);
+
+        expect(retry.artifacts.map(item => item.status)).toEqual([
+            WORKSPACE_ARTIFACT_STATES.MATCH,
+            WORKSPACE_ARTIFACT_STATES.CREATED,
+            WORKSPACE_ARTIFACT_STATES.CREATED
+        ])
+    });
+
+    test('compatibility composer resolves once before entering one host apply sequence', async () => {
+        const
+            events = [],
+            agent  = makeAgent('codex'),
+            result = await prepareManagedAgentWorkspace({
+                ...options(agent, 'compatibility-composer'),
+                resolveMatrix(overrides) {
+                    events.push('resolve');
+                    expect(overrides).toBe(agent.mcpServers);
+                    return canonicalMcpMatrix()
+                },
+                deriveInstanceHome({instanceRoot: rootPath, agentId, harnessType}) {
+                    events.push('apply:derive');
+                    return path.join(rootPath, agentId, harnessType)
+                },
+                hydrateWorkspace: async args => {
+                    events.push('apply:hydrate');
+                    await fs.mkdir(args.projectRoot, {recursive: true});
+                    return {hydrated: true}
+                }
+            });
+
+        expect(events).toEqual(['resolve', 'apply:derive', 'apply:hydrate']);
+        expect(Object.keys(result)).toEqual([
+            'repoPath',
+            'instanceHome',
+            'mcpMatrix',
+            'mcpPlan',
+            'hydration',
+            'artifacts'
+        ])
+    });
+});
 
 test.describe('prepareManagedAgentWorkspace', () => {
     test('Codex: hydrate → project MCP projection + isolated home policy, all CREATED', async () => {

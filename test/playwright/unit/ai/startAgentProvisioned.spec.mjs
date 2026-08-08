@@ -488,19 +488,22 @@ test.describe('startAgentProvisioned (Fleet Manager spawn-time repo provisioning
         expect(lifecycle.calls.start).toHaveLength(0);
     });
 
-    test('a preparation rejection propagates and start is NEVER called (fail-closed)', async () => {
-        const lifecycle        = makeLifecycle({agents: repoAgent('a')}),
-              prepareWorkspace = async () => { throw new Error('DIVERGENT: owned MCP keys'); };
+    test('planner and apply rejections both propagate before start (fail-closed)', async () => {
+        for (const stage of ['planner', 'apply']) {
+            const
+                lifecycle        = makeLifecycle({agents: repoAgent('a')}),
+                prepareWorkspace = async () => { throw new Error(`${stage} rejected workspace preparation`); };
 
-        await expect(startAgentProvisioned({
-            lifecycleService: lifecycle,
-            agentId         : 'a',
-            managedRoot     : '/managed',
-            ensureRepo      : makeEnsureRepo('/managed/a/neomjs-neo'),
-            prepareWorkspace
-        })).rejects.toThrow('DIVERGENT: owned MCP keys');
+            await expect(startAgentProvisioned({
+                lifecycleService: lifecycle,
+                agentId         : 'a',
+                managedRoot     : '/managed',
+                ensureRepo      : makeEnsureRepo('/managed/a/neomjs-neo'),
+                prepareWorkspace
+            }), stage).rejects.toThrow(`${stage} rejected workspace preparation`);
 
-        expect(lifecycle.calls.start).toHaveLength(0);
+            expect(lifecycle.calls.start, stage).toHaveLength(0)
+        }
     });
 
     test('an installed-adapter readback rejection propagates after preparation and before spawn', async () => {
