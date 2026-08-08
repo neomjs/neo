@@ -1,6 +1,7 @@
-import fs   from 'fs/promises';
-import path from 'path';
-import Base from '../../../src/core/Base.mjs';
+import fs                              from 'fs/promises';
+import path                            from 'path';
+import Base                            from '../../../src/core/Base.mjs';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR} from '../../../src/ai/fleet/mcpServers.mjs';
 
 /**
  * Default configuration object for the MCP Client.
@@ -13,6 +14,7 @@ const defaultConfig = {
      * The value is an object with transport-specific connection properties:
      * - `transportType: 'stdio'` uses `command` + `args`.
      * - `transportType: 'sse'` or `'streamable-http'` uses `url` + optional `transportOptions`.
+     * - `bearerTokenEnvVar` injects a remote Bearer credential without storing its value here.
      */
     mcpServers: {
         "chrome-devtools": {
@@ -32,14 +34,16 @@ const defaultConfig = {
             requiredEnv  : ["GH_TOKEN"]
         },
         "knowledge-base": {
-            transportType: "stdio",
-            command      : "npm",
-            args         : ["run", "ai:mcp-server-knowledge-base"]
+            transportType    : "streamable-http",
+            url              : "http://127.0.0.1:3102/kb/mcp",
+            bearerTokenEnvVar: REMOTE_MCP_CREDENTIAL_ENV_VAR,
+            requiredEnv      : [REMOTE_MCP_CREDENTIAL_ENV_VAR]
         },
         "memory-core": {
-            transportType: "stdio",
-            command      : "npm",
-            args         : ["run", "ai:mcp-server-memory-core"]
+            transportType    : "streamable-http",
+            url              : "http://127.0.0.1:3102/mc/mcp",
+            bearerTokenEnvVar: REMOTE_MCP_CREDENTIAL_ENV_VAR,
+            requiredEnv      : [REMOTE_MCP_CREDENTIAL_ENV_VAR]
         },
         "neural-link": {
             transportType: "stdio",
