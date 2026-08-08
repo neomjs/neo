@@ -5,6 +5,7 @@ import {fileURLToPath}          from 'url';
 import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
 import Base                     from '../../../src/core/Base.mjs';
 import {isBundleRestorable}     from './helpers/bundleIntegrity.mjs';
+import {readDeployedRevision}   from '../shared/deployedRevision.mjs';
 import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 import ChromaManager            from './managers/ChromaManager.mjs';
 import StorageRouter            from './managers/StorageRouter.mjs';
@@ -2047,6 +2048,10 @@ class HealthService extends Base {
             backup : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
             details: [],
             version: process.env.npm_package_version || '1.0.0',
+            // Which release line, not which commit — see the KB surface for the same pairing. Always
+            // emitted, `unknown` when no build wrote a revision, because an omitted field reads as
+            // current to a consumer computing deployment skew.
+            deployedRevision: readDeployedRevision(),
             uptime : process.uptime()
         };
 

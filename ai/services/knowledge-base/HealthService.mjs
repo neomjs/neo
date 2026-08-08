@@ -4,6 +4,7 @@ import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs
 import Base                     from '../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import {readDeployedRevision}   from '../shared/deployedRevision.mjs';
 import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
 import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 
@@ -339,6 +340,12 @@ class HealthService extends Base {
             },
             details         : [],
             version         : process.env.npm_package_version || '1.0.0',
+            // The package version answers "which release line", not "which commit". `runtimeFreshness`
+            // below answers "are my tool schemas stale against MY OWN checkout" — both are blind to a
+            // plane running several hundred commits behind, which is the drift that gets attributed to
+            // product quality. Always emitted, `unknown` when no build wrote a revision: an omitted
+            // field reads as current to every naive consumer.
+            deployedRevision: readDeployedRevision(),
             uptime          : process.uptime(),
             runtimeFreshness: await this.resolveRuntimeFreshness()
         };
