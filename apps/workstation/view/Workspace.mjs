@@ -2364,11 +2364,18 @@ class Workspace extends Container {
             me.dockModel = DockZoneModel.clone(initialDocument);
             await me.refreshDockWorkspace({geometryOnly: true});
 
-            const result = await runner.start();
+            // The entry projection is finished and the replay has not begun. Published because a
+            // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
+            // `runTourSpec` call, so an oracle measuring the whole call attributes an entry-time
+            // frame to the replay step it names. A wall-clock stamp rather than a marker element or
+            // an event, so the consumer bands frames it has ALREADY collected instead of racing a
+            // poll against frame arrival — the boundary is read after the fact, never observed live.
+            const entryCompletedAt = Date.now(),
+                  result           = await runner.start();
 
             await me.refreshPromise;
 
-            out = {...result, document: DockZoneModel.clone(me.dockModel)};
+            out = {...result, document: DockZoneModel.clone(me.dockModel), phases: {entryCompletedAt}};
 
             // A structured runner failure is a primary outcome the caller must receive intact —
             // only a genuinely clean replay may let a restore failure replace the return.

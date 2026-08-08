@@ -755,7 +755,10 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
         });
 
         session.on('Page.screencastFrame', frame => {
-            frames.push(frame.data);
+            // The arrival time travels WITH the frame so the window can be split after the fact.
+            // CDP reports seconds since epoch; the page reports milliseconds, so normalise here —
+            // one conversion, at the only place both units meet.
+            frames.push({data: frame.data, timestampMs: frame.metadata.timestamp * 1000});
             resolveFirstFrame?.();
             resolveFirstFrame = null;
             acks.push(session.send('Page.screencastFrameAck', {sessionId: frame.sessionId})
@@ -811,7 +814,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             ]);
             clearTimeout(frameTimer);
 
-            baseline = frames.at(-1);
+            baseline = frames.at(-1).data;
             frames.length = 0;
 
             result = await action();
@@ -890,7 +893,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             }, {
                 baseline,
                 box,
-                frames: actionFrames,
+                frames: actionFrames.map(frame => frame.data),
                 viewport
             });
 
@@ -899,10 +902,51 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             minEntropy      = Math.min(...entropies),
             minFrameIndex   = entropies.indexOf(minEntropy);
 
+        /**
+         * Narrows the receipt to the frames of one phase.
+         *
+         * The whole-window figures above stay the headline because they are what every existing
+         * consumer reads, and they remain the honest answer to *did any frame clear* — a band is a
+         * narrower question, never a weaker one. What a band adds is ATTRIBUTION: a window spanning
+         * more than the step it is named for can report a real defect against the wrong beat, which
+         * is exactly what happened here (`scene-1-run-1-resize` was reporting an entry-time frame).
+         * @param {Number|null} fromMs Inclusive lower bound, or null for the opening band.
+         * @param {Number|null} toMs Exclusive upper bound, or null for the closing band.
+         * @returns {Object|null} Band receipt, or null when the phase stamp is unavailable.
+         */
+        function band(fromMs, toMs) {
+            const selected = actionFrames
+                .map((frame, index) => ({entropy: entropies[index], frame, index}))
+                .filter(({frame}) =>
+                    (fromMs === null || frame.timestampMs >= fromMs) &&
+                    (toMs   === null || frame.timestampMs <   toMs));
+
+            if (!selected.length) return null;
+
+            const lowest = selected.reduce((min, row) => row.entropy < min.entropy ? row : min);
+
+            // `minFrameIndex` is the index into the FULL frame list, not into the band, so an
+            // attachment resolves against `frames` without the caller knowing the band's offset.
+            return {
+                frameCount   : selected.length,
+                minEntropy   : lowest.entropy,
+                minFrameIndex: lowest.index
+            }
+        }
+
+        const entryCompletedAt = result?.phases?.entryCompletedAt ?? null;
+
         return {
             baselineEntropy,
+            // Absent only when `runTourSpec` did not publish the boundary — an older workspace, or a
+            // different action entirely. Null rather than a guessed split: attributing frames on an
+            // assumed boundary is the defect this exists to remove, one layer down.
+            bands: entryCompletedAt === null ? null : {
+                entry : band(null, entryCompletedAt),
+                resize: band(entryCompletedAt, null)
+            },
             frameCount: actionFrames.length,
-            frames    : actionFrames,
+            frames    : actionFrames.map(frame => frame.data),
             minEntropy,
             minFrameIndex,
             result
@@ -920,38 +964,55 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
      * @returns {Promise<void>}
      */
     async function assertWorkspaceContinuity({
+        band=null,
         continuity,
         expectedCleared=false,
         label,
         receipt={},
         testInfo
     }) {
+        // Whole-window when no band is named, so every existing caller keeps its exact semantics.
+        const scoped = band ? continuity.bands?.[band] : continuity;
+
+        // A named band that produced NO frames must fail here rather than pass silently. Zero frames
+        // means the phase was never observed, and an oracle that reports green on an unobserved phase
+        // is worse than one that reports nothing — it manufactures coverage.
+        expect(scoped,
+            `${label}: band '${band}' produced no frames, so it proves nothing about that phase`).toBeTruthy();
+
         console.log('[rendered-continuity]', JSON.stringify({
+            band           : band ?? 'whole-window',
             baselineEntropy: continuity.baselineEntropy,
-            frameCount     : continuity.frameCount,
+            frameCount     : scoped.frameCount,
             label,
-            minEntropy     : continuity.minEntropy,
-            minFrameIndex  : continuity.minFrameIndex,
+            minEntropy     : scoped.minEntropy,
+            minFrameIndex  : scoped.minFrameIndex,
             ...receipt
         }));
 
-        expect(continuity.frameCount,
-            `${label} must expose consecutive compositor frames`).toBeGreaterThan(2);
+        // The whole window must show a real sequence. A band is a slice of that sequence, so it can
+        // legitimately be short — the entry projection is fast — and the floor there is only that it
+        // was observed at all.
+        expect(scoped.frameCount,
+            `${label} must expose consecutive compositor frames`).toBeGreaterThan(band ? 0 : 2);
 
+        // The baseline stays the WHOLE capture's pre-action frame in both cases: it is the reference
+        // for "what the workspace looks like when nothing is wrong", and re-deriving a per-band
+        // baseline would let a band that starts mid-defect normalise the defect away.
         const entropyFloor = continuity.baselineEntropy * 0.65;
 
-        if (continuity.minEntropy < entropyFloor) {
+        if (scoped.minEntropy < entropyFloor) {
             await testInfo.attach(`${label}-minimum-entropy-frame`, {
-                body       : Buffer.from(continuity.frames[continuity.minFrameIndex], 'base64'),
+                body       : Buffer.from(continuity.frames[scoped.minFrameIndex], 'base64'),
                 contentType: 'image/jpeg'
             })
         }
 
         if (expectedCleared) {
-            expect(continuity.minEntropy,
+            expect(scoped.minEntropy,
                 `${label} red control must expose the confirmed cleared-body frame`).toBeLessThan(entropyFloor)
         } else {
-            expect(continuity.minEntropy,
+            expect(scoped.minEntropy,
                 `${label} must not present a cleared dense workspace body`).toBeGreaterThanOrEqual(entropyFloor)
         }
     }
@@ -1013,7 +1074,26 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 spec       = continuity ? continuity.result : await runSpec();
 
             if (continuity) {
+                // Two beats, asserted separately, because `runTourSpec` performs both inside one
+                // call: it re-stages the workspace from `initialDocument` (entry) and only then
+                // replays the resize. Measuring the pair under the resize label is what let an
+                // entry-time cleared frame be reported as a resize defect for this oracle's whole
+                // life — the minimum sat at frame 7 of 59, at the START of the window, before the
+                // step it was named for had run.
+                //
+                // Both bands are asserted, not just the renamed one. Narrowing the resize oracle
+                // WITHOUT covering entry would have converted a caught defect into an uncaught one:
+                // the same blank would simply have fallen outside the window and gone green.
                 await assertWorkspaceContinuity({
+                    band   : 'entry',
+                    continuity,
+                    label  : `scene-1-run-${run + 1}-entry-projection`,
+                    receipt: {run: run + 1},
+                    testInfo
+                });
+
+                await assertWorkspaceContinuity({
+                    band   : 'resize',
                     continuity,
                     label  : `scene-1-run-${run + 1}-resize`,
                     receipt: {run: run + 1},
