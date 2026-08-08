@@ -40,9 +40,10 @@ export function normalizeWakeIdentity(value) {
  * @summary Builds the bulk seat-arming resolver over the published receiver manifest.
  * @param {Object} options
  * @param {String} options.manifestPath Absolute path of the 0600 receiver route manifest. The
- *     receiver's paths are deployment-declared (outside the config tree, per the host-receiver
- *     posture), so the composing entrypoint owns this value; a deployment with no local wake lane
- *     simply never constructs the reader, leaving the arming axis typed-unobserved.
+ *     coordinate is deployment-declared through ONE env name — `NEO_WAKE_RECEIVER_MANIFEST`, bound
+ *     by the `fleet.wakeReceiverManifestPath` leaf and the same export the receiver's plist is
+ *     materialized from — and the composing wiring owns construction; a deployment declaring no
+ *     local wake lane never constructs the reader, leaving the arming axis typed-unobserved.
  * @param {Function} [options.loadManifest=loadWakeReceiverManifest] Loader seam for tests. The
  *     default is the receiver's own loader — mode-enforcing, shape-enforcing.
  * @returns {Function} `resolveSeatArming() => Promise<{state, reason, byIdentity}>`

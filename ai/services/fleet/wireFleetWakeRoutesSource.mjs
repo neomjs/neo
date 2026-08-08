@@ -17,7 +17,11 @@ import {createFleetWakeRoutesSource} from './fleetWakeRoutesSource.mjs';
  * @param {Function|null} [options.listActiveSubscriptionIdentities]
  * @param {Function|null} [options.resolveDeliveryLiveness]
  * @param {Function|null} [options.resolveTerminalDeliveryFailures]
- * @param {Function|null} [options.resolveSeatArming]
+ * @param {Function|null} [options.resolveSeatArming] Explicit resolver override — wins over the
+ *     source's manifest-path composition; the FleetManager-level test seam.
+ * @param {String|null} [options.wakeReceiverManifestPath] Absolute path of the receiver's
+ *     published 0600 route manifest, forwarded verbatim — the path→reader composition lives in
+ *     `createFleetWakeRoutesSource`, the Neo-free site the spec exercises directly.
  * @param {Function|null} [options.readPresence]
  * @param {Function} [options.wakeIdentityFor]
  * @param {Function} [options.now]
@@ -32,6 +36,7 @@ export function wireFleetWakeRoutesSource({
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
     resolveSeatArming = null,
+    wakeReceiverManifestPath = null,
     readPresence = null,
     wakeIdentityFor,
     now,
@@ -49,6 +54,7 @@ export function wireFleetWakeRoutesSource({
         resolveDeliveryLiveness,
         resolveTerminalDeliveryFailures,
         resolveSeatArming,
+        wakeReceiverManifestPath,
         readPresence,
         ...(wakeIdentityFor ? {wakeIdentityFor} : {}),
         ...(now ? {now} : {})

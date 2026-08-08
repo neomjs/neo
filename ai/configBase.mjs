@@ -327,6 +327,19 @@ class ConfigBase extends ConfigProvider {
                  */
                 port           : leaf(8083, 'NEO_FLEET_PORT', 'port'),
                 /**
+                 * Absolute path of the signed host wake receiver's published 0600 route manifest —
+                 * the seat-arming read coordinate for the fleet wake-routes axis. ONE deployment
+                 * declaration drives every consumer: the local runbook exports
+                 * `NEO_WAKE_RECEIVER_MANIFEST` and materializes the receiver's launchd plist from
+                 * it, and this leaf binds the SAME env name, so the fleet server observes the
+                 * coordinate the receiver actually boots on. EMPTY means the deployment declares
+                 * no local wake lane; the arming axis then stays typed-unobserved instead of
+                 * guessing a path. Not a plane member — host-edge consumer config pointing at the
+                 * operator-materialized receiver root, exactly like `planeBase`.
+                 * @type {string}
+                 */
+                wakeReceiverManifestPath: leaf('', 'NEO_WAKE_RECEIVER_MANIFEST', 'string'),
+                /**
                  * Patience for ONE tenant-plane probe request (initialize, the initialized
                  * notification, the identity proof) — a single declared bound replacing per-site
                  * literals, env-relocatable. Calibrated from MEASURED plane latency, both modes:

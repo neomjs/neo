@@ -1,4 +1,7 @@
 import {expect, test}                from '@playwright/test';
+import fs                            from 'node:fs/promises';
+import os                            from 'node:os';
+import path                          from 'node:path';
 import {createFleetWakeRoutesSource} from '../../../../../../ai/services/fleet/fleetWakeRoutesSource.mjs';
 
 const ROSTER = [
@@ -88,6 +91,57 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         expect(clio.presence).toEqual({
             state: 'online', lastSeenAt: '2026-08-03T19:55:00.000Z', reason: 'recent add_memory activity'
         })
+    });
+
+    test('the composition witness: a declared manifest path ALONE — no resolver injection — arms the envelope through the receiver\'s own loader', async () => {
+        // The production path end-to-end: the deployment-declared coordinate (the
+        // `fleet.wakeReceiverManifestPath` leaf's value in production, a literal here) composes
+        // the arming authority inside the source, which reads a REAL 0600 manifest file through
+        // `loadWakeReceiverManifest` — mode gate, schema gate, allowlist projection included.
+        // The injected resolver the envelope-flip test uses above is deliberately absent.
+        const
+            dir          = await fs.mkdtemp(path.join(os.tmpdir(), 'wake-manifest-')),
+            manifestPath = path.join(dir, 'routes.json'),
+            signingKey   = 'a-very-secret-hmac-key-material-0123456789abcdef';
+
+        await fs.writeFile(manifestPath, JSON.stringify({
+            schemaVersion: 1,
+            routes       : {
+                'WAKE_SUB:one': {
+                    signingKey,
+                    agentIdentity        : '@neo-fable-clio',
+                    harnessTargetMetadata: {adapter: 'osascript', appName: 'Claude', addressType: 'userDataDir', instanceAddress: '/Users/x/.claude-instances/neo-fable-clio'},
+                    adapterConfig        : {attemptTimeoutMs: 30000}
+                }
+            }
+        }), {mode: 0o600});
+        await fs.chmod(manifestPath, 0o600);
+
+        try {
+            const snapshot = await harness({wakeReceiverManifestPath: manifestPath}).readWakeRoutes();
+
+            expect(snapshot.capability).toEqual({
+                source    : 'fleet:wakeRoutes', state: 'wired', confidence: 'observed',
+                capturedAt: '2026-08-03T20:01:00.000Z',
+                reason    : null
+            });
+
+            const [ada, clio] = snapshot.seats;
+
+            expect(clio.armed).toEqual({
+                state : 'armed',
+                reason: null,
+                route : {routeCount: 1, adapter: 'osascript', appName: 'Claude', addressType: 'userDataDir'}
+            });
+            // The real loader's answer feeds the same none-vs-unknown judgment as the injected one.
+            expect(ada.armed).toEqual({state: 'none', reason: null});
+
+            // The key-material negative holds through the REAL path too: the manifest on disk
+            // carries the HMAC key, the published snapshot never does.
+            expect(JSON.stringify(snapshot)).not.toContain(signingKey)
+        } finally {
+            await fs.rm(dir, {recursive: true, force: true})
+        }
     });
 
     test('the armed-certification control survives: an absent arming read still forbids wired, as a typed unobserved', async () => {

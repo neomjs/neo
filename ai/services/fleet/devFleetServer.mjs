@@ -57,7 +57,6 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
 import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
 import {createPlaneWhoIsOnlineReader}                                    from './planeWhoIsOnlineReader.mjs';
-import {createSeatArmingReader}                                          from './seatArmingReader.mjs';
 import {readActiveWakeSubscriptionIdentities}                            from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
 import {wireBootIdentityReadSource}                                      from './wireBootIdentityReadSource.mjs';
@@ -155,7 +154,12 @@ async function boot() {
                 state     : 'unknown',
                 reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
                 byIdentity: new Map()
-            })
+            }),
+            // The signed host receiver survives the hard cut HOST-side in both modes, so its
+            // manifest coordinate is mode-independent truth: the `fleet.wakeReceiverManifestPath`
+            // leaf binds the SAME `NEO_WAKE_RECEIVER_MANIFEST` export the runbook materializes the
+            // receiver's plist from. Declared-empty ⇒ no local wake lane ⇒ arming typed-unobserved.
+            wakeReceiverManifestPath: AiConfig.fleet.wakeReceiverManifestPath
         };
 
         console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery axes honest-unknown pending a plane vouching surface)`)
@@ -166,7 +170,10 @@ async function boot() {
         FleetManager.wakeStateOptions = {
             pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
             deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
-            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities
+            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities,
+            // Same mode-independent receiver-manifest coordinate as the plane branch — the signed
+            // host receiver is host-bound truth either way (see the plane-branch comment).
+            wakeReceiverManifestPath        : AiConfig.fleet.wakeReceiverManifestPath
         };
 
         console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
@@ -191,16 +198,12 @@ async function boot() {
                 })
                 : null),
         // Arming reads the published wake-receiver manifest through the receiver's own loader. The
-        // manifest path is deployment-declared (the receiver's paths live outside the config tree),
-        // so it rides the same wakeStateOptions vehicle as its sibling read paths — and a deployment
-        // with no local wake lane declares nothing, leaving the axis typed-unobserved rather than
-        // fabricating a verdict nothing observed.
-        resolveSeatArming: FleetManager.wakeStateOptions.resolveSeatArming ??
-            (FleetManager.wakeStateOptions.wakeReceiverManifestPath
-                ? createSeatArmingReader({
-                    manifestPath: FleetManager.wakeStateOptions.wakeReceiverManifestPath
-                })
-                : null),
+        // coordinate is deployment-declared through ONE env name (`NEO_WAKE_RECEIVER_MANIFEST`,
+        // bound by the `fleet.wakeReceiverManifestPath` leaf) and rides the same wakeStateOptions
+        // vehicle as its sibling read paths; the path→reader composition lives in the routes
+        // SOURCE, the Neo-free site the spec exercises. An explicit resolver stays the override seam.
+        resolveSeatArming       : FleetManager.wakeStateOptions.resolveSeatArming ?? null,
+        wakeReceiverManifestPath: FleetManager.wakeStateOptions.wakeReceiverManifestPath ?? null,
         readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
     });
 

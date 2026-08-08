@@ -1,4 +1,5 @@
-import {redactCredentials} from './redactCredentials.mjs'
+import {createSeatArmingReader} from './seatArmingReader.mjs';
+import {redactCredentials}      from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetWakeRoutesSource
@@ -47,9 +48,15 @@ const
  * @param {Function|null} [options.resolveTerminalDeliveryFailures] `() => {state:
  *     'observed'|'unknown', reason, byIdentity: Map}` (sync or async). Absent ⇒ axis unknown.
  * @param {Function|null} [options.resolveSeatArming] `() => {state: 'observed'|'unknown', reason,
- *     byIdentity: Map}` (sync or async) — the seat-arming authority (the published wake-receiver
- *     manifest, read through the receiver's own loader; see `seatArmingReader`). Absent ⇒ the
- *     arming axis is a typed `unobserved` — the no-local-wake-lane branch, not an error.
+ *     byIdentity: Map}` (sync or async) — an explicit seat-arming authority. Wins over
+ *     `wakeReceiverManifestPath`; with neither, the arming axis is a typed `unobserved` — the
+ *     no-local-wake-lane branch, not an error.
+ * @param {String|null} [options.wakeReceiverManifestPath] Absolute path of the published 0600
+ *     wake-receiver route manifest. Without an explicit resolver, a declared path composes the
+ *     arming authority HERE, over the receiver's own loader (see `seatArmingReader`) — the one
+ *     composition site production and the spec share, so the wired envelope is witnessable
+ *     without resolver injection. The path VALUE stays injected (deployment-declared through the
+ *     `fleet.wakeReceiverManifestPath` leaf); this source still resolves no configuration.
  * @param {Function|null} [options.readPresence] `() => Object` (sync or async) resolving the
  *     roster-presence report (`who_is_online` payload shape: `{agents: [{identity, state,
  *     reason, signals}]}`). Absent ⇒ the presence axis is a typed `unobserved`.
@@ -65,6 +72,7 @@ export function createFleetWakeRoutesSource({
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
     resolveSeatArming = null,
+    wakeReceiverManifestPath = null,
     readPresence = null,
     wakeIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
     now = () => new Date()
@@ -75,6 +83,10 @@ export function createFleetWakeRoutesSource({
     if (typeof resolveViewerIdentity !== 'function') {
         throw new TypeError('createFleetWakeRoutesSource requires a resolveViewerIdentity collaborator')
     }
+
+    resolveSeatArming = resolveSeatArming ?? (wakeReceiverManifestPath
+        ? createSeatArmingReader({manifestPath: wakeReceiverManifestPath})
+        : null);
 
     /**
      * @summary Reads one decomposed wake-route snapshot across the registered roster.
