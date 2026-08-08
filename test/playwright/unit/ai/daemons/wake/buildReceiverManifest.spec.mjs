@@ -6,6 +6,7 @@ import path                                                       from 'node:pat
 
 import {
     buildWakeReceiverManifest,
+    DEFAULT_CONTEXT_GATE,
     fingerprintSigningKey,
     parseManifestBuilderArgs,
     readPublishedRoutes,
@@ -428,8 +429,38 @@ test.describe('runManifestBuilder — per-peer composition', () => {
 
         expect(manifest.routes[codexSubscription.id].adapterConfig).toEqual({
             attemptTimeoutMs: 10000,
-            codexBinary     : '/usr/local/bin/codex'
+            codexBinary     : '/usr/local/bin/codex',
+            contextGate     : DEFAULT_CONTEXT_GATE
         })
+    });
+
+    test('stamps the #16682 context gate on every route, merging per-route overrides over the defaults', () => {
+        const plain = {
+            id                   : 'WAKE_SUB:plain',
+            status               : 'active',
+            agentIdentity        : '@neo-kimi-phoebe',
+            harnessTarget        : 'a2a-webhook',
+            harnessTargetMetadata: {adapter: 'opencode-server', signingKey: 'c'.repeat(64)}
+        };
+        const tuned = {
+            id                   : 'WAKE_SUB:tuned',
+            status               : 'active',
+            agentIdentity        : '@neo-kimi-iris',
+            harnessTarget        : 'a2a-webhook',
+            harnessTargetMetadata: {adapter: 'kimi-pull-bridge', signingKey: 'd'.repeat(64)}
+        };
+
+        const {manifest} = buildWakeReceiverManifest({
+            subscriptions    : [plain, tuned],
+            adapterConfigById: {[tuned.id]: {contextGate: {maxContextTokens: 400_000}}}
+        });
+
+        expect(manifest.routes[plain.id].adapterConfig.contextGate).toEqual(DEFAULT_CONTEXT_GATE);
+        // A per-key merge, not a wholesale replacement: the warn default survives a max override.
+        expect(manifest.routes[tuned.id].adapterConfig.contextGate).toEqual({
+            maxContextTokens : 400_000,
+            warnContextTokens: DEFAULT_CONTEXT_GATE.warnContextTokens
+        });
     });
 });
 
@@ -764,7 +795,8 @@ test.describe('runManifestBuilder — strict-lock + boot truths', () => {
 
             expect(published[codexSubscription.id].adapterConfig).toEqual({
                 attemptTimeoutMs: 10000,
-                codexBinary     : '/usr/local/bin/codex'
+                codexBinary     : '/usr/local/bin/codex',
+                contextGate     : DEFAULT_CONTEXT_GATE
             });
             expect(published[codexSubscription.id].harnessTargetMetadata.addressType).toBe(INSTANCE.type);
             expect(published[codexSubscription.id].harnessTargetMetadata.appName).toBe('Codex')

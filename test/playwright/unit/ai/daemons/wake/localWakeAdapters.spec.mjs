@@ -2,7 +2,8 @@ import {test, expect} from '@playwright/test';
 
 import {
     dispatchLocalWake,
-    formatLocalWakeDigest
+    formatLocalWakeDigest,
+    probeSessionContext
 } from '../../../../../../ai/daemons/wake/localWakeAdapters.mjs';
 
 test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
@@ -396,5 +397,99 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
         expect(script).toContain('key code 36');
         // …and no Codex-only Esc prelude: the OpenCode route gets the generic submit, not a quirk.
         expect(script).not.toContain('key code 53');
+    });
+
+    test.describe('probeSessionContext (#16682 context gate)', () => {
+        const openCodeRecord = () => record('opencode-server');
+        const kimiRecord     = () => record('kimi-pull-bridge');
+
+        const openCodeEnvelope = JSON.stringify({
+            hostname : '127.0.0.1',
+            port     : 63181,
+            sessionId: 'ses_probe',
+            projectId: 'proj',
+            directory: '/seat',
+            username : 'opencode',
+            password : 'secret'
+        });
+
+        const messageList = [
+            {info: {role: 'assistant', time: {created: 1000}, tokens: {input: 40_000, cache: {read: 300_000}}}},
+            {info: {role: 'user',      time: {created: 2000}}},
+            {info: {role: 'assistant', time: {created: 3000}, tokens: {input: 12_000, cache: {read: 438_000}}}}
+        ];
+
+        test('reads context occupancy from the opencode server message API', async () => {
+            let   requestedUrl = null;
+            const probe        = await probeSessionContext(openCodeRecord(), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => openCodeEnvelope},
+                fetch  : async url => {
+                    requestedUrl = url;
+                    return {ok: true, json: async () => messageList};
+                }
+            });
+
+            expect(requestedUrl).toBe('http://127.0.0.1:63181/session/ses_probe/message?limit=30');
+            // The NEWEST assistant turn owns the occupancy — 12k fresh + 438k cached, not the older one.
+            expect(probe).toEqual({contextTokens: 450_000, lastActivityAt: 3000, sessionId: 'ses_probe'});
+        });
+
+        test('an unreadable opencode server fails open to null', async () => {
+            const probe = await probeSessionContext(openCodeRecord(), {
+                homedir: () => '/home/seat',
+                fs     : {readFile: async () => openCodeEnvelope},
+                fetch  : async () => { throw new Error('ECONNREFUSED'); }
+            });
+
+            expect(probe).toBeNull();
+        });
+
+        test('reads the kimi seat from the wire.jsonl tail, newest usage line wins', async () => {
+            const wireLines = [
+                JSON.stringify({usage: {inputOther: 5_000, inputCacheRead: 100_000}, time: 1_786_190_000_000}),
+                JSON.stringify({usage: {inputOther: 4_900, inputCacheRead: 438_000}, time: 1_786_190_600_000}),
+                '' // trailing newline of a jsonl tail
+            ].join('\n');
+            const kimiFs = {
+                readFile  : async () => JSON.stringify({sessionId: 'session_abc', cwd: '/seat'}),
+                readdir   : async () => ['wd_neo_1'],
+                pathExists: async () => true,
+                stat      : async () => ({size: wireLines.length + 262_000}), // forces the tail-read branch
+                open      : async () => ({
+                    read : async buffer => { buffer.write(wireLines); },
+                    close: async () => {}
+                })
+            };
+
+            const probe = await probeSessionContext(kimiRecord(), {homedir: () => '/home/seat', fs: kimiFs});
+
+            expect(probe).toEqual({
+                contextTokens : 442_900,
+                lastActivityAt: 1_786_190_600_000,
+                sessionId     : 'session_abc'
+            });
+        });
+
+        test('a kimi wire ledger without usage lines fails open to null', async () => {
+            const kimiFs = {
+                readFile  : async () => JSON.stringify({sessionId: 'session_abc', cwd: '/seat'}),
+                readdir   : async () => ['wd_neo_1'],
+                pathExists: async () => true,
+                stat      : async () => ({size: 100}),
+                open      : async () => ({
+                    read : async buffer => { buffer.write('{"noUsage":true}\n'); },
+                    close: async () => {}
+                })
+            };
+
+            expect(await probeSessionContext(kimiRecord(), {homedir: () => '/home/seat', fs: kimiFs})).toBeNull();
+        });
+
+        test('adapters without local context authority (osascript, tmux, test) return null', async () => {
+            for (const adapter of ['osascript', 'tmux', 'test']) {
+                expect(await probeSessionContext(record(adapter), {})).toBeNull();
+            }
+        });
     });
 });
