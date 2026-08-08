@@ -116,7 +116,7 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 | **Polish commits landing** | UPDATE the existing self-review comment in place. Readers see current state, not evolution. |
 | **Bug-fix rounds** | NEW comment per round for clarity + traceability. Title the comment with the fix scope. |
 | **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — the callout preserves the *direction change*, not a withdrawn fact; see the row below. |
-| **Withdrawing a published claim** | UPDATE in place — a withdrawal lands no commit, so no commit-keyed row fires for it. If a separate comment is unavoidable, cut the superseded one to a pointer: **exactly one comment is live**, or the economical read (first, stop) returns the withdrawn answer. Git holds the history. |
+| **Withdrawing a published claim** | UPDATE in place — a withdrawal lands no commit, so no commit-keyed row fires for it. If a separate comment is unavoidable, cut the superseded one to a pointer: **exactly one comment is live**, or the economical read (first, stop) returns the withdrawn answer. |
 | **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
 
 ## 14. A2A Comment-ID Propagation (Author Side)
