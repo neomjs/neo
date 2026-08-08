@@ -197,3 +197,42 @@ export function classifyEmbedDisposition(boundedCode) {
         ? EMBED_DISPOSITION.rejected
         : EMBED_DISPOSITION.deferrable
 }
+
+/**
+ * @summary Every code {@link classifyEmbedFailureCode} can emit — the embed domain, derived rather
+ * than restated.
+ *
+ * Built from this module's own three sources so it cannot drift from them: adding a provider
+ * mapping or an internal code widens this set in the same edit, and a hand-maintained duplicate
+ * list would have been one rename away from silently disagreeing with the function it describes.
+ * @type {Set<String>}
+ */
+const EMBED_DOMAIN_CODES = Object.freeze(new Set([
+    KB_VECTOR_EMBED_UNCLASSIFIED,
+    ...INTERNAL_EMBED_ERROR_CODES,
+    ...Object.values(PROVIDER_ERROR_CODE_MAP)
+]));
+
+/**
+ * @summary Whether a bounded code came from the embed stage at all.
+ *
+ * **The boundary {@link classifyEmbedDisposition} deliberately does not police.** That function is
+ * total over its documented input — *a bounded embed-failure code* — and answers `deferrable` for
+ * anything it does not recognise, which is correct there: an unrecognised EMBED failure must not
+ * discard a corpus (the observed production code was the unclassified sentinel).
+ *
+ * A caller holding a MIXED error stream is a different situation, and the same default becomes a
+ * defect. An ingestion summary carries parse failures, tenant-guard rejections and size refusals
+ * alongside embed failures; routed through the disposition alone, a permanently-malformed file would
+ * defer forever — never failing, never advancing, never surfacing a cause. **Silently stuck is worse
+ * than loudly broken**, and it is the failure this predicate exists to prevent.
+ *
+ * So deferral is opt-in by DOMAIN and default WITHIN it: ask this first, and only then ask the
+ * disposition. Anything outside the embed domain keeps whatever behaviour its own layer already had.
+ *
+ * @param {String} [boundedCode] A bounded `KB_*` code.
+ * @returns {Boolean} True when the code is one the embed classifier can produce.
+ */
+export function isEmbedFailureCode(boundedCode) {
+    return typeof boundedCode === 'string' && EMBED_DOMAIN_CODES.has(boundedCode)
+}

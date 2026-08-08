@@ -12,7 +12,8 @@ import {
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_UNCLASSIFIED,
     classifyEmbedDisposition,
-    classifyEmbedFailureCode
+    classifyEmbedFailureCode,
+    isEmbedFailureCode
 } from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {normalizeTenantRepoCheckpointState}
     from '../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -368,6 +369,43 @@ test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
         ]);
 
         expect(dispositions.size).toBe(2);
+    });
+
+    test('the embed DOMAIN is what makes deferral safe on a mixed error stream', () => {
+        // An ingestion summary carries parse failures and tenant-guard rejections alongside embed
+        // failures — 14 distinct push sites, only two of them the embed path. Routed through the
+        // disposition alone, a permanently-malformed file would defer forever: never failing, never
+        // advancing, never surfacing a cause. This is the guard that keeps deferral opt-in by domain.
+        expect(isEmbedFailureCode(KB_VECTOR_EMBED_UNCLASSIFIED)).toBe(true);
+        expect(isEmbedFailureCode('KB_VECTOR_EMBED_TIMEOUT')).toBe(true);
+        expect(isEmbedFailureCode('KB_TENANT_SPOOF_REJECTED')).toBe(true);
+
+        // A real non-embed code from a sibling stage. It is bounded and legitimate, and it must NOT
+        // be admitted to the domain — otherwise the disposition's deferrable default swallows it.
+        expect(isEmbedFailureCode('KB_TENANT_REPO_SYNC_SYNC_FAILED')).toBe(false);
+        expect(isEmbedFailureCode('KB_SOMETHING_ELSE_ENTIRELY')).toBe(false);
+        expect(isEmbedFailureCode(undefined)).toBe(false);
+        expect(isEmbedFailureCode('constructor')).toBe(false);
+    });
+
+    test('the domain is DERIVED from the classifier, not restated beside it', () => {
+        // The drift falsifier. Every code classifyEmbedFailureCode can actually emit must be in the
+        // domain — if someone adds a provider mapping and the domain were a hand-maintained literal,
+        // that new code would classify fine and then be silently refused deferral. Driving the real
+        // function over its real inputs is what makes this a check rather than a restatement.
+        const emitted = [
+            classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT'),
+            classifyEmbedFailureCode('OPENAI_COMPATIBLE_REQUEST_TIMEOUT'),
+            classifyEmbedFailureCode('ECONNREFUSED'),
+            classifyEmbedFailureCode('EMBEDDING_MODEL_NOT_RESIDENT'),
+            classifyEmbedFailureCode('ABORT_ERR'),
+            classifyEmbedFailureCode('KB_EMBEDDING_INPUT_SIZE_EXCEEDED'),
+            classifyEmbedFailureCode('an unmapped provider code')
+        ];
+
+        for (const code of emitted) {
+            expect(isEmbedFailureCode(code)).toBe(true);
+        }
     });
 
     test('total over hostile and absent input', () => {
