@@ -115,7 +115,15 @@ const
         'token'
     ].map(key => key.toLowerCase()));
 
-/** @private */
+/**
+ * @summary Prove that one closed logical plan is internally coherent by re-deriving its canonical
+ * projection from the plan's own agent, MCP-matrix, and tenant-resource inputs. This is a coherence
+ * gate, not a provenance gate: it does not prove that a registry authorized those logical inputs.
+ * A future cross-process plan/apply seam must authenticate that origin independently.
+ * @param {ManagedAgentWorkspacePlan} plan Candidate logical plan.
+ * @returns {ManagedAgentWorkspacePlan} The recursively frozen canonical projection.
+ * @private
+ */
 function validateManagedAgentWorkspacePlan(plan) {
     assertSafeLogicalTree(plan, 'plan');
     assertExactRecord(plan, 'plan', LOGICAL_PLAN_KEYS);
@@ -212,8 +220,12 @@ function bindManagedAgentWorkspacePlan({logicalPlan, repoPath, mainCheckout, nod
  *
  * The sole production caller remains `startAgentProvisioned()` through the compatibility composer
  * below. Renderers and convergence helpers consume the same host-bound plan shape as before.
+ * Canonical re-derivation proves internal coherence with the plan's own logical inputs; it does not
+ * prove registry authorization or cross-process provenance. That belongs to the later authenticated
+ * plan/apply envelope rather than this host edge.
  * @param {Object} options
- * @param {ManagedAgentWorkspacePlan} options.plan Closed logical plan; structural clones accepted.
+ * @param {ManagedAgentWorkspacePlan} options.plan Closed logical plan; structural clones accepted
+ *     after schema and canonical-projection coherence validation.
  * @param {String} options.repoPath Absolute provisioned checkout path.
  * @param {String} options.instanceRoot Absolute Fleet harness-home root.
  * @param {String} [options.mainCheckout] Installed canonical checkout.

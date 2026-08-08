@@ -513,6 +513,48 @@ test.describe('managed workspace logical plan → host apply boundary', () => {
         expect(path.isAbsolute(result.mcpPlan[0].args[0])).toBe(true)
     });
 
+    test('host apply rejects projection drift while accepting a coherent clone without proving provenance', async () => {
+        const
+            plan           = createManagedAgentWorkspacePlan(logicalInput()),
+            divergentPlan  = structuredClone(plan),
+            coherentPlan   = structuredClone(plan),
+            hydrationCalls = [];
+
+        divergentPlan.mcpServers.find(server => server.key === 'memory-core').transport = 'streamable-http';
+
+        await expect(applyManagedAgentWorkspacePlan({
+            plan            : divergentPlan,
+            repoPath        : path.join(repoRoot, 'divergent-plan'),
+            instanceRoot,
+            mainCheckout,
+            nodePath        : NODE_PATH,
+            hydrateWorkspace: async args => {
+                hydrationCalls.push(args);
+                return {hydrated: true}
+            }
+        })).rejects.toThrow(
+            'host apply rejected its logical plan (applyManagedAgentWorkspacePlan: plan does not match the canonical logical projection.)'
+        );
+        expect(hydrationCalls).toEqual([]);
+
+        // This gate proves coherence with the plan's OWN logical inputs, not that a registry
+        // authorized them. Cross-process provenance belongs to the later signed envelope.
+        coherentPlan.mcpMatrix['memory-core'] = false;
+        coherentPlan.mcpServers.find(server => server.key === 'memory-core').enabled = false;
+
+        const result = await applyManagedAgentWorkspacePlan({
+            plan            : coherentPlan,
+            repoPath        : path.join(repoRoot, 'coherent-plan'),
+            instanceRoot,
+            mainCheckout,
+            nodePath        : NODE_PATH,
+            hydrateWorkspace: makeHydrate()
+        });
+
+        expect(result.mcpMatrix['memory-core']).toBe(false);
+        expect(result.mcpPlan.find(server => server.key === 'memory-core').enabled).toBe(false)
+    });
+
     test('invalid host input is normalized and a completed artifact converges after a mid-apply failure', async () => {
         const
             plan     = createManagedAgentWorkspacePlan(logicalInput()),
