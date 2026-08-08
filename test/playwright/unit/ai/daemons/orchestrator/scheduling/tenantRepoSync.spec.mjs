@@ -1,9 +1,11 @@
 import {test, expect} from '@playwright/test';
 import {
     buildTenantRepoSyncTrigger,
+    classifyEmbeddingRecoveryState,
     computeDeterministicJitter,
     detectStarvedTenantSync,
     getDueTask,
+    hasPendingEmbeddingRecoveryBypass,
     isRepoDue,
     isStarvedOrderInverted
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
@@ -258,6 +260,93 @@ test.describe('isRepoDue backoff cap (#16224 AC1)', () => {
 
         expect(result.backoffCapped).toBe(false);
         expect(result.effectiveCadenceMs).toBe((60000 + result.jitterMs) * 256);
+    });
+});
+
+test.describe('embedding recovery bypass (#16692)', () => {
+    const
+        episodeId    = 'a'.repeat(32),
+        generationId = 'b'.repeat(32),
+        repo         = {tenantId: 'tenant-a', repoSlug: 'neomjs/create-app'},
+        recovery     = {
+            episodeId,
+            causeCode               : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            detectedAt              : 100,
+            generationId,
+            observedAt              : 200,
+            bypassConsumedAt        : null,
+            lastConsumedGenerationId: null,
+            lastConsumedAt          : null
+        },
+        suppressedState = {
+            lastRunAttemptAt   : 1_000,
+            consecutiveFailures: 8
+        };
+
+    test('one durable unconsumed generation bypasses cadence without rewriting backoff truth', () => {
+        const baseline = isRepoDue({
+            repo,
+            persistedRepoState: suppressedState,
+            now               : 1_001,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        });
+        const recovered = isRepoDue({
+            repo,
+            persistedRepoState: {...suppressedState, embeddingRecovery: recovery},
+            now               : 1_001,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        });
+
+        expect(baseline.due).toBe(false);
+        expect(recovered).toMatchObject({
+            due               : true,
+            dueReason         : 'embedding-recovery',
+            recoveryBypass    : true,
+            backoffMultiplier : baseline.backoffMultiplier,
+            effectiveCadenceMs: baseline.effectiveCadenceMs
+        });
+    });
+
+    test('a consumed generation is history, never another due-bypass', () => {
+        const consumed = {
+            ...suppressedState,
+            embeddingRecovery: {...recovery, bypassConsumedAt: 300}
+        };
+        const due = isRepoDue({
+            repo,
+            persistedRepoState: consumed,
+            now               : 1_001,
+            globalCadenceMs   : 60_000,
+            backoffCapMs      : 120_000
+        });
+
+        expect(hasPendingEmbeddingRecoveryBypass(consumed)).toBe(false);
+        expect(due).toMatchObject({due: false, dueReason: 'not-due', recoveryBypass: false});
+    });
+
+    test('classifies the four failing-repo recovery states from scheduler and probe evidence', () => {
+        const withRecovery  = {...suppressedState, embeddingRecovery: recovery};
+        const awaitingProbe = {
+            ...suppressedState,
+            embeddingRecovery: {...recovery, generationId: null, observedAt: null}
+        };
+
+        expect(classifyEmbeddingRecoveryState({persistedRepoState: suppressedState}))
+            .toBe('ordinary-repo-backoff');
+        expect(classifyEmbeddingRecoveryState({persistedRepoState: withRecovery}))
+            .toBe('recovery-observed/retry-pending');
+        expect(classifyEmbeddingRecoveryState({
+            persistedRepoState: awaitingProbe,
+            probeSnapshot     : {nextAttemptAt: 2_000},
+            observedAt        : 1_500
+        })).toBe('recovery-probe-backoff');
+        expect(classifyEmbeddingRecoveryState({
+            persistedRepoState: awaitingProbe,
+            probeSnapshot     : {nextAttemptAt: 1_000},
+            observedAt        : 1_500
+        })).toBe('still-failing');
     });
 });
 

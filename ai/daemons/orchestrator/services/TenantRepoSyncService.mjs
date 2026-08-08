@@ -1,9 +1,12 @@
-import fs                        from 'fs-extra';
-import {createHmac, randomBytes} from 'node:crypto';
-import path                      from 'node:path';
-import Base                      from '../../../../src/core/Base.mjs';
-import AiConfig                  from '../../../config.mjs';
-import GitMirror                 from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import fs                         from 'fs-extra';
+import {createHmac, randomBytes}  from 'node:crypto';
+import path                       from 'node:path';
+import Base                       from '../../../../src/core/Base.mjs';
+import AiConfig                   from '../../../config.mjs';
+import GitMirror                  from '../../../services/knowledge-base/helpers/gitMirror.mjs';
+import TextEmbeddingService       from '../../../services/memory-core/TextEmbeddingService.mjs';
+import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
+import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
 // look right — the producer widening a code the filter still rejects is exactly this ticket's defect.
@@ -20,7 +23,13 @@ import {
     TenantRepoAccessCode,
     TenantRepoAccessStatus
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
-import {detectStarvedTenantSync, isRepoDue, isStarvedOrderInverted} from '../scheduling/tenantRepoSync.mjs';
+import {
+    classifyEmbeddingRecoveryState,
+    detectStarvedTenantSync,
+    hasPendingEmbeddingRecoveryBypass,
+    isRepoDue,
+    isStarvedOrderInverted
+} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -50,6 +59,7 @@ import {
 } from '../../shared/lifecycleGuard.mjs';
 import {
     classifyTenantRepoCheckpoint,
+    isEmbeddingRecoverySourceCode,
     normalizeTenantRepoCheckpointState,
     requiresTenantRepoCheckpointRevalidation,
     TENANT_REPO_INGEST_CONTRACT_VERSION,
@@ -57,10 +67,13 @@ import {
 } from './tenantRepoCheckpointValidity.mjs';
 
 const
-    ACCESS_CONFIG_FINGERPRINT_KEY    = randomBytes(32),
-    ACCESS_READINESS_MIN_TTL_MS      = 15 * 60 * 1000,
-    PERSISTED_REVISIONS_FILE_NAME    = 'tenant-repo-sync-revisions.json',
-    TENANT_REPO_SYNC_LEASE_FILE_NAME = 'tenant-repo-sync-lease.json';
+    ACCESS_CONFIG_FINGERPRINT_KEY         = randomBytes(32),
+    ACCESS_READINESS_MIN_TTL_MS           = 15 * 60 * 1000,
+    EMBEDDING_RECOVERY_FAILURE_TTL_MS     = 30 * 1000,
+    EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS = 10 * 60 * 1000,
+    EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS   = 30 * 1000,
+    PERSISTED_REVISIONS_FILE_NAME         = 'tenant-repo-sync-revisions.json',
+    TENANT_REPO_SYNC_LEASE_FILE_NAME      = 'tenant-repo-sync-lease.json';
 
 /**
  * @summary In-memory async semaphore with optional slot-acquisition timeout.
@@ -155,6 +168,64 @@ function getSourceErrorCode(error, outerCode) {
     }
 
     return BOUNDED_KB_ERROR_CODE_PATTERN.test(sourceCode) ? sourceCode : null;
+}
+
+/**
+ * @summary Selects the first bounded embedding cause from one failed ingestion attempt.
+ * @param {Error} error Failed operation.
+ * @param {String|null} sourceErrorCode Existing first-source compatibility code.
+ * @returns {String|null}
+ */
+function getEmbeddingRecoveryCauseCode(error, sourceErrorCode) {
+    return [sourceErrorCode, ...(Array.isArray(error?.sourceErrorCodes) ? error.sourceErrorCodes : [])]
+        .find(isEmbeddingRecoverySourceCode) || null;
+}
+
+/**
+ * @summary Creates or advances one durable embedding recovery episode after a sync failure.
+ *
+ * A repeated embedding failure stays in the same episode, including after its one recovery grant
+ * was consumed. Minting a fresh episode for every failure would let a still-broken provider acquire
+ * one immediate retry per sweep and silently defeat the durable backoff this lane protects.
+ *
+ * @param {Object} options
+ * @param {Object|null} options.priorRecovery Existing normalized episode.
+ * @param {String} options.causeCode Bounded embedding cause.
+ * @param {Number} options.failedAt Attempt timestamp.
+ * @returns {Object}
+ */
+function buildEmbeddingRecoveryAfterFailure({priorRecovery, causeCode, failedAt}) {
+    if (priorRecovery) {
+        const consumedGenerationId = priorRecovery.generationId && priorRecovery.bypassConsumedAt
+            ? priorRecovery.generationId
+            : null;
+
+        return {
+            episodeId               : priorRecovery.episodeId,
+            causeCode,
+            detectedAt              : priorRecovery.detectedAt,
+            generationId            : null,
+            observedAt              : null,
+            bypassConsumedAt        : null,
+            lastConsumedGenerationId: consumedGenerationId
+                || priorRecovery.lastConsumedGenerationId
+                || null,
+            lastConsumedAt: consumedGenerationId
+                ? priorRecovery.bypassConsumedAt
+                : (priorRecovery.lastConsumedAt || null)
+        };
+    }
+
+    return {
+        episodeId               : randomBytes(16).toString('hex'),
+        causeCode,
+        detectedAt              : failedAt,
+        generationId            : null,
+        observedAt              : null,
+        bypassConsumedAt        : null,
+        lastConsumedGenerationId: null,
+        lastConsumedAt          : null
+    };
 }
 
 /**
@@ -463,6 +534,35 @@ class TenantRepoSyncService extends Base {
     accessReadinessCache = new Map()
 
     /**
+     * Process-owned cadence gate for the embedding recovery canary. Never replaces or hydrates the
+     * durable per-repo scheduler.
+     * @member {Object|null} embeddingRecoveryGate
+     * @protected
+     */
+    embeddingRecoveryGate = null
+
+    /**
+     * Latest bounded canary delivery, retained only for deployment-state classification.
+     * @member {Object|null} embeddingRecoveryLastResult
+     * @protected
+     */
+    embeddingRecoveryLastResult = null
+
+    /**
+     * Mutable attempt seam read by the stable gate closure; tests replace it without replacing the gate.
+     * @member {Function|null} embeddingRecoveryProbeFn
+     * @protected
+     */
+    embeddingRecoveryProbeFn = null
+
+    /**
+     * Clock seam read by the stable gate closure.
+     * @member {Function} embeddingRecoveryClock
+     * @protected
+     */
+    embeddingRecoveryClock = Date.now
+
+    /**
      * Rejects non-positive-integer `concurrencyLimit` values. `0` would create a
      * never-acquirable semaphore; negatives and fractional values produce ambiguous
      * `active < limit` semantics (1.5 admits two slots, etc.). Invalid values fall
@@ -526,6 +626,114 @@ class TenantRepoSyncService extends Base {
      */
     clearTenantRepoAccessReadiness() {
         this.accessReadinessCache.clear();
+    }
+
+    /**
+     * @summary Clears process-local recovery-probe state, mirroring an orchestrator restart.
+     * @returns {void}
+     * @protected
+     */
+    clearEmbeddingRecoveryProbeState() {
+        this.embeddingRecoveryGate       = null;
+        this.embeddingRecoveryLastResult = null;
+        this.embeddingRecoveryProbeFn    = null;
+        this.embeddingRecoveryClock      = Date.now;
+    }
+
+    /**
+     * @summary Returns a bounded, read-only recovery canary projection for deployment diagnostics.
+     * @returns {Object}
+     */
+    getEmbeddingRecoveryProbeSnapshot() {
+        const snapshot = this.embeddingRecoveryGate?.snapshot?.() || {
+                  status       : 'never-started',
+                  failureStreak: 0,
+                  backoffMs    : 0,
+                  nextAttemptAt: null,
+                  terminal     : false,
+                  stopReason   : null,
+                  cached       : null
+              },
+              delivered = this.embeddingRecoveryLastResult,
+              failure   = delivered?.status === 'healthy'
+                  ? null
+                  : (delivered || snapshot.cached?.result || null);
+
+        return {
+            status             : snapshot.status,
+            checkedAt          : delivered?.gate?.checkedAt ?? snapshot.cached?.checkedAt ?? null,
+            lastDemandCached   : delivered?.gate?.cached ?? null,
+            failureStreak      : snapshot.failureStreak,
+            backoffMs          : snapshot.backoffMs,
+            nextAttemptAt      : snapshot.nextAttemptAt,
+            terminal           : snapshot.terminal,
+            stopReason         : snapshot.stopReason,
+            errorClassification: failure?.errorClassification || null,
+            errorCode          : failure?.errorCode || null
+        };
+    }
+
+    /**
+     * @summary Runs or reuses one process-owned embedding recovery canary generation.
+     *
+     * The cohort's durable episode ids participate in the gate key, so a later outage rotates to a
+     * fresh process generation even when the configured provider is unchanged. Gate state governs
+     * probe cadence/backoff only; callers decide whether a healthy observation can be committed.
+     *
+     * @param {Object} options
+     * @param {String[]} options.episodeKeys Awaiting durable episode/generation-history keys.
+     * @param {Function} [options.runProbe] Attempt seam.
+     * @param {Function} [options.clock=Date.now] Clock seam.
+     * @param {Number} [options.timeoutMs=30000] Consumer-owned provider deadline.
+     * @param {Number} [options.failureTtlMs=30000] Probe failure backoff floor.
+     * @param {Number} [options.failureTtlMaxMs=600000] Probe failure backoff ceiling.
+     * @returns {Promise<Object|null>}
+     */
+    async probeEmbeddingRecovery({
+        episodeKeys,
+        runProbe,
+        clock = Date.now,
+        timeoutMs = EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS,
+        failureTtlMs = EMBEDDING_RECOVERY_FAILURE_TTL_MS,
+        failureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS
+    } = {}) {
+        if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) return null;
+
+        this.embeddingRecoveryClock = clock;
+        this.embeddingRecoveryProbeFn = runProbe || (() => buildEmbeddingProbeBlock({
+            cfg      : AiConfig,
+            embedText: (text, explicitProvider, options) =>
+                TextEmbeddingService.embedText(text, explicitProvider, options),
+            input         : 'neo-tenant-repo-sync-embedding-recovery-canary',
+            operationLabel: 'Tenant repo sync embedding recovery probe',
+            now           : this.embeddingRecoveryClock,
+            timeoutMs
+        }));
+
+        if (!this.embeddingRecoveryGate) {
+            this.embeddingRecoveryGate = createBoundedRetryGate({
+                run: async context => {
+                    try {
+                        return await this.embeddingRecoveryProbeFn(context);
+                    } catch {
+                        return {
+                            status             : 'failed',
+                            error              : 'probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR',
+                            errorClassification: 'probe-could-not-run',
+                            errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
+                        };
+                    }
+                },
+                failureTtlMs,
+                failureTtlMaxMs,
+                now: () => this.embeddingRecoveryClock()
+            });
+        }
+
+        const key = `${AiConfig.embeddingProvider}:${AiConfig.vectorDimension}:${[...episodeKeys].sort().join(',')}`;
+
+        this.embeddingRecoveryLastResult = await this.embeddingRecoveryGate.tick({key});
+        return this.embeddingRecoveryLastResult;
     }
 
     /**
@@ -781,6 +989,11 @@ class TenantRepoSyncService extends Base {
      * @param {Number} [options.leaseStaleAfterMs] Override the cross-process lease TTL (test seam). Defaults to the `orchestrator.tenantRepoSync.leaseStaleAfterMs` leaf. Crashed owners recover immediately via pid-liveness; the TTL only bounds a live-but-wedged owner.
      * @param {Number} [options.leaseRenewalIntervalMs] Override the lease renewal cadence (test seam). Defaults to `max(5000, floor(leaseStaleAfterMs / 3))` — a live, renewing run never reaches its TTL deadline, so a replacement owner cannot start repo work while this one is still making progress.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
+     * @param {Function} [options.embeddingRecoveryProbe] Injectable embedding recovery canary.
+     * @param {Function} [options.embeddingRecoveryClock=Date.now] Recovery gate clock seam.
+     * @param {Number} [options.embeddingRecoveryProbeTimeoutMs=30000] Canary provider deadline.
+     * @param {Number} [options.embeddingRecoveryFailureTtlMs=30000] Canary backoff floor.
+     * @param {Number} [options.embeddingRecoveryFailureTtlMaxMs=600000] Canary backoff ceiling.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`, `starved`}.
      */
     async runTask({
@@ -802,7 +1015,12 @@ class TenantRepoSyncService extends Base {
         backoffCapMs      = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
         starvedAfterMs    = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
         leaseRenewalIntervalMs,
-        seedBootstrap     = true
+        seedBootstrap     = true,
+        embeddingRecoveryProbe,
+        embeddingRecoveryClock           = Date.now,
+        embeddingRecoveryProbeTimeoutMs  = EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS,
+        embeddingRecoveryFailureTtlMs    = EMBEDDING_RECOVERY_FAILURE_TTL_MS,
+        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS
     } = {}) {
         // One-time deployment sanity check on the two tuning leaves' RELATIONSHIP (never a
         // throw — a noisy alert beats a dead lane): an inverted floor makes ordinary capped
@@ -887,35 +1105,43 @@ class TenantRepoSyncService extends Base {
         //    in-flight work is bounded to at most one fenced step.
         // 3. TTL BACKSTOP — pid-liveness + the (renewal-refreshed) deadline
         //    still bound a crashed or fully wedged owner for successors.
-        let leaseLost      = false,
-            renewalStopped = false,
-            renewalTimer   = null;
+        let leaseLost       = false,
+            renewalStopped  = false,
+            renewalTimer    = null,
+            renewalInFlight = Promise.resolve();
 
         const renewalIntervalMsResolved = leaseRenewalIntervalMs ?? Math.max(5000, Math.floor(leaseStaleAfterMs / 3));
 
         const scheduleRenewal = () => {
-            renewalTimer = setTimeout(async () => {
-                try {
-                    const renewal = await renewHeavyMaintenanceLease({
-                        token       : acquisition.lease.token,
-                        leasePath   : resolvedLeasePath,
-                        staleAfterMs: leaseStaleAfterMs
-                    });
+            renewalTimer = setTimeout(() => {
+                // A timer already queued when the run settles cannot be canceled reliably. Refuse
+                // it before it enters the lifecycle guard, and retain every started promise so the
+                // finalizer can join it before releasing the lease and returning to the caller.
+                if (renewalStopped) return;
 
-                    if (!renewal.renewed) {
+                renewalInFlight = (async () => {
+                    try {
+                        const renewal = await renewHeavyMaintenanceLease({
+                            token       : acquisition.lease.token,
+                            leasePath   : resolvedLeasePath,
+                            staleAfterMs: leaseStaleAfterMs
+                        });
+
+                        if (!renewal.renewed) {
+                            leaseLost = true;
+                            writeLog?.('WARN', `[TenantRepoSync] Lease renewal lost ownership (${renewal.status}); aborting at the next fence.`);
+                            return;
+                        }
+                    } catch (e) {
                         leaseLost = true;
-                        writeLog?.('WARN', `[TenantRepoSync] Lease renewal lost ownership (${renewal.status}); aborting at the next fence.`);
+                        writeLog?.('WARN', `[TenantRepoSync] Lease renewal failed (${e.message}); aborting at the next fence.`);
                         return;
                     }
-                } catch (e) {
-                    leaseLost = true;
-                    writeLog?.('WARN', `[TenantRepoSync] Lease renewal failed (${e.message}); aborting at the next fence.`);
-                    return;
-                }
 
-                if (!renewalStopped) {
-                    scheduleRenewal();
-                }
+                    if (!renewalStopped) {
+                        scheduleRenewal();
+                    }
+                })();
             }, renewalIntervalMsResolved);
             renewalTimer.unref?.();
         };
@@ -948,7 +1174,12 @@ class TenantRepoSyncService extends Base {
                 fullReplay, taskStateService, healthService, taskName, envelopeBuilder, leaseGuard,
                 leasePath        : resolvedLeasePath,
                 revisionsFilePath: resolvedRevisionsPath,
-                globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap
+                globalCadenceMs, jitterRatio, backoffCapMs, starvedAfterMs, seedBootstrap,
+                embeddingRecoveryProbe,
+                embeddingRecoveryClock,
+                embeddingRecoveryProbeTimeoutMs,
+                embeddingRecoveryFailureTtlMs,
+                embeddingRecoveryFailureTtlMaxMs
             });
             const status         = result.status;
             const lastCompletion = {
@@ -995,6 +1226,7 @@ class TenantRepoSyncService extends Base {
             if (renewalTimer) {
                 clearTimeout(renewalTimer);
             }
+            await renewalInFlight;
             await releaseHeavyMaintenanceLease({token: acquisition.lease.token, leasePath: resolvedLeasePath});
         }
     }
@@ -1015,7 +1247,12 @@ class TenantRepoSyncService extends Base {
         backoffCapMs       = AiConfig.data.orchestrator.tenantRepoSync.backoffCapMs,
         starvedAfterMs     = AiConfig.data.orchestrator.tenantRepoSync.starvedAfterMs,
         healEventLedgerDir = revisionsFilePath ? path.join(path.dirname(revisionsFilePath), 'heal-events') : null,
-        seedBootstrap      = true
+        seedBootstrap      = true,
+        embeddingRecoveryProbe,
+        embeddingRecoveryClock           = Date.now,
+        embeddingRecoveryProbeTimeoutMs  = EMBEDDING_RECOVERY_PROBE_TIMEOUT_MS,
+        embeddingRecoveryFailureTtlMs    = EMBEDDING_RECOVERY_FAILURE_TTL_MS,
+        embeddingRecoveryFailureTtlMaxMs = EMBEDDING_RECOVERY_FAILURE_TTL_MAX_MS
     }) {
         if (fullReplay && (!Array.isArray(onlyRepoSlugs) || onlyRepoSlugs.length === 0)) {
             throw new TenantRepoSyncError(
@@ -1185,6 +1422,75 @@ class TenantRepoSyncService extends Base {
             await this.writeInFlightAttempts({filePath: inFlightPath, attempts: {}});
         }, {bestEffort: false});
 
+        // A retained embedding-class failure is the ONLY thing that arms this canary. The gate is
+        // process-local and paces provider work; it never becomes a scheduler. A healthy result must
+        // first become a durable generation on the existing checkpoint manifest, under the same
+        // commit-point ownership fence as every other scheduler fact. Until that commit succeeds,
+        // `isRepoDue()` has no recovery evidence and the ordinary backoff remains authoritative.
+        const
+            configuredRepoLabels    = new Set(repos.map(repo => `${repo.tenantId}/${repo.repoSlug}`)),
+            awaitingRecoveryEntries = onlyRepoSlugs
+                ? []
+                : Object.entries(persistedRevisions)
+                    .filter(([label, state]) =>
+                        configuredRepoLabels.has(label)
+                        && state?.embeddingRecovery
+                        && !state.embeddingRecovery.generationId
+                    );
+
+        if (awaitingRecoveryEntries.length > 0) {
+            const observation = await this.probeEmbeddingRecovery({
+                episodeKeys: awaitingRecoveryEntries.map(([, state]) => {
+                    const recovery = state.embeddingRecovery;
+
+                    return `${recovery.episodeId}:${recovery.lastConsumedGenerationId || 'initial'}`;
+                }),
+                runProbe       : embeddingRecoveryProbe,
+                clock          : embeddingRecoveryClock,
+                timeoutMs      : embeddingRecoveryProbeTimeoutMs,
+                failureTtlMs   : embeddingRecoveryFailureTtlMs,
+                failureTtlMaxMs: embeddingRecoveryFailureTtlMaxMs
+            });
+
+            if (observation?.status === 'healthy') {
+                const
+                    generationId = randomBytes(16).toString('hex'),
+                    observedAt   = observation.gate?.checkedAt ?? embeddingRecoveryClock(),
+                    previous     = new Map();
+
+                for (const [label, state] of awaitingRecoveryEntries) {
+                    previous.set(label, state.embeddingRecovery);
+                    state.embeddingRecovery = {
+                        ...state.embeddingRecovery,
+                        generationId,
+                        observedAt,
+                        bypassConsumedAt: null
+                    };
+                }
+
+                let   manifestCommitted    = false;
+                const transactionCommitted = await withSidecarTransaction(async assertStillOwned => {
+                    const result = await this.writePersistedRevisions({
+                        assertOwnership: assertStillOwned,
+                        filePath       : resolvedRevisionsPath,
+                        revisions      : persistedRevisions
+                    });
+
+                    manifestCommitted = result.committed;
+                }, {bestEffort: false});
+
+                if (!transactionCommitted || !manifestCommitted) {
+                    for (const [label, recovery] of previous) {
+                        persistedRevisions[label].embeddingRecovery = recovery;
+                    }
+                } else {
+                    writeLog?.('INFO', `[TenantRepoSync] Embedding recovery observed; committed one due-bypass generation for ${awaitingRecoveryEntries.length} scoped repo(s).`);
+                }
+            } else if (observation) {
+                writeLog?.('INFO', `[TenantRepoSync] Embedding recovery not yet observed (${observation.errorCode || 'EMBEDDING_PROVIDER_ERROR'}; ${observation.gate?.cached ? 'probe backoff retained' : 'provider still failing'}).`);
+            }
+        }
+
         // The live in-flight map is a FRESH object, never the recovery snapshot. Reusing
         // `residualAttempts` as the live map republished entries the fold had already consumed:
         // the fold cleared the file but not the object, so the first repo to enter protected work
@@ -1216,7 +1522,8 @@ class TenantRepoSyncService extends Base {
                 // then write is check-then-act: earlier revisions fenced harder and only MOVED the
                 // window (check→write became read→write). A lock that does not span the read and
                 // the write cannot close it.
-                await withSidecarTransaction(async assertStillOwned => {
+                let   sidecarCommitted     = false;
+                const transactionCommitted = await withSidecarTransaction(async assertStillOwned => {
                     // Merge against live state rather than publishing this sweep's whole view.
                     // Entries owned by another run are carried forward untouched; only our own are
                     // written or removed. `runId` is defence-in-depth for the residual the guard's
@@ -1235,8 +1542,13 @@ class TenantRepoSyncService extends Base {
 
                     if (!await assertStillOwned()) return;
 
-                    await this.writeInFlightAttempts({filePath: inFlightPath, attempts: merged});
+                    sidecarCommitted = await this.writeInFlightAttempts({
+                        filePath: inFlightPath,
+                        attempts: merged
+                    });
                 });
+
+                return transactionCommitted && sidecarCommitted;
             });
 
             return inFlightChain
@@ -1388,7 +1700,12 @@ class TenantRepoSyncService extends Base {
                             lastAccessCode     : priorState?.lastAccessCode ?? null,
                             lastErrorAt        : priorState?.lastErrorAt
                                 ? new Date(priorState.lastErrorAt).toISOString()
-                                : null
+                                : null,
+                            recoveryState: classifyEmbeddingRecoveryState({
+                                persistedRepoState: priorState,
+                                probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
+                                observedAt        : startedMs
+                            })
                         } : {})
                     });
                     return; // skip semaphore + work entirely
@@ -1414,9 +1731,17 @@ class TenantRepoSyncService extends Base {
                 return;
             }
 
+            const recoveryGrant = hasPendingEmbeddingRecoveryBypass(priorState)
+                ? {
+                    episodeId   : priorState.embeddingRecovery.episodeId,
+                    generationId: priorState.embeddingRecovery.generationId
+                }
+                : null;
+
             let slotAcquired     = false,
                 accessConfirmed  = false,
-                inFlightRecorded = false;
+                inFlightRecorded = false,
+                workStarted      = false;
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
@@ -1432,16 +1757,53 @@ class TenantRepoSyncService extends Base {
                 // work — not due, revalidation-deferred, or lease-lost at the fence — records
                 // no attempt, matching the lease-lost contract below that deliberately leaves
                 // backoff state untouched for the successor to own.
-                await mutateInFlight(attempts => {
+                const inFlightPersisted = await mutateInFlight(attempts => {
                     attempts[repoLabel] = {
                         startedMs,
-                        priorFailures: priorState?.consecutiveFailures ?? 0,
+                        priorFailures       : priorState?.consecutiveFailures ?? 0,
+                        priorSourceErrorCode: priorState?.lastSourceErrorCode ?? null,
+                        priorAccessCode     : priorState?.lastAccessCode ?? null,
+                        recoveryEpisodeId   : recoveryGrant?.episodeId ?? null,
+                        recoveryGenerationId: recoveryGrant?.generationId ?? null,
                         runId
                     };
                 });
-                inFlightRecorded = true;
 
-                writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
+                // A recovery grant is exactly-once only if its attempt has a durable write-ahead
+                // witness. Ordinary attempts retain the sidecar's historical best-effort contract;
+                // a recovery attempt without a receipt is deferred before provider work and leaves
+                // the generation unconsumed for the next sweep.
+                if (recoveryGrant && !inFlightPersisted) {
+                    delete inFlightAttempts[repoLabel];
+                    notDueCount++;
+                    writeLog?.('WARN', `[TenantRepoSync] ${repoLabel} recovery retry deferred because its write-ahead receipt could not be committed.`);
+                    repoStates.push({
+                        tenantId           : repo.tenantId,
+                        repoSlug           : repo.repoSlug,
+                        lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
+                        lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
+                        status             : 'recovery-receipt-deferred',
+                        checkpointStatus,
+                        consecutiveFailures: priorState?.consecutiveFailures ?? 0,
+                        recoveryState      : 'recovery-observed/retry-pending'
+                    });
+                    return;
+                }
+
+                // Ordinary attempts keep the historical best-effort sidecar contract: even when
+                // the first write misses, `finally` must remove this process-local entry so a later
+                // concurrent repo mutation cannot publish it after the work has already returned.
+                inFlightRecorded = recoveryGrant ? inFlightPersisted : true;
+
+                if (recoveryGrant) {
+                    priorState.embeddingRecovery = {
+                        ...priorState.embeddingRecovery,
+                        bypassConsumedAt: startedMs
+                    };
+                }
+
+                workStarted = true;
+                writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}${recoveryGrant ? ' (embedding recovery generation)' : ''}.`);
 
                 await gitMirror.cloneIfMissing({
                     tenantId     : repo.tenantId,
@@ -1649,7 +2011,17 @@ class TenantRepoSyncService extends Base {
                 // ingested revision so the next successful run starts from the correct base.
                 // lastRunAttemptAt advances even on failure (backoff measures from attempt
                 // start, not last-success).
-                const nextFailureCount = (priorState?.consecutiveFailures ?? 0) + 1;
+                const
+                    nextFailureCount       = (priorState?.consecutiveFailures ?? 0) + 1,
+                    embeddingRecoveryCause = getEmbeddingRecoveryCauseCode(e, sourceErrorCode),
+                    embeddingRecovery      = embeddingRecoveryCause
+                        ? buildEmbeddingRecoveryAfterFailure({
+                            priorRecovery: priorState?.embeddingRecovery || null,
+                            causeCode    : embeddingRecoveryCause,
+                            failedAt     : startedMs
+                        })
+                        : (!workStarted ? (priorState?.embeddingRecovery || null) : null);
+
                 persistedRevisions[repoLabel] = {
                     lastIngestedRev                      : priorState?.lastIngestedRev || null,
                     lastRunAttemptAt                     : startedMs,
@@ -1679,7 +2051,8 @@ class TenantRepoSyncService extends Base {
                     lastErrorCode      : code ?? null,
                     lastSourceErrorCode: sourceErrorCode ?? null,
                     lastAccessCode     : classifySyncFailure(e),
-                    lastErrorAt        : Date.now()
+                    lastErrorAt        : Date.now(),
+                    embeddingRecovery
                 };
 
                 const failedRepoState = {
@@ -1690,7 +2063,12 @@ class TenantRepoSyncService extends Base {
                     status             : 'degraded',
                     checkpointStatus   : classifyTenantRepoCheckpoint(persistedRevisions[repoLabel]),
                     lastErrorCode      : code,
-                    consecutiveFailures: nextFailureCount
+                    consecutiveFailures: nextFailureCount,
+                    recoveryState      : classifyEmbeddingRecoveryState({
+                        persistedRepoState: persistedRevisions[repoLabel],
+                        probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
+                        observedAt        : startedMs
+                    })
                 };
 
                 if (sourceErrorCode) {
@@ -1968,7 +2346,9 @@ class TenantRepoSyncService extends Base {
      * @param {Object} options
      * @param {String} options.filePath
      * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
-     * @returns {Promise<Object<String, {startedMs: Number, priorFailures: Number}>>}
+     * @returns {Promise<Object<String, {startedMs: Number, priorFailures: Number,
+     *     priorSourceErrorCode: String|null, priorAccessCode: String|null,
+     *     recoveryEpisodeId: String|null, recoveryGenerationId: String|null}>>}
      */
     async readInFlightAttempts({filePath, fsModule = fs}) {
         try {
@@ -1992,14 +2372,16 @@ class TenantRepoSyncService extends Base {
      *
      * @param {Object} options
      * @param {String} options.filePath
-     * @param {Object<String, {startedMs: Number, priorFailures: Number}>} options.attempts
+     * @param {Object<String, {startedMs: Number, priorFailures: Number,
+     *     priorSourceErrorCode: String|null, priorAccessCode: String|null,
+     *     recoveryEpisodeId: String|null, recoveryGenerationId: String|null}>} options.attempts
      * @param {Object} [options.fsModule=fs] File-system implementation seam (fault-injection test seam).
-     * @returns {Promise<void>}
+     * @returns {Promise<Boolean>} Whether the sidecar mutation committed.
      */
     async writeInFlightAttempts({filePath, attempts, fsModule = fs}) {
         if (Object.keys(attempts).length === 0) {
             await fsModule.remove(filePath).catch(() => {});
-            return
+            return true
         }
 
         const tmpPath = `${filePath}.tmp-${process.pid}`;
@@ -2008,12 +2390,14 @@ class TenantRepoSyncService extends Base {
             await fsModule.ensureDir(path.dirname(filePath));
             await fsModule.writeFile(tmpPath, JSON.stringify(attempts, null, 2) + '\n');
             await fsModule.rename(tmpPath, filePath);
+            return true
         } catch (e) {
             // Best-effort by contract: a sidecar write failure must not fail a repo whose actual
             // sync is fine. The cost is exactly one unrecorded attempt — the same price the
             // write-behind behaviour paid on every crash — so failing the run here would be
             // strictly worse than the defect this record exists to fix.
             await fsModule.remove(tmpPath).catch(() => {});
+            return false
         }
     }
 
@@ -2027,7 +2411,9 @@ class TenantRepoSyncService extends Base {
      * backoff term. Mutates `persistedRevisions` in place; the caller commits it.
      *
      * @param {Object} options
-     * @param {Object<String, {startedMs: Number, priorFailures: Number}>} options.attempts
+     * @param {Object<String, {startedMs: Number, priorFailures: Number,
+     *     priorSourceErrorCode: String|null, priorAccessCode: String|null,
+     *     recoveryEpisodeId: String|null, recoveryGenerationId: String|null}>} options.attempts
      * @param {Object} options.persistedRevisions Mutated in place.
      * @param {Function} [options.writeLog]
      * @returns {Number} Count of folded attempts.
@@ -2047,7 +2433,29 @@ class TenantRepoSyncService extends Base {
                 // would re-derive the same base every restart and the term would never grow.
                 priorFailures = Number.isFinite(Number(attempt?.priorFailures))
                     ? Number(attempt.priorFailures)
-                    : (priorState?.consecutiveFailures ?? 0);
+                    : (priorState?.consecutiveFailures ?? 0),
+                priorRecovery = priorState?.embeddingRecovery || null,
+                recoveryGrantMatches = Boolean(
+                    priorRecovery
+                    && attempt?.recoveryEpisodeId === priorRecovery.episodeId
+                    && attempt?.recoveryGenerationId === priorRecovery.generationId
+                ),
+                retainedSourceErrorCode = (
+                    typeof attempt?.priorSourceErrorCode === 'string'
+                    && BOUNDED_KB_ERROR_CODE_PATTERN.test(attempt.priorSourceErrorCode)
+                )
+                    ? attempt.priorSourceErrorCode
+                    : (priorState?.lastSourceErrorCode ?? null),
+                foldedRecovery = recoveryGrantMatches
+                    ? buildEmbeddingRecoveryAfterFailure({
+                        priorRecovery: {
+                            ...priorRecovery,
+                            bypassConsumedAt: startedMs
+                        },
+                        causeCode: priorRecovery.causeCode,
+                        failedAt : startedMs
+                    })
+                    : priorRecovery;
 
             persistedRevisions[repoLabel] = {
                 ...priorState,
@@ -2057,9 +2465,13 @@ class TenantRepoSyncService extends Base {
                 lastRunAttemptAt   : startedMs,
                 consecutiveFailures: priorFailures + 1,
                 lastErrorCode      : KB_TENANT_REPO_SYNC_SYNC_FAILED,
-                lastSourceErrorCode: null,
-                lastAccessCode     : null,
-                lastErrorAt        : startedMs
+                lastSourceErrorCode: retainedSourceErrorCode,
+                // The manifest reader already applied the bounded-code allowlist. The sidecar is
+                // only a crash witness, never a second authority for diagnostic vocabulary: a
+                // torn or hand-edited sidecar must not project arbitrary text into durable state.
+                lastAccessCode   : priorState?.lastAccessCode ?? null,
+                lastErrorAt      : startedMs,
+                embeddingRecovery: foldedRecovery
             };
 
             folded++;
