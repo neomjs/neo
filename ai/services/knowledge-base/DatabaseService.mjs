@@ -128,7 +128,11 @@ class DatabaseService extends Base {
      *
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
-     * @returns {Promise<{message: String, count: Number, collectionId: String|null}>} `count` is the
+     * @returns {Promise<{message: String, status: String, reason: String|null, count: Number, expected: Number, collectionId: String|null}>}
+     *          `status` is the branchable field — `degraded` when the source collection was empty, so a
+     *          consumer never has to string-match the prose to learn the bundle holds no KB rows.
+     *          `expected` is the pre-pass collection count, carried so a zero has something to be zero
+     *          against; `count` is the
      *          number of rows actually WRITTEN to the artifact — not the pre-pass collection snapshot.
      *          It is consumed by the backup orchestrator's `verifyBundleIntegrity` for KB row-count
      *          parity (without it the verifier reads a non-numeric source count and skips KB parity),
@@ -142,11 +146,27 @@ class DatabaseService extends Base {
     async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting knowledge base export...');
-            const collection = await ChromaManager.getKnowledgeBaseCollection();
-            const count      = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
+            const collection           = await ChromaManager.getKnowledgeBaseCollection();
+            const {expected, exported} = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
+
+            // A zero-row export against a POPULATED collection already throws upstream
+            // (`PARTIAL_COLLECTION_EXPORT`). What reaches here is a genuinely empty corpus — a real
+            // state, and not a complete capture. Reporting it as `complete` is what let four
+            // consecutive backups present as recovery sources while holding nothing.
+            //
+            // `status` is the branchable field: a consumer must not have to string-match the prose to
+            // learn a bundle has no rows. `expected` is carried for the same reason the `mc` and
+            // `graph` receipts carry it — without it a zero has nothing to be zero AGAINST.
+            const isEmpty = exported === 0;
+
             return {
-                message     : `Export complete. Exported ${count} knowledge base chunks.`,
-                count,
+                message     : isEmpty
+                    ? 'Export degraded: the knowledge base collection is empty, so this bundle is not a usable KB recovery source.'
+                    : `Export complete. Exported ${exported} knowledge base chunks.`,
+                status      : isEmpty ? 'degraded' : 'complete',
+                reason      : isEmpty ? 'source-collection-empty' : null,
+                count       : exported,
+                expected,
                 collectionId: collection?.id ?? null
             };
         } catch (error) {
@@ -186,7 +206,7 @@ class DatabaseService extends Base {
         const count = await collection.count();
         if (count === 0) {
             logger.log(`No documents found in ${collection.name} to export.`);
-            return 0;
+            return {expected: 0, exported: 0};
         }
 
         logger.log(`Found ${count} documents in ${collection.name} to export.`);
@@ -285,7 +305,11 @@ class DatabaseService extends Base {
         }
 
         logger.log(`Successfully exported ${exported}/${count} documents to: ${backupFile}`);
-        return exported;
+
+        // `expected` travels with `exported` so the receipt states what a zero is zero AGAINST. The
+        // `mc` and `graph` receipts already carry it; the KB's did not, which is why a zero-row
+        // bundle could not fail its own contract.
+        return {expected: count, exported};
     }
 
     /**

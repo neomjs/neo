@@ -178,9 +178,17 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
             backupPath: emptyDir
         });
 
-        expect(result.message).toMatch(/Exported 0 knowledge base chunks/);
-        // Zero count makes the verifier report KB 'empty' parity (a visible non-fatal status), not a silent 'skipped'.
+        // An empty corpus is a real state and NOT a complete capture. This used to assert
+        // "Exported 0 knowledge base chunks" beside a completion message — the shape that let six of
+        // ten retained bundles record success while holding no rows.
+        expect(result.status).toBe('degraded');
+        expect(result.reason).toBe('source-collection-empty');
+        expect(result.message).not.toMatch(/Export complete/);
+
+        // Zero count makes the verifier report KB 'empty' parity (a visible non-fatal status), not a
+        // silent 'skipped'. `expected` is what gives the zero something to be zero against.
         expect(result.count).toBe(0);
+        expect(result.expected).toBe(0);
 
         const produced = fs.readdirSync(emptyDir).filter(f => f.endsWith('.jsonl'));
         expect(produced).toHaveLength(0);
