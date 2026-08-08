@@ -93,13 +93,6 @@ class DashboardSortZone extends SortZone {
 
             me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
-            console.log('applyAbsolutePositioning', {
-                height: `${rect.height}px`,
-                left  : `${rect.left}px`,
-                top   : `${rect.top}px`,
-                width : `${rect.width}px`
-            });
-
             item.wrapperStyle = Object.assign(itemStyle, {
                 flex    : 'none',
                 height  : `${rect.height}px`,
@@ -499,15 +492,6 @@ class DashboardSortZone extends SortZone {
 
         itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
-        itemRects.forEach(rect => {
-            console.log('itemRect', {
-                height: `${rect.height}px`,
-                left  : `${rect.left}px`,
-                top   : `${rect.top}px`,
-                width : `${rect.width}px`
-            });
-        });
-
         me.ownerRect = itemRects.shift();
         me.boundaryContainerRect = me.ownerRect;
 
@@ -517,8 +501,6 @@ class DashboardSortZone extends SortZone {
             minWidth: `${me.ownerRect.width}px`,
             width   : `${me.ownerRect.width}px`
         };
-
-        console.log('adjustItemRectsToParent', adjustItemRectsToParent);
 
         adjustItemRectsToParent && itemRects.forEach(rect => {
             rect.x -= me.ownerRect.x;
@@ -553,8 +535,6 @@ class DashboardSortZone extends SortZone {
         // Update dragged item to target app context
         draggedItem.appName = me.appName;
 
-        console.log('startRemoteDrag', draggedItem.id, draggedItem.windowId, draggedItem.parentId, draggedItem.parentComponent);
-
         // Break the parent chain to prevent circular config lookups during handover
         draggedItem.parentId        = null;
         draggedItem.parentComponent = null;
@@ -564,21 +544,13 @@ class DashboardSortZone extends SortZone {
         draggedItem.vnode            = null;
         draggedItem.vnodeInitialized = false;
 
-        console.log('parent cleared:', draggedItem.parentId, draggedItem.parentComponent);
-
         // 1. Get Owner Rect (needed for proxy positioning)
         let rects = await owner.getDomRect([owner.id]);
         me.ownerRect = rects[0];
 
-        console.log('ownerRect', me.ownerRect);
-
         // Assign the drag offsets to the instance, so that the DragZone onDragMove logic works
         me.offsetX = data.offsetX;
         me.offsetY = data.offsetY;
-
-        console.log('startRemoteDrag: ownerRect', me.ownerRect);
-        console.log('startRemoteDrag: local coords', data.localX, data.localY);
-        console.log('startRemoteDrag: calculated coords', data.localX - me.offsetX, data.localY - me.offsetY);
 
         // 2. Create a local DragProxy manually (using DragProxyContainer to hold the live widget)
         // We use DragProxyContainer to ensure the widget remains active/connected.
@@ -596,11 +568,7 @@ class DashboardSortZone extends SortZone {
             }
         };
 
-        console.log('Creating local drag proxy', config);
-
         me.dragProxy = Neo.create(config);
-
-        console.log('Created local drag proxy', me.dragProxy);
 
         // 3. Create Placeholder
         me.dragPlaceholder = Neo.create({
