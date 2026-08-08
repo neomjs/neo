@@ -17,25 +17,20 @@
 #
 set -euo pipefail
 
-# Resolve the compose file from this script's location so the deployment is not
-# tied to the caller's working directory. Deploy from a STABLE host checkout —
-# the backup-bundle bind-mount is a relative path; see PipelineWiring.md.
+# Resolve sibling maintenance paths from the script location. This is not a Compose default: the
+# caller still has to name the deployment composition explicitly below.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so `../..` is ALREADY `ai/` — re-adding `ai/`
-# here produced `ai/ai/deploy/...`, a path that has never existed. It went unnoticed because the
-# spec fakes `docker`, and a fake docker ignores `-f`, so a wrong compose path could not fail a
-# test. Any operator who did not set NEO_DEPLOY_COMPOSE_FILE was relying on a broken default.
-# UNSET and EXPLICITLY-EMPTY are different inputs and must not collapse. `${VAR:-default}` treats an
-# empty string as absent, so `NEO_DEPLOY_COMPOSE_FILE=""` would silently fall back to the base file —
-# deploying the base contract to a plane that needs an overlay, which is the exact failure the
-# zero-entry abort below exists to prevent. `${VAR+set}` tests whether the operator SUPPLIED the
-# variable, independent of its value, so an unset caller keeps the compatible default while a supplied
-# value is always honoured — and, when it resolves to nothing, refused rather than replaced.
-if [ -n "${NEO_DEPLOY_COMPOSE_FILE+set}" ]; then
-    COMPOSE_FILE="$NEO_DEPLOY_COMPOSE_FILE"
-else
-    COMPOSE_FILE="$SCRIPT_DIR/../../deploy/docker-compose.yml"
-fi
+
+# The reference pipeline cannot infer which deployment composition it owns. The base Compose file
+# supplies shared topology, but concrete planes add the auth/provider profile that makes that topology
+# runnable. Selecting the base file when the caller omitted this input therefore chooses an incomplete
+# security posture rather than a compatible default.
+#
+# Collapse UNSET and EXPLICITLY-EMPTY intentionally: both mean the caller named no deployment. The
+# zero-entry guard below rejects them before revision resolution, preflight, or Docker. A caller must
+# supply the plane's explicit file set, discovered from its Compose labels as described in
+# PipelineWiring.md.
+COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-}"
 
 # A real plane is rarely ONE compose file. The canonical local Agent OS runs `docker-compose.yml`
 # plus `docker-compose.local-agent-os.yml`, and a single `-f` silently drops the overlay — so the
@@ -46,7 +41,7 @@ fi
 # `NEO_DEPLOY_COMPOSE_FILE` therefore accepts a `:`-delimited LIST, matching Docker's own COMPOSE_FILE
 # convention, and expands to repeated `-f` in declaration order (later files override earlier ones,
 # which is Compose's merge order — reordering them changes the result). A single path is unchanged,
-# so every existing caller and every downstream adaptation keeps its exact behaviour.
+# so every explicit single-file caller and downstream adaptation keeps its exact behaviour.
 # `compose_file_count` is tracked separately because `${#compose_file_args[@]}` counts ARRAY ELEMENTS
 # — each file contributes both a `-f` and a path — so using it as a file count reports double. Caught
 # by the rehearsal witness printing "(4 file(s))" for two files.
@@ -60,7 +55,7 @@ while IFS= read -r compose_file_entry; do
 done <<< "$(printf '%s' "$COMPOSE_FILE" | tr ':' '\n')"
 
 if [ "$compose_file_count" -eq 0 ]; then
-    echo "[deploy] FATAL: NEO_DEPLOY_COMPOSE_FILE resolved to no usable path. Docker was NOT invoked." >&2
+    echo "[deploy] FATAL: NEO_DEPLOY_COMPOSE_FILE must name an ordered, auth-complete Compose file set. Docker was NOT invoked." >&2
     exit 1
 fi
 
