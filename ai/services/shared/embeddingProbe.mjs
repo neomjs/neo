@@ -7,6 +7,25 @@
 const EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH = 96;
 
 /**
+ * @summary Closed provider-code vocabulary admitted onto public embedding-health receipts.
+ *
+ * This is deliberately distinct from Knowledge Base's durable `KB_*` failure-code translator:
+ * this attempt boundary preserves only bounded operational meaning for a health response, while the
+ * durable translator mints provenance-safe codes for tenant-repo checkpoints. Keeping the two
+ * vocabularies separate prevents a health helper from importing a Knowledge Base persistence policy;
+ * listing every admitted provider code here prevents a third, implicit classifier from emerging.
+ * @type {Object}
+ */
+const EMBEDDING_PROBE_FAILURE_CLASSIFICATIONS = Object.freeze({
+    ABORT_ERR                        : 'upstream-abort',
+    ECONNREFUSED                     : 'provider-unreachable',
+    EMBEDDING_MODEL_NOT_RESIDENT     : 'model-not-resident',
+    EMBEDDING_PROBE_TIMEOUT          : 'consumer-probe-timeout',
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT: 'provider-timeout',
+    PROVIDER_TIMEOUT                 : 'provider-timeout'
+});
+
+/**
  * @summary Creates the structural caller-owned deadline error shared by embedding-probe consumers.
  * @param {String} operationLabel Bounded diagnostic label.
  * @param {Number} timeoutMs Consumer-owned deadline in milliseconds.
@@ -31,19 +50,11 @@ export function createEmbeddingProbeTimeoutError(operationLabel, timeoutMs) {
  * @returns {{error: String, errorClassification: String, errorCode: String}}
  */
 export function describeEmbeddingProbeFailure(error) {
-    const knownCode = [
-        'ABORT_ERR',
-        'EMBEDDING_PROBE_TIMEOUT',
-        'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
-        'PROVIDER_TIMEOUT'
-    ].includes(error?.code) ? error.code : error?.name === 'AbortError' ? 'ABORT_ERR' : 'EMBEDDING_PROVIDER_ERROR';
-    const errorClassification = knownCode === 'EMBEDDING_PROBE_TIMEOUT'
-        ? 'consumer-probe-timeout'
-        : ['OPENAI_COMPATIBLE_REQUEST_TIMEOUT', 'PROVIDER_TIMEOUT'].includes(knownCode)
-            ? 'provider-timeout'
-            : knownCode === 'ABORT_ERR'
-                ? 'upstream-abort'
-                : 'provider-failure';
+    const candidateCode = error?.name === 'AbortError' ? 'ABORT_ERR' : error?.code,
+          knownCode     = Object.hasOwn(EMBEDDING_PROBE_FAILURE_CLASSIFICATIONS, candidateCode)
+              ? candidateCode
+              : 'EMBEDDING_PROVIDER_ERROR',
+          errorClassification = EMBEDDING_PROBE_FAILURE_CLASSIFICATIONS[knownCode] || 'provider-failure';
 
     return {
         error    : `${errorClassification}:${knownCode}`.substring(0, EMBEDDING_PROBE_PUBLIC_REASON_MAX_LENGTH),

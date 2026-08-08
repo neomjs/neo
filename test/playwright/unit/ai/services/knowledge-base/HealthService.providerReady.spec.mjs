@@ -205,6 +205,39 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         });
     });
 
+    test('public receipts distinguish transport refusal and a non-resident embedding model', async () => {
+        const probeFailure = async code => buildKnowledgeBaseEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'test-provider',
+                vectorDimension  : 3
+            },
+            embedText: async () => {
+                const error = new Error('provider-controlled detail must not cross the health boundary');
+
+                error.code = code;
+                throw error;
+            },
+            timeoutMs: 5
+        });
+
+        const [connectionRefused, modelNotResident] = await Promise.all([
+            probeFailure('ECONNREFUSED'),
+            probeFailure('EMBEDDING_MODEL_NOT_RESIDENT')
+        ]);
+
+        expect(connectionRefused).toMatchObject({
+            error              : 'provider-unreachable:ECONNREFUSED',
+            errorClassification: 'provider-unreachable',
+            errorCode          : 'ECONNREFUSED'
+        });
+        expect(modelNotResident).toMatchObject({
+            error              : 'model-not-resident:EMBEDDING_MODEL_NOT_RESIDENT',
+            errorClassification: 'model-not-resident',
+            errorCode          : 'EMBEDDING_MODEL_NOT_RESIDENT'
+        });
+        expect(JSON.stringify({connectionRefused, modelNotResident})).not.toContain('provider-controlled detail');
+    });
+
     test('public health separates a probe that could not run from a provider that did not answer', async () => {
         const common = {
             cadenceMs      : 1000,
