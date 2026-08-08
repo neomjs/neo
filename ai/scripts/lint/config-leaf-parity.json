@@ -382,6 +382,7 @@
         "wakeDaemonHeartbeatAlivePath"
     ],
     "ai/mcp/server/github-workflow/config.template.mjs": [
+        "confidentialTokenDenylist",
         "debug",
         "healthCheckCacheDuration",
         "issueSync",
