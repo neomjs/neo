@@ -55,7 +55,7 @@ Use the template at `.agents/skills/pull-request/assets/review-response-template
 
 ## 6. Authorship Respect
 
-Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation), and do NOT edit your own prior PR body to *replace* a claim a reviewer has responded to — commit history plus this new comment are the canonical record. Correcting a **factually false** statement is required — the lint demands an accurate body and a false number erases nothing; disclose it in the response comment. The test: does the edit remove what a reader responded to, or what is not true?
+Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation). Your own body splits on **what the edit changes, never on whether a reviewer answered it** — so the two cases stay disjoint and the overlap has one answer: a **fact** (number, path, count, state) is corrected in place, *including* when the RA is what found it wrong, because the lint demands an accurate body and a false number erases no negotiation — disclose old→new in the response comment and map it to the RA; a **position** (a claim under negotiation) is never rewritten or sanitised, and a body-only edit never makes implementation work look addressed — that belongs in the comment thread.
 
 Restatement RAs on foreign ticket text -> read [foreign-ticket-restatement.md](./foreign-ticket-restatement.md) (comment-proposal default; prescribed-direct-edit path with trail + revert-authority + author-confirm closure).
 
@@ -90,7 +90,7 @@ After the second ordinary `CHANGES_REQUESTED`, the next reviewer handoff is clos
 | Pushing a follow-up commit without an Addressed comment | Reviewer must discover + match commits to Required Actions manually; breaks re-review efficiency |
 | Silently skipping a Required Action | Signals neither agreement (should be `[ADDRESSED]`) nor disagreement (should be `[REJECTED_WITH_RATIONALE]`) — leaves reviewer uncertain |
 | Editing the reviewer's comment | Authorship-respect violation; attribution collapse |
-| Editing your own prior PR body to make an RA look addressed | Commit + Addressed comment is the canonical record; replacing a claim a reviewer answered erases the negotiation thread. Correcting a *false* statement is required — see §6 |
+| Rewriting a contested *position* in your own PR body, or a body-only edit that makes work look addressed | Commit + Addressed comment is the canonical record. Correcting a *fact* stays required even when the RA is what found it — the axis is fact-vs-position, not answered-vs-unanswered; see §6 |
 | Using non-standard status language (*"done"*, *"fixed"*, *"won't fix"*) | Breaks the tag taxonomy; Retrospective daemon cannot ingest consistently |
 | Appending to the first Addressed comment across multiple review rounds | Violates the polish-vs-pivot analog from #10109 — new round = new comment preserving the negotiation evolution |
 
