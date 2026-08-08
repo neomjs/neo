@@ -1585,6 +1585,11 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
                 'run with --headed because CDP screencast compositor frames are required'
             );
 
+            // Instrument-integrity fixture, never a scene: a film take runs this whole file
+            // with cameras rolling, and a staged whole-body clear must not enter take footage
+            // (frame audits sweep the take for exactly this signature).
+            test.skip(filmTake, 'the staged clear is excluded from film takes by design');
+
             const {pageErrors} = await boot({page, neuralLink});
 
             // The action IS the fixture: hold the dock host fully transparent across enough
