@@ -108,23 +108,24 @@ If the isolation test proves the pattern is dead weight, remove it and document 
 
 ## 13. PR Comment Hygiene (Polish vs. Pivot)
 
-When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction).
+When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction). On another author's artifact §11 makes comments your only channel; the rows still apply, and editing your own comment respects their authorship.
 
 | Lifecycle stage | Comment pattern |
 |---|---|
 | **Initial self-review** | ONE comment. Contains the full evaluation metrics + graph linking + required actions. |
 | **Polish commits landing** | UPDATE the existing self-review comment in place. Readers see current state, not evolution. |
 | **Bug-fix rounds** | NEW comment per round for clarity + traceability. Title the comment with the fix scope. |
-| **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — callout preserves the pivot in history. |
+| **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — the callout preserves the *direction change*, not a withdrawn fact; see the row below. |
+| **Withdrawing a published claim** | UPDATE in place — a withdrawal lands no commit, so no commit-keyed row fires for it. If a separate comment is unavoidable, cut the superseded one to a pointer: **exactly one comment is live**, or the economical read (first, stop) returns the withdrawn answer. |
 | **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
 
 ## 14. A2A Comment-ID Propagation (Author Side)
 
-Symmetric with `pr-review §10` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
+Symmetric with `pr-review §10` (reviewer side). When you post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
 
 **Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID). This is the canonical artifact identifier for the formal review entity (the surface that flipped `reviewDecision`). Reviewers SHOULD relay `reviewId` + the response payload (`url`, `state`, `submittedAt`) when handing off to the next actor in the review cycle.
 
-**Important contract distinction:** `reviewId` (PRR_*) is NOT a `commentId` (IC_*). The `get_conversation({comment_id})` warm-cache path operates on `pullRequest.comments` (IssueComment entities, IC_*) — it does NOT fetch `PullRequestReview` entities (PRR_*). Authors responding to a `manage_pr_review`-generated review should fetch the review body via the response payload directly (the `body` field is included in the manage_pr_review return shape) or use direct GraphQL (`gh api graphql` with `node(id: $reviewId)` selection); they should NOT attempt `get_conversation({comment_id: <reviewId>})` — that mismatch returns empty.
+**Contract distinction:** `reviewId` (PRR_*) is NOT a `commentId` (IC_*). `get_conversation({comment_id})` reads `pullRequest.comments` (IssueComment, IC_*) and never fetches `PullRequestReview`, so passing a `reviewId` there returns empty. Fetch a `manage_pr_review` body from its own response payload's `body` field, or via `gh api graphql` with a `node(id: $reviewId)` selection.
 
 **Workflow:**
 1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
