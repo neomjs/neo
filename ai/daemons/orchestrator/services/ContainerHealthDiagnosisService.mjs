@@ -35,6 +35,15 @@ export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
 export const SERVICE_CLASSES = Object.freeze({store: 'store', transient: 'transient'});
 
 /**
+ * @summary `128 + SIGABRT` — the exit code a V8 self-abort leaves on a container.
+ *
+ * Shared by every `FATAL ERROR`, assertion failure and explicit `abort()`, so it identifies the
+ * MANNER of death and never its cause. See `classifyHeapAbortCandidate`.
+ * @member {Number} V8_HEAP_ABORT_EXIT_CODE=134
+ */
+export const V8_HEAP_ABORT_EXIT_CODE = 134;
+
+/**
  * @summary EXHAUSTIVE service classification, declared per key rather than inferred from absence.
  *
  * Covers every key in `orchestrator.deploymentRuntimeAccess.allowedServices`, which is the roster
@@ -455,7 +464,12 @@ export class ContainerHealthDiagnosisService extends Base {
                 details      : {
                     status,
                     exitCode: Number.isFinite(state.ExitCode) ? state.ExitCode : null,
-                    error   : typeof state.Error === 'string' ? state.Error : null
+                    error   : typeof state.Error === 'string' ? state.Error : null,
+                    // Carried beside the exit code because the pair is what discriminates: a V8
+                    // self-abort and a cgroup OOM kill are different failures with different heals,
+                    // and the exit code alone cannot tell them apart.
+                    oomKilled         : typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null,
+                    heapAbortCandidate: classifyHeapAbortCandidate(state)
                 }
             }));
         }
@@ -728,13 +742,27 @@ export class ContainerHealthDiagnosisService extends Base {
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown ||
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerUnhealthy
         );
-        if (lifecycleFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown) || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
+        const downFacts = lifecycleFacts.filter(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
+
+        if (downFacts.length || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
+            // The ACTION is unchanged and was never wrong — a stopped container is restarted either
+            // way. What was missing is the CAUSE: a service that exhausted its declared V8 ceiling
+            // recorded as a generic crash, so the ceiling was never implicated and the same abort
+            // recurred indefinitely. That is why nothing looked broken from the outside.
+            //
+            // The reason narrows only when the evidence supports it, and says CANDIDATE because the
+            // discriminating stderr line is not in this payload (see `classifyHeapAbortCandidate`).
+            // A consumer may route on it, but may not restate it as a confirmed heap death.
+            const heapAbortCandidate = downFacts.some(fact =>
+                fact.details?.heapAbortCandidate === true);
+
             return {
                 recoveryClass: 'crash',
                 actionClass  : CONTAINER_HEALTH_ACTION_CLASSES.restart,
-                confidence   : lifecycleFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown) ? 0.9 : 0.8,
+                confidence   : downFacts.length ? 0.9 : 0.8,
                 evidenceFacts: this.selectEvidenceFacts(facts, lifecycleFacts),
-                reason       : 'lifecycle-crash'
+                reason       : heapAbortCandidate ? 'lifecycle-crash-heap-abort-candidate' : 'lifecycle-crash'
             };
         }
 
@@ -1136,6 +1164,41 @@ export function calculateDockerCpuPercent(stats) {
         (Array.isArray(cpuStats.cpu_usage?.percpu_usage) ? cpuStats.cpu_usage.percpu_usage.length : 1);
 
     return (cpuDelta / systemDelta) * onlineCpus * 100;
+}
+
+/**
+ * @summary Classifies a stopped container's exit as a CANDIDATE V8 heap abort — never a verdict.
+ *
+ * A Node service that exhausts its declared `--max-old-space-size` aborts itself: V8 prints
+ * `FATAL ERROR: … heap limit` and raises `SIGABRT`, so the container exits **134** (`128 + 6`) with
+ * `OOMKilled` false — the kernel never intervened. That signature exists only because the ceiling is
+ * DECLARED. With no `--max-old-space-size`, V8 picks a heuristic well inside the container allowance
+ * and the same exhaustion exits **0** with `OOMKilled` false, which is a failure with no signature at
+ * all (the incident this diagnosis descends from).
+ *
+ * **134 is necessary and NOT sufficient**, which is why this returns a candidate rather than a
+ * classification. Every V8 `FATAL ERROR`, every failed assertion and every explicit `abort()` shares
+ * the code; the discriminating evidence is the stderr line, and `inspect.State` does not carry it.
+ * Naming a verdict the payload cannot support is the defect this whole diagnosis path exists to
+ * remove, so the candidate travels with its own limits and a consumer may not promote it.
+ *
+ * Tri-state deliberately: `null` means the fields needed to judge were not observed, which must read
+ * as absence of signal rather than as a negative. A missing `ExitCode` is not evidence of a healthy
+ * exit.
+ * @param {Object} state Docker `inspect.State`.
+ * @returns {Boolean|null} true = consistent with a heap abort; false = positively something else;
+ * null = not observable from this payload.
+ */
+export function classifyHeapAbortCandidate(state) {
+    const
+        exitCode  = Number.isFinite(state?.ExitCode) ? state.ExitCode : null,
+        oomKilled = typeof state?.OOMKilled === 'boolean' ? state.OOMKilled : null;
+
+    if (exitCode === null || oomKilled === null) return null;
+
+    // A cgroup kill is a different failure with a different heal — the kernel reclaimed the whole
+    // container, so the V8 ceiling is not implicated even when the exit code matches.
+    return oomKilled === false && exitCode === V8_HEAP_ABORT_EXIT_CODE
 }
 
 export function calculateDockerMemoryPercent(stats) {

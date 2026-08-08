@@ -17,7 +17,9 @@ import {
     isStoreBackedService,
     evaluateRestartChurn,
     calculateDockerCpuPercent,
-    calculateDockerMemoryPercent
+    calculateDockerMemoryPercent,
+    classifyHeapAbortCandidate,
+    V8_HEAP_ABORT_EXIT_CODE
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 
 const OBSERVED_AT = 1710000000000;
@@ -121,6 +123,84 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         });
         expect(decision.diagnosis.evidenceFacts.map(fact => fact.type))
             .toContain(CONTAINER_HEALTH_FACT_TYPES.containerDown);
+    });
+
+    test('a heap-abort candidate needs BOTH the abort code and a kernel that did not intervene', () => {
+        // 134 is `128 + SIGABRT`, shared by every V8 FATAL ERROR and assertion failure, so it names
+        // the manner of death and not its cause. The pair is the discriminator.
+        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE, OOMKilled: false}),
+            'a self-abort the kernel did not cause is consistent with a heap ceiling').toBe(true);
+
+        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE, OOMKilled: true}),
+            'a cgroup kill reclaimed the whole container, so the V8 ceiling is not implicated').toBe(false);
+
+        expect(classifyHeapAbortCandidate({ExitCode: 137, OOMKilled: true}),
+            'SIGKILL under an OOM kill is the cgroup path, not a V8 self-abort').toBe(false);
+
+        // The incident this diagnosis descends from: with NO declared ceiling, V8 picks a heuristic
+        // inside the container allowance and the same exhaustion exits 0 — a failure with no
+        // signature. Declaring the ceiling is what produced a signature to read at all.
+        expect(classifyHeapAbortCandidate({ExitCode: 0, OOMKilled: false}),
+            'an undeclared-ceiling exhaustion leaves no signature and must not be inferred').toBe(false);
+    });
+
+    test('an unobservable exit is null, never a negative — absence of signal is not evidence of health', () => {
+        expect(classifyHeapAbortCandidate({ExitCode: V8_HEAP_ABORT_EXIT_CODE}),
+            'no OOMKilled field means the discriminator was not observed').toBeNull();
+
+        expect(classifyHeapAbortCandidate({OOMKilled: false}),
+            'no ExitCode means there is nothing to classify').toBeNull();
+
+        expect(classifyHeapAbortCandidate({}), 'an empty state observes neither field').toBeNull();
+        expect(classifyHeapAbortCandidate(undefined), 'a missing state must not throw').toBeNull();
+    });
+
+    test('the crash diagnosis names a heap-abort candidate without changing the action', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey: 'memory',
+            inspect   : runningInspect({
+                Status   : 'exited',
+                ExitCode : V8_HEAP_ABORT_EXIT_CODE,
+                OOMKilled: false
+            })
+        });
+
+        // The action was never wrong — a stopped container is restarted either way. The cause is
+        // what was missing, and a restart that never implicates the ceiling repeats forever.
+        expect(decision.actionClass, 'attribution must not change the heal')
+            .toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+
+        expect(decision.diagnosis.details.classificationReason,
+            'the reason must name the candidate cause rather than a generic crash')
+            .toBe('lifecycle-crash-heap-abort-candidate');
+
+        const downFact = decision.facts.find(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
+
+        expect(downFact.details, 'the fact carries the evidence its reason rests on').toMatchObject({
+            exitCode          : V8_HEAP_ABORT_EXIT_CODE,
+            heapAbortCandidate: true,
+            oomKilled         : false
+        });
+    });
+
+    test('a cgroup OOM kill keeps the generic crash reason', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey: 'memory',
+            inspect   : runningInspect({Status: 'exited', ExitCode: 137, OOMKilled: true})
+        });
+
+        // The red control for the narrowing: a memory-related death that is NOT a V8 ceiling must not
+        // acquire the heap reason, or the attribution is decoration rather than discrimination.
+        expect(decision.diagnosis.details.classificationReason).toBe('lifecycle-crash');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        expect(decision.facts.find(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown).details.heapAbortCandidate)
+            .toBe(false);
     });
 
     test('requires multi-fact evidence before diagnosing unhealthy probe-like states', () => {
