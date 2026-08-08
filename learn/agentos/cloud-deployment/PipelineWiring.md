@@ -58,9 +58,9 @@ docker compose -f ai/deploy/docker-compose.yml [--profile …] build
 
 Compose maps that one full SHA to both Docker arguments for `kb-server`, `mc-server`, and `orchestrator`. The reference pipeline keeps `NEO_REF` as its pre-resolution selector input, resolves it once, then removes it before handing the canonical `NEO_REVISION` to Compose.
 
-Left unset, the internal `NEO_REF` defaults to `dev` and `NEO_REVISION` stays empty — the pre-existing behaviour, with no revision asserted.
+Left unset, the internal `NEO_REF` falls back to `dev`, and **the source stage refuses to build** (#16635). That refusal replaced the prior behaviour, which was worse than "no revision asserted": a channel name makes the fetch layer cache-stable, so an unpinned rebuild silently packaged the commit `dev` pointed at the *first* time that layer was built. `D#16304` records exactly this — a full cache hit that recreated containers from three-week-old images and moved the running revision backwards, while `redeployPreflight`, `--wait` health, and exit code zero all reported success.
 
-**Pass the full 40-character SHA.** An abbreviated SHA fails closed at `git fetch`, before any checkout — correct behaviour, since an abbreviated ref is not a reproducible pin, but the error surfaces as a fetch failure rather than as anything mentioning provenance. Observed in a live rehearsal run against a 12-character SHA. The `git ls-remote` form above avoids this by construction, which is why it is the documented path rather than prose asking you to be careful.
+**Pass the full 40-character SHA.** An abbreviated SHA is refused by the source-stage guard, before the fetch and therefore before any network access, with a message that names the freeze and the `ls-remote` resolve command. Previously it surfaced deeper, as a bare `git fetch` failure mentioning nothing about provenance — observed in a live rehearsal run against a 12-character SHA. The `git ls-remote` form above avoids the situation by construction, which is why it is the documented path rather than prose asking you to be careful.
 
 Prefer a resolved SHA over a branch name for two independent reasons. Docker does **not** automatically invalidate a `RUN` layer when remote content changes, so re-running `build` against a mutable branch does not mechanically prove the branch was re-fetched — a changing build argument gives the cache a changing input. And a mutable channel is *policy input*, never a build identity: resolving it yourself, once, before the build is the only way the image can honestly state what it contains.
 
@@ -74,8 +74,8 @@ docker compose -f ai/deploy/docker-compose.yml --profile cloud config | grep -E 
 
 | Fact | Surface | Contract |
 |---|---|---|
-| Requested source ref | `org.neomjs.image.requested-ref` label | What the Docker source stage was *asked* to fetch: `dev` on the unpinned path, or the same full SHA as `NEO_REVISION` on the pinned path. Vendor-namespaced because no OCI standard key means "what was asked for". |
-| Packaged revision | `org.opencontainers.image.revision` label | The OCI-specified source-control revision of the packaged software. Caller-supplied once via `NEO_REVISION`; **empty when not supplied**, which reads as *not asserted*. It must never contain a channel name, and the Docker build fails if it differs from `/app/.neo-revision`. |
+| Requested source ref | `org.neomjs.image.requested-ref` label | What the Docker source stage was *asked* to fetch — since #16635 that is the same full SHA as `NEO_REVISION`, because a mutable ref no longer builds. It still reads `dev` on a `NEO_SOURCE=local` image (which fetched nothing) or under the explicit `NEO_ALLOW_MUTABLE_REF=1` opt-in. Vendor-namespaced because no OCI standard key means "what was asked for". |
+| Packaged revision | `org.opencontainers.image.revision` label | The OCI-specified source-control revision of the packaged software. Caller-supplied once via `NEO_REVISION`; **empty when not supplied**, which reads as *not asserted*. It must never contain a channel name, and the Docker build fails if it differs from `/app/.neo-revision`. Since #16635 a SHA-shaped `NEO_REF` is checked against `/app/.neo-revision` too, so a cache-served source layer fails the build even when the caller asserted nothing. |
 | Resolved commit | `/app/.neo-revision` | The commit the build actually checked out, written at build time. Always populated, always true — so this is the **primary** provenance fact; the label above is its machine-readable echo when the caller resolved properly. |
 
 ```bash
@@ -88,7 +88,7 @@ Read the requested selector against the resolved commit — the *direction* of a
 
 | Requested | Resolved (file) | Reading |
 |---|---|---|
-| a channel, e.g. `dev` | some commit | Expected. No pin was given, so the resolved commit is the sole identity — and `org.opencontainers.image.revision` will be empty, correctly asserting nothing. |
+| a channel, e.g. `dev` | some commit | **Only reachable via the `NEO_ALLOW_MUTABLE_REF=1` exception** — an ordinary unpinned build now refuses at the source stage (#16635). Where the exception was used, the resolved commit is the sole identity and `org.opencontainers.image.revision` is empty, correctly asserting nothing. Treat the commit as *whenever that layer was last built*, not as `dev`'s current tip. |
 | a pinned SHA | the same SHA | The pin held. Promote this image. |
 | a pinned SHA | a **different** SHA | **Build-integrity failure.** Not an oddity — the build did not produce what was asked for. Do not promote; rebuild and investigate. |
 

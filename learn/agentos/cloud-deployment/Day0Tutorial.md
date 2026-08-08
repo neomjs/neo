@@ -46,11 +46,14 @@ npm install
 ```
 
 > **Deploy images source neo independently.** The `ai/deploy` images build by
-> cloning neo at a pinned ref (`NEO_REF`, default `dev`), so they do **not** require a
+> cloning neo at a pinned ref (`NEO_REF`), so they do **not** require a
 > co-located checkout — any operator or CI host can build them. This local checkout is for
 > running the tutorial's commands and for dev iteration (`--build-arg NEO_SOURCE=local`,
-> with the neo repo root as the build context). Pin `NEO_REF` to a tag/SHA for a fully
-> reproducible deployment.
+> with the neo repo root as the build context). `NEO_REF` must be a **full commit SHA**:
+> a channel name makes the source layer cache-stable, so the build would silently package
+> the commit that channel pointed at the first time it ran (#16635). Resolve once with
+> `export NEO_REVISION=$(git ls-remote https://github.com/neomjs/neo.git dev | cut -f1)`;
+> Compose maps that single pin to both internal Docker arguments.
 
 Required local tools:
 
