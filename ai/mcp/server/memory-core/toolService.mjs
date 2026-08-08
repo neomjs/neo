@@ -340,7 +340,13 @@ const createTransportVisibleToolFacade = ({
      * @returns {Promise<Object>}
      */
     const callTool = async (name, args, options = {}) => {
-        const t0 = Date.now();
+        const
+            t0          = Date.now(),
+            // Keep the diagnostics observer out of its own unfinished snapshot. Its completion
+            // is still recorded below, preserving aggregate latency without a false active row.
+            telemetryId = name === 'get_memory_core_tool_metrics'
+                ? null
+                : MemoryCoreRecorderService.beginToolCall({toolName: name, args, t0});
 
         let result, success = false, error = null;
 
@@ -361,6 +367,7 @@ const createTransportVisibleToolFacade = ({
             throw err;
         } finally {
             MemoryCoreRecorderService.logToolCall({
+                id          : telemetryId || undefined,
                 toolName    : name,
                 args,
                 result,

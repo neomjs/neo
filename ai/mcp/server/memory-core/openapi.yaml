@@ -216,8 +216,10 @@ paths:
         readOnlyHint: true
       description: |
         Returns aggregate Memory Core MCP tool-call telemetry without exposing raw tool
-        arguments or results. Use this to diagnose slow or failing tools in long-running
-        local and shared deployments.
+        arguments or results. Completed calls provide latency/failure aggregates; calls that
+        have crossed the start boundary but not the completion boundary are returned separately
+        with redacted operation identity and elapsed time. Use this to diagnose slow, failing,
+        or process-wedging tools in long-running local and shared deployments.
       tags: [Diagnostics]
       requestBody:
         required: false
@@ -2545,7 +2547,9 @@ components:
         - sinceMs
         - limit
         - totalCalls
+        - totalUnfinished
         - tools
+        - unfinishedCalls
       properties:
         status:
           type: string
@@ -2562,8 +2566,12 @@ components:
           example: 50
         totalCalls:
           type: integer
-          description: Total matching tool calls across all tools.
+          description: Total matching completed tool calls across all tools.
           example: 128
+        totalUnfinished:
+          type: integer
+          description: Total matching calls that crossed the start boundary but have no completion boundary yet.
+          example: 1
         tools:
           type: array
           description: Per-tool aggregate rows. Raw arguments and results are intentionally absent.
@@ -2607,6 +2615,35 @@ components:
                 nullable: true
                 description: ISO timestamp of the newest matching call.
                 example: "2026-06-19T03:30:00.000Z"
+        unfinishedCalls:
+          type: array
+          description: Oldest-first unfinished call rows. They may be active or abandoned by a prior process; arguments and results are intentionally absent.
+          items:
+            type: object
+            required:
+              - callId
+              - tool
+              - startedAt
+              - elapsedMs
+            properties:
+              callId:
+                type: string
+                description: Opaque telemetry row id used to correlate the eventual completion.
+                example: "019fe0b3-53bc-7ef2-8665-41a0ef3f7b62"
+              tool:
+                type: string
+                description: MCP operation id.
+                example: add_message
+              startedAt:
+                type: string
+                format: date-time
+                description: ISO timestamp captured immediately before tool dispatch.
+                example: "2026-08-08T11:08:22.000Z"
+              elapsedMs:
+                type: integer
+                minimum: 0
+                description: Elapsed wall-clock time at metrics-read time.
+                example: 474347
 
     RemPipelineStateResponse:
       type: object
