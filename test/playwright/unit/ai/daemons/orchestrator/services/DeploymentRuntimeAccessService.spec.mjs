@@ -6,6 +6,7 @@ import {
     DeploymentRuntimeAccessService,
     DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
+import {RECOVERY_KNOBS} from '../../../../../../../ai/services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
 const BASE_CONFIG = {
     enabled                     : true,
@@ -597,12 +598,22 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             }
         });
 
-        test('a service NO ceiling knob declares is refused — the registry closed set IS the target list', async () => {
+        test('a service no CONTAINER-MEMORY ceiling knob declares is refused — the closed set IS the target list', async () => {
             // The bypass the review caught: under flat allowlists the raw op could resize a transient
             // service, skipping everything the knob enforces one layer up. The boundary now consults
-            // the same closed registry, so mc-server — allowlisted for lifecycle, declared by no
-            // ceiling knob — cannot be addressed at all, and no Docker read runs beyond identity.
+            // the same closed registry, so mc-server cannot be addressed at all, and no Docker read
+            // runs beyond identity.
+            //
+            // mc-server is deliberately the specimen, and the reason it qualifies CHANGED: a heap
+            // ceiling knob now declares it, so "declared by no ceiling knob" is no longer why it is
+            // refused. It is refused because no knob declares an envelope ceiling for it — the
+            // resource discriminator, not the role, carries the boundary. The assertion below pins
+            // that: mc-server IS declared by a `ceiling` leaf, and is refused anyway.
             const {service, calls} = createService({config: UPDATE_CONFIG});
+
+            expect(Object.values(RECOVERY_KNOBS).some(knob =>
+                knob.serviceKey === 'mc-server' && knob.leaves.some(leaf => leaf.role === 'ceiling')
+            )).toBe(true);
 
             const error = await service.applyLifecycle({
                 serviceKey      : 'mc-server',
@@ -613,6 +624,25 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             expect(error.reason).toBe('runtime-memory-limit-unsanctioned-target');
             expect(calls).toHaveLength(1);
             expect(calls.some(call => String(call.path).endsWith('/update'))).toBe(false);
+        });
+
+        test('every container-memory ceiling leaf declares a FINITE band — an unbanded one would delete the cap', () => {
+            // Clause 3 of the boundary is unreachable today by construction: chroma is the only
+            // envelope knob and it is banded. That is exactly why this asserts the invariant on the
+            // DATA rather than the branch — the hazard is a future knob, and the failure mode is
+            // silent. `value < undefined || value > undefined` is NaN-false in both directions, so an
+            // unbanded envelope knob does not tighten the cap, it removes it, leaving raise-only as
+            // the sole surviving bound and the autonomous ratchet unterminated.
+            const envelopeLeaves = Object.values(RECOVERY_KNOBS).flatMap(knob =>
+                knob.leaves.filter(leaf => leaf.role === 'ceiling' && leaf.resource === 'container-memory')
+            );
+
+            expect(envelopeLeaves.length).toBeGreaterThan(0);
+
+            for (const leaf of envelopeLeaves) {
+                expect(Number.isFinite(leaf.min), leaf.path).toBe(true);
+                expect(Number.isFinite(leaf.max), leaf.path).toBe(true);
+            }
         });
 
         test('a value outside the registry band is refused BEFORE any Docker read — the cap holds at L0 too', async () => {

@@ -750,17 +750,28 @@ export class DeploymentRuntimeAccessService extends Base {
         // 1. Only a service some ceiling knob DECLARES is resizable at all. The registry's closed
         //    set is the sanctioned-target list; a transient or unknown service has no knob, so the
         //    op cannot address it.
-        // 2. The value must sit inside that knob's band. The cap that terminates the autonomous
+        // 2. That knob must govern THIS resource. `role: 'ceiling'` spans two unrelated resources —
+        //    the cgroup envelope this op widens (`HostConfig.Memory`) and a process-internal V8 heap
+        //    (`--max-old-space-size`), which spends memory the container was already granted. Matching
+        //    on the role alone made a heap knob sanction an envelope widening: adding the mc/kb heap
+        //    knobs turned both servers into legal targets here, having declared no envelope knob.
+        // 3. The value must sit inside that knob's band. The cap that terminates the autonomous
         //    ratchet holds here too — a caller with L0 access cannot express what the knob forbids.
+        //    A knob with no finite band therefore sanctions NOTHING: comparing a value against an
+        //    absent bound is NaN-false in BOTH directions, so an unbanded knob would silently delete
+        //    the cap rather than tighten it, leaving raise-only as the only surviving bound.
+        const containerCeilingLeafOf = knob => knob.leaves.find(
+            leaf => leaf.role === 'ceiling' && leaf.resource === 'container-memory'
+        );
+
         const ceilingKnob = Object.values(RECOVERY_KNOBS).find(knob =>
-            knob.serviceKey === target.serviceKey &&
-            knob.leaves.some(leaf => leaf.role === 'ceiling')
+            knob.serviceKey === target.serviceKey && containerCeilingLeafOf(knob)
         );
 
         if (!ceilingKnob) {
             throw createRuntimeAccessError({
                 reason : 'runtime-memory-limit-unsanctioned-target',
-                message: `update-memory-limit refuses '${target.serviceKey}': no ceiling knob in the closed registry declares this service`,
+                message: `update-memory-limit refuses '${target.serviceKey}': no container-memory ceiling knob in the closed registry declares this service`,
                 details: {
                     ...this.createEffectiveConfigSummary(),
                     serviceKey: target.serviceKey
@@ -768,7 +779,18 @@ export class DeploymentRuntimeAccessService extends Base {
             });
         }
 
-        const ceilingLeaf = ceilingKnob.leaves.find(leaf => leaf.role === 'ceiling');
+        const ceilingLeaf = containerCeilingLeafOf(ceilingKnob);
+
+        if (!Number.isFinite(ceilingLeaf.min) || !Number.isFinite(ceilingLeaf.max)) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-memory-limit-unbanded-knob',
+                message: `update-memory-limit refuses '${target.serviceKey}': its container-memory ceiling knob declares no finite band, so it sanctions no value`,
+                details: {
+                    ...this.createEffectiveConfigSummary(),
+                    serviceKey: target.serviceKey
+                }
+            });
+        }
 
         if (memoryLimitBytes < ceilingLeaf.min || memoryLimitBytes > ceilingLeaf.max) {
             throw createRuntimeAccessError({

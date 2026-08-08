@@ -95,7 +95,11 @@ function serviceHeapCeilingKnob({serviceKey, leafPath, env}) {
          */
         requires: Object.freeze([liveLimitLeaf]),
         leaves  : Object.freeze([
-            Object.freeze({path: leafPath, env, role: 'ceiling', type: 'number'})
+            // `resource` is load-bearing, not descriptive: a consumer authorising a CGROUP move must
+            // not match this leaf. `role: 'ceiling'` spans both, and the envelope boundary matched on
+            // the role alone — so without this discriminator these knobs would sanction widening
+            // `HostConfig.Memory` for two services no envelope knob declares.
+            Object.freeze({path: leafPath, env, role: 'ceiling', resource: 'v8-heap', type: 'number'})
         ]),
         invariants: Object.freeze([
             Object.freeze({
@@ -164,12 +168,13 @@ export const RECOVERY_KNOBS = Object.freeze({
         requires: Object.freeze(['runtime.chroma.liveMemoryLimitBytes']),
         leaves  : Object.freeze([
             Object.freeze({
-                path: 'deploy.chroma.memoryCeilingBytes',
-                env : 'NEO_CHROMA_MEMORY_LIMIT',
-                role: 'ceiling',
-                type: 'number',
-                min : CONTAINER_MEMORY_CEILING_MIN_BYTES,
-                max : CONTAINER_MEMORY_CEILING_MAX_BYTES
+                path    : 'deploy.chroma.memoryCeilingBytes',
+                env     : 'NEO_CHROMA_MEMORY_LIMIT',
+                role    : 'ceiling',
+                resource: 'container-memory',
+                type    : 'number',
+                min     : CONTAINER_MEMORY_CEILING_MIN_BYTES,
+                max     : CONTAINER_MEMORY_CEILING_MAX_BYTES
             })
         ]),
         invariants: Object.freeze([
