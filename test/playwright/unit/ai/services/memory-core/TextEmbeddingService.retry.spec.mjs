@@ -90,7 +90,7 @@ function buildMinimalGguf({tokens, eosTokenId, eotTokenId, addEosToken = true}) 
 }
 
 test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openAiCompatible retry, QoS, and lms server start support', () => {
-    let SDK, TextEmbeddingService, server;
+    let TextEmbeddingService, server;
     let requestCount   = 0;
     let serverBehavior = 'succeed';
     let lastRequest;
@@ -105,8 +105,9 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let originalLoadedModelsProbe;
 
     test.beforeAll(async () => {
-        SDK = await import('../../../../../../ai/services.mjs');
-        TextEmbeddingService = SDK.Memory_TextEmbeddingService;
+        ({default: TextEmbeddingService} = await import(
+            '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs'
+        ));
 
         server = http.createServer((req, res) => {
             requestCount++;
@@ -298,7 +299,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         serverBehavior = 'succeed';
         const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
         expect(result).toEqual([0.1, 0.2, 0.3]);
-        expect(requestCount).toBe(1);
+        expect(requestCount, `observed requests=${JSON.stringify(allRequests)}`).toBe(1);
     });
 
     test('lms server start-compatible single embedding uses the standard OpenAI-compatible endpoint', async () => {
@@ -438,6 +439,18 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount).toBe(0);
     });
 
+    test('model-not-resident preflight mints a source-owned cause code before the provider request (#16658)', async () => {
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [];
+
+        const error = await TextEmbeddingService.embedText('hello', 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
+        expect(error.message).toContain('is not resident under its configured identifier');
+        expect(requestCount, 'the resident-model preflight fails before transport').toBe(0);
+    });
+
     test('openAiCompatible skips LM Studio context probe for non-LMS endpoints (#13944)', async () => {
         serverBehavior = 'succeed';
 
@@ -469,8 +482,12 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         serverBehavior = 'fail-all';
         aiConfig.openAiCompatible.unloadRetryCount = 2; // N=2
 
-        await expect(TextEmbeddingService.embedText('hello', 'openAiCompatible'))
-            .rejects.toThrow(/Model was unloaded/);
+        const error = await TextEmbeddingService.embedText('hello', 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toMatch(/Model was unloaded/);
+        expect(error.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
 
         // Initial request + 2 retries = 3 total requests
         expect(requestCount).toBe(3);
@@ -514,8 +531,12 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         serverBehavior = 'fail-all-404';
         aiConfig.openAiCompatible.unloadRetryCount = 2; // N=2
 
-        await expect(TextEmbeddingService.embedText('hello', 'openAiCompatible'))
-            .rejects.toThrow(/HTTP 404/);
+        const error = await TextEmbeddingService.embedText('hello', 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        expect(error).toBeInstanceOf(Error);
+        expect(error.message).toMatch(/HTTP 404/);
+        expect(error.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
 
         // Initial request + 2 bounded retries = 3 total requests (no infinite loop on a permanent 404)
         expect(requestCount).toBe(3);
