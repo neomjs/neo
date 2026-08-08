@@ -228,8 +228,18 @@ test.describe('embed failure classification — production path', () => {
 });
 
 /**
- * @summary The projection half: the producer's ACTUAL output, carried through the durable read
- * boundary, observed as the `lastSourceErrorCode` a remote client reads.
+ * @summary The READ boundary in isolation — not the consumer witness, and it must not be read as one.
+ *
+ * This block proves one link: a code the producer mints is admitted by the durable reader, and the raw
+ * provider code is refused by it. It does NOT span `assertErrorFreeIngestionSummary` /
+ * `getSourceErrorCode`, the filter that sits between them and that actually decided the null — so it
+ * stays green if that middle drops the code. Raised by @neo-gpt against an earlier draft of this
+ * docblock, which claimed the whole chain.
+ *
+ * The end-to-end witness lives with the harness that can drive it: see
+ * `TenantRepoSyncService.spec.mjs` — "two real embed failures reach details.repos[] as distinct
+ * source codes", which runs the real `embedChunkGroups` summaries through `runTask` and reddens when
+ * either the producer or that middle filter is mutated.
  *
  * The producer test above stops at `summary.errors[].code` and checks it against a pattern. That is
  * one step short of the claim, and re-asserting the same regex I wrote proves only that I applied it
@@ -242,7 +252,7 @@ test.describe('embed failure classification — production path', () => {
  * reader's admission rule ever drift apart, that is precisely the pair this catches — and it is the
  * drift the durable receipt reported as `null`.
  */
-test.describe('embed failure classification — durable projection', () => {
+test.describe('embed failure classification — read boundary only', () => {
     /**
      * @param {String} providerCode A code in the provider's vocabulary.
      * @returns {String|null} The value a remote client would read as `lastSourceErrorCode`.
@@ -259,7 +269,7 @@ test.describe('embed failure classification — durable projection', () => {
         }).lastSourceErrorCode
     }
 
-    test('a classified provider fault survives the read boundary instead of nulling', () => {
+    test('a minted code is admitted by the durable reader', () => {
         const timeout = projectThroughDurableRead('EMBEDDING_PROBE_TIMEOUT'),
               aborted = projectThroughDurableRead('ABORT_ERR');
 

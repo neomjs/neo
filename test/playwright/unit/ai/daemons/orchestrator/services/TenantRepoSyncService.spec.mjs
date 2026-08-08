@@ -2114,6 +2114,111 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(repoState.repoSlug).toBe('org/broken');
     });
 
+    /**
+     * @summary The consumer witness: two real embed-failure summaries carried through `runTask` to the
+     * `details.repos[].lastSourceErrorCode` a remote client reads.
+     *
+     * A producer-side spec that classifies a code, and a reader-side spec that admits it, can BOTH be
+     * green while the code never arrives — because the deciding step sits between them.
+     * `assertErrorFreeIngestionSummary` filters `summary.errors[].code` through `^KB_` and only then
+     * does `getSourceErrorCode` surface it. That filter is what turned a provider-classified failure
+     * into `lastSourceErrorCode: null`, so a witness that skips it does not witness the defect.
+     *
+     * The summaries here are not hand-written: they are produced by running the real
+     * `IngestionService.embedChunkGroups` against two injected provider faults, then handed to the
+     * `knowledgeBaseIngestionService` seam verbatim. No `KB_*` literal appears between the provider
+     * error and the assertion, so the whole producer -> filter -> projection chain has to agree.
+     */
+    test('two real embed failures reach details.repos[] as distinct source codes (#16647)', async () => {
+        const {default: IngestionService} = await import(
+            '../../../../../../../ai/services/knowledge-base/IngestionService.mjs'
+        );
+
+        /**
+         * Runs the REAL embed path against one injected provider fault.
+         * @param {String} providerCode
+         * @returns {Promise<Object>} The genuine ingestion summary, errors included.
+         */
+        async function produceRealSummary(providerCode) {
+            const summary = {errors: [], embeddingsGenerated: 0};
+
+            await IngestionService.embedChunkGroups.call({
+                createError            : IngestionService.createError.bind(IngestionService),
+                updateIngestionProgress: () => {},
+                vectorService          : {
+                    async embed() {
+                        throw Object.assign(new Error('provider failed'), {code: providerCode})
+                    }
+                },
+                writeTempJsonl: async () => path.join(
+                    await fs.mkdtemp(path.join(os.tmpdir(), 'neo-consumer-witness-')), 'chunks.jsonl'
+                )
+            }, {
+                chunks       : [{repoSlug: 'org/witness', text: 'x'}],
+                summary,
+                tenantContext: {tenantId: 't1', repoSlug: 'org/witness'},
+                viaMcp       : false
+            });
+
+            return {
+                ingested           : 1,
+                deleted            : 0,
+                embeddingsGenerated: 0,
+                errors             : summary.errors,
+                tenantId           : 't1',
+                durationMs         : 1
+            }
+        }
+
+        /**
+         * Drives one real summary through the sync lane and returns what a client would read.
+         * @param {Object} summary
+         * @param {String} repoSlug
+         * @returns {Promise<String|null>}
+         */
+        async function projectThroughRunTask(summary, repoSlug) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+            const result = await TenantRepoSyncService.runTask({
+                reason           : 'periodic-sweep:60000',
+                taskStateService : createInMemoryTaskStateService(),
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`}
+                ]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService({summaryFactory: () => summary}),
+                revisionsFilePath            : revisionsFile,
+                seedBootstrap                : false
+            });
+
+            return result.details.repos[0].lastSourceErrorCode ?? null
+        }
+
+        const
+            timeoutSummary = await produceRealSummary('EMBEDDING_PROBE_TIMEOUT'),
+            abortSummary   = await produceRealSummary('ABORT_ERR');
+
+        // Non-vacuity: an empty errors array would make the lane succeed and every assertion below
+        // would be reasoning about a repo that never failed.
+        expect(timeoutSummary.errors, 'the timeout run really produced an error').toHaveLength(1);
+        expect(abortSummary.errors, 'the abort run really produced an error').toHaveLength(1);
+
+        const
+            timeoutCode = await projectThroughRunTask(timeoutSummary, 'org/witness-timeout'),
+            abortCode   = await projectThroughRunTask(abortSummary,   'org/witness-abort');
+
+        // Arrival. Pre-fix both were dropped by the `^KB_` filter and this read null — the exact
+        // symptom that made a wedged deployment undiagnosable from a remote client.
+        expect(timeoutCode, 'a provider timeout arrives as a cause').not.toBeNull();
+        expect(abortCode, 'an upstream abort arrives as a cause').not.toBeNull();
+
+        // Distinguishability, which is the acceptance criterion itself: two faults must not read
+        // identically from the deployment-state snapshot alone.
+        expect(timeoutCode).not.toBe(abortCode);
+    });
+
+
     test('health payload: unresolved credentialRef preserves GitMirror source code', async () => {
         const taskStateService = createInMemoryTaskStateService();
 
