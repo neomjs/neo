@@ -114,6 +114,27 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         return {State: {Status: 'running', Health: {Status: health}}};
     }
 
+    /** `observedAtMs` is what the bridge stamps; the sustained window is MEASURED from it, not assumed. */
+    function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs} = {}) {
+        const systemDelta = 1_000_000_000,
+              cpuDelta    = (cpuPercent / 100) * systemDelta / 4,
+              memoryLimit = 1000;
+
+        return {
+            ...(Number.isFinite(observedAtMs) ? {observedAtMs} : {}),
+            cpu_stats: {
+                online_cpus     : 4,
+                system_cpu_usage: systemDelta,
+                cpu_usage       : {total_usage: cpuDelta}
+            },
+            precpu_stats: {
+                system_cpu_usage: 0,
+                cpu_usage       : {total_usage: 0}
+            },
+            memory_stats: {limit: memoryLimit, usage: (memoryPercent / 100) * memoryLimit}
+        };
+    }
+
     /**
      * The ADR-0025 §2.4 authoritative pair — a `container-unhealthy` state AND a failed DIRECT endpoint // ticket-ref-ok: the ADR clause defines the pair this fixture exists to encode
      * probe. Named rather than inlined because "unhealthy" alone is NOT this, and an earlier revision of
@@ -197,6 +218,31 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
             operation : 'restart',
             reason    : 'container-health-controller:lifecycle-crash'
         }]);
+    });
+
+    test('SAFETY — an ANSWERING service is not restarted even with a SECOND authoritative fact', async () => {
+        // Euclid's exact-head falsifier. `hasAuthoritativeEvidence`'s first arm admits ANY two
+        // authoritative facts, so `container-unhealthy` + a sustained `memory-saturation` reached
+        // restart on a service that was demonstrably serving — the positive probe contributed nothing
+        // because a successful probe emits no fact at all. This is acute rather than theoretical while
+        // a sibling lane can still mark a Node service's memory fact authoritative.
+        const {controller, runtimeCalls} = createStack(),
+              decision                   = diagnose({
+                  serviceKey   : 'mc-server',
+                  inspect      : runningInspect('unhealthy'),
+                  endpointProbe: {ok: true, name: 'healthcheck'},
+                  stats        : statsSample({memoryPercent: 96, observedAtMs: OBSERVED_AT}),
+                  statsSamples : [
+                      statsSample({memoryPercent: 96, observedAtMs: OBSERVED_AT - 60_000}),
+                      statsSample({memoryPercent: 97, observedAtMs: OBSERVED_AT})
+                  ]
+              });
+
+        expect(decision.actionClass).not.toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+
+        await controller.consume({decision});
+
+        expect(runtimeCalls.filter(call => call.operation === 'restart')).toEqual([]);
     });
 
     test('SAFETY — a service ANSWERING while the runtime reports unhealthy is never restarted', async () => {
@@ -453,6 +499,46 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
             operation : 'restart',
             reason    : 'container-health-controller:lifecycle-crash'
         }]);
+    });
+
+    test('AUTHORITY — losing the lease DURING a batch stops the remaining services', async () => {
+        // The batch-level pulse answers "may this sweep act". It cannot answer "may THIS service be
+        // acted on now", and a snapshot is consumed sequentially: authority lost while the first
+        // service is restarting must stop the second. One boolean flipped between calls is the whole
+        // fixture, because that is exactly what a successor reclaim looks like from in here.
+        let held = true;
+
+        const {controller, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => held}
+        });
+
+        const snapshot = {
+            services: [
+                {serviceKey: 'mc-server', diagnosis: wedged('mc-server')},
+                {serviceKey: 'kb-server', diagnosis: wedged('kb-server')}
+            ]
+        };
+
+        // Flip after the FIRST privileged write lands, mid-batch.
+        const actuator = controller.recoveryActuator,
+              original = actuator.apply.bind(actuator);
+
+        actuator.apply = async (...args) => {
+            const result = await original(...args);
+
+            held = false;
+
+            return result;
+        };
+
+        const outcomes = await controller.consumeSnapshot({snapshot});
+
+        expect(outcomes[0].status).toBe('actuated');
+        expect(outcomes[1].status).toBe('declined');
+        expect(outcomes[1].reasonCode).toBe('authority-lost');
+
+        // Exactly ONE restart reached the runtime — the second was fenced, not merely reported.
+        expect(runtimeCalls.filter(call => call.operation === 'restart')).toHaveLength(1);
     });
 
     test('consumeSnapshot on a missing or empty snapshot is a no-op rather than a throw', async () => {

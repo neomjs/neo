@@ -157,6 +157,14 @@ export class ContainerHealthControllerService extends Base {
      * @member {Function|null} writeLog=null
      */
     writeLog = null
+    /**
+     * Per-effect authority predicate, `() => Boolean`. Re-asked before EVERY actuation rather than once
+     * per batch, because a snapshot is consumed sequentially and each service is its own privileged
+     * write: authority lost while service A is restarting must stop service B, and a batch-level check
+     * cannot see that. `null` → no per-effect fence (unit seams; the orchestrator always injects one).
+     * @member {Function|null} isAuthorityHeld=null
+     */
+    isAuthorityHeld = null
 
     /**
      * @summary Routes every diagnosed decision in one deployment-state snapshot.
@@ -229,6 +237,24 @@ export class ContainerHealthControllerService extends Base {
 
         if (!route.actuatorAction) {
             return this.recordWithoutAction({decision, now, reasonCode: route.reasonCode});
+        }
+
+        // Re-asked HERE, immediately before the privileged write, not once for the batch. A snapshot is
+        // consumed one service at a time and each actuation is its own effect, so authority lost while
+        // an earlier service was restarting must stop every later one. The recording terminals above are
+        // deliberately not fenced: writing a durable record of a diagnosis is not a plane mutation, and
+        // losing the record would remove the evidence that this instance stopped acting.
+        if (typeof this.isAuthorityHeld === 'function' && this.isAuthorityHeld() !== true) {
+            this.writeLog?.('WARN', `[ContainerHealthController] authority lost before actuating ${decision.serviceKey}; declining.`);
+
+            return this.createOutcome({
+                actionClass: decision.actionClass,
+                consumed   : false,
+                observedAt : now,
+                reasonCode : 'authority-lost',
+                serviceKey : decision.serviceKey,
+                status     : 'declined'
+            });
         }
 
         return this.actuate({decision, now, route});

@@ -472,6 +472,10 @@ export class Orchestrator extends Base {
 
         return ClassSystemUtil.beforeSetInstance(value, ContainerHealthControllerService, {
             recoveryActuator   : this.recoveryActuatorService,
+            // Per-effect fence. The batch-level pulse in `consumeContainerHealthDecisions` answers "may
+            // this sweep act"; this answers "may THIS service be acted on now", which is a different
+            // question once a snapshot carries several unhealthy services and each actuation takes time.
+            isAuthorityHeld    : () => !this.authorityLeaseLost && this.pulseAuthorityLease() === 'held',
             healLedgerDir      : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             healLedgerRetention: validateHealLedgerRetention(healLedger.maxEvents, healLedger.pruneTriggerBytes),
             writeLog           : this.containerHealthControllerWriteLog
