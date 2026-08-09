@@ -98,6 +98,101 @@ jobs:
             }
 
             // ──────────────────────────────────────────────────────────────────────
+            // Close-relation audit (#16829). GitHub auto-close is textual: `Resolves #N`
+            // closes #N at merge no matter what its Acceptance Criteria still track.
+            // `pr-review-guide.md §5.2` is reviewer discipline; this is its mechanical
+            // floor. Two orphan classes, both mechanically decidable:
+            //   (a) a close-target whose AC section carries an unchecked item WITHOUT an
+            //       `[L<N>-deferred — …]` annotation (the sanctioned residual marker —
+            //       annotated open-ended verification closes normally);
+            //   (b) a Post-Merge Validation checklist item whose every `#N` reference is
+            //       itself being closed (its home dies with the merge). No-reference PMV
+            //       items are NOT flagged: §5.2 rule 4's open-ended verification rides
+            //       free (#16796's close of #16800 is the control shape).
+            // The decision core is pure — ticket bodies arrive as INPUT, the fetch lives
+            // at the call site — so the unit spec slices it out of this file between the
+            // sentinels and runs the fixture corpus off-CI. One producer, no twin.
+            // ──────────────────────────────────────────────────────────────────────
+            // #16829-CLOSE-RELATION-AUDIT-BEGIN
+            function sliceBodySection(text, heading) {
+              const match = text.match(new RegExp('^## ' + heading + '[ \\t]*$', 'm'));
+
+              if (!match) return '';
+
+              return text.slice(match.index + match[0].length).split(/^## /m)[0]
+            }
+
+            function auditCloseRelations(bodyText, issueBodiesByNumber) {
+              const findings  = [];
+              const closeNums = [...new Set([...bodyText.matchAll(/\bResolves:?\s+#(\d+)/gi)].map(m => m[1]))];
+
+              for (const num of closeNums) {
+                const ticketBody = issueBodiesByNumber[num];
+
+                if (typeof ticketBody !== 'string') {
+                  findings.push(`#${num}: the ticket body was unavailable to the audit — a gate that cannot see its input must not pass silently`);
+                  continue
+                }
+
+                const unmet = sliceBodySection(ticketBody, 'Acceptance Criteria')
+                  .split('\n')
+                  .filter(line => /^\s*-\s+\[ \]/.test(line))
+                  .filter(line => !/\[L\d+-deferred/i.test(line));
+
+                for (const item of unmet) {
+                  findings.push(`#${num} carries an unmet, un-annotated acceptance criterion this merge would close over: ${item.trim()}`)
+                }
+              }
+
+              const pmvItems = sliceBodySection(bodyText, 'Post-Merge Validation')
+                .split('\n')
+                .filter(line => /^\s*-\s+\[[ xX]\]/.test(line));
+
+              for (const item of pmvItems) {
+                const refs = [...item.matchAll(/#(\d+)/g)].map(m => m[1]);
+
+                if (refs.length > 0 && refs.every(ref => closeNums.includes(ref))) {
+                  findings.push(`Post-Merge Validation item references only ticket(s) this PR closes — its home dies with the merge: ${item.trim()}`)
+                }
+              }
+
+              return findings
+            }
+            // #16829-CLOSE-RELATION-AUDIT-END
+
+            const closeRelationFindings = [];
+
+            if (hasResolves) {
+              const resolveNums = [...new Set([...body.matchAll(/\bResolves:?\s+#(\d+)/gi)].map(m => m[1]))];
+              const issueBodies = {};
+
+              for (const num of resolveNums) {
+                try {
+                  const issue = await github.rest.issues.get({
+                    owner: context.repo.owner, repo: context.repo.repo, issue_number: Number(num)
+                  });
+                  issueBodies[num] = issue.data.body || "";
+                } catch (err) {
+                  // a gate that cannot see its input must not pass silently — the core
+                  // converts the missing body into a finding below
+                  issueBodies[num] = null;
+                }
+              }
+
+              closeRelationFindings.push(...auditCloseRelations(body, issueBodies));
+            }
+
+            if (closeRelationFindings.length > 0) {
+              missingVisible.push(
+                "close-relation audit (#16829): " + closeRelationFindings.length + " orphaned item(s). " +
+                "Sanctioned repairs: (a) tick the delivered ACs on the ticket with their receipts; " +
+                "(b) annotate genuinely post-merge criteria on the ticket as `[L<N>-deferred — …]`; " +
+                "(c) split an L2-delivered leaf (#16776 pattern) and `Resolves` the leaf. " +
+                "Findings: " + closeRelationFindings.join(" | ")
+              );
+            }
+
+            // ──────────────────────────────────────────────────────────────────────
             // Stacked-PR guard (#15352). A PR branched off another feature branch —
             // rather than `dev` — carries that branch's commits. It is INVISIBLE to
             // every other gate: GitHub computes the file diff from the merge-base, so
