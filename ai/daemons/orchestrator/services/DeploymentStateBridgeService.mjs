@@ -17,6 +17,7 @@ import {
     readBackupReceipt,
     validateOffHostSyncConfig
 } from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
+import {readDeployedRevision}        from '../../../services/shared/deployedRevision.mjs';
 import {describeBackupRetryState}    from '../scheduling/backup.mjs';
 import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
 import {summarizeStagingResidue}     from '../../../scripts/maintenance/backupStagingResidueCore.mjs';
@@ -262,7 +263,12 @@ export class DeploymentStateBridgeService extends Base {
             recoveryRuns,
             selfHeal,
             tenantRepoSync,
-            maintenance
+            maintenance,
+            // Read here rather than inside the store: the store stays pure and every other
+            // collection in this method is likewise an I/O boundary owned by the service. The same
+            // reader already backs both MCP healthchecks, so a plane cannot report two different
+            // revisions for itself depending on which surface is asked.
+            deployedRevision: readDeployedRevision()
         });
     }
 

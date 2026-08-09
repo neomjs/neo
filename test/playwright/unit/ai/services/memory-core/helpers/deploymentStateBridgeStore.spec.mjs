@@ -51,6 +51,27 @@ test.describe('deploymentStateBridgeStore', () => {
         expect(createDeploymentStateSnapshot({generatedAt: 1}).selfHeal).toBeNull(); // additive + back-compat (omitted → null)
     });
 
+    test('carries the revision that produced the snapshot, and reports null rather than omitting it', () => {
+        const withRevision = createDeploymentStateSnapshot({
+            generatedAt     : 1710000000000,
+            deployedRevision: '55219f40d8d1766ba44bd5b40708a3e0c8f2fec4'
+        });
+
+        expect(withRevision.deployedRevision).toBe('55219f40d8d1766ba44bd5b40708a3e0c8f2fec4');
+
+        // The load-bearing half. A snapshot whose revision is unknown must still CARRY the key:
+        // an absent field reads as "current" to anyone checking for skew, so omitting it turns
+        // "we do not know what produced this" into "this is fine".
+        const unknown = createDeploymentStateSnapshot({generatedAt: 1710000000000});
+
+        expect(Object.hasOwn(unknown, 'deployedRevision')).toBe(true);
+        expect(unknown.deployedRevision).toBeNull();
+
+        // A blank or non-string marker is unknown, not a revision — it must never travel as one.
+        expect(createDeploymentStateSnapshot({deployedRevision: '  '}).deployedRevision).toBeNull();
+        expect(createDeploymentStateSnapshot({deployedRevision: 12345}).deployedRevision).toBeNull();
+    });
+
     test('degrades fresh legacy snapshots without producer metadata (#14408)', async () => {
         const dir      = await fs.mkdtemp(path.join(os.tmpdir(), 'deployment-state-bridge-')),
               filePath = path.join(dir, 'snapshot.json'),

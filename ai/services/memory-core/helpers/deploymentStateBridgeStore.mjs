@@ -40,6 +40,7 @@ const CURRENT_PRODUCER_METADATA = Object.freeze({
  * @param {Object|null} [options.recoveryRuns=null] Bounded recovery-run ledger snapshot.
  * @param {Object|null} [options.selfHeal=null] Bounded self-heal immune-system status (heal-ledger summary + recent events).
  * @param {Object|null} [options.tenantRepoSync=null] Bounded tenant-repo-sync scheduler/task/config snapshot.
+ * @param {String|null} [options.deployedRevision=null] The revision that produced this snapshot.
  * @param {Object} [options.producer=CURRENT_PRODUCER_METADATA] Bounded snapshot producer metadata.
  * @returns {Object}
  */
@@ -52,6 +53,7 @@ export function createDeploymentStateSnapshot({
     selfHeal = null,
     tenantRepoSync = null,
     maintenance = null,
+    deployedRevision = null,
     producer = CURRENT_PRODUCER_METADATA
 } = {}) {
     if (!Number.isFinite(generatedAt)) {
@@ -67,7 +69,13 @@ export function createDeploymentStateSnapshot({
         recordType   : 'deployment-state-snapshot',
         generatedAt,
         source,
-        producer     : sanitizeProducerMetadata(producer),
+        // ALWAYS present, `null` included. A snapshot says what a plane observed; without the
+        // revision that produced it, none of the observations can be re-read against the code that
+        // made them — a recovery decision, a diagnosis and a heal event all become uninterpretable
+        // once the image moves. Omitting the key when unknown would be worse than reporting null,
+        // because an absent field reads as "current" to anyone checking for skew.
+        deployedRevision: typeof deployedRevision === 'string' && deployedRevision.trim() ? deployedRevision.trim() : null,
+        producer        : sanitizeProducerMetadata(producer),
         services,
         bridgeDiagnostics,
         recoveryRuns,
