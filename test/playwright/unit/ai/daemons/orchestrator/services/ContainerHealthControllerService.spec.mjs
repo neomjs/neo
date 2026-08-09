@@ -114,6 +114,29 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         return {State: {Status: 'running', Health: {Status: health}}};
     }
 
+    /**
+     * The ADR-0025 §2.4 authoritative pair — a `container-unhealthy` state AND a failed DIRECT endpoint // ticket-ref-ok: the ADR clause defines the pair this fixture exists to encode
+     * probe. Named rather than inlined because "unhealthy" alone is NOT this, and an earlier revision of
+     * this suite proved how easy that is to forget: it asserted a restart on a container whose own test
+     * comment said the process "kept serving".
+     */
+    function wedged(serviceKey) {
+        return diagnose({
+            serviceKey,
+            inspect      : runningInspect('unhealthy'),
+            endpointProbe: {ok: false, name: 'healthcheck'}
+        });
+    }
+
+    /** Unhealthy per the runtime, but ANSWERING directly — the false-unhealthy case that must not act. */
+    function answering(serviceKey) {
+        return diagnose({
+            serviceKey,
+            inspect      : runningInspect('unhealthy'),
+            endpointProbe: {ok: true, name: 'healthcheck'}
+        });
+    }
+
     /** `readHealLedger` resolves to a plain ARRAY (`[]` when the ledger file does not exist yet). */
     async function readLedger() {
         return readHealLedger({dir: path.join(tmpDir, HEAL_LEDGER_DIR_NAME)});
@@ -151,12 +174,11 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
     // The ticket's headline AC. This is the assertion that fails against `dev`.
     // ---------------------------------------------------------------------------------------------
 
-    test('an alive-but-unhealthy container reaches the actuator and is restarted (#16766)', async () => {
+    test('a genuinely wedged container reaches the actuator and is restarted (#16766)', async () => {
         const {controller, runtimeCalls} = createStack(),
-              // No `endpointProbe`, deliberately: that argument has no producer in the orchestrator, so
-              // supplying it would exercise an escape hatch production never reaches. This is the exact
-              // live shape — a container the runtime marked unhealthy while its process kept serving.
-              decision = diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')});
+              // The ADR-0025 §2.4 pair: the runtime says unhealthy AND a direct probe of the service // ticket-ref-ok: the ADR clause is what licenses this restart
+              // itself failed. Two independent channels agreeing is what licenses a privileged restart.
+              decision = wedged('mc-server');
 
         expect(decision.status).toBe('diagnosed');
         expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
@@ -173,14 +195,33 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect(runtimeCalls).toEqual([{
             serviceKey: 'mc-server',
             operation : 'restart',
-            reason    : 'container-health-controller:lifecycle-unhealthy-sustained'
+            reason    : 'container-health-controller:lifecycle-crash'
         }]);
+    });
+
+    test('SAFETY — a service ANSWERING while the runtime reports unhealthy is never restarted', async () => {
+        const {controller, runtimeCalls} = createStack(),
+              decision                   = answering('mc-server');
+
+        // The false-unhealthy case, at the controller seam rather than only at the classifier. ADR-0025 // ticket-ref-ok: the ADR clause is the authority for refusing this action
+        // §2.1's live instance: a provider-dependent canary false-fails while the service still answers
+        // and persists. Restarting it destroys the in-flight work whose slowness caused the red, and on
+        // Memory Core that is the WAL capture the deployment comment says must never be vetoed.
+        expect(decision.status).toBe('advisory');
+        expect(decision.actionClass).toBeNull();
+
+        const outcome = await controller.consume({decision});
+
+        expect(outcome.status).toBe('no-decision');
+        expect(outcome.consumed).toBe(false);
+        expect(runtimeCalls).toEqual([]);
+        expect(await readLedger()).toEqual([]);
     });
 
     test('the decision is recorded to the ledger the deployment snapshot actually folds', async () => {
         const {actuator, controller} = createStack();
 
-        await controller.consume({decision: diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')})});
+        await controller.consume({decision: wedged('mc-server')});
 
         // Writer and reader bind to one path. Before the repair the actuator wrote to
         // `<dataDir>/heal-events` while every production reader — the bridge's `selfHeal` fold,
@@ -340,7 +381,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
     test('EVERY consumed decision writes exactly one heal-event, including the decision not to act', async () => {
         const {controller} = createStack();
 
-        await controller.consume({decision: diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')})});
+        await controller.consume({decision: wedged('mc-server')});
         await controller.consume({decision: decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.throttleShed, {serviceKey: 'kb-server'})});
         await controller.consume({decision: diagnose({serviceKey: 'mc-server', inspect: runningInspect('healthy')})});
 
@@ -364,7 +405,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
 
         for (let i = 0; i < 4; i++) {
             const outcome = await controller.consume({
-                decision: diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')})
+                decision: wedged('mc-server')
             });
 
             statuses.push(outcome.actuatorOutcome.status);
@@ -393,8 +434,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
                   services: [
                       {serviceKey: 'chroma',    diagnosis: diagnose({serviceKey: 'chroma',    inspect: runningInspect('healthy')})},
                       // Not on the recovery registry, so the actuator refuses it — the batch must carry on.
-                      {serviceKey: 'ghost',     diagnosis: diagnose({serviceKey: 'ghost',     inspect: runningInspect('unhealthy')})},
-                      {serviceKey: 'mc-server', diagnosis: diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')})},
+                      {serviceKey: 'ghost',     diagnosis: wedged('ghost')},
+                      {serviceKey: 'mc-server', diagnosis: wedged('mc-server')},
                       {serviceKey: 'nothing',   diagnosis: null}
                   ]
               };
@@ -410,7 +451,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect(runtimeCalls).toEqual([{
             serviceKey: 'mc-server',
             operation : 'restart',
-            reason    : 'container-health-controller:lifecycle-unhealthy-sustained'
+            reason    : 'container-health-controller:lifecycle-crash'
         }]);
     });
 
@@ -499,6 +540,68 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
             }
         });
 
+        test('TAKEOVER — a stale holder that resumes after a successor reclaimed does NOT actuate', async () => {
+            // The latch is what a paused predecessor carries: `pulseAuthorityLease` runs once at poll
+            // start, so a process suspended past the lease TTL wakes with `authorityLeaseLost` still
+            // false after a successor already took over. Reading the latch would let it restart
+            // containers on a plane it no longer owns — two orchestrators actuating the same services,
+            // which is the exact failure the lease exists to prevent. Only a LIVE pulse can tell them
+            // apart, so this fixture sets the latch to the stale value and makes the lease itself object.
+            const {Orchestrator} = await import('../../../../../../../ai/daemons/orchestrator/Orchestrator.mjs'),
+                  consumed       = [],
+                  instance       = Object.create(Orchestrator.prototype);
+
+            Object.defineProperties(instance, {
+                authorityLeaseLost            : {value: false, writable: true}, // STALE — the whole point
+                writeLog                      : {value: () => {}},
+                stop                          : {value: () => {}},
+                deploymentRuntimeAccessService: {value: {runtimeAccessConfig: {enabled: true}}},
+                authorityLease                : {value: {
+                    pulse() {
+                        const error = new Error('lease reclaimed by a successor');
+                        error.code  = 'FILE_LEASE_LOST';
+                        throw error;
+                    }
+                }},
+                containerHealthControllerService: {value: {
+                    async consumeSnapshot({snapshot}) {
+                        consumed.push(snapshot);
+                        return [];
+                    }
+                }}
+            });
+
+            const previousExitCode = process.exitCode;
+
+            expect(await instance.consumeContainerHealthDecisions({status: 'written', snapshot: {services: []}})).toEqual([]);
+            expect(consumed).toEqual([]);          // no snapshot ever reached the controller
+            expect(instance.authorityLeaseLost).toBe(true); // and the live pulse corrected the stale latch
+
+            process.exitCode = previousExitCode;   // the refusal path sets it; do not fail the runner
+        });
+
+        test('CONTENTION — an unverified lease defers actuation, because unverified is not held', async () => {
+            const {Orchestrator} = await import('../../../../../../../ai/daemons/orchestrator/Orchestrator.mjs'),
+                  consumed       = [],
+                  instance       = Object.create(Orchestrator.prototype);
+
+            Object.defineProperties(instance, {
+                authorityLeaseLost              : {value: false, writable: true},
+                writeLog                        : {value: () => {}},
+                deploymentRuntimeAccessService  : {value: {runtimeAccessConfig: {enabled: true}}},
+                authorityLease                  : {value: {pulse: () => ({contended: true})}},
+                containerHealthControllerService: {value: {
+                    async consumeSnapshot({snapshot}) {
+                        consumed.push(snapshot);
+                        return [];
+                    }
+                }}
+            });
+
+            expect(await instance.consumeContainerHealthDecisions({status: 'written', snapshot: {services: []}})).toEqual([]);
+            expect(consumed).toEqual([]);
+        });
+
         test('does NOT route after the authority lease is lost mid-flight', async () => {
             // The bridge evaluates its own fence AFTER the async collect; the heal is a SECOND effect
             // reached after that write completed, so it needs its own read of the lease.
@@ -535,7 +638,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         });
 
         const outcome = await controller.consume({
-            decision: diagnose({serviceKey: 'mc-server', inspect: runningInspect('unhealthy')})
+            decision: wedged('mc-server')
         });
 
         expect(outcome.status).toBe('actuated');

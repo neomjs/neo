@@ -830,30 +830,21 @@ export class ContainerHealthDiagnosisService extends Base {
         const downFacts = lifecycleFacts.filter(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
 
-        // A container the runtime has marked `unhealthy` is ALREADY debounced: the runtime only sets
-        // that field after `retries` consecutive probe failures, so it is the runtime's own sustained
-        // verdict, not one sample. `minAuthoritativeFacts` exists to stop action on a single NOISY
-        // signal — the same reasoning the store-memory carve-out below states at length — and a verdict
-        // that survived N consecutive probes is not noisy. Requiring a second authoritative fact to
-        // corroborate it asks for a coincidence rather than evidence, and a quiet unhealthy-but-alive
-        // service produces exactly ONE: observed live at 710 MB resident / 0.9% CPU, which saturates
-        // nothing and has not exited, so no second authoritative fact exists to find. Without this the
-        // fact was created and the classification was suppressed, leaving `actionClass: null` — a
-        // diagnosis no controller could consume even once one existed.
+        // DELIBERATELY unchanged, and the reason is worth stating because an earlier revision of this
+        // change got it wrong. A container the runtime marks `unhealthy` looks like a debounced verdict
+        // — the runtime only sets it after `retries` consecutive failures — and it is tempting to treat
+        // that as sufficient on its own. It is not. Debouncing answers NOISE; it cannot answer
+        // CONTRADICTION, because repeated evaluations of one probe are still one evidence channel, and
+        // the channel itself can be measuring the wrong thing. ADR-0025 §2.1 names the live instance: a // ticket-ref-ok: the ADR clause is the governing safety authority this branch must not contradict
+        // provider-dependent canary false-fails while the service still answers and persists, so
+        // restarting it is a self-inflicted outage. §2.4 therefore requires the PAIR — a
+        // `container-unhealthy` state plus a failed DIRECT endpoint probe — and
+        // `hasAuthoritativeEvidence` already admits exactly that pair.
         //
-        // Gated on `authoritative` on purpose, and that is the whole safety margin: `collectLifecycleFacts`
-        // sets it ONLY for `healthState === 'unhealthy'`. A `starting` container yields a
-        // non-authoritative `warning` fact and must NOT classify here — widening this to "any
-        // non-healthy health state" would action every ordinary boot window.
-        const sustainedUnhealthyFacts = lifecycleFacts.filter(fact =>
-            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerUnhealthy && fact.authoritative
-        );
-        // Kept as its own binding so the `reason` below can tell the newly-reachable single-fact path
-        // apart from the pre-existing corroborated one WITHOUT relabelling any classification that
-        // already shipped.
-        const hasCorroboratedLifecycleEvidence = this.hasAuthoritativeEvidence(lifecycleFacts, facts);
-
-        if (downFacts.length || sustainedUnhealthyFacts.length > 0 || hasCorroboratedLifecycleEvidence) {
+        // The pair was unreachable in production for one reason only: nothing supplied `endpointProbe`.
+        // That was a missing PRODUCER, never a floor that was too strict, and the repair belongs
+        // upstream at the producer rather than here.
+        if (downFacts.length || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
             // The ACTION is unchanged and was never wrong — a stopped container is restarted either
             // way. What was missing is the CAUSE: a service that exhausted its declared V8 ceiling
             // recorded as a generic crash, so the ceiling was never implicated and the same abort
@@ -873,19 +864,11 @@ export class ContainerHealthDiagnosisService extends Base {
                 // Only a numeric declared ceiling licenses the wording that implicates one. An
                 // undeclared Node service still attributes the heap death — that population is
                 // precisely where this class was first observed.
-                // The third arm is the only new label, and it is reachable ONLY on the path this change
-                // opened — an alive container whose sustained `unhealthy` verdict stands alone. Both
-                // pre-existing reasons keep their exact strings, so no shipped heal-event or consumer
-                // is relabelled by this change. It earns a distinct name because the ledger must let an
-                // operator tell "restarted because it exited" from "restarted while still running":
-                // the evidence, the blast radius, and the follow-up are different for each.
                 reason       : heapFact
                     ? (Number.isFinite(heapFact.details.declaredHeapCeilingMb)
                         ? 'lifecycle-crash-heap-exhaustion-declared-ceiling'
                         : 'lifecycle-crash-heap-exhaustion')
-                    : (downFacts.length || hasCorroboratedLifecycleEvidence)
-                        ? 'lifecycle-crash'
-                        : 'lifecycle-unhealthy-sustained'
+                    : 'lifecycle-crash'
             };
         }
 

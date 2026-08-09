@@ -821,6 +821,22 @@ export class Orchestrator extends Base {
             return [];
         }
 
+        // LIVE re-pulse, not another read of the latch, and the distinction is the whole point.
+        // `authorityLeaseLost` is set by `pulseAuthorityLease` once at poll start, so it reports what
+        // was true when the sweep began. A predecessor paused past the lease TTL — a long GC pause, a
+        // suspended VM — resumes with that latch still `false` after a successor has already reclaimed
+        // the lease, and would then restart a container on a plane it no longer owns. Every other
+        // deferred-write fence in this class re-reads the latch, which is adequate when the effect is a
+        // stale fact file and is NOT adequate for a privileged lifecycle write: two orchestrators
+        // restarting the same containers is the failure this lease exists to prevent.
+        //
+        // `pulse()` touches the lease itself, so `held` is an answer about the present rather than
+        // about the start of the sweep. Anything else — `lost` or `contended` — declines to act;
+        // unverified is not held, and the next cadence re-observes an unhealthy service anyway.
+        if (this.pulseAuthorityLease() !== 'held') {
+            return [];
+        }
+
         try {
             return await this.containerHealthControllerService.consumeSnapshot({snapshot: result.snapshot});
         } catch (error) {
