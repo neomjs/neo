@@ -55,8 +55,9 @@ function createConfig({authMiddleware=null, auth={}}={}) {
             ...auth
         },
         fleet: {
-            port   : 8083,
-            dataDir: '/app/.neo-ai-data/fleet'
+            port          : 8083,
+            dataDir       : '/app/.neo-ai-data/fleet',
+            cockpitOrigins: ['http://localhost:8080', 'http://127.0.0.1:8080']
         }
     }
 }
@@ -244,6 +245,59 @@ test.describe('composed Fleet S1 server', () => {
             });
             expect(admitted.status).toBe(400);
             expect(await admitted.json()).toEqual({ok: false, error: 'fleet: invalid JSON body'})
+        } finally {
+            await server.close()
+        }
+    });
+
+    test('CORS grants only exact configured or public origins and never emits a wildcard', async () => {
+        const server = await startApp({
+            authMiddleware(req, res, next) {
+                req.auth = {userId: 'alice', source: 'test-provider'};
+                next()
+            }
+        });
+
+        try {
+            for (const origin of ['http://localhost:8080', 'https://agent-os.example.test']) {
+                const response = await nativeFetch(`${server.baseUrl}/fleet/probe`, {
+                    headers: {Origin: origin}
+                });
+
+                expect(response.status, origin).toBe(200);
+                expect(response.headers.get('access-control-allow-origin'), origin).toBe(origin);
+                expect(response.headers.get('access-control-allow-origin')).not.toBe('*');
+                expect(response.headers.get('vary')).toContain('Origin')
+            }
+
+            for (const origin of ['https://foreign.example.test', 'null']) {
+                const response = await nativeFetch(`${server.baseUrl}/fleet/probe`, {
+                    headers: {Origin: origin}
+                });
+
+                expect(response.status, origin).toBe(403);
+                expect(response.headers.get('access-control-allow-origin'), origin).toBeNull();
+                expect(await response.json()).toEqual({ok: false, error: 'fleet: origin not admitted'})
+            }
+
+            const preflight = await nativeFetch(`${server.baseUrl}/fleet`, {
+                method : 'OPTIONS',
+                headers: {
+                    'Origin'                        : 'http://127.0.0.1:8080',
+                    'Access-Control-Request-Method' : 'POST',
+                    'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                }
+            });
+
+            expect(preflight.status).toBe(204);
+            expect(preflight.headers.get('access-control-allow-origin')).toBe('http://127.0.0.1:8080');
+            expect(preflight.headers.get('access-control-allow-headers')).toContain('Authorization');
+            expect(preflight.headers.get('vary')).toContain('Origin');
+
+            const originless = await nativeFetch(`${server.baseUrl}/fleet/probe`);
+
+            expect(originless.status).toBe(200);
+            expect(originless.headers.get('access-control-allow-origin')).toBeNull()
         } finally {
             await server.close()
         }

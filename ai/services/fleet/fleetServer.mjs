@@ -169,7 +169,9 @@ export async function createFleetServerApp({
 }={}) {
     planeGuard({aiConfig});
 
-    const app = express();
+    const
+        app          = express(),
+        mcpServerUrl = resolveFleetResourceUrl(aiConfig);
 
     app.enable('strict routing');
     app.disable('x-powered-by');
@@ -177,15 +179,18 @@ export async function createFleetServerApp({
 
     authService.setupPreCors({app, aiConfig});
 
-    app.use(cors({
-        origin        : '*',
-        exposedHeaders: ['Mcp-Session-Id']
-    }));
+    transportService.installCors({
+        app,
+        aiConfig,
+        corsMiddleware: cors,
+        resourceUrl   : mcpServerUrl,
+        errorBody     : {ok: false, error: 'fleet: origin not admitted'}
+    });
 
     await authService.setup({
         app,
         aiConfig,
-        mcpServerUrl: resolveFleetResourceUrl(aiConfig),
+        mcpServerUrl,
         logger,
         resourceName: 'Neo Fleet Control Service'
     });

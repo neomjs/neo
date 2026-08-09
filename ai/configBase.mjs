@@ -313,9 +313,11 @@ class ConfigBase extends ConfigProvider {
                  */
                 bearer         : leaf('', 'NEO_FLEET_BEARER', 'string'),
                 /**
-                 * Origins the cockpit may call the Fleet transport from. CSV-typed: the env form
-                 * is a comma-separated list, the resolved form is an array, so no consumer splits
-                 * or trims a string of its own.
+                 * Exact origins the Fleet Manager cockpit may call browser-facing Agent OS HTTP
+                 * transports from. The legacy local Fleet bridge and the composed KB/MC/Fleet CORS
+                 * boundary consume the same resolved array. CSV-typed: the env form is a
+                 * comma-separated list, the resolved form is an array, so no consumer splits or
+                 * trims a string of its own.
                  * @type {string[]}
                  */
                 cockpitOrigins : leaf(['http://localhost:8080', 'http://127.0.0.1:8080'], 'NEO_FLEET_COCKPIT_ORIGIN', 'csv'),
