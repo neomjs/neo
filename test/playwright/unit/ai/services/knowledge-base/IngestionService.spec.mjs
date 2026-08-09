@@ -490,6 +490,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 
         expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_INVALID')).toBe(false);
         expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_UNAVAILABLE')).toBe(false);
+        expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_RESOLVER_FAILED')).toBe(false);
         expect(metrics[0]?.eventType).not.toBe('error');
     });
 
@@ -508,7 +509,11 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('reports unavailable revision-boundary deletion resolver without throwing', async () => {
+    test('requesting derivation from an UNWIRED resolver stays fail-closed (#16799)', async () => {
+        // Deliberately NOT weakened. A caller that asks this service to derive a deletion set and
+        // supplies no tombstones cannot be given one, and completing anyway would let deletions
+        // silently stop propagating. The tenant-sync lane was fixed by no longer asking (it proves
+        // its own delta via diffRevisions) — not by making the unanswerable request succeed.
         const summary = await Service.ingestSourceFiles({
             tenantId    : 'tenant-a',
             repoSlug    : 'repo-a',
@@ -521,10 +526,43 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(summary.errors[0]).toMatchObject({
             code: 'KB_REVISION_BOUNDARY_UNAVAILABLE'
         });
+        // The message must not defer the operator to a tracking item that has already closed:
+        // a stale pointer reads as a roadmap promise and is worse than no pointer at all.
+        expect(summary.errors[0].message).not.toContain('11637');
         expect(metrics[0]).toMatchObject({
             eventType    : 'error',
             chunksDeleted: 0
         });
+    });
+
+    test('a resolver that is PRESENT and throws still fails the run (#16799)', async () => {
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('upstream refused');
+                error.code    = 'ECONNREFUSED';
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        // Absent and failed are DIFFERENT conditions. Demoting absence must never demote failure,
+        // or the successor that wires a real resolver inherits a hole it cannot report through.
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'ECONNREFUSED'}
+        });
+        // Distinguishable from "never wired" — once a real resolver lands, deletion detection must
+        // be able to report its own breakage rather than looking like an absent capability.
+        expect(summary.errors[0].code).not.toBe('KB_REVISION_BOUNDARY_UNAVAILABLE');
+        // The thrown message may carry a clone URL or a provider response; only the bounded code travels.
+        expect(JSON.stringify(summary)).not.toContain('upstream refused');
     });
 
     test('applies tombstone, manifest, and mock revision-boundary deletion signaling', async () => {

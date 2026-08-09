@@ -1441,6 +1441,30 @@ class IngestionService extends Base {
 
     /**
      * @summary Resolves revision-boundary tombstones via an injected resolver.
+     *
+     * **Requesting derivation stays fail-closed, and that is deliberate.** `revisionResolver`
+     * has no production implementation: the config default is `null`, the only `resolveDeletedPaths`
+     * in the tree are test doubles, and nothing under `ai/` assigns it. A caller that asks this
+     * service to derive a deletion set therefore cannot be given one — and completing the run
+     * anyway would let deletions silently stop propagating, which is strictly worse than failing.
+     *
+     * The fix for the tenant-sync lane was NOT to weaken this: that lane already proved its own
+     * delta via `gitMirror.diffRevisions()` and then redundantly asked for it to be re-derived, so
+     * it stopped sending `baseRevision`. See `tenantRepoIngestEnvelopeBuilder`. Demoting this branch
+     * globally would have bought that one caller a fix at the price of every other caller's
+     * guarantee.
+     *
+     * **Absent and failed remain different conditions.** Once a real resolver exists, a genuine
+     * failure — network, auth, corrupt revision — must be distinguishable from "never wired", or
+     * deletion detection ships unable to report its own breakage:
+     *
+     * - **unwired** ⇒ `KB_REVISION_BOUNDARY_UNAVAILABLE`.
+     * - **present and throwing** ⇒ `KB_REVISION_BOUNDARY_RESOLVER_FAILED`.
+     *
+     * The message deliberately names no tracking item. The one it used to cite had already closed,
+     * so it told operators to wait for a phase that had shipped, for a capability nobody had built —
+     * a stale pointer that reads as a roadmap promise is worse than no pointer.
+     *
      * @param {Object} options
      * @returns {Promise<Array<Object>>}
      * @protected
@@ -1461,18 +1485,29 @@ class IngestionService extends Base {
         if (!this.revisionResolver?.resolveDeletedPaths) {
             summary.errors.push(this.createError({
                 code   : 'KB_REVISION_BOUNDARY_UNAVAILABLE',
-                message: 'Revision-boundary deletion requires Phase 2E tenant config storage / resolver (#11637).'
+                message: 'Revision-boundary deletion detection is not wired on this deployment, so a caller-requested deletion set cannot be derived. Supply explicit tombstones instead.'
             }));
             return [];
         }
 
-        const resolved = await this.revisionResolver.resolveDeletedPaths({
-            baseRevision,
-            headRevision,
-            tenantContext
-        });
+        try {
+            const resolved = await this.revisionResolver.resolveDeletedPaths({
+                baseRevision,
+                headRevision,
+                tenantContext
+            });
 
-        return Array.isArray(resolved) ? resolved : [];
+            return Array.isArray(resolved) ? resolved : [];
+        } catch (error) {
+            // Bounded detail only. The thrown message can carry a clone URL or a provider response,
+            // and this record travels into consumer-visible summaries.
+            summary.errors.push(this.createError({
+                code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+                message: 'The revision-boundary resolver failed to resolve deleted paths.',
+                details: {reason: error?.code || error?.name || 'unknown'}
+            }));
+            return [];
+        }
     }
 
     /**
