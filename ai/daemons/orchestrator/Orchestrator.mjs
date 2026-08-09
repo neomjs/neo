@@ -34,6 +34,7 @@ import ProcessSupervisorService                                                 
 import DeploymentRuntimeAccessService                                             from './services/DeploymentRuntimeAccessService.mjs';
 import DeploymentStateBridgeService                                               from './services/DeploymentStateBridgeService.mjs';
 import RecoveryActuatorService                                                    from './services/RecoveryActuatorService.mjs';
+import ContainerHealthControllerService                                           from './services/ContainerHealthControllerService.mjs';
 import ContainerHealthDiagnosisService                                            from './services/ContainerHealthDiagnosisService.mjs';
 import {buildBootIdentitySource}                                                  from './services/buildBootIdentitySource.mjs';
 import {recordBootIdentityFact}                                                   from './services/recordBootIdentityFact.mjs';
@@ -211,16 +212,17 @@ export function pruneOldDailyLogs({dir, baseName, retentionDays = LOG_RETENTION_
  */
 export class Orchestrator extends Base {
     static config = {
-        className                       : 'Neo.ai.daemons.Orchestrator',
-        singleton                       : true,
-        processSupervisorService_       : null,
-        deploymentRuntimeAccessService_ : null,
-        deploymentStateBridgeService_   : null,
-        recoveryActuatorService_        : null,
-        containerHealthDiagnosisService_: null,
-        dataRecoveryActuatorService_    : null,
-        dataIntegrityDiagnosisService_  : null,
-        maintenanceBackpressureService_ : MaintenanceBackpressureService,
+        className                        : 'Neo.ai.daemons.Orchestrator',
+        singleton                        : true,
+        processSupervisorService_        : null,
+        deploymentRuntimeAccessService_  : null,
+        deploymentStateBridgeService_    : null,
+        recoveryActuatorService_         : null,
+        containerHealthDiagnosisService_ : null,
+        containerHealthControllerService_: null,
+        dataRecoveryActuatorService_     : null,
+        dataIntegrityDiagnosisService_   : null,
+        maintenanceBackpressureService_  : MaintenanceBackpressureService,
         // null = "resolve from the owning config leaf on read" (see beforeGetDataDir): a leaf
         // value in this static block would freeze at module load, not at the use site.
         dataDir_                        : null,
@@ -266,8 +268,9 @@ export class Orchestrator extends Base {
     goldenPathDependencyTaskNames = DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
-    deploymentRuntimeAccessWriteLog = (level, msg) => this.writeLog(level, msg)
-    deploymentStateBridgeWriteLog   = (level, msg) => this.writeLog(level, msg)
+    deploymentRuntimeAccessWriteLog  = (level, msg) => this.writeLog(level, msg)
+    deploymentStateBridgeWriteLog    = (level, msg) => this.writeLog(level, msg)
+    containerHealthControllerWriteLog = (level, msg) => this.writeLog(level, msg)
     maintenanceBackpressureWriteLog = (level, msg) => this.writeLog(level, msg)
 
     /**
@@ -451,6 +454,27 @@ export class Orchestrator extends Base {
                 restartChurnThreshold: restartChurn.threshold,
                 restartChurnWindowMs : restartChurn.windowMs
             }
+        });
+    }
+
+    /**
+     * @summary Builds the reactive controller that routes container-health diagnoses to the actuator.
+     *
+     * The heal-ledger dir and its retention are resolved HERE, at the use site, and injected — the
+     * controller holds no config reader of its own, and binding to the same `dataDir` leaf the bridge's
+     * `selfHeal` reader uses is what makes a controller heal-event visible in the snapshot at all.
+     *
+     * @param {Neo.ai.daemons.services.ContainerHealthControllerService|Object|null} value
+     * @returns {Neo.ai.daemons.services.ContainerHealthControllerService}
+     */
+    beforeSetContainerHealthControllerService(value) {
+        const {healLedger} = AiConfig.orchestrator.recoveryActuator;
+
+        return ClassSystemUtil.beforeSetInstance(value, ContainerHealthControllerService, {
+            recoveryActuator   : this.recoveryActuatorService,
+            healLedgerDir      : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
+            healLedgerRetention: validateHealLedgerRetention(healLedger.maxEvents, healLedger.pruneTriggerBytes),
+            writeLog           : this.containerHealthControllerWriteLog
         });
     }
 
@@ -759,6 +783,54 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * @summary Routes one snapshot's container-health diagnoses to the recovery actuator.
+     *
+     * Consumed from the bridge's RESULT rather than from inside its collection loop, and the ordering
+     * is the safety property. `writeSnapshotIfDue` evaluates its `shouldWrite` fence AFTER the async
+     * collect, so an authority-lease loss that lands mid-collection voids the write — actuating inside
+     * the loop would have already restarted a sibling by then. Only a `written` result carries a
+     * snapshot this instance was still entitled to publish, so only that result is routed; `disabled`,
+     * `skipped`, `in-flight` and `fenced` all correctly do nothing.
+     *
+     * The lease is re-read at this effect boundary too, because the write and the heal are separate
+     * effects and the second one can be reached after the first has completed.
+     *
+     * **Gated on deployment runtime access being granted, and that gate is load-bearing.** This is the
+     * container-LIFECYCLE controller: without a runtime handle its primary action is impossible —
+     * `applyLifecycle` refuses with `runtime-access-disabled` — and every container fact degrades to
+     * `runtime-read-failed`, so the plane this controller was designed for does not exist. Consuming
+     * anyway would spend real recovery attempts, and write real ledger entries, on a deployment that
+     * is structurally unable to be healed by it. Access is off by default, which is also why merely
+     * running the orchestrator on a developer machine does not start actuating.
+     *
+     * Read from the injected service's own config rather than re-derived from `AiConfig`, so the gate
+     * and the refusal it anticipates are reading one value.
+     *
+     * Never throws into the poll — a controller failure degrades healing, and must not take the
+     * snapshot's own error path with it.
+     *
+     * @param {Object|null} result The `writeSnapshotIfDue` result.
+     * @returns {Promise<Object[]>} Per-service control outcomes, or `[]` when nothing was routed.
+     */
+    async consumeContainerHealthDecisions(result) {
+        if (result?.status !== 'written' || this.authorityLeaseLost || !this.containerHealthControllerService) {
+            return [];
+        }
+
+        if (this.deploymentRuntimeAccessService?.runtimeAccessConfig?.enabled !== true) {
+            return [];
+        }
+
+        try {
+            return await this.containerHealthControllerService.consumeSnapshot({snapshot: result.snapshot});
+        } catch (error) {
+            this.writeLog('ERROR', `[Orchestrator] Container-health control cycle failed: ${error.message}`);
+
+            return [];
+        }
+    }
+
+    /**
      * @summary Runs one autonomous freeze re-probe tick (the recovery counterpart to the `freeze` actuator op):
      * for every frozen collection it re-probes health and auto-unfreezes + re-heals a cleared fault, stays frozen
      * while it persists, or contains it past the thrash cap — all under `decideFreezeReprobe`'s back-off, never an
@@ -849,6 +921,10 @@ export class Orchestrator extends Base {
         if (this.deploymentStateBridgeService) {
             this.deploymentStateBridgeService.healLedgerDir = path.join(value, HEAL_LEDGER_DIR_NAME);
         }
+        // Same reasoning, third writer: the controller appends the lifecycle heal-events the bridge folds.
+        if (this.containerHealthControllerService) {
+            this.containerHealthControllerService.healLedgerDir = path.join(value, HEAL_LEDGER_DIR_NAME);
+        }
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;
@@ -870,6 +946,12 @@ export class Orchestrator extends Base {
     afterSetRecoveryActuatorService(value, oldValue) {
         if (this.processSupervisorService) {
             this.processSupervisorService.recoveryActuatorService = value;
+        }
+        // Arrival-order independence, same contract as the supervisor back-link above: the controller is
+        // constructed after the actuator, but a runtime actuator swap must reach it too — a controller
+        // holding a stale actuator would route into an envelope nothing else is counting against.
+        if (this.containerHealthControllerService) {
+            this.containerHealthControllerService.recoveryActuator = value;
         }
     }
     afterSetTaskStateService(value, oldValue) {
@@ -1284,6 +1366,9 @@ export class Orchestrator extends Base {
         this.containerHealthDiagnosisService = {};
         this.deploymentStateBridgeService = {};
         this.recoveryActuatorService = {};
+        // AFTER the actuator on purpose: the controller takes it as a construction dependency, and
+        // `afterSetRecoveryActuatorService` only back-links a controller that already exists.
+        this.containerHealthControllerService = {};
         this.dataRecoveryActuatorService = {};
         this.dataIntegrityDiagnosisService = {};
         this.processSupervisorService.recoverTasks();
@@ -1582,6 +1667,7 @@ export class Orchestrator extends Base {
 
         if (this.isTaskAuthorityOwned('deployment-state-bridge') && !this.authorityLeaseLost) {
             this.deploymentStateBridgeService?.writeSnapshotIfDue({shouldWrite: () => !this.authorityLeaseLost})
+                .then(result => this.consumeContainerHealthDecisions(result))
                 .catch(error => this.writeLog('ERROR', `[Orchestrator] Deployment state bridge failed: ${error.message}`));
         }
 
