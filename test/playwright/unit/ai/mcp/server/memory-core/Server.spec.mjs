@@ -309,8 +309,12 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
             const afterFirst = rawGraphNode('@xprovider-shared-login');
 
-            expect(afterFirst.properties.authProvider,   'the first write owns the row').toBe('gitlab');
-            expect(afterFirst.properties.providerUserId, '…with its own immutable id').toBe('4242');
+            // All three stable coordinates are captured BEFORE the second write, so "overwritten"
+            // below is a measured transition rather than inferred from a final value. Asserting
+            // only the end state would let a coordinate that never changed read as if it had.
+            expect(afterFirst.properties.authProvider,    'the first write owns the row').toBe('gitlab');
+            expect(afterFirst.properties.providerUserId,  '…with its own immutable id').toBe('4242');
+            expect(afterFirst.properties.providerBaseUrl, '…and its own instance coordinate').toBe('https://gitlab.example.com');
 
             // A different human, on a different provider, who happens to hold the same handle.
             const githubAuth = await produceRealAuthInfo({
