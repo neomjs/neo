@@ -1,7 +1,7 @@
 import './configTemplateResolver.mjs';
 
-import {defineConfig, devices} from '@playwright/test';
-import {resolveFreePortSync}   from './resolveFreePort.mjs';
+import {defineConfig, devices}             from '@playwright/test';
+import {resolveFreePortSync}               from './resolveFreePort.mjs';
 import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
@@ -61,8 +61,8 @@ export default defineConfig({
     },
 
     webServer: {
-        command            : `node ./e2e/globalSetup.mjs && npm run server-start -- --port ${PORT} --no-open`,
-        url                : `http://localhost:${PORT}`,
+        command: `node ./e2e/globalSetup.mjs && npm run server-start -- --port ${PORT} --no-open`,
+        url    : `http://localhost:${PORT}`,
         // NEVER reuse: an already-listening server from a foreign clone satisfies the readiness URL
         // and silently serves the wrong tree to every spec (false reds AND, worse, false greens).
         reuseExistingServer: false
