@@ -3,6 +3,7 @@ import {fileURLToPath}                  from 'url';
 import Base                             from '../../../src/core/Base.mjs';
 import FleetLifecycleService            from './FleetLifecycleService.mjs';
 import {inspectFleetRepos}              from './inspectFleetRepos.mjs';
+import {readFleetPresenceSnapshot}      from './fleetPresenceStateAdapter.mjs';
 import {readFleetThrottleStateSnapshot} from './fleetThrottleStateAdapter.mjs';
 import {readFleetWakeStateSnapshot}     from './fleetWakeStateAdapter.mjs';
 import {startAgentProvisioned}          from './startAgentProvisioned.mjs';
@@ -96,6 +97,15 @@ class FleetManager extends Base {
      * @member {Object|null} throttleStateOptions=null
      */
     throttleStateOptions = null
+    /**
+     * Presence observation options for {@link fleetPresenceStatus} — `{readPresence,
+     * presenceIdentityFor}` per the `fleetPresenceStateAdapter` contract. `null` ⇒ every row is
+     * honestly `unknown` under a degraded capability: the composing entrypoint injects the
+     * identity-proven plane `who_is_online` reader in plane mode and leaves host mode unbound
+     * until a host presence surface lands. Plain field, mirroring the sibling seams.
+     * @member {Object|null} presenceStateOptions=null
+     */
+    presenceStateOptions = null
 
     /**
      * @summary Resolve (field > env > default) the absolute fleet-managed checkout root.
@@ -250,6 +260,28 @@ class FleetManager extends Base {
         return readFleetThrottleStateSnapshot({
             agents: this.getLifecycleService().getRegistry().listAgents(),
             ...(this.throttleStateOptions || {})
+        });
+    }
+
+    /**
+     * @summary Turnkey presence observability: the per-agent presence axis of the truth-preserving
+     * presence contract across the registered roster — the THIRD independent signal
+     * beside {@link fleetWakeStatus} (wake routes) and {@link fleetThrottleStatus} (throttle),
+     * none inferring another.
+     *
+     * Delegates to `fleetPresenceStateAdapter.readFleetPresenceSnapshot` with the registry roster
+     * (one row per REGISTERED agent, the sibling views' one-agent-set rule) plus the injected
+     * {@link #member-presenceStateOptions}. Fail-honest: with no injected reader every row reads
+     * `unknown` under a `degraded/none` capability — "we cannot see presence" stays distinguishable
+     * from "the fleet is dark"; a band is never invented.
+     * @returns {Promise<{capability: Object, states: Object[]}>} Adapter snapshot: per-agent
+     * `{agentId, presence, lastSeenAt, confidence, source}` rows (+ `reason` on `unknown`) and the
+     * capability envelope.
+     */
+    fleetPresenceStatus() {
+        return readFleetPresenceSnapshot({
+            agents: this.getLifecycleService().getRegistry().listAgents(),
+            ...(this.presenceStateOptions || {})
         });
     }
 

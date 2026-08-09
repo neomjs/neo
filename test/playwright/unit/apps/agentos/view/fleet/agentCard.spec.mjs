@@ -87,6 +87,31 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
+    test('the presence band renders ONLY an observed band and clears to hidden — absence of signal, never a verdict', () => {
+        const card = createCard({
+            agentId : 'clio',
+            state   : 'off',
+            presence: {source: 'fleet:presenceState', state: 'online', confidence: 'observed', lastSeenAt: '2026-08-09T11:00:00.000Z'}
+        });
+
+        const band = () => card.down({reference: 'card-presence'});
+
+        // an OBSERVED band renders beside the honest session state — never fused into it
+        expect(band().hidden).toBe(false);
+        expect(band().text).toBe('◉ online');
+        expect(card.down({reference: 'card-state'}).text).toBe('benched / offline');
+
+        // the producer degrades to unknown → the band disappears entirely (no fabricated offline)
+        applySet(card, {presence: {source: 'fleet:presenceState', state: 'unknown', confidence: 'none', lastSeenAt: null, reason: 'presence read failed'}});
+        expect(band().hidden).toBe(true);
+
+        // an out-of-vocabulary band is refused at the render layer too — the closed-set discipline
+        applySet(card, {presence: {source: 'fleet:presenceState', state: 'levitating', confidence: 'observed', lastSeenAt: null}});
+        expect(band().hidden).toBe(true);
+
+        card.destroy()
+    });
+
     test('the chip names every deviating axis and carries the ledger\'s a11y pair — asserted on the RENDERED node', () => {
         const card = createCard({
             agentId : 'vega',

@@ -418,8 +418,10 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             openLaneCount : null,   // roster-DTO-owned tri-state: un-stamped → honest null (no badge)
             // the authoritative participation fact: absent on the row → honest null, never guessed
             participationStatus: null,
-            sources            : liveSources(),
-            state              : 'ok',
+            // the presence axis rides the same passthrough contract as wake/throttle below
+            presence: null,
+            sources : liveSources(),
+            state   : 'ok',
             // the S2 telltale axes: absent on this row → honest null, never a synthesized 'unknown'.
             // The view must not manufacture the taxonomy's unknown — that value means the PRODUCER
             // looked and could not see, which is a different fact from "this row carried no axis".
@@ -536,6 +538,7 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
             launchable         : null,
             openLaneCount      : null,
             participationStatus: null,
+            presence           : null,
             sources            : liveSources(),
             state              : 'ok',
             throttle           : null,

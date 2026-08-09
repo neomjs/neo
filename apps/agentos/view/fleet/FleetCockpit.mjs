@@ -3030,6 +3030,7 @@ class FleetCockpit extends Container {
             // a PRODUCED fact (null resolver, unreadable source, unwired producer). Re-deriving it
             // here would make "we looked and cannot see" indistinguishable from "we never asked" —
             // the DTO's own discipline, the same reason `openLaneCount` is a passthrough.
+            presence: row.presence ?? null,
             throttle: row.throttle ?? null,
             wake    : row.wake ?? null
         }
