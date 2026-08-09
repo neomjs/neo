@@ -742,8 +742,17 @@ export class DeploymentStateBridgeService extends Base {
 
         // Fail closed on identity rather than on the file's absence: a non-Node service must never
         // produce an observation even if a stale or hand-placed file sits at its path.
+        //
+        // **The REFUSAL is one decision; the REASON is two.** `nodeCommand !== true` is the correct
+        // gate — both "not Node" and "could not tell" must refuse — but reporting both as `not-node`
+        // collapses a positive classification together with an absence of one. A downstream consumer
+        // then reads `not-node` as an assertion that the service HAS no heap, when it may only mean
+        // the inspect was unreadable. That is exactly what happened: the diagnosis service treated an
+        // all-`not-node` window as source-owned authority for the container-scoped ratio, so an
+        // unknown identity manufactured a container fact it had no standing to make.
+        // A fail-closed refusal is not a positive classification, and must not be published as one.
         if (nodeCommand !== true) {
-            return unavailable('not-node')
+            return unavailable(nodeCommand === false ? 'not-node' : 'identity-unknown')
         }
 
         let record;

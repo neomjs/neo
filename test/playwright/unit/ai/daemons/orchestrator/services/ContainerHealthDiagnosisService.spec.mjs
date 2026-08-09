@@ -1370,14 +1370,57 @@ test.describe('sustained window is measured, not asserted', () => {
             expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
         });
 
-        test('CONTROL — an explicit non-Node envelope still keeps the container ratio', () => {
-            // The arm that must NOT change: only a source-owned `not-node` refusal licenses the
-            // container ratio, and it still does.
+        test('an UNKNOWN identity cannot manufacture container authority through the envelope', () => {
+            // The production shape my earlier unknown-service test missed by bypassing the bridge.
+            // `readHeapObservation` gates on `nodeCommand !== true`, so an UNREADABLE inspect refused
+            // with the same `not-node` word as a genuine non-Node service. Consuming that refusal as
+            // authority produced an authoritative container-scoped memory-saturation — and alongside
+            // a CPU fact it reached `diagnosed → throttle-shed` while inspect was unreadable.
+            //
+            // A refusal is not a classification. Only the direct `Config.Cmd` reading is.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const facts   = service.collectStatsFacts({
+                serviceKey  : 'memory',
+                nodeCommand : null,
+                stats       : null,
+                statsSamples: [
+                    nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
+                    nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
+                ],
+                observedAt  : OBSERVED_AT
+            });
+
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable)).toBeDefined();
+        });
+
+        test('a STALE all-not-node window cannot outvote a live nodeCommand: true', () => {
+            // Envelopes ride on RETAINED samples, so a window held from earlier collections can carry
+            // a classification the current read contradicts. The live reading wins.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const facts   = service.collectStatsFacts({
+                serviceKey  : 'memory',
+                nodeCommand : true,
+                stats       : null,
+                statsSamples: [
+                    nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
+                    nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
+                ],
+                observedAt  : OBSERVED_AT
+            });
+
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
+        });
+
+        test('CONTROL — a live nodeCommand:false keeps the container ratio, envelope or not', () => {
+            // The arm that must NOT change. Its title previously credited the ENVELOPE for licensing
+            // container scope; that was wrong and @neo-gpt falsified it. The envelope's `not-node`
+            // covers unknown identities too, so the direct `Config.Cmd` reading is the only authority.
             const service    = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
             const memoryFact = memorySaturationFact(service, 'chroma', [
                 nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
                 nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
-            ]);
+            ], false);
 
             expect(memoryFact.details.memoryScope).toBe('container');
             expect(memoryFact.details.meanPercent).toBeCloseTo(95, 0);
@@ -1414,7 +1457,7 @@ test.describe('sustained window is measured, not asserted', () => {
             const memoryFact = memorySaturationFact(service, 'chroma', [
                 nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
                 nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
-            ]);
+            ], false);
 
             expect(memoryFact.details.memoryScope).toBe('container');
             expect(memoryFact.details.meanPercent).toBeCloseTo(95, 0);

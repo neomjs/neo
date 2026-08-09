@@ -1394,14 +1394,26 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
 function resolveMemorySaturationScope({samples, nodeCommand}) {
     const
         envelopes = samples.map(sample => sample?.heapObservation).filter(Boolean),
-        // Only a SOURCE-OWNED refusal licenses the container ratio. `nodeCommand === false` is the
-        // bridge's own reading of `Config.Cmd`; an all-`not-node` envelope set is the same refusal
-        // arriving through the channel. An ABSENT envelope is evidence of nothing — an earlier
-        // revision said exactly that in this comment while the branch below treated absence as
-        // sufficient evidence for container scope, which let a declared Node service keep emitting
-        // the cross-scope fact this whole slice exists to remove.
-        explicitlyNotNode = nodeCommand === false ||
-            (envelopes.length > 0 && envelopes.every(envelope => envelope.unavailableReason === 'not-node'));
+        // **`nodeCommand === false` is the ONLY thing that licenses the container ratio**, and the
+        // envelope deliberately does not count — even when every envelope in the window says
+        // `not-node`.
+        //
+        // Two reasons, both found by falsifier rather than by reading:
+        //
+        // 1. The producer's `not-node` was not the positive classification it looked like. Its gate
+        //    is `nodeCommand !== true`, so an UNKNOWN identity — an unreadable inspect — refused with
+        //    the same word as a genuine non-Node service. Consuming it as authority let an unknown
+        //    service manufacture an authoritative container-scoped `memory-saturation`, and with a
+        //    CPU fact alongside it reached `diagnosed → throttle-shed` while inspect was unreadable.
+        //    The producer now distinguishes `identity-unknown`; this consumer no longer depends on
+        //    that distinction being right, which is the more durable half of the fix.
+        // 2. Envelopes ride on RETAINED samples. A window held from earlier collections could carry
+        //    an all-`not-node` set while the current `nodeCommand` reads `true` — a stale classification
+        //    silently outvoting a live one.
+        //
+        // An ABSENT envelope is evidence of nothing, and so is a refusal: neither can establish that
+        // a service has no heap. Only the direct `Config.Cmd` reading can.
+        explicitlyNotNode = nodeCommand === false;
 
     if (explicitlyNotNode) {
         return {scope: MEMORY_SATURATION_SCOPES.container, percents: [], timestamps: [], unavailableReason: null};
