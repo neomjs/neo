@@ -13,6 +13,18 @@ const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
 // baseURL land on different ports (ERR_CONNECTION_REFUSED). Children inherit this; a real pin is a no-op.
 process.env.NEO_E2E_PORT = String(PORT);
 
+// Run-scoped artifact isolation (battery discipline): a battery runs the same spec serially, and
+// trace:'on' writes every execution's trace into the same per-test directory — run N+1 overwrites
+// run N's trace, so a roving red loses its evidence to a later green. NEO_E2E_RUN_ID scopes the
+// artifact root per run; unset keeps the legacy solo/film path. Battery invocation, persisting the
+// combined stream — Playwright forwards the webServer's stdout/stderr to the reporter by default
+// ('pipe'), so the tee below captures playwright AND server output into the run dir (verified:
+// 'inherit' is silently dropped by the runner, never forwarded):
+//   cd test/playwright && dir="test-results/e2e/battery/run-1" && mkdir -p "$dir" && \
+//   NEO_E2E_RUN_ID=run-1 npx playwright test -c playwright.config.e2e.mjs e2e/<spec> 2>&1 | tee "$dir/run.log"
+const RUN_ID        = process.env.NEO_E2E_RUN_ID || null,
+      ARTIFACT_ROOT = RUN_ID ? `./test-results/e2e/battery/${RUN_ID}/artifacts` : './test-results/e2e/artifacts';
+
 const
     launchArgs     = activeLaunchArgs(),
     needsGlProbe   = requiresGlProbe(launchArgs),
@@ -30,7 +42,7 @@ const
 
 export default defineConfig({
     testDir      : './e2e',
-    outputDir    : './test-results/e2e/artifacts',
+    outputDir    : ARTIFACT_ROOT,
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks
     timeout      : 90000, // E2E tests (like DevIndex) are heavy rendering apps
