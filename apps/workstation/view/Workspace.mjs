@@ -12,6 +12,7 @@ import DockPerspectiveStore        from '../../../src/dashboard/DockPerspectiveS
 import DockPreview                 from '../../../src/dashboard/DockPreview.mjs';
 import DockProjectionReconciler    from '../../../src/dashboard/DockProjectionReconciler.mjs';
 import DockService                 from '../../../src/ai/client/DockService.mjs';
+import DockTopologyDiff            from '../../../src/dashboard/DockTopologyDiff.mjs';
 import DockZoneModel               from '../../../src/dashboard/DockZoneModel.mjs';
 import InteractionService          from '../../../src/ai/client/InteractionService.mjs';
 import StateProvider               from '../../../src/state/Provider.mjs';
@@ -111,6 +112,37 @@ class Workspace extends Container {
      */
     static vesselTabsNodeId(itemId) {
         return typeof itemId === 'string' && itemId ? `workstation-vessel-tabs:${itemId}` : null
+    }
+    /**
+     * Proves — rather than asserts — that resetting `before` to `after` cannot replace a node.
+     *
+     * `refreshDockWorkspace({geometryOnly})` forwards the flag into `DockFlip.play`, whose contract
+     * reads "no topology swap can be pending". A reset to the initial document only satisfies that
+     * when the live layout still shares the initial topology: after a tear-out, split or convert,
+     * the same reset IS a topology change. Callers therefore derive the flag from the documents
+     * they are about to swap instead of declaring a premise they never checked.
+     *
+     * Topology is the four structural categories. `resizes` and `autoHideFlips` are deliberately
+     * excluded: both move or hide an existing node without replacing one, which is exactly the
+     * geometry-only case the flag exists to admit.
+     *
+     * Fail-closed on `errors`. {@link Neo.dashboard.DockTopologyDiff.diffDockDocuments} gates each
+     * input through a shape walk and returns EMPTY categories alongside `errors` for a malformed or
+     * cyclic document — so a categories-only test would read "topology-stable" for a document it
+     * could not parse, and admit the fast path on the one input least deserving of it.
+     * @param {Object} before The live document being replaced
+     * @param {Object} after The document being reset into place
+     * @returns {Boolean} `true` only when the swap is provably node-preserving
+     * @static
+     */
+    static isTopologyStableReset(before, after) {
+        const diff = DockTopologyDiff.diffDockDocuments(before, after);
+
+        return diff.errors.length === 0 &&
+            diff.moves.length       === 0 &&
+            diff.adds.length        === 0 &&
+            diff.removes.length     === 0 &&
+            diff.tabReorders.length === 0
     }
 
     static config = {
@@ -2344,8 +2376,11 @@ class Workspace extends Container {
         // the baseline swap too: a rejecting entry projection must still destroy the runner and
         // service, and must still restore the probe's displaced document.
         //
-        // The ENTRY projection declares `geometryOnly` — validated in-place ADMISSION, not a
-        // skip: `DockProjectionReconciler.reconcileProjection` (:314) attempts
+        // The ENTRY projection DERIVES `geometryOnly` from a topology compare of the live document
+        // against the one being reset into place ({@link Workspace.isTopologyStableReset}) — the
+        // flag is proven, never declared, because a reset is only geometry-only while the live
+        // layout still shares the initial topology. It remains a validated in-place ADMISSION, not
+        // a skip: `DockProjectionReconciler.reconcileProjection` (:314) attempts
         // `reconcileStableTopology` (:130), which returns null on ANY node/type/ancestry/order/
         // orientation delta and falls back to the full staged transaction. The workspace boots
         // from the same `initialDocument` the entry re-stages, so the proven-stable in-place
@@ -2361,8 +2396,12 @@ class Workspace extends Container {
             out       = null;
 
         try {
+            const priorDocument = me.dockModel;
+
             me.dockModel = DockZoneModel.clone(initialDocument);
-            await me.refreshDockWorkspace({geometryOnly: true});
+            await me.refreshDockWorkspace({
+                geometryOnly: Workspace.isTopologyStableReset(priorDocument, me.dockModel)
+            });
 
             // The entry projection is finished and the replay has not begun. Published because a
             // frame-capturing consumer cannot otherwise tell the two apart: both happen inside one
@@ -2533,10 +2572,16 @@ class Workspace extends Container {
         me.cueSettlements.clear();
         me.lastTourReceipt = null;
         me.progressPromise = Promise.resolve();
+        const priorDocument = me.dockModel;
+
         me.dockModel       = DockZoneModel.clone(initialDocument);
         await me.setPipProgress(0);
 
-        await me.refreshDockWorkspace({geometryOnly: true});
+        // Same derivation as the entry projection: a tour restarted after a tear-out or split is
+        // resetting across a topology change, and must not claim otherwise.
+        await me.refreshDockWorkspace({
+            geometryOnly: Workspace.isTopologyStableReset(priorDocument, me.dockModel)
+        });
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),

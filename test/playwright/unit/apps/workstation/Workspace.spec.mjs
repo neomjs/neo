@@ -2347,7 +2347,12 @@ test.describe('replay probe transaction (prototype-call)', () => {
 
     test('the entry projection requests validated in-place admission; the restore stays full', async () => {
         const
-            liveDocument = {nodes: {marker: 'live'}},
+            // A REAL same-topology document, not the `{nodes: {marker: 'live'}}` stub the sibling
+            // cases use. The entry flag is now DERIVED from a topology compare of this document
+            // against the one being reset into place, so the stub would fail the diff's shape gate
+            // and the derivation would fail closed — turning this assertion into a statement about
+            // an unparseable fixture rather than about same-topology admission.
+            liveDocument = DockZoneModel.clone(initialDocument),
             refreshCalls = [],
             host         = {
                 dockModel     : liveDocument,
@@ -2380,6 +2385,44 @@ test.describe('replay probe transaction (prototype-call)', () => {
         // workspace); it stays on the full staged path with no admission declared.
         expect(refreshCalls[1], 'the restore projection stays full').toEqual({});
         expect(host.dockModel, 'the displaced document is restored').toBe(liveDocument)
+    });
+
+    test('an entry ACROSS a structural divergence is refused admission at the same call site', async () => {
+        // The paired half of the case above, and the reason the flag is derived rather than
+        // declared: after a tear-out or split the live layout no longer shares the initial
+        // topology, so resetting to it IS a node-replacing change. The literal `geometryOnly: true`
+        // declared the opposite at this exact call site.
+        const
+            diverged     = DockZoneModel.clone(initialDocument),
+            refreshCalls = [];
+
+        diverged.nodes['heavy-tabs'].items.push('scale');
+        diverged.nodes['scale-tabs'].items        = diverged.nodes['scale-tabs'].items.filter(id => id !== 'scale');
+        diverged.nodes['scale-tabs'].activeItemId = diverged.nodes['scale-tabs'].items[0] ?? null;
+
+        const
+            host = {
+                dockModel     : diverged,
+                id            : 'fake-workspace-diverged',
+                isDestroyed   : false,
+                refreshPromise: Promise.resolve(),
+                refreshDockWorkspace(options) {
+                    refreshCalls.push(options ?? {});
+
+                    return Promise.resolve()
+                }
+            },
+            script = {
+                schema: 'neo.tour.script.v1',
+                id    : 'clean-pause',
+                title : 'clean pause',
+                scenes: [{id: 's1', title: 'pause', steps: [{type: 'pause', ms: 1}]}]
+            };
+
+        await Workspace.prototype.runTourSpec.call(host, script, {restoreDocument: true});
+
+        expect(refreshCalls[0], 'the entry projection refuses geometry-only admission')
+            .toEqual({geometryOnly: false})
     });
 
     test('a rejecting entry projection leaves the driver default without a restore', async () => {
@@ -2517,4 +2560,53 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
             'the swap surfaces as the same gate-named receipt, with the live candidate named'
         ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=preview-b dwell=1\/2/);
     });
+});
+
+test.describe('Workspace.isTopologyStableReset — the tour-reset geometryOnly derivation', () => {
+    /**
+     * @summary Deep-clones the initial document so a case can diverge it without leaking state.
+     * @returns {Object}
+     */
+    const freshDocument = () => JSON.parse(JSON.stringify(initialDocument));
+
+    test('an unchanged reset is provably node-preserving, so the fast path stays admitted', () => {
+        // The common case the tour actually hits: the workspace still holds the layout it booted
+        // with, so resetting to `initialDocument` replaces no node. Deriving must not cost the
+        // in-place path its admission — a derivation that only ever answers `false` would be safe
+        // and useless.
+        expect(Workspace.isTopologyStableReset(freshDocument(), DockZoneModel.clone(initialDocument))).toBe(true)
+    });
+
+    test('a reset ACROSS a structural divergence is refused — the case the literal `true` mis-declared', () => {
+        // Tear-outs, splits and converts during a session move items between containers. Resetting
+        // from there IS a topology change, and the previous `geometryOnly: true` literal declared
+        // the opposite.
+        const diverged = freshDocument();
+
+        diverged.nodes['heavy-tabs'].items.push('scale');
+        diverged.nodes['scale-tabs'].items = diverged.nodes['scale-tabs'].items.filter(id => id !== 'scale');
+        diverged.nodes['scale-tabs'].activeItemId = diverged.nodes['scale-tabs'].items[0] ?? null;
+
+        expect(Workspace.isTopologyStableReset(diverged, DockZoneModel.clone(initialDocument))).toBe(false)
+    });
+
+    test('a size-only difference stays admitted — resizes move a node, they do not replace one', () => {
+        // Documents the category choice rather than leaving it implicit: `resizes` and
+        // `autoHideFlips` are excluded from the topology test on purpose, because admitting them is
+        // precisely what a geometry-only flag is for. If this flips to `false`, the derivation has
+        // become over-strict and every resize pays the staged shell swap.
+        const resized = freshDocument();
+
+        resized.nodes['split-main'].sizes = [0.75, 0.25];
+
+        expect(Workspace.isTopologyStableReset(resized, DockZoneModel.clone(initialDocument))).toBe(true)
+    });
+
+    test('a malformed document is refused, not read as stable — the fail-closed trap', () => {
+        // `diffDockDocuments` gates each input through a shape walk and returns EMPTY categories
+        // ALONGSIDE `errors` when a document does not parse. A categories-only test would therefore
+        // report "topology-stable" for a document it could not read at all, and hand the fast path
+        // to the one input least deserving of it. This is why the derivation tests `errors` first.
+        expect(Workspace.isTopologyStableReset({}, DockZoneModel.clone(initialDocument))).toBe(false)
+    })
 });
