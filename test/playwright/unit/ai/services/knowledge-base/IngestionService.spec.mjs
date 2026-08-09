@@ -490,6 +490,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 
         expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_INVALID')).toBe(false);
         expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_UNAVAILABLE')).toBe(false);
+        expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_RESOLVER_FAILED')).toBe(false);
         expect(metrics[0]?.eventType).not.toBe('error');
     });
 
@@ -508,7 +509,11 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('reports unavailable revision-boundary deletion resolver without throwing', async () => {
+    test('requesting derivation from an UNWIRED resolver stays fail-closed (#16799)', async () => {
+        // Deliberately NOT weakened. A caller that asks this service to derive a deletion set and
+        // supplies no tombstones cannot be given one, and completing anyway would let deletions
+        // silently stop propagating. The tenant-sync lane was fixed by no longer asking (it proves
+        // its own delta via diffRevisions) — not by making the unanswerable request succeed.
         const summary = await Service.ingestSourceFiles({
             tenantId    : 'tenant-a',
             repoSlug    : 'repo-a',
@@ -521,10 +526,109 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(summary.errors[0]).toMatchObject({
             code: 'KB_REVISION_BOUNDARY_UNAVAILABLE'
         });
+        // The message must not defer the operator to a tracking item that has already closed:
+        // a stale pointer reads as a roadmap promise and is worse than no pointer at all.
+        expect(summary.errors[0].message).not.toContain('11637');
         expect(metrics[0]).toMatchObject({
             eventType    : 'error',
             chunksDeleted: 0
         });
+    });
+
+    test('a resolver that is PRESENT and throws still fails the run (#16799)', async () => {
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('upstream refused');
+                error.code    = 'ECONNREFUSED';
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        // Absent and failed are DIFFERENT conditions. Demoting absence must never demote failure,
+        // or the successor that wires a real resolver inherits a hole it cannot report through.
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'ECONNREFUSED'}
+        });
+        // Distinguishable from "never wired" — once a real resolver lands, deletion detection must
+        // be able to report its own breakage rather than looking like an absent capability.
+        expect(summary.errors[0].code).not.toBe('KB_REVISION_BOUNDARY_UNAVAILABLE');
+        // The thrown message may carry a clone URL or a provider response; only the bounded code travels.
+        expect(JSON.stringify(summary)).not.toContain('upstream refused');
+    });
+
+    test('a HOSTILE resolver code never reaches the summary — the boundary is matching, not copying', async () => {
+        // The prior control was vacuous for this: it asserted the MESSAGE was absent while the code
+        // was the safe literal `ECONNREFUSED`, so it exercised the easy shape and proved nothing
+        // about the field that actually travels. `error.code` is upstream-controlled.
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('fatal: could not read Username for https://user:s3cr3t@host/repo.git');
+                error.code    = 'https://user:s3cr3t@host/repo.git';
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'unclassified'}
+        });
+
+        const serialized = JSON.stringify(summary);
+
+        expect(serialized).not.toContain('s3cr3t');
+        expect(serialized).not.toContain('user:');
+        expect(serialized).not.toContain('https://');
+        expect(serialized).not.toContain('could not read Username');
+    });
+
+    test('a PATTERN-ADMISSIBLE hostile code is still rejected — the gate is membership, not shape', async () => {
+        // The control above is not sufficient on its own and @neo-gpt caught why: a URL fails any
+        // `KB_*` shape check, so it passes even against a gate that only tests SHAPE. This code is
+        // deliberately well-formed — it satisfies `/^KB_[A-Z0-9_]{1,120}$/` exactly — and must still
+        // be refused, because the producer chooses the string and a pattern cannot bound a value
+        // its own author controls.
+        const hostile = 'KB_SECRET_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+        expect(hostile).toMatch(/^KB_[A-Z0-9_]{1,120}$/);
+
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('resolver failed');
+                error.code    = hostile;
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'unclassified'}
+        });
+        expect(JSON.stringify(summary)).not.toContain('KB_SECRET');
     });
 
     test('applies tombstone, manifest, and mock revision-boundary deletion signaling', async () => {

@@ -1,11 +1,11 @@
 import {test, expect} from '@playwright/test';
 
 import {createHash} from 'node:crypto';
-import fs          from 'fs-extra';
-import os          from 'os';
-import path        from 'path';
-import {execFile}  from 'child_process';
-import {promisify} from 'util';
+import fs           from 'fs-extra';
+import os           from 'os';
+import path         from 'path';
+import {execFile}   from 'child_process';
+import {promisify}  from 'util';
 
 import {cloneIfMissing, fetch, resolveHead}
                        from '../../../../../../ai/services/knowledge-base/helpers/gitMirror.mjs';
@@ -242,10 +242,19 @@ exec ${JSON.stringify(realGitPath)} "$@"
         expect(envelope).toMatchObject({
             tenantId: 'tenant-a',
             repoSlug: 'local/source',
-            baseRevision,
             headRevision,
             deleted : [{sourcePath: 'remove-me.txt', repoSlug: 'local/source'}]
         });
+
+        // The delta above is AUTHORITATIVE: `diffRevisions` already resolved it, and it is
+        // carried explicitly in `deleted`. Forwarding `baseRevision` would additionally ask
+        // IngestionService to DERIVE the same set through a resolver that has no production
+        // implementation, so the request could only fail — which is what pinned every tenant repo
+        // at `consecutiveFailures: 12` and the 2h backoff cap with the corpus frozen.
+        //
+        // This assertion is the fix. If `baseRevision` ever returns to this envelope, the lane
+        // silently goes back to asking for work it has already done, and fails on the answer.
+        expect(envelope.baseRevision).toBeUndefined();
         expect(envelope.manifestSnapshot).toBeUndefined();
         expect(envelope.files.map(file => [file.sourcePath, file.content])).toEqual([
             ['alpha.txt', 'alpha v2\n'],

@@ -523,6 +523,44 @@ class IngestionService extends Base {
     }
 
     /**
+     * @summary Bounds a thrown resolver's `code` to a CLOSED vocabulary before it enters a summary.
+     *
+     * **`error.code` is upstream-controlled, so it is matched — never copied.** A resolver reaching
+     * a remote can throw whatever the remote hands it, and `createError` puts `details` verbatim
+     * into the consumer-visible summary. A thrown `{code: 'https://user:token@host/repo.git'}`
+     * would therefore serialize a credential into a durable record, which is precisely the boundary
+     * the surrounding code claims to hold. Documenting a field as bounded does not bound it.
+     *
+     * Two admitted families, both closed: this service's own `KB_*` codes, and the fixed set of
+     * transport codes worth keeping (a refusal and a timeout are different operator problems).
+     * Everything else collapses to one literal rather than being preserved "just in case".
+     *
+     * Mirrors {@link classifyIngestionFailureCode}, which already answers this question for thrown
+     * ingest failures by preserving owned codes and emitting a local one otherwise.
+     *
+     * @param {Error} [error] The thrown resolver error.
+     * @returns {String} An admitted code, or `'unclassified'`.
+     * @protected
+     */
+    boundResolverFailureReason(error) {
+        // MEMBERSHIP, not a pattern. An earlier version of this admitted anything matching
+        // `/^KB_[A-Z0-9_]{1,120}$/` and called that a closed vocabulary; it is not, because the
+        // producer chooses the string. `KB_SECRET_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789` satisfies
+        // that pattern and travelled verbatim into a durable record — the exact boundary this
+        // method exists to hold, defeated by the shape of the check rather than by its intent.
+        //
+        // A resolver is an injected dependency reaching a remote; it has no business emitting this
+        // service's own `KB_*` codes, so no `KB_*` arm survives. The admitted set is exactly the
+        // transport conditions worth telling an operator apart — a refusal and a timeout are
+        // different problems — and every other value, however well-formed, collapses to one literal.
+        const
+            admittedCodes = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'EAI_AGAIN'],
+            code          = error?.code;
+
+        return typeof code === 'string' && admittedCodes.includes(code) ? code : 'unclassified';
+    }
+
+    /**
      * @summary Creates an empty ingestion summary.
      * @param {Object} options
      * @returns {Object}
@@ -1441,6 +1479,30 @@ class IngestionService extends Base {
 
     /**
      * @summary Resolves revision-boundary tombstones via an injected resolver.
+     *
+     * **Requesting derivation stays fail-closed, and that is deliberate.** `revisionResolver`
+     * has no production implementation: the config default is `null`, the only `resolveDeletedPaths`
+     * in the tree are test doubles, and nothing under `ai/` assigns it. A caller that asks this
+     * service to derive a deletion set therefore cannot be given one — and completing the run
+     * anyway would let deletions silently stop propagating, which is strictly worse than failing.
+     *
+     * The fix for the tenant-sync lane was NOT to weaken this: that lane already proved its own
+     * delta via `gitMirror.diffRevisions()` and then redundantly asked for it to be re-derived, so
+     * it stopped sending `baseRevision`. See `tenantRepoIngestEnvelopeBuilder`. Demoting this branch
+     * globally would have bought that one caller a fix at the price of every other caller's
+     * guarantee.
+     *
+     * **Absent and failed remain different conditions.** Once a real resolver exists, a genuine
+     * failure — network, auth, corrupt revision — must be distinguishable from "never wired", or
+     * deletion detection ships unable to report its own breakage:
+     *
+     * - **unwired** ⇒ `KB_REVISION_BOUNDARY_UNAVAILABLE`.
+     * - **present and throwing** ⇒ `KB_REVISION_BOUNDARY_RESOLVER_FAILED`.
+     *
+     * The message deliberately names no tracking item. The one it used to cite had already closed,
+     * so it told operators to wait for a phase that had shipped, for a capability nobody had built —
+     * a stale pointer that reads as a roadmap promise is worse than no pointer.
+     *
      * @param {Object} options
      * @returns {Promise<Array<Object>>}
      * @protected
@@ -1461,18 +1523,29 @@ class IngestionService extends Base {
         if (!this.revisionResolver?.resolveDeletedPaths) {
             summary.errors.push(this.createError({
                 code   : 'KB_REVISION_BOUNDARY_UNAVAILABLE',
-                message: 'Revision-boundary deletion requires Phase 2E tenant config storage / resolver (#11637).'
+                message: 'Revision-boundary deletion detection is not wired on this deployment, so a caller-requested deletion set cannot be derived. Supply explicit tombstones instead.'
             }));
             return [];
         }
 
-        const resolved = await this.revisionResolver.resolveDeletedPaths({
-            baseRevision,
-            headRevision,
-            tenantContext
-        });
+        try {
+            const resolved = await this.revisionResolver.resolveDeletedPaths({
+                baseRevision,
+                headRevision,
+                tenantContext
+            });
 
-        return Array.isArray(resolved) ? resolved : [];
+            return Array.isArray(resolved) ? resolved : [];
+        } catch (error) {
+            // Neither the message nor the raw code is copied: both are upstream-controlled and this
+            // record travels verbatim into consumer-visible summaries. See boundResolverFailureReason.
+            summary.errors.push(this.createError({
+                code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+                message: 'The revision-boundary resolver failed to resolve deleted paths.',
+                details: {reason: this.boundResolverFailureReason(error)}
+            }));
+            return [];
+        }
     }
 
     /**
