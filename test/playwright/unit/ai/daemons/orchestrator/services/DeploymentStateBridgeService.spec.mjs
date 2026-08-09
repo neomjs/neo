@@ -1,4 +1,5 @@
 import {describeCorpusOutstanding} from '../../../../../../../ai/services/knowledge-base/helpers/corpusOutstanding.mjs';
+import {readFileSync}              from 'fs';
 import {test, expect}              from '@playwright/test';
 import fs                          from 'fs';
 import os                          from 'os';
@@ -2299,6 +2300,26 @@ test.describe('classifyDirectProbeOutcome — a probe fault is not a service fau
         expect(classifyDirectProbeOutcome(null)).toBeNull();
         expect(classifyDirectProbeOutcome(undefined)).toBeNull();
         expect(classifyDirectProbeOutcome('boom')).toBeNull();
+    });
+
+    test('the direct probe outlives the container healthcheck it second-guesses (cross-artifact)', () => {
+        // A second opinion with a TIGHTER deadline than the opinion it checks does not corroborate it;
+        // it fails more often and manufactures the failed-probe half of the evidence pair. The first
+        // value shipped here was 8000 against a 10s container probe — measured on the canonical plane
+        // the same day, Memory Core held a FailingStreak of 4 against that 10s probe while the same
+        // probe given 20s returned healthy with startupMs 400. An 8s independent probe would have
+        // agreed with the failing one and called a serving container wedged.
+        //
+        // Asserted ACROSS the two artifacts rather than as a magic number, so moving either one without
+        // the other fails here instead of on a live plane.
+        const compose = readFileSync(new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8'),
+              seconds = [...compose.matchAll(/mcpHealthcheck\.mjs[\s\S]{0,400}?timeout:\s*(\d+)s/g)].map(match => Number(match[1]));
+
+        expect(seconds.length).toBeGreaterThan(0);   // the probe blocks were actually found
+
+        const worstHealthcheckMs = Math.max(...seconds) * 1000;
+
+        expect(AiConfig.orchestrator.deploymentStateBridge.directProbeTimeoutMs).toBeGreaterThan(worstHealthcheckMs);
     });
 
     test('the shipped defaults are opt-in, and accept degraded', () => {

@@ -1247,7 +1247,25 @@ class ConfigBase extends ConfigProvider {
                      * `--expected-status healthy,degraded`.
                      */
                     directProbeExpectedStatus: leaf('healthy,degraded', 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_EXPECTED_STATUS', 'string'),
-                    directProbeTimeoutMs     : leaf(8000, 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_TIMEOUT_MS', 'number')
+                    /**
+                     * **Must EXCEED the container healthcheck it second-guesses, and the first value
+                     * here did not.** It was `8000`, copied from `mcpHealthcheck`'s own default, while
+                     * the canonical MCP healthchecks run `timeout: 10s`. A second opinion with a
+                     * tighter deadline than the opinion it is checking does not corroborate it — it
+                     * fails MORE often, manufactures the failed-probe half of the evidence pair, and
+                     * licenses a restart of a service that is merely slow.
+                     *
+                     * That is not hypothetical: measured on the canonical plane on 2026-08-09, Memory
+                     * Core ran a `FailingStreak` of 4 against the 10s container probe while the same
+                     * probe given a 20s budget returned `healthy` with `startupMs: 400`. An 8s
+                     * independent probe would have agreed with the failing one and called a serving
+                     * container wedged.
+                     *
+                     * 30s is three times the container probe's ceiling — generous enough that only a
+                     * genuinely unresponsive service fails it, and still bounded so a hung probe cannot
+                     * stall the sweep.
+                     */
+                    directProbeTimeoutMs     : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_TIMEOUT_MS', 'number')
                 },
                 /**
                  * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).
