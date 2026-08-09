@@ -1304,3 +1304,37 @@ test.describe('Neo.main.addon.DragDrop — generation-scoped physical window dra
         expect(addon.windowDragOrphanRecoveries).toBeNull()
     })
 });
+
+test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract', () => {
+    test('unregisterZone removes by root key AND sweeps by zone id — a wrong root key cannot strand entries', () => {
+        const addon = {zoneRegistrations: {}};
+
+        DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-a', dragZoneId: 'zone-a'});
+        DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-b', dragZoneId: 'zone-a'});
+
+        // The wrapping-zone destroy shape: a WRONG root key with the correct zone id.
+        // The sweep must still clear every registration pointing at the zone — a stale id
+        // resolving to a destroyed zone is strictly worse than a zoneless resolve.
+        DragDrop.prototype.unregisterZone.call(addon, {dragElementRootId: 'wrapper-never-registered', dragZoneId: 'zone-a'});
+
+        expect(addon.zoneRegistrations).toEqual({})
+    });
+
+    test('registerZone guards partial data; unregisterZone by root key removes just that registration', () => {
+        const addon = {zoneRegistrations: {}};
+
+        DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-a', dragZoneId: 'zone-a'});
+        DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-b'}); // partial: no zone id — ignored
+        DragDrop.prototype.unregisterZone.call(addon, {dragElementRootId: 'root-a', dragZoneId: 'zone-a'});
+
+        expect(addon.zoneRegistrations).toEqual({})
+    });
+
+    test('resolveDragZoneId walks the event path to the first registered root', () => {
+        const addon = {zoneRegistrations: {'root-outer': 'zone-outer', 'root-inner': 'zone-inner'}};
+
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'leaf'}, {id: 'root-inner'}, {id: 'root-outer'}])).toBe('zone-inner');
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'unregistered'}])).toBeNull();
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, null)).toBeNull()
+    })
+});

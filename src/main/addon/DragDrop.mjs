@@ -70,6 +70,17 @@ class DragDrop extends Base {
          */
         dragZoneId: null,
         /**
+         * Registry of app-side drag zones by their drag element root id, populated eagerly at
+         * zone construction (registerZone) and refreshed on every setConfigs handshake. Resolves
+         * the owning zone synchronously inside onDragStart, so the FIRST drag:start of a boot
+         * already carries its dragZoneId — the gesture-opening window in which every forward
+         * (and the Escape guard) was zoneless by construction is closed at the source.
+         * Deliberately NOT cleared by resetDragState(): zones outlive gestures.
+         * @member {Object} zoneRegistrations={}
+         * @protected
+         */
+        zoneRegistrations: {},
+        /**
          * You can either pass an array of (dom) ids or cls rules or both
          * @example
          * dropZoneIdentifier: {
@@ -174,11 +185,13 @@ class DragDrop extends Base {
                 'acknowledgeWindowDragOrphanRecovery',
                 'hasWindowDragOrphanRecovery',
                 'parkWindowDrag',
+                'registerZone',
                 'retireWindowDragOrphanRecovery',
                 'resumeWindowDrag',
                 'setConfigs',
                 'setDragProxyElement',
-                'startWindowDrag'
+                'startWindowDrag',
+                'unregisterZone'
             ]
         },
         /**
@@ -588,6 +601,13 @@ class DragDrop extends Base {
         let me   = this,
             rect = event.target.getBoundingClientRect();
 
+        // Resolve the owning zone synchronously from the event path against the zone registry.
+        // Zones register eagerly at construction (registerZone) and re-register on every
+        // setConfigs handshake, so even the first drag:start of a boot carries its dragZoneId —
+        // closing the gesture-opening window in which every forward, and the Escape guard
+        // keying on it, was zoneless by construction.
+        me.dragZoneId = me.resolveDragZoneId(event.path || event.composedPath());
+
         Object.assign(me, {
             dragCancelled: false,
             dragProxyRect: rect,
@@ -597,7 +617,8 @@ class DragDrop extends Base {
 
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
-            type: 'drag:start'
+            dragZoneId: me.dragZoneId,
+            type      : 'drag:start'
         })
     }
 
@@ -727,11 +748,72 @@ class DragDrop extends Base {
     }
 
     /**
+     * App-side drag zones register themselves at construction, so onDragStart can resolve the
+     * owning zone synchronously from the event path — before any setConfigs handshake could
+     * land. Idempotent per (root, zone) pair; see also setConfigs(), which re-registers.
+     * @param {Object} data
+     * @param {String} data.dragElementRootId
+     * @param {String} data.dragZoneId
+     */
+    registerZone(data) {
+        if (data?.dragElementRootId && data?.dragZoneId) {
+            this.zoneRegistrations[data.dragElementRootId] = data.dragZoneId
+        }
+    }
+
+    /**
+     * @param {Array<HTMLElement>} path
+     * @returns {String|null} the registered zone id for the first path entry that owns one
+     * @protected
+     */
+    resolveDragZoneId(path) {
+        let registrations = this.zoneRegistrations;
+
+        for (const node of path || []) {
+            if (node?.id && registrations[node.id]) {
+                return registrations[node.id]
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Removes a zone's registration(s). Both shapes run (never either/or): the keyed delete by
+     * root id AND the sweep of every key pointing at the zone id — a wrong or stale root key
+     * can never strand the zone's entries, and a zone whose root id is unknown at call time is
+     * still fully removed. Teardown symmetry with registerZone is the contract.
+     * @param {Object} data
+     * @param {String} [data.dragElementRootId]
+     * @param {String} data.dragZoneId — every registration pointing at this zone is removed
+     */
+    unregisterZone(data) {
+        let registrations = this.zoneRegistrations;
+
+        if (data?.dragElementRootId) {
+            delete registrations[data.dragElementRootId]
+        }
+
+        if (data?.dragZoneId) {
+            Object.keys(registrations).forEach(key => {
+                if (registrations[key] === data.dragZoneId) {
+                    delete registrations[key]
+                }
+            })
+        }
+    }
+
+    /**
      * DragZones will set these configs inside their dragStart() method.
-     * They only persist until the end of a drag OP.
+     * The gesture-scoped keys only persist until the end of a drag OP — with one exception:
+     * the `dragElementRootId → dragZoneId` pair ALSO refreshes the zone registry
+     * ({@link zoneRegistrations}), which deliberately outlives the gesture (zones outlive
+     * drags, and the registry is what lets the next drag:start resolve its zone synchronously).
      * @param {Object}               data
      * @param {Boolean}              data.alwaysFireDragMove
      * @param {String|String[]|null} data.boundaryContainerId
+     * @param {String}               [data.dragElementRootId] refreshes the zone registry
+     * @param {String}               [data.dragZoneId]       the registry value for the root id
      * @param {String|null}          data.scrollContainerId
      * @param {Number}               data.scrollFactorLeft
      * @param {Number}               data.scrollFactorTop
@@ -744,6 +826,12 @@ class DragDrop extends Base {
 
         delete data.appName;
         delete data.windowId;
+
+        // The per-gesture handshake doubles as a registry refresh — keeps the eager
+        // construction-time registration honest if a zone's root element was re-created.
+        if (data.dragElementRootId && data.dragZoneId) {
+            me.zoneRegistrations[data.dragElementRootId] = data.dragZoneId
+        }
 
         if (boundaryContainerId) {
             rects = DomAccess.getBoundingClientRect({id: boundaryContainerId});
