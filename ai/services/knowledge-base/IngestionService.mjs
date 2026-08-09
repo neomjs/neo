@@ -402,6 +402,19 @@ class IngestionService extends Base {
                     continue;
                 }
 
+                // A partially-successful embed is NOT a clean run. `VectorService.embedChunks` now skips a batch
+                // that exhausts its retries while other batches succeed — the alternative, aborting, stranded
+                // every later batch on every future sweep. Skipping keeps the corpus advancing, but the skipped
+                // chunks did not land, so the run must say so: without this, a sync over a corpus with a hole in
+                // it reports as complete and nothing ever revisits the gap.
+                for (const failure of result?.failedBatches || []) {
+                    summary.errors.push(this.createError({
+                        code   : 'KB_EMBED_BATCH_SKIPPED',
+                        message: `Embedding batch ${failure.batchIndex} was skipped after exhausting its retries: ${failure.reason}`,
+                        details: {repoSlug, batchIndex: failure.batchIndex, chunkIds: failure.chunkIds}
+                    }));
+                }
+
                 summary.embeddingsGenerated += result?.embedded ?? group.length;
                 this.updateIngestionProgress({
                     embeddedChunks: summary.embeddingsGenerated,
