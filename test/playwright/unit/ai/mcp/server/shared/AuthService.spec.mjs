@@ -1641,3 +1641,132 @@ test.describe('Neo.ai.mcp.server.shared.services.AuthService — local-bearer mi
         }
     });
 });
+
+/**
+ * Fail OPEN on transport, fail CLOSED on authority.
+ *
+ * A previously-validated token survives the provider being UNREACHABLE, and never survives the
+ * provider REJECTING it. The two were collapsed, so a slow third party locked out every seat on the
+ * first call of its turn.
+ */
+test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
+    let AuthService, originalFetch;
+
+    class FakeInvalidTokenError extends Error {}
+
+    const logger  = {info: () => {}, warn: () => {}, error: () => {}},
+          baseCfg = {
+              githubApiBaseUrl      : 'https://api.github.com',
+              patCacheTtlSeconds    : 300,
+              patValidationTimeoutMs: 5000,
+              patStaleGraceSeconds  : 3600
+          };
+
+    const withAuth = overrides => ({auth: {...baseCfg, ...overrides}});
+
+    /** Queues provider outcomes: {status} for an HTTP answer, {throws} for an unreachable provider. */
+    function stubFetch(outcomes) {
+        globalThis.fetch = async () => {
+            const outcome = outcomes.shift();
+
+            if (!outcome) throw new Error('Unexpected fetch call');
+            if (outcome.throws) throw outcome.throws;
+
+            return {
+                ok     : outcome.status === 200,
+                status : outcome.status,
+                headers: {get: () => 'repo'},
+                json   : async () => outcome.body ?? {login: 'grace', name: 'Grace', id: 1}
+            }
+        };
+    }
+
+    /** Validates once (populating the cache), then expires the entry so the next call re-validates. */
+    async function primeThenExpire(verifier, outcomes) {
+        stubFetch([{status: 200}]);
+        await verifier.verifyAccessToken('tok');
+        stubFetch(outcomes);
+    }
+
+    test.beforeAll(async () => {
+        AuthService = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+    });
+
+    test.beforeEach(() => { originalFetch = globalThis.fetch });
+    test.afterEach(()  => { globalThis.fetch = originalFetch });
+
+    const makeVerifier = auth => AuthService.createGithubPatVerifier({
+        aiConfig         : withAuth(auth),
+        logger,
+        InvalidTokenError: FakeInvalidTokenError
+    });
+
+    test('an UNREACHABLE provider serves the previously-validated identity', async () => {
+        // ttl 0 → the entry is stale immediately, so the second call must re-validate and fail.
+        const verifier = makeVerifier({patCacheTtlSeconds: 0});
+
+        await primeThenExpire(verifier, [{throws: Object.assign(new Error('socket hang up'), {code: 'ECONNRESET'})}]);
+
+        const info = await verifier.verifyAccessToken('tok');
+
+        expect(info.clientId).toBe('grace');
+    });
+
+    test('a 5xx is the provider FAILING TO ANSWER, not rejecting — served stale', async () => {
+        const verifier = makeVerifier({patCacheTtlSeconds: 0});
+
+        await primeThenExpire(verifier, [{status: 503}]);
+
+        expect((await verifier.verifyAccessToken('tok')).clientId).toBe('grace');
+    });
+
+    test('an AUTHORITATIVE 401 rejects even with a fresh stale entry — the security-load-bearing case', async () => {
+        // The whole fix is worthless if this passes. A test covering only the timeout path would go
+        // green while the change silently accepted revoked credentials.
+        const verifier = makeVerifier({patCacheTtlSeconds: 0});
+
+        await primeThenExpire(verifier, [{status: 401}]);
+
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(/HTTP 401/);
+    });
+
+    test('a 403 is authoritative too, and the entry is EVICTED rather than kept for later', async () => {
+        const verifier = makeVerifier({patCacheTtlSeconds: 0});
+
+        await primeThenExpire(verifier, [{status: 403}, {throws: new Error('unreachable')}]);
+
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(/HTTP 403/);
+        // Nothing survived the rejection, so an outage afterwards cannot resurrect the identity.
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(FakeInvalidTokenError);
+    });
+
+    test('grace 0 restores fail-closed-on-transport exactly — a deployment can opt out', async () => {
+        const verifier = makeVerifier({patCacheTtlSeconds: 0, patStaleGraceSeconds: 0});
+
+        await primeThenExpire(verifier, [{throws: new Error('unreachable')}]);
+
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(FakeInvalidTokenError);
+    });
+
+    test('a token past ttl + grace is rejected — the window is bounded, not unlimited', async () => {
+        const verifier = makeVerifier({patCacheTtlSeconds: 0, patStaleGraceSeconds: 0.001});
+
+        stubFetch([{status: 200}]);
+        await verifier.verifyAccessToken('tok');
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        stubFetch([{throws: new Error('unreachable')}]);
+
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(FakeInvalidTokenError);
+    });
+
+    test('a token never validated is rejected when the provider is unreachable', async () => {
+        // Fail-open must never mean fail-open for strangers: with no prior affirmative answer there
+        // is nothing to serve, and the request is rejected exactly as before.
+        const verifier = makeVerifier({});
+
+        stubFetch([{throws: new Error('unreachable')}]);
+
+        await expect(verifier.verifyAccessToken('never-seen')).rejects.toThrow(FakeInvalidTokenError);
+    });
+});

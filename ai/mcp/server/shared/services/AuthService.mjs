@@ -36,6 +36,25 @@ import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.
  * @see Neo.ai.mcp.server.shared.services.TransportService
  * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
+
+/**
+ * @summary Whether a provider HTTP status is the provider ANSWERING "no", or failing to answer.
+ *
+ * Only `401` and `403` are the credential being rejected. Every other non-OK status — `5xx`, `429`,
+ * a proxy's `502` — is the provider unable to answer, which is a transport condition wearing an
+ * HTTP status code. Treating those as rejections made a third party's brief unavailability
+ * indistinguishable from a revoked token, on the first call of every seat's turn.
+ *
+ * A closed positive list rather than a "not 5xx" test: an unrecognised status must degrade toward
+ * "we could not ask", never toward "the answer was no".
+ *
+ * @param {Number} status HTTP status from the provider identity endpoint.
+ * @returns {Boolean} True only when the provider authoritatively rejected the credential.
+ */
+export function isAuthoritativeRejection(status) {
+    return status === 401 || status === 403
+}
+
 class AuthService extends Base {
     static config = {
         /**
@@ -908,9 +927,39 @@ class AuthService extends Base {
             allowedUsers        = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
             requireUser         = allowedUsers.length > 0,
             pinSubject          = aiConfig.auth.pinFirstProviderSubject === true,
+            staleGraceMs        = Math.max(0, Number(aiConfig.auth.patStaleGraceSeconds) || 0) * 1000,
             cache               = new Map(); // tokenHash -> {user, scopes, expiresAt} (cache-freshness, ms)
 
         let pinnedProviderSubject = null;
+
+        /**
+         * Decides whether an expired-but-known token may still be admitted because the PROVIDER —
+         * not the credential — failed. Returns the entry to serve, or null to reject as before.
+         *
+         * The asymmetry is the design: successes are cached, failures are SURVIVED. Caching a
+         * failure would be the symmetric-looking mistake, and it would lock out a user who had just
+         * repaired their token. This instead keeps the last affirmative answer usable while nobody
+         * can be asked, and only while nobody can be asked.
+         *
+         * The revocation guarantee weakens from `ttl` to `ttl + grace` EXCLUSIVELY in the window
+         * where the provider is unreachable, and never in response to a real rejection. Setting
+         * `patStaleGraceSeconds: 0` disables this entirely and restores the prior behaviour.
+         */
+        const serveStale = (entry, reason) => {
+            if (!entry || staleGraceMs === 0 || Date.now() > entry.expiresAt + staleGraceMs) {
+                return null
+            }
+
+            // Logged rather than silent: an operator must be able to tell a stale-served request
+            // from a freshly validated one, or "auth is fine" becomes unfalsifiable during exactly
+            // the outage this exists to survive.
+            logger.warn(
+                `[AuthService] GitHub provider unreachable (${reason}); serving previously-validated ` +
+                `identity '${entry.user?.login}' from cache, ${Math.round((Date.now() - entry.expiresAt) / 1000)}s past TTL.`
+            );
+
+            return entry
+        };
 
         // AuthInfo shape mirrors the GitLab-PAT verifier: `expiresAt` is REQUIRED by the SDK
         // `requireBearerAuth` (it rejects expiry-less auth info before `req.auth` is set), and
@@ -999,7 +1048,22 @@ class AuthService extends Base {
                 });
 
                 if (!userResponse.ok) {
-                    cache.delete(tokenHash);
+                    // 401/403 is the provider ANSWERING "no" — authoritative, evict, never softened.
+                    // Anything else (5xx, 429, a proxy's 502) is the provider failing to answer at
+                    // all, which is a transport condition wearing an HTTP status. Collapsing the two
+                    // is the defect: it made GitHub being briefly unavailable identical to a revoked
+                    // credential, for every seat, on the first call of every turn.
+                    if (isAuthoritativeRejection(userResponse.status)) {
+                        cache.delete(tokenHash);
+                        throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
+                    }
+
+                    const stale = serveStale(cached, `HTTP ${userResponse.status}`);
+
+                    if (stale) {
+                        return admitProviderSubject(buildInfo(token, stale.user, stale.scopes), establishPin)
+                    }
+
                     throw new InvalidTokenError(`GitHub PAT validation failed (HTTP ${userResponse.status})`)
                 }
 
@@ -1029,14 +1093,27 @@ class AuthService extends Base {
 
                 return info
             } catch (error) {
+                // An InvalidTokenError raised above already made its own eviction decision — an
+                // authoritative rejection deleted the entry, a transient one deliberately kept it.
+                // Re-deleting here unconditionally, as this used to, destroyed the stale entry that
+                // is the whole fallback.
+                if (error instanceof InvalidTokenError) {
+                    throw error
+                }
+
+                // A timeout or a network error is the provider being UNREACHABLE. The entry survives
+                // and is served if it is inside the grace window; the credential itself was never
+                // questioned, so nothing about it has been softened.
+                const stale = serveStale(cached, signal.aborted ? `timeout after ${validationTimeoutMs}ms` : 'network error');
+
+                if (stale) {
+                    return admitProviderSubject(buildInfo(token, stale.user, stale.scopes), establishPin)
+                }
+
                 cache.delete(tokenHash);
 
                 if (signal.aborted) {
                     throw new InvalidTokenError(`GitHub PAT validation timed out after ${validationTimeoutMs}ms`)
-                }
-
-                if (error instanceof InvalidTokenError) {
-                    throw error
                 }
 
                 // Fetch/header/JSON implementations may echo credential-bearing request data in
