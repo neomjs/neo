@@ -13,6 +13,7 @@ import {
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     appendHealEvent,
+    HEAL_LEDGER_DIR_NAME,
     validateHealLedgerRetention
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
@@ -169,11 +170,24 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Resolves the durable heal-event ledger directory — a sibling of the recovery-run dir; the
-     * shared record sink for the lifecycle (this actuator) and data worlds of the immune system.
+     * @summary Resolves the durable heal-event ledger directory — the shared record sink for the
+     * lifecycle (this actuator) and data worlds of the immune system.
+     *
+     * **Derived from `dataDir` + the shared `HEAL_LEDGER_DIR_NAME`, and that is a repair.** This
+     * getter previously returned `dirname(recoveryRunStateDir) + '/heal-events'`, which the sentence
+     * above already described as shared and was not: the data world, the deployment snapshot's
+     * `selfHeal` fold, `backup.mjs` and `restore.mjs` all bind to `dataDir + 'data-heal-events'`.
+     * A whole-tree search for the old path found writers here and **no production reader anywhere** —
+     * so every lifecycle heal-event ever written was invisible to the immune-system status surface it
+     * was written for, and was not captured by backup either. `selfHeal.total: 0` on a live plane was
+     * therefore doubly uninformative.
+     *
+     * Binding to `dataDir` rather than to `dirname(recoveryRunStateDir)` also removes the way the two
+     * could drift apart again: the run-state dir carries its own env override, so an operator moving
+     * it silently re-split the ledger, while `dataDir` is the same leaf the bridge's reader resolves.
      */
     get healEventLedgerDir() {
-        return path.join(path.dirname(this.recoveryRunStateDir), 'heal-events');
+        return path.join(this.dataDir, HEAL_LEDGER_DIR_NAME);
     }
 
     /**
@@ -450,6 +464,11 @@ export class RecoveryActuatorService extends Base {
             collection: serviceKey,
             status    : 'recorded',
             detail    : {
+                // The DIAGNOSIS's own details ride into the record. Without them this terminal wrote
+                // that something was recorded but never what — and for a controller that declined an
+                // action, the declined class is the entire content of the record. The explicit keys
+                // below still win, so no existing field changes meaning.
+                ...diagnosis.details,
                 reasonCode,
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
