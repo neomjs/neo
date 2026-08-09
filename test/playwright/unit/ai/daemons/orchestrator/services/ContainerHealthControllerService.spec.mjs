@@ -620,36 +620,85 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect((await readLedger()).filter(event => event.status === 'actioned')).toEqual([]);
     });
 
-    test('(d) MID-RESOLUTION takeover — authority moves while the target resolves; no runtime mutation', async () => {
-        // Cycle-4 witness. The check inside `apply()` still preceded an awaited `resolveServiceTarget()`,
-        // so a holder displaced during target resolution landed the restart anyway. This flips authority
-        // at exactly that boundary — inside the runtime service, after resolution begins.
+    test('(d) a runtime AUTHORITY-LOST refusal is not collapsed into executor failure, and writes nothing', async () => {
+        // Repurposed, and the reason matters. This previously claimed to test the runtime's
+        // post-resolution guard while actually testing its own wrapper — @neo-gpt showed that deleting
+        // the real check did not change its outcome. The genuine control for that guard now lives in
+        // `DeploymentRuntimeAccessService.spec.mjs`, driving the real resolution round-trip.
+        //
+        // What THIS covers is the caller's half: a refusal raised because authority moved is a
+        // different thing from an executor failing, and collapsing them charges the successor's
+        // anti-thrash budget and appends a recovery-run terminal for an action that never happened.
+        const fsExtra = (await import('fs-extra')).default;
+
+        // ONE lease, read at several points — which is what production has. Authority is present for
+        // the controller's pre-check and gone by the time the runtime resolves, so every later read
+        // (the runtime guard, the post-effect decision, the receipt) sees the loss. A fixture where the
+        // controller still "holds" while the runtime refuses could not happen against a single lease.
+        let reads = 0;
+
+        const {controller, actuator, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => ++reads === 1}
+        });
+
+        const runtime = actuator.deploymentRuntimeAccessService;
+
+        runtime.applyLifecycle = async () => {
+            const error = new Error('Authority moved while resolving; refusing the lifecycle write.');
+
+            error.reason = 'runtime-authority-lost';   // what the real guard raises
+
+            throw error;
+        };
+
+        const outcome = await controller.consume({decision: wedged('mc-server')});
+
+        expect(outcome.actuatorOutcome.status).toBe('declined');
+        expect(outcome.actuatorOutcome.reasonCode).toBe('authority-lost');
+        expect(runtimeCalls).toEqual([]);
+        // No effect landed, so there is no post-effect audit rationale — neither shared surface is touched.
+        expect(await fsExtra.pathExists(path.join(tmpDir, 'heal-attempts.json'))).toBe(false);
+        expect(await readLedger()).toEqual([]);
+    });
+
+    test('(f) a NON-COMPOSE effect honours the oracle too — warm-provider is not exempt', async () => {
+        // `applyLifecycle` carries its own guard, but warm-provider, reconfigure, raise-ceiling, the
+        // supervised-task recycle and the deploy-target record never pass through it. A fence on the
+        // compose path alone would have covered one effect kind and left four open.
         let held = true;
 
         const {controller, actuator, runtimeCalls} = createStack({
             controllerConfig: {isAuthorityHeld: () => held}
         });
 
-        const runtime  = actuator.deploymentRuntimeAccessService,
-              original = runtime.applyLifecycle.bind(runtime);
+        let repairCalled = false;
 
-        runtime.applyLifecycle = async options => {
-            held = false;                                   // the successor reclaims mid-resolution
-
-            if (typeof options.isAuthorityHeld === 'function' && options.isAuthorityHeld() !== true) {
-                const error = new Error('runtime-authority-lost');
-
-                error.reason = 'runtime-authority-lost';
-                throw error;
-            }
-
-            return original(options);
+        actuator.providerResidencyRepair = async () => {
+            repairCalled = true;
+            return {ready: true};
         };
 
-        const outcome = await controller.consume({decision: wedged('mc-server')});
+        // Lost after the controller's own check, before the effect dispatches.
+        const originalRead = actuator.readHealAttempts.bind(actuator);
 
-        expect(runtimeCalls).toEqual([]);                   // the mutation never happened
-        expect(outcome.actuatorOutcome.status).toBe('failed');
+        actuator.readHealAttempts = async () => {
+            const attempts = await originalRead();
+
+            held = false;
+
+            return attempts;
+        };
+
+        const decision = decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.warmProvider, {
+            serviceKey   : 'local-model',
+            recoveryClass: 'provider-role-residency'
+        });
+
+        const outcome = await controller.consume({decision});
+
+        expect(repairCalled).toBe(false);            // the provider was never warmed
+        expect(runtimeCalls).toEqual([]);
+        expect(outcome.actuatorOutcome.status).toBe('declined');
     });
 
     test('(e) POST-EFFECT loss — the successor\'s anti-thrash state is NOT overwritten', async () => {

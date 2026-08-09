@@ -845,3 +845,61 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
         });
     });
 });
+
+/**
+ * The guard lives HERE, so its control belongs here. An earlier attempt tested it from the controller
+ * spec by replacing `applyLifecycle` with a wrapper that threw before delegating — which exercised the
+ * wrapper, not production. @neo-gpt caught it: deleting the real post-resolution check did not change
+ * that test's outcome. This drives the REAL method through its REAL container-resolution round-trip and
+ * flips authority inside it, which is the only way the production line is on the path.
+ */
+test.describe('applyLifecycle — authority is rechecked AFTER target resolution (#16766)', () => {
+    test('authority moving DURING container resolution refuses before the mutating request', async () => {
+        let held = true;
+
+        // Flipping inside the resolution response is what makes this the real window: the container
+        // lookup is an awaited round-trip, so a caller that checked before entering has already yielded.
+        const {service, calls} = createService({containers: [makeContainer()]}),
+              inner            = service.dockerRequestFn;
+
+        service.dockerRequestFn = async request => {
+            const result = await inner(request);
+
+            if (request.path.startsWith('/containers/json')) {
+                held = false;
+            }
+
+            return result;
+        };
+
+        await expect(service.applyLifecycle({
+            serviceKey     : 'mc-server',
+            operation      : 'restart',
+            isAuthorityHeld: () => held
+        })).rejects.toThrow(/Authority moved while resolving/);
+
+        // The discriminating assertion: resolution happened, the RESTART did not.
+        expect(calls.some(call => call.path.startsWith('/containers/json'))).toBe(true);
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
+    });
+
+    test('CONTROL — authority held throughout still restarts, so the guard is not simply refusing', async () => {
+        const {service, calls} = createService();
+
+        await service.applyLifecycle({
+            serviceKey     : 'mc-server',
+            operation      : 'restart',
+            isAuthorityHeld: () => true
+        });
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(true);
+    });
+
+    test('a caller with no oracle is unaffected — byte-identical to before', async () => {
+        const {service, calls} = createService();
+
+        await service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'});
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(true);
+    });
+});

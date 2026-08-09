@@ -279,6 +279,15 @@ export class RecoveryActuatorService extends Base {
         if (typeof serviceKey !== 'string' || serviceKey.length === 0) {
             throw new TypeError('RecoveryActuatorService.apply: serviceKey is required');
         }
+
+        // ENTRY. Every branch below this line that returns early — unsupported action, disabled
+        // actuator, unrecoverable target, action-not-allowed, and the anti-thrash gate — reaches
+        // `finishAction`, which appends to the successor's recovery-run ledger. None of them lands an
+        // effect, so none has the post-effect audit rationale that justifies the provenance-marked
+        // write further down. A displaced holder must reach none of them.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {status: 'declined', reasonCode: 'authority-lost', serviceKey, action};
+        }
         if (!DEFAULT_ACTIONS.includes(action)) {
             return this.rejectAction({serviceKey, action, now, reasonCode: 'unsupported-action', targetIdentity});
         }
@@ -414,6 +423,20 @@ export class RecoveryActuatorService extends Base {
                 updatedAt
             });
         } catch (error) {
+            // A refusal by the runtime's own authority guard is NOT an executor failure, and collapsing
+            // the two writes the successor's state for an action that never happened. `runtime-authority-lost`
+            // means the mutation was declined precisely BECAUSE we no longer hold authority — so there
+            // is no effect to audit and no attempt to charge against a budget that is not ours.
+            if (error?.reason === 'runtime-authority-lost' || (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true)) {
+                return {
+                    status        : 'declined',
+                    reasonCode    : 'authority-lost',
+                    serviceKey,
+                    action,
+                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+                };
+            }
+
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
                   nextAttempt   = gate.attempt + 1,
@@ -768,6 +791,19 @@ export class RecoveryActuatorService extends Base {
      * @returns {Promise<Object>}
      */
     async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
+        // The LAST COMMON POINT before every effect kind dispatches. `applyLifecycle` carries its own
+        // post-resolution guard, but `warm-provider`, `reconfigure`, `raise-ceiling`, the supervised-task
+        // recycle and the deploy-target record do not pass through it — so a check placed only on the
+        // compose path would fence one effect and leave four open. Enumerated here rather than added
+        // per-branch, because a fifth effect kind added later inherits the guard by construction.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error(`Authority moved before the ${action} effect on '${target.id}'; refusing.`);
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+
         if (action === 'warm-provider') {
             return this.warmProviderResidency({target, reason});
         }
