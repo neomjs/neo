@@ -412,9 +412,22 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
     });
 
-    test('requires multi-fact evidence before diagnosing unhealthy probe-like states', () => {
+    /**
+     * Renamed from `requires multi-fact evidence before diagnosing unhealthy probe-like states`, because
+     * that name asserted a contract this test's own middle case now disproves. The old name was accurate
+     * for a NON-authoritative state and over-general for an authoritative one, and the difference is the
+     * whole safety argument.
+     *
+     * The old shape also demonstrates why it stayed green over a dead production path: its only
+     * `diagnosed` case hands in an explicit `endpointProbe`, and NOTHING in the orchestrator supplies
+     * that argument. The spec exercised the escape hatch; production only ever had the floor.
+     */
+    test('an authoritative unhealthy verdict classifies ALONE; a non-authoritative one still needs corroboration', () => {
         const service = createService();
 
+        // `starting` is severity:'warning', authoritative:false. The ordinary boot window must never
+        // action, and this is the control that keeps the change from over-generalising to "any
+        // non-healthy health state".
         const advisory = service.diagnose({
             serviceKey : 'knowledge',
             nodeCommand: false,
@@ -424,6 +437,26 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(advisory.status).toBe('advisory');
         expect(advisory.diagnosis).toBeNull();
 
+        // THE RED CONTROL. Against the previous implementation this returned `status: 'advisory'` with
+        // `diagnosis: null` and `actionClass: null`: ONE authoritative fact against a
+        // `minAuthoritativeFacts` floor of 2, whose only bypass is an `endpointProbeFailed` fact that
+        // no caller in the orchestrator produces. The fact was created and the classification was
+        // suppressed, so no controller could have consumed it however well it was wired.
+        // It supplies NO endpointProbe on purpose — that absence IS the production case.
+        const aliveButUnhealthy = service.diagnose({
+            serviceKey: 'knowledge',
+            inspect   : runningInspect({Health: {Status: 'unhealthy'}})
+        });
+
+        expect(aliveButUnhealthy.status).toBe('diagnosed');
+        expect(aliveButUnhealthy.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        expect(aliveButUnhealthy.diagnosis.recoveryClass).toBe('crash');
+        // Restarted while STILL RUNNING is not the same event as restarted after an exit; the
+        // heal-event ledger has to distinguish them, so the new path carries its own label.
+        expect(aliveButUnhealthy.diagnosis.details.classificationReason).toBe('lifecycle-unhealthy-sustained');
+
+        // The pre-existing corroborated path keeps its exact recoveryClass AND its exact reason string,
+        // so nothing already written to a heal-event ledger is relabelled by this change.
         const diagnosed = service.diagnose({
             serviceKey   : 'knowledge',
             nodeCommand  : false,
@@ -433,6 +466,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         expect(diagnosed.status).toBe('diagnosed');
         expect(diagnosed.diagnosis.recoveryClass).toBe('crash');
+        expect(diagnosed.diagnosis.details.classificationReason).toBe('lifecycle-crash');
         expect(diagnosed.diagnosis.evidenceFacts.map(fact => fact.type)).toEqual([
             CONTAINER_HEALTH_FACT_TYPES.containerUnhealthy,
             CONTAINER_HEALTH_FACT_TYPES.endpointProbeFailed
