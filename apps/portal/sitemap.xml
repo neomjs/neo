@@ -911,7 +911,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-08-09T10:04:19Z</lastmod>
+    <lastmod>2026-08-09T10:56:50Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -931,7 +931,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-09T06:07:25Z</lastmod>
+    <lastmod>2026-08-09T10:56:53Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2279,16 +2279,20 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/news/tickets/16776</loc>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/tickets/16770</loc>
     <lastmod>2026-08-09T04:34:47Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16768</loc>
-    <lastmod>2026-08-09T04:34:47Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16767</loc>
-    <lastmod>2026-08-09T02:22:30Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16766</loc>
@@ -2296,11 +2300,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16765</loc>
-    <lastmod>2026-08-09T02:22:30Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16763</loc>
-    <lastmod>2026-08-09T02:22:31Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16759</loc>
@@ -2320,7 +2324,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16753</loc>
-    <lastmod>2026-08-09T06:03:25Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16750</loc>
@@ -2368,7 +2372,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16738</loc>
-    <lastmod>2026-08-09T02:22:31Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16737</loc>
@@ -2580,7 +2584,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16630</loc>
-    <lastmod>2026-08-09T02:22:31Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16629</loc>
@@ -2800,7 +2804,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16541</loc>
-    <lastmod>2026-08-09T06:03:25Z</lastmod>
+    <lastmod>2026-08-09T10:52:57Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16540</loc>
@@ -46739,8 +46743,13 @@
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/news/pulls/16778</loc>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://neomjs.com/news/pulls/16775</loc>
-    <lastmod>2026-08-09T06:03:30Z</lastmod>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -46750,22 +46759,22 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/16773</loc>
-    <lastmod>2026-08-09T04:34:51Z</lastmod>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/16772</loc>
-    <lastmod>2026-08-09T09:59:55Z</lastmod>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/16771</loc>
-    <lastmod>2026-08-09T06:03:30Z</lastmod>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/16769</loc>
-    <lastmod>2026-08-09T09:59:55Z</lastmod>
+    <lastmod>2026-08-09T10:53:02Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -73290,7 +73299,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/16764</loc>
-    <lastmod>2026-08-09T02:22:34Z</lastmod>
+    <lastmod>2026-08-09T10:53:00Z</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
