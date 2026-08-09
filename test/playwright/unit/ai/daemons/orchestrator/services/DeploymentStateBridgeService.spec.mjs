@@ -1,12 +1,15 @@
-import {describeCorpusOutstanding}       from '../../../../../../../ai/services/knowledge-base/helpers/corpusOutstanding.mjs';
-import {test, expect}                    from '@playwright/test';
-import fs                                from 'fs';
-import os                                from 'os';
-import path                              from 'path';
-import Neo                               from '../../../../../../../src/Neo.mjs';
-import * as core                         from '../../../../../../../src/core/_export.mjs';
-import AiConfig                          from '../../../../../../../ai/config.template.mjs';
-import {DeploymentStateBridgeService}    from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
+import {describeCorpusOutstanding} from '../../../../../../../ai/services/knowledge-base/helpers/corpusOutstanding.mjs';
+import {test, expect}              from '@playwright/test';
+import fs                          from 'fs';
+import os                          from 'os';
+import path                        from 'path';
+import Neo                         from '../../../../../../../src/Neo.mjs';
+import * as core                   from '../../../../../../../src/core/_export.mjs';
+import AiConfig                    from '../../../../../../../ai/config.template.mjs';
+import {
+    DeploymentStateBridgeService,
+    summarizeProbeReliability
+} from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import {appendHealEvent, readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
@@ -2108,5 +2111,71 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
             expect(result.pairable).toBe(false);
             expect(result.unavailableReason).toBeTruthy();
         }
+    });
+});
+
+/**
+ * Degraded-but-serving: the state a binary derived from consecutiveness cannot express.
+ */
+test.describe('summarizeProbeReliability — a rate the healthy/unhealthy binary cannot say', () => {
+    const probe = exitCode => ({Start: '2026-08-09T14:36:23Z', End: '2026-08-09T14:36:31Z', ExitCode: exitCode});
+
+    test('the EXACT observed shape: four failures, one pass, and the runtime still says healthy', () => {
+        // Measured on the canonical plane. Every surface reported `healthy` while two maintainer
+        // seats lost Memory Core writes for hours. `FailingStreak` had already reset to 0 on the
+        // pass, so both published numbers were true and neither was reportable as degradation.
+        const summary = summarizeProbeReliability({
+            Status       : 'healthy',
+            FailingStreak: 0,
+            Log          : [probe(1), probe(1), probe(1), probe(-1), probe(0)]
+        });
+
+        expect(summary).toEqual({
+            sampleCount  : 5,
+            failureCount : 4,
+            failureRate  : 0.8,
+            failingStreak: 0,
+            disposition  : 'degraded-but-serving'
+        });
+    });
+
+    test('a health-check TIMEOUT (-1) counts as a failure — the case the surface most needs', () => {
+        // A runtime reports "the check exceeded its own timeout" as -1. Counting only positive exit
+        // codes would discard precisely the probes that were too slow to answer, which is the
+        // failure mode a contended plane actually exhibits.
+        expect(summarizeProbeReliability({FailingStreak: 1, Log: [probe(-1), probe(0)]})).toMatchObject({
+            failureCount: 1,
+            failureRate : 0.5,
+            disposition : 'degraded-but-serving'
+        });
+    });
+
+    test('nominal and failing stay distinguishable at the ends', () => {
+        expect(summarizeProbeReliability({FailingStreak: 0, Log: [probe(0), probe(0)]})).toMatchObject({
+            failureRate: 0,
+            disposition: 'nominal'
+        });
+        expect(summarizeProbeReliability({FailingStreak: 2, Log: [probe(1), probe(1)]})).toMatchObject({
+            failureRate: 1,
+            disposition: 'failing'
+        });
+    });
+
+    test('a container with no healthcheck reports null, never a fabricated clean rate', () => {
+        // `failureRate: 0` on a service nobody probes would read as evidence of health.
+        expect(summarizeProbeReliability(undefined)).toBeNull();
+        expect(summarizeProbeReliability({})).toBeNull();
+        expect(summarizeProbeReliability({Log: []})).toBeNull();
+    });
+
+    test('the streak alone cannot discriminate — which is why the rate is published beside it', () => {
+        // POSITIVE CONTROL for the ticket's premise. Both of these carry `FailingStreak: 0`, the
+        // value an oscillating service shows every time it is observed just after a pass. Any
+        // consumer keying on the streak sees one number; the rate separates them.
+        const oscillating = summarizeProbeReliability({FailingStreak: 0, Log: [probe(1), probe(1), probe(1), probe(0)]}),
+              healthy     = summarizeProbeReliability({FailingStreak: 0, Log: [probe(0), probe(0), probe(0), probe(0)]});
+
+        expect(oscillating.failingStreak).toBe(healthy.failingStreak);
+        expect(oscillating.disposition).not.toBe(healthy.disposition);
     });
 });

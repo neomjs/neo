@@ -1315,8 +1315,69 @@ function summarizeInspect(inspect) {
             finishedAt: state.FinishedAt || null,
             exitCode  : Number.isFinite(state.ExitCode) ? state.ExitCode : null,
             oomKilled : typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null,
-            error     : state.Error || null
+            error     : state.Error || null,
+            // Published BESIDE `health`, never folded into it. `health` remains the runtime's own
+            // verdict — consumers and the recovery lane depend on that meaning being untouched —
+            // while this carries the rate that verdict cannot express.
+            probeReliability: summarizeProbeReliability(state.Health)
         }
+    };
+}
+
+/**
+ * @summary Derives a probe FAILURE RATE from the health-check ring, so degraded-but-serving is sayable.
+ *
+ * **A container runtime flips to `unhealthy` only after `retries` CONSECUTIVE failures.** At
+ * `retries: 12` that is two unbroken minutes, so a service failing a third of its probes
+ * indefinitely resets the streak on every success and is *structurally incapable* of ever being
+ * marked unhealthy. The layer can say **dead** and it can say **healthy**; it has no way to say
+ * **degraded-but-serving**, which is the state a saturated or contended plane actually occupies.
+ *
+ * A binary derived from consecutiveness cannot express a rate, and degradation is a rate. The
+ * evidence was already being fetched and thrown away: `State.Health.Log` is a ring of recent probe
+ * results carrying each `ExitCode`. Nothing here probes anything new — it reads what the existing
+ * `inspect` already returned.
+ *
+ * Observed on the canonical plane while every surface reported `healthy`: four failures and one
+ * success in the ring, with `FailingStreak` oscillating 4 → 0. Both numbers were true; neither was
+ * reportable as degradation, and two maintainer seats worked in that state for hours.
+ *
+ * `failingStreak` travels alongside deliberately — the streak measures PHASE (how far into the
+ * current run of failures we are), the rate measures HEALTH. Publishing the streak alone is what
+ * made an oscillating service look recovered every time it happened to be observed after a pass.
+ *
+ * @param {Object} [health] The `State.Health` object from a container inspect.
+ * @returns {Object|null} `{sampleCount, failureCount, failureRate, failingStreak, disposition}`,
+ *     or `null` when the container declares no healthcheck at all.
+ */
+export function summarizeProbeReliability(health) {
+    const log = Array.isArray(health?.Log) ? health.Log : null;
+
+    if (!log?.length) {
+        return null;
+    }
+
+    // A probe passes on exit 0 and fails on anything else, INCLUDING -1 — which is how a runtime
+    // reports "the check exceeded its own timeout". Treating a non-finite or negative code as
+    // "not a failure" would discard exactly the timeouts this summary exists to count.
+    const sampleCount  = log.length,
+          failureCount = log.filter(entry => entry?.ExitCode !== 0).length;
+
+    return {
+        sampleCount,
+        failureCount,
+        // Rounded to three places: this is read by humans and compared across polls, and an
+        // unrounded ratio invites a false precision the 5-entry ring cannot support.
+        failureRate  : Math.round((failureCount / sampleCount) * 1000) / 1000,
+        failingStreak: Number.isFinite(health.FailingStreak) ? health.FailingStreak : null,
+        // The vocabulary the binary lacks. `degraded-but-serving` is the whole point: some probes
+        // fail, some pass, the service is answering, and no consecutive-failure threshold will ever
+        // be crossed.
+        disposition  : failureCount === 0
+            ? 'nominal'
+            : failureCount === sampleCount
+                ? 'failing'
+                : 'degraded-but-serving'
     };
 }
 
