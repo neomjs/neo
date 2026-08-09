@@ -935,6 +935,31 @@ class ConfigBase extends ConfigProvider {
                 aggregationIntervalMs: leaf(60 * 60 * 1000, 'NEO_MC_TEMPORAL_SUMMARY_INTERVAL_MS', 'number')
             },
             /**
+             * Self-reported V8 heap observation — the one channel through which a Node service can
+             * state its own heap/non-heap split.
+             *
+             * Declared at Tier-1 rather than under `orchestrator` because the writer and the reader are
+             * different processes reading the SAME leaves: any Node service writes its observation here,
+             * and the orchestrator's deployment-state bridge reads it. Nesting it under the reader would
+             * make the writer thread a value it does not own, and duplicating it per server would put two
+             * declarations behind one contract.
+             *
+             * `writeIntervalMs` is deliberately far tighter than the bridge's 30 s snapshot cadence.
+             * Container memory on this deployment was measured moving ~93 MiB inside 45 s under ordinary
+             * maintenance load, so an observation paired with a container reading taken 30 s later would
+             * licence arithmetic across two different memory states. At a 10 s cadence and a 15 s skew
+             * bound the pair carries roughly 30 MiB of uncertainty against a 768 MiB ceiling — stated
+             * here because a bound whose implied error is unstated reads as precision it does not have.
+             * @type {Object}
+             */
+            heapObservation: {
+                enabled        : leaf(true, 'NEO_HEAP_OBSERVATION_ENABLED', 'boolean'),
+                dir            : leaf(path.resolve(planeDataRootDefault, 'heap-observation'), 'NEO_HEAP_OBSERVATION_DIR', 'string', {planeMember: true}),
+                writeIntervalMs: leaf(10 * 1000, 'NEO_HEAP_OBSERVATION_WRITE_INTERVAL_MS', 'number'),
+                staleAfterMs   : leaf(60 * 1000, 'NEO_HEAP_OBSERVATION_STALE_AFTER_MS', 'number'),
+                maxSkewMs      : leaf(15 * 1000, 'NEO_HEAP_OBSERVATION_MAX_SKEW_MS', 'number')
+            },
+            /**
              * Agent OS maintenance orchestrator configuration.
              * @type {Object}
              */
@@ -2000,6 +2025,7 @@ export const PLANE_MEMBER_PATHS = Object.freeze([
     'fleet.dataDir',
     'fleet.instanceRoot',
     'engines.chroma.dataDirProd',
+    'heapObservation.dir',
     'orchestrator.dataDir',
     'orchestrator.dbPath',
     'orchestrator.deploymentStateBridge.snapshotPath',
