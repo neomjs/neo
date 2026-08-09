@@ -120,7 +120,11 @@ test.describe('Neo.ai.services.knowledge-base.SearchService — ask reasoning-ef
 
         await SearchService.ask({query: 'How does Neo run the VDom?'});
 
-        const aiConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        // The committed TEMPLATE, never the gitignored `config.mjs` overlay. An overlay-resolving test
+        // asserts against whatever this machine happens to carry, so it can pass here and fail in CI
+        // — or worse, pass in both while measuring a value no other environment has. Defaults resolve
+        // through the same `ConfigBase` either way, so this costs the assertion nothing.
+        const aiConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
 
         // Reads the SSOT rather than asserting `'none'`: an operator who sets
         // NEO_KB_ASK_REASONING_EFFORT must see their value reach the provider, and hardcoding the
