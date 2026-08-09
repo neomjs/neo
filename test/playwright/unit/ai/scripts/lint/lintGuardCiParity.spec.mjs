@@ -10,7 +10,8 @@ const
     // lint -> scripts -> ai -> unit -> playwright -> test -> repo root
     REPO_ROOT  = path.resolve(__dirname, '../../../../../..'),
     LINT       = path.join(REPO_ROOT, 'ai/scripts/lint/lint-guard-ci-parity.mjs'),
-    REGISTRY   = path.join(REPO_ROOT, 'ai/scripts/lint/guard-ci-parity-registry.json');
+    REGISTRY   = path.join(REPO_ROOT, 'ai/scripts/lint/guard-ci-parity-registry.json'),
+    SELF_REL   = 'ai/scripts/lint/lint-guard-ci-parity.mjs';
 
 /**
  * @summary Proves the guard-CI-parity lint actually fails, and fails for the stated reason.
@@ -62,6 +63,56 @@ function runLint({mutate} = {}) {
     }
 }
 
+/**
+ * @summary Runs the production lint against an isolated synthetic repository.
+ *
+ * Classifier falsifiers need to control all three authorities together: configured commands,
+ * workflow executions, and accepted client-only paths. The production entrypoint remains the code
+ * under test; only its repo root is redirected to the bounded fixture.
+ *
+ * @param {Object} config
+ * @param {Object} config.lintStaged
+ * @param {Object<String, String>} config.workflows
+ * @param {Object} [config.clientOnly={}]
+ * @returns {Object} `{code, output}`
+ */
+function runFixture({lintStaged, workflows, clientOnly = {}}) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-guard-parity-root-'));
+
+    try {
+        fs.writeJsonSync(path.join(dir, 'package.json'), {'lint-staged': lintStaged}, {spaces: 4});
+
+        Object.entries(workflows).forEach(([file, source]) => {
+            const filePath = path.join(dir, '.github/workflows', file);
+
+            fs.ensureDirSync(path.dirname(filePath));
+            fs.writeFileSync(filePath, source)
+        });
+
+        const registryPath = path.join(dir, 'ai/scripts/lint/guard-ci-parity-registry.json');
+
+        fs.ensureDirSync(path.dirname(registryPath));
+        fs.writeJsonSync(registryPath, {
+            $schema: {baselineAtIntroduction: Object.keys(clientOnly).length},
+            clientOnly
+        }, {spaces: 4});
+
+        const result = spawnSync(process.execPath, [LINT], {
+            cwd     : dir,
+            encoding: 'utf8',
+            env     : {
+                ...process.env,
+                NEO_GUARD_CI_PARITY_REGISTRY : registryPath,
+                NEO_GUARD_CI_PARITY_REPO_ROOT: dir
+            }
+        });
+
+        return {code: result.status, output: `${result.stdout || ''}${result.stderr || ''}`}
+    } finally {
+        fs.removeSync(dir)
+    }
+}
+
 test.describe('every lint-staged guard has a CI mirror or a recorded reason', () => {
     test('the committed registry is GREEN — the population is fully classified today', () => {
         const {code, output} = runLint();
@@ -70,11 +121,33 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
         expect(output).toMatch(/\[lint-guard-ci-parity\] OK/)
     });
 
+    test('the commit-time carrier covers both workflow suffixes and every local authority', () => {
+        const
+            pkg     = fs.readJsonSync(path.join(REPO_ROOT, 'package.json')),
+            carrier = Object.entries(pkg['lint-staged']).find(([, commands]) => {
+                return [commands].flat().some(command => `${command}`.includes(SELF_REL))
+            });
+
+        expect(carrier, 'package.json must retain the local parity-guard carrier').toBeTruthy();
+
+        const [pattern] = carrier;
+
+        [
+            'package.json',
+            '.github/workflows/specimen.yml',
+            '.github/workflows/specimen.yaml',
+            SELF_REL,
+            'ai/scripts/lint/guard-ci-parity-registry.json'
+        ].forEach(source => {
+            expect(path.matchesGlob(source, pattern), `${source} must trigger the local carrier`).toBe(true)
+        })
+    });
+
     test('RED: an unmirrored guard missing from the registry fails, and is NAMED', () => {
         // The load-bearing case. `check-parse` is a SYNTAX guard with no workflow; dropping its
         // acceptance entry must fail rather than pass silently.
         const {code, output} = runLint({
-            mutate: registry => { delete registry.clientOnly['check-parse.mjs'] }
+            mutate: registry => { delete registry.clientOnly['buildScripts/util/check-parse.mjs'] }
         });
 
         expect(code, `removing an accepted entry must FAIL.\n\n${output}`).toBe(1);
@@ -88,7 +161,7 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
         // set. Shrinking the registry has to be enforced, not merely encouraged.
         const {code, output} = runLint({
             mutate: registry => {
-                registry.clientOnly['check-jsdoc-types.mjs'] = {
+                registry.clientOnly['buildScripts/util/check-jsdoc-types.mjs'] = {
                     reason : 'fixture — this guard IS mirrored',
                     witness: 'fixture'
                 }
@@ -102,7 +175,9 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
     test('RED: an entry without a reason or witness is a suppression, not an acceptance', () => {
         const {code, output} = runLint({
-            mutate: registry => { registry.clientOnly['check-parse.mjs'] = {reason: 'x'} }
+            mutate: registry => {
+                registry.clientOnly['buildScripts/util/check-parse.mjs'] = {reason: 'x'}
+            }
         });
 
         expect(code, `an entry missing its witness must FAIL.\n\n${output}`).toBe(1);
@@ -129,8 +204,61 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
         expect(output).toMatch(/\[lint-guard-ci-parity\] OK/);
         expect(
-            fs.readJsonSync(REGISTRY).clientOnly['check-block-alignment.mjs'],
+            fs.readJsonSync(REGISTRY).clientOnly['buildScripts/util/check-block-alignment.mjs'],
             'block-alignment must still be classified client-only despite being named in a comment'
         ).toBeTruthy()
+    })
+
+    test('RED: removing this guard commit-time carrier is detected directly', () => {
+        const {code, output} = runFixture({
+            lintStaged: {
+                '*.mjs': ['node ./tools/arbitrary-name.mjs']
+            },
+            workflows: {
+                'arbitrary.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./tools/arbitrary-name.mjs\n`
+            }
+        });
+
+        expect(code, `the guard must not disappear with its own carrier.\n\n${output}`).toBe(1);
+        expect(output).toContain(SELF_REL);
+        expect(output).toMatch(/commit-time carrier missing/i)
+    });
+
+    test('RED: a same-basename workflow execution does not mirror a different path', () => {
+        const {code, output} = runFixture({
+            lintStaged: {
+                '*.mjs': [
+                    `node ./${SELF_REL}`,
+                    'node ./alpha/shared-name.mjs',
+                    'node ./beta/shared-name.mjs'
+                ]
+            },
+            workflows: {
+                'guard.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                'alpha.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./alpha/shared-name.mjs\n`
+            }
+        });
+
+        expect(code, `beta/shared-name.mjs has no mirror and must not alias alpha.\n\n${output}`).toBe(1);
+        expect(output).toContain('beta/shared-name.mjs');
+        expect(output).not.toMatch(/alpha\/shared-name\.mjs\s*$/m)
+    });
+
+    test('RED: an mjs argument inside run is a mention, not a Node execution', () => {
+        const {code, output} = runFixture({
+            lintStaged: {
+                '*.mjs': [
+                    `node ./${SELF_REL}`,
+                    'node ./tools/mentioned-only.mjs'
+                ]
+            },
+            workflows: {
+                'guard.yml'  : `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                'mention.yml': `jobs:\n  lint:\n    steps:\n      - run: echo ./tools/mentioned-only.mjs\n`
+            }
+        });
+
+        expect(code, `echoing a path is not executing its guard.\n\n${output}`).toBe(1);
+        expect(output).toContain('tools/mentioned-only.mjs')
     })
 });

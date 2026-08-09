@@ -10,7 +10,7 @@
  *
  * > *CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.*
  *
- * Five guards follow it. Six do not, and one of those is a **syntax** check. This guard makes the
+ * Six guards follow it. Six do not, and one of those is a **syntax** check. This guard makes the
  * convention mechanical so the next unmirrored guard fails on arrival instead of being discovered
  * by someone whose merge needed `--no-verify`.
  *
@@ -24,20 +24,12 @@
  * either is or is not invoked by a workflow. So "unmirrored" is a defect claim, and the registry
  * exists to record *accepted* ones with a reason — not to absorb false positives.
  *
- * ## Why comment lines are stripped before matching
+ * ## Why only parsed `run:` commands count
  *
- * A workflow that merely *names* a guard in prose does not invoke it, and counting it would be a
- * false green inside the guard whose entire purpose is catching false greens.
- *
- * Stated precisely, because the tempting version is overstated: `ticket-archaeology-lint.yml`
- * does mention `block-alignment` in a comment, but as the bare phrase — **not** as
- * `check-block-alignment.mjs`. Matching on the full basename, as this file does, would therefore
- * NOT have been fooled by that particular comment. Measured, not assumed.
- *
- * The stripping is kept anyway, as a guard against the real class rather than a fix for an
- * observed failure: a comment naming a full script path is entirely ordinary — *"we deliberately
- * do not run `buildScripts/util/check-parse.mjs` here"* would read as invocation to any substring
- * match. A spec pins the behaviour so the next person to "simplify" this knows what it protects.
+ * A workflow that merely *names* a guard in prose, `on.paths`, an environment value, or a shell
+ * argument does not invoke it. Workflows are parsed as YAML, then only `jobs.*.steps[].run` strings
+ * are inspected for direct `node … <script>.mjs` commands. Counting any wider YAML or shell-token
+ * population would create a false green inside the guard whose purpose is catching false greens.
  *
  * ## Scope
  *
@@ -46,16 +38,20 @@
  * the boundary is recorded rather than implied.
  */
 
-import fs   from 'fs';
-import path from 'path';
-import url  from 'url';
+import fs        from 'fs';
+import path      from 'path';
+import url       from 'url';
+import * as yaml from 'js-yaml';
 
 const
-    __filename   = url.fileURLToPath(import.meta.url),
-    __dirname    = path.dirname(__filename),
-    REPO_ROOT    = path.resolve(__dirname, '../../..'),
+    __filename = url.fileURLToPath(import.meta.url),
+    __dirname  = path.dirname(__filename),
+    REPO_ROOT  = process.env.NEO_GUARD_CI_PARITY_REPO_ROOT
+        ? path.resolve(process.env.NEO_GUARD_CI_PARITY_REPO_ROOT)
+        : path.resolve(__dirname, '../../..'),
     WORKFLOW_DIR = path.join(REPO_ROOT, '.github/workflows'),
     REGISTRY_REL = 'ai/scripts/lint/guard-ci-parity-registry.json',
+    SELF_REL     = 'ai/scripts/lint/lint-guard-ci-parity.mjs',
     PKG_PATH     = path.join(REPO_ROOT, 'package.json'),
 
     /**
@@ -90,6 +86,61 @@ export const SCAN_SURFACE = Object.freeze([
 ]);
 
 /**
+ * @summary Resolves a statically named Node script to one normalized repo-relative identity.
+ *
+ * Full paths are load-bearing: two different guards may share a basename, and a workflow that
+ * executes one must never be credited as the other's mirror. Dynamic or outside-repo paths remain
+ * unclassified rather than being collapsed into a reassuring false match.
+ *
+ * @param {String} script
+ * @param {String} [workingDirectory='.']
+ * @returns {String|null}
+ */
+function normalizeScriptPath(script, workingDirectory = '.') {
+    const
+        scriptPath  = `${script}`.replaceAll('\\', '/'),
+        workingPath = `${workingDirectory || '.'}`.replaceAll('\\', '/');
+
+    if (
+        scriptPath.startsWith('/') ||
+        workingPath.startsWith('/') ||
+        scriptPath.includes('${{') ||
+        workingPath.includes('${{')
+    ) {
+        return null
+    }
+
+    const normalized = path.posix.normalize(path.posix.join(workingPath, scriptPath)).replace(/^\.\//, '');
+
+    return normalized === '..' || normalized.startsWith('../') ? null : normalized
+}
+
+/**
+ * @summary Extracts only scripts directly executed by static `node … <script>.mjs` commands.
+ *
+ * Other `.mjs` tokens inside the shell body are arguments or prose, not execution evidence. The
+ * global match supports multiple Node commands in one `run:` block without treating arbitrary YAML
+ * mentions as mirrors.
+ *
+ * @param {String} command
+ * @param {String} [workingDirectory='.']
+ * @returns {String[]}
+ */
+function executedNodeScripts(command, workingDirectory = '.') {
+    const scripts = [];
+
+    for (const match of `${command}`.matchAll(
+        /\bnode\s+(?:(?:--[\w-]+)(?:=[^\s]+)?\s+)*(['"]?)([\w./-]+\.mjs)\1/g
+    )) {
+        const script = normalizeScriptPath(match[2], workingDirectory);
+
+        script && scripts.push(script)
+    }
+
+    return scripts
+}
+
+/**
  * @summary Every distinct guard script invoked by `lint-staged`, derived — never hardcoded.
  *
  * Deriving is the point: adding a tenth guard with no workflow must fail without anyone editing
@@ -110,10 +161,7 @@ function discoverGuards() {
         scripts  = new Set();
 
     commands.forEach(command => {
-        // `node ./path/to/whatever.mjs …` — the executed script, whatever it is called.
-        const match = `${command}`.match(/\bnode\s+(?:--[\w-]+(?:=\S+)?\s+)*([\w./-]+\.mjs)/);
-
-        match && scripts.add(match[1].replace(/^\.\//, ''))
+        executedNodeScripts(command).forEach(script => scripts.add(script))
     });
 
     return [...scripts].sort()
@@ -134,9 +182,10 @@ function discoverGuards() {
  * revision stripped comments to stop prose counting as coverage, and left the larger hole open —
  * trigger filters are not executions either.
  *
- * Comments are still stripped, because a commented-out `run:` is not an execution.
+ * YAML comments, path filters, environment values, and non-Node shell arguments are outside that
+ * boundary by construction.
  *
- * @returns {Object[]} `{file, executed:Set<String>}` per workflow, keyed by script basename
+ * @returns {Object[]} `{file, executed:Set<String>}` per workflow, keyed by repo-relative path
  */
 function workflowExecutions() {
     if (!fs.existsSync(WORKFLOW_DIR)) {
@@ -147,27 +196,23 @@ function workflowExecutions() {
         .filter(file => /\.ya?ml$/.test(file))
         .map(file => {
             const
-                lines    = fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf8').split('\n'),
+                workflow = yaml.load(fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf8')) || {},
                 executed = new Set();
 
-            let inRun = false;
+            const workflowDirectory = workflow.defaults?.run?.['working-directory'] || '.';
 
-            lines.forEach(line => {
-                if (line.trim().startsWith('#')) {
-                    return
-                }
+            Object.values(workflow.jobs || {}).forEach(job => {
+                const jobDirectory = job?.defaults?.run?.['working-directory'] || workflowDirectory;
 
-                // A `run:` step opens a shell block; its continuation lines are indented further.
-                /^\s*(-\s*)?run\s*:/.test(line) && (inRun = true);
-
-                if (inRun) {
-                    for (const m of line.matchAll(/([\w./-]+\.mjs)/g)) {
-                        executed.add(path.basename(m[1]))
+                (job?.steps || []).forEach(step => {
+                    if (typeof step?.run !== 'string') {
+                        return
                     }
-                }
 
-                // Any new key at step level closes the run block.
-                /^\s*(-\s*)?(name|uses|with|env|if|id)\s*:/.test(line) && (inRun = false)
+                    const stepDirectory = step['working-directory'] || jobDirectory;
+
+                    executedNodeScripts(step.run, stepDirectory).forEach(script => executed.add(script))
+                })
             });
 
             return {file, executed}
@@ -180,9 +225,7 @@ function workflowExecutions() {
  * @returns {String[]} workflow filenames whose `run:` steps execute `script`
  */
 function mirrorsOf(script, workflows) {
-    const basename = path.basename(script);
-
-    return workflows.filter(({executed}) => executed.has(basename)).map(({file}) => file)
+    return workflows.filter(({executed}) => executed.has(script)).map(({file}) => file)
 }
 
 /**
@@ -199,7 +242,7 @@ function runLint() {
 
     guards.forEach(script => {
         const
-            key     = path.basename(script),
+            key     = script,
             mirrors = mirrorsOf(script, workflows);
 
         if (mirrors.length === 0) {
@@ -212,13 +255,17 @@ function runLint() {
     // A registry entry for a guard that left `lint-staged` is also stale: it would quietly widen the
     // accepted set if that guard ever returned.
     [...accepted.keys()].forEach(key => {
-        !guards.some(script => path.basename(script) === key) &&
+        !guards.includes(key) &&
             stale.push(`${key} — no longer a lint-staged guard; remove its registry entry`)
     });
 
     const invalid = [...accepted.entries()]
         .filter(([, entry]) => !entry || !entry.reason || !entry.witness)
         .map(([key]) => `${key} — every entry needs BOTH a reason and a witness; one without them is a suppression, not an acceptance`);
+
+    !guards.includes(SELF_REL) && invalid.push(
+        `${SELF_REL} — commit-time carrier missing from package.json lint-staged`
+    );
 
     // The registry is a RATCHET: it may shrink freely and may not grow silently.
     //
