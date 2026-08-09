@@ -1,6 +1,4 @@
 import {test, expect} from '@playwright/test';
-import fs             from 'fs/promises';
-import path           from 'path';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import '../../../../../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy} from '../../../../../../../../ai/ConfigProvider.mjs';
@@ -31,8 +29,7 @@ import RootConfigBase                      from '../../../../../../../../ai/conf
  */
 
 const
-    AUTH_SERVICE_REL = 'ai/mcp/server/shared/services/AuthService.mjs',
-    ENV_NAME         = 'NEO_AUTH_GITLAB_API_BASE_URL',
+    ENV_NAME = 'NEO_AUTH_GITLAB_API_BASE_URL',
 
     /**
      * Spellings a maintainer would call "the same GitLab host". Each is a legal value for
@@ -281,26 +278,24 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         ).not.toBe(normalizeAgentIdentityNodeId(gitlabInfo.userId))
     });
 
-    test('the same leaf yields TWO spellings, because the trailing-slash strip lives at the consumer', async () => {
+    test('the same configured value yields TWO spellings — leaf vs produced AuthInfo, both executed', async () => {
+        // Both sides are now run rather than read. An earlier revision counted `.replace(...)`
+        // occurrences in AuthService source, which proved the strip was DECLARED and nothing about
+        // what a request produces.
         const
-            leafSpelling = resolveLeafUnderEnv(EQUIVALENT_SPELLINGS.trailingSlash),
-            source       = await fs.readFile(path.join(process.cwd(), AUTH_SERVICE_REL), 'utf8'),
-            // Source-anchored rather than imported: AuthService builds its verifiers inside a
-            // factory and exports no pure normalizer, and the unit-test workflow forbids
-            // importing a service singleton merely to reach its logic. BOUND, stated so the
-            // next reader does not over-read this: matching the literal proves the strip is
-            // declared at the consumer, NOT that every code path executes it.
-            stripSites   = source.match(/ApiBaseUrl\.replace\(\/\\\/\+\$\/, ''\)/g) || [];
+            leafSpelling     = resolveLeafUnderEnv(EQUIVALENT_SPELLINGS.trailingSlash),
+            producedSpelling = await produceProviderBaseUrl({
+                baseUrl: EQUIVALENT_SPELLINGS.trailingSlash,
+                token  : 'glpat-two-spellings'
+            });
 
-        expect(stripSites.length, 'both forge verifiers strip at the use site').toBe(2);
-
-        // The sanctioned pattern is to read the resolved leaf at the use site. Doing exactly
-        // that yields the slash-bearing spelling, while `AuthInfo.providerBaseUrl` carries the
-        // stripped one — so a principal keyed on this coordinate takes a different value
-        // depending on which reader supplies it.
-        expect(leafSpelling).toBe('https://gitlab.example.com/');
-        expect(leafSpelling.replace(/\/+$/, '')).toBe('https://gitlab.example.com');
-        expect(leafSpelling).not.toBe(leafSpelling.replace(/\/+$/, ''))
+        // The sanctioned pattern is to read the resolved leaf at the use site — that yields the
+        // slash-bearing spelling. The verifier's produced envelope carries the stripped one. So a
+        // principal keyed on this coordinate takes a different value depending on which reader
+        // supplies it, and both values are observed here rather than inferred.
+        expect(leafSpelling,     'the leaf keeps the configured slash').toBe('https://gitlab.example.com/');
+        expect(producedSpelling, 'the produced coordinate drops it').toBe('https://gitlab.example.com');
+        expect(leafSpelling,     'one configured value, two live spellings').not.toBe(producedSpelling)
     });
 
     test('MECHANISM REACH: a leaf `parse` normalizes the env layer ONLY — default and runtime override bypass it', async () => {
@@ -344,28 +339,26 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         expect(createConfigProxy(overridden).probe, 'runtime override bypasses parse').toBe(slashy)
     });
 
-    test('MIGRATION SURFACE: the admission pin keys on the mutable login while the stable id sits beside it', async () => {
-        const source = await fs.readFile(path.join(process.cwd(), AUTH_SERVICE_REL), 'utf8');
+    test('MIGRATION SURFACE: both produced envelopes key identity on the login while carrying the stable id', async () => {
+        // Executed on both provider axes rather than counted in source. The migration question is
+        // not "does the file say `user.login`" but "does a produced envelope key on the handle
+        // while already carrying the immutable id" — which is what makes the eventual re-key
+        // derivable from data the system already has.
+        const
+            gitlab = await produceAuthInfo({baseUrl: EQUIVALENT_SPELLINGS.canonical, login: 'octocat', providerId: 4242, token: 'glpat-surface'}),
+            github = await produceGithubAuthInfo({login: 'octocat', providerId: 777001, token: 'ghp-surface'});
 
-        // Source-anchored for the same reason as the strip above: the verifiers and their pin
-        // live inside factories and export nothing pure. BOUND: this proves what the file
-        // DECLARES, not what a given request executes.
+        // The caller identity IS the mutable handle, on both providers.
+        expect(gitlab.userId, 'GitLab keys identity on the handle').toBe('octocat');
+        expect(github.userId, 'GitHub keys identity on the handle').toBe('octocat');
 
-        // Both AuthInfo builders derive the caller identity from a mutable provider handle.
-        expect(source.match(/^\s+userId\s+: user\.(login|username),$/gm) || [],
-            'exactly two login-derived userId assignments').toHaveLength(2);
+        // …while the immutable provider id rides in the same envelope. The stable coordinate is
+        // not missing and needs no new plumbing — it is present and simply not what ownership
+        // keys on, which is precisely why a re-key can be derived from stored data.
+        expect(gitlab.providerUserId, 'GitLab carries its stable id').toBe('4242');
+        expect(github.providerUserId, 'GitHub carries its stable id').toBe('777001');
 
-        // …while the IMMUTABLE provider id is resolved in the very same object literal. The
-        // stable coordinate is not missing and does not need plumbing — it is present and
-        // simply not the thing ownership keys on.
-        expect(source.match(/^\s+providerUserId\s+: user\.id == null \? undefined : String\(user\.id\),$/gm) || [],
-            'both builders already resolve the stable provider id').toHaveLength(2);
-
-        // The single ownership decision that compares identities compares the login-derived
-        // field, so a provider-side rename refuses admission even though the stable id — and
-        // therefore any principal backed by it — is unchanged.
-        expect(source).toContain('pinnedProviderSubject = info.userId');
-        expect(source).toContain('if (info.userId !== pinnedProviderSubject)')
+        expect(gitlab.providerUserId, 'the stable ids distinguish what the handles cannot').not.toBe(github.providerUserId)
     });
 
     test('FIRST WRITE: the durable graph key is the mutable login, and the stable id rides along as a property', async () => {

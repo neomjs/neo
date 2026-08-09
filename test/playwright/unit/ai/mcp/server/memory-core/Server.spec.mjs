@@ -41,6 +41,10 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         '@xprovider-shared-login'
     ]);
 
+    const silentLogger = {info: () => {}, warn: () => {}, error: () => {}};
+
+    class FakeInvalidTokenError extends Error {}
+
     async function createServerWithoutBoot({autoProvisionIdentitySources} = {}) {
         const originalBoot = Server.prototype.boot;
 
@@ -236,6 +240,50 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         serverInstance.destroy();
     });
 
+    /**
+     * @summary Produces a real AuthInfo from a real PAT verifier — no hand-written literal.
+     *
+     * The point is continuity: the envelope handed to `buildRequestContext()` must be the one the
+     * verifier actually builds. A constructed literal keeps two tests green while the producer and
+     * the persistence path drift apart on field naming, value type, or omission.
+     * @param {Object}  options
+     * @param {String}  options.provider `'gitlab'` or `'github'`
+     * @param {String}  options.login Handle the provider API returns
+     * @param {Number}  options.providerId Immutable provider id
+     * @param {String}  options.baseUrl Configured API base URL
+     * @param {String}  options.token Unique per call — the verifier caches by token hash
+     * @returns {Promise<Object>} The produced AuthInfo
+     */
+    async function produceRealAuthInfo({provider, login, providerId, baseUrl, token}) {
+        const
+            AuthService   = (await import('../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default,
+            originalFetch = globalThis.fetch,
+            isGitlab      = provider === 'gitlab';
+
+        globalThis.fetch = async () => ({
+            ok     : true,
+            status : 200,
+            headers: {get: () => 'repo, read:user'},
+            json   : async () => isGitlab
+                ? {id: providerId, username: login, name: login}
+                : {id: providerId, login, name: login}
+        });
+
+        try {
+            const auth = isGitlab
+                ? {gitlabApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000}
+                : {githubApiBaseUrl: baseUrl, patCacheTtlSeconds: 300, patValidationTimeoutMs: 5000, allowedUsers: []};
+
+            const verifier = isGitlab
+                ? AuthService.createGitlabPatVerifier({aiConfig: {auth}, logger: silentLogger, InvalidTokenError: FakeInvalidTokenError})
+                : AuthService.createGithubPatVerifier({aiConfig: {auth}, logger: silentLogger, InvalidTokenError: FakeInvalidTokenError});
+
+            return await verifier.verifyAccessToken(token)
+        } finally {
+            globalThis.fetch = originalFetch
+        }
+    }
+
     test('a second provider sharing one login overwrites the first identity on ONE persisted node', async () => {
         // The durable half of the owner-principal question, executed rather than read from source.
         // The graph node id derives from the authenticated login, so two accounts that share a
@@ -249,37 +297,33 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         });
 
         try {
-            await serverInstance.buildRequestContext({
-                token              : 'glpat-xprovider',
-                userId             : 'xprovider-shared-login',
-                username           : 'GitLab Holder',
-                source             : 'gitlab-pat',
-                authProvider       : 'gitlab',
-                authSource         : 'gitlab-pat',
-                providerBaseUrl    : 'https://gitlab.example.com',
-                providerUserId     : 4242,
-                providerUsername   : 'xprovider-shared-login',
-                providerDisplayName: 'GitLab Holder'
+            // PRODUCED, not constructed. Both envelopes come out of the real verifiers, so the
+            // chain producer → request → persist is continuous: a drift in verifier field naming
+            // or value type breaks this test instead of leaving two disconnected greens.
+            const gitlabAuth = await produceRealAuthInfo({
+                provider: 'gitlab', login: 'xprovider-shared-login', providerId: 4242,
+                baseUrl : 'https://gitlab.example.com', token: 'glpat-xprovider'
             });
+
+            await serverInstance.buildRequestContext(gitlabAuth);
 
             const afterFirst = rawGraphNode('@xprovider-shared-login');
 
-            expect(afterFirst.properties.authProvider,    'the first write owns the row').toBe('gitlab');
-            expect(afterFirst.properties.providerUserId,  '…with its own immutable id').toBe('4242');
+            expect(afterFirst.properties.authProvider,   'the first write owns the row').toBe('gitlab');
+            expect(afterFirst.properties.providerUserId, '…with its own immutable id').toBe('4242');
 
             // A different human, on a different provider, who happens to hold the same handle.
-            await serverInstance.buildRequestContext({
-                token              : 'ghp-xprovider',
-                userId             : 'xprovider-shared-login',
-                username           : 'GitHub Holder',
-                source             : 'github-pat',
-                authProvider       : 'github',
-                authSource         : 'github-pat',
-                providerBaseUrl    : 'https://api.github.com',
-                providerUserId     : 777001,
-                providerUsername   : 'xprovider-shared-login',
-                providerDisplayName: 'GitHub Holder'
+            const githubAuth = await produceRealAuthInfo({
+                provider: 'github', login: 'xprovider-shared-login', providerId: 777001,
+                baseUrl : 'https://api.github.com', token: 'ghp-xprovider'
             });
+
+            // The produced envelopes disagree on every stable coordinate before either is persisted.
+            expect(gitlabAuth.authProvider,    'produced provider differs').not.toBe(githubAuth.authProvider);
+            expect(gitlabAuth.providerUserId,  'produced immutable id differs').not.toBe(githubAuth.providerUserId);
+            expect(gitlabAuth.userId,          'and yet the login they key on is identical').toBe(githubAuth.userId);
+
+            await serverInstance.buildRequestContext(githubAuth);
 
             const afterSecond = rawGraphNode('@xprovider-shared-login');
 
