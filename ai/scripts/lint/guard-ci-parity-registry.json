@@ -4,7 +4,7 @@
         "whyThisExistsRatherThanFiveWorkflows": "A cold CI mirror for these guards reds on 593 pre-existing lines (measured 2026-08-08). Gating new violations from day one beats blocking every merger on a 593-line migration. This registry is the baseline; shrinking it is a visible lane rather than archaeology.",
         "reason": "REQUIRED. Why this guard has no CI mirror TODAY. Not 'because it doesn't' — the cost or blocker that keeps it client-only.",
         "witness": "REQUIRED. The measurement or artifact that substantiates the reason. An entry without one is a suppression, not an acceptance.",
-        "baselineAtIntroduction": 5,
+        "baselineAtIntroduction": 6,
         "outOfScope": "The `ai/scripts/lint/lint-*.mjs` family has its own coverage question and is NOT governed here. Recorded so the boundary is explicit rather than implied by omission."
     },
     "clientOnly": {

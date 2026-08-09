@@ -10,7 +10,7 @@
  *
  * > *CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.*
  *
- * Four guards follow it. Five do not, and one of those is a **syntax** check. This guard makes the
+ * Five guards follow it. Six do not, and one of those is a **syntax** check. This guard makes the
  * convention mechanical so the next unmirrored guard fails on arrival instead of being discovered
  * by someone whose merge needed `--no-verify`.
  *
@@ -74,6 +74,12 @@ const
  * Deriving is the point: adding a tenth guard with no workflow must fail without anyone editing
  * this file. A hardcoded list would answer today's question and rot.
  *
+ * **No naming allowlist.** An earlier revision matched `check-*` / `lint-*`, which is a filter on the
+ * NAME rather than on the configuration — so a guard called `validate-json.mjs`, or any existing one
+ * renamed, would vanish from the population silently. That is the exact failure this ticket exists to
+ * fix, reproduced inside the fix: the hand census that motivated it missed the `lint-*` family for
+ * precisely this reason. The population is now every `.mjs` a configured command executes.
+ *
  * @returns {String[]} script paths as written in `lint-staged`, e.g. `buildScripts/util/check-parse.mjs`
  */
 function discoverGuards() {
@@ -83,7 +89,8 @@ function discoverGuards() {
         scripts  = new Set();
 
     commands.forEach(command => {
-        const match = `${command}`.match(/([\w./-]*(?:check|lint)-[\w.-]+\.mjs)/);
+        // `node ./path/to/whatever.mjs …` — the executed script, whatever it is called.
+        const match = `${command}`.match(/\bnode\s+(?:--[\w-]+(?:=\S+)?\s+)*([\w./-]+\.mjs)/);
 
         match && scripts.add(match[1].replace(/^\.\//, ''))
     });
@@ -92,36 +99,69 @@ function discoverGuards() {
 }
 
 /**
- * @summary Workflow YAML with comment lines removed, so a guard NAMED in prose is not counted as
- * a guard INVOKED by the workflow.
+ * @summary Per workflow, the set of scripts its `run:` steps actually EXECUTE.
  *
- * @returns {Object[]} `{file, body}` per workflow
+ * ## Why execution and not mention
+ *
+ * A workflow can name a guard without running it, and the commonest way is `on.paths`: a trigger
+ * filter listing the guard so edits to it re-run the workflow. `aiconfig-antipattern-lint.yml` lists
+ * `check-aiconfig-test-mutation.mjs` in `on.paths` twice while its `run:` step executes
+ * `check-aiconfig-antipatterns.mjs` — a different guard.
+ *
+ * A mention-based match therefore credits coverage that does not exist. That is the **same
+ * false-green class this lint audits, reproduced one layer above the guards it governs**: an earlier
+ * revision stripped comments to stop prose counting as coverage, and left the larger hole open —
+ * trigger filters are not executions either.
+ *
+ * Comments are still stripped, because a commented-out `run:` is not an execution.
+ *
+ * @returns {Object[]} `{file, executed:Set<String>}` per workflow, keyed by script basename
  */
-function workflowBodies() {
+function workflowExecutions() {
     if (!fs.existsSync(WORKFLOW_DIR)) {
         return []
     }
 
     return fs.readdirSync(WORKFLOW_DIR)
         .filter(file => /\.ya?ml$/.test(file))
-        .map(file => ({
-            file,
-            body: fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf8')
-                .split('\n')
-                .filter(line => !line.trim().startsWith('#'))
-                .join('\n')
-        }))
+        .map(file => {
+            const
+                lines    = fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf8').split('\n'),
+                executed = new Set();
+
+            let inRun = false;
+
+            lines.forEach(line => {
+                if (line.trim().startsWith('#')) {
+                    return
+                }
+
+                // A `run:` step opens a shell block; its continuation lines are indented further.
+                /^\s*(-\s*)?run\s*:/.test(line) && (inRun = true);
+
+                if (inRun) {
+                    for (const m of line.matchAll(/([\w./-]+\.mjs)/g)) {
+                        executed.add(path.basename(m[1]))
+                    }
+                }
+
+                // Any new key at step level closes the run block.
+                /^\s*(-\s*)?(name|uses|with|env|if|id)\s*:/.test(line) && (inRun = false)
+            });
+
+            return {file, executed}
+        })
 }
 
 /**
  * @param {String}   script
  * @param {Object[]} workflows
- * @returns {String[]} workflow filenames that invoke `script`
+ * @returns {String[]} workflow filenames whose `run:` steps execute `script`
  */
 function mirrorsOf(script, workflows) {
     const basename = path.basename(script);
 
-    return workflows.filter(({body}) => body.includes(basename)).map(({file}) => file)
+    return workflows.filter(({executed}) => executed.has(basename)).map(({file}) => file)
 }
 
 /**
@@ -130,7 +170,7 @@ function mirrorsOf(script, workflows) {
 function runLint() {
     const
         guards     = discoverGuards(),
-        workflows  = workflowBodies(),
+        workflows  = workflowExecutions(),
         registry   = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8')),
         accepted   = new Map(Object.entries(registry.clientOnly || {})),
         unmirrored = [],
@@ -158,6 +198,22 @@ function runLint() {
     const invalid = [...accepted.entries()]
         .filter(([, entry]) => !entry || !entry.reason || !entry.witness)
         .map(([key]) => `${key} — every entry needs BOTH a reason and a witness; one without them is a suppression, not an acceptance`);
+
+    // The registry is a RATCHET: it may shrink freely and may not grow silently.
+    //
+    // Asserting equality would be the obvious check and the wrong one — it would fail the moment
+    // someone mirrors a guard and removes its entry, i.e. it would block the shrinkage this registry
+    // exists to enable. `baselineAtIntroduction` is a historical high-water mark, not a current count.
+    //
+    // Enforced rather than documented because it was documented, and went stale: the baseline read 5
+    // beside six entries until a reviewer noticed. A number no predicate checks is a census.
+    const baseline = registry.$schema?.baselineAtIntroduction;
+
+    Number.isInteger(baseline) && accepted.size > baseline && invalid.push(
+        `the registry GREW: ${accepted.size} accepted entries against a baseline of ${baseline}. ` +
+        'Adding an accepted client-only guard is a deliberate act — mirror it instead, or raise ' +
+        '`baselineAtIntroduction` in the same commit with the reason in the PR body.'
+    );
 
     if (unmirrored.length === 0 && stale.length === 0 && invalid.length === 0) {
         console.log(`[lint-guard-ci-parity] OK (${guards.length} lint-staged guards, ${accepted.size} accepted client-only)`);
