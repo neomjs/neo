@@ -381,7 +381,17 @@ export async function buildIngestEnvelope({
         deleted: [...new Set(diff.deleted || [])]
             .sort()
             .map(sourcePath => ({sourcePath, repoSlug: identity.repoSlug})),
-        baseRevision,
+        // `baseRevision` is deliberately NOT forwarded. It has exactly one consumer in the
+        // ingest path — `IngestionService.resolveRevisionTombstones` — and sending it asks that
+        // service to DERIVE a deletion set we have already proven, three lines above, from
+        // `diff.deleted`. The derivation resolver has no production implementation, so the request
+        // could only ever fail: every tenant repo past its first sync sat at
+        // `consecutiveFailures: 12` with its cadence pinned at the 2h backoff cap, corpus frozen,
+        // because it kept asking for work it had already done.
+        //
+        // The authoritative delta travels in `deleted`. `headRevision` still travels, because the
+        // materializer reads content at that revision; alone it is inert here, since tombstone
+        // derivation short-circuits without a base.
         headRevision
     };
 }
