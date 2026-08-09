@@ -43,6 +43,15 @@ class ToolService_tmp extends Base {
          */
         compactToolDescriptions: false,
         /**
+         * Strips `description` prose from the schemas emitted through `tools/list`, recursively,
+         * while preserving every shape-bearing key — `description` is a JSON Schema annotation and
+         * is never asserted, so the projected schema validates the identical accept/reject set.
+         * The fully-described schema relocates into `getToolHandbook()` — relocated, not deleted.
+         * Sibling of `compactToolDescriptions`: same default-off, same per-server opt-in.
+         * @member {Boolean} compactToolSchemas=false
+         */
+        compactToolSchemas: false,
+        /**
          * Maximum description length emitted through compact `tools/list`.
          * @member {Number} toolListDescriptionMaxLength=160
          */
@@ -201,16 +210,33 @@ class ToolService_tmp extends Base {
                     };
                     me.toolMapping[toolName] = tool;
                     me.toolProjectionTiers[toolName] = toolTier;
-                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription);
+                    // The prose/schema split: the listing carries shape only when compaction is on,
+                    // and the handbook is where the fully-described schema lives — the same lazy
+                    // surface the compacted operation description already defers to. The described
+                    // originals are never mutated; the listing gets fresh projected objects.
+                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription,
+                        me.compactToolSchemas
+                            ? {inputSchema: inputJsonSchema, outputSchema: outputJsonSchema}
+                            : null
+                    );
+
+                    const listedInputSchema = me.compactToolSchemas
+                        ? me.stripSchemaDescriptions(inputJsonSchema)
+                        : inputJsonSchema;
+
+                    let listedOutputSchema = outputJsonSchema;
+                    if (me.compactToolSchemas && outputJsonSchema !== null) {
+                        listedOutputSchema = me.stripSchemaDescriptions(outputJsonSchema)
+                    }
 
                     const toolForListing = {
                         name       : tool.name,
                         title      : tool.title,
                         description: tool.description,
-                        inputSchema: inputJsonSchema
+                        inputSchema: listedInputSchema
                     };
-                    if (outputJsonSchema !== null) {
-                        toolForListing.outputSchema = outputJsonSchema;
+                    if (listedOutputSchema !== null) {
+                        toolForListing.outputSchema = listedOutputSchema;
                     }
                     if (operation['x-annotations'] !== null) {
                         toolForListing.annotations = operation['x-annotations'];
@@ -339,19 +365,60 @@ class ToolService_tmp extends Base {
     }
 
     /**
+     * @summary Projects a JSON Schema for `tools/list` by removing every `description` key,
+     * recursively.
+     *
+     * Blacklist, not whitelist: ONLY `description` is dropped, so every shape-bearing key —
+     * `type`, `required`, `enum`, `properties`, `items`, `additionalProperties`, `$ref`, `format`,
+     * `default`, and any future assertion keyword — survives by construction. That is what makes
+     * the projection validation-neutral: in JSON Schema, `description` is an annotation and is
+     * never part of the accept/reject semantics, so a stripped schema accepts and rejects exactly
+     * the set the described one did. A whitelist would silently drop the next assertion keyword the
+     * contract starts using.
+     *
+     * Returns fresh objects — the described input is never mutated, because the handbook surface
+     * keeps it (the prose is relocated, not deleted).
+     * @param {*} schema
+     * @returns {*}
+     * @protected
+     */
+    stripSchemaDescriptions(schema) {
+        if (Array.isArray(schema)) {
+            return schema.map(item => this.stripSchemaDescriptions(item))
+        }
+
+        if (schema && typeof schema === 'object') {
+            const projected = {};
+
+            for (const [key, value] of Object.entries(schema)) {
+                if (key !== 'description') {
+                    projected[key] = this.stripSchemaDescriptions(value)
+                }
+            }
+
+            return projected
+        }
+
+        return schema
+    }
+
+    /**
      * @summary Builds one lazy-loaded handbook entry from OpenAPI metadata.
      * @param {String} toolName        The operation id.
      * @param {Object} operation       Parsed OpenAPI operation.
      * @param {String} fullDescription Full operation description fallback.
+     * @param {Object|null} [schemas]  The fully-described JSON schemas (`{inputSchema, outputSchema}`),
+     *     passed only when `compactToolSchemas` stripped them from the listing — the prose is
+     *     relocated here, never deleted. `null` keeps the pre-compaction entry shape byte-identical.
      * @returns {Object}
      * @protected
      */
-    buildToolHandbookEntry(toolName, operation, fullDescription) {
+    buildToolHandbookEntry(toolName, operation, fullDescription, schemas=null) {
         const
             dedicated = operation['x-neo-tool-handbook'],
             handbook  = dedicated || fullDescription || operation.summary || toolName;
 
-        return {
+        const entry = {
             toolId     : toolName,
             found      : true,
             title      : operation.summary || toolName,
@@ -359,6 +426,16 @@ class ToolService_tmp extends Base {
             handbook,
             source     : dedicated ? 'x-neo-tool-handbook' : (operation.description ? 'description' : 'summary')
         };
+
+        if (schemas) {
+            entry.inputSchema = schemas.inputSchema;
+
+            if (schemas.outputSchema !== null) {
+                entry.outputSchema = schemas.outputSchema
+            }
+        }
+
+        return entry
     }
 
     /**

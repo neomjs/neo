@@ -34,6 +34,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
 
         const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
+            callTool                    : ToolServiceModule.callTool,
             composeMemoryCoreHealthcheck: ToolServiceModule.composeMemoryCoreHealthcheck,
             listTools                   : ToolServiceModule.listTools,
             readLaneLandscapeConfig     : ToolServiceModule.readLaneLandscapeConfig
@@ -65,10 +66,22 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
             expect(tool.name.length).toBeLessThanOrEqual(64);
             expect(tool.description.length).toBeLessThanOrEqual(1024);
 
+            // Schema prose no longer rides the listing at all — the absence is the
+            // contract here, and the length discipline moves to the prose's new home below.
             if (tool.inputSchema && tool.inputSchema.properties) {
                 for (const [propName, propDef] of Object.entries(tool.inputSchema.properties)) {
+                    expect(propDef.description, `${tool.name}.${propName} schema prose stays off the listing`).toBeUndefined();
+                }
+            }
+
+            // Relocated, not deleted: the handbook payload carries the fully-described schema,
+            // and the ≤1024 discipline still binds there.
+            const handbook = await toolService.callTool('get_mcp_tool_handbook', {toolId: tool.name});
+
+            if (handbook.inputSchema && handbook.inputSchema.properties) {
+                for (const [propName, propDef] of Object.entries(handbook.inputSchema.properties)) {
                     if (propDef.description) {
-                        expect(propDef.description.length).toBeLessThanOrEqual(1024);
+                        expect(propDef.description.length, `${tool.name}.${propName} handbook prose`).toBeLessThanOrEqual(1024);
                     }
                 }
             }
@@ -81,7 +94,6 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         const metadata  = tool.inputSchema.properties.harnessTargetMetadata;
 
         expect(metadata.required).toBeUndefined();
-        expect(metadata.description).toContain("exempt for envelope-routed adapters 'opencode-server', 'kimi-server', 'kimi-pull-bridge'");
         expect(Object.keys(metadata.properties)).toEqual(expect.arrayContaining([
             'addressType',
             'adapter',
@@ -101,6 +113,13 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux', 'codex-app-server', 'opencode-server', 'kimi-server', 'kimi-pull-bridge']);
         expect(metadata.properties.envelopePath.type).toBe('string');
         expect(metadata.properties.addressType.enum).toEqual(['userDataDir', 'pid', 'tmuxSession', 'webhookUrl']);
+
+        // The prose half of the contract relocated to the lazy handbook payload — the
+        // listing above now witnesses shape-only (type/enum/properties survive the projection).
+        const handbook = await toolService.callTool('get_mcp_tool_handbook', {toolId: 'manage_wake_subscription'});
+
+        expect(handbook.inputSchema.properties.harnessTargetMetadata.description)
+            .toContain("exempt for envelope-routed adapters 'opencode-server', 'kimi-server', 'kimi-pull-bridge'");
     });
 
     test('get_neighbors output schema exposes semanticVectorId contract (#11680)', async () => {
@@ -109,8 +128,13 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         const neighbor  = tool.outputSchema.properties.neighbors.items;
 
         expect(neighbor.properties.semanticVectorId.type).toBe('string');
-        expect(neighbor.properties.semanticVectorId.description).toContain('semantic vector identifier');
         expect(neighbor.additionalProperties).not.toBe(false);
+
+        // The description relocated to the handbook payload — the listing keeps shape only.
+        const handbook = await toolService.callTool('get_mcp_tool_handbook', {toolId: 'get_neighbors'});
+
+        expect(handbook.outputSchema.properties.neighbors.items.properties.semanticVectorId.description)
+            .toContain('semantic vector identifier');
     });
 
     test('get_rem_pipeline_state surfaces the REM axis-count output contract (#12087)', async () => {
