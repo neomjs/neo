@@ -66,45 +66,150 @@ function resolveLeafUnderEnv(envValue) {
     }
 }
 
+let AuthService, originalFetch;
+
+class FakeInvalidTokenError extends Error {}
+
+/**
+ * @summary Runs the REAL GitLab-PAT verifier and returns the AuthInfo it produces.
+ *
+ * The point of the indirection is that nothing here recomputes what production computes. The
+ * verifier factory takes `aiConfig` as a plain parameter and `globalThis.fetch` is stubbed, so the
+ * provider round-trip is replaced while the identity mapping — including the trailing-slash strip
+ * that yields `providerBaseUrl` — stays the shipped code path. A test-local re-implementation
+ * would only ever prove the replica agrees with today's source.
+ *
+ * Each call needs a distinct `token`: the verifier caches by token hash, so a reused token would
+ * return the previous envelope and silently answer a question this spec never asked.
+ * @param {Object}  options
+ * @param {String}  options.baseUrl Configured API base URL spelling under test
+ * @param {String}  [options.login='octocat'] Provider handle the API returns
+ * @param {Number}  [options.providerId=4242] Immutable provider id the API returns
+ * @param {String}  options.token Bearer presented to the verifier; must be unique per call
+ * @returns {Promise<Object>} The produced AuthInfo
+ */
+async function produceAuthInfo({baseUrl, login = 'octocat', providerId = 4242, token}) {
+    globalThis.fetch = async () => ({
+        ok    : true,
+        status: 200,
+        json  : async () => ({id: providerId, username: login, name: login})
+    });
+
+    const verifier = AuthService.createGitlabPatVerifier({
+        aiConfig         : {auth: {
+            gitlabApiBaseUrl      : baseUrl,
+            patCacheTtlSeconds    : 300,
+            patValidationTimeoutMs: 5000
+        }},
+        logger           : {info: () => {}, warn: () => {}, error: () => {}},
+        InvalidTokenError: FakeInvalidTokenError
+    });
+
+    return verifier.verifyAccessToken(token)
+}
+
+/**
+ * @summary Produced `providerBaseUrl` for one configured spelling — the actual principal coordinate.
+ * @param {Object} options
+ * @param {String} options.baseUrl
+ * @param {String} options.token
+ * @returns {Promise<String>}
+ */
+async function produceProviderBaseUrl({baseUrl, token}) {
+    return (await produceAuthInfo({baseUrl, token})).providerBaseUrl
+}
+
 test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)', () => {
+    test.beforeAll(async () => {
+        AuthService   = (await import('../../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
+        originalFetch = globalThis.fetch
+    });
+
+    test.afterEach(() => {
+        globalThis.fetch = originalFetch
+    });
+
     test('the leaf normalizes on NO axis: every spelling resolves byte-identical to its env input', () => {
         Object.entries(EQUIVALENT_SPELLINGS).forEach(([axis, spelling]) => {
             expect(resolveLeafUnderEnv(spelling), `axis ${axis} must pass through unchanged`).toBe(spelling)
         })
     });
 
-    test('BLAST RADIUS: 5 spellings → 5 leaf values but only 4 principal coordinates; one axis already collapses', () => {
+    test('BLAST RADIUS: 5 leaf spellings PRODUCE only 4 coordinates, executed through the real verifier', async () => {
         const
             leafValues = Object.values(EQUIVALENT_SPELLINGS).map(resolveLeafUnderEnv),
-            // The principal coordinate is NOT the leaf value. `providerBaseUrl` is built from
-            // AuthService's trailing-slash-stripped local, so the tuple sees the stripped
-            // spelling — the same two-reader divergence the case below pins. Measuring the leaf
-            // and calling the result a principal coordinate conflates exactly those two readers.
-            principalCoordinates = leafValues.map(value => value.replace(/\/+$/, ''));
+            produced   = [];
+
+        for (const [axis, spelling] of Object.entries(EQUIVALENT_SPELLINGS)) {
+            produced.push(await produceProviderBaseUrl({baseUrl: spelling, token: `glpat-${axis}`}))
+        }
 
         expect(new Set(leafValues).size, 'the leaf normalizes on no axis').toBe(5);
 
-        // The number the fold needs, and it is 4 rather than 5: the trailing-slash axis ALREADY
-        // collapses at the consumer, so `canonical` and `trailingSlash` are one ownership key.
-        // Red-proved 2026-08-09 on the leaf arm (`toBe(1)` fails with `Received: 5`), so neither
-        // count passes vacuously on an env override that never applied.
-        expect(new Set(principalCoordinates).size, 'one of four axes is already normalized').toBe(4);
+        // EXECUTED, not replicated. An earlier revision computed this with a test-local
+        // `value.replace(/\/+$/, '')`, which only proved the replica matched today's source — it
+        // would have kept passing if the verifier stopped stripping. This runs the real
+        // `createGitlabPatVerifier` and reads `AuthInfo.providerBaseUrl` off the produced envelope,
+        // so the count is a property of production rather than of the test's own arithmetic.
+        expect(new Set(produced).size, 'the produced coordinate set is smaller than the leaf set').toBe(4);
 
-        // The COLLISION half — the control that makes the other three axes meaningful. Exactly one
-        // pair merges, which proves normalization here is PARTIAL and axis-inconsistent rather than
-        // absent: whoever owns the contract inherits three unnormalized axes beside one that is
-        // already handled, and a uniform rule would move all four.
-        expect(
-            EQUIVALENT_SPELLINGS.canonical.replace(/\/+$/, ''),
-            'trailing slash is the one axis the pipeline already merges'
-        ).toBe(EQUIVALENT_SPELLINGS.trailingSlash.replace(/\/+$/, ''));
+        // Which axis merges is the useful half: exactly one pair, so normalization here is PARTIAL
+        // and axis-inconsistent rather than absent. Whoever owns the transport contract inherits
+        // three unnormalized axes beside one already handled.
+        const byAxis = Object.fromEntries(Object.keys(EQUIVALENT_SPELLINGS).map((axis, index) => [axis, produced[index]]));
+
+        expect(byAxis.trailingSlash, 'trailing slash is the one axis production already merges').toBe(byAxis.canonical);
 
         ['upperCaseHost', 'defaultPort', 'relativeRoot'].forEach(axis => {
-            expect(
-                EQUIVALENT_SPELLINGS[axis].replace(/\/+$/, ''),
-                `${axis} still resolves to its own ownership key`
-            ).not.toBe(EQUIVALENT_SPELLINGS.canonical.replace(/\/+$/, ''))
+            expect(byAxis[axis], `${axis} still produces its own coordinate`).not.toBe(byAxis.canonical)
         })
+    });
+
+    test('IDENTITY SPLIT: one stable tuple whose login is renamed becomes two durable graph nodes', async () => {
+        const {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs');
+
+        // Same human, same instance, same immutable provider id — only the handle changed. The
+        // produced coordinate is identical, so a principal backed by the stable tuple survives;
+        // the durable graph key does not, because it is derived from the login.
+        const
+            before = await produceAuthInfo({baseUrl: EQUIVALENT_SPELLINGS.canonical, login: 'octocat', providerId: 4242, token: 'glpat-split-a'}),
+            after  = await produceAuthInfo({baseUrl: EQUIVALENT_SPELLINGS.canonical, login: 'octodog', providerId: 4242, token: 'glpat-split-b'});
+
+        expect(before.providerBaseUrl, 'the stable coordinate is unchanged').toBe(after.providerBaseUrl);
+        expect(before.providerUserId, 'the immutable provider id is unchanged').toBe(after.providerUserId);
+
+        expect(
+            normalizeAgentIdentityNodeId(after.userId),
+            'the durable key splits even though the stable tuple did not'
+        ).not.toBe(normalizeAgentIdentityNodeId(before.userId))
+    });
+
+    test('IDENTITY COLLISION: two DIFFERENT stable tuples sharing one login become ONE durable graph node', async () => {
+        const {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs');
+
+        // The dangerous direction, and the one a count cannot show. Two different accounts — a
+        // different instance AND a different immutable provider id — that happen to share a
+        // username resolve to the SAME durable key, because the key carries neither coordinate.
+        const
+            self  = await produceAuthInfo({baseUrl: 'https://gitlab.example.com',  login: 'octocat', providerId: 4242, token: 'glpat-collide-a'}),
+            other = await produceAuthInfo({baseUrl: 'https://gitlab.other-host.com', login: 'octocat', providerId: 9999, token: 'glpat-collide-b'});
+
+        expect(self.providerBaseUrl, 'the tuples differ on instance').not.toBe(other.providerBaseUrl);
+        expect(self.providerUserId,  'the tuples differ on provider id').not.toBe(other.providerUserId);
+
+        expect(
+            normalizeAgentIdentityNodeId(other.userId),
+            'two distinct principals collapse onto one durable key'
+        ).toBe(normalizeAgentIdentityNodeId(self.userId));
+
+        // Distinct-login control: the collapse is specific to the shared handle, not an artifact
+        // of the derivation flattening everything it is handed.
+        const distinct = await produceAuthInfo({baseUrl: 'https://gitlab.other-host.com', login: 'hubcat', providerId: 9999, token: 'glpat-collide-c'});
+
+        expect(
+            normalizeAgentIdentityNodeId(distinct.userId),
+            'a different login is a different key — the collision is login-specific'
+        ).not.toBe(normalizeAgentIdentityNodeId(self.userId))
     });
 
     test('the same leaf yields TWO spellings, because the trailing-slash strip lives at the consumer', async () => {
