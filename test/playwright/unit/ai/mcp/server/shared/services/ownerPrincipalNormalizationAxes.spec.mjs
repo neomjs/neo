@@ -107,6 +107,47 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         expect(leafSpelling).not.toBe(leafSpelling.replace(/\/+$/, ''))
     });
 
+    test('MECHANISM REACH: a leaf `parse` normalizes the env layer ONLY — default and runtime override bypass it', async () => {
+        const {leaf: leafFactory} = await import('../../../../../../../../ai/ConfigProvider.mjs');
+
+        // Measures the ConfigProvider mechanism a leaf-side normalization proposal would rely on,
+        // using a purpose-built leaf rather than the auth ones (which declare no custom parse
+        // today, so they cannot exercise this path). The question is reach, not the auth values.
+        const
+            envName    = 'NEO_UNIT_PRINCIPAL_PARSE_REACH_URL',
+            slashy     = 'https://gitlab.example.com/',
+            stripSlash = name => {
+                const raw = process.env[name];
+                return raw === undefined ? undefined : raw.replace(/\/+$/, '')
+            },
+            build = () => createConfigProxy(Neo.create(ConfigProvider, {
+                data: {probe: leafFactory(slashy, envName, 'string', {parse: stripSlash})}
+            })),
+            previous = process.env[envName];
+
+        try {
+            // (a) env layer — the parser runs, so the env spelling is normalized.
+            process.env[envName] = slashy;
+            expect(build().probe, 'env layer is parsed').toBe('https://gitlab.example.com');
+
+            // (b) DEFAULT — the leaf default is never routed through `parse`, so a
+            //     slash-bearing default survives normalization entirely.
+            delete process.env[envName];
+            expect(build().probe, 'default bypasses parse').toBe(slashy);
+        } finally {
+            previous === undefined ? delete process.env[envName] : (process.env[envName] = previous)
+        }
+
+        // (c) runtime override — `#applyEnvLayer` uses an override verbatim and skips `decode`,
+        //     so `setEnvOverride` is a third un-normalized entry point.
+        const overridden = Neo.create(ConfigProvider, {
+            data: {probe: leafFactory('https://gitlab.example.com', envName, 'string', {parse: stripSlash})}
+        });
+
+        overridden.setEnvOverride(envName, slashy);
+        expect(createConfigProxy(overridden).probe, 'runtime override bypasses parse').toBe(slashy)
+    });
+
     test('case is significant here and INSIGNIFICANT for agent identity — one system, two rules', async () => {
         const {parseAgentList} = await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
 
