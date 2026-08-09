@@ -1414,9 +1414,9 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         await withHeldLifecycleGuard(leasePath, async () => {
             await expect(releaseHeavyMaintenanceLease({
                 leasePath,
-                token             : 'release-token',
-                guardStaleAfterMs : 60000,
-                fsModule          : contentionFs
+                token            : 'release-token',
+                guardStaleAfterMs: 60000,
+                fsModule         : contentionFs
             })).rejects.toThrow(guardPath);
         });
     });
@@ -1428,10 +1428,10 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         await withHeldLifecycleGuard(leasePath, async () => {
             await expect(renewHeavyMaintenanceLease({
                 leasePath,
-                token             : 'renew-token',
-                staleAfterMs      : TEST_LEASE_STALE_MS,
-                guardStaleAfterMs : 60000,
-                fsModule          : contentionFs
+                token            : 'renew-token',
+                staleAfterMs     : TEST_LEASE_STALE_MS,
+                guardStaleAfterMs: 60000,
+                fsModule         : contentionFs
             })).rejects.toThrow(guardPath);
         });
     });
@@ -1443,9 +1443,9 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         withHeldLifecycleGuardSync(leasePath, () => {
             expect(() => releaseHeavyMaintenanceLeaseSync({
                 leasePath,
-                token             : 'release-token',
-                guardStaleAfterMs : 60000,
-                fsModule          : contentionFs
+                token            : 'release-token',
+                guardStaleAfterMs: 60000,
+                fsModule         : contentionFs
             })).toThrow(guardPath);
         });
     });
@@ -1457,10 +1457,10 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         withHeldLifecycleGuardSync(leasePath, () => {
             expect(() => renewHeavyMaintenanceLeaseSync({
                 leasePath,
-                token             : 'renew-token',
-                staleAfterMs      : TEST_LEASE_STALE_MS,
-                guardStaleAfterMs : 60000,
-                fsModule          : contentionFs
+                token            : 'renew-token',
+                staleAfterMs     : TEST_LEASE_STALE_MS,
+                guardStaleAfterMs: 60000,
+                fsModule         : contentionFs
             })).toThrow(guardPath);
         });
     });
