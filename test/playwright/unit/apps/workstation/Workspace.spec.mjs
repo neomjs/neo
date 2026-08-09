@@ -2347,7 +2347,12 @@ test.describe('replay probe transaction (prototype-call)', () => {
 
     test('the entry projection requests validated in-place admission; the restore stays full', async () => {
         const
-            liveDocument = {nodes: {marker: 'live'}},
+            // A REAL same-topology document, not the `{nodes: {marker: 'live'}}` stub the sibling
+            // cases use. The entry flag is now DERIVED from a topology compare of this document
+            // against the one being reset into place, so the stub would fail the diff's shape gate
+            // and the derivation would fail closed — turning this assertion into a statement about
+            // an unparseable fixture rather than about same-topology admission.
+            liveDocument = DockZoneModel.clone(initialDocument),
             refreshCalls = [],
             host         = {
                 dockModel     : liveDocument,
@@ -2517,4 +2522,68 @@ test.describe('cross-zone dwell candidate re-verification (prototype-call)', () 
             'the swap surfaces as the same gate-named receipt, with the live candidate named'
         ).toMatch(/active candidate 'preview-a' lost during the 600ms dwell — gate=dwell-reverify active=preview-b dwell=1\/2/);
     });
+});
+
+test.describe('refreshDockWorkspace — DockFlip is told the OUTCOME, not the request', () => {
+    /**
+     * @summary Drives one refresh with a stubbed reconciler outcome and captures DockFlip's options.
+     *
+     * The contract under test is a seam, not a predicate: `geometryOnly` is an admission REQUEST
+     * that `reconcileProjection` validates and may abandon for the staged shell swap. `DockFlip.play`
+     * declares something stronger — "no topology swap can be pending" — so it must receive the
+     * reconciler's reported `landedInPlace`. Forwarding the request is how a reset across a diverged
+     * layout used to declare stable topology over a swap that had already happened.
+     * @param {Object}  options
+     * @param {Boolean} options.requested Value the caller passes as `geometryOnly`
+     * @param {Boolean} options.landedInPlace Outcome the reconciler reports
+     * @returns {Promise<Object|null>} The options DockFlip received, or null if it was never called
+     */
+    async function captureFlipOptions({requested, landedInPlace}) {
+        const
+            originalReconcile = DockProjectionReconciler.reconcileProjection,
+            originalAddon     = Neo.main?.addon,
+            workspace         = Neo.create(Workspace, {appName: 'WorkstationWorkspaceTest'});
+
+        let flipOptions = null;
+
+        Neo.main       = Neo.main || {};
+        Neo.main.addon = {...(originalAddon || {}), DockFlip: {play: async options => {flipOptions = options}}};
+
+        DockProjectionReconciler.reconcileProjection = async () => ({
+            currentTabs    : new Map(),
+            landedInPlace,
+            nextShell      : workspace.getReference('dock-host')?.items?.[0],
+            overflowPlugins: [],
+            plans          : []
+        });
+
+        try {
+            await workspace.refreshDockWorkspace({geometryOnly: requested})
+        } catch (error) {/* the stubbed projection short-circuits the rest of the refresh */}
+        finally {
+            DockProjectionReconciler.reconcileProjection = originalReconcile;
+            Neo.main.addon                               = originalAddon;
+            workspace.destroy()
+        }
+
+        return flipOptions
+    }
+
+    test('a staged fallback is NOT reported to DockFlip as geometry-only, even when requested', async () => {
+        // The defect this replaces: the caller asked for in-place admission, the reconciler fell
+        // back to the staged shell swap, and DockFlip was still told the topology was stable.
+        const options = await captureFlipOptions({requested: true, landedInPlace: false});
+
+        expect(options, 'DockFlip must actually have been reached — a null capture proves nothing').not.toBeNull();
+        expect(options.geometryOnly, 'the request must not survive a staged fallback').toBe(false)
+    });
+
+    test('an in-place landing IS reported to DockFlip as geometry-only', async () => {
+        // The other direction, so the fix cannot be the trivially safe "always false" — which would
+        // cost every same-topology reset the staged shell swap's cleared-body frame on camera.
+        const options = await captureFlipOptions({requested: true, landedInPlace: true});
+
+        expect(options, 'DockFlip must actually have been reached — a null capture proves nothing').not.toBeNull();
+        expect(options.geometryOnly, 'a proven in-place landing keeps its admission').toBe(true)
+    })
 });
