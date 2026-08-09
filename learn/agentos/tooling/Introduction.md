@@ -28,7 +28,7 @@ We believe developers should choose their intelligence provider. Whether you pre
 
 Traditional AI tools often treat the agent as a passive chat bot that asks a server to do things one by one. MCP enables a **"Thick Client"** architecture (what Anthropic calls [Code Execution](https://www.anthropic.com/engineering/code-execution-with-mcp)).
 
-In this model, the agent isn't just a chat bot; it's a developer writing and running code. It can import our `ai/services.mjs` SDK and write complex, autonomous scripts to:
+In this model, the agent isn't just a chat bot; it's a developer writing and running code. It can import our SDK — `ai/services.mjs` for anything needing `KB_` or `Memory_` services, `ai/services.host.mjs` for the narrower host-plane subset — and write complex, autonomous scripts to:
 *   Monitor the codebase for issues.
 *   Query the knowledge base for context.
 *   Plan multi-step refactoring tasks.

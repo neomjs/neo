@@ -2,7 +2,18 @@
 
 This manifest defines the public API for the Neo.mjs AI Infrastructure SDK. Agents should read this file to discover available services and their method signatures before writing execution scripts.
 
-**Import Path:** `ai/services.mjs` (Relative to project root)
+**Import Path — choose by the exports you need, NOT by where your process runs** (both paths relative to project root):
+
+| exports your script needs | import from |
+|---|---|
+| only `GH_` · `GL_` · `NeuralLink_` · `Shared_` | **`ai/services.host.mjs`** |
+| any `KB_` or `Memory_` | `ai/services.mjs` |
+
+`ai/services.mjs` exports everything it always did, so **existing imports are unchanged and remain valid.**
+
+**Why the axis is exports and not location.** The host barrel does not carry `KB_*` or `Memory_*` at all — importing them from it is a missing-export error, not a degraded mode. So "my script runs on the host, therefore I use the host barrel" is wrong whenever the script needs a Knowledge Base or Memory Core service.
+
+**And if your host-side script does need `KB_` or `Memory_`, the friction is the point, not a packaging inconvenience.** Those services reach a durable store, and a host machine has only the base package tier — so importing the cloud root there can fail on packages that are simply absent. The barrel split makes that visible at the import instead of at runtime. Treat it as a design signal about where the work belongs, not as something to route around.
 
 ---
 
@@ -97,7 +108,7 @@ async function main() {
 
     // 3. Search for Solution
     const docs = await KB_QueryService.queryDocuments({ query: bug.title });
-    
+
     console.log(`Analyzing bug #${bug.number} with context: ${docs.topResult}`);
 }
 
