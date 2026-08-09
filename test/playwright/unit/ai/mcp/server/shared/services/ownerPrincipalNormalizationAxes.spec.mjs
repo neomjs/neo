@@ -73,16 +73,38 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         })
     });
 
-    test('BLAST RADIUS: five spellings of one host resolve to five distinct principal coordinates', () => {
-        const resolved = Object.values(EQUIVALENT_SPELLINGS).map(resolveLeafUnderEnv);
+    test('BLAST RADIUS: 5 spellings → 5 leaf values but only 4 principal coordinates; one axis already collapses', () => {
+        const
+            leafValues = Object.values(EQUIVALENT_SPELLINGS).map(resolveLeafUnderEnv),
+            // The principal coordinate is NOT the leaf value. `providerBaseUrl` is built from
+            // AuthService's trailing-slash-stripped local, so the tuple sees the stripped
+            // spelling — the same two-reader divergence the case below pins. Measuring the leaf
+            // and calling the result a principal coordinate conflates exactly those two readers.
+            principalCoordinates = leafValues.map(value => value.replace(/\/+$/, ''));
 
-        // The measurement the fold needs: today the equivalence class does not collapse at all.
-        // Five spellings a human calls one host are five ownership keys. If a later change
-        // collapses any subset, this count drops and the drop is the migration's blast radius.
-        // Red-proved 2026-08-09: asserting a collapsed class (`toBe(1)`) fails with
-        // `Received: 5`, so this measures five genuinely distinct resolutions rather than
-        // passing vacuously on an env override that never applied.
-        expect(new Set(resolved).size).toBe(Object.keys(EQUIVALENT_SPELLINGS).length)
+        expect(new Set(leafValues).size, 'the leaf normalizes on no axis').toBe(5);
+
+        // The number the fold needs, and it is 4 rather than 5: the trailing-slash axis ALREADY
+        // collapses at the consumer, so `canonical` and `trailingSlash` are one ownership key.
+        // Red-proved 2026-08-09 on the leaf arm (`toBe(1)` fails with `Received: 5`), so neither
+        // count passes vacuously on an env override that never applied.
+        expect(new Set(principalCoordinates).size, 'one of four axes is already normalized').toBe(4);
+
+        // The COLLISION half — the control that makes the other three axes meaningful. Exactly one
+        // pair merges, which proves normalization here is PARTIAL and axis-inconsistent rather than
+        // absent: whoever owns the contract inherits three unnormalized axes beside one that is
+        // already handled, and a uniform rule would move all four.
+        expect(
+            EQUIVALENT_SPELLINGS.canonical.replace(/\/+$/, ''),
+            'trailing slash is the one axis the pipeline already merges'
+        ).toBe(EQUIVALENT_SPELLINGS.trailingSlash.replace(/\/+$/, ''));
+
+        ['upperCaseHost', 'defaultPort', 'relativeRoot'].forEach(axis => {
+            expect(
+                EQUIVALENT_SPELLINGS[axis].replace(/\/+$/, ''),
+                `${axis} still resolves to its own ownership key`
+            ).not.toBe(EQUIVALENT_SPELLINGS.canonical.replace(/\/+$/, ''))
+        })
     });
 
     test('the same leaf yields TWO spellings, because the trailing-slash strip lives at the consumer', async () => {
