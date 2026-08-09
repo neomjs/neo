@@ -1,0 +1,36 @@
+{
+    "$schema": {
+        "purpose": "Explicitly accepted CLIENT-ONLY lint-staged guards — those invoked by no CI workflow. A guard absent from `clientOnly` and mirrored by no workflow is a FAILURE, not an unknown: the population is read exactly from package.json's lint-staged config, so there is no false-positive family to absorb.",
+        "whyThisExistsRatherThanSixWorkflows": "A cold CI mirror for these guards reds on 593 pre-existing lines (measured 2026-08-08). Gating new violations from day one beats blocking every merger on a 593-line migration. This registry is the baseline; shrinking it is a visible lane rather than archaeology.",
+        "reason": "REQUIRED. Why this guard has no CI mirror TODAY. Not 'because it doesn't' — the cost or blocker that keeps it client-only.",
+        "witness": "REQUIRED. The measurement or artifact that substantiates the reason. An entry without one is a suppression, not an acceptance.",
+        "baselineAtIntroduction": 6,
+        "outOfScope": "The `ai/scripts/lint/lint-*.mjs` family has its own coverage question and is NOT governed here. Recorded so the boundary is explicit rather than implied by omission."
+    },
+    "clientOnly": {
+        "buildScripts/util/check-block-alignment.mjs": {
+            "reason": "A CI mirror reds on pre-existing drift across the tree; the two known files are repaired in this ticket, but the guard checks whole files rather than changed lines, so a merge stages files the author never touched.",
+            "witness": "compactGraphLog.mjs 17 violations and HeavyMaintenanceLeaseService.spec.mjs 14 at origin/dev 14c8f7dccb, with src/Neo.mjs at 0 as a firing control; PR #16703's merge required --no-verify."
+        },
+        "buildScripts/util/check-derived-domain.mjs": {
+            "reason": "Scoped to test/**/*.mjs only; no measurement yet of how many existing specs a cold mirror would red.",
+            "witness": "package.json lint-staged: listed under the `test/**/*.mjs` glob, not the repo-wide `*.mjs` one."
+        },
+        "buildScripts/util/check-parse.mjs": {
+            "reason": "HIGHEST PRIORITY to mirror — a syntax guard with no CI backstop. Held only because the mirror should land with the shared workflow scaffolding rather than as a one-off.",
+            "witness": "package.json lint-staged `*.mjs` array; no .github/workflows file invokes check-parse.mjs (verified across every spelling, comments excluded)."
+        },
+        "buildScripts/util/check-shorthand.mjs": {
+            "reason": "Part of the 593-line pre-existing population a cold mirror would red.",
+            "witness": "Measured 2026-08-08 across the lint-* family: 593 pre-existing lines total."
+        },
+        "buildScripts/util/check-whitespace.mjs": {
+            "reason": "Runs on the `*` glob, so a cold mirror covers every file type in the repo; the pre-existing population is the largest and unmeasured per-guard.",
+            "witness": "package.json lint-staged: the only guard under the repo-wide `*` glob."
+        },
+        "ai/scripts/lint/lint-fleet-vocabulary-parity.mjs": {
+            "reason": "Found by this guard's FIRST RUN, not by the hand census that motivated the ticket — that census matched `check-*` only and was structurally blind to the `lint-*` family. Held pending the same shared workflow scaffolding as the others.",
+            "witness": "package.json lint-staged invokes it under the `{ai/services/fleet/...,apps/agentos/config/...}` glob; no .github/workflows file invokes it (comments excluded). @neo-opus-grace reported 6/11 including the lint-* family before this ticket was filed; her count was the complete one."
+        }
+    }
+}
