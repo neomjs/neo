@@ -1282,7 +1282,7 @@ class IssueService extends Base {
      * @param {number}          [options.limit=30]          The maximum number of issues to return
      * @param {string}          [options.state='open']      Filter issues by state (open, closed)
      * @param {string[]|string} [options.labels]            Labels to filter by; an issue must carry ALL of them. Applied to this page's rows, so `totalCount` is null when set
-     * @param {string}          [options.assignee]          Filter issues by a single assignee login
+     * @param {string}          [options.assignee]          Filter issues by a single assignee login; `@me` resolves to the authenticated viewer (same contract as `manage_issue_assignees`)
      * @param {'full'|'summary'|'title'|'title_only'} [options.projection='full'] Response shape projection
      * @param {string}          [options.cursor]            Cursor for pagination; pass a prior `endCursor`
      * @param {'updated'|'created'} [options.sort='updated'] Order field: `updated` (default) or `created` — creation order is the freshness-sweep evidence (updated-desc buries untouched fresh filings below recently-updated older issues)
@@ -1326,6 +1326,22 @@ class IssueService extends Base {
         const labelList = labels
             ? (Array.isArray(labels) ? labels : String(labels).split(',').map(part => part.trim())).filter(Boolean)
             : null;
+
+        // The `@me` alias resolves to the authenticated viewer login — the same contract the write
+        // path honors (`create_issue`, `manage_issue_assignees`; `#resolveAssigneeAliases`). Concrete
+        // logins pass through untouched, and a failed resolution maps to the same structured error a
+        // failed mutation returns — never a raw GraphQL rejection for a login that does not exist.
+        if (assignee === '@me') {
+            try {
+                [assignee] = await this.#resolveAssigneeAliases([assignee]);
+            } catch (error) {
+                return {
+                    error  : 'GitHub API request failed',
+                    message: error.message,
+                    code   : 'GITHUB_API_ERROR'
+                };
+            }
+        }
 
         // `filterBy: {assignee: null}` routes GitHub's issues connection to a stale, hours-lagged
         // read path (measured live 2026-07-22, #15603; ticket-ref-ok: measured-quirk evidence ledger): a controlled assignment stayed invisible on
