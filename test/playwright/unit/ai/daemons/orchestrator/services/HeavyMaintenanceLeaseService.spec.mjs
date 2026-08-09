@@ -1822,3 +1822,76 @@ test.describe('#16262 — bootId: cross-boot staleness regardless of pid livenes
         expect(injected.bootId).toBe('injected-boot');
     });
 });
+
+test.describe('the fairness bound is COOPERATIVE — a task that never checkpoints is never preempted', () => {
+    /**
+     * Executes the mechanism behind the observed 13-hour lease hold rather than reading it.
+     *
+     * `maxActiveHoldMs` is enforced by `shouldYield()`, a pure predicate the HOLDER must choose to
+     * call between batches. `withHeavyMaintenanceLease` is `await task(...)` inside a try/finally
+     * with no timer, no abort signal and no watchdog. So a holder blocked inside ONE request that
+     * never settles never reaches a checkpoint, never asks, and nothing asks for it.
+     *
+     * The two bounds are deliberately set to production's ratio (6h TTL vs 30min yield) so the
+     * assertions cannot be satisfied by staleness instead: at the observation point the lease is
+     * comfortably inside its TTL, so "still held" means held, not merely not-yet-reclaimed.
+     */
+    test('the hold outlives maxActiveHoldMs while shouldYield already says yield, and only the task settling releases it', async () => {
+        const
+            leasePath       = createLeasePath('non-terminating-embed'),
+            acquiredAt      = new Date('2026-08-09T00:00:00.000Z'),
+            maxActiveHoldMs = 30 * 60 * 1000,
+            staleAfterMs    = 6 * 60 * 60 * 1000,
+            pastBound       = new Date(acquiredAt.getTime() + maxActiveHoldMs + 1);
+
+        let settleTask, taskStarted;
+
+        // The observed shape: a single embedding submission that has not returned.
+        const
+            neverSettlesUntilWeSaySo = new Promise(resolve => {settleTask  = resolve}),
+            taskIsRunning            = new Promise(resolve => {taskStarted = resolve});
+
+        const inFlight = _rawWithHeavyMaintenanceLease(() => {
+            // The task only runs once acquisition succeeded, so awaiting this is a deterministic
+            // "the lease is held" signal — a fixed tick would race the async acquire and observe
+            // a lease that does not exist yet, which is a broken fixture rather than a finding.
+            taskStarted();
+            return neverSettlesUntilWeSaySo
+        }, {
+            leasePath,
+            owner: 'kbSync',
+            now  : acquiredAt,
+            token: 'kb-sync-stuck',
+            staleAfterMs
+        });
+
+        await taskIsRunning;
+
+        const duringHold = await inspectHeavyMaintenanceLease({leasePath, now: pastBound});
+
+        expect(duringHold.active, 'the lease is held and NOT stale at the observation point').toBe(true);
+
+        // The fairness bound is exceeded — the predicate agrees the holder should yield…
+        expect(
+            shouldYieldHeavyMaintenanceLease(duringHold.lease, {now: pastBound, maxActiveHoldMs}),
+            'shouldYield reports the bound as exceeded'
+        ).toBe(true);
+
+        // …and the lease is still held anyway, because nothing consulted it. This is the gap: the
+        // bound is advisory to a holder that has no opportunity to read it.
+        const stillHeld = await inspectHeavyMaintenanceLease({leasePath, now: pastBound});
+
+        expect(stillHeld.active, 'nothing preempted the holder despite the bound being exceeded').toBe(true);
+        expect(stillHeld.lease.token, 'the same holder still owns it').toBe('kb-sync-stuck');
+
+        // Only the task settling releases it — which is exactly what a non-terminating request
+        // never does, and why an effective request deadline is the enabling fix rather than one
+        // option among several: a deadline is what manufactures the missing checkpoint.
+        settleTask('done');
+        await inFlight;
+
+        const afterSettle = await inspectHeavyMaintenanceLease({leasePath, now: pastBound});
+
+        expect(afterSettle.active, 'release happens on task settle, never on the bound').toBe(false)
+    })
+});
