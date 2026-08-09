@@ -20,6 +20,7 @@ import * as core      from '../../../../../../src/core/_export.mjs'
 import {
     PRESENCE_SOURCE_LABEL,
     PRESENCE_STATES,
+    presenceIdentityForAgent,
     readFleetPresenceSnapshot
 } from '../../../../../../ai/services/fleet/fleetPresenceStateAdapter.mjs'
 
@@ -159,6 +160,42 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
             {states} = await readFleetPresenceSnapshot({agents: roster, readPresence: () => payload})
 
         expect(states.map(row => row.presence)).toEqual([...PRESENCE_STATES])
+    })
+
+    test('the default join accepts the registry\'s FULL production spelling domain — a persisted leading @ never fabricates absence', async () => {
+        // defineAgent stores githubUsername unchanged (truthiness is its only requirement), so a
+        // persisted '@neo-gpt' is an ACCEPTED production spelling of the same seat as 'neo-gpt'.
+        const {capability, states} = await readFleetPresenceSnapshot({
+            agents: [
+                {id: 'prefixed', githubUsername: '@neo-gpt'},
+                {id: 'bare',     githubUsername: 'neo-fable-clio'}
+            ],
+            readPresence: () => ({agents: [
+                {identity: '@neo-gpt',        state: 'online'},
+                {identity: '@neo-fable-clio', state: 'idle'}
+            ]})
+        })
+
+        expect(capability.state).toBe('wired')
+        expect(states.find(row => row.agentId === 'prefixed').presence).toBe('online')
+        expect(states.find(row => row.agentId === 'bare').presence).toBe('idle')
+
+        // the canonicalizer itself: one prefix, degenerate stacking stripped, id fallback covered
+        expect(presenceIdentityForAgent({githubUsername: '@neo-gpt'})).toBe('@neo-gpt')
+        expect(presenceIdentityForAgent({githubUsername: '@@weird'})).toBe('@weird')
+        expect(presenceIdentityForAgent({id: '@already'})).toBe('@already')
+    })
+
+    test('two registry instances sharing one identity both receive the band — the intentional cardinality', async () => {
+        const {states} = await readFleetPresenceSnapshot({
+            agents: [
+                {id: 'seat-a', githubUsername: 'neo-gpt'},
+                {id: 'seat-b', githubUsername: 'neo-gpt'}
+            ],
+            readPresence: () => ({agents: [{identity: '@neo-gpt', state: 'online'}]})
+        })
+
+        expect(states.map(row => row.presence)).toEqual(['online', 'online'])
     })
 
     test('a custom presenceIdentityFor overrides the identity join', async () => {

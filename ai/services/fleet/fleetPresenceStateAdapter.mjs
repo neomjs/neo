@@ -60,7 +60,11 @@ export const PRESENCE_SOURCE_LABEL = 'fleet:presenceState'
  *     honestly `unknown` under a degraded capability (host mode's documented truth until a host
  *     presence surface lands).
  * @param {Function} [options.presenceIdentityFor] `(agent) => String` roster row → presence report
- *     identity. Defaults to the wake seam's identity shape: `@<githubUsername ?? id>`.
+ *     identity. The default canonicalizes into the report's `@<login>` shape while accepting the
+ *     registry's FULL production input domain: `defineAgent` stores `githubUsername` unchanged and
+ *     requires only truthiness, so a persisted `@neo-gpt` and a bare `neo-gpt` are BOTH accepted
+ *     spellings of one seat — leading `@`s are stripped before the single canonical prefix, so an
+ *     answered plane row is never converted into a fabricated `seat absent` by spelling alone.
  * @param {Date|String} [options.capturedAt] Capture timestamp — the observation-time bound above.
  * @returns {Promise<{capability: Object, states: Object[]}>} `states` rows:
  *     `{agentId, presence, lastSeenAt, confidence, source}` (+ `reason` when `presence` is
@@ -69,7 +73,7 @@ export const PRESENCE_SOURCE_LABEL = 'fleet:presenceState'
 export async function readFleetPresenceSnapshot({
     agents = [],
     readPresence = null,
-    presenceIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
+    presenceIdentityFor = presenceIdentityForAgent,
     capturedAt = new Date()
 } = {}) {
     const hasReader = typeof readPresence === 'function',
@@ -155,6 +159,21 @@ export async function readFleetPresenceSnapshot({
         },
         states
     }
+}
+
+/**
+ * @summary The default registry-row → presence-report identity join, canonicalized over the
+ * registry's production input domain: `FleetRegistryService.defineAgent` stores `githubUsername`
+ * unchanged (truthiness is its only requirement), so `neo-gpt` and `@neo-gpt` are both accepted
+ * persisted spellings of one seat. Leading `@`s are stripped before the single canonical prefix —
+ * a spelling variant must never convert an ANSWERED plane row into a fabricated `seat absent`.
+ * Exported so the wake-routes sibling (and the family repair of the shared join pattern) can adopt
+ * the same canonicalization instead of growing a second divergent one.
+ * @param {Object} agent Registry roster row.
+ * @returns {String} `@<login>` — the presence report's identity shape.
+ */
+export function presenceIdentityForAgent(agent) {
+    return `@${String(agent.githubUsername ?? agent.id).replace(/^@+/, '')}`
 }
 
 function asArray(value) {
