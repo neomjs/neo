@@ -25,7 +25,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
-    let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
+    let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, callMemoryCoreTool, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
     let messageWalDir, getWakeDeliverySeries;
 
     test.beforeAll(async () => {
@@ -40,6 +40,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
+        callMemoryCoreTool = (await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs')).callTool;
         const messageWalStore = await import('../../../../../../ai/services/memory-core/helpers/messageWalStore.mjs');
         readWalMessages              = messageWalStore.readWalMessages;
         readPendingMessageWalRecords = messageWalStore.readPendingMessageWalRecords;
@@ -254,6 +255,61 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         const pending = await readPendingMessageWalRecords({dir: messageWalDir});
         expect(pending).toHaveLength(0);
+    });
+
+    test('#16677: add_message returns its durable WAL receipt before graph projection', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const
+            originalProject = MailboxService._projectMessageWalRecord,
+            entered         = Promise.withResolvers(),
+            release         = Promise.withResolvers();
+
+        let projectionEntered = false;
+
+        MailboxService._projectMessageWalRecord = async function(...args) {
+            projectionEntered = true;
+            entered.resolve();
+            await release.promise;
+            return originalProject.apply(this, args)
+        };
+
+        try {
+            const outcome = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                return Promise.race([
+                    callMemoryCoreTool('add_message', {
+                        to     : '@bob',
+                        subject: 'durable receipt boundary',
+                        body   : 'graph projection is deliberately paused'
+                    }).then(receipt => ({receipt})),
+                    new Promise(resolve => setTimeout(() => resolve({deadline: true}), 1000))
+                ])
+            });
+
+            expect(outcome.deadline).toBeUndefined();
+            expect(outcome.receipt).toMatchObject({
+                status          : 'sent',
+                projectionStatus: 'pending'
+            });
+            expect(projectionEntered).toBe(false);
+
+            const records = await readWalMessages({dir: messageWalDir});
+            expect(records.map(record => record.id)).toContain(outcome.receipt.messageId);
+            expect(GraphService.db.nodes.has(outcome.receipt.messageId)).toBe(false);
+
+            await entered.promise;
+            release.resolve();
+
+            await expect.poll(() => GraphService.db.nodes.has(outcome.receipt.messageId)).toBe(true);
+            await expect.poll(async () => (
+                await readPendingMessageWalRecords({dir: messageWalDir})
+            ).length).toBe(0);
+        } finally {
+            release.resolve();
+            MailboxService._projectMessageWalRecord = originalProject;
+        }
     });
 
     test('#16086: inspectReadState reads the owner SQLite without normal mailbox reads, repair, or mutation', async () => {

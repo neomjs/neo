@@ -218,6 +218,14 @@ export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane}) {
     }
 }
 
+/**
+ * @summary Accepts an A2A message at the durable WAL boundary and defers its derived graph
+ * projection so graph saturation cannot withhold the write receipt.
+ * @param {Object} args add_message arguments.
+ * @returns {Promise<Object>}
+ */
+const addMessageTool = args => MailboxService.addMessage(args, {deferProjection: true});
+
 const serviceMapping = {
     add_memory           : MemoryService          .addMemory               .bind(MemoryService),
     get_mcp_tool_handbook: toolId => toolService.getToolHandbook(toolId),
@@ -260,7 +268,7 @@ const serviceMapping = {
     search_nodes                : GraphService           .searchNodes             .bind(GraphService),
     get_memory_core_tool_metrics:
                               MemoryCoreRecorderService.getMemoryCoreToolMetrics.bind(MemoryCoreRecorderService),
-    add_message           : MailboxService         .addMessage              .bind(MailboxService),
+    add_message           : addMessageTool,
     list_messages         : MailboxService         .listMessages            .bind(MailboxService),
     get_message           : MailboxService         .getMessage              .bind(MailboxService),
     get_rem_pipeline_state: HealthService          .getRemPipelineState     .bind(HealthService),
