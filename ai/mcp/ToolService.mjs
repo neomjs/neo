@@ -662,7 +662,21 @@ class ToolService_tmp extends Base {
 
         const canonicalSurface = me.getToolsForProjection(toolProjection)
             .filter(Boolean)
-            .map(tool => ({name: tool.name, inputSchema: tool.inputSchema ?? null}))
+            .map(tool => {
+                let inputSchema = tool.inputSchema ?? null;
+
+                // The digest's axis is capability reachability, never copy-freshness. With schema
+                // compaction on, hash the VALIDATION SHAPE (annotation prose stripped) even when a
+                // route deliberately lists prose — the exact-profile exception keeps its constraint
+                // documentation on the listing because the handbook is policy-refused there, and a
+                // docs-only reword must not read as a capability change. Idempotent on the default
+                // route, whose listed schemas are already projected.
+                if (me.compactToolSchemas && inputSchema) {
+                    inputSchema = me.stripSchemaDescriptions(inputSchema)
+                }
+
+                return {name: tool.name, inputSchema};
+            })
             .sort((lhs, rhs) => lhs.name < rhs.name ? -1 : lhs.name > rhs.name ? 1 : 0);
 
         return crypto.createHash('sha256').update(me.canonicalize(canonicalSurface)).digest('hex').slice(0, 12)

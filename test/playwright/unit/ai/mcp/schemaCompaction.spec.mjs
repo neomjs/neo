@@ -16,6 +16,8 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Ajv             from 'ajv';
 import crypto          from 'node:crypto';
+import fs              from 'node:fs';
+import os              from 'node:os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
@@ -312,6 +314,49 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
 
             expect(service.getAdvertisedSurfaceDigest()).toBe(expected);
             expect(listing.every(tool => collectDescriptions(tool.inputSchema).length === 0)).toBe(true)
+        });
+
+        test('exact-profile prose does NOT shift the capability digest; a validation-shape edit DOES', async () => {
+            // The digest's axis is capability reachability. The exact-profile exception keeps
+            // prose on the listing (the handbook is policy-refused in-profile), so the digest
+            // must normalize to the validation shape — a docs-only reword is not a new surface.
+            const
+                yamlPath    = path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'),
+                yamlText    = fs.readFileSync(yamlPath, 'utf8'),
+                proseAnchor = 'Bounded structural depth. 1=Self, 2=Self+Children.',
+                shapeAnchor = 'maximum: 2';
+
+            expect(yamlText).toContain(proseAnchor);
+            expect(yamlText).toContain(shapeAnchor);
+
+            const
+                proseVariant = yamlText.replace(proseAnchor, 'Depth of the tree walk, bounded. 1 is self, 2 adds children.'),
+                shapeVariant = yamlText.replace(shapeAnchor, 'maximum: 3'),
+                tmpDir       = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-schema-compaction-')),
+                prosePath    = path.join(tmpDir, 'prose.yaml'),
+                shapePath    = path.join(tmpDir, 'shape.yaml');
+
+            fs.writeFileSync(prosePath, proseVariant);
+            fs.writeFileSync(shapePath, shapeVariant);
+
+            const digestOf = async openApiFilePath => {
+                const service = Neo.create(ToolService, {
+                    compactToolSchemas: true,
+                    openApiFilePath,
+                    serviceMapping    : {}
+                });
+
+                await service.listTools();
+
+                return service.getAdvertisedSurfaceDigest('local-readonly-probe')
+            };
+
+            const baseline = await digestOf(yamlPath);
+
+            expect(await digestOf(prosePath), 'a docs-only reword of the profile schema must not move the capability digest')
+                .toBe(baseline);
+            expect(await digestOf(shapePath), 'widening a constraint bound IS a capability change and must move the digest')
+                .not.toBe(baseline)
         })
     })
 });
