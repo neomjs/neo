@@ -91,6 +91,21 @@ test.describe('ToolService advertised-surface digest', () => {
         expect(reworded).toBe(withDescription)
     });
 
+    test('the digest covers the projected listing shape — prose leaking into a listed schema moves it (#16588)', () => {
+        // With compactToolSchemas the listing is prose-free by construction, so schema descriptions
+        // can no longer move this digest. The canary for the regression direction: if prose ever
+        // reappears IN the list payload, the digest must shift — a silent reintroduction fails here.
+        const stripped = serviceWith([
+            {name: 'alpha', inputSchema: {type: 'object', properties: {a: {type: 'string'}}}}
+        ]).getAdvertisedSurfaceDigest();
+
+        const withProse = serviceWith([
+            {name: 'alpha', inputSchema: {type: 'object', properties: {a: {type: 'string', description: 'prose that must never ride the listing'}}}}
+        ]).getAdvertisedSurfaceDigest();
+
+        expect(withProse).not.toBe(stripped)
+    });
+
     test('tool order and object-key order do not change the digest', () => {
         const ordered = serviceWith([
             {name: 'alpha', inputSchema: {type: 'object', properties: {a: {type: 'string'}}}},

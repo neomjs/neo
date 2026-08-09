@@ -43,6 +43,15 @@ class ToolService_tmp extends Base {
          */
         compactToolDescriptions: false,
         /**
+         * Strips `description` prose from the schemas emitted through `tools/list`, recursively,
+         * while preserving every shape-bearing key — `description` is a JSON Schema annotation and
+         * is never asserted, so the projected schema validates the identical accept/reject set.
+         * The fully-described schema relocates into `getToolHandbook()` — relocated, not deleted.
+         * Sibling of `compactToolDescriptions`: same default-off, same per-server opt-in.
+         * @member {Boolean} compactToolSchemas=false
+         */
+        compactToolSchemas: false,
+        /**
          * Maximum description length emitted through compact `tools/list`.
          * @member {Number} toolListDescriptionMaxLength=160
          */
@@ -201,16 +210,33 @@ class ToolService_tmp extends Base {
                     };
                     me.toolMapping[toolName] = tool;
                     me.toolProjectionTiers[toolName] = toolTier;
-                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription);
+                    // The prose/schema split: the listing carries shape only when compaction is on,
+                    // and the handbook is where the fully-described schema lives — the same lazy
+                    // surface the compacted operation description already defers to. The described
+                    // originals are never mutated; the listing gets fresh projected objects.
+                    me.toolHandbookMapping[toolName] = me.buildToolHandbookEntry(toolName, operation, fullDescription,
+                        me.compactToolSchemas
+                            ? {inputSchema: inputJsonSchema, outputSchema: outputJsonSchema}
+                            : null
+                    );
+
+                    const listedInputSchema = me.compactToolSchemas
+                        ? me.stripSchemaDescriptions(inputJsonSchema)
+                        : inputJsonSchema;
+
+                    let listedOutputSchema = outputJsonSchema;
+                    if (me.compactToolSchemas && outputJsonSchema !== null) {
+                        listedOutputSchema = me.stripSchemaDescriptions(outputJsonSchema)
+                    }
 
                     const toolForListing = {
                         name       : tool.name,
                         title      : tool.title,
                         description: tool.description,
-                        inputSchema: inputJsonSchema
+                        inputSchema: listedInputSchema
                     };
-                    if (outputJsonSchema !== null) {
-                        toolForListing.outputSchema = outputJsonSchema;
+                    if (listedOutputSchema !== null) {
+                        toolForListing.outputSchema = listedOutputSchema;
                     }
                     if (operation['x-annotations'] !== null) {
                         toolForListing.annotations = operation['x-annotations'];
@@ -339,19 +365,91 @@ class ToolService_tmp extends Base {
     }
 
     /**
+     * @summary Projects a JSON Schema for `tools/list` by removing every annotation-position
+     * `description` — position-aware, never key-name-blind.
+     *
+     * `description` is an annotation ONLY where a schema object carries it. The walker descends
+     * exclusively into schema-valued positions — the `properties` / `$defs` / `patternProperties` /
+     * `dependentSchemas` maps, the `items` / `contains` / `additionalProperties` / `not` / `if` /
+     * `then` / `else` subschemas, and the `oneOf` / `anyOf` / `allOf` / `prefixItems` arrays —
+     * and copies everything else verbatim. Three failure modes are excluded by construction:
+     *
+     * - an APPLICATION property named `description` (a key under `properties`) is data, not an
+     *   annotation: the property declaration survives; only its own annotation is stripped;
+     * - object-valued assertion data (`enum`, `const`, `default`, `examples`) is never descended
+     *   into, so a `description` key inside a default value survives untouched;
+     * - a keyword the walker does not know is copied rather than recursed, so the next schema
+     *   feature the contract adopts cannot be silently mangled — at worst its prose stays.
+     *
+     * Returns fresh objects — the described input is never mutated, because the handbook surface
+     * keeps it (the prose is relocated, not deleted).
+     * @param {*} schema
+     * @returns {*}
+     * @protected
+     */
+    stripSchemaDescriptions(schema) {
+        if (!schema || typeof schema !== 'object') {
+            return schema
+        }
+
+        if (Array.isArray(schema)) {
+            return schema.map(item => this.stripSchemaDescriptions(item))
+        }
+
+        const
+            SCHEMA_MAP_KEYS   = new Set(['properties', '$defs', 'patternProperties', 'dependentSchemas']),
+            SUBSCHEMA_KEYS    = new Set(['items', 'additionalItems', 'additionalProperties', 'unevaluatedProperties', 'contains', 'propertyNames', 'not', 'if', 'then', 'else']),
+            SCHEMA_ARRAY_KEYS = new Set(['oneOf', 'anyOf', 'allOf', 'prefixItems']),
+            projected         = {};
+
+        for (const [key, value] of Object.entries(schema)) {
+            if (key === 'description') {
+                continue // the annotation at THIS schema position
+            }
+
+            if (value && typeof value === 'object') {
+                if (SCHEMA_MAP_KEYS.has(key)) {
+                    projected[key] = Object.fromEntries(
+                        Object.entries(value).map(([name, subschema]) => [name, this.stripSchemaDescriptions(subschema)])
+                    );
+                    continue
+                }
+
+                if (SUBSCHEMA_KEYS.has(key)) {
+                    projected[key] = this.stripSchemaDescriptions(value);
+                    continue
+                }
+
+                if (SCHEMA_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+                    projected[key] = value.map(subschema => this.stripSchemaDescriptions(subschema));
+                    continue
+                }
+            }
+
+            // type / required / enum / const / default / format / $ref / unknown keys: verbatim.
+            projected[key] = value
+        }
+
+        return projected
+    }
+
+    /**
      * @summary Builds one lazy-loaded handbook entry from OpenAPI metadata.
      * @param {String} toolName        The operation id.
      * @param {Object} operation       Parsed OpenAPI operation.
      * @param {String} fullDescription Full operation description fallback.
+     * @param {Object|null} [schemas]  The fully-described JSON schemas (`{inputSchema, outputSchema}`),
+     *     passed only when `compactToolSchemas` stripped them from the listing — the prose is
+     *     relocated here, never deleted. `null` keeps the pre-compaction entry shape byte-identical.
      * @returns {Object}
      * @protected
      */
-    buildToolHandbookEntry(toolName, operation, fullDescription) {
+    buildToolHandbookEntry(toolName, operation, fullDescription, schemas=null) {
         const
             dedicated = operation['x-neo-tool-handbook'],
             handbook  = dedicated || fullDescription || operation.summary || toolName;
 
-        return {
+        const entry = {
             toolId     : toolName,
             found      : true,
             title      : operation.summary || toolName,
@@ -359,6 +457,16 @@ class ToolService_tmp extends Base {
             handbook,
             source     : dedicated ? 'x-neo-tool-handbook' : (operation.description ? 'description' : 'summary')
         };
+
+        if (schemas) {
+            entry.inputSchema = schemas.inputSchema;
+
+            if (schemas.outputSchema !== null) {
+                entry.outputSchema = schemas.outputSchema
+            }
+        }
+
+        return entry
     }
 
     /**
@@ -554,7 +662,21 @@ class ToolService_tmp extends Base {
 
         const canonicalSurface = me.getToolsForProjection(toolProjection)
             .filter(Boolean)
-            .map(tool => ({name: tool.name, inputSchema: tool.inputSchema ?? null}))
+            .map(tool => {
+                let inputSchema = tool.inputSchema ?? null;
+
+                // The digest's axis is capability reachability, never copy-freshness. With schema
+                // compaction on, hash the VALIDATION SHAPE (annotation prose stripped) even when a
+                // route deliberately lists prose — the exact-profile exception keeps its constraint
+                // documentation on the listing because the handbook is policy-refused there, and a
+                // docs-only reword must not read as a capability change. Idempotent on the default
+                // route, whose listed schemas are already projected.
+                if (me.compactToolSchemas && inputSchema) {
+                    inputSchema = me.stripSchemaDescriptions(inputSchema)
+                }
+
+                return {name: tool.name, inputSchema};
+            })
             .sort((lhs, rhs) => lhs.name < rhs.name ? -1 : lhs.name > rhs.name ? 1 : 0);
 
         return crypto.createHash('sha256').update(me.canonicalize(canonicalSurface)).digest('hex').slice(0, 12)
@@ -580,6 +702,12 @@ class ToolService_tmp extends Base {
             return Object.entries(exactProfile.tools).map(([toolName, profileTool]) => {
                 const tool = me.allToolsForListing.find(candidate => candidate.name === toolName);
 
+                // Exact-profile schemas are served DESCRIBED by design, compaction or not: a
+                // profile is a curated minimal surface (local-readonly-probe exposes 3 tools),
+                // and `get_mcp_tool_handbook` itself is policy-refused inside the projection —
+                // so the listing is the ONLY surface where the profile's constraint prose
+                // (depth bounds, forced flags) can reach a projected seat. Compaction targets
+                // the full default listing, never these.
                 return profileTool.inputJsonSchema
                     ? {...tool, inputSchema: profileTool.inputJsonSchema}
                     : tool;

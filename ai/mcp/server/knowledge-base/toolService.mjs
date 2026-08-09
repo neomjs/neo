@@ -81,7 +81,8 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
-    compactToolDescriptions     : true,
+    compactToolDescriptions: true,
+    compactToolSchemas     : true,
     // The server config owns the OpenAPI-contract path (default + the test-isolation env
     // binding) — consumed at the use site, never re-derived from env here.
     openApiFilePath             : kbConfig.openApiPath,
