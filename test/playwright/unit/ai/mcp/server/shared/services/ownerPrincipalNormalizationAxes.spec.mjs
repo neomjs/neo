@@ -172,6 +172,37 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         expect(source).toContain('if (info.userId !== pinnedProviderSubject)')
     });
 
+    test('FIRST WRITE: the durable graph key is the mutable login, and the stable id rides along as a property', async () => {
+        const
+            {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs'),
+            serverSource                   = await fs.readFile(path.join(process.cwd(), 'ai/mcp/server/memory-core/Server.mjs'), 'utf8');
+
+        // The real derivation, imported rather than replicated — it is a pure module.
+        expect(normalizeAgentIdentityNodeId('octocat')).toBe('@octocat');
+
+        // A provider-side rename is a DIFFERENT durable node. Everything written under the old
+        // id stays there; the same human resumes with an empty history. This is the re-key the
+        // principal design exists to prevent, and it is the CURRENT behaviour rather than a
+        // risk the principal would introduce.
+        expect(normalizeAgentIdentityNodeId('octodog')).not.toBe(normalizeAgentIdentityNodeId('octocat'));
+
+        // The derivation takes ONE argument and no provider coordinate, so the durable key
+        // structurally cannot carry the stable id — this is not a defaulting choice that could
+        // be flipped by passing something else.
+        expect(normalizeAgentIdentityNodeId).toHaveLength(1);
+
+        // Source-anchored (Server.mjs is a service class): the auto-provisioner keys the node on
+        // the authenticated userId, while persisting the immutable provider id as a PROPERTY of
+        // that same row. BOUND: proves what the file declares, not what a request executes.
+        expect(serverSource).toContain('graphNodeId = normalizeAgentIdentityNodeId(userId)');
+        expect(serverSource).toContain('providerUserId     : reqAuth.providerUserId == null ? undefined : String(reqAuth.providerUserId)');
+
+        // Which is the migration-feasibility fact: every already-provisioned row carries the
+        // stable coordinate, so a re-key can be derived from persisted data without re-contacting
+        // the provider. Whether to freeze or version normalization is a different question, but
+        // it is not gated on data we would have to go and collect.
+    });
+
     test('case is significant here and INSIGNIFICANT for agent identity — one system, two rules', async () => {
         const {parseAgentList} = await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
 
