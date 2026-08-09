@@ -83,7 +83,8 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
             properties : {
                 name: {type: 'string', description: 'name prose'},
                 tags: {type: 'array', description: 'tags prose', items: {type: 'string', description: 'item prose'}},
-                mode: {enum: ['a', 'b'], description: 'mode prose', default: 'a'}
+                mode: {enum: ['a', 'b'], description: 'mode prose', default: 'a'},
+                refd: {$ref: '#/$defs/entry', description: 'ref prose'}
             },
             required            : ['name'],
             additionalProperties: {type: 'number', description: 'ap prose'},
@@ -99,7 +100,8 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
             properties: {
                 name: {type: 'string'},
                 tags: {type: 'array', items: {type: 'string'}},
-                mode: {enum: ['a', 'b'], default: 'a'}
+                mode: {enum: ['a', 'b'], default: 'a'},
+                refd: {$ref: '#/$defs/entry'}
             },
             required            : ['name'],
             additionalProperties: {type: 'number'},
@@ -120,7 +122,7 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
                   stripped = service.stripSchemaDescriptions(DESCRIBED);
 
             expect(stripped).not.toBe(DESCRIBED);
-            expect(collectDescriptions(DESCRIBED)).toHaveLength(8)
+            expect(collectDescriptions(DESCRIBED)).toHaveLength(9)
         });
 
         test('arrays and scalars pass through; null stays null', () => {
@@ -266,10 +268,11 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
     });
 
     test.describe('every listing route rides the projection — production-bound witnesses', () => {
-        test('the exact-profile route (neural-link local-readonly-probe) lists compact schemas; the handbook keeps the prose', async () => {
-            // The bypass this pins: the exact-profile branch swaps in the profile's constrained
-            // schema — if that swap skips the projection, a harness-projected seat gets the full
-            // prose payload the flag exists to keep off the wire.
+        test('the exact-profile route keeps its prose BY DESIGN — the handbook is policy-refused inside the projection', async () => {
+            // The architectural exception: a profile is a curated minimal surface, and its
+            // constraint prose (depth bounds, forced flags) must reach the projected seat — but
+            // the handbook tool is not part of the profile, so the listing is the ONLY surface
+            // that can carry it. Compaction therefore targets the default listing, never this one.
             const service = Neo.create(ToolService, {
                     compactToolSchemas: true,
                     openApiFilePath   : path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'),
@@ -280,11 +283,14 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
 
             expect(tools.length).toBeGreaterThan(0);
             expect(tree, 'get_component_tree is inside the local-readonly-probe profile').toBeTruthy();
-            expect(collectDescriptions(tree.inputSchema)).toEqual([]);
+            expect(
+                collectDescriptions(tree.inputSchema).length,
+                'the profile schema keeps its prose — a projected seat has no other surface for it'
+            ).toBeGreaterThan(0);
 
-            const handbook = service.getToolHandbook('get_component_tree');
-
-            expect(collectDescriptions(handbook.inputSchema).length).toBeGreaterThan(0)
+            // the exception's premise, asserted: the handbook is genuinely unreachable in-profile
+            expect(() => service.assertToolProjectionAllows('get_mcp_tool_handbook', 'local-readonly-probe'))
+                .toThrow(/not visible in the local-readonly-probe projection/)
         });
 
         test('the advertised-surface digest is computed over the SAME projected objects the listing emits', async () => {

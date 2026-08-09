@@ -688,16 +688,14 @@ class ToolService_tmp extends Base {
             return Object.entries(exactProfile.tools).map(([toolName, profileTool]) => {
                 const tool = me.allToolsForListing.find(candidate => candidate.name === toolName);
 
-                // The profile's constrained schema replaces the default one — and must ride the
-                // SAME prose projection as the default listing, or a harness-projected seat gets
-                // the full description payload the compaction exists to keep off the wire.
+                // Exact-profile schemas are served DESCRIBED by design, compaction or not: a
+                // profile is a curated minimal surface (local-readonly-probe exposes 3 tools),
+                // and `get_mcp_tool_handbook` itself is policy-refused inside the projection —
+                // so the listing is the ONLY surface where the profile's constraint prose
+                // (depth bounds, forced flags) can reach a projected seat. Compaction targets
+                // the full default listing, never these.
                 return profileTool.inputJsonSchema
-                    ? {
-                        ...tool,
-                        inputSchema: me.compactToolSchemas
-                            ? me.stripSchemaDescriptions(profileTool.inputJsonSchema)
-                            : profileTool.inputJsonSchema
-                    }
+                    ? {...tool, inputSchema: profileTool.inputJsonSchema}
                     : tool;
             });
         }
