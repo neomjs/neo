@@ -1296,6 +1296,56 @@ export function calculateDockerMemoryPercent(stats) {
     return (usage / limit) * 100;
 }
 
+/**
+ * @summary Old-generation usage against the ceiling the process was DECLARED with — the ratio a Node
+ * service actually dies on.
+ *
+ * **Both terms are moved, not just made more precise.** `calculateDockerMemoryPercent` above pairs
+ * container usage with the container limit; that pair is honest about container pressure and says
+ * nothing about a heap. Using it to anticipate a heap death is a cross-scope ratio: the process aborts
+ * when V8 old space reaches `--max-old-space-size`, while container usage at that instant is the
+ * ceiling *plus* young generation, native allocations, the binary and off-heap `Buffer`s. Measured on
+ * this deployment, a 768 MiB ceiling under a 1 GiB limit at a 90% threshold means the container fact
+ * can only fire first if that non-heap remainder reaches **153.6 MiB and sustains** — so the detector's
+ * sensitivity to a heap death is a function of NON-heap memory. It protects a bloated service and
+ * misses a lean one. That inversion is why the numerator had to change scope rather than the threshold
+ * change value.
+ *
+ * **The denominator is the DECLARED ceiling and never `heapSizeLimitBytes`.** The reported limit is the
+ * obvious V8-scoped candidate and it is a trap that would reproduce this defect one layer in, wearing a
+ * V8-scoped name: it sits **above** the declaration by exactly `3 × max-semi-space-size`, and V8 sizes
+ * the semi-space from the memory limit it detects at startup — `+3 / +48 / +96 / +192` MiB at a
+ * 512m / 1g / 2g / 4g cgroup, saturating. At the shipped configuration that is 816 against a declared
+ * 768: a 6.25% overstatement of headroom the process does not have. The offset cannot be corrected for,
+ * because it is a stepped function of a limit this code neither sets nor reads.
+ *
+ * **Fail-closed on anything but a declared ceiling.** `undeclared` and `ambiguous` both yield `null`
+ * rather than a substituted bound: a process with no observable declaration has no denominator, and
+ * inventing one would put a number nobody measured inside the evidence a heal decision reads. `null`
+ * means "not computable here", never "healthy" — the caller must not coerce it.
+ *
+ * @param {Object|null} observation A `process-heap-observation` record's `observation` payload.
+ * @returns {Number|null} Percent of the declared old-generation ceiling in use, or `null`.
+ */
+export function calculateHeapSaturationPercent(observation) {
+    if (!observation || observation.state !== 'observed' || observation.ceilingState !== 'declared') {
+        return null;
+    }
+
+    const
+        // Old generation ONLY. `usedHeapBytes` folds in the young generation, which is collected on a
+        // different cadence and bounded by a different flag, so it would move the numerator for
+        // reasons unrelated to the exhaustion this ratio exists to anticipate.
+        usedBytes    = Number(observation.oldGenerationUsedBytes),
+        ceilingBytes = Number(observation.declaredCeilingBytes);
+
+    if (!Number.isFinite(usedBytes) || !Number.isFinite(ceilingBytes) || usedBytes < 0 || ceilingBytes <= 0) {
+        return null;
+    }
+
+    return (usedBytes / ceilingBytes) * 100;
+}
+
 function normalizeStatsSamples({stats, statsSamples}) {
     if (Array.isArray(statsSamples)) {
         return statsSamples.filter(sample => sample && typeof sample === 'object');

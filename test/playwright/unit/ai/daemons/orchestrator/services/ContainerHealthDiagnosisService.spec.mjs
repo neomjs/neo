@@ -18,8 +18,34 @@ import {
     evaluateRestartChurn,
     calculateDockerCpuPercent,
     calculateDockerMemoryPercent,
+    calculateHeapSaturationPercent,
     classifyHeapExhaustion
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
+
+/**
+ * A `process-heap-observation` payload as the shipped collector emits it. The defaults are the real
+ * shipped configuration — 768 MiB declared under a 1 GiB cgroup reporting an 816 MiB limit — because
+ * the whole point of the ratio below is which of those two numbers it divides by, and a fixture where
+ * they coincide could not tell the two implementations apart.
+ */
+function heapObservation({
+    oldGenerationUsedBytes = 384 * 1024 * 1024,
+    declaredCeilingBytes   = 768 * 1024 * 1024,
+    heapSizeLimitBytes     = 816 * 1024 * 1024,
+    usedHeapBytes          = 500 * 1024 * 1024,
+    ceilingState           = 'declared',
+    state                  = 'observed'
+} = {}) {
+    return {
+        state,
+        ceilingState,
+        declaredCeilingBytes,
+        heapSizeLimitBytes,
+        usedHeapBytes,
+        oldGenerationUsedBytes,
+        unavailableReason: state === 'observed' ? null : 'heap-stats-unreadable'
+    };
+}
 
 const OBSERVED_AT = 1710000000000;
 
@@ -78,6 +104,109 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         expect(calculateDockerCpuPercent(stats)).toBe(280);
         expect(calculateDockerMemoryPercent(stats)).toBe(75);
+    });
+
+    test.describe('calculateHeapSaturationPercent — the V8-scoped numerator (#16630 Slice B)', () => {
+        test('divides old-generation usage by the DECLARED ceiling', () => {
+            // 384 of 768 MiB declared = 50%. Against the 816 MiB reported limit it would be 47.06%,
+            // so this single assertion separates the two candidate denominators.
+            expect(calculateHeapSaturationPercent(heapObservation())).toBe(50);
+        });
+
+        test('does NOT use heapSizeLimitBytes, however plausible it looks', () => {
+            // The trap this AC exists to block: the reported limit is the obvious V8-scoped candidate
+            // and sits ABOVE the declaration by 3 x max-semi-space-size — 816 vs 768 at the shipped
+            // configuration, a 6.25% overstatement of headroom the process does not have. Moving the
+            // implementation to that field yields 47.058..., which this pins out.
+            const percent = calculateHeapSaturationPercent(heapObservation({
+                oldGenerationUsedBytes: 384 * 1024 * 1024,
+                declaredCeilingBytes  : 768 * 1024 * 1024,
+                heapSizeLimitBytes    : 816 * 1024 * 1024
+            }));
+
+            expect(percent).toBe(50);
+            expect(percent).not.toBeCloseTo(47.06, 2);
+        });
+
+        test('the numerator is OLD generation, not total used heap', () => {
+            // usedHeapBytes folds in the young generation, collected on a different cadence and
+            // bounded by a different flag — it would move the ratio for reasons unrelated to the
+            // exhaustion this anticipates. 384 old vs 500 used heap: 50% and not 65.1%.
+            expect(calculateHeapSaturationPercent(heapObservation({
+                oldGenerationUsedBytes: 384 * 1024 * 1024,
+                usedHeapBytes         : 500 * 1024 * 1024
+            }))).toBe(50);
+        });
+
+        test('an UNDECLARED ceiling is null — no substituted bound', () => {
+            // The production incident behind this rule: no --max-old-space-size declared, V8 chose a heuristic
+            // ~560 MiB inside a 1 GiB container and aborted with ~460 MiB unused. A process with no
+            // observable declaration has no denominator, and inventing one would put a number nobody
+            // measured inside the evidence a heal decision reads.
+            expect(calculateHeapSaturationPercent(heapObservation({
+                ceilingState        : 'undeclared',
+                declaredCeilingBytes: null
+            }))).toBeNull();
+        });
+
+        test('an AMBIGUOUS ceiling is null rather than a pick', () => {
+            expect(calculateHeapSaturationPercent(heapObservation({
+                ceilingState        : 'ambiguous',
+                declaredCeilingBytes: null
+            }))).toBeNull();
+        });
+
+        test('an INCONSISTENT record is refused on ceilingState, not rescued by its bytes', () => {
+            // The only case the `ceilingState` gate catches on its own, and it exists because this
+            // record crosses a PROCESS boundary: the reader parses a file another container wrote.
+            // The shipped collector can never emit this pair — `readDeclaredCeiling` returns null
+            // bytes for every non-declared state — but a stale, hand-placed or version-skewed record
+            // can carry a leftover finite ceiling beside a non-declared state, and the bridge
+            // validates recordType, serviceKey and stamp without checking the payload's internal
+            // consistency. Dropping the gate makes this record compute 50% off a ceiling the process
+            // did not declare.
+            //
+            // Written after a mutation FAILED to red: the fixtures above pin `declaredCeilingBytes`
+            // to null whenever `ceilingState` is not `declared`, so the finite-number check masked
+            // the gate and the suite proved nothing about it.
+            expect(calculateHeapSaturationPercent({
+                state                 : 'observed',
+                ceilingState          : 'ambiguous',
+                declaredCeilingBytes  : 768 * 1024 * 1024,
+                oldGenerationUsedBytes: 384 * 1024 * 1024,
+                heapSizeLimitBytes    : 816 * 1024 * 1024
+            })).toBeNull();
+        });
+
+        test('an unavailable observation is null, never a zero', () => {
+            // A process whose heap could not be read has not reported an empty heap. Coercing an
+            // unreadable instrument to 0 manufactures affirmative evidence of headroom out of a
+            // broken one.
+            const percent = calculateHeapSaturationPercent(heapObservation({
+                state                 : 'unavailable',
+                oldGenerationUsedBytes: null
+            }));
+
+            expect(percent).toBeNull();
+            expect(percent).not.toBe(0);
+        });
+
+        test('an absent observation is null, not a throw', () => {
+            // The live plane emits no observation at all for a service whose reporter is not deployed.
+            expect(calculateHeapSaturationPercent(null)).toBeNull();
+            expect(calculateHeapSaturationPercent(undefined)).toBeNull();
+        });
+
+        test('a zero or negative ceiling cannot produce Infinity', () => {
+            expect(calculateHeapSaturationPercent(heapObservation({declaredCeilingBytes: 0}))).toBeNull();
+            expect(calculateHeapSaturationPercent(heapObservation({declaredCeilingBytes: -1}))).toBeNull();
+        });
+
+        test('a fully exhausted old generation reports 100, not a clamp', () => {
+            expect(calculateHeapSaturationPercent(heapObservation({
+                oldGenerationUsedBytes: 768 * 1024 * 1024
+            }))).toBe(100);
+        });
     });
 
     test('keeps probe-only failures advisory', () => {
