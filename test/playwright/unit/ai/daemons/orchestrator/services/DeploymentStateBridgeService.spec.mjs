@@ -2044,10 +2044,15 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
                 }
             };
 
-            const snapshot = await createService({runtimeAccessService, diagnosisService})
-                .collectSnapshot({generatedAt: OBSERVED_AT});
+            // `collectServiceSnapshot`, NOT `collectSnapshot`: the latter PERSISTS the
+            // deployment-state snapshot to the configured path, and `McpServerListToolsSmoke`
+            // reads that same worker-local artifact and asserts its boundary segment. A control
+            // for a non-effect has no business writing a file the rest of the suite reads — the
+            // per-service method returns the identical record without the side effect.
+            const service = await createService({runtimeAccessService, diagnosisService})
+                .collectServiceSnapshot({serviceKey: 'mc-server', observedAt: OBSERVED_AT});
 
-            return {diagnoseArgs, service: snapshot.services[0]}
+            return {diagnoseArgs, service}
         };
 
         let asNode, asNonNode;
