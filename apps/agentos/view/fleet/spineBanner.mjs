@@ -41,6 +41,24 @@
  * the exact lie the retained reason exists to prevent. Pairing each state with its own reason makes
  * that unrepresentable rather than merely fixed: the line reports the cause of the surface that
  * actually decided the verdict.
+ *
+ * ## The connection axis — typed remote-connection states
+ *
+ * A cockpit is a CLIENT of its fleet truth, and the connection itself has states the generic
+ * ladder could not name: `connecting` (a read is in flight and nothing has answered yet — never
+ * "server offline"), `refused` (the plane NAMED a refusal — never a generic offline), `slow`
+ * (the plane answers, past the read bound — a wait, not an incident), `unreachable` (no route —
+ * investigate the plane, not the cockpit), and `failed-upstream` (the plane's own surface is
+ * failing — investigate plane-side). The vocabulary types them because the operator action
+ * differs per state, and "degraded" alone cannot carry "wait" apart from "investigate".
+ * `refused` ships contract-first: the render row and its discipline land here, the refusal
+ * producer arrives with the admission layer (S2) — same contract-before-producer shape as the
+ * throttle axis.
+ *
+ * **The banner never summarizes seat presence, and presence cards never summarize the
+ * connection.** They answer different questions — connection-level truth here, seat-level truth
+ * on the cards — so a "live" banner over all-unknown presence rows is not a contradiction, and
+ * neither is the reverse. The two surfaces render side by side and neither derives from the other.
  */
 
 /**
@@ -111,6 +129,65 @@ function coldFallbackFor(transport) {
 }
 
 /**
+ * @summary Picks the connection-axis line for the COLD verdict — the typed remote-connection
+ * states, consulted before any topology guess.
+ *
+ * `connecting` and `refused` outrank every generic fallback: a read in flight is not "server
+ * offline", and a NAMED refusal must never render as one either. `unreachable` types "no route"
+ * apart from the shell's local boot cases (its own ladder below) — the operator investigates the
+ * plane, not the cockpit. `null` (no connection fact — the caller has not classified one) falls
+ * through to the topology-owned fallback, unchanged.
+ * @param {Object|null} connection The owner-held connection fact `{state, reason}`.
+ * @param {Object|null} transport The shell transport-boot fact (see {@link coldFallbackFor}).
+ * @returns {String}
+ * @private
+ */
+function coldLineFor(connection, transport) {
+    if (connection?.state === 'connecting') {
+        return 'Connecting to the fleet plane — roster loading'
+    }
+
+    if (connection?.state === 'refused') {
+        return `The fleet plane refused this viewer${connection.reason ? ` · ${connection.reason}` : ''}`
+    }
+
+    if (connection?.state === 'unreachable') {
+        return `The fleet plane is unreachable${connection.reason ? ` · ${connection.reason}` : ' — no route answered'}`
+    }
+
+    return coldFallbackFor(transport)
+}
+
+/**
+ * @summary Picks the connection-axis line for the DEGRADED verdict — typing "wait" apart from
+ * "investigate". The deciding surface's retained reason ALWAYS rides the line (it is the
+ * cause); the connection state sets the PREFIX — a plane that answers past the read bound is
+ * slow (the operator waits), a plane whose own surface fails is a plane-side incident, and
+ * "no route" is named apart from both.
+ * @param {Object|null} connection The owner-held connection fact `{state, reason}`.
+ * @param {String|null} reason The deciding surface's retained reason.
+ * @returns {String}
+ * @private
+ */
+function degradedLineFor(connection, reason) {
+    const suffix = reason ? ` · ${reason}` : '';
+
+    if (connection?.state === 'slow') {
+        return `The fleet plane is slow — showing last-known data${suffix}${reason ? ' · safe to wait' : ' — the read beat its bound; safe to wait'}`
+    }
+
+    if (connection?.state === 'unreachable') {
+        return `The fleet plane is unreachable — showing last-known data${suffix || ' — no route answered'}`
+    }
+
+    if (connection?.state === 'failed-upstream') {
+        return `The fleet plane's surface is failing — showing last-known data${suffix}`
+    }
+
+    return `Fleet feed degraded — showing last-known data${suffix}`
+}
+
+/**
  * @summary Derives the spine banner from the owner-held surface truths.
  * @param {Object} options
  * @param {{state: String, reason: ?String}} options.grid The roster surface: `'sample'|'stale'|'live'`
@@ -122,10 +199,14 @@ function coldFallbackFor(transport) {
  * @param {Object|null} [options.transport] The shell transport-boot fact (see {@link coldFallbackFor}).
  *     Optional and `null`-safe — only the cold fallback consults it, so a retained surface reason
  *     still outranks any topology guess.
+ * @param {{state: String, reason: ?String}|null} [options.connection] The owner-held connection
+ *     fact: `'connecting'|'refused'|'unreachable'|'slow'|'failed-upstream'` plus its cause.
+ *     Optional and `null`-safe — types the remote-connection states the generic ladder cannot
+ *     name; never summarizes seat presence (the cards' axis, not this one's).
  * @returns {{hidden: Boolean, kind: String, text: String}} `kind` is `'live'|'cold'|'degraded'`
  *     — the class hook; `hidden` is `true` only for the fully live spine.
  */
-export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
+export function deriveSpineBanner({connection = null, daemon, grid, stream, transport = null}) {
     const surfaces = [grid, stream],
           states   = surfaces.map(surface => surface?.state);
 
@@ -139,11 +220,12 @@ export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
             // one, guess only when it does not. A reachable server whose source is unconfigured
             // answers `not-wired` — the seed stays, so the data really is sample, but "start the
             // server" would be advice to restart a process that just replied. The fallback for
-            // SILENCE is topology-owned: the shell's transport fact picks the honest line, and
-            // only the plain-browser flow keeps the classic "start the server" advice.
+            // SILENCE is connection-typed first (connecting/refused/unreachable), then
+            // topology-owned: the shell's transport fact picks the honest line, and only the
+            // plain-browser flow keeps the classic "start the server" advice.
             text: reason
                 ? `Fleet data unavailable — showing the static roster · ${reason}`
-                : coldFallbackFor(transport)
+                : coldLineFor(connection, transport)
         }
     }
 
@@ -178,9 +260,7 @@ export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
         return {
             hidden: false,
             kind  : 'degraded',
-            text  : reason
-                ? `Fleet feed degraded — showing last-known data · ${reason}`
-                : 'Fleet feed degraded — showing last-known data'
+            text  : degradedLineFor(connection, reason)
         }
     }
 
