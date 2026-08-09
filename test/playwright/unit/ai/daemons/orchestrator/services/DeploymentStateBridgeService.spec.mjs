@@ -1974,6 +1974,21 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
         expect(result.observation).toBeNull();
     });
 
+    test('an UNKNOWN identity refuses too, but does NOT claim to be non-Node', () => {
+        // Both refuse — the gate is `nodeCommand !== true` and that is correct. But the REASON must
+        // not collapse them: `not-node` is a positive claim that the service has no heap, while a
+        // null `nodeCommand` only means the inspect could not be read. A consumer that reads the
+        // refusal as a classification lets an unknown service inherit non-Node authority, which is
+        // exactly how an unreadable inspect produced an authoritative container-scoped
+        // memory-saturation downstream.
+        const result = read(write(makeDir(), 'mc-server', OBSERVED - 1_000), {nodeCommand: null});
+
+        expect(result.status).toBe('unavailable');
+        expect(result.unavailableReason).toBe('identity-unknown');
+        expect(result.unavailableReason).not.toBe('not-node');
+        expect(result.observation).toBeNull();
+    });
+
     test('a record written by a DIFFERENT service is refused, not attributed', () => {
         const dir = makeDir();
 
