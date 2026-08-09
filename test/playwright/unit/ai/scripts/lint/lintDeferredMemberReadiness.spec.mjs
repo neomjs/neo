@@ -2,19 +2,40 @@ import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
 import path           from 'path';
 import {
-    classifyLine,
     deferredMembersOf,
     diffRegistry,
     discoverViolations,
     findMethodRanges,
     isGuardTestLine,
     methodAt,
-    readShape,
+    receiverAliases,
     registryGrowthProblems,
+    stripSource,
     typedGuardMembers,
     unresolvedWitnessPaths,
-    validateEntry
+    validateEntry,
+    violationsInSource
 } from '../../../../../../ai/scripts/lint/lint-deferred-member-readiness.mjs';
+
+/**
+ * Runs the scanner over synthetic source with a standard deferred member.
+ *
+ * @summary Every falsifier below is a whole-file probe rather than a unit call on one helper,
+ * because the defects @neo-gpt-emmy found lived in the INTERACTION — a method range that closed
+ * early made reads vanish without any single helper being wrong.
+ * @param {String} body Class body after `initAsync`.
+ * @returns {Object[]}
+ */
+function probe(body) {
+    return violationsInSource('probe.mjs', [
+        'class Probe {',
+        '    async initAsync() {',
+        '        this.db = await build();',
+        '    }',
+        ...body.split('\n'),
+        '}'
+    ])
+}
 
 const
     ROOT_DIR = path.resolve(process.cwd()),
@@ -182,28 +203,39 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
 
     test.describe('shape classification', () => {
         test('a guard behind a boolean operator is truthy-skip, not bare-read', () => {
-            // The first revision anchored on `if (this.x)` and read this as an unguarded crash risk.
-            const body = 'if (!config.enabled || !this.db) return null;\nthis.db.prepare(sql);';
-
-            expect(readShape('this.db.prepare(sql);', body, 'db')).toBe('truthy-skip');
+            // An earlier revision anchored on `if (this.x)` and read this as an unguarded crash risk
+            // — a guarded site reported as a defect. A guard is a guard wherever it sits.
+            expect(probe([
+                '    read() {',
+                '        if (!config.enabled || !this.db) return null;',
+                '        return this.db.prepare(sql);',
+                '    }'
+            ].join('\n'))[0].shape).toBe('truthy-skip');
         });
 
         test('a `this.x && …` guard needs no `if` to count', () => {
-            const body = 'this.db && this.db.close();';
-
-            expect(readShape('this.db && this.db.close();', body, 'db')).toBe('truthy-skip');
+            expect(probe([
+                '    close() {',
+                '        this.db && this.db.close();',
+                '    }'
+            ].join('\n'))[0].shape).toBe('truthy-skip');
         });
 
         test('an unguarded read is bare-read', () => {
-            const body = 'const row = this.db.prepare(sql).get();';
-
-            expect(readShape(body, body, 'db')).toBe('bare-read');
+            expect(probe([
+                '    read() {',
+                '        const row = this.db.prepare(sql).get();',
+                '        return row;',
+                '    }'
+            ].join('\n'))[0].shape).toBe('bare-read');
         });
 
         test('an optional chain is its own shape', () => {
-            const body = 'return this.loop?.start();';
-
-            expect(readShape(body, body, 'loop')).toBe('optional-chain');
+            expect(probe([
+                '    start() {',
+                '        return this.db?.start();',
+                '    }'
+            ].join('\n'))[0].shape).toBe('optional-chain');
         });
 
         test('the guard\'s own test line is not cited as the violation', () => {
@@ -262,6 +294,18 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
             expect(registryGrowthProblems({accepted: 40, baseline: 39}).join(' ')).toContain('the registry GREW');
         });
 
+        test('RED — a missing or malformed baseline is an ERROR, not a silent pass', () => {
+            // An earlier revision skipped the ratchet when the value was absent, so deleting one line
+            // from the registry disabled the growth gate with nothing red anywhere. A carve-out that
+            // quiets a guard opens a channel nobody is watching.
+            for (const baseline of [undefined, null, '72', 39.5]) {
+                expect(
+                    registryGrowthProblems({accepted: 72, baseline}).join(' '),
+                    `baseline ${JSON.stringify(baseline)} must not disable the ratchet`
+                ).toContain('no valid integer')
+            }
+        });
+
         test('the ratchet permits SHRINKAGE, which equality would have blocked', () => {
             expect(registryGrowthProblems({accepted: 12, baseline: 39})).toEqual([]);
             expect(registryGrowthProblems({accepted: 39, baseline: 39})).toEqual([]);
@@ -272,20 +316,180 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
         });
     });
 
-    test.describe('scanner bounds — stated in the header, asserted here', () => {
-        test('comment prose is not a read', () => {
-            expect(classifyLine(' * this.db.prepare(sql)', false).isCode).toBe(false);
-            expect(classifyLine('// this.db.prepare(sql)', false).isCode).toBe(false);
-            expect(classifyLine('const x = this.db;', false).isCode).toBe(true);
+    /**
+     * Cross-family review supplied these as synthetic falsifiers, and every one produced the wrong
+     * verdict against the first implementation. They are pinned because each is a way for the gate to
+     * be GREEN when it should be red — the failure direction that matters in a guard, and the one an
+     * author's own tests are least likely to probe.
+     */
+    test.describe('reviewer falsifiers — the gate must not be green here', () => {
+        test('RED — an unrelated throw must not manufacture a typed guard', () => {
+            const found = probe([
+                '    read() {',
+                '        if (!this.db) return null;',
+                '        const r = this.db.q();',
+                '        if (r.bad) throw new Error("unrelated");',
+                '        return r;',
+                '    }'
+            ].join('\n'));
+
+            expect(found).toHaveLength(1);
+            expect(found[0].shape).toBe('truthy-skip');
         });
 
-        test('a block comment keeps its state across lines', () => {
-            const opened = classifyLine('/* opening', false);
+        test('GREEN — a CAUSAL guard, throwing on the absence path, does credit', () => {
+            expect(probe([
+                '    requireDb() {',
+                '        if (!this.db) {',
+                '            throw new Error("unavailable");',
+                '        }',
+                '        return this.db;',
+                '    }',
+                '    read() {',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toEqual([]);
+        });
 
-            expect(opened.isCode).toBe(false);
-            expect(opened.inBlockComment).toBe(true);
-            expect(classifyLine('still inside this.db', true).isCode).toBe(false);
-            expect(classifyLine('closing */', true).inBlockComment).toBe(false);
+        test('RED — a commented-out await does not credit readiness', () => {
+            const found = probe([
+                '    read() {',
+                '        // await this.ready()',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'));
+
+            expect(found).toHaveLength(1);
+            expect(found[0].shape).toBe('bare-read');
+        });
+
+        test('RED — a brace inside a string literal does not close the method', () => {
+            expect(probe([
+                '    read() {',
+                '        const brace = "}";',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toHaveLength(1);
+        });
+
+        test('RED — a later guard does not excuse an earlier bare read', () => {
+            const found = probe([
+                '    read() {',
+                '        const first = this.db.q();',
+                '        if (this.db) { return this.db.q2(); }',
+                '    }'
+            ].join('\n'));
+
+            expect(found).toHaveLength(1);
+            expect(found[0].shape).toBe('bare-read');
+        });
+
+        test('RED — a read through a `const me = this` alias is seen', () => {
+            const found = probe([
+                '    read() {',
+                '        const me = this;',
+                '        return me.db.q();',
+                '    }'
+            ].join('\n'));
+
+            expect(found).toHaveLength(1);
+            expect(found[0].member).toBe('db');
+        });
+
+        test('GREEN — readiness awaited through the alias credits', () => {
+            expect(probe([
+                '    async read() {',
+                '        const me = this;',
+                '        await me.ready();',
+                '        return me.db.q();',
+                '    }'
+            ].join('\n'))).toEqual([]);
+        });
+
+        test('a multiline method declaration is found, body and all', () => {
+            const lines = [
+                'class Probe {',
+                '    async initAsync() {',
+                '        this.db = await build();',
+                '    }',
+                '    query({',
+                '        limit = 100,',
+                '        since = 0',
+                '    } = {}) {',
+                '        return this.db.q(limit, since);',
+                '    }',
+                '}'
+            ];
+
+            expect(findMethodRanges(stripSource(lines)).map(r => r.name)).toContain('query');
+            expect(violationsInSource('probe.mjs', lines).map(v => v.method)).toEqual(['query']);
+        });
+
+        /**
+         * Not from the review — found while writing the probes above. A single-line body made the
+         * whole FILE silent, and the probes looked like they were passing.
+         */
+        test('a single-line method body does not silence the file', () => {
+            const found = violationsInSource('probe.mjs', [
+                'class Probe {',
+                '    async initAsync() { this.db = await build(); }',
+                '    read() {',
+                '        return this.db.q();',
+                '    }',
+                '}'
+            ]);
+
+            expect(found).toHaveLength(1);
+            expect(found[0].member).toBe('db');
+        });
+
+        test('the three named production misses are now in the population', () => {
+            const keys = LIVE.map(v => v.key);
+
+            expect(keys).toContain('ai/services/knowledge-base/KBRecorderService.mjs#buildAgentFaqs:db');
+            expect(keys).toContain('ai/services/knowledge-base/KBRecorderService.mjs#listAgentFaqs:db');
+            expect(keys).toContain('ai/services/memory-core/MemoryCoreRecorderService.mjs#getMemoryCoreToolMetrics:db');
+        });
+
+        test('the named alias miss is in the population, and its safe sibling is not', () => {
+            const keys = LIVE.map(v => v.key);
+
+            expect(keys).toContain('src/functional/component/Base.mjs#onEffectRunStateChange:htmlTemplateProcessor');
+
+            // Mermaid.render() awaits me.ready() before reading me.addon — the positive control for
+            // alias-aware readiness. Only loadFiles(), which does not, is reported.
+            expect(LIVE.filter(v => v.file.endsWith('Mermaid.mjs')).map(v => v.method)).toEqual(['loadFiles']);
+        });
+
+        test('no read is attributed to <module> — a scanner gap must not become silent under-reporting', () => {
+            expect(LIVE.filter(v => v.method === '<module>')).toEqual([]);
+        });
+    });
+
+    test.describe('scanner bounds — stated in the header, asserted here', () => {
+        test('comment and literal text is blanked before any structural question', () => {
+            const stripped = stripSource([
+                'const a = "this.db";',
+                '// this.db.prepare(sql)',
+                'const b = this.db;'
+            ]);
+
+            expect(stripped[0]).not.toContain('this.db');
+            expect(stripped[1].trim()).toBe('');
+            expect(stripped[2]).toContain('this.db');
+        });
+
+        test('a template substitution survives stripping, its surrounding text does not', () => {
+            const [stripped] = stripSource(['const s = `prose this.db ${this.db} more`;']);
+
+            expect(stripped.match(/this\.db/g)).toHaveLength(1);
+        });
+
+        test('receiver aliases are collected, and `this` is always one', () => {
+            const lines    = ['fn() {', '    const me = this;', '    return me.x;', '}'],
+                  stripped = stripSource(lines);
+
+            expect(receiverAliases(stripped, {start: 0, end: 3}).sort()).toEqual(['me', 'this']);
         });
 
         test('methodAt resolves the innermost enclosing method', () => {
