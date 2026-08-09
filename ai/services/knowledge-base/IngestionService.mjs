@@ -523,6 +523,40 @@ class IngestionService extends Base {
     }
 
     /**
+     * @summary Bounds a thrown resolver's `code` to a CLOSED vocabulary before it enters a summary.
+     *
+     * **`error.code` is upstream-controlled, so it is matched — never copied.** A resolver reaching
+     * a remote can throw whatever the remote hands it, and `createError` puts `details` verbatim
+     * into the consumer-visible summary. A thrown `{code: 'https://user:token@host/repo.git'}`
+     * would therefore serialize a credential into a durable record, which is precisely the boundary
+     * the surrounding code claims to hold. Documenting a field as bounded does not bound it.
+     *
+     * Two admitted families, both closed: this service's own `KB_*` codes, and the fixed set of
+     * transport codes worth keeping (a refusal and a timeout are different operator problems).
+     * Everything else collapses to one literal rather than being preserved "just in case".
+     *
+     * Mirrors {@link classifyIngestionFailureCode}, which already answers this question for thrown
+     * ingest failures by preserving owned codes and emitting a local one otherwise.
+     *
+     * @param {Error} [error] The thrown resolver error.
+     * @returns {String} An admitted code, or `'unclassified'`.
+     * @protected
+     */
+    boundResolverFailureReason(error) {
+        const
+            transportCodes = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'EAI_AGAIN'],
+            code           = error?.code;
+
+        if (typeof code !== 'string') {
+            return 'unclassified';
+        }
+
+        return transportCodes.includes(code) || /^KB_[A-Z0-9_]{1,120}$/.test(code)
+            ? code
+            : 'unclassified';
+    }
+
+    /**
      * @summary Creates an empty ingestion summary.
      * @param {Object} options
      * @returns {Object}
@@ -1499,12 +1533,12 @@ class IngestionService extends Base {
 
             return Array.isArray(resolved) ? resolved : [];
         } catch (error) {
-            // Bounded detail only. The thrown message can carry a clone URL or a provider response,
-            // and this record travels into consumer-visible summaries.
+            // Neither the message nor the raw code is copied: both are upstream-controlled and this
+            // record travels verbatim into consumer-visible summaries. See boundResolverFailureReason.
             summary.errors.push(this.createError({
                 code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
                 message: 'The revision-boundary resolver failed to resolve deleted paths.',
-                details: {reason: error?.code || error?.name || 'unknown'}
+                details: {reason: this.boundResolverFailureReason(error)}
             }));
             return [];
         }

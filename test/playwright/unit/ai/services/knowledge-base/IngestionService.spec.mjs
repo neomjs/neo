@@ -565,6 +565,39 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(JSON.stringify(summary)).not.toContain('upstream refused');
     });
 
+    test('a HOSTILE resolver code never reaches the summary — the boundary is matching, not copying', async () => {
+        // The prior control was vacuous for this: it asserted the MESSAGE was absent while the code
+        // was the safe literal `ECONNREFUSED`, so it exercised the easy shape and proved nothing
+        // about the field that actually travels. `error.code` is upstream-controlled.
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('fatal: could not read Username for https://user:s3cr3t@host/repo.git');
+                error.code    = 'https://user:s3cr3t@host/repo.git';
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'unclassified'}
+        });
+
+        const serialized = JSON.stringify(summary);
+
+        expect(serialized).not.toContain('s3cr3t');
+        expect(serialized).not.toContain('user:');
+        expect(serialized).not.toContain('https://');
+        expect(serialized).not.toContain('could not read Username');
+    });
+
     test('applies tombstone, manifest, and mock revision-boundary deletion signaling', async () => {
         collection = createSpyCollection([
             {id: 'keep', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/live.js'}},
