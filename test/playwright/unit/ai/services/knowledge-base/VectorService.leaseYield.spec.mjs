@@ -38,16 +38,38 @@ test.describe.configure({mode: 'serial'});
 function createSpyCollection() {
     const calls       = {upsert: 0};
     const upsertedIds = [];
+    // id -> vector, so a test can assert WHICH vector landed under WHICH id. Recording ids alone cannot
+    // see a misalignment, and neither can identical vectors — both halves are required.
+    const storedByIds = new Map();
 
     return {
         calls,
+        storedByIds,
         upsertedIds,
         name: 'spy-knowledge-base',
-        async upsert({ids}) {
+        async upsert({ids, embeddings}) {
             calls.upsert++;
             upsertedIds.push(...ids);
+            ids.forEach((id, position) => storedByIds.set(id, embeddings?.[position]));
         }
     };
+}
+
+/**
+ * A vector that names its own chunk. An all-zero embedder makes every misalignment invisible: the
+ * assertion passes whether or not the vector under `chunk-3` is chunk 3's. This is the fixture flaw
+ * that let a positional-binding defect through review — the test could not fail on it.
+ */
+function makeEmbedding(chunkIndex) {
+    const vector = new Array(384).fill(0);
+
+    vector[0] = chunkIndex;
+
+    return vector
+}
+
+function chunkIndexOf(chunk) {
+    return Number(chunk.id.replace('chunk-', ''))
 }
 
 function makeChunks(count) {
@@ -161,10 +183,14 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
             // Batch 1 lands; batch 2 abandons mid-way at a provider-chunk boundary.
             if (embedCalls === 1) return texts.map(() => new Array(384).fill(0));
 
-            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 3/10 provider chunk(s)');
+            // A yield error is only well-formed if it declares how many inputs it completed and carries
+            // exactly that many vectors — the contract that makes positional binding safe.
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 1/10 provider chunk(s)');
             error.code                = EMBEDDING_BATCH_YIELDED_CODE;
-            error.completedChunkCount = 3;
+            error.completedChunkCount = 1;
             error.totalChunkCount     = 10;
+            error.completedTextCount  = 5;
+            error.embeddings          = chunks.slice(50, 55).map(chunk => makeEmbedding(chunkIndexOf(chunk)));
             throw error
         };
 
@@ -186,10 +212,11 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(embedCalls, 'a yield is a decision, not a transient failure — exactly one attempt per batch').toBe(2);
         expect(result.yielded, 'the caller must learn to release the lease').toBe(true);
 
-        // Progress made before the yield is durable and is what `selectResumableChunks` skips next sweep.
-        expect(result.embedded).toBe(50);
-        expect(spy.calls.upsert).toBe(1);
-        expect(spy.upsertedIds).toHaveLength(50);
+        // Progress made before the yield is durable and is what `selectResumableChunks` skips next sweep:
+        // batch 1 in full, plus the 5 inputs batch 2 completed before releasing.
+        expect(result.embedded).toBe(55);
+        expect(spy.calls.upsert).toBe(2);
+        expect(spy.upsertedIds).toHaveLength(55);
     });
 
     test('an inner yield stops the OUTER sweep even if the predicate flips back to false (#16822)', async () => {
@@ -198,14 +225,16 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
 
         let embedCalls = 0;
 
-        TextEmbeddingService.embedTexts = async texts => {
+        TextEmbeddingService.embedTexts = async (texts, provider, {shouldYield} = {}) => {
             embedCalls++;
-            if (embedCalls !== 2) return texts.map(() => new Array(384).fill(0));
+            if (embedCalls !== 2) return chunks.slice((embedCalls - 1) * 50, embedCalls * 50).map(chunk => makeEmbedding(chunkIndexOf(chunk)));
 
             const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 1/10 provider chunk(s)');
             error.code                = EMBEDDING_BATCH_YIELDED_CODE;
             error.completedChunkCount = 1;
             error.totalChunkCount     = 10;
+            error.completedTextCount  = 5;
+            error.embeddings          = chunks.slice(50, 55).map(chunk => makeEmbedding(chunkIndexOf(chunk)));
             throw error
         };
 
@@ -221,8 +250,8 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         // under a lease the holder has already decided to release.
         expect(embedCalls, 'batches 3 and 4 must not run').toBe(2);
         expect(result.yielded).toBe(true);
-        expect(result.embedded).toBe(50);
-        expect(spy.calls.upsert).toBe(1);
+        expect(result.embedded, 'batch 1 in full, plus the 5 inputs batch 2 completed before releasing').toBe(55);
+        expect(spy.calls.upsert).toBe(2);
     });
 
     test('an ordinary embedding failure is still retried — the yield carve-out did not widen (#16822)', async () => {
@@ -250,6 +279,139 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(embedCalls).toBe(3);
         expect(result.yielded).toBe(false);
         expect(result.embedded).toBe(50);
+    });
+
+    test('an inner yield PERSISTS the chunks it already paid for (#16822)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50); // 1 batch
+
+        TextEmbeddingService.embedTexts = async () => {
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s), 10 embedding(s) carried');
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.completedTextCount  = 10;
+            error.embeddings          = Array.from({length: 10}, (_, i) => makeEmbedding(i));
+            throw error
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // The prefix must land, and it must land under the RIGHT ids — the first 10 in order, never a
+        // suffix and never a re-indexed set. Persisting nothing is the livelock; persisting misaligned is
+        // worse than the livelock.
+        expect(result.yielded).toBe(true);
+        expect(result.embedded, 'completed provider work must count as embedded').toBe(10);
+        expect(spy.upsertedIds).toEqual(chunks.slice(0, 10).map(chunk => chunk.id));
+
+        // Each id must carry ITS OWN vector. With an all-zero embedder the assertion above passes under a
+        // one-position shift; naming the chunk inside the vector is what makes the binding observable.
+        chunks.slice(0, 10).forEach(chunk => {
+            expect(
+                spy.storedByIds.get(chunk.id)?.[0],
+                `${chunk.id} must store its own vector, not a neighbour's`
+            ).toBe(chunkIndexOf(chunk));
+        });
+    });
+
+    test('a yield whose payload disagrees with its stated completed count is REFUSED, not upserted (#16826)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50);
+
+        // The sparse-provider shape @neo-gpt named: one vector missing, so every later vector would slide
+        // onto its neighbour's id. There is no length mismatch downstream to catch it — the count has to be
+        // checked against what was SENT.
+        TextEmbeddingService.embedTexts = async () => {
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s)');
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.completedTextCount  = 10;
+            error.embeddings          = Array.from({length: 9}, (_, i) => makeEmbedding(i)); // one short
+            throw error
+        };
+
+        const outcome = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        }).then(() => null, error => error);
+
+        // Refusing loudly beats storing 9 vectors under the wrong 9 ids. A wrong row in a vector store is
+        // not self-correcting: nothing downstream ever re-reads it against its source.
+        expect(outcome).toBeInstanceOf(Error);
+        expect(outcome.message).toContain('refusing to bind vectors to chunk ids by position');
+        expect(spy.calls.upsert, 'nothing may be written on a disagreement').toBe(0);
+    });
+
+    test('repeated acquisitions that always yield still MONOTONICALLY advance and terminate (#16822)', async () => {
+        const spy         = createSpyCollection();
+        const allChunks   = makeChunks(150);
+        const embeddedIds = new Set();
+
+        let sweepChunks = [];
+
+        // Every acquisition yields after exactly two provider chunks — the pathological case: 2 x 20min
+        // exceeds the 30min bound before chunk 3, on every single acquisition, forever.
+        TextEmbeddingService.embedTexts = async texts => {
+            const carried = Math.min(10, texts.length);
+            const error   = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s), ${carried} embedding(s) carried`);
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.completedTextCount  = carried;
+            // Each vector names the chunk it belongs to, so the closing assertion can prove the corpus is
+            // correctly BOUND and not merely complete. A count reaching 150 says nothing about whether
+            // chunk-7's vector sits under chunk-7.
+            error.embeddings          = sweepChunks.slice(0, carried).map(chunk => makeEmbedding(chunkIndexOf(chunk)));
+            throw error
+        };
+
+        const progress = [];
+        let   sweeps   = 0;
+
+        // The resume contract: each sweep re-selects only what is not already stored.
+        while (embeddedIds.size < allChunks.length && sweeps < 40) {
+            sweeps++;
+
+            sweepChunks = allChunks.filter(chunk => !embeddedIds.has(chunk.id));
+
+            const before = embeddedIds.size,
+                  result = await KB_VectorService.embedChunks({
+                      collection     : spy,
+                      chunksToProcess: sweepChunks,
+                      shouldYield    : () => false
+                  });
+
+            spy.upsertedIds.forEach(id => embeddedIds.add(id));
+            spy.upsertedIds.length = 0;
+            progress.push(embeddedIds.size);
+
+            expect(result.yielded).toBe(true);
+            expect(
+                embeddedIds.size,
+                `sweep ${sweeps} stored nothing new — this is the livelock: completed provider chunks discarded, the same prefix re-selected forever`
+            ).toBeGreaterThan(before);
+        }
+
+        // 150 chunks, 10 durable per acquisition. Termination is the assertion; the 40-sweep ceiling exists
+        // only so a livelock fails as a red test instead of hanging the suite.
+        expect(embeddedIds.size).toBe(150);
+        expect(sweeps).toBe(15);
+        expect(progress).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]);
+
+        // Complete is not the same as correct. Across 15 resumed sweeps every chunk must hold ITS OWN
+        // vector — a one-position slide anywhere would still reach 150 and still terminate.
+        allChunks.forEach(chunk => {
+            expect(
+                spy.storedByIds.get(chunk.id)?.[0],
+                `${chunk.id} holds the wrong vector — the corpus is complete but misbound`
+            ).toBe(chunkIndexOf(chunk));
+        });
     });
 
     test('the per-chunk checkpoint interval fits inside the fairness bound it must respect (#16822)', async () => {

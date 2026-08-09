@@ -67,17 +67,61 @@ export function isEmbeddingBatchYieldError(error) {
 }
 
 /**
+ * @summary Orders accumulated provider-chunk results into a caller-aligned embedding array.
+ *
+ * The single producer for BOTH the resolved batch and the yield error's partial payload. Two call
+ * sites re-deriving this ordering could disagree, and a disagreement here is a vector silently
+ * upserted under the wrong id.
+ * @param {Object[]} data Accumulated `{index, embedding}` entries.
+ * @returns {number[][]}
+ */
+function toOrderedEmbeddings(data, expectedCount) {
+    const ordered = data.slice().sort((a, b) => a.index - b.index);
+
+    // The provider's `index` is the ONLY thing binding a vector to its input, and sorting alone does not
+    // preserve it: a sparse response (`[{index: 1}]`) sorts to position 0, so the caller upserts input 1's
+    // vector under input 0's id — no length mismatch, no error, a permanently wrong row. `expectedCount` is
+    // derived from what was SENT, never from what came back, so a short response cannot define its own
+    // correctness. Only after this check does array position equal provider index by construction.
+    if (ordered.length !== expectedCount) {
+        throw new Error(`openAiCompatible embedding response returned ${ordered.length} vector(s) for ${expectedCount} input(s); refusing to bind vectors to inputs by position`);
+    }
+
+    ordered.forEach((entry, position) => {
+        if (entry.index !== position) {
+            throw new Error(`openAiCompatible embedding response is not densely indexed: position ${position} carries provider index ${entry.index}; refusing to bind vectors to inputs by position`);
+        }
+    });
+
+    return ordered.map(d => d.embedding)
+}
+
+/**
  * @summary Builds the typed abandonment error for a batch stopped at a lease yield-point.
- * @param {Number} completedChunkCount Provider chunks that completed before the yield.
- * @param {Number} totalChunkCount Provider chunks the batch would otherwise have issued.
+ *
+ * Carries the embeddings it already obtained. A yield that dropped them would waste completed
+ * provider work AND persist nothing, so an acquisition that repeatedly yields at the same chunk
+ * would re-embed the same prefix forever — the caller needs the partial to make the checkpoint a
+ * durable unit rather than merely a reached one.
+ * @param {Object} options
+ * @param {Number} options.completedChunkCount Provider chunks that completed before the yield.
+ * @param {Number} options.totalChunkCount Provider chunks the batch would otherwise have issued.
+ * @param {Object[]} options.data Accumulated `{index, embedding}` entries for the completed chunks.
  * @returns {Error}
  */
-function createEmbeddingBatchYieldError(completedChunkCount, totalChunkCount) {
-    const error = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s)`);
+function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data}) {
+    // Derived from the chunks SENT, not from `data.length`. A yield only ever happens at a chunk boundary,
+    // so every completed chunk is full-width — which makes this an independent expectation the response
+    // must satisfy, rather than a restatement of whatever the provider chose to return.
+    const completedTextCount = completedChunkCount * chunkSize,
+          embeddings         = toOrderedEmbeddings(data, completedTextCount),
+          error              = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s), ${completedTextCount} embedding(s) carried`);
 
     error.code                = EMBEDDING_BATCH_YIELDED_CODE;
     error.completedChunkCount = completedChunkCount;
     error.totalChunkCount     = totalChunkCount;
+    error.completedTextCount  = completedTextCount;
+    error.embeddings          = embeddings;
 
     return error
 }
@@ -1166,9 +1210,13 @@ class TextEmbeddingService extends Base {
             // cooperative bound whose checkpoint interval exceeds the bound is not a bound: the holder's
             // first chance to honour it can arrive after it has already elapsed. Checking per chunk makes
             // the worst case `(1 + unloadRetryCount) * batchEmbeddingTimeoutMs`.
+            //
+            // `completedChunkCount > 0` is a forward-progress guarantee only because the error carries the
+            // embeddings: a reached checkpoint is not a durable one. Dropping them would let an acquisition
+            // that yields at the same chunk every time re-embed the same prefix forever.
             if (completedChunkCount > 0 && shouldYield?.()) {
                 operation.phase = 'lease-yield';
-                throw createEmbeddingBatchYieldError(completedChunkCount, totalChunkCount)
+                throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data})
             }
 
             const chunk  = texts.slice(offset, offset + chunkSize),
@@ -1195,7 +1243,7 @@ class TextEmbeddingService extends Base {
             }
         }
 
-        return data.sort((a, b) => a.index - b.index).map(d => d.embedding);
+        return toOrderedEmbeddings(data, texts.length);
     }
 
     /**

@@ -210,6 +210,14 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                             ]
                         }));
                     }, 50);
+                } else if (serverBehavior === 'sparse-batch') {
+                    // One vector short, and the one returned is NOT index 0.
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({data: [{index: 1, embedding: [22]}]}));
+                } else if (serverBehavior === 'gapped-batch') {
+                    // Right count, wrong density: indices 0 and 2 for two inputs.
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({data: [{index: 0, embedding: [10]}, {index: 2, embedding: [22]}]}));
                 } else if (serverBehavior === 'chunked-batch-succeed') {
                     const inputs = lastRequest.body.input;
 
@@ -764,6 +772,37 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount).toBe(3);
         expect(allRequests.map(item => item.body.input)).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
         expect(result).toEqual([[1, 0], [1, 1], [2, 0], [2, 1], [3, 0]]);
+    });
+
+    test('a SPARSE provider response is refused rather than silently re-based to position 0 (#16826)', async () => {
+        serverBehavior = 'sparse-batch';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;
+
+        // @neo-gpt's falsifier: `[{index: 1, ...}]` sorts to position 0, so the caller binds input 1's
+        // vector to input 0's id. Same array length downstream, no error — a permanently wrong row.
+        await expect(TextEmbeddingService.embedTexts(['a', 'b'], 'openAiCompatible'))
+            .rejects.toThrow(/returned 1 vector\(s\) for 2 input\(s\); refusing to bind vectors to inputs by position/);
+    });
+
+    test('a GAPPED provider response of the right length is refused too — count alone is not density (#16826)', async () => {
+        serverBehavior = 'gapped-batch';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;
+
+        // The case a length check cannot see: two vectors for two inputs, but indexed 0 and 2. Position 1
+        // would silently receive input 2's vector. Density is a separate property from count.
+        await expect(TextEmbeddingService.embedTexts(['a', 'b'], 'openAiCompatible'))
+            .rejects.toThrow(/not densely indexed: position 1 carries provider index 2/);
+    });
+
+    test('an OUT-OF-ORDER dense response is accepted and re-ordered — the control (#16826)', async () => {
+        serverBehavior = 'chunked-batch-succeed'; // returns each chunk's entries reversed
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+
+        // Density is the requirement, not arrival order. A guard that rejected reordering would break the
+        // provider's documented behaviour, so this control shares the property under test and must stay green.
+        const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'openAiCompatible');
+
+        expect(result).toEqual([[1, 0], [1, 1], [2, 0]]);
     });
 
     test('a non-function shouldYield fails loud rather than silently never yielding (#16822)', async () => {
