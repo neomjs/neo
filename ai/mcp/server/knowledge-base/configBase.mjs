@@ -258,7 +258,30 @@ class ConfigBase extends ConfigProvider {
                  * instead of issuing the call. Defense-in-depth alongside the dedicated spend-capped key.
                  * @type {number}
                  */
-                maxCallsPerMinute: leaf(20, 'NEO_KB_ASK_MAX_RPM', 'number')
+                maxCallsPerMinute: leaf(20, 'NEO_KB_ASK_MAX_RPM', 'number'),
+                /**
+                 * @summary Reasoning-effort for the ask-synthesis call — passed straight through as the
+                 * OpenAI / LM-Studio `reasoning_effort` request param.
+                 *
+                 * Default `'none'` disables a reasoning model's hidden "thinking" pass. Measured on a
+                 * 26B-class local model with a ~7,900-token grounded prompt: `'none'` answered in 33.3s,
+                 * while sending no control took 86.7s and returned an EMPTY answer — 297 of 299
+                 * completion tokens were spent reasoning, leaving nothing for the response. The empty
+                 * answer is the defect the latency merely accompanies: a longer prompt exhausts the
+                 * budget sooner, so a wall-clock-only check would miss it.
+                 *
+                 * This leaf belongs to `askSynthesis` rather than beside `localModels.chat`'s
+                 * `summaryReasoningEffort` / `graphReasoningEffort`, because ask builds its model from
+                 * THIS block (`SearchService.ask`: "the dedicated askSynthesis block, NOT the global")
+                 * and may point at an entirely different provider, model, and endpoint. A leaf on the
+                 * chat model would tune a model the ask path does not use.
+                 *
+                 * Deliberately NOT in `askSynthesisGuard`'s required-leaf set: an overlay predating this
+                 * leaf must keep answering with today's behaviour, not refuse. Refusing to answer is a
+                 * worse failure than answering slowly, and this leaf exists to improve answers.
+                 * @type {string}
+                 */
+                reasoningEffort: leaf('none', 'NEO_KB_ASK_REASONING_EFFORT', 'string')
             },
             /**
              * The path to the generated knowledge base JSONL file.

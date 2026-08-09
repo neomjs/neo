@@ -474,10 +474,15 @@ Instructions:
             // longer) is the safe direction over false-short (a working local model gets cut off).
             const ask = aiConfig.askSynthesis;
 
+            // `reasoning_effort` is omitted when the leaf is empty rather than sent as an empty string:
+            // an overlay predating this leaf must keep the provider's own default, and a provider that
+            // does not understand the param must not receive a value it has to reject. Same `|| undefined`
+            // idiom the summary path uses (`SessionService.summarizeSession`).
             result = await this.model.generateContent(prompt, {
-                timeoutMs     : ask.provider === 'gemini' ? ask.timeoutMsRemote : ask.timeoutMs,
-                operationLabel: 'ask_knowledge_base synthesis',
-                priority      : 'interactive'
+                timeoutMs       : ask.provider === 'gemini' ? ask.timeoutMsRemote : ask.timeoutMs,
+                operationLabel  : 'ask_knowledge_base synthesis',
+                priority        : 'interactive',
+                reasoning_effort: ask.reasoningEffort || undefined
             });
             answer = result.response.text();
         } catch (error) {
