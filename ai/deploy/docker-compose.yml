@@ -122,6 +122,14 @@ services:
       # A dedicated volume keeps this graph-independent receipt visible without
       # granting the KB container Docker/runtime authority.
       - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
+      # WRITE half of the heap-observation channel, which runs the OPPOSITE
+      # direction to the bridge above: this service reports its own V8 heap and the
+      # orchestrator reads it. Without this mount the reporter writes into the
+      # container's own layer and the orchestrator reads its own empty one, so every
+      # observation surfaces as `unavailable/absent` forever — a silent no-op, because
+      # the reporter is deliberately non-fatal and a successful local write looks
+      # identical to a delivered one.
+      - shared-heap-observation-data:/app/.neo-ai-data/heap-observation
     depends_on:
       chroma:
         condition: service_healthy
@@ -237,6 +245,9 @@ services:
       # Read-only half of the orchestrator -> public MCP deployment-state bridge, and the mount the
       # recovery actuator publishes its config overlay onto.
       - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
+      # WRITE half of the heap-observation channel — see the kb-server mount for why the
+      # absence of this line produced a channel that reported success and delivered nothing.
+      - shared-heap-observation-data:/app/.neo-ai-data/heap-observation
     depends_on:
       chroma:
         condition: service_healthy
@@ -334,15 +345,6 @@ services:
       # lifecycle operations aimed at the orchestrator structurally — restarting it through the bridge
       # it publishes would kill the process serving the request before any outcome could be reported.
       - NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES=chroma,kb-server,mc-server,local-model,orchestrator
-      # The SECOND evidence channel. A container-unhealthy state is advisory on its own; it licenses a
-      # restart only alongside a failed DIRECT probe of the service, so without these URLs a wedged
-      # service is diagnosed and never acted on. Hostnames are the compose service keys.
-      #
-      # Only the two MCP-shaped services are listed. `chroma` answers a TCP check and `local-model`
-      # answers `ollama list`; neither speaks the MCP healthcheck tool, and a probe that failed against
-      # them would be a fault in this configuration reported as a fault in the service. They therefore
-      # get no direct probe and are never restarted on the runtime's verdict alone — the safe default.
-      - NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS=http://kb-server:3000,http://mc-server:3001
     volumes:
       # Scheduler cadence, tenant-repo revisions, recovery ledgers, logs, and
       # process-epoch files share AiConfig.orchestrator.dataDir. Persist the
@@ -354,6 +356,10 @@ services:
       # Sole writer for the graph-independent deployment-state bridge consumed
       # read-only by KB/MC.
       - shared-deployment-state-data:/app/.neo-ai-data/deployment-state
+      # READ half of the heap-observation channel. Read-only on purpose: the
+      # services vouch for their own heap, and the bridge must never be able to author
+      # an observation it then publishes as `provenance: self-reported`.
+      - shared-heap-observation-data:/app/.neo-ai-data/heap-observation:ro
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
       # The `golden-path` scheduler lane writes the handoff and its derived
       # route artifacts here; mc-server mounts the same directory read-side.
@@ -616,6 +622,9 @@ volumes:
   shared-sqlite-data:
   shared-deployment-state-data:
   shared-handoff-data:
+  # Heap-observation channel: written by every MCP server declaring
+  # `getHeapObservationServiceKey()`, read by the orchestrator's deployment-state bridge.
+  shared-heap-observation-data:
   tenant-repo-mirrors:
   caddy-data:
   caddy-config:
