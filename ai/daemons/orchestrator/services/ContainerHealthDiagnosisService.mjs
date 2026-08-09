@@ -302,7 +302,11 @@ export class ContainerHealthDiagnosisService extends Base {
             ...this.collectProviderResidencyFacts({serviceKey, providerResidency, observedAt})
         ];
 
-        const classification = this.classifyFacts({facts});
+        // A SUCCESSFUL probe produces no fact — `collectEndpointProbeFacts` only emits on `ok === false`
+        // — so the one observation that directly contradicts a restart would otherwise never reach the
+        // classifier. Passed alongside the facts rather than as a fact, because emitting one would make
+        // every healthy probed service report `advisory` instead of `healthy`.
+        const classification = this.classifyFacts({facts, serviceAnswering: endpointProbe?.ok === true});
         if (!classification) {
             return {
                 ...this.createDecision({
@@ -778,7 +782,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object|null}
      */
-    classifyFacts({facts}) {
+    classifyFacts({facts, serviceAnswering = false}) {
         const providerRoleResidencyFacts = facts.filter(fact => this.isProviderRoleResidencyRecoverable(fact));
         if (providerRoleResidencyFacts.length > 0) {
             return {
@@ -830,7 +834,30 @@ export class ContainerHealthDiagnosisService extends Base {
         const downFacts = lifecycleFacts.filter(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
 
-        if (downFacts.length || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
+        // DELIBERATELY unchanged, and the reason is worth stating because an earlier revision of this
+        // change got it wrong. A container the runtime marks `unhealthy` looks like a debounced verdict
+        // — the runtime only sets it after `retries` consecutive failures — and it is tempting to treat
+        // that as sufficient on its own. It is not. Debouncing answers NOISE; it cannot answer
+        // CONTRADICTION, because repeated evaluations of one probe are still one evidence channel, and
+        // the channel itself can be measuring the wrong thing. ADR-0025 §2.1 names the live instance: a // ticket-ref-ok: the ADR clause is the governing safety authority this branch must not contradict
+        // provider-dependent canary false-fails while the service still answers and persists, so
+        // restarting it is a self-inflicted outage. §2.4 therefore requires the PAIR — a
+        // `container-unhealthy` state plus a failed DIRECT endpoint probe — and
+        // `hasAuthoritativeEvidence` already admits exactly that pair.
+        //
+        // The pair was unreachable in production for one reason only: nothing supplied `endpointProbe`.
+        // That was a missing PRODUCER, never a floor that was too strict, and the repair belongs
+        // upstream at the producer rather than here.
+        // `serviceAnswering` VETOES the unhealthy-based restart, and it must veto the corroborated
+        // branch too — not only the single-fact one. `hasAuthoritativeEvidence`'s first arm admits ANY
+        // two authoritative facts, so `container-unhealthy` + a sustained `memory-saturation` reaches
+        // restart on a service that is demonstrably serving. ADR-0025 §2.4's resource alternative is // ticket-ref-ok: the ADR clause is the authority for requiring a failed operation, not a fact count
+        // narrower than that arm: it requires resource exhaustion AND *a sustained failed service
+        // operation*. A direct answer is the negation of that second half, so it outranks the count.
+        //
+        // `downFacts` is deliberately NOT vetoed. A container the runtime reports as not running cannot
+        // simultaneously be answering; if both appear, the exit is the newer and more decisive fact.
+        if (downFacts.length || (!serviceAnswering && this.hasAuthoritativeEvidence(lifecycleFacts, facts))) {
             // The ACTION is unchanged and was never wrong — a stopped container is restarted either
             // way. What was missing is the CAUSE: a service that exhausted its declared V8 ceiling
             // recorded as a generic crash, so the ceiling was never implicated and the same abort

@@ -1227,7 +1227,51 @@ class ConfigBase extends ConfigProvider {
                     // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
                     // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no
                     // recent-event list) so a negative value can never expand the snapshot to every retained event.
-                    selfHealRecentEventLimit    : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 'number')
+                    selfHealRecentEventLimit    : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_SELF_HEAL_RECENT_EVENT_LIMIT', 'number'),
+                    /**
+                     * Direct service probes — the SECOND evidence channel ADR-0025 §2.4 requires before a // ticket-ref-ok: the ADR clause is what this leaf exists to satisfy
+                     * container-unhealthy state may license a restart. The orchestrator asks the service
+                     * itself whether it is serving, instead of trusting the runtime's canary.
+                     *
+                     * The URL's HOSTNAME is the compose service key, so the list is self-describing and
+                     * needs no parallel key list to drift out of step with it.
+                     *
+                     * **Empty by default, and that is the safe direction.** A probe pointed at a host that
+                     * does not resolve would fail on every sweep; if such a failure were read as "the
+                     * service did not answer" it would complete the evidence pair and restart a healthy
+                     * container on every cycle. Opt-in per deployment, with the canonical composes
+                     * declaring their own hosts.
+                     */
+                    directProbeUrls             : leaf([], 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS', 'csv'),
+                    /**
+                     * Statuses the direct probe accepts as SERVING. `degraded` is included deliberately and
+                     * is the whole reason this leaf is not hardcoded: a Memory Core answering correctly
+                     * while its provider-dependent canary fails reports `degraded`, and a probe that
+                     * rejected it would manufacture the failed-probe half of the pair against a service
+                     * that is working — restarting it and destroying the in-flight work whose slowness
+                     * caused the red. This mirrors the canonical compose healthcheck's own
+                     * `--expected-status healthy,degraded`.
+                     */
+                    directProbeExpectedStatus: leaf('healthy,degraded', 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_EXPECTED_STATUS', 'string'),
+                    /**
+                     * **Must EXCEED the container healthcheck it second-guesses, and the first value
+                     * here did not.** It was `8000`, copied from `mcpHealthcheck`'s own default, while
+                     * the canonical MCP healthchecks run `timeout: 10s`. A second opinion with a
+                     * tighter deadline than the opinion it is checking does not corroborate it — it
+                     * fails MORE often, manufactures the failed-probe half of the evidence pair, and
+                     * licenses a restart of a service that is merely slow.
+                     *
+                     * That is not hypothetical: measured on the canonical plane on 2026-08-09, Memory
+                     * Core ran a `FailingStreak` of 4 against the 10s container probe while the same
+                     * probe given a 20s budget returned `healthy` with `startupMs: 400`. An 8s
+                     * independent probe would have agreed with the failing one and called a serving
+                     * container wedged.
+                     *
+                     * 30s is three times the container probe's ceiling — generous enough that only a
+                     * genuinely unresponsive service fails it, and still bounded so a hung probe cannot
+                     * stall the sweep.
+                     */
+                    directProbeTimeoutMs     : leaf(30000, 'NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_TIMEOUT_MS', 'number')
                 },
                 /**
                  * Cross-process heavy-maintenance lease (Chroma / SQLite / LLM maintenance mutex).

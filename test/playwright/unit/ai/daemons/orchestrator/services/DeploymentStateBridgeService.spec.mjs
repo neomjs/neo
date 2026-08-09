@@ -1,4 +1,5 @@
 import {describeCorpusOutstanding} from '../../../../../../../ai/services/knowledge-base/helpers/corpusOutstanding.mjs';
+import {readFileSync}              from 'fs';
 import {test, expect}              from '@playwright/test';
 import fs                          from 'fs';
 import os                          from 'os';
@@ -7,6 +8,7 @@ import Neo                         from '../../../../../../../src/Neo.mjs';
 import * as core                   from '../../../../../../../src/core/_export.mjs';
 import AiConfig                    from '../../../../../../../ai/config.template.mjs';
 import {
+    classifyDirectProbeOutcome,
     DeploymentStateBridgeService,
     summarizeProbeReliability
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
@@ -48,6 +50,7 @@ function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
 function createService({
     runtimeAccessService,
     diagnosisService,
+    directProbeFn = null,
     providerResidencyProbe = async () => null,
     recoveryRunStateReader = null,
     healLedgerDir = null,
@@ -62,6 +65,7 @@ function createService({
         taskStateService,
         tenantRepoSyncService,
         tenantRepoSyncEnabledReader,
+        directProbeFn,
         providerResidencyProbe,
         recoveryRunStateReader,
         healLedgerDir,
@@ -2246,5 +2250,85 @@ test.describe('probeReliability reaches the service record', () => {
 
         expect(snapshot.inspect.state.probeReliability).toMatchObject({status: 'not-applicable'});
         expect(snapshot.inspect.state.health).toBeNull();
+    });
+});
+
+/**
+ * The single decision separating "a wedged container gets restarted" from "a healthy container gets
+ * restarted every sweep". Tested against the PURE classifier rather than through the config lookup,
+ * so every failure shape is reachable without a live server and without mutating the AiConfig
+ * singleton (ADR-0019 B4). Each arm below is a distinct way to get this wrong. // ticket-ref-ok: the ADR clause is why these tests avoid the singleton, not background reading
+ */
+test.describe('classifyDirectProbeOutcome — a probe fault is not a service fault (#16766)', () => {
+    function timeoutError(verdict) {
+        const error = new Error('tool call timed out after 8000ms');
+
+        error.probeTiming = {verdict};
+
+        return error;
+    }
+
+    test('an ANSWERED status outside the accepted set is service evidence', () => {
+        expect(classifyDirectProbeOutcome(new Error("Expected healthcheck status 'healthy' or 'degraded', got 'unhealthy'.")))
+            .toMatchObject({ok: false, message: 'status-not-accepted'});
+    });
+
+    test('a service-unresponsive TIMEOUT is service evidence', () => {
+        expect(classifyDirectProbeOutcome(timeoutError('service-unresponsive')))
+            .toMatchObject({ok: false, message: 'service-unresponsive'});
+    });
+
+    test('SAFETY — a PROBE-STARVED timeout is evidence about the BOX and yields NO fact', () => {
+        // `classifyProbeFailure` already separates these two verdicts. Counting a starved probe as a
+        // failed service would turn our own scheduling latency into a restart loop on exactly the
+        // saturated plane least able to absorb one.
+        expect(classifyDirectProbeOutcome(timeoutError('probe-starved'))).toBeNull();
+    });
+
+    test('SAFETY — unreachable, malformed and auth failures yield NO fact', () => {
+        for (const error of [
+            Object.assign(new Error('connect ECONNREFUSED 10.0.0.1:3001'), {code: 'ECONNREFUSED'}),
+            Object.assign(new Error('getaddrinfo ENOTFOUND mc-server'), {code: 'ENOTFOUND'}),
+            new Error('Invalid URL'),
+            new Error('HTTP 401 Unauthorized')
+        ]) {
+            expect(classifyDirectProbeOutcome(error)).toBeNull();
+        }
+    });
+
+    test('a non-Error rejection yields NO fact rather than throwing inside the classifier', () => {
+        expect(classifyDirectProbeOutcome(null)).toBeNull();
+        expect(classifyDirectProbeOutcome(undefined)).toBeNull();
+        expect(classifyDirectProbeOutcome('boom')).toBeNull();
+    });
+
+    test('the direct probe outlives the container healthcheck it second-guesses (cross-artifact)', () => {
+        // A second opinion with a TIGHTER deadline than the opinion it checks does not corroborate it;
+        // it fails more often and manufactures the failed-probe half of the evidence pair. The first
+        // value shipped here was 8000 against a 10s container probe — measured on the canonical plane
+        // the same day, Memory Core held a FailingStreak of 4 against that 10s probe while the same
+        // probe given 20s returned healthy with startupMs 400. An 8s independent probe would have
+        // agreed with the failing one and called a serving container wedged.
+        //
+        // Asserted ACROSS the two artifacts rather than as a magic number, so moving either one without
+        // the other fails here instead of on a live plane.
+        const compose = readFileSync(new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8'),
+              seconds = [...compose.matchAll(/mcpHealthcheck\.mjs[\s\S]{0,400}?timeout:\s*(\d+)s/g)].map(match => Number(match[1]));
+
+        expect(seconds.length).toBeGreaterThan(0);   // the probe blocks were actually found
+
+        const worstHealthcheckMs = Math.max(...seconds) * 1000;
+
+        expect(AiConfig.orchestrator.deploymentStateBridge.directProbeTimeoutMs).toBeGreaterThan(worstHealthcheckMs);
+    });
+
+    test('the shipped defaults are opt-in, and accept degraded', () => {
+        // Read-only assertions on the canonical template — never a mutation of the singleton.
+        // Empty urls: a probe pointed at a host that does not resolve must not be able to restart-loop
+        // a plane. `degraded` accepted: a Memory Core answering with a failing provider canary reports
+        // exactly that, and rejecting it would manufacture the failed-probe half of the pair against a
+        // service that is working.
+        expect(AiConfig.orchestrator.deploymentStateBridge.directProbeUrls).toEqual([]);
+        expect(AiConfig.orchestrator.deploymentStateBridge.directProbeExpectedStatus).toBe('healthy,degraded');
     });
 });

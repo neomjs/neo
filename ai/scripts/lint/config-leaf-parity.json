@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 48,
+            "remainingUniqueKeys": 49,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -68,6 +68,7 @@
             ],
             "optionalOverrides": [
                 "NEO_AUTH_ALLOWED_CLIENT_IDS",
+                "NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS",
                 "NEO_AUTH_ALLOWED_USERS",
                 "NEO_AUTH_GITHUB_API_BASE_URL",
                 "NEO_AUTH_GITLAB_API_BASE_URL",
@@ -261,6 +262,9 @@
         "orchestrator.deploymentRuntimeAccess.timeoutMs",
         "orchestrator.deploymentStateBridge",
         "orchestrator.deploymentStateBridge.allowedServices",
+        "orchestrator.deploymentStateBridge.directProbeExpectedStatus",
+        "orchestrator.deploymentStateBridge.directProbeTimeoutMs",
+        "orchestrator.deploymentStateBridge.directProbeUrls",
         "orchestrator.deploymentStateBridge.enabled",
         "orchestrator.deploymentStateBridge.includeLogs",
         "orchestrator.deploymentStateBridge.logMaxBytes",

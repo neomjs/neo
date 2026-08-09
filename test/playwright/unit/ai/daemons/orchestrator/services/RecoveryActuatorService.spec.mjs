@@ -1,7 +1,7 @@
-import {test, expect}          from '@playwright/test';
-import {mkdtemp, rm, readFile} from 'fs/promises';
-import os                      from 'os';
-import path                    from 'path';
+import {test, expect}                   from '@playwright/test';
+import {mkdtemp, readdir, rm, readFile} from 'fs/promises';
+import os                               from 'os';
+import path                             from 'path';
 
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
@@ -227,6 +227,175 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             lastAction  : 'restart',
             lastStatus  : 'actioned'
         });
+    });
+
+    test('a DENIED gate writes nothing once authority is lost — "no effect" is not "no write"', async () => {
+        // The interval @neo-gpt named as unbound: `readHealAttempts()` is awaited, and the
+        // gate-denied branch returned through `finishAction()` — which appends a recovery-run entry
+        // and persists anti-thrash state — BEFORE any authority recheck. A displaced holder
+        // therefore overwrote its successor's envelope state and emitted an owner-authoritative
+        // record, without ever touching a container.
+        const {service, actuatorConfig} = createService({
+            actuatorConfig: {maxAttemptsPerWindow: 1}
+        });
+
+        // Burn the envelope so the next call is denied by the gate rather than admitted.
+        await service.apply('mc-server', 'restart', {now: 10_000, isAuthorityHeld: () => true});
+
+        const attemptsBefore = JSON.stringify(await readAttempts()),
+              runsBefore     = (await readdir(actuatorConfig.recoveryRunStateDir)).length;
+
+        // The oracle must be HELD at entry and LOST afterwards, or this control proves nothing:
+        // `apply()` already refuses at its entry check, so a flat `() => false` returns the right
+        // status from the wrong line and passes with the interval-under-test removed. Verified by
+        // mutation — the first version of this test did exactly that.
+        let authorityReads = 0;
+
+        const result = await service.apply('mc-server', 'restart', {
+            now            : 11_000,
+            isAuthorityHeld: () => ++authorityReads === 1
+        });
+
+        // Entry check passed, so the refusal below came from the post-`readHealAttempts` interval.
+        expect(authorityReads).toBeGreaterThan(1);
+
+        expect(result).toMatchObject({
+            status    : 'declined',
+            reasonCode: 'authority-lost',
+            serviceKey: 'mc-server'
+        });
+
+        // The load-bearing half: no durable trace of a decision this holder no longer had the
+        // authority to record. Asserting only the returned status would pass with the write intact.
+        expect(JSON.stringify(await readAttempts())).toBe(attemptsBefore);
+        expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBe(runsBefore);
+    });
+
+    test('a dispatched effect whose outcome is lost after takeover is recorded UNCERTAIN, never erased', async () => {
+        // @neo-gpt's third interval. The restart POST goes out under held authority; the takeover
+        // happens; the socket resets before the outcome is known. This previously returned
+        // `declined` with NO audit at all, so a restart that may well have landed left no trace —
+        // a silent failure, which outranks a loud one because nothing observes it.
+        // The takeover happens INSIDE the dispatch, which is both the real sequence and the only
+        // way to reach this interval: a counter-based oracle trips one of the pre-effect guards
+        // first and returns the correct `declined`, never exercising the post-dispatch path.
+        let held = true;
+
+        const {service, actuatorConfig} = createService({
+            deploymentRuntimeAccessService: {
+                async applyLifecycle() {
+                    held = false;                       // successor claims the lease, POST already sent
+                    const error = new Error('socket hang up');
+                    error.code    = 'ECONNRESET';       // the answer never comes back
+                    throw error;
+                }
+            }
+        });
+
+        const result = await service.apply('mc-server', 'restart', {
+            now            : 10_000,
+            isAuthorityHeld: () => held
+        });
+
+        // NOT `declined`: we do not know that nothing happened.
+        expect(result.status).toBe('failed');
+        expect(result).toMatchObject({
+            effectDisposition         : 'uncertain',
+            authorityLostAfterDispatch: true
+        });
+
+        // The append-only audit exists — the whole point of the interval.
+        expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBeGreaterThan(0);
+    });
+
+    test('a DISPATCHED audit survives a takeover during store preparation, and says it was displaced', async () => {
+        // @neo-gpt-emmy's store interval. The append is separated from every caller-side check by
+        // the store's own awaited `mkdir`, so authority is sampled adjacent to `appendFile` —
+        // and the record is STAMPED rather than merely gated, so a displaced write is truthful on
+        // its own face instead of being indistinguishable from an authorised one.
+        let held = true;
+
+        const {service, actuatorConfig} = createService({
+            deploymentRuntimeAccessService: {
+                async applyLifecycle() {
+                    held = false;                  // effect dispatched, then the lease moves
+                    const error = new Error('socket hang up');
+                    error.code = 'ECONNRESET';
+                    throw error;
+                }
+            }
+        });
+
+        const result = await service.apply('mc-server', 'restart', {
+            now: 10_000, isAuthorityHeld: () => held
+        });
+
+        expect(result.status).toBe('failed');
+
+        // Preserved — erasing a possibly-landed restart is the failure this exists to prevent...
+        const files = await readdir(actuatorConfig.recoveryRunStateDir);
+        expect(files.length).toBeGreaterThan(0);
+
+        // ...and the surviving record admits the holder no longer held the lease when it landed.
+        const rows = (await readFile(path.join(actuatorConfig.recoveryRunStateDir, files[0]), 'utf8'))
+            .trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.at(-1).heldAtWrite).toBe(false);
+    });
+
+    test('the provider repair receives the oracle and refuses before the warm leaves the process', async () => {
+        // @neo-gpt-emmy's last interval. I argued against threading a lease into a
+        // provider-readiness module — a COUPLING objection against her SAFETY one — and weighted
+        // them the wrong way round. The repair reaches a privileged effect, so it gets the oracle.
+        //
+        // The refusal must come from INSIDE the repair, after its read-only role resolution: a
+        // caller-side check cannot bind an effect dispatched past its own await.
+        let receivedOracle = null;
+
+        const {service, runtimeCalls} = createService({
+            serviceConfig: {
+                async providerResidencyRepair({isAuthorityHeld}) {
+                    receivedOracle = isAuthorityHeld;
+                    // The takeover lands during the repair's own read-only preparation — the
+                    // interval a caller-side check cannot cover.
+                    held = false;
+
+                    // Stands in for the real helper's assertion at its last-owned point.
+                    if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+                        const error = new Error('Authority moved before the provider residency repair; refusing.');
+                        error.reason = 'runtime-authority-lost';
+                        throw error;
+                    }
+
+                    return {ready: true, provider: 'ollama', warmedModels: []};
+                }
+            }
+        });
+
+        let held = true;
+
+        const result = await service.apply('local-model', 'warm-provider', {
+            now            : 10_000,
+            // Held through every pre-dispatch check; the repair flips it from the inside.
+            isAuthorityHeld: () => held
+        });
+
+        expect(typeof receivedOracle).toBe('function');
+        expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+        // No lifecycle write may accompany a refused warm.
+        expect(runtimeCalls).toEqual([]);
+    });
+
+    test('reconfigure carries the authority oracle into the restart it triggers after its durable write', async () => {
+        // `writeKnobOverride` is awaited, so the dispatch check in `executeTargetAction` is no longer
+        // the last point owned before the container is restarted. The oracle must reach
+        // `restartComposeService`, which re-asserts after resolving the container.
+        const {service, runtimeCalls} = createService();
+
+        await service.apply('mc-server', 'restart', {now: 10_000, isAuthorityHeld: () => true});
+
+        expect(runtimeCalls[0]).toHaveProperty('isAuthorityHeld');
+        expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
     });
 
     test('warm-provider restores provider role-set residency through the bounded actuator envelope', async () => {

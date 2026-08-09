@@ -312,38 +312,38 @@ export function createRecoveryRunGraphNodes(entry) {
         diagnosisNodeId  = getRecoveryDiagnosisGraphNodeId(entry.diagnosisId),
         commonProperties = createRecoveryRunGraphProperties(entry, {runNodeId, stateNodeId, diagnosisNodeId}),
         nodes            = [{
-            id  : runNodeId,
-            type: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
+            id         : runNodeId,
+            type       : RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
             name       : `Recovery run ${entry.recoveryRunId}`,
             description: `Latest recovery state for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
-            state     : entry.status,
-            updatedAt : entry.updatedAt,
-            properties: {
+            state      : entry.status,
+            updatedAt  : entry.updatedAt,
+            properties : {
                 ...commonProperties,
                 graphNodeType    : RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
                 latestStateNodeId: stateNodeId,
                 recordType       : 'recovery-run'
             }
         }, {
-            id  : stateNodeId,
-            type: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
+            id         : stateNodeId,
+            type       : RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
             name       : `Recovery run state ${entry.recoveryRunId}`,
             description: `Recovery ${entry.rung} update for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
-            state     : entry.status,
-            updatedAt : entry.updatedAt,
-            properties: {
+            state      : entry.status,
+            updatedAt  : entry.updatedAt,
+            properties : {
                 ...commonProperties,
                 graphNodeType: RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState,
                 recordType   : 'recovery-run-state'
             }
         }, {
-            id  : diagnosisNodeId,
-            type: RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis,
+            id         : diagnosisNodeId,
+            type       : RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis,
             name       : `Recovery diagnosis ${entry.diagnosisId}`,
             description: `${entry.recoveryClass} diagnosis for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
-            state     : entry.recoveryClass,
-            updatedAt : entry.updatedAt,
-            properties: {
+            state      : entry.recoveryClass,
+            updatedAt  : entry.updatedAt,
+            properties : {
                 graphNodeType         : RECOVERY_RUN_GRAPH_NODE_TYPES.diagnosis,
                 recordType            : 'recovery-diagnosis',
                 schemaVersion         : 1,
@@ -365,13 +365,13 @@ export function createRecoveryRunGraphNodes(entry) {
             reobserveNode = getRecoveryReobserveGraphNodeId(entry.recoveryRunId, request.requestedAt);
 
         nodes.push({
-            id  : reobserveNode,
-            type: RECOVERY_RUN_GRAPH_NODE_TYPES.reobserveRequest,
+            id         : reobserveNode,
+            type       : RECOVERY_RUN_GRAPH_NODE_TYPES.reobserveRequest,
             name       : `Recovery reobserve ${entry.recoveryRunId}`,
             description: `Reobserve request for ${entry.targetIdentity.kind}:${entry.targetIdentity.id}`,
-            state     : 'pending',
-            updatedAt : request.requestedAt,
-            properties: {
+            state      : 'pending',
+            updatedAt  : request.requestedAt,
+            properties : {
                 ...request,
                 graphNodeType         : RECOVERY_RUN_GRAPH_NODE_TYPES.reobserveRequest,
                 recordType            : 'recovery-reobserve-request',
@@ -501,7 +501,9 @@ export async function appendRecoveryRunState(entry, {
     graphService            = null,
     onGraphPublicationError = null,
     retentionLimit,
-    writeLog                = null
+    writeLog                = null,
+    isAuthorityHeld         = null,
+    preserveOnAuthorityLoss = false
 } = {}) {
     if (!dir) {
         throw new TypeError('appendRecoveryRunState: dir is required');
@@ -513,7 +515,32 @@ export async function appendRecoveryRunState(entry, {
     await fs.mkdir(dir, {recursive: true});
 
     const filePath = path.join(dir, getRecoveryRunStateFileName(entry.recoveryRunId));
-    await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, 'utf8');
+
+    // SAMPLED HERE, with no await between the sample and the write. `mkdir` above is awaited, so a
+    // caller that verified authority before calling has already yielded — and the store is the only
+    // place a check can sit adjacent to this append, for the same reason the overlay writer checks
+    // its own commit.
+    //
+    // Sampled and STAMPED rather than only gating, because the record must stay truthful in both
+    // directions. A recovery-run entry is owner-authoritative — it reads as "the current holder did
+    // this" — so one written after a takeover has to say so on its own face, not merely be absent
+    // or present.
+    const heldAtWrite = typeof isAuthorityHeld === 'function' ? isAuthorityHeld() === true : null;
+
+    // A displaced holder must not attribute an action nobody took. `preserveOnAuthorityLoss` is the
+    // caller's assertion that an effect genuinely dispatched, and erasing that is strictly worse
+    // than recording it late: the alternative is a restart that may have landed leaving no trace.
+    if (heldAtWrite === false && !preserveOnAuthorityLoss) {
+        const error = new Error('Authority moved before the recovery-run append; refusing.');
+
+        error.reason = 'runtime-authority-lost';
+
+        throw error;
+    }
+
+    const stamped = heldAtWrite === null ? entry : {...entry, heldAtWrite};
+
+    await fs.appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
     if (graphService) {
         await publishRecoveryRunStateToGraphWithSurface(entry, {

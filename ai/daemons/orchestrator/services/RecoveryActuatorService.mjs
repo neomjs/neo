@@ -13,6 +13,7 @@ import {
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     appendHealEvent,
+    HEAL_LEDGER_DIR_NAME,
     validateHealLedgerRetention
 } from '../../../services/memory-core/helpers/healEventLedgerStore.mjs';
 import {
@@ -169,11 +170,24 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Resolves the durable heal-event ledger directory — a sibling of the recovery-run dir; the
-     * shared record sink for the lifecycle (this actuator) and data worlds of the immune system.
+     * @summary Resolves the durable heal-event ledger directory — the shared record sink for the
+     * lifecycle (this actuator) and data worlds of the immune system.
+     *
+     * **Derived from `dataDir` + the shared `HEAL_LEDGER_DIR_NAME`, and that is a repair.** This
+     * getter previously returned `dirname(recoveryRunStateDir) + '/heal-events'`, which the sentence
+     * above already described as shared and was not: the data world, the deployment snapshot's
+     * `selfHeal` fold, `backup.mjs` and `restore.mjs` all bind to `dataDir + 'data-heal-events'`.
+     * A whole-tree search for the old path found writers here and **no production reader anywhere** —
+     * so every lifecycle heal-event ever written was invisible to the immune-system status surface it
+     * was written for, and was not captured by backup either. `selfHeal.total: 0` on a live plane was
+     * therefore doubly uninformative.
+     *
+     * Binding to `dataDir` rather than to `dirname(recoveryRunStateDir)` also removes the way the two
+     * could drift apart again: the run-state dir carries its own env override, so an operator moving
+     * it silently re-split the ledger, while `dataDir` is the same leaf the bridge's reader resolves.
      */
     get healEventLedgerDir() {
-        return path.join(path.dirname(this.recoveryRunStateDir), 'heal-events');
+        return path.join(this.dataDir, HEAL_LEDGER_DIR_NAME);
     }
 
     /**
@@ -252,6 +266,10 @@ export class RecoveryActuatorService extends Base {
         recoveryRunId = null,
         now = Date.now(),
         reason = null,
+        // Current-authority oracle, `() => Boolean`, revalidated INSIDE this method immediately before
+        // the privileged effect. Optional so existing callers are unchanged; a caller that omits it
+        // keeps today's behaviour exactly.
+        isAuthorityHeld = null,
         // Only `reconfigure` consumes these. A controller names a KNOB, never a config leaf — the
         // transaction boundary belongs to the closed set, so a caller cannot compose an arbitrary
         // group of leaves and have it applied as one.
@@ -260,6 +278,15 @@ export class RecoveryActuatorService extends Base {
     } = {}) {
         if (typeof serviceKey !== 'string' || serviceKey.length === 0) {
             throw new TypeError('RecoveryActuatorService.apply: serviceKey is required');
+        }
+
+        // ENTRY. Every branch below this line that returns early — unsupported action, disabled
+        // actuator, unrecoverable target, action-not-allowed, and the anti-thrash gate — reaches
+        // `finishAction`, which appends to the successor's recovery-run ledger. None of them lands an
+        // effect, so none has the post-effect audit rationale that justifies the provenance-marked
+        // write further down. A displaced holder must reach none of them.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {status: 'declined', reasonCode: 'authority-lost', serviceKey, action};
         }
         if (!DEFAULT_ACTIONS.includes(action)) {
             return this.rejectAction({serviceKey, action, now, reasonCode: 'unsupported-action', targetIdentity});
@@ -281,6 +308,28 @@ export class RecoveryActuatorService extends Base {
         const attempts = await this.readHealAttempts(),
               gate     = this.evaluateEnvelope({attempts, serviceKey, action, now});
 
+        // REVALIDATED HERE, after the awaited preparation above and before ANY write — not by the
+        // caller before `apply` was entered. `readHealAttempts` is I/O, so a caller that checked
+        // authority and then awaited this method has already yielded: a GC pause or a suspended VM
+        // lets a successor reclaim the lease inside that window.
+        //
+        // The check sits above the gate branch rather than below it because a DENIED gate writes
+        // too. `finishAction` appends a recovery-run entry and persists anti-thrash state, so a
+        // displaced holder returning through the denial path still overwrote the successor's state
+        // and emitted an owner-authoritative record. "No effect" is not "no write".
+        //
+        // `evaluateEnvelope` is synchronous, so this remains the last point before the privileged
+        // effect on the admitted path as well: one check, both paths, no await after it.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'authority-lost',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+            };
+        }
+
         if (!gate.admitted) {
             return this.finishAction({
                 action,
@@ -300,30 +349,70 @@ export class RecoveryActuatorService extends Base {
                 startedAt : now,
                 target,
                 taskStatus: gate.status === 'recorded' ? 'failed' : 'skipped',
-                updatedAt : now
+                updatedAt : now,
+                isAuthorityHeld
             });
+        }
+
+        // REVALIDATED HERE, after the awaited preparation above and immediately before the privileged
+        // effect — not by the caller before `apply` was entered. `readHealAttempts` is I/O, so a caller
+        // that checked authority and then awaited this method has already yielded: a GC pause or a
+        // suspended VM lets a successor reclaim the lease inside that window, and the effect still
+        // fires. The only check that binds an effect is the one with no await between it and the effect.
+        //
+        // The refusal returns BEFORE `persistAttempt` and before `finishAction`, deliberately. A
+        // displaced holder must not overwrite the successor's anti-thrash state, and must not emit an
+        // owner-authoritative recovery-run success entry — an unbound post-loss write is worse than no
+        // record, because it reads as the current holder's action.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'authority-lost',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+            };
         }
 
         const startedAt = now;
 
         try {
-            const result = await this.executeTargetAction({target, action, knob, knobValues, reason});
+            const result = await this.executeTargetAction({target, action, knob, knobValues, reason, isAuthorityHeld});
 
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
                   nextAttempt   = gate.attempt + 1,
                   nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
 
-            this.persistAttempt({
-                attempts,
-                serviceKey,
-                action,
-                attempt     : nextAttempt,
-                backoffUntil: nextBackoffAt,
-                now         : updatedAt,
-                status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
-            });
-            await this.writeHealAttempts(attempts);
+            // POST-EFFECT, and the two shared surfaces get OPPOSITE treatment on purpose — this is the
+            // distinction four review cycles converged on, and collapsing it either way is wrong.
+            //
+            // `heal-attempts.json` is MUTABLE state the successor reads to make its own anti-thrash
+            // decisions. A displaced holder writing it corrupts a decision that is no longer its to
+            // make, so it is skipped outright.
+            //
+            // The recovery-run ledger is APPEND-ONLY audit. The action genuinely landed — refusing to
+            // record it would erase the only evidence that a restart happened, which is worse than a
+            // marked record. So it is written WITH provenance: `authorityLostAfterEffect` says this
+            // entry was produced by a holder that had been displaced by the time it wrote, which is
+            // exactly the "capability-bound receipt with explicit provenance" shape rather than an
+            // unbound post-loss success claim.
+            const heldAfterEffect = typeof isAuthorityHeld !== 'function' || isAuthorityHeld() === true;
+
+            if (heldAfterEffect) {
+                this.persistAttempt({
+                    attempts,
+                    serviceKey,
+                    action,
+                    attempt     : nextAttempt,
+                    backoffUntil: nextBackoffAt,
+                    now         : updatedAt,
+                    status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
+                });
+                await this.writeHealAttempts(attempts);
+            } else {
+                this.writeLog?.('WARN', `[RecoveryActuator] Authority moved during the ${serviceKey} ${action}; not writing the successor's heal-attempt state.`);
+            }
 
             return this.finishAction({
                 action,
@@ -332,10 +421,14 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status           : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
+                    status        : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
                     serviceKey,
                     action,
-                    targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                    // Provenance, not a status. The action landed; this says under what authority the
+                    // RECORD of it was written, so a successor reading the ledger can tell its own
+                    // entries from a displaced predecessor's without inferring from timestamps.
+                    ...(heldAfterEffect ? {} : {authorityLostAfterEffect: true}),
                     runtimeAccess    : result.runtimeAccess || null,
                     supervisor       : result.supervisor || null,
                     recorded         : result.recorded || null,
@@ -350,24 +443,60 @@ export class RecoveryActuatorService extends Base {
                 startedAt,
                 target,
                 taskStatus: 'completed',
-                updatedAt
+                updatedAt,
+                isAuthorityHeld
             });
         } catch (error) {
+            // A refusal by the runtime's own authority guard is NOT an executor failure, and collapsing
+            // the two writes the successor's state for an action that never happened. `runtime-authority-lost`
+            // means the mutation was declined precisely BECAUSE we no longer hold authority — so there
+            // is no effect to audit and no attempt to charge against a budget that is not ours.
+            //
+            // ONLY the explicit reason takes this branch. It is thrown by our own guards, every one
+            // of which sits BEFORE its effect, so "no effect happened" is knowledge rather than
+            // inference. The previous condition also took this branch whenever authority merely
+            // READ as lost at catch time, which is a different and much weaker fact: a restart POST
+            // dispatched under held authority, followed by a takeover and a socket reset, arrived
+            // here with an ordinary transport error and was reported `declined` with no audit at
+            // all. A possibly-landed restart was erased — and erased silently, which is worse than
+            // a loud failure because nothing observes it.
+            if (error?.reason === 'runtime-authority-lost') {
+                return {
+                    status        : 'declined',
+                    reasonCode    : 'authority-lost',
+                    serviceKey,
+                    action,
+                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+                };
+            }
+
+            // Any other error while authority is no longer held means the effect's outcome is
+            // UNKNOWN, not absent. Represented on the existing `failed` terminal with structured
+            // detail rather than a new terminal value: the action set is closed (ADR-0026 AC-9 — // ticket-ref-ok: the ADR is the authority forbidding a widened action set) and
+            // an unknown outcome is a property of this run, not a new kind of run.
+            const authorityLostAfterDispatch = typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true;
+
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
                   nextAttempt   = gate.attempt + 1,
                   nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
 
-            this.persistAttempt({
-                attempts,
-                serviceKey,
-                action,
-                attempt     : nextAttempt,
-                backoffUntil: nextBackoffAt,
-                now         : updatedAt,
-                status      : 'failed'
-            });
-            await this.writeHealAttempts(attempts);
+            // The append-only audit below is written in BOTH cases; the mutable shared state is not.
+            // A displaced holder must not charge an attempt against a budget the successor now owns
+            // — that is the same reasoning the pre-effect refusal uses — but the record of a
+            // possibly-landed effect belongs to the ledger regardless of who holds the lease now.
+            if (!authorityLostAfterDispatch) {
+                this.persistAttempt({
+                    attempts,
+                    serviceKey,
+                    action,
+                    attempt     : nextAttempt,
+                    backoffUntil: nextBackoffAt,
+                    now         : updatedAt,
+                    status      : 'failed'
+                });
+                await this.writeHealAttempts(attempts);
+            }
 
             return this.finishAction({
                 action,
@@ -381,14 +510,20 @@ export class RecoveryActuatorService extends Base {
                     serviceKey,
                     action,
                     targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
-                    error         : error.message
+                    error         : error.message,
+                    // `not-applied` is a claim; `uncertain` is the absence of one. A reader that
+                    // cannot tell them apart will assume the effect did not happen, which is the
+                    // assumption that makes a duplicate restart look safe.
+                    effectDisposition         : authorityLostAfterDispatch ? 'uncertain' : 'not-applied',
+                    authorityLostAfterDispatch
                 },
                 recoveryRunId,
                 serviceKey,
                 startedAt,
                 target,
                 taskStatus: 'failed',
-                updatedAt
+                updatedAt,
+                isAuthorityHeld
             });
         }
     }
@@ -412,8 +547,23 @@ export class RecoveryActuatorService extends Base {
     async recordDiagnosis(diagnosisEvent, {
         recoveryRunId = null,
         now = Date.now(),
-        reason = null
+        reason = null,
+        isAuthorityHeld = null
     } = {}) {
+        // The heal-event ledger and the recovery-run ledger are SHARED durable state, and that is what
+        // makes this a fence rather than bookkeeping. An earlier revision left this terminal open on
+        // the argument that losing the record would erase the evidence an instance stopped acting.
+        // The argument does not survive reading what it actually writes: `status: 'recorded'` is a
+        // controller-owned success terminal, indistinguishable from ordinary operation, so a displaced
+        // holder was not leaving evidence of stopping — it was writing into the successor's ledger as
+        // though it were still the authority.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status    : 'declined',
+                reasonCode: 'authority-lost'
+            };
+        }
+
         let diagnosis;
 
         try {
@@ -450,6 +600,11 @@ export class RecoveryActuatorService extends Base {
             collection: serviceKey,
             status    : 'recorded',
             detail    : {
+                // The DIAGNOSIS's own details ride into the record. Without them this terminal wrote
+                // that something was recorded but never what — and for a controller that declined an
+                // action, the declined class is the entire content of the record. The explicit keys
+                // below still win, so no existing field changes meaning.
+                ...diagnosis.details,
                 reasonCode,
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
@@ -475,7 +630,12 @@ export class RecoveryActuatorService extends Base {
             startedAt : now,
             target,
             taskStatus: 'failed',
-            updatedAt
+            updatedAt,
+            // The SECOND append of this method. The entry check above is separated from it by an
+            // awaited `appendHealEvent`, so it cannot bind this one; `finishAction` re-samples and
+            // the store stamps `heldAtWrite`. A record-only terminal dispatched nothing, so it
+            // refuses rather than being preserved.
+            isAuthorityHeld
         });
     }
 
@@ -558,7 +718,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async reconfigureComposeService({target, knob, knobValues, reason}) {
+    async reconfigureComposeService({target, knob, knobValues, reason, isAuthorityHeld = null}) {
         const context = {};
 
         for (const leafPath of requiredContextForKnob(knob)) {
@@ -571,7 +731,8 @@ export class RecoveryActuatorService extends Base {
             // Derived from the bridge's snapshot leaf rather than re-resolved: both files live on the
             // same writer-owned mount, and deriving keeps them together if that root ever relocates.
             overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
-            values     : knobValues
+            values     : knobValues,
+            isAuthorityHeld
         });
 
         if (!applied) {
@@ -583,7 +744,11 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
         }
 
-        const restart = await this.restartComposeService({target, reason});
+        // The oracle travels INTO the restart. `writeKnobOverride` above is awaited, so the dispatch
+        // check in `executeTargetAction` is no longer the last point we own before this container is
+        // actually restarted — and `restartComposeService` already re-asserts after it resolves the
+        // container, which is the boundary that matters.
+        const restart = await this.restartComposeService({target, reason, isAuthorityHeld});
 
         return {...restart, knob, overridePath}
     }
@@ -617,7 +782,7 @@ export class RecoveryActuatorService extends Base {
      * @param {String|null} options.reason Controller reason.
      * @returns {Promise<Object>}
      */
-    async raiseComposeServiceCeiling({target, knob, knobValues, reason}) {
+    async raiseComposeServiceCeiling({target, knob, knobValues, reason, isAuthorityHeld = null}) {
         const declaredService = RECOVERY_KNOBS[knob]?.serviceKey;
 
         // The knob declares which service its sizing derivation belongs to; an intent authored for the
@@ -643,12 +808,19 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Live memory limit for '${target.id}' is unreadable from inspect — refusing to raise against an unknown bound`);
         }
 
+        // Re-asserted after the awaited inspect and BEFORE the first durable write. The dispatch
+        // check happened before `readObserve` yielded; a successor can have taken the lease inside
+        // that window, and a displaced holder must not leave a durable knob override behind — the
+        // next converge would apply an intent its author no longer had authority to form.
+        this.assertAuthorityHeld({isAuthorityHeld, action: 'raise-ceiling', target});
+
         const {applied, path: overridePath, violations} = await writeKnobOverride({
             context    : {[`runtime.${target.id}.liveMemoryLimitBytes`]: liveLimitBytes},
             knob,
             // Same writer-owned mount as `reconfigure` — one overlay, one owner, one revert surface.
             overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
-            values     : knobValues
+            values     : knobValues,
+            isAuthorityHeld
         });
 
         if (!applied) {
@@ -659,12 +831,16 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
         }
 
+        // The oracle travels into the live mutation as well: `writeKnobOverride` above is awaited, so
+        // this is a second yield point. `applyLifecycle` re-checks after it resolves the container —
+        // the last boundary Neo owns before the cgroup actually moves.
         const memoryLimitBytes = knobValues[leafPaths[0]],
               update           = await this.deploymentRuntimeAccessService.applyLifecycle({
                   serviceKey: target.id,
                   operation : 'update-memory-limit',
                   memoryLimitBytes,
-                  reason    : reason || `recovery-actuator:${target.serviceKey}`
+                  reason    : reason || `recovery-actuator:${target.serviceKey}`,
+                  isAuthorityHeld
               });
 
         // DELIBERATELY no restartComposeService here. The omission is the contract, asserted by a
@@ -682,25 +858,61 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Refuses a privileged effect when the runtime authority lease is no longer held.
+     *
+     * **One assertion, called at every last-owned point rather than once at dispatch.** An action
+     * that awaits internally — an inspect, a durable override write — has yielded between the
+     * dispatch check and its own mutation, and the only check that binds an effect is the one with
+     * no await between it and the effect. Extracted so those points share a single refusal shape
+     * instead of three hand-copied throws that can drift apart.
+     *
+     * A null/absent oracle is not a refusal: callers that never held a lease (tests, direct
+     * invocation) keep working unchanged.
+     *
+     * @param {Object} options
+     * @param {Function|null} [options.isAuthorityHeld] Live authority oracle.
+     * @param {String} options.action Action name, for the refusal message.
+     * @param {Object} options.target Resolved target, for the refusal message.
+     * @throws {Error} `reason: 'runtime-authority-lost'` when the oracle reports the lease is gone.
+     * @protected
+     */
+    assertAuthorityHeld({isAuthorityHeld, action, target}) {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error(`Authority moved before the ${action} effect on '${target.id}'; refusing.`);
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    }
+
+    /**
      * @summary Executes the typed target action through the matching privilege envelope.
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async executeTargetAction({target, action, reason, knob, knobValues}) {
+    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
+        // The last COMMON point before every effect kind dispatches — common in syntax, which is not
+        // the same as last-owned in time. It fences an action whose effect begins immediately
+        // (`warm-provider` awaits its repair as its first statement), and it is NOT sufficient for an
+        // action that awaits internally before its own mutation. Those carry the oracle inward and
+        // re-assert at their own last point; see `reconfigureComposeService` / `raiseComposeServiceCeiling`.
+        this.assertAuthorityHeld({isAuthorityHeld, action, target});
+
         if (action === 'warm-provider') {
-            return this.warmProviderResidency({target, reason});
+            return this.warmProviderResidency({target, reason, isAuthorityHeld});
         }
 
         if (action === 'reconfigure') {
-            return this.reconfigureComposeService({knob, knobValues, reason, target});
+            return this.reconfigureComposeService({knob, knobValues, reason, target, isAuthorityHeld});
         }
 
         if (action === 'raise-ceiling') {
-            return this.raiseComposeServiceCeiling({knob, knobValues, reason, target});
+            return this.raiseComposeServiceCeiling({knob, knobValues, reason, target, isAuthorityHeld});
         }
 
         if (target.kind === 'compose-service') {
-            return this.restartComposeService({target, reason});
+            return this.restartComposeService({target, reason, isAuthorityHeld});
         }
 
         if (target.kind === 'supervised-task') {
@@ -740,7 +952,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async restartComposeService({target, reason}) {
+    async restartComposeService({target, reason, isAuthorityHeld = null}) {
         if (!this.deploymentRuntimeAccessService?.applyLifecycle) {
             throw new Error('Deployment runtime access service is unavailable');
         }
@@ -748,7 +960,12 @@ export class RecoveryActuatorService extends Base {
         const result = await this.deploymentRuntimeAccessService.applyLifecycle({
             serviceKey: target.id,
             operation : 'restart',
-            reason    : reason || `recovery-actuator:${target.serviceKey}`
+            reason    : reason || `recovery-actuator:${target.serviceKey}`,
+            // Carried to the LAST point we own — after target resolution, before the mutation. Spread
+            // conditionally so a caller without an oracle sends a byte-identical request to before,
+            // which keeps the specs' strict argument assertions meaningful rather than forcing them
+            // to loosen to `toMatchObject` and stop noticing unexpected arguments.
+            ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {})
         });
 
         return {
@@ -761,12 +978,21 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async warmProviderResidency({target, reason}) {
+    async warmProviderResidency({target, reason, isAuthorityHeld = null}) {
+        // Asserted immediately before the repair dispatches. The repair itself performs awaited
+        // provider work, so this is the last point Neo owns before a privileged effect leaves the
+        // process; loss DURING the repair is post-dispatch uncertainty, which the catch path records
+        // rather than fences.
+        this.assertAuthorityHeld({isAuthorityHeld, action: 'warm-provider', target});
+
         const repair = this.providerResidencyRepair || repairProviderRoleSetResidency,
               result = await repair({
                   attempts : AiConfig.orchestrator.providerReadiness.attempts,
                   delayMs  : AiConfig.orchestrator.providerReadiness.delayMs,
                   timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs,
+                  // Carried INTO the repair so the assertion sits after its read-only role
+                  // resolution and immediately before the unload/load/warm leaves the process.
+                  isAuthorityHeld,
                   log      : {
                       info: message => this.writeLog?.('INFO', message),
                       warn: message => this.writeLog?.('WARN', message)
@@ -946,8 +1172,23 @@ export class RecoveryActuatorService extends Base {
         startedAt,
         target,
         taskStatus,
-        updatedAt
+        updatedAt,
+        isAuthorityHeld = null
     }) {
+        // FRESHLY CLASSIFIED, here rather than at the caller. Everything between the caller's own
+        // measurement and this point is awaited — `writeHealAttempts`, the executor, the heal-event
+        // append — so a provenance value computed there is stale by the time the record lands. There
+        // are no awaits between this line and the append below, which is what makes it the last
+        // point that can honestly describe the write.
+        //
+        // It refines rather than overrides: a run already known to have dispatched under held
+        // authority and lost it stays `uncertain`. What this cannot do is claim an effect was clean
+        // when authority had already moved before the record was written.
+        const heldAtAppend = typeof isAuthorityHeld === 'function' ? isAuthorityHeld() === true : null,
+              finalOutcome = heldAtAppend === false
+                  ? {...outcome, heldAtAppend, authorityLostBeforeRecord: true}
+                  : (heldAtAppend === null ? outcome : {...outcome, heldAtAppend});
+
         const runId            = this.getRecoveryRunId({recoveryRunId, serviceKey, action, startedAt}),
               reobserveRequest = outcome.status === 'actioned'
                   ? createRecoveryReobserveRequest({
@@ -970,12 +1211,26 @@ export class RecoveryActuatorService extends Base {
                   completedAt  : updatedAt,
                   backoffUntil,
                   reobserveRequest,
-                  details      : outcome
+                  details      : finalOutcome
               });
 
         await appendRecoveryRunState(entry, {
             dir           : this.recoveryRunStateDir,
-            retentionLimit: this.cfg.recoveryRunRetentionLimit
+            retentionLimit: this.cfg.recoveryRunRetentionLimit,
+            // Carried into the store so the refusal sits adjacent to the append itself: the
+            // classification above is fresh, but `appendRecoveryRunState` awaits `mkdir` before it
+            // writes — one more yield this method cannot see from here.
+            //
+            // The oracle ALWAYS travels now, so the store samples authority adjacent to its own
+            // append and stamps `heldAtWrite` on the record. Withholding it (the previous shape)
+            // bought a dispatched audit its survival at the cost of the record no longer saying
+            // whether the holder still held the lease when it landed.
+            isAuthorityHeld,
+            // Whether an effect was DISPATCHED, which is what decides survival — not whether
+            // authority is still held. `actioned` and `failed` both mean the executor ran, so those
+            // records must outlive a takeover; `recorded`, `skipped` and `declined` mean nothing
+            // reached a container, so a displaced holder has nothing to attribute and must not write.
+            preserveOnAuthorityLoss: ['actioned', 'failed'].includes(finalOutcome.status)
         });
 
         this.recordTaskOutcome(serviceKey, taskStatus, {
