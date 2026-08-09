@@ -155,6 +155,52 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         }
     });
 
+    test('embedding-batch recovery levers keep their defaults when no env is set', () => {
+        // The defaults are correct for a healthy plane and this change adds reachability, not new
+        // behavior. A deployment that sets none of the three must be byte-identical to before.
+        delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+        delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+        delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+
+        const defaultKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(defaultKB.batchSize) .toBe(50);
+            expect(defaultKB.batchDelay).toBe(10000);
+            expect(defaultKB.maxRetries).toBe(5);
+        } finally {
+            defaultKB.destroy();
+        }
+    });
+
+    test('embedding-batch recovery levers are env-overridable so an operator can shrink the durable unit', () => {
+        // `batchSize` is the DURABLE UNIT: `VectorService.embedChunks` embeds a whole slice in one
+        // provider call and upserts only after it returns, so all of it succeeds together or none of
+        // it persists. Every dial shaping an individual provider request was already reachable
+        // (`NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE`, the timeouts) while every dial shaping
+        // the unit that must succeed together was not — so an operator whose corpus will not start
+        // could make each request smaller and still not shrink the bet. These three close that.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '1';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '2';
+
+        const freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            // Typed as numbers by the leaf's own env decoding — a string here would mean the `'number'`
+            // type argument was dropped, which reads correct and silently breaks the `i += batchSize`
+            // loop arithmetic.
+            expect(freshKB.batchSize) .toBe(1);
+            expect(freshKB.batchDelay).toBe(0);
+            expect(freshKB.maxRetries).toBe(2);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            freshKB.destroy();
+        }
+    });
+
     test('keeps debug off by default and accepts NEO_DEBUG as a KB-local override', () => {
         const defaultKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
