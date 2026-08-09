@@ -366,7 +366,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             'tools',
             'unfinishedCalls',
             'recentSlowCalls',
-            'providerActivity'
+            'providerActivity',
+            // The denominator. `providerActivity` alone cannot distinguish a busy ingestion from a
+            // lane burning against an empty backlog, and this key set is the declared surface — so
+            // the addition is recorded here rather than the pin loosened.
+            'walDrain'
         ]);
         expect(metrics.providerActivity).toMatchObject({
             status         : 'ok',
@@ -728,5 +732,87 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         } finally {
             MemoryCoreRecorderService.db = originalDb;
         }
+    });
+
+    test.describe('walDrain — the denominator that makes provider load interpretable (#16780 AC-7)', () => {
+        let originalProvider;
+
+        test.beforeEach(() => {
+            originalProvider = MemoryCoreRecorderService.walDrainDispositionProvider;
+        });
+
+        test.afterEach(() => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = originalProvider;
+        });
+
+        test('an absent drain host reports unavailable with NULL counts — never a fabricated zero', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = null;
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // The load-bearing assertion of this whole projection. Zero pending against live provider
+            // load IS the anomaly, so defaulting the denominator to 0 would not be conservative — it
+            // would synthesise the exact alarm the field exists to detect, on every process that does
+            // not host the drain.
+            expect(walDrain.status).toBe('unavailable');
+            expect(walDrain.counts, 'an unknown backlog must never read as an empty one').toBeNull();
+            expect(walDrain.reason).toBe('wal-drain-not-hosted-in-this-process');
+            expect(walDrain.withinWindow).toBe(false);
+        });
+
+        test('a hosted drain publishes its own per-cycle counts beside provider activity', () => {
+            const now = Date.now();
+
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state       : 'clean',
+                drainedClean: true,
+                reason      : null,
+                counts      : {pending: 12, embedded: 12, failed: 0, cooling: 0, outstanding: 0},
+                at          : now - 1_000
+            });
+
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // One reading now carries both halves: attribution AND the work that justified it.
+            expect(metrics.providerActivity).toBeDefined();
+            expect(metrics.walDrain.status).toBe('ok');
+            expect(metrics.walDrain.counts).toEqual({pending: 12, embedded: 12, failed: 0, cooling: 0, outstanding: 0});
+            expect(metrics.walDrain.drainedClean).toBe(true);
+            expect(metrics.walDrain.withinWindow, 'a cycle inside the lookback is comparable to it').toBe(true);
+        });
+
+        test('a receipt older than the lookback is reported NOT comparable rather than silently divided', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state       : 'clean',
+                drainedClean: true,
+                reason      : null,
+                counts      : {pending: 0, embedded: 0, outstanding: 0},
+                at          : Date.now() - 3_600_000 // an hour ago, far outside a 60s window
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // `pending: 0` from an hour ago beside a live provider-activity window is exactly the false
+            // ratio this flag exists to refuse. The counts are still reported — they are true of their
+            // own cycle — but they are marked as describing a different period.
+            expect(walDrain.status).toBe('ok');
+            expect(walDrain.counts.pending).toBe(0);
+            expect(walDrain.withinWindow, 'stale zero-pending must not read as a live zero-pending').toBe(false);
+        });
+
+        test('a throwing receipt degrades to partial with null counts, and never breaks the metrics call', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => {
+                throw new Error('receipt exploded')
+            };
+
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // Telemetry must not take the tool down, and a failed read must not masquerade as an empty
+            // backlog either — the same null-not-zero rule as the absent case.
+            expect(metrics.status).toBe('ok');
+            expect(metrics.walDrain.status).toBe('partial');
+            expect(metrics.walDrain.counts).toBeNull();
+            expect(metrics.walDrain.reason).toContain('receipt exploded');
+        });
     });
 });

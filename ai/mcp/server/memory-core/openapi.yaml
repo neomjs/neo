@@ -2561,6 +2561,7 @@ components:
         - unfinishedCalls
         - recentSlowCalls
         - providerActivity
+        - walDrain
       properties:
         status:
           type: string
@@ -2702,6 +2703,69 @@ components:
                 description: Redacted recorder stage when the call failed, or null on success.
         providerActivity:
           $ref: '#/components/schemas/ProviderActivityResponse'
+        walDrain:
+          $ref: '#/components/schemas/WalDrainProjectionResponse'
+
+    WalDrainProjectionResponse:
+      type: object
+      description: >
+        This process's WAL drain receipt, reported beside `providerActivity` so one reading answers
+        "is this provider load explained by pending work?" without shell access or log parsing.
+        Provider load alone cannot distinguish a busy ingestion from a lane burning against an empty
+        backlog; the drain's own per-cycle counts are the denominator.
+
+        Two properties are deliberate. `counts` is null — never zero — when this process does not host
+        the drain, because zero pending against live provider load IS the anomaly, so a defaulted zero
+        would manufacture the alarm this projection exists to detect. And `withinWindow` reports
+        whether the receipt's cycle landed inside the same lookback as `providerActivity`; the two are
+        only a ratio when it is true.
+      required:
+        - status
+        - state
+        - drainedClean
+        - reason
+        - counts
+        - observedAt
+        - withinWindow
+      properties:
+        status:
+          type: string
+          enum: [ok, partial, unavailable]
+          description: >
+            `ok` when this process hosts the drain and its receipt was read; `partial` when the receipt
+            was unreadable; `unavailable` when the drain runs out of process.
+        state:
+          type: string
+          nullable: true
+          enum: [clean, dirty, inactive, unobserved, null]
+          description: Producer-declared cycle verdict, or null when no receipt is available.
+        drainedClean:
+          type: boolean
+          nullable: true
+          description: True only for `clean`; `inactive` and `unobserved` are not drained claims.
+        reason:
+          type: string
+          nullable: true
+          description: Why the state is not `clean`, or why no receipt is available.
+        counts:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+          description: >
+            The last cycle's own summary — pending, embedded, failed, cooling and the producer-declared
+            `outstanding` residue. Null whenever no receipt was read.
+        observedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the reported cycle completed.
+        withinWindow:
+          type: boolean
+          description: >
+            Whether `observedAt` falls inside this response's lookback window. False means the drain
+            observation and the provider-activity aggregates describe different periods and must not
+            be divided.
 
     ProviderActivityResponse:
       type: object

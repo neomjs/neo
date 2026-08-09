@@ -86,7 +86,17 @@ class MemoryCoreRecorderService extends Base {
          * @summary Recorder-owned atomic failure-status sidecar writer.
          * @protected
          */
-        providerActivityStatusWriter: null
+        providerActivityStatusWriter: null,
+        /**
+         * @member {Function|null} walDrainDispositionProvider=null
+         * @summary Reads this process's WAL drain receipt, when this process hosts the drain.
+         *
+         * Registered by the host that calls `startDrainLoop`. Absent when the drain runs out of
+         * process, which is a reportable state and NOT an absence of pending work — see
+         * `getWalDrainProjection`.
+         * @protected
+         */
+        walDrainDispositionProvider: null
     }
 
     /**
@@ -581,6 +591,8 @@ class MemoryCoreRecorderService extends Base {
             providerActivity = emptyProviderActivity('partial');
         }
 
+        const walDrain = this.getWalDrainProjection({sinceTs, now});
+
         const sidecarStatus = inspectProviderActivityStatus({
             dbPath: config.storagePaths.graph,
             sinceTs
@@ -623,7 +635,80 @@ class MemoryCoreRecorderService extends Base {
                 success     : row.success === 1,
                 failureStage: row.failure_stage ?? null
             })),
-            providerActivity
+            providerActivity,
+            walDrain
+        };
+    }
+
+    /**
+     * @summary Projects this process's WAL drain receipt beside its provider activity.
+     *
+     * The disproportion this answers — *"is this provider load explained by pending work?"* — needs a
+     * numerator and a denominator in ONE reading. The numerator (`providerActivity`) is a SQLite
+     * projection over `sinceTs`; the denominator is the drain's own per-cycle receipt, already computed
+     * every sweep and, until now, reaching no surface at all: a caller could read four cores of
+     * embedding attribution and had no way to learn that nothing was pending.
+     *
+     * Two honesty properties, both load-bearing:
+     *
+     * **Absence is never zero.** When this process does not host the drain, `counts` stays `null` and
+     * the status says so. Reporting `pending: 0` there would not be a conservative default — zero
+     * pending against live provider load IS the alarm condition, so a defaulted zero manufactures the
+     * exact alarm the projection exists to detect.
+     *
+     * **Comparability is stated, not assumed.** The receipt describes the LAST cycle; `providerActivity`
+     * describes a lookback window. Those coincide only when the cycle landed inside the window, so
+     * `withinWindow` reports whether they may be read as a ratio at all. A single precomputed ratio
+     * across mismatched windows would be more convenient and less true.
+     *
+     * @param {Object} options
+     * @param {Number} options.sinceTs Lookback boundary shared with the provider-activity projection.
+     * @param {Number} options.now Current epoch ms.
+     * @returns {Object} `{status, state, drainedClean, reason, counts, observedAt, withinWindow}`
+     */
+    getWalDrainProjection({sinceTs, now}) {
+        const provider = this.walDrainDispositionProvider;
+
+        if (typeof provider !== 'function') {
+            return {
+                status      : 'unavailable',
+                state       : null,
+                drainedClean: null,
+                reason      : 'wal-drain-not-hosted-in-this-process',
+                counts      : null,
+                observedAt  : null,
+                withinWindow: false
+            };
+        }
+
+        let receipt;
+
+        try {
+            receipt = provider();
+        } catch (error) {
+            logger.warn('[MemoryCoreRecorderService] Failed to read WAL drain disposition:', error.message);
+
+            return {
+                status      : 'partial',
+                state       : null,
+                drainedClean: null,
+                reason      : `wal-drain-receipt-unreadable: ${error.message}`,
+                counts      : null,
+                observedAt  : null,
+                withinWindow: false
+            };
+        }
+
+        const at = Number.isFinite(receipt?.at) ? receipt.at : null;
+
+        return {
+            status      : 'ok',
+            state       : receipt?.state ?? null,
+            drainedClean: receipt?.drainedClean ?? null,
+            reason      : receipt?.reason ?? null,
+            counts      : receipt?.counts ?? null,
+            observedAt  : at === null ? null : new Date(at).toISOString(),
+            withinWindow: at !== null && at >= sinceTs && at <= now
         };
     }
 }
