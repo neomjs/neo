@@ -2022,7 +2022,12 @@ paths:
       x-neo-tool-tier: write
       x-pass-as-object: true
       x-neo-tool-summary: Send an A2A message to one peer or an agent broadcast.
-      description: Sends a message or optional Task; Task assignment is server-owned, and broadcasts remain unassigned until an eligible send-time recipient claims them.
+      description: |
+        Sends a message or optional Task. A successful response means the accepted message is
+        durable in the message WAL; Native Edge Graph projection may still be pending and is
+        completed by the WAL-backed projection drain. Wake delivery is best-effort after projection
+        and is not part of the durable receipt guarantee. Task assignment is server-owned, and
+        broadcasts remain unassigned until an eligible send-time recipient claims them.
       tags: [Mailbox]
       requestBody:
         required: true
@@ -2091,11 +2096,27 @@ paths:
                       description: Optional expiry time consumed by the Task TTL sweeper.
       responses:
         '200':
-          description: OK
+          description: Message accepted durably in the WAL; projectionStatus may remain pending while derived graph projection completes.
           content:
             application/json:
               schema:
                 type: object
+                required: [messageId, sentAt, priority, status, projectionStatus]
+                properties:
+                  messageId:
+                    type: string
+                  sentAt:
+                    type: string
+                    format: date-time
+                  priority:
+                    type: string
+                    nullable: true
+                  status:
+                    type: string
+                    enum: [sent]
+                  projectionStatus:
+                    type: string
+                    enum: [pending]
         '500':
           description: Error
           content:
