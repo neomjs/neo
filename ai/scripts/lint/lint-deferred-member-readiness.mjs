@@ -402,11 +402,30 @@ export function receiverAliases(stripped, range) {
 }
 
 /**
+ * Escapes every regular-expression metacharacter in a literal.
+ *
+ * @summary Identifiers and member names read out of source are interpolated into `new RegExp(...)`
+ * throughout this file. An earlier revision escaped only `$` — the one metacharacter a JS identifier
+ * can actually contain — and CodeQL flagged it `js/incomplete-sanitization` (high) for not escaping
+ * backslash.
+ *
+ * The narrow escape was *reasoned* to be sufficient because the capture patterns admit only
+ * `[A-Za-z_$][\w$]*`. That reasoning is the problem: it is an invariant held in a different function,
+ * enforced nowhere, and one loosened capture pattern away from being false. A partial escape is a
+ * broken escape, so this escapes the full set.
+ * @param {String} text Literal to embed in a pattern.
+ * @returns {String}
+ */
+export function escapeRegExp(text) {
+    return String(text).replace(/[\\^$.*+?()[\]{}|/-]/g, '\\$&')
+}
+
+/**
  * @param {String[]} aliases
  * @returns {String} Regex-safe alternation, e.g. `(?:this|me)`
  */
 function receiverGroup(aliases) {
-    return `(?:${aliases.map(a => a.replace(/[$]/g, '\\$')).join('|')})`
+    return `(?:${aliases.map(escapeRegExp).join('|')})`
 }
 
 /**
@@ -525,14 +544,15 @@ export function typedGuardMembers(stripped, ranges) {
 export function readShape(stripped, range, index, member, aliases) {
     const
         receivers = receiverGroup(aliases),
+        safe      = escapeRegExp(member),
         before    = stripped.slice(range.start, index + 1).join('\n'),
-        guarded   = new RegExp(`(if\\s*\\(.*${receivers}\\.${member}\\b|${receivers}\\.${member}\\s*&&)`);
+        guarded   = new RegExp(`(if\\s*\\(.*${receivers}\\.${safe}\\b|${receivers}\\.${safe}\\s*&&)`);
 
     if (guarded.test(before)) {
         return 'truthy-skip'
     }
 
-    if (new RegExp(`${receivers}\\.${member}\\s*\\?\\.`).test(stripped[index])) {
+    if (new RegExp(`${receivers}\\.${safe}\\s*\\?\\.`).test(stripped[index])) {
         return 'optional-chain'
     }
 
@@ -551,10 +571,11 @@ export function readShape(stripped, range, index, member, aliases) {
  */
 export function isGuardTestLine(line, member, aliases = ['this']) {
     const receivers = receiverGroup(aliases),
+          safe      = escapeRegExp(member),
           trimmed   = line.trim();
 
-    return new RegExp(`^\\}?\\s*(else\\s+)?if\\s*\\(.*${receivers}\\.${member}\\b`).test(trimmed) &&
-           !new RegExp(`${receivers}\\.${member}\\s*[.\\[]`).test(trimmed)
+    return new RegExp(`^\\}?\\s*(else\\s+)?if\\s*\\(.*${receivers}\\.${safe}\\b`).test(trimmed) &&
+           !new RegExp(`${receivers}\\.${safe}\\s*[.\\[]`).test(trimmed)
 }
 
 /**
@@ -630,7 +651,7 @@ export function violationsInSource(rel, lines) {
             }
 
             // A read, not a write. `x.m =` is the assignment; `x.m ==` is a comparison.
-            if (!new RegExp(`${receiver}\\.${member}\\b(?!\\s*=(?![=>]))`).test(stripped[index])) {
+            if (!new RegExp(`${receiver}\\.${escapeRegExp(member)}\\b(?!\\s*=(?![=>]))`).test(stripped[index])) {
                 continue
             }
 

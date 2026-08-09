@@ -5,6 +5,7 @@ import {
     deferredMembersOf,
     diffRegistry,
     discoverViolations,
+    escapeRegExp,
     findMethodRanges,
     isGuardTestLine,
     methodAt,
@@ -48,11 +49,16 @@ const
     GRAPH_FILE   = path.join(ROOT_DIR, 'ai/services/memory-core/GraphService.mjs');
 
 /**
+ * Literal-stripped lines for a file, as the scanner itself sees them.
+ *
+ * @summary Deliberately stripped, not raw. Several assertions below passed against RAW lines, on a
+ * code path production never takes — a stripSource regression would not have moved them. A test that
+ * exercises a different contract than the caller is a test that passes by accident.
  * @param {String} file Absolute path.
  * @returns {String[]}
  */
 function linesOf(file) {
-    return fs.readFileSync(file, 'utf8').split('\n')
+    return stripSource(fs.readFileSync(file, 'utf8').split('\n'))
 }
 
 test.describe('lint-deferred-member-readiness — two disciplines, derived population (#16644)', () => {
@@ -105,7 +111,7 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
 
         expect(ranges.map(r => r.name)).toContain('findSessionsToSummarize');
 
-        const synthetic = [
+        const synthetic = stripSource([
             'class Probe {',
             '    async initAsync() {',
             '        this.store = await build();',
@@ -114,7 +120,7 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
             '        return this.store.get(now, limit);',
             '    }',
             '}'
-        ];
+        ]);
 
         expect(findMethodRanges(synthetic).map(r => r.name)).toContain('query');
     });
@@ -129,7 +135,7 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
      */
     test('GREEN — GraphService.db passes on the typed-guard discipline alone', () => {
         const source = fs.readFileSync(GRAPH_FILE, 'utf8'),
-              lines  = source.split('\n'),
+              lines  = stripSource(source.split('\n')),
               ranges = findMethodRanges(lines);
 
         expect(source).not.toContain('await this.ready()');
@@ -165,7 +171,7 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
 
         // The negative control: the same member names, assigned in construct() instead. A member that
         // is not deferred is not in the population, whatever it is called.
-        const notDeferred = [
+        const notDeferred = stripSource([
             'class Probe {',
             '    construct(config) {',
             '        this.memoryCollection = buildSync();',
@@ -174,13 +180,13 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
             '        await super.initAsync();',
             '    }',
             '}'
-        ];
+        ]);
 
         expect([...deferredMembersOf(notDeferred, findMethodRanges(notDeferred))]).toEqual([]);
     });
 
     test('an assignment is distinguished from a comparison and an arrow', () => {
-        const lines = [
+        const lines = stripSource([
             'class Probe {',
             '    async initAsync() {',
             '        this.real = await build();',
@@ -188,7 +194,7 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
             '        this.arrow => never;',
             '    }',
             '}'
-        ];
+        ]);
 
         expect([...deferredMembersOf(lines, findMethodRanges(lines))]).toEqual(['real']);
     });
@@ -483,6 +489,26 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
             const [stripped] = stripSource(['const s = `prose this.db ${this.db} more`;']);
 
             expect(stripped.match(/this\.db/g)).toHaveLength(1);
+        });
+
+        /**
+         * Every identifier read out of source is interpolated into `new RegExp(...)`. An earlier
+         * revision escaped only `$` — reasoned sufficient because the capture patterns admit only
+         * identifier characters — and CodeQL flagged the incomplete sanitization. The reasoning was
+         * the defect: an invariant enforced in a different function is one loosened pattern away
+         * from being false.
+         */
+        test('a literal embedded in a pattern is fully escaped, backslash included', () => {
+            expect(escapeRegExp('db')).toBe('db');
+            expect(escapeRegExp('my$Member')).toBe('my\\$Member');
+            expect(escapeRegExp('a\\b')).toBe('a\\\\b');
+            expect(escapeRegExp('x.y')).toBe('x\\.y');
+            expect(escapeRegExp('a|b')).toBe('a\\|b');
+
+            // The property that matters: whatever goes in matches itself and nothing else.
+            for (const literal of ['a.b', 'a|b', 'a\\b', 'a(b', 'a[b', 'a$b']) {
+                expect(new RegExp(`^${escapeRegExp(literal)}$`).test(literal), literal).toBe(true)
+            }
         });
 
         test('receiver aliases are collected, and `this` is always one', () => {
