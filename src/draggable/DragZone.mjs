@@ -187,14 +187,14 @@ class DragZone extends Base {
             // inside onDragStart, so the first drag:start of a boot already carries a zone id.
             // Best-effort: a zone whose drag element is only assigned later re-registers on its
             // first setConfigs handshake. Fire-and-forget — never block construction on the RPC.
-            let dragElementRoot = me.dragElement && me.getDragElementRoot();
+            let dragElementRootId = me.getRegistrationRootId();
 
-            if (dragElementRoot?.id) {
+            if (dragElementRootId) {
                 // optional-chained: bare harnesses may stub the addon without the registry API
                 Neo.main.addon.DragDrop.registerZone?.({
                     appName          : me.appName,
                     windowId         : me.windowId,
-                    dragElementRootId: dragElementRoot.id,
+                    dragElementRootId,
                     dragZoneId       : me.id
                 })
             }
@@ -207,19 +207,36 @@ class DragZone extends Base {
     destroy(...args) {
         let me = this;
 
-        // Drop the eager registration so a stale root id can never resolve to a dead zone.
-        // The main side tolerates both shapes — by root id, or by zone id across the map.
+        // Drop the eager registration so a stale root id can never resolve to a dead zone —
+        // a stale id is worse than a zoneless one: it silently misattributes a later gesture
+        // to a destroyed zone. The key MUST come from the same expression as registration
+        // (wrapping zones override getDragElementRoot, e.g. tree/DragZone), so both call
+        // sites share getRegistrationRootId() — the pair is the invariant.
         // optional-chained: bare harnesses may stub the addon without the registry API
         if (Neo.main.addon.DragDrop) {
             Neo.main.addon.DragDrop.unregisterZone?.({
                 appName          : me.appName,
                 windowId         : me.windowId,
-                dragElementRootId: me.dragElement?.id,
+                dragElementRootId: me.getRegistrationRootId(),
                 dragZoneId       : me.id
             })
         }
 
         super.destroy(...args)
+    }
+
+    /**
+     * The registration key of this zone's drag element root — the SINGLE expression shared by
+     * register (construct) and unregister (destroy). Resolved via getDragElementRoot() (which
+     * wrapping zones override — tree/DragZone unwraps to `dragElement.cn[0]`), never via
+     * `dragElement.id` directly: the wrapper and the root diverge by design.
+     * @returns {String|null}
+     * @protected
+     */
+    getRegistrationRootId() {
+        let root = this.dragElement && this.getDragElementRoot();
+
+        return root?.id ?? null
     }
 
     /**

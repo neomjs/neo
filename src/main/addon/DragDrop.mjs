@@ -790,6 +790,10 @@ class DragDrop extends Base {
     }
 
     /**
+     * Removes a zone's registration(s). Both shapes run (never either/or): the keyed delete by
+     * root id AND the sweep of every key pointing at the zone id — a wrong or stale root key
+     * can never strand the zone's entries, and a zone whose root id is unknown at call time is
+     * still fully removed. Teardown symmetry with registerZone is the contract.
      * @param {Object} data
      * @param {String} [data.dragElementRootId]
      * @param {String} data.dragZoneId — every registration pointing at this zone is removed
@@ -799,7 +803,9 @@ class DragDrop extends Base {
 
         if (data?.dragElementRootId) {
             delete registrations[data.dragElementRootId]
-        } else if (data?.dragZoneId) {
+        }
+
+        if (data?.dragZoneId) {
             Object.keys(registrations).forEach(key => {
                 if (registrations[key] === data.dragZoneId) {
                     delete registrations[key]

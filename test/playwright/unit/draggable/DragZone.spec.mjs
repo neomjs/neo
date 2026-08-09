@@ -134,4 +134,43 @@ test.describe('Neo.draggable.DragZone', () => {
         expect(surfaced[0][1]?.reason?.message, 'the surfaced entry names the failure')
             .toContain('delta transport failure')
     });
+
+    test('register and unregister share ONE root-key expression — a wrapping zone cannot strand a stale id', () => {
+        const calls           = [],
+              originalAddon   = Neo.main.addon.DragDrop,
+              originalGetRoot = DragZone.prototype.getDragElementRoot;
+
+        Neo.main.addon.DragDrop = {
+            registerZone  : data => calls.push(['register', data]),
+            unregisterZone: data => calls.push(['unregister', data])
+        };
+
+        // Simulate the tree/DragZone divergence: the wrapper element is NOT the drag root
+        // (the override exists precisely so they can diverge — registration keys must never
+        // be recomputed per call site).
+        DragZone.prototype.getDragElementRoot = function() { return this.dragElement.cn[0] };
+
+        let zone;
+
+        try {
+            zone = Neo.create(DragZone, {
+                appName    : 'DraggableDragZoneTest',
+                dragElement: {id: 'wrapper', cn: [{id: 'wrapped'}]},
+                windowId   : 'test-window-1'
+            });
+
+            zone.destroy();
+
+            expect(calls).toHaveLength(2);
+            expect(calls[0][0]).toBe('register');
+            expect(calls[1][0]).toBe('unregister');
+            expect(calls[0][1].dragElementRootId).toBe('wrapped');
+            expect(calls[1][1].dragElementRootId).toBe('wrapped');
+            expect(calls[0][1].dragElementRootId, 'teardown key === setup key').toBe(calls[1][1].dragElementRootId)
+        } finally {
+            Neo.main.addon.DragDrop              = originalAddon;
+            DragZone.prototype.getDragElementRoot = originalGetRoot;
+            zone && !zone.isDestroyed && zone.destroy()
+        }
+    });
 });
