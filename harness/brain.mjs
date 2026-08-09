@@ -64,6 +64,11 @@ export function loadFleetRuntimeContracts(repoRoot = DEFAULT_REPO_ROOT) {
         ]).then(([identityContract, fleetContract, wireContract]) => ({
             FLEET_CREDENTIAL_METHODS    : wireContract.FLEET_CREDENTIAL_METHODS,
             FLEET_WIRE_METHODS          : wireContract.FLEET_WIRE_METHODS,
+            FLEET_WIRE_RESPONSE_STATES  : wireContract.FLEET_WIRE_RESPONSE_STATES,
+            createFleetWireOffer        : wireContract.createFleetWireOffer,
+            createFleetWireRequest      : wireContract.createFleetWireRequest,
+            createFleetWireResponse     : wireContract.createFleetWireResponse,
+            inspectFleetWireResponse    : wireContract.inspectFleetWireResponse,
             normalizeAgentIdentityNodeId: identityContract.normalizeAgentIdentityNodeId,
             probeExistingFleetServer    : fleetContract.probeExistingFleetServer,
             resolveFleetBearer          : fleetContract.resolveFleetBearer
@@ -632,18 +637,28 @@ export function awaitOrchestratorReady({child, timeoutMs = 30000}) {
 }
 
 /**
- * @summary Awaits the fleet transport's genuine readiness: a REAL wire verb round-trip
- * (`POST /fleet {method:'listAgents'}`) answering `{ok:true}` — the same surface the Fleet
- * Manager window consumes. Rejects on child exit/spawn error or timeout.
+ * @summary Awaits the Fleet transport's genuine readiness through a versioned `listAgents`
+ * round-trip — the same negotiated surface the Fleet Manager consumes. An unversioned, malformed,
+ * or skewed response never counts as ready.
  * @param {Object} options
  * @param {import('node:child_process').ChildProcess} options.child
  * @param {Number|String} options.port
  * @param {String} options.bearerToken Main-owned process bearer.
+ * @param {String} [options.repoRoot=DEFAULT_REPO_ROOT] Authoritative organism carrying the wire contract.
  * @param {Number} [options.timeoutMs=15000]
  * @param {Function} [options.fetchFn=fetch] Injection seam for tests.
  * @returns {Promise<void>}
  */
-export function awaitFleetReady({child, port, bearerToken, timeoutMs = 15000, fetchFn = fetch}) {
+export function awaitFleetReady({
+    child,
+    port,
+    bearerToken,
+    repoRoot = DEFAULT_REPO_ROOT,
+    timeoutMs = 15000,
+    fetchFn = fetch
+}) {
+    const wireContract = loadFleetRuntimeContracts(repoRoot);
+
     return new Promise((resolve, reject) => {
         let settled = false;
 
@@ -666,8 +681,14 @@ export function awaitFleetReady({child, port, bearerToken, timeoutMs = 15000, fe
 
         const probe = async () => {
             try {
+                const {
+                    createFleetWireRequest,
+                    FLEET_WIRE_RESPONSE_STATES,
+                    inspectFleetWireResponse
+                } = await wireContract;
+                const request  = createFleetWireRequest('listAgents', {});
                 const response = await fetchFn(`http://127.0.0.1:${port}/fleet`, {
-                    body   : JSON.stringify({method: 'listAgents', params: {}}),
+                    body   : JSON.stringify(request),
                     headers: {
                         Authorization : `Bearer ${bearerToken}`,
                         'content-type': 'application/json'
@@ -677,7 +698,8 @@ export function awaitFleetReady({child, port, bearerToken, timeoutMs = 15000, fe
 
                 const body = await response.json();
 
-                if (body?.ok === true) {
+                if (inspectFleetWireResponse(body, request.protocol).ok &&
+                    body.state === FLEET_WIRE_RESPONSE_STATES.ok) {
                     finish()
                 }
             } catch (error) {
@@ -690,6 +712,7 @@ export function awaitFleetReady({child, port, bearerToken, timeoutMs = 15000, fe
 
         child.once('exit', onExit);
         child.once('error', onExit);
+        wireContract.catch(() => finish(new Error('fleet wire contract unavailable')));
         probe()
     })
 }

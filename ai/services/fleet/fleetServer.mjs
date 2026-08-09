@@ -22,6 +22,11 @@ import RequestContextService    from '../../mcp/server/shared/services/RequestCo
 import TransportService         from '../../mcp/server/shared/services/TransportService.mjs';
 import FleetControlBridge       from './FleetControlBridge.mjs';
 import {dispatchFleetS1Request} from './fleetServerPolicy.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_RESPONSE_STATES,
+    inspectFleetWireResponse
+} from './fleetWireMethods.mjs';
 
 const
     REPO_ROOT             = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..'),
@@ -142,10 +147,104 @@ export function resolveFleetResourceUrl(aiConfig=AiConfig) {
 }
 
 /**
+ * @summary Adapts third-party pre-dispatch `json` / `send` / `end` error bodies onto Fleet's finite
+ * wire contract without changing the status code or security headers. The adapter is exact-route
+ * scoped: `/fleet/probe` remains the explicitly out-of-band launch receipt.
+ * @param {Object} req Express request.
+ * @param {Object} res Express response.
+ * @param {Function} next Express continuation.
+ * @returns {*} Continuation result.
+ */
+function adaptFleetWireErrorResponse(req, res, next) {
+    if (req.path !== '/fleet') return next();
+
+    const
+        end  = res.end.bind(res),
+        send = res.send.bind(res);
+
+    let sending = false;
+
+    const normalize = body => {
+        if (res.statusCode < 400) return null;
+
+        let candidate = body;
+
+        try {
+            if (Buffer.isBuffer(candidate)) {
+                candidate = candidate.toString('utf8')
+            }
+
+            if (typeof candidate === 'string') {
+                candidate = JSON.parse(candidate)
+            }
+
+            if (inspectFleetWireResponse(candidate).ok === true && candidate.ok === false) {
+                return null
+            }
+        } catch {/* hostile middleware output is normalized below */}
+
+        return JSON.stringify(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+            error: 'fleet: request not admitted'
+        }))
+    };
+
+    const prepareJson = body => {
+        res.removeHeader('Content-Length');
+        res.type('application/json');
+
+        return body
+    };
+
+    res.send = body => {
+        if (sending) return send(body);
+
+        const normalized = normalize(body);
+
+        if (normalized !== null) {
+            body = prepareJson(normalized)
+        }
+
+        sending = true;
+
+        try {
+            return send(body)
+        } finally {
+            sending = false
+        }
+    };
+
+    res.end = (chunk, encoding, callback) => {
+        if (sending) return end(chunk, encoding, callback);
+
+        if (typeof chunk === 'function') {
+            callback = chunk;
+            chunk    = undefined;
+            encoding = undefined
+        } else if (typeof encoding === 'function') {
+            callback = encoding;
+            encoding = undefined
+        }
+
+        const normalized = normalize(chunk);
+
+        if (normalized === null) {
+            return end(chunk, encoding, callback)
+        }
+
+        return end(prepareJson(normalized), 'utf8', callback)
+    };
+
+    return next()
+}
+
+/**
  * @summary Compose the authenticated S1 Fleet HTTP application. Ordering is security-significant:
- * Host guard -> AuthService pre-CORS guard -> canonical CORS -> AuthService -> identity projection
- * -> JSON parser -> exact routes. Authentication therefore refuses an anonymous malformed body
- * before parsing, while the request context is a frozen copy rather than the SDK's mutable AuthInfo.
+ * wire-error adapter -> Host guard -> AuthService pre-CORS guard -> canonical CORS -> AuthService ->
+ * identity projection -> JSON parser -> exact routes. Authentication therefore refuses an anonymous
+ * malformed body before parsing, while the request context is a frozen copy rather than the SDK's
+ * mutable AuthInfo.
+ * `/fleet` returns the negotiated finite wire envelope; `/fleet/probe` remains an out-of-band
+ * liveness probe and never stands in for client-contract readiness.
  * @param {Object} [options]
  * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
  * @param {Object} [options.authService=AuthService] Auth boundary collaborator.
@@ -175,6 +274,7 @@ export async function createFleetServerApp({
 
     app.enable('strict routing');
     app.disable('x-powered-by');
+    app.use(adaptFleetWireErrorResponse);
     app.use(hostHeaderValidation(transportService.computeAllowedHosts(aiConfig)));
 
     authService.setupPreCors({app, aiConfig});
@@ -184,7 +284,9 @@ export async function createFleetServerApp({
         aiConfig,
         corsMiddleware: cors,
         resourceUrl   : mcpServerUrl,
-        errorBody     : {ok: false, error: 'fleet: origin not admitted'}
+        errorBody     : createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+            error: 'fleet: origin not admitted'
+        })
     });
 
     await authService.setup({
@@ -201,7 +303,9 @@ export async function createFleetServerApp({
         const context = createFleetRequestContext(req.auth);
 
         if (!context) {
-            res.status(401).json({ok: false, error: 'fleet: authenticated provider identity required'});
+            res.status(401).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: authenticated provider identity required'
+            }));
             return
         }
 
@@ -230,30 +334,40 @@ export async function createFleetServerApp({
             envelope = await runInContext(req.fleetRequestContext, () => dispatch(req.body ?? {}))
         } catch (error) {
             logger.error('[FleetServer] dispatch failed');
-            envelope = {ok: false, error: 'fleet: request failed'}
+            envelope = createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+                error: 'fleet: request failed'
+            })
         }
 
         res.status(200).json(envelope)
     });
 
     app.use((req, res) => {
-        res.status(404).json({ok: false, error: 'fleet: route not found'})
+        res.status(404).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+            error: 'fleet: route not found'
+        }))
     });
 
     // Express body-parser errors carry raw parser text; collapse them to stable Fleet envelopes.
     app.use((error, req, res, next) => {
         if (error?.type === 'entity.too.large') {
-            res.status(413).json({ok: false, error: 'fleet: request body too large'});
+            res.status(413).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: request body too large'
+            }));
             return
         }
 
         if (error instanceof SyntaxError) {
-            res.status(400).json({ok: false, error: 'fleet: invalid JSON body'});
+            res.status(400).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: invalid JSON body'
+            }));
             return
         }
 
         logger.error('[FleetServer] request middleware failed');
-        res.status(500).json({ok: false, error: 'fleet: request failed'})
+        res.status(500).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+            error: 'fleet: request failed'
+        }))
     });
 
     return app

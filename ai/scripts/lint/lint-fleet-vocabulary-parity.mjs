@@ -73,6 +73,11 @@ export function compareFleetVocabulary({authority, twin}) {
         ['HARNESS_TYPES',            authority.harness.HARNESS_TYPES,         twin.harness.HARNESS_TYPES],
         ['FLEET_WIRE_METHODS',       authority.wire.FLEET_WIRE_METHODS,       twin.wire.FLEET_WIRE_METHODS],
         ['FLEET_CREDENTIAL_METHODS', authority.wire.FLEET_CREDENTIAL_METHODS, twin.wire.FLEET_CREDENTIAL_METHODS],
+        ['FLEET_WIRE_PROTOCOL_VERSIONS', authority.wire.FLEET_WIRE_PROTOCOL_VERSIONS, twin.wire.FLEET_WIRE_PROTOCOL_VERSIONS],
+        ['FLEET_WIRE_CAPABILITIES', authority.wire.FLEET_WIRE_CAPABILITIES, twin.wire.FLEET_WIRE_CAPABILITIES],
+        ['FLEET_WIRE_REQUIRED_CAPABILITIES', authority.wire.FLEET_WIRE_REQUIRED_CAPABILITIES, twin.wire.FLEET_WIRE_REQUIRED_CAPABILITIES],
+        ['FLEET_WIRE_RESPONSE_STATES', authority.wire.FLEET_WIRE_RESPONSE_STATES, twin.wire.FLEET_WIRE_RESPONSE_STATES],
+        ['FLEET_WIRE_ENVELOPE_SCHEMA', authority.wire.FLEET_WIRE_ENVELOPE_SCHEMA, twin.wire.FLEET_WIRE_ENVELOPE_SCHEMA],
         ['FLEET_COCKPIT_SOURCES',    authority.cockpit.FLEET_COCKPIT_SOURCES, twin.sources.FLEET_COCKPIT_SOURCES]
     ];
 
@@ -110,6 +115,63 @@ export function compareFleetVocabulary({authority, twin}) {
         ['resolveHarnessType(...)',                authority.harness.resolveHarnessType,  twin.harness.resolveHarnessType,  [
             ...authority.harness.HARNESS_TYPES.map(entry => [entry.type]),
             ['unregistered-harness']
+        ]],
+        ['createFleetWireOffer()',                 authority.wire.createFleetWireOffer, twin.wire.createFleetWireOffer, [
+            []
+        ]],
+        ['createFleetWireProtocolStamp(...)',      authority.wire.createFleetWireProtocolStamp, twin.wire.createFleetWireProtocolStamp, [
+            [],
+            [1, ['method-schema-v1']]
+        ]],
+        ['selectFleetWireContract(...)',           authority.wire.selectFleetWireContract, twin.wire.selectFleetWireContract, [
+            [authority.wire.createFleetWireOffer()],
+            [{versions: [0], capabilities: [...authority.wire.FLEET_WIRE_CAPABILITIES]}],
+            [{versions: [1], capabilities: []}],
+            [{versions: '1', capabilities: []}]
+        ]],
+        ['createFleetWireRequest(...)',            authority.wire.createFleetWireRequest, twin.wire.createFleetWireRequest, [
+            ['listAgents', undefined],
+            ['listAgents', {page: 1}, {versions: [1], capabilities: [...authority.wire.FLEET_WIRE_CAPABILITIES]}],
+            ['getManager', null]
+        ]],
+        ['createFleetWireResponse(...)',           authority.wire.createFleetWireResponse, twin.wire.createFleetWireResponse, [
+            [authority.wire.FLEET_WIRE_RESPONSE_STATES.ok, {result: []}],
+            [authority.wire.FLEET_WIRE_RESPONSE_STATES.ok, {}],
+            [authority.wire.FLEET_WIRE_RESPONSE_STATES.unsupportedProtocol, {error: 'fleet: unsupported wire protocol'}],
+            ['invented-state', {}]
+        ]],
+        ['inspectFleetWireResponse(...)',          authority.wire.inspectFleetWireResponse, twin.wire.inspectFleetWireResponse, [
+            [authority.wire.createFleetWireResponse(
+                authority.wire.FLEET_WIRE_RESPONSE_STATES.ok,
+                {result: []}
+            )],
+            [{ok: true, state: 'invented', protocol: {version: 1, capabilities: []}}],
+            [{
+                ok      : true,
+                protocol: authority.wire.createFleetWireProtocolStamp(),
+                state   : authority.wire.FLEET_WIRE_RESPONSE_STATES.ok
+            }],
+            [authority.wire.createFleetWireResponse(authority.wire.FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: authority.wire.createFleetWireProtocolStamp(2),
+                result  : []
+            }), authority.wire.createFleetWireOffer()],
+            [authority.wire.createFleetWireResponse(authority.wire.FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: authority.wire.createFleetWireProtocolStamp(1, [
+                    ...authority.wire.FLEET_WIRE_CAPABILITIES,
+                    'server-only'
+                ]),
+                result: []
+            }), authority.wire.createFleetWireOffer()],
+            [{
+                ...authority.wire.createFleetWireResponse(
+                    authority.wire.FLEET_WIRE_RESPONSE_STATES.ok,
+                    {result: []}
+                ),
+                protocol: {
+                    ...authority.wire.createFleetWireProtocolStamp(),
+                    ownerPrincipal: 'must-never-cross'
+                }
+            }, authority.wire.createFleetWireOffer()]
         ]]
     ];
 

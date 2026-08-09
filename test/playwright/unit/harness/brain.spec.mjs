@@ -6,6 +6,10 @@ import net                                                  from 'node:net';
 import {tmpdir}                                             from 'node:os';
 import path                                                 from 'node:path';
 import {
+    createFleetWireResponse,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {
     allocatePort,
     assertIsolatedProfile,
     awaitFleetReady,
@@ -293,7 +297,7 @@ test.describe('harness brain lifecycle', () => {
             .rejects.toThrow(/not ready within 120ms/)
     });
 
-    test('awaitFleetReady polls through failures and requires a real ok:true wire envelope', async () => {
+    test('awaitFleetReady polls through failures and refuses a legacy ok:true envelope', async () => {
         const child = createFakeChild();
 
         let calls = 0;
@@ -303,17 +307,26 @@ test.describe('harness brain lifecycle', () => {
             expect(url).toContain('/fleet');
             expect(url).not.toContain(bearerToken);
             expect(init.headers.Authorization).toBe(`Bearer ${bearerToken}`);
-            expect(JSON.parse(init.body).method).toBe('listAgents');
+            expect(JSON.parse(init.body)).toMatchObject({
+                method  : 'listAgents',
+                protocol: {versions: [1]}
+            });
 
             if (calls < 3) {
                 throw new Error('ECONNREFUSED')
             }
 
-            return {json: async () => ({ok: true, result: []})}
+            if (calls === 3) {
+                return {json: async () => ({ok: true, result: []})}
+            }
+
+            return {
+                json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []})
+            }
         };
 
         await expect(awaitFleetReady({bearerToken, child, fetchFn, port: 18501, timeoutMs: 5000})).resolves.toBeUndefined();
-        expect(calls).toBeGreaterThanOrEqual(3)
+        expect(calls).toBeGreaterThanOrEqual(4)
     });
 
     test('awaitFleetReady rejects when the transport child dies first', async () => {
@@ -323,6 +336,23 @@ test.describe('harness brain lifecycle', () => {
 
         child.exit(1);
         await expect(ready).rejects.toThrow(/fleet transport exited before ready/)
+    });
+
+    test('awaitFleetReady fails closed when the authoritative wire contract cannot load', async () => {
+        const
+            child    = createFakeChild(),
+            repoRoot = await mkdtemp(path.join(tmpdir(), 'neo-fleet-wire-missing-'));
+
+        await rm(repoRoot, {recursive: true});
+
+        await expect(awaitFleetReady({
+            bearerToken,
+            child,
+            fetchFn  : async () => { throw new Error('fetch must not run') },
+            port     : 18501,
+            repoRoot,
+            timeoutMs: 5000
+        })).rejects.toThrow(/fleet wire contract unavailable/)
     });
 
     // SIGINT is the graceful rung by measurement: the chromadb npm wrapper ignores group-SIGTERM

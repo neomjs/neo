@@ -1,6 +1,12 @@
 import {test, expect}           from '../../fixtures.mjs';
 import {NeuralLink_DataService} from '../../../../ai/services.mjs';
-import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    reloadRoster,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const KEYBOARD_SOURCES = {
     roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
@@ -50,24 +56,21 @@ async function startRejectingFleetBridge() {
                 requests.push(request);
 
                 if (request.method === 'stopAgent') {
-                    return {ok: false, error: 'fleet: stop rejected by keyboard witness'}
+                    return fleetE2EFailure('fleet: stop rejected by keyboard witness')
                 }
 
                 if (request.method === 'fleetRoster') {
-                    return {ok: true, result: {rows: rosterRows}}
+                    return fleetE2ESuccess({rows: rosterRows})
                 }
 
                 if (request.method === 'fleetActivity') {
-                    return {
-                        ok    : true,
-                        result: {
-                            capability: {source: 'fleet:test', state: 'wired', confidence: 'observed'},
-                            events    : []
-                        }
-                    }
+                    return fleetE2ESuccess({
+                        capability: {source: 'fleet:test', state: 'wired', confidence: 'observed'},
+                        events    : []
+                    })
                 }
 
-                return {ok: false, error: `fleet: unexpected keyboard-witness method '${request.method}'`}
+                return fleetE2EFailure(`fleet: unexpected keyboard-witness method '${request.method}'`)
             }
         });
 

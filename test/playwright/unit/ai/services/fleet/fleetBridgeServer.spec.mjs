@@ -13,12 +13,16 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import http                       from 'node:http';
-import {AsyncLocalStorage}        from 'node:async_hooks';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import {startFleetBridgeServer}   from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect}           from '@playwright/test';
+import http                     from 'node:http';
+import {AsyncLocalStorage}      from 'node:async_hooks';
+import Neo                      from '../../../../../../src/Neo.mjs';
+import * as core                from '../../../../../../src/core/_export.mjs';
+import {startFleetBridgeServer} from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
 import {generateLocalBearerToken} from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 
 /**
@@ -44,7 +48,10 @@ test.describe('fleetBridgeServer — the authenticated Fleet ingress', () => {
             bearerToken  : bearer,
             viewerContext: viewer,
             runInContext : (context, fn) => { contexts.push(context); return fn() },
-            dispatch     : async req => { seen.push(req); return {ok: true, result: {echoed: req}} },
+            dispatch     : async req => {
+                seen.push(req);
+                return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: {echoed: req}})
+            },
             ...overrides
         });
         url = `http://127.0.0.1:${server.address().port}`
@@ -104,7 +111,11 @@ test.describe('fleetBridgeServer — the authenticated Fleet ingress', () => {
         const res = await fetch(`${url}/fleet`, {method: 'POST', headers: authHeaders(), body: JSON.stringify({method: 'listAgents'})});
 
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({ok: true, result: {echoed: {method: 'listAgents'}}});
+        expect(await res.json()).toMatchObject({
+            ok    : true,
+            result: {echoed: {method: 'listAgents'}},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        });
         expect(seen).toEqual([{method: 'listAgents'}]);
         expect(contexts).toEqual([{...viewer, source: 'fleet-ingress'}])
     });
@@ -266,7 +277,7 @@ test.describe('fleetBridgeServer — the authenticated Fleet ingress', () => {
         const mkDispatch = (tag, delayMs) => async () => {
             await new Promise(resolve => setTimeout(resolve, delayMs));
             results[tag] = storage.getStore()?.agentIdentityNodeId;
-            return {ok: true, result: tag}
+            return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: tag})
         };
 
         const bearerA = generateLocalBearerToken(),

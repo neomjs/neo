@@ -1,6 +1,10 @@
 import http                      from 'http';
 import {dispatchFleetRequest}    from './dispatchFleetRequest.mjs';
 import {createFleetIngressGuard} from './fleetIngressAuth.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_RESPONSE_STATES
+} from './fleetWireMethods.mjs';
 import {isLocalBearerToken}      from '../../mcp/server/shared/helpers/localBearer.mjs';
 
 /**
@@ -26,9 +30,10 @@ import {isLocalBearerToken}      from '../../mcp/server/shared/helpers/localBear
  * reusing an existing process — an unknown or mismatched process yields a named refusal upstream,
  * never silent reuse.
  *
- * Deliberately transport-swappable: the browser side only needs `send({method, params})`, so this
- * HTTP channel can be replaced by the Electron shell's in-process inject (Option A) without touching
- * the pane — the guard + context-stamp contract travels with whichever transport hosts the wire.
+ * Deliberately transport-swappable: the browser side only needs a sender for versioned Fleet
+ * envelopes, so HTTP can be replaced by Electron's in-process injection without touching the pane.
+ * `/fleet/probe` is an out-of-band launch receipt; every `/fleet` refusal or dispatch result uses
+ * the finite C2 response vocabulary.
  *
  * @param {Object}   opts
  * @param {Number}   [opts.port=8083]            `0` selects an ephemeral port (tests).
@@ -115,7 +120,12 @@ export function startFleetBridgeServer({
         // socket an unauthenticated caller could keep streaming into.
         if (!decision.admitted) {
             res.setHeader('Connection', 'close');
-            respond(res, decision.status, {ok: false, error: decision.error}, decision.corsOrigin);
+            respond(
+                res,
+                decision.status,
+                createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {error: decision.error}),
+                decision.corsOrigin
+            );
             return req.resume()
         }
 
@@ -152,7 +162,12 @@ export function startFleetBridgeServer({
         }
 
         if (req.method !== 'POST' || pathname !== '/fleet') {
-            return respond(res, 404, {ok: false, error: 'fleet: POST /fleet only'}, decision.corsOrigin)
+            return respond(
+                res,
+                404,
+                createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {error: 'fleet: POST /fleet only'}),
+                decision.corsOrigin
+            )
         }
 
         let body = '';
@@ -168,7 +183,12 @@ export function startFleetBridgeServer({
             try {
                 request = JSON.parse(body || '{}')
             } catch {
-                return respond(res, 400, {ok: false, error: 'fleet: invalid JSON body'}, decision.corsOrigin)
+                return respond(
+                    res,
+                    400,
+                    createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {error: 'fleet: invalid JSON body'}),
+                    decision.corsOrigin
+                )
             }
 
             // The identity stamp: the SERVER's boot-resolved viewer, never anything the request
@@ -182,7 +202,9 @@ export function startFleetBridgeServer({
                 envelope = await runInContext({...viewerContext, source: 'fleet-ingress'}, () => dispatch(request))
             } catch (error) {
                 console.error('[fleet] request dispatch threw:', error);
-                envelope = {ok: false, error: 'fleet: request failed'}
+                envelope = createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+                    error: 'fleet: request failed'
+                })
             }
 
             respond(res, 200, envelope, decision.corsOrigin)

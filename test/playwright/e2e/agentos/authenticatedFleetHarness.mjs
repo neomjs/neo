@@ -1,5 +1,9 @@
 import {generateLocalBearerToken} from '../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 import RequestContextService      from '../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
 
 /**
  * @summary The authenticated Fleet e2e harness — the test-side composition of the ingress trust
@@ -25,6 +29,24 @@ export const E2E_FLEET_VIEWER = Object.freeze({
     username           : 'E2E Operator',
     agentIdentityNodeId: '@e2e-operator'
 });
+
+/**
+ * @summary Creates the canonical successful Fleet wire envelope for a spec-owned dispatcher.
+ * @param {*} result
+ * @returns {Object}
+ */
+export function fleetE2ESuccess(result) {
+    return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result})
+}
+
+/**
+ * @summary Creates a bounded operation-failure Fleet wire envelope for a spec-owned dispatcher.
+ * @param {String} error
+ * @returns {Object}
+ */
+export function fleetE2EFailure(error) {
+    return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {error})
+}
 
 /**
  * @summary Builds the authenticated option set for `startFleetBridgeServer` in e2e specs.

@@ -1,39 +1,61 @@
-import FleetControlBridge   from './FleetControlBridge.mjs';
-import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
+import FleetControlBridge from './FleetControlBridge.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    selectFleetWireContract
+} from './fleetWireMethods.mjs';
 
 /**
- * @summary Route one transport-delivered fleet request to the {@link FleetControlBridge} allowlist —
- * the single choke-point every app↔fleet transport (the dev-server WebSocket, or the Electron shell's
- * in-process inject) funnels through. It enforces the wire-level method allowlist, forwards the single
- * `params` argument, and normalizes success / failure into a serializable envelope.
+ * @summary Negotiate one transport-delivered Fleet request, then route it through the
+ * {@link FleetControlBridge} allowlist. This is the single choke-point shared by the HTTP transport
+ * and Electron injection: protocol selection happens before method lookup, unknown methods fail as
+ * their own closed state, and bridge execution returns one finite response state.
  *
- * **Never throws to the transport.** A rejected method name, a thrown operation, or a rejected promise
- * all return an `{ok:false, error}` envelope, so the calling pane sees a fail-closed result rather than
- * a crashed connection — mirroring the fail-closed discipline the pane already applies when no bridge
- * is injected (`apps/agentos/view/Accounts.mjs`).
+ * **Never throws to the transport.** Unsupported protocol/capability offers, rejected method names,
+ * and thrown operations all return a versioned closed envelope. No legacy unversioned request can
+ * masquerade as an operation failure or empty result.
  *
- * @param {Object}  request
+ * @param {Object}  request Versioned `{method, params, protocol}` request.
  * @param {String}  request.method   One of {@link FLEET_WIRE_METHODS}.
  * @param {*}      [request.params]  The single argument forwarded to the operation — a definition
  *                                   object for `defineAgent`, an id string for the lifecycle ops,
  *                                   omitted for `listAgents` / `fleetStatus`.
  * @param {Object} [bridge=FleetControlBridge] The control surface; inject a stub in tests.
- * @returns {Promise<Object>} `{ok:true, result}` on success; `{ok:false, error}` on a non-allowlisted
- *                            method or a thrown / rejected operation.
+ * @returns {Promise<Object>} Versioned finite-state response envelope.
  */
-export async function dispatchFleetRequest({method, params} = {}, bridge = FleetControlBridge) {
+export async function dispatchFleetRequest(request = {}, bridge = FleetControlBridge) {
+    const
+        {method, params} = request || {},
+        selection        = selectFleetWireContract(request?.protocol);
+
+    if (!selection.ok) {
+        return createFleetWireResponse(selection.state, selection)
+    }
+
     if (!FLEET_WIRE_METHODS.includes(method)) {
-        return {ok: false, error: `fleet: method '${method}' is not on the control surface`};
+        return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.unsupportedMethod, {
+            error   : "fleet: method '" + method + "' is not on the control surface",
+            protocol: selection.protocol
+        })
     }
 
     try {
         const result = await bridge[method](params);
-        return {ok: true, result};
+
+        return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+            protocol: selection.protocol,
+            result
+        })
     } catch (error) {
         // Never expose the raw error across the wire — it can carry a stack trace / internal paths.
         // Log it server-side; return a sanitized, method-scoped failure the pane can act on.
         console.error(`[fleet] dispatch of '${method}' failed:`, error);
-        return {ok: false, error: `fleet: '${method}' failed`};
+
+        return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+            error   : "fleet: '" + method + "' failed",
+            protocol: selection.protocol
+        })
     }
 }
 
