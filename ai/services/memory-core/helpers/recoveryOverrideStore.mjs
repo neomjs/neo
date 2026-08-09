@@ -19,6 +19,8 @@
  * observable as configuration. An interrupted write must leave the previous overlay intact rather than a
  * truncated one.
  */
+import {randomUUID} from 'node:crypto';
+
 import fs   from 'fs/promises';
 import path from 'path';
 
@@ -31,6 +33,7 @@ import {RECOVERY_KNOBS, knobRequiredContext, validateKnobTransaction} from './re
  * @type {String}
  */
 export const RECOVERY_OVERRIDE_FILENAME = 'recovery-actuator-overrides.json';
+
 
 /**
  * @summary Expands dotted leaf paths into the nested shape the config overlay is merged from.
@@ -104,6 +107,8 @@ export async function readRecoveryOverrides(overridePath, fsModule = fs) {
  * @param {String} options.overrideDir Directory on the writer-owned mount.
  * @param {Object} [options.env=process.env] Environment to test leaf pinning against.
  * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle, re-asserted immediately
+ *     before the durable write because the preparation above it awaits.
  * @returns {Promise<{applied: Boolean, path: String|null, violations: String[]}>}
  */
 export async function writeKnobOverride({
@@ -111,8 +116,9 @@ export async function writeKnobOverride({
     values,
     context,
     overrideDir,
-    env      = process.env,
-    fsModule = fs
+    env             = process.env,
+    fsModule        = fs,
+    isAuthorityHeld = null
 } = {}) {
     const {valid, violations} = validateKnobTransaction({context, knob, values});
 
@@ -133,13 +139,55 @@ export async function writeKnobOverride({
           // Same directory as the target, so the rename is within one filesystem and therefore atomic.
           // A temp file elsewhere would degrade to copy-then-delete and reintroduce the partial state
           // this exists to prevent.
-          tempPath     = `${overridePath}.${knob}.tmp`;
+          // GLOBALLY unique, not process-unique. The path began as `${overridePath}.${knob}.tmp`,
+          // shared by every writer of that knob, so two holders writing at once used one scratch
+          // file and whichever renamed second could publish a payload the other had half-written.
+          //
+          // A pid + per-module counter did not close it either: the counter restarts in every
+          // independently initialized writer context, and two contexts inside one pid then collide
+          // on the same name. A UUID has no such shared origin.
+          tempPath     = `${overridePath}.${knob}.${randomUUID()}.tmp`;
+
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error(`Authority moved before the '${knob}' override write; refusing.`);
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
+
+    // Checked here because the yield is INSIDE this function — no caller can hold a check adjacent
+    // to a write it does not itself perform — and a holder that has already lost authority should
+    // not create directories or scratch files it has no right to.
+    assertHeld();
 
     // The mount exists but its subdirectory may not on a plane that has never written one, and a
     // writer that requires someone else to have created its destination first is a boot-ordering
     // dependency wearing a filesystem error.
     await fsModule.mkdir(overrideDir, {recursive: true});
+
+    // FRESH PROOF immediately before the scratch file exists. `mkdir` is awaited, so the assertion
+    // above is already stale here — and a displaced holder should not be leaving files in a
+    // successor's directory at all, even inert ones.
+    assertHeld();
+
     await fsModule.writeFile(tempPath, `${JSON.stringify(next, null, 4)}\n`, {mode: 0o644});
+
+    // AND AGAIN IMMEDIATELY BEFORE THE COMMIT. This is the only check that binds the effect: `mkdir`
+    // and `writeFile` are both awaited, so the assertion above is already stale here, and the rename
+    // is the instant the overlay becomes configuration the next converge applies. A scratch file
+    // left by a refusal is inert; a renamed one is an instruction.
+    try {
+        assertHeld();
+    } catch (error) {
+        // The scratch file is ours, and a refusal must not leave one behind to accumulate on every
+        // takeover.
+        await fsModule.rm?.(tempPath, {force: true});
+        throw error;
+    }
+
     await fsModule.rename(tempPath, overridePath);
 
     return {applied: true, path: overridePath, violations: []}

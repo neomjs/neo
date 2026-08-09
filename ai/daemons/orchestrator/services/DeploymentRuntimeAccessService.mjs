@@ -258,15 +258,38 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {String} [options.reason='manual'] Audit reason.
      * @param {Number} [options.restartTimeoutSeconds] Docker restart timeout.
      * @param {Number} [options.memoryLimitBytes] Target memory ceiling for `update-memory-limit`.
+     * @param {Function|null} [options.isAuthorityHeld=null] Current-authority oracle, re-asked AFTER
+     * target resolution and immediately before the mutating call. Optional: a caller that omits it
+     * keeps today's behaviour exactly.
      * @returns {Promise<Object>} Lifecycle result plus structured proof metadata.
      */
-    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes} = {}) {
+    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes, isAuthorityHeld = null} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
         this.assertNotSelfLifecycleTarget(serviceKey);
 
         const target = await this.resolveServiceTarget(serviceKey);
+
+        // THE LAST POINT WE OWN. `resolveServiceTarget` is a runtime round-trip, so a caller that
+        // checked authority before entering this method has yielded again since. This is the tightest
+        // check available to us — after resolution, before the mutation — and it is deliberately the
+        // last one rather than one of several: a fifth guard further out would narrow nothing.
+        //
+        // **The window is not closed here, and cannot be.** Beyond this line the effect belongs to the
+        // container runtime, which has no notion of our lease and therefore cannot reject a stale
+        // holder's request. There is no fencing token to hand it. So the design goal changes at this
+        // boundary from PREVENTING a displaced write to bounding it and making it observable —
+        // callers record the authority state their post-effect writes were made under rather than
+        // pretending the race was eliminated.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-authority-lost',
+                message: `Authority moved while resolving '${serviceKey}'; refusing the lifecycle write. `
+                    + 'A displaced holder must not mutate a plane another holder now owns.',
+                details: {serviceKey, operation}
+            });
+        }
 
         if (operation === 'restart') {
             return this.restartTarget(target, {reason, restartTimeoutSeconds});

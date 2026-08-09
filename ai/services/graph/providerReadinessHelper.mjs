@@ -660,7 +660,7 @@ export async function checkOpenAiCompatibleEmbeddingServing({
         });
 
         if (!response.ok) {
-            const text = typeof response.text === 'function' ? await response.text() : '',
+            const text    = typeof response.text === 'function' ? await response.text() : '',
                   message = `HTTP ${response.status}${text ? ` - ${text.slice(0, 256)}` : ''}`;
 
             return {
@@ -1214,11 +1214,27 @@ export async function ensureLmsModelsLoaded({
     embeddingServingProbe,
     modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
     modelDiscoveryCacheTtlMs,
-    log               = logger
+    log               = logger,
+    isAuthorityHeld   = null
 } = {}) {
     if (!Array.isArray(models) || models.length === 0) {
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
+
+    /**
+     * Asserted before EACH unload and EACH load. This function evicts extra models, then unloads and
+     * reloads per configured model, so every mutation sits behind a fresh await and a single entry
+     * check would bind only the first. Null oracle is not a refusal — startup callers hold no lease.
+     */
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error('Authority moved before an LMS model load/unload; refusing.');
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
     if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
         throw new TypeError('ensureLmsModelsLoaded: attempts, delayMs, and timeoutMs are required');
     }
@@ -1357,6 +1373,7 @@ export async function ensureLmsModelsLoaded({
             log.info?.(`[ProviderReadinessHelper] Unloading superseded LM Studio model '${item.id}' after '${item.model}' reached the configured shape.`);
 
             try {
+                assertHeld();                       // last point owned before this eviction
                 await unloadModel(item.id);
                 unloadedModels.push(item.id);
             } catch (error) {
@@ -1427,6 +1444,7 @@ export async function ensureLmsModelsLoaded({
 
             if (shouldReplaceExact) {
                 log.info?.(`[ProviderReadinessHelper] Unloading stale LM Studio model '${model}' before stable-identifier reload.`);
+                assertHeld();                       // and before this one
                 await unloadModel(model);
                 unloadedModels.push(model);
             }
@@ -1440,6 +1458,7 @@ export async function ensureLmsModelsLoaded({
                 loadOptions.parallel = parallel;
             }
 
+            assertHeld();                           // and before the load itself
             await loadModel(model, loadOptions);
             loadedModels.push(model);
         } catch (error) {
@@ -1658,11 +1677,29 @@ export async function ensureOllamaModelsReady({
     allowPartial = false,
     fetchModelIds = opts => fetchOllamaRunningModels(opts),
     warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
-    log           = logger
+    log           = logger,
+    isAuthorityHeld = null
 } = {}) {
     if (!Array.isArray(roles) || roles.length === 0) {
         throw new TypeError('ensureOllamaModelsReady: roles must contain at least one configured Ollama role');
     }
+
+    /**
+     * Asserted immediately before EACH warm, not once on entry. This function polls readiness and
+     * warms per role in a loop, so every iteration sits behind a fresh await — a single entry check
+     * would bind the first warm and nothing after it.
+     *
+     * Null oracle is not a refusal: startup and readiness callers hold no lease and are unaffected.
+     */
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error('Authority moved before an Ollama model warm; refusing.');
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
     if (!Neo.isNumber(requireParallelModels)) {
         throw new TypeError('ensureOllamaModelsReady: requireParallelModels is required');
     }
@@ -1782,9 +1819,9 @@ export async function ensureOllamaModelsReady({
             attemptedModels          : [],
             failedModels             : [],
             error                    : {message: error.message},
-            warning              : `[provider/ollama] model residency probe failed: ${error.message}`,
+            warning                  : `[provider/ollama] model residency probe failed: ${error.message}`,
             attempts,
-            elapsedMs            : Date.now() - startedAt
+            elapsedMs                : Date.now() - startedAt
         };
     }
 
@@ -1810,6 +1847,10 @@ export async function ensureOllamaModelsReady({
             if (Neo.isNumber(role.contextLength)) {
                 warmOptions.contextLength = role.contextLength;
             }
+
+            // Last point owned before this specific warm leaves the process. The readiness poll and
+            // the previous role's warm are both awaited above, so the entry check is stale here.
+            assertHeld();
 
             const warmResult = await warmModel(role, warmOptions);
 
@@ -1950,8 +1991,29 @@ export async function repairProviderRoleSetResidency({
     timeoutMs,
     log = logger,
     lmsRepairFn = ensureLmsModelsLoaded,
-    ollamaRepairFn = ensureOllamaModelsReady
+    ollamaRepairFn = ensureOllamaModelsReady,
+    isAuthorityHeld = null
 } = {}) {
+    /**
+     * Re-asserted immediately before the repair dispatches, after the read-only config resolution
+     * above it. @neo-gpt-emmy required this and I argued against it — that a lease concern does not
+     * belong in a provider-readiness module. That objection was about COUPLING; hers was about a
+     * privileged effect firing without authority, which is SAFETY. Safety outranks coupling, and I
+     * weighted them the wrong way round.
+     *
+     * A warm is not a durable mutation of shared state the way an overlay or a ledger append is, so
+     * a successor re-warming is idempotent — but "the effect is recoverable" is not the same as "the
+     * effect may fire unauthorised", and only the second question is this guard's business.
+     */
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error('Authority moved before the provider residency repair; refusing.');
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
     if (!config || typeof config !== 'object') {
         throw new TypeError('repairProviderRoleSetResidency: config is required');
     }
@@ -1973,6 +2035,10 @@ export async function repairProviderRoleSetResidency({
             };
         }
 
+        // Last point owned before the unload/load/warm sequence leaves this process. The role
+        // resolution above is read-only, so nothing has been mutated if this refuses.
+        assertHeld();
+
         const result = await ollamaRepairFn({
             host                 : readinessConfig.host,
             roles                : readinessConfig.roles,
@@ -1982,7 +2048,10 @@ export async function repairProviderRoleSetResidency({
             attempts,
             delayMs,
             timeoutMs,
-            log
+            log,
+            // Into the helper, not merely before it: the default helper polls and warms per role,
+            // so each warm sits behind its own await and only a per-mutation check binds them.
+            isAuthorityHeld
         });
 
         return {
@@ -2015,7 +2084,14 @@ export async function repairProviderRoleSetResidency({
             };
         }
 
+        // Same last-owned point on the LMS arm. Both providers reach a privileged effect from this
+        // function, so fencing only the ollama branch would leave the other open — the exact
+        // half-fixed shape this PR has already produced once.
+        assertHeld();
+
         const result = await lmsRepairFn({
+            // Same reason as the ollama arm: the default helper unloads and loads per model.
+            isAuthorityHeld,
             host          : getOpenAiCompatibleHost(config),
             models        : preloadConfig.models,
             contextLengths: preloadConfig.contextLengths,
@@ -2117,7 +2193,7 @@ export function createParallelModelCapacityWarning({
     const missing          = missingModels.length ? missingModels.join(', ') : 'none';
     const extra            = extraModels.length ? extraModels.join(', ') : 'none';
     const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;
-    const base      = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
+    const base             = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
         `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${requiredObserved} required / ${observedCount} total loaded ` +
         `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}, extra=${extra}); ` +
         'model swap penalty likely;';
@@ -2264,10 +2340,10 @@ export async function warnProviderParallelModelCapacity({
     } catch (error) {
         const provider = config ? resolveGraphModelProvider(config) : 'unknown';
         const result   = {
-            ready: false,
+            ready  : false,
             provider,
-            error: {message: error?.message || String(error)},
-            warning : `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
+            error  : {message: error?.message || String(error)},
+            warning: `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
         };
 
         log.warn?.(result.warning, result);

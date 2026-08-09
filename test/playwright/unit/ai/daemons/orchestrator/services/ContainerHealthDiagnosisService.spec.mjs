@@ -412,9 +412,24 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
     });
 
-    test('requires multi-fact evidence before diagnosing unhealthy probe-like states', () => {
+    /**
+     * The ADR-0025 §2.4 pair, stated as a test rather than as a comment: a `container-unhealthy` state // ticket-ref-ok: the ADR clause is the contract this test encodes
+     * is authoritative ONLY alongside a failed DIRECT endpoint probe. All three arms below are needed,
+     * because an earlier revision of this suite kept only the last one and stayed green over the
+     * unsafe reading.
+     *
+     * The middle arm is the one that matters, and it is a regression control with a name. An earlier
+     * revision let a lone authoritative `unhealthy` fact classify to `restart`, on the argument that
+     * the runtime's verdict is already debounced by `retries x interval`. Debouncing answers NOISE and
+     * cannot answer CONTRADICTION: repeated evaluations of one probe are still one evidence channel,
+     * and that channel can be measuring the wrong thing. ADR-0025 §2.1 names the live case — a // ticket-ref-ok: the ADR clause is the empirical anchor for this control
+     * provider-dependent canary false-fails while the service answers and persists — so restarting on
+     * it is a self-inflicted outage.
+     */
+    test('ADR-0025 pair: unhealthy + FAILED direct probe restarts; unhealthy + ANSWERING probe does not', () => {
         const service = createService();
 
+        // `starting` is severity:'warning', authoritative:false — the ordinary boot window never actions.
         const advisory = service.diagnose({
             serviceKey : 'knowledge',
             nodeCommand: false,
@@ -424,6 +439,23 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         expect(advisory.status).toBe('advisory');
         expect(advisory.diagnosis).toBeNull();
 
+        // THE SAFETY CONTROL. A service ANSWERING while the runtime reports unhealthy must not be
+        // restarted — and the absent-probe case must not either, since one channel is one channel
+        // whether it is contradicted or merely uncorroborated.
+        for (const endpointProbe of [{ok: true, name: 'healthcheck'}, null]) {
+            const answering = service.diagnose({
+                serviceKey: 'knowledge',
+                inspect   : runningInspect({Health: {Status: 'unhealthy'}}),
+                endpointProbe
+            });
+
+            expect(answering.status).toBe('advisory');
+            expect(answering.actionClass).toBeNull();
+            expect(answering.diagnosis).toBeNull();
+        }
+
+        // The sanctioned pair. This has always worked; it was unreachable in production only because
+        // nothing supplied `endpointProbe`, which is a missing PRODUCER rather than a strict floor.
         const diagnosed = service.diagnose({
             serviceKey   : 'knowledge',
             nodeCommand  : false,
@@ -432,7 +464,9 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         });
 
         expect(diagnosed.status).toBe('diagnosed');
+        expect(diagnosed.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
         expect(diagnosed.diagnosis.recoveryClass).toBe('crash');
+        expect(diagnosed.diagnosis.details.classificationReason).toBe('lifecycle-crash');
         expect(diagnosed.diagnosis.evidenceFacts.map(fact => fact.type)).toEqual([
             CONTAINER_HEALTH_FACT_TYPES.containerUnhealthy,
             CONTAINER_HEALTH_FACT_TYPES.endpointProbeFailed
