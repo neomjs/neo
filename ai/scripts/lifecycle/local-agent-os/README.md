@@ -74,8 +74,14 @@ export NEO_REVISION=$(git ls-remote https://github.com/neomjs/neo.git dev | cut 
 docker compose --env-file .env \
   -f ai/deploy/docker-compose.yml \
   -f ai/deploy/docker-compose.local-agent-os.yml \
-  --profile cloud --profile ingress up -d --wait
+  --profile cloud --profile ingress --profile fleet up -d --wait
 ```
+
+The `fleet` profile is explicit because headless deployments may omit the cockpit control service.
+This canonical local profile includes it: readiness calls authenticated `GET /fleet/probe` through
+the same provider-PAT authority as KB/MC and verifies `/app/.neo-ai-data/fleet` before Docker marks
+the service healthy. Ingress does not depend on Fleet, so omitting the profile leaves `/fleet` at an
+honest `404` while KB/MC remain available.
 
 The canonical project is `neo-local-agent-os` unless
 `NEO_LOCAL_AGENT_OS_PROJECT_NAME` explicitly overrides it.
@@ -366,7 +372,12 @@ path and the portable one cannot drift apart.
 docker compose --env-file .env \
   -f ai/deploy/docker-compose.yml \
   -f ai/deploy/docker-compose.local-agent-os.yml \
-  --profile cloud --profile ingress ps
+  --profile cloud --profile ingress --profile fleet ps
+
+node ai/scripts/diagnostics/fleetHealthcheck.mjs \
+  --url http://127.0.0.1:3102/fleet/probe \
+  --bearer-token-file .neo-ai-secrets/mcp-auth-token \
+  --expected-data-dir /app/.neo-ai-data/fleet
 
 node ai/scripts/diagnostics/mcpHealthcheck.mjs \
   --url http://127.0.0.1:3102 --mcp-path /mc/mcp \

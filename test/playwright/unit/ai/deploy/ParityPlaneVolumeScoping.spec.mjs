@@ -314,6 +314,27 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         }
     });
 
+    test('the relocated parity anchor places every declared Tier-1 plane member', async () => {
+        await import('../../../../../src/Neo.mjs');
+        await import('../../../../../src/core/_export.mjs');
+
+        const {default: ConfigBase, PLANE_MEMBER_PATHS} = await import('../../../../../ai/configBase.mjs');
+        const
+            descriptors   = ConfigBase.config.data,
+            canonicalRoot = descriptors.plane.dataRoot.default,
+            planeEnv      = compose['x-plane-env'],
+            relocatedRoot = planeEnv.NEO_PLANE_DATA_ROOT;
+
+        for (const memberPath of PLANE_MEMBER_PATHS) {
+            const descriptor = memberPath.split('.').reduce((value, key) => value[key], descriptors);
+            const relative   = path.relative(canonicalRoot, descriptor.default);
+
+            expect(relative, `${memberPath} escapes the canonical plane anchor`).not.toMatch(/^\.\.(?:[/\\]|$)/);
+            expect(planeEnv[descriptor.env], `${memberPath} (${descriptor.env}) is absent from x-plane-env`)
+                .toBe(path.join(relocatedRoot, relative))
+        }
+    });
+
     test('the orchestrator rides the SAME plane — a stack without its writer is not a plane', () => {
         // The orchestrator is the third Tier-1 consumer and the only one that writes on a timer:
         // backups, dream artifacts, golden-path handoffs, recovery ledgers. A profile without it
@@ -405,7 +426,7 @@ test.describe('data-plane profile election — base and integration-fixture disp
             'NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *local-project'
         );
         expect(overlaySource).toMatch(
-            /NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES:\s*&local-runtime-services\s+chroma,kb-server,mc-server,orchestrator/
+            /NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES:\s*&local-runtime-services\s+chroma,kb-server,mc-server,fleet-server,orchestrator/
         );
         expect(overlaySource).toContain(
             'NEO_DEPLOYMENT_STATE_BRIDGE_ALLOWED_SERVICES: *local-runtime-services'
@@ -429,7 +450,7 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(overlaySource).toContain(
             'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: ${NEO_LOCAL_AGENT_OS_EMBEDDING_MODEL:-text-embedding-qwen3-embedding-8b}'
         );
-        expect(overlaySource.match(/restart: unless-stopped/g)).toHaveLength(5);
+        expect(overlaySource.match(/restart: unless-stopped/g)).toHaveLength(6);
         expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
 
         expect(baseCompose.volumes).toHaveProperty(deploymentStateVolume);
@@ -525,7 +546,7 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(source).toContain('live target');
         expect(source).toContain('-f ai/deploy/docker-compose.yml');
         expect(source).toContain('-f ai/deploy/docker-compose.local-agent-os.yml');
-        expect(source).toContain('--profile cloud --profile ingress up -d --wait');
+        expect(source).toContain('--profile cloud --profile ingress --profile fleet up -d --wait');
         expect(source).toContain('neo-local-agent-os');
         expect(source).toContain('Application Support/Neo/AgentOS');
         expect(source).toContain("action               : 'subscribe'");

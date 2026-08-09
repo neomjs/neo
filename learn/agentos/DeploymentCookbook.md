@@ -16,6 +16,7 @@ The current reference compose file in [`ai/deploy/`](../../ai/deploy/) is a
 profile-structured Agent OS stack. The default profile starts the MCP baseline:
 `chroma`, `kb-server`, and `mc-server`. The `cloud` profile adds the
 cloud-safe `orchestrator`; the `ingress` profile adds the Caddy reverse proxy;
+the optional `fleet` profile adds the request-time-authenticated Fleet control service;
 the optional `local-model` profile adds a self-hosted OpenAI-compatible provider
 runtime without changing the default external-provider posture.
 
@@ -24,6 +25,7 @@ runtime without changing the default external-provider posture.
 | default profile | `chroma`, `kb-server`, and `mc-server`; all three declare per-service `deploy.resources.limits` and Docker readiness gates. Chroma uses a TCP probe; KB and MC use an MCP `/mcp` healthcheck tool call. | Keep as the baseline MCP stack: Chroma as the unified vector-store primitive and KB/MC as separate request-serving MCP containers with production readiness semantics. |
 | `cloud` profile | Adds the `orchestrator` service with `NEO_AI_DEPLOYMENT_MODE=cloud`, shared SQLite volume access, its own resource envelope, and startup gated on healthy KB/MC services. | Keep as the Agent OS maintenance control-plane container, running only the cloud-safe scheduler lanes from ADR 0014 after the MCP substrate is ready. |
 | `ingress` profile | Adds the Caddy reverse proxy for TLS termination and public `/kb/*` / `/mc/*` path routing while KB and MC remain internal-only via `expose`. | Keep as the public boundary for auth/header stripping and MCP URL routing. |
+| `fleet` profile | Adds `fleet-server` on the internal network with exact `/fleet` + `/fleet/probe` ingress routes, a Fleet-owned named volume, and identity-bearing readiness. It is omitted from headless deployments. | Keep Fleet as its own authenticated service boundary; consume graph/mailbox facts only through registered APIs, never another service's private volume. |
 | `local-model` profile | Adds a disabled-by-default `local-model` service using the configurable `NEO_LOCAL_MODEL_IMAGE` image, persistent model volume, healthcheck, and resource envelope. | Optional self-hosted provider variant. Operators must opt KB/MC/orchestrator consumers into `openAiCompatible`; external provider endpoints remain the MVP default. |
 
 The service boundary is intentional: KB and MC serve MCP requests, Chroma stores
@@ -112,11 +114,25 @@ The current internal compose ports are:
 |---|---|
 | `kb-server` | `3000` |
 | `mc-server` | `3001` |
+| `fleet-server` (`fleet` profile) | `8083` |
 
 Sub C (#11724) owns the production ingress wiring. A path-routed deployment can
 publish `/kb/*` and `/mc/*` on one hostname, or the operator can use separate
 hostnames. In either shape, set each server's `NEO_PUBLIC_URL` to the canonical
 public MCP URL that agents will use.
+
+Fleet is not an MCP route. Its public surface exact-matches `/fleet` and `/fleet/probe` without
+prefix stripping, and its own `AuthService` boundary validates every request before JSON parsing.
+When the `fleet` profile is absent, ingress maps only that missing upstream to `404`; KB/MC upstream
+failures remain `502`. The Fleet service is intentionally absent from ingress `depends_on`.
+
+The downloadable `fleet` profile selects `github-pat` authentication by default. Set the provider
+bearer in `NEO_MCP_HEALTHCHECK_TOKEN` before creating the stack: Compose mounts that value as one
+secret file used for both the pre-listen provider-subject bootstrap and the authenticated readiness
+probe; the value never appears in rendered Compose. A public-client OIDC deployment can instead set
+`NEO_AUTH_MODE=oidc` plus `NEO_AUTH_ISSUER_URL` (or the host/port/realm form) and
+`NEO_OAUTH_CLIENT_ID`. Confidential-client OIDC requires a secret-aware operator overlay; the
+reference file deliberately does not interpolate `NEO_OAUTH_CLIENT_SECRET`.
 
 Header rule: the proxy must remove any incoming `X-PREFERRED-USERNAME` or
 `X-AUTH-REQUEST-PREFERRED-USERNAME` header before injecting its own verified
@@ -240,12 +256,14 @@ Supply these values per service/profile as needed:
 |---|---|---|
 | `NEO_TRANSPORT=streamable-http` | KB, MC | Streamable HTTP transport for deployed MCP servers. |
 | `MCP_HTTP_PORT` | KB, MC | Internal listener port. Current baseline: KB `3000`, MC `3001`. |
-| `NEO_PUBLIC_URL` | KB, MC | Canonical public MCP URL used for advertised endpoints and auth callbacks. |
+| `NEO_PUBLIC_URL` | KB, MC, Fleet | Canonical public service URL used for advertised endpoints, auth callbacks, and Fleet resource identity. |
 | `NEO_CHROMA_HOST` | KB, MC, Orchestrator | Internal Chroma host, for example `chroma`. |
 | `NEO_CHROMA_PORT` | KB, MC, Orchestrator | Chroma port, normally `8000`. |
 | `NEO_MEMORY_DB_PATH` | KB, MC, Orchestrator | Shared SQLite graph path or mounted graph-store path. |
-| `NEO_AUTH_TRUST_PROXY_IDENTITY=true` | KB, MC | Enables the trusted reverse-proxy identity-header path. |
-| `NEO_AUTH_ISSUER_URL`, `NEO_OAUTH_CLIENT_ID`, `NEO_OAUTH_CLIENT_SECRET` | KB, MC | Direct OIDC/OAuth mode inputs when the MCP server handles auth instead of a trusted proxy. |
+| `NEO_AUTH_MODE` | Fleet | Authentication installer selector. The downloadable profile defaults to `github-pat`; set `oidc` only with a complete endpoint/client configuration. |
+| `NEO_AUTH_ISSUER_URL`, `NEO_AUTH_HOST`, `NEO_AUTH_PORT`, `NEO_AUTH_REALM`, `NEO_OAUTH_CLIENT_ID` | KB, MC, Fleet | Non-secret direct OIDC/OAuth inputs. Fleet confidential-client secrets require a secret-aware operator overlay and are never interpolated by the reference Compose file. |
+| `NEO_AUTH_GITHUB_API_BASE_URL`, `NEO_AUTH_GITLAB_API_BASE_URL`, `NEO_AUTH_PAT_CACHE_TTL_SECONDS`, `NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS`, `NEO_AUTH_ALLOWED_USERS`, `NEO_AUTH_ALLOWED_CLIENT_IDS` | Fleet | Provider-PAT validation endpoints and bounded admission controls. |
+| `NEO_AUTH_TRUST_PROXY_IDENTITY=true` | KB, MC | Enables the trusted reverse-proxy identity-header path. Fleet readiness is bearer-based and does not select this compatibility posture. |
 | `NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked` | MC | Enables the strict A2A reply policy for multi-tenant deployments. |
 | `NEO_AI_DEPLOYMENT_MODE=cloud` | Orchestrator | Selects the cloud maintenance profile. |
 | `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false` | Orchestrator | Disables local maintainer checkout sync. |
@@ -272,6 +290,10 @@ Supply these values per service/profile as needed:
 | `NEO_MCP_HEALTHCHECK_URL` | Healthcheck CLI | Optional override for `npm run ai:mcp-healthcheck`; compose passes explicit internal URLs instead. |
 | `NEO_MCP_HEALTHCHECK_IDENTITY` | Healthcheck CLI | Trusted proxy identity value used by the MCP healthcheck probe when proxy-header auth is enabled. |
 | `NEO_MCP_HEALTHCHECK_TOKEN_ENV` / `NEO_MCP_HEALTHCHECK_TOKEN` | Healthcheck CLI | Optional bearer-token slot for direct OIDC/OAuth protected MCP healthchecks. |
+| `NEO_FLEET_DATA_DIR` | Fleet | Fleet-owned durable root. The reference service fixes it to `/app/.neo-ai-data/fleet` on one named volume. |
+| `NEO_FLEET_HEALTHCHECK_URL` | Fleet healthcheck CLI | Optional override for the exact authenticated `/fleet/probe` URL. |
+| `NEO_MCP_HEALTHCHECK_TOKEN` | Generic Fleet Compose secret source | Provider bearer supplied to Docker Compose; only the secret carrier name appears in rendered configuration. |
+| `NEO_MCP_HEALTHCHECK_TOKEN_FILE` | Fleet container + healthcheck CLI | Required in-container secret-file bearer carrier; the Fleet probe never accepts the credential on argv. |
 
 The top-level AI config template is [`ai/config.template.mjs`](../../ai/config.template.mjs).
 The cloud-ingestion tenant config guide is
@@ -366,8 +388,12 @@ The Docker readiness contract is:
 - Chroma is ready when its TCP listener is reachable.
 - KB is ready when `healthcheck` succeeds over `http://127.0.0.1:3000/mcp`.
 - MC is ready when `healthcheck` succeeds over `http://127.0.0.1:3001/mcp`.
+- Fleet, when the `fleet` profile is selected, is ready only when authenticated
+  `GET /fleet/probe` returns a non-empty provider identity and the exact configured
+  `/app/.neo-ai-data/fleet` root.
 - The `cloud` orchestrator profile starts only after Chroma, KB, and MC are
-  healthy via compose `condition: service_healthy`.
+  healthy via compose `condition: service_healthy`; it and ingress deliberately do
+  not hard-depend on optional Fleet.
 
 For public deployed proof, call each server's `healthcheck` tool over its `/mcp`
 endpoint through the same public URL and auth path used by real agents.

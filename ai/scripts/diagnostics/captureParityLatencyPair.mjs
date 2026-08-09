@@ -1010,6 +1010,7 @@ export class ParityLatencyCaptureActor {
             NEO_CHROMA_PORT                             : String(this.chromaPort),
             NEO_DEPLOYMENT_STATE_BRIDGE_SNAPSHOT_PATH   : under('deployment-state/snapshot.json'),
             NEO_EMBEDDING_PROVIDER                      : 'openAiCompatible',
+            NEO_FLEET_DATA_DIR                          : under('fleet'),
             NEO_FLEET_INSTANCE_ROOT                     : under('fleet/instances'),
             NEO_GOLDEN_PATH_ROUTE_ATTRIBUTION_LEDGER_DIR: under('orchestrator-daemon/route-attribution'),
             NEO_HEARTBEAT_ALIVE_PATH                    : under('wake-daemon/heartbeat.alive'),

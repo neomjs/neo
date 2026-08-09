@@ -26,11 +26,12 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
     test.describe.configure({mode: 'serial'});
     let mockOidcServer;
     let mcpServerProcess;
-    const MOCK_OIDC_PORT     = 8888;
-    const MCP_HTTP_PORT      = 5555;
-    const DISCOVERY_MCP_PORT = 3334;
-    const TEST_TOKEN         = 'valid-test-token';
-    const TEST_CLIENT_ID     = 'test-client';
+    const MOCK_OIDC_PORT      = 8888;
+    const MCP_HTTP_PORT       = 5555;
+    const DISCOVERY_MCP_PORT  = 3334;
+    const TEST_TOKEN          = 'valid-test-token';
+    const TEST_CLIENT_ID      = 'test-client';
+    const TEST_COCKPIT_ORIGIN = 'http://localhost:3000';
 
     test.beforeAll(async () => {
         // 1. Start Mock OIDC Provider
@@ -77,15 +78,16 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         mcpServerProcess = spawn('node', [SERVER_PATH, '--debug'], {
             env: {
                 ...process.env,
-                NEO_TRANSPORT      : 'streamable-http',
-                MCP_HTTP_PORT      : MCP_HTTP_PORT.toString(),
-                NEO_AUTO_SYNC      : 'false',
-                NEO_AUTO_SUMMARIZE : 'false',
-                NEO_AUTH_HOST      : 'localhost',
-                NEO_AUTH_PORT      : MOCK_OIDC_PORT.toString(),
-                NEO_AUTH_REALM     : 'test',
-                NEO_OAUTH_CLIENT_ID: TEST_CLIENT_ID,
-                HOST               : 'localhost'
+                NEO_TRANSPORT           : 'streamable-http',
+                MCP_HTTP_PORT           : MCP_HTTP_PORT.toString(),
+                NEO_AUTO_SYNC           : 'false',
+                NEO_AUTO_SUMMARIZE      : 'false',
+                NEO_AUTH_HOST           : 'localhost',
+                NEO_AUTH_PORT           : MOCK_OIDC_PORT.toString(),
+                NEO_AUTH_REALM          : 'test',
+                NEO_OAUTH_CLIENT_ID     : TEST_CLIENT_ID,
+                NEO_FLEET_COCKPIT_ORIGIN: TEST_COCKPIT_ORIGIN,
+                HOST                    : 'localhost'
             }
         });
 
@@ -170,13 +172,13 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         const response = await request.fetch(`http://localhost:${MCP_HTTP_PORT}/mcp`, {
             method : 'OPTIONS',
             headers: {
-                'Origin'                        : 'http://localhost:3000',
+                'Origin'                        : TEST_COCKPIT_ORIGIN,
                 'Access-Control-Request-Method' : 'POST',
                 'Access-Control-Request-Headers': 'Authorization'
             }
         });
 
-        expect(response.headers()['access-control-allow-origin']).toBe('*');
+        expect(response.headers()['access-control-allow-origin']).toBe(TEST_COCKPIT_ORIGIN);
         expect(response.headers()['access-control-expose-headers']).toContain('Mcp-Session-Id');
     });
 

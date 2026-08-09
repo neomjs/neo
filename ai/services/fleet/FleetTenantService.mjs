@@ -1,7 +1,6 @@
-import crypto          from 'node:crypto';
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
+import crypto from 'node:crypto';
+import fs     from 'node:fs';
+import path   from 'node:path';
 import {
     InitializeResultSchema,
     SUPPORTED_PROTOCOL_VERSIONS
@@ -98,9 +97,9 @@ class FleetTenantService extends Base {
     }
 
     /**
-     * Absolute data directory for the tenant stores. `null` ⇒ resolved via {@link getDataDir}
-     * (`NEO_FLEET_DATA_DIR` env, then the registry-precedent `.neo-ai-data/fleet` default). Plain
-     * field, mirroring the sibling services' tunables.
+     * Optional instance-local data-root override for tenant isolation and tests. `null` resolves
+     * through {@link getDataDir} to the canonical `AiConfig.fleet.dataDir` plane member, keeping
+     * descriptors, credentials, and shared keys co-located with the registry.
      * @member {String|null} dataDir=null
      */
     dataDir = null
@@ -347,18 +346,14 @@ class FleetTenantService extends Base {
     // ---- storage (public descriptors + encrypted credentials) ---------------
 
     /**
-     * @summary Resolve (field > default) the fleet data directory — the registry precedent, exactly.
-     *
-     * No env layer: `FleetRegistryService.getDataDir()` resolves field-then-default, and these two
-     * services share this directory. A private env override on one side could point the tenant
-     * store at a different root than the agent store while both claim the same home.
+     * @summary Resolve the Fleet-owned durable root from the explicit instance/test override or
+     * the canonical `AiConfig.fleet.dataDir` plane member. Both Fleet storage owners therefore
+     * consume the same config coordinate without env re-derivation or service-local defaults.
      * @returns {String}
      * @protected
      */
     getDataDir() {
-        return this.dataDir || path.resolve(
-            path.dirname(fileURLToPath(import.meta.url)), '../../../.neo-ai-data/fleet'
-        );
+        return this.dataDir || AiConfig.fleet.dataDir;
     }
 
     /**

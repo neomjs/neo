@@ -223,9 +223,11 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {String} options.serviceKey Allowlisted compose service key.
      * @param {'inspect'|'logs'|'stats'} options.operation Read operation.
      * @param {Number} [options.tail] Log tail count for `logs`.
+     * @param {String|Number} [options.since] Lower bound of the incarnation interval for `logs`.
+     * @param {String|Number} [options.until] Upper bound of the incarnation interval for `logs`.
      * @returns {Promise<Object>} Observation payload plus structured proof metadata.
      */
-    async readObserve({serviceKey, operation = 'inspect', tail} = {}) {
+    async readObserve({serviceKey, operation = 'inspect', tail, since, until} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('read-observe', operation);
@@ -237,7 +239,7 @@ export class DeploymentRuntimeAccessService extends Base {
         }
 
         if (operation === 'logs') {
-            return this.readTargetLogs(target, {tail});
+            return this.readTargetLogs(target, {tail, since, until});
         }
 
         if (operation === 'stats') {
@@ -644,16 +646,56 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {Number} [options.tail] Log tail count.
      * @returns {Promise<Object>}
      */
-    async readTargetLogs(target, {tail} = {}) {
-        const tailCount = tail ?? this.configValues.logTail ?? 200,
-              response  = await this.dockerRequest({
-                  method: 'GET',
-                  path  : `/containers/${encodeURIComponent(target.containerId)}/logs?stdout=1&stderr=1&tail=${encodeURIComponent(String(tailCount))}`
-              });
+    async readTargetLogs(target, {tail, since, until} = {}) {
+        const
+            tailCount     = tail ?? this.configValues.logTail ?? 200,
+            // The interval is what makes the slice attributable. Docker's log stream spans
+            // restarts, so an unbounded tail can carry a fatal line from a PREVIOUS incarnation —
+            // `since` removes that poison, and `until` additionally excludes output from an
+            // auto-restart that races after the inspect this interval was derived from. Both
+            // bounds or none: a half-bounded slice is not the run the stopped fact names.
+            // The endpoints travel at FULL precision. Docker accepts RFC3339Nano, so flooring to
+            // whole seconds is a choice the transport never imposed — and it is wrong in both
+            // directions: a floored `since` reaches back into the previous incarnation, and a
+            // floored `until` cuts the final sub-second, which is exactly when V8 writes its fatal
+            // line. Truncating the upper edge can therefore discard the evidence being sought.
+            sinceStamp    = normalizeDockerTime(since),
+            untilStamp    = normalizeDockerTime(until),
+            bounded       = sinceStamp !== null && untilStamp !== null &&
+                            Date.parse(untilStamp) >= Date.parse(sinceStamp),
+            query         = [
+                'stdout=1',
+                'stderr=1',
+                `tail=${encodeURIComponent(String(tailCount))}`,
+                ...(bounded ? [
+                    `since=${encodeURIComponent(sinceStamp)}`,
+                    `until=${encodeURIComponent(untilStamp)}`
+                ] : [])
+            ].join('&'),
+            response      = await this.dockerRequest({
+                method: 'GET',
+                path  : `/containers/${encodeURIComponent(target.containerId)}/logs?${query}`
+            });
 
         return {
-            ok        : true,
-            data      : {logs: response.body, tail: tailCount},
+            ok   : true,
+            // The APPLIED bounds are echoed, never the requested ones. A consumer may only treat a
+            // slice as incarnation-bounded on the strength of this receipt — a caller-supplied
+            // boolean would let the claim originate at the layer that wants it to be true.
+            data : {
+                // The receipt echoes exactly what was SENT, at the precision it was sent — a
+                // rounded echo would let a consumer believe an endpoint it never got.
+                appliedSince: bounded ? sinceStamp : null,
+                appliedUntil: bounded ? untilStamp : null,
+                bounded,
+                // The container this slice actually came from. `readObserve` resolves a target per
+                // call, so inspect and logs can land on DIFFERENT containers across a recreate;
+                // without this the consumer cannot tell whether the interval was applied to the
+                // container whose death it is attributing.
+                containerId: target.containerId ?? null,
+                logs       : response.body,
+                tail       : tailCount
+            },
             proof     : this.createProofMetadata({envelope: 'read-observe', operation: 'logs', target}),
             statusCode: response.statusCode
         };
@@ -971,3 +1013,28 @@ function createRuntimeAccessError({Type = Error, reason, message, code = null, d
 }
 
 export default Neo.setupClass(DeploymentRuntimeAccessService);
+
+/**
+ * @summary Validates a Docker timestamp and returns it UNROUNDED, or null when it cannot be trusted.
+ *
+ * Docker reports an unset time as the zero instant (`0001-01-01T00:00:00Z`), which parses to a
+ * valid but meaningless epoch — so a naive parse would hand the log query a bound that looks real.
+ * Anything non-positive is therefore refused rather than passed through, which is what keeps the
+ * interval fail-closed instead of silently unbounded.
+ *
+ * The value is validated but NOT rounded: Docker accepts RFC3339Nano, and truncating the upper
+ * endpoint would cut the final sub-second in which a fatal line is written.
+ * @param {String|Number|null} value
+ * @returns {String|null}
+ */
+function normalizeDockerTime(value) {
+    if (value === null || value === undefined) return null;
+
+    const
+        stamp  = typeof value === 'number' ? new Date(value * 1000).toISOString() : String(value),
+        parsed = Date.parse(stamp);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+
+    return stamp
+}

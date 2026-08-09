@@ -2,8 +2,8 @@
 # Neo.mjs Agent OS — reference ingress (Sub C #11724, Epic #11720).
 # ------------------------------------------------------------------------------
 # Caddy reverse proxy for the cloud Agent OS deployment: TLS termination, public
-# path routing to the Knowledge Base / Memory Core MCP servers, and identity-
-# header spoofing defense.
+# path routing to the Knowledge Base / Memory Core MCP servers plus the optional
+# Fleet control service, and identity-header spoofing defense.
 #
 # Wired into ai/deploy/docker-compose.yml as the `ingress` profile service:
 #   docker compose --profile cloud --profile ingress up
@@ -53,5 +53,20 @@
 		handle_path /mc/* {
 			reverse_proxy mc-server:3001
 		}
+
+		# 5. Fleet preserves the public URI exactly: the upstream owns `/fleet` and
+		#    `/fleet/probe`, so `handle_path` (prefix stripping) is forbidden here.
+		@fleet path /fleet /fleet/probe
+		reverse_proxy @fleet fleet-server:8083
+
+		# A headless profile has no Fleet service and every unrelated path is absent.
+		respond 404
+	}
+
+	# Fleet is optional and ingress deliberately has no hard dependency on it. Convert only an
+	# absent Fleet upstream to the cockpit's disconnected 404; preserve KB/MC 502 diagnostics.
+	handle_errors 502 {
+		@fleet path /fleet /fleet/probe
+		respond @fleet 404
 	}
 }
