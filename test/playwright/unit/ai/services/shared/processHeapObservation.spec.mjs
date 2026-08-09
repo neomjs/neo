@@ -41,8 +41,12 @@ const memoryFixture = () => ({
     heapUsed    : 21_500_000
 });
 
+// `nodeOptions` is pinned to empty rather than left to default. The default reads
+// `process.env.NODE_OPTIONS`, which a CI runner or a developer shell may legitimately set — leaving it
+// open would make every ceiling assertion below depend on the environment the suite happens to run in.
 const collect = (overrides = {}) => collectProcessHeapObservation({
     execArgv       : ['--max-old-space-size=768'],
+    nodeOptions    : '',
     readNow        : () => 1_786_234_678_257,
     readHeapSpaces : spacesFixture,
     readHeapStats  : () => statsFixture(),
@@ -150,10 +154,11 @@ test.describe('ai/services/shared/processHeapObservation — one instant, no der
 });
 
 test.describe('ai/services/shared/processHeapObservation — the declared ceiling', () => {
-    test('one declaration is observable', () => {
+    test('one declaration is observable, and names the channel it came from', () => {
         expect(readDeclaredCeiling(['--max-old-space-size=768'])).toEqual({
-            state: CEILING_STATE.declared,
-            bytes: 768 * MEGABYTE
+            state  : CEILING_STATE.declared,
+            bytes  : 768 * MEGABYTE,
+            sources: ['exec-argv']
         });
     });
 
@@ -164,9 +169,48 @@ test.describe('ai/services/shared/processHeapObservation — the declared ceilin
         expect(bytes).toBeNull();
     });
 
-    test('agreeing duplicates stay observable — NODE_OPTIONS merges into the same vector', () => {
+    test('agreeing duplicates in one vector stay observable', () => {
         expect(readDeclaredCeiling(['--max-old-space-size=768', '--max-old-space-size=768']).state)
             .toBe(CEILING_STATE.declared);
+    });
+
+    // ---- The two-channel regression. -------------------------------------------------------------
+    // A prior revision documented `NODE_OPTIONS` as merging into `process.execArgv` and read only
+    // `execArgv`. Measured on node v25.9.0, it does NOT merge: with
+    // `NODE_OPTIONS=--max-old-space-size=256`, `execArgv` carries no flag while `heap_size_limit`
+    // reports 448 MiB — the ceiling is in force and unreported. These pin the repair, and each fails
+    // against the old single-channel reader.
+
+    test('a ceiling declared ONLY through NODE_OPTIONS is declared, not undeclared', () => {
+        const {state, bytes, sources} = readDeclaredCeiling([], '--max-old-space-size=256');
+
+        expect(state).toBe(CEILING_STATE.declared);
+        expect(bytes).toBe(256 * MEGABYTE);
+        expect(sources).toEqual(['node-options']);
+    });
+
+    test('a NODE_OPTIONS ceiling is found among unrelated options', () => {
+        expect(readDeclaredCeiling([], '--enable-source-maps --max-old-space-size=256 --no-warnings').bytes)
+            .toBe(256 * MEGABYTE);
+    });
+
+    test('both channels agreeing is declared once, and reports both sources', () => {
+        const {state, bytes, sources} = readDeclaredCeiling(['--max-old-space-size=768'], '--max-old-space-size=768');
+
+        expect(state).toBe(CEILING_STATE.declared);
+        expect(bytes).toBe(768 * MEGABYTE);
+        expect(sources).toEqual(['node-options', 'exec-argv']);
+    });
+
+    test('channels that DISAGREE are ambiguous — the resolution is V8s, not ours', () => {
+        // Measured: the command line wins (NODE_OPTIONS 512 + CLI 256 reports a 448 MiB limit). The
+        // rule is not restated here because `heapSizeLimitBytes` is observed independently, so a
+        // consumer needing the effective ceiling already has it from the instrument rather than from
+        // a rule this module would have to keep in sync with a runtime it does not control.
+        const {state, bytes} = readDeclaredCeiling(['--max-old-space-size=256'], '--max-old-space-size=512');
+
+        expect(state).toBe(CEILING_STATE.ambiguous);
+        expect(bytes).toBeNull();
     });
 
     test('divergent declarations are ambiguous, never a pick', () => {
@@ -223,6 +267,35 @@ test.describe('ai/services/shared/processHeapObservation — unavailable is neve
     test('a missing rss is unavailable rather than a process using no memory', () => {
         expect(collect({readMemoryUsage: () => ({})}).unavailableReason)
             .toBe(UNAVAILABLE_REASON.memoryUsageUnreadable);
+    });
+
+    test('a throwing CLOCK is unavailable, not a substituted Date.now()', () => {
+        // The envelope is documented total, but `readNow()` was called outside the guard — so a
+        // failing timestamp source threw out of a function promising never to throw, on a reporting
+        // cadence inside a live service. Reverting the guard reds this with the raw throw.
+        const observation = collect({readNow: () => { throw new Error('no clock') }});
+
+        expect(observation.state).toBe(HEAP_OBSERVATION_STATE.unavailable);
+        expect(observation.unavailableReason).toBe(UNAVAILABLE_REASON.clockUnreadable);
+        // Null rather than a wall-clock fallback: substituting a different source would stamp the
+        // record with a clock the caller did not choose, and the bridge reader refuses a non-finite
+        // stamp as `malformed` — absence, never a wrong age.
+        expect(observation.observedAt).toBeNull();
+    });
+
+    test('a clock returning nonsense is unavailable rather than an epoch-zero observation', () => {
+        expect(collect({readNow: () => 'not-a-time'}).unavailableReason)
+            .toBe(UNAVAILABLE_REASON.clockUnreadable);
+    });
+
+    test('a hostile argument vector cannot throw out of the collector', () => {
+        // `String(arg)` runs over caller-supplied entries. Totality has to hold at the argument
+        // boundary too, or the reporter's cadence inherits the throw.
+        const observation = collect({execArgv: [{toString() { throw new Error('hostile') }}]});
+
+        expect(observation.state).toBe(HEAP_OBSERVATION_STATE.observed);
+        expect(observation.ceilingState).toBe(CEILING_STATE.undeclared);
+        expect(observation.ceilingSources).toEqual([]);
     });
 
     test('an unavailable record still reports the declaration it could read', () => {

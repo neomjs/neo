@@ -50,10 +50,28 @@ export const HEAP_OBSERVATION_STATE = Object.freeze({observed: 'observed', unava
 /**
  * What the process can say about its own declared old-generation ceiling.
  *
- * `ambiguous` exists because `execArgv` can carry the flag more than once — directly and through
- * `NODE_OPTIONS`, which Node merges into the same array. Divergent values are reported as ambiguous
- * rather than resolved by position: the last-wins rule is V8's, and encoding a guess about it here
- * would put a number nobody measured into a record that reads as an observation.
+ * `ambiguous` exists because the flag reaches a process through **two independent channels** that
+ * Node does not merge: the command line lands in `process.execArgv`, while `NODE_OPTIONS` takes
+ * effect without appearing there at all. Measured on node `v25.9.0`:
+ *
+ * | declaration                          | `execArgv` contains it | `heap_size_limit` |
+ * |--------------------------------------|------------------------|-------------------|
+ * | `NODE_OPTIONS=--max-old-space-size=256` | no                  | 448 MiB (256 + gap) |
+ * | CLI `--max-old-space-size=256`          | yes                 | 448 MiB             |
+ * | `NODE_OPTIONS=256` + CLI `512`          | CLI only            | 704 MiB (512 wins)  |
+ * | `NODE_OPTIONS=512` + CLI `256`          | CLI only            | 448 MiB (256 wins)  |
+ *
+ * An earlier revision of this file asserted that Node merges `NODE_OPTIONS` into `execArgv`. It does
+ * not, and the error was not cosmetic: reading only `execArgv` reports `undeclared` for a process
+ * running under a ceiling that is genuinely in force — a false negative in the direction that reads
+ * as "nobody bounded this", which is precisely the claim this record exists to make falsifiable. Both
+ * channels are now read.
+ *
+ * Divergence between the two is reported as `ambiguous` rather than resolved. The last-wins rule is
+ * consistent across all five measurements above (concatenate `NODE_OPTIONS` then the command line and
+ * take the last), but it is V8's rule, not ours, and `heapSizeLimitBytes` is already observed
+ * independently — so a consumer that needs the effective ceiling has it, and this field declines to
+ * restate a resolution it would have to keep in sync with a runtime it does not control.
  * @type {Object}
  */
 export const CEILING_STATE = Object.freeze({
@@ -63,10 +81,22 @@ export const CEILING_STATE = Object.freeze({
 });
 
 /**
+ * Where a declared ceiling was read from. Published because the deployment forbids one of them:
+ * `ai/deploy/docker-compose.yml` sets every heap ceiling `command:`-scoped and never through
+ * `NODE_OPTIONS`, because `ProcessSupervisorService` spawns children with `{...process.env}` and a
+ * service-level `NODE_OPTIONS` would silently multiply the container budget by the number of
+ * concurrent Node processes. A record naming `node-options` is therefore a deployment-drift signal
+ * rather than a detail, and it can only be one if the source is on the record.
+ * @type {Object}
+ */
+export const CEILING_SOURCE = Object.freeze({execArgv: 'exec-argv', nodeOptions: 'node-options'});
+
+/**
  * Reasons a capture could not be made. Each names the instrument that failed, never the subject.
  * @type {Object}
  */
 export const UNAVAILABLE_REASON = Object.freeze({
+    clockUnreadable      : 'clock-unreadable',
     heapSpacesUnreadable : 'heap-spaces-unreadable',
     heapStatsUnreadable  : 'heap-stats-unreadable',
     memoryUsageUnreadable: 'memory-usage-unreadable'
@@ -83,27 +113,42 @@ const MEGABYTE = 1024 * 1024;
  * the running process actually received — so keeping one rule across both is what lets a disagreement
  * between them mean something.
  *
- * @param {String[]} [execArgv] Node execution arguments.
- * @returns {Object} `{state, bytes}` where `bytes` is `null` for every non-`declared` state.
+ * Both declaration channels are read, because Node does not merge them — see {@link CEILING_STATE}
+ * for the measurements. `sources` names which channels carried a declaration, so a ceiling arriving
+ * through `NODE_OPTIONS` on a deployment that forbids it is visible rather than merely counted.
+ *
+ * @param {String[]} [execArgv]    Node execution arguments.
+ * @param {String}   [nodeOptions] Raw `NODE_OPTIONS` value.
+ * @returns {Object} `{state, bytes, sources}` where `bytes` is `null` for every non-`declared` state.
  */
-export function readDeclaredCeiling(execArgv = []) {
-    const values = [];
+export function readDeclaredCeiling(execArgv = [], nodeOptions = '') {
+    const
+        readFrom = (args, source) => {
+            const found = [];
 
-    for (const arg of Array.isArray(execArgv) ? execArgv : []) {
-        const match = /^--max[-_]old[-_]space[-_]size=(\d+)$/.exec(String(arg));
+            for (const arg of Array.isArray(args) ? args : []) {
+                const match = /^--max[-_]old[-_]space[-_]size=(\d+)$/.exec(String(arg));
 
-        match && values.push(Number(match[1]))
-    }
+                match && found.push({bytes: Number(match[1]) * MEGABYTE, source})
+            }
+
+            return found
+        },
+        // Whitespace-split rather than shell-parsed: Node accepts no quoting inside NODE_OPTIONS for
+        // this flag, and a parser richer than the input it reads invents cases it cannot verify.
+        envArgs = typeof nodeOptions === 'string' ? nodeOptions.split(/\s+/).filter(Boolean) : [],
+        values  = [...readFrom(envArgs, CEILING_SOURCE.nodeOptions), ...readFrom(execArgv, CEILING_SOURCE.execArgv)],
+        sources = Object.freeze([...new Set(values.map(value => value.source))]);
 
     if (values.length === 0) {
-        return {state: CEILING_STATE.undeclared, bytes: null}
+        return {state: CEILING_STATE.undeclared, bytes: null, sources}
     }
 
-    if (values.some(value => value !== values[0])) {
-        return {state: CEILING_STATE.ambiguous, bytes: null}
+    if (values.some(value => value.bytes !== values[0].bytes)) {
+        return {state: CEILING_STATE.ambiguous, bytes: null, sources}
     }
 
-    return {state: CEILING_STATE.declared, bytes: values[0] * MEGABYTE}
+    return {state: CEILING_STATE.declared, bytes: values[0].bytes, sources}
 }
 
 /**
@@ -139,17 +184,27 @@ function sumGeneration(spaces, isNew) {
  * is satisfied by a stub that returns nothing usable, so the guard would pass on exactly the runtime it
  * exists to exclude. The result shape is what decides availability here.
  *
+ * **Every source is guarded, including the clock.** An earlier revision called `readNow()` outside the
+ * guard while promising a total envelope, so a failing timestamp source threw out of a function
+ * documented never to throw — and this runs on a reporting cadence inside a live service. A clock that
+ * cannot be read yields `observedAt: null` under `clock-unreadable` rather than a substituted
+ * `Date.now()`: the injected source is the one the caller chose, and silently swapping in another
+ * would make the record's stamp describe a clock nobody asked for. The bridge reader already refuses a
+ * non-finite stamp as `malformed`, so the channel degrades to absence instead of to a wrong age.
+ *
  * @param {Object}    [options]
  * @param {String[]}  [options.execArgv]        Argument vector to read the declared ceiling from.
+ * @param {String}    [options.nodeOptions]     Raw `NODE_OPTIONS`, the second declaration channel.
  * @param {Function}  [options.readHeapStats]   Returns `v8.getHeapStatistics()`.
  * @param {Function}  [options.readHeapSpaces]  Returns `v8.getHeapSpaceStatistics()`.
  * @param {Function}  [options.readMemoryUsage] Returns `process.memoryUsage()`.
  * @param {Function}  [options.readNow]         Returns epoch milliseconds.
- * @returns {Object} The observation record. Always carries `state` and `observedAt`; every measured
- * field is `null` when `state` is `unavailable`.
+ * @returns {Object} The observation record. Always carries `state`; every measured field is `null`
+ * when `state` is `unavailable`, and `observedAt` is `null` only when the clock source itself failed.
  */
 export function collectProcessHeapObservation({
     execArgv        = process.execArgv,
+    nodeOptions     = process.env.NODE_OPTIONS,
     readHeapStats   = () => v8.getHeapStatistics(),
     readHeapSpaces  = () => v8.getHeapSpaceStatistics(),
     readMemoryUsage = () => process.memoryUsage(),
@@ -157,18 +212,20 @@ export function collectProcessHeapObservation({
 } = {}) {
     // One synchronous block, one timestamp. Introducing an `await` between any two of these reads
     // silently converts the pair into two observations of different memory states.
-    const observedAt = readNow(),
+    const observedAt = tryRead(readNow),
           rawSpaces  = tryRead(readHeapSpaces),
           rawStats   = tryRead(readHeapStats),
           rawMemory  = tryRead(readMemoryUsage),
-          ceiling    = readDeclaredCeiling(execArgv);
+          ceiling    = tryRead(() => readDeclaredCeiling(execArgv, nodeOptions)) ||
+                       {state: CEILING_STATE.undeclared, bytes: null, sources: []};
 
     const unavailable = reason => ({
-        observedAt,
+        observedAt            : Number.isFinite(observedAt) ? observedAt : null,
         state                 : HEAP_OBSERVATION_STATE.unavailable,
         unavailableReason     : reason,
         ceilingState          : ceiling.state,
         declaredCeilingBytes  : ceiling.bytes,
+        ceilingSources        : ceiling.sources,
         heapSizeLimitBytes    : null,
         usedHeapBytes         : null,
         totalHeapBytes        : null,
@@ -181,6 +238,10 @@ export function collectProcessHeapObservation({
         arrayBuffersBytes     : null,
         spaces                : null
     });
+
+    if (!Number.isFinite(observedAt)) {
+        return unavailable(UNAVAILABLE_REASON.clockUnreadable)
+    }
 
     if (!Array.isArray(rawSpaces) || rawSpaces.length === 0 || !rawSpaces[0]?.space_name) {
         return unavailable(UNAVAILABLE_REASON.heapSpacesUnreadable)
@@ -203,6 +264,7 @@ export function collectProcessHeapObservation({
         unavailableReason   : null,
         ceilingState        : ceiling.state,
         declaredCeilingBytes: ceiling.bytes,
+        ceilingSources      : ceiling.sources,
         // Observed, never computed from `declaredCeilingBytes` — the gap between them is a stepped
         // function of the memory limit V8 detected at startup, not a constant.
         heapSizeLimitBytes    : rawStats.heap_size_limit,

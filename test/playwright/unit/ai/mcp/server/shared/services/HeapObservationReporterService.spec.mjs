@@ -17,8 +17,12 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
-import os             from 'os';
-import path           from 'path';
+// The service calls `fs-extra`'s `removeSync`, which node's own `fs` does not have. The cleanup
+// falsifier below has to stub the module the production code actually reads — stubbing `node:fs`
+// patches a property nothing calls, and the test then passes for a reason unrelated to its subject.
+import fsExtra from 'fs-extra';
+import os      from 'os';
+import path    from 'path';
 import HeapObservationReporterService
     from '../../../../../../../../ai/mcp/server/shared/services/HeapObservationReporterService.mjs';
 
@@ -100,6 +104,82 @@ test.describe('Neo.ai.mcp.server.shared.services.HeapObservationReporterService 
         expect(wrote).toBe(false);
         expect(levels[0][0]).toBe('WARN');
         expect(levels[0][1]).toContain('mc-server');
+    });
+
+    // ---- Totality at every boundary, not just the write. -----------------------------------------
+    // A prior revision guarded only `outputJsonSync`/`renameSync`. Target resolution ran before the
+    // try, and the failure path called an injected logger and `fs.removeSync` unguarded — so three
+    // ordinary failures escaped a method the ticket promises is never fatal, into a host service's
+    // boot. Each of these reds against that revision with a raw throw rather than a `false`.
+
+    test('a LOGGER that throws cannot escape the failure path', () => {
+        const dir     = makeDir(),
+              blocked = path.join(dir, 'blocked');
+
+        fs.writeFileSync(blocked, 'not a directory');
+
+        expect(HeapObservationReporterService.writeOnce({
+            serviceKey: 'mc-server',
+            dir       : path.join(blocked, 'nested'),
+            writeLog  : () => { throw new Error('logger down') }
+        })).toBe(false);
+    });
+
+    test('a CLEANUP that throws cannot escape the failure path', () => {
+        const dir      = makeDir(),
+              blocked  = path.join(dir, 'blocked'),
+              original = fsExtra.removeSync;
+
+        fs.writeFileSync(blocked, 'not a directory');
+        fsExtra.removeSync = () => { throw new Error('unlink refused') };
+
+        try {
+            expect(HeapObservationReporterService.writeOnce({
+                serviceKey: 'mc-server',
+                dir       : path.join(blocked, 'nested')
+            })).toBe(false);
+        } finally {
+            fsExtra.removeSync = original;
+        }
+    });
+
+    test('a TARGET that cannot be resolved is a false, not a throw', () => {
+        // `path.resolve(undefined, …)` throws a TypeError before any write is attempted — the failure
+        // that reached boot when resolution sat outside the guard.
+        expect(HeapObservationReporterService.writeOnce({serviceKey: 'mc-server', dir: null})).toBe(false);
+    });
+
+    test('start() surfaces an unreadable CONFIG as false rather than into boot', () => {
+        // `start()` runs inside `BaseServer.initAsync()`, so a throw here fails a whole MCP server's
+        // startup over an observation lane. The config read is the one operation that runs before any
+        // guard could report through a return value, which is why it is inside this one.
+        const unreadable = {get enabled() { throw new Error('overlay unresolved') }};
+
+        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir: makeDir(), config: unreadable}))
+            .toBe(false);
+    });
+
+    test('start() survives a channel that can never be written', () => {
+        // Returns true because the CADENCE started: the write's failure is reported through
+        // `writeOnce()`, not by refusing to report at all. What matters at this call site is that
+        // nothing escaped into the caller's boot.
+        const dir     = makeDir(),
+              blocked = path.join(dir, 'blocked');
+
+        fs.writeFileSync(blocked, 'not a directory');
+
+        expect(() => HeapObservationReporterService.start({
+            serviceKey: 'mc-server',
+            dir       : path.join(blocked, 'nested')
+        })).not.toThrow();
+    });
+
+    test('a disabled channel starts nothing', () => {
+        const dir = makeDir();
+
+        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir, config: {enabled: false}}))
+            .toBe(false);
+        expect(fs.readdirSync(dir)).toEqual([]);
     });
 
     test('start() publishes immediately, before the first interval elapses', () => {

@@ -15,6 +15,7 @@ setup({
 
 import {test, expect}                                              from '@playwright/test';
 import {CallToolRequestSchema, ListToolsRequestSchema}             from '@modelcontextprotocol/sdk/types.js';
+import fs                                                          from 'node:fs';
 import os                                                          from 'node:os';
 import path                                                        from 'node:path';
 import Neo                                                         from '../../../../../../src/Neo.mjs';
@@ -23,6 +24,8 @@ import ConfigProvider, {createConfigProxy}                         from '../../.
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_MEMBER_PATHS} from '../../../../../../ai/configBase.mjs';
 import {derivePlaneMemberPaths}                                    from '../../../../../../ai/planeConfig.mjs';
 import BaseServer                                                  from '../../../../../../ai/mcp/server/BaseServer.mjs';
+// After the core export, not before: `ai/config.mjs` resolves against a fully initialised `Neo`.
+import AiConfig                                                    from '../../../../../../ai/config.mjs';
 
 /**
  * @summary Mock McpServer that captures registered request handlers via the schema object
@@ -1034,5 +1037,112 @@ test.describe('Neo.ai.mcp.server.BaseServer — advertised-surface descriptor on
         const response = await callTool(server, 'healthcheck');
 
         expect(response.structuredContent).toEqual({status: 'healthy'})
+    })
+});
+
+/**
+ * @summary Boot-reachability witness for the self-reported heap-observation channel.
+ *
+ * **This exists because a green suite once proved the opposite of what it was cited for.** The
+ * reporter shipped with zero production callers: nothing imported it, nothing called `start()`. Its
+ * own specs passed — they constructed the singleton directly — and the bridge reader's `absent` arm
+ * passed too, which was cited as evidence the fail-closed path worked. It did. It was also the only
+ * path production could ever take. A test that passes for the reason the feature is broken is not
+ * weak coverage; it points the wrong way.
+ *
+ * So this witness never imports the reporter. It boots a server through the ordinary lifecycle and
+ * asks the filesystem whether an observation appeared at the configured path. Deleting the
+ * `startHeapObservation()` call reds it; deleting the reporter's start logic reds it; and a server
+ * that declares no key must leave the directory untouched, so the assertion cannot pass by writing
+ * something unconditionally.
+ *
+ * The publish directory is the real configured leaf, which `configTemplateResolver` already redirects
+ * to a run-scoped storage root — the shared `AiConfig` singleton is never mutated to isolate this.
+ */
+test.describe('Neo.ai.mcp.server.BaseServer — heap-observation boot reachability (#16763)', () => {
+    const observationDir = () => AiConfig.heapObservation.dir,
+          published      = key => path.join(observationDir(), `${key}.json`);
+
+    /**
+     * Overrides `boot()` to a no-op WITHOUT chaining `super.boot()` — memory-core's real shape, and
+     * the case a start wired into the default `boot()` would silently skip.
+     */
+    function makeObservingServerClass(serviceKey) {
+        const id = ++_testClassCounter;
+
+        class ObservingServer extends BaseServer {
+            static config = {className: `Neo.test.mcp.server.ObservingServer${id}`}
+
+            getServerMetadata() { return {name: 'neo-test', version: '1.0.0', capabilities: {tools: {}}} }
+            getToolService()    { return {listTools: () => ({tools: [], nextCursor: null}), callTool: async () => ({})} }
+
+            getHeapObservationServiceKey() { return serviceKey }
+
+            async boot() { /* non-canonical bootstrap, exactly as memory-core does */ }
+        }
+
+        return Neo.setupClass(ObservingServer);
+    }
+
+    test('booting a server that declares a key publishes its observation', async () => {
+        const serviceKey = `witness-declared-${++_testClassCounter}`,
+              server     = Neo.create(makeObservingServerClass(serviceKey));
+
+        await server.ready();
+
+        try {
+            expect(fs.existsSync(published(serviceKey))).toBe(true);
+
+            const record = JSON.parse(fs.readFileSync(published(serviceKey), 'utf8'));
+
+            // Stamped with the key the server declared: the bridge refuses any record whose stamped
+            // key differs from the path it resolved, so publishing under the wrong name is the same
+            // as publishing nothing.
+            expect(record.serviceKey).toBe(serviceKey);
+            expect(record.recordType).toBe('process-heap-observation');
+            expect(record.pid).toBe(process.pid);
+            // A real capture from this process, reached through boot rather than through a direct call.
+            expect(record.observation.state).toBe('observed');
+            expect(record.observation.rssBytes).toBeGreaterThan(0)
+        } finally {
+            // The teardown the server owns, exercised rather than described.
+            server.stopHeapObservation();
+            fs.rmSync(published(serviceKey), {force: true})
+        }
+    });
+
+    test('a server that declares NO key publishes nothing', async () => {
+        // The control that makes the assertion above non-vacuous: without it, a directory that some
+        // other server had already populated would satisfy an existence check on its own.
+        const serviceKey = `witness-optout-${++_testClassCounter}`,
+              id         = ++_testClassCounter;
+
+        class SilentServer extends BaseServer {
+            static config = {className: `Neo.test.mcp.server.SilentServer${id}`}
+
+            getServerMetadata() { return {name: 'neo-test', version: '1.0.0', capabilities: {tools: {}}} }
+            getToolService()    { return {listTools: () => ({tools: [], nextCursor: null}), callTool: async () => ({})} }
+
+            async boot() { /* no-op */ }
+        }
+
+        const server = Neo.create(Neo.setupClass(SilentServer));
+
+        await server.ready();
+
+        expect(server.getHeapObservationServiceKey()).toBeNull();
+        expect(fs.existsSync(published(serviceKey))).toBe(false)
+    });
+
+    test('the two shipped opt-ins name their Compose service labels', async () => {
+        // The key is the string the bridge resolves `<key>.json` from and then re-checks against the
+        // record's own stamp. A drift here publishes files nothing reads.
+        const [{default: KbServer}, {default: McServer}] = await Promise.all([
+            import('../../../../../../ai/mcp/server/knowledge-base/Server.mjs'),
+            import('../../../../../../ai/mcp/server/memory-core/Server.mjs')
+        ]);
+
+        expect(KbServer.prototype.getHeapObservationServiceKey.call({})).toBe('kb-server');
+        expect(McServer.prototype.getHeapObservationServiceKey.call({})).toBe('mc-server')
     })
 });
