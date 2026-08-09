@@ -268,6 +268,46 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.capabilities.wake).toMatchObject({state: 'not-wired'})
     })
 
+    // The presence row holds the identical closed-enum discipline: absence of a producer is
+    // `unknown` in the observation field; the wiring fact lives only in capability + sources.
+    test('an unwired presence producer reads unknown/none in the ROW, and not-wired only in the wiring axes', () => {
+        const snapshot = createFleetCockpitStatus({agents: [{id: 'clio', githubUsername: 'neo-fable-clio'}]}),
+              row      = snapshot.rows[0]
+
+        expect(row.presence).toEqual({
+            source    : FLEET_COCKPIT_SOURCES.presence,
+            state     : 'unknown',
+            confidence: 'none',
+            lastSeenAt: null,
+            reason    : 'presence producer not wired'
+        })
+        expect(row.sources.presence).toMatchObject({state: 'not-wired', confidence: 'none'})
+        expect(snapshot.capabilities.presence).toMatchObject({state: 'not-wired'})
+    })
+
+    test('a wired presence row travels WHOLE — band, recency, confidence, never re-derived', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents        : [{id: 'clio', githubUsername: 'neo-fable-clio'}],
+            presenceStatus: [{
+                agentId   : 'clio',
+                presence  : 'online',
+                lastSeenAt: '2026-08-09T11:00:00.000Z',
+                confidence: 'observed',
+                source    : FLEET_COCKPIT_SOURCES.presence
+            }],
+            capabilities: {presence: {source: FLEET_COCKPIT_SOURCES.presence, state: 'wired', confidence: 'observed'}}
+        })
+
+        expect(snapshot.rows[0].presence).toEqual({
+            source    : FLEET_COCKPIT_SOURCES.presence,
+            state     : 'online',
+            confidence: 'observed',
+            lastSeenAt: '2026-08-09T11:00:00.000Z'
+        })
+        expect(snapshot.rows[0].sources.presence).toMatchObject({state: 'wired', confidence: 'observed'})
+        expect(snapshot.capabilities.presence).toMatchObject({state: 'wired'})
+    })
+
     test('an unwired throttle producer reads unknown/none in the ROW, not-wired only in the wiring axes', () => {
         const snapshot = createFleetCockpitStatus({agents: [{id: 'grace'}]}),
               row      = snapshot.rows[0]

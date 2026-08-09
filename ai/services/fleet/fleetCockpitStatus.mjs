@@ -11,7 +11,8 @@ const WIRE_SOURCES = Object.freeze({
         runtime    : 'fleet:runtimeStatus',
         lifecycle  : 'fleet:lifecycle',
         wake       : 'fleet:wakeState',
-        throttle   : 'fleet:throttleState'
+        throttle   : 'fleet:throttleState',
+        presence   : 'fleet:presenceState'
     })
 
 export const FLEET_COCKPIT_EVENT_TYPES = Object.freeze([
@@ -74,7 +75,7 @@ function githubAvatarUrl(githubUsername) {
  * @param {Object}   options.capabilities  Optional source-capability overrides from wired adapters.
  * @returns {Object} serializable cockpit DTO `{sources, capabilities, rows, events}`.
  */
-export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], wakeStatus = [], throttleStatus = [], events = [], capabilities = {}} = {}) {
+export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtimeStatus = [], wakeStatus = [], throttleStatus = [], presenceStatus = [], events = [], capabilities = {}} = {}) {
     const suppliedCapabilities = capabilities || {}
 
     const statusByAgentId = new Map(
@@ -93,6 +94,10 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
         throttleStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
     )
 
+    const presenceByAgentId = new Map(
+        presenceStatus.map(entry => [entry.agentId || entry.id, sanitizePayload(entry)])
+    )
+
     return {
         sources     : FLEET_COCKPIT_SOURCES,
         capabilities: {
@@ -105,7 +110,12 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
             // The throttle telltale axis (S2), same contract as wake: `none | overage |
             // rate-limited | unknown`. No trustworthy platform source exists yet, so this axis is
             // expected to sit degraded — which is the honest report, not a gap to paper over.
-            throttle: suppliedCapabilities.throttle || createNotWiredCapability(FLEET_COCKPIT_SOURCES.throttle, 'throttle-state producer not wired')
+            throttle: suppliedCapabilities.throttle || createNotWiredCapability(FLEET_COCKPIT_SOURCES.throttle, 'throttle-state producer not wired'),
+            // The presence axis: the plane's who_is_online band embryo (`online |
+            // idle | dark | benched | neverConnected | unknown`), the third independent signal —
+            // presence-fresh ≠ wake-route-healthy ≠ identity-bound. Not-wired is the honest
+            // default until the assembler passes a snapshot; a band is never guessed.
+            presence: suppliedCapabilities.presence || createNotWiredCapability(FLEET_COCKPIT_SOURCES.presence, 'presence producer not wired')
         },
         rows: agents.map(agent => {
             const publicAgent = sanitizePayload(agent),
@@ -113,7 +123,8 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                   repoStatus  = statusByAgentId.get(agentId) || null,
                   runtime     = runtimeByAgentId.get(agentId) || null,
                   wake        = wakeByAgentId.get(agentId) || null,
-                  throttle    = throttleByAgentId.get(agentId) || null
+                  throttle    = throttleByAgentId.get(agentId) || null,
+                  presence    = presenceByAgentId.get(agentId) || null
 
             return {
                 id            : agentId,
@@ -184,6 +195,25 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         confidence: 'none',
                         reason    : 'throttle-state producer not wired'
                     },
+                // The presence axis, same closed-enum discipline as its siblings:
+                // `state` never leaves the plane's band embryo + `unknown`, absence of a producer
+                // included. `lastSeenAt` carries the producer's per-seat recency verbatim — the
+                // tier-degradation contract forbids deriving a finer band here than was emitted.
+                presence: presence
+                    ? {
+                        source    : FLEET_COCKPIT_SOURCES.presence,
+                        state     : presence.presence ?? 'unknown',
+                        confidence: presence.confidence ?? 'none',
+                        lastSeenAt: presence.lastSeenAt ?? null,
+                        ...(presence.reason != null && {reason: presence.reason})
+                    }
+                    : {
+                        source    : FLEET_COCKPIT_SOURCES.presence,
+                        state     : 'unknown',
+                        confidence: 'none',
+                        lastSeenAt: null,
+                        reason    : 'presence producer not wired'
+                    },
                 sources: {
                     roster: {
                         source    : FLEET_COCKPIT_SOURCES.roster,
@@ -209,6 +239,11 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         source    : FLEET_COCKPIT_SOURCES.throttle,
                         state     : throttle ? 'wired' : 'not-wired',
                         confidence: throttle ? (throttle.confidence ?? 'none') : 'none'
+                    },
+                    presence: {
+                        source    : FLEET_COCKPIT_SOURCES.presence,
+                        state     : presence ? 'wired' : 'not-wired',
+                        confidence: presence ? (presence.confidence ?? 'none') : 'none'
                     }
                 }
             }

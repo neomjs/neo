@@ -713,9 +713,10 @@ class FleetControlBridge extends Base {
         // without the producer method at all — yields not-wired/unknown, never a guessed state.
         // Read concurrently: the axes share no state, so serializing them would just add the
         // slower one's latency to every roster read.
-        const [wake, throttle] = await Promise.all([
+        const [wake, throttle, presence] = await Promise.all([
             manager.fleetWakeStatus?.()     ?? null,
-            manager.fleetThrottleStatus?.() ?? null
+            manager.fleetThrottleStatus?.() ?? null,
+            manager.fleetPresenceStatus?.() ?? null
         ]);
 
         return createFleetCockpitStatus({
@@ -724,6 +725,7 @@ class FleetControlBridge extends Base {
             runtimeStatus : manager.fleetRuntimeStatus() ?? [],
             wakeStatus    : wake?.states ?? [],
             throttleStatus: throttle?.states ?? [],
+            presenceStatus: presence?.states ?? [],
             capabilities  : {
                 activity: createNotWiredCapability(FLEET_COCKPIT_SOURCES.activity, 'activity rides the dedicated fleetActivity verb'),
                 runtime : {
@@ -732,7 +734,8 @@ class FleetControlBridge extends Base {
                     confidence: 'observed'
                 },
                 wake    : wake?.capability     ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.wake, 'wake-state producer not wired'),
-                throttle: throttle?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.throttle, 'throttle-state producer not wired')
+                throttle: throttle?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.throttle, 'throttle-state producer not wired'),
+                presence: presence?.capability ?? createNotWiredCapability(FLEET_COCKPIT_SOURCES.presence, 'presence producer not wired')
             }
         });
     }

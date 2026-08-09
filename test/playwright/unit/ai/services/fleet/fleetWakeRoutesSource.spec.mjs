@@ -263,6 +263,22 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         })
     });
 
+    test('a persisted leading-@ registry spelling joins EVERY axis — one canonical identity boundary for both presence consumers', async () => {
+        // defineAgent persists githubUsername unchanged, so '@neo-opus-ada' is an accepted
+        // production spelling; the shared canonicalizer must join it instead of emitting '@@…'
+        // and fabricating seat-absent across subscription/arming/failure/presence axes.
+        const result = await harness({
+            listAgents  : () => [{id: 'prefixed-seat', githubUsername: '@neo-opus-ada'}],
+            readPresence: () => ({agents: [PRESENCE_PAYLOAD.agents[0]]})
+        }).readWakeRoutes();
+
+        const seat = result.seats[0];
+
+        expect(seat.agentIdentity).toBe('@neo-opus-ada');
+        expect(seat.presence.state).toBe('idle');
+        expect(seat.presence.reason).not.toBe('seat absent from the presence report')
+    });
+
     test('an absent presence reader is a typed unobserved; a malformed answer is unknown; a missing seat answers only for itself', async () => {
         const unbound = await harness({readPresence: null}).readWakeRoutes();
 

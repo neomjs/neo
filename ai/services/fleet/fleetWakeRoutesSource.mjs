@@ -1,5 +1,6 @@
-import {createSeatArmingReader} from './seatArmingReader.mjs';
-import {redactCredentials}      from './redactCredentials.mjs'
+import {createSeatArmingReader}                    from './seatArmingReader.mjs';
+import {PRESENCE_STATES, presenceIdentityForAgent} from './fleetPresenceStateAdapter.mjs';
+import {redactCredentials}                         from './redactCredentials.mjs'
 
 /**
  * @module ai/services/fleet/fleetWakeRoutesSource
@@ -26,7 +27,7 @@ export const WAKE_ROUTES_SOURCE_LABEL = 'fleet:wakeRoutes'
 
 const
     DELIVERY_STATES  = Object.freeze(['alive', 'down', 'unknown']),
-    PRESENCE_STATES  = Object.freeze(['online', 'idle', 'dark', 'benched', 'neverConnected']),
+    // PRESENCE_STATES imports from the adapter sibling — the vocabulary's one exporting home.
     ARMED_UNOBSERVED = Object.freeze({
         state : 'unobserved',
         // The absent-reader branch, not a structural gap: a deployment with no local wake lane
@@ -61,7 +62,10 @@ const
  *     roster-presence report (`who_is_online` payload shape: `{agents: [{identity, state,
  *     reason, signals}]}`). Absent ⇒ the presence axis is a typed `unobserved`.
  * @param {Function} [options.wakeIdentityFor] `(agent) => String` roster row → wake identity.
- *     Default: `'@' + (githubUsername ?? id)` — the swarm's mailbox-identity convention.
+ *     Default: the exported presence canonicalizer — ONE registry→plane identity boundary for
+ *     both live presence consumers, accepting the registry's full production spelling domain
+ *     (`defineAgent` persists `githubUsername` unchanged, so `@`-prefixed rows are accepted
+ *     spellings; blind prefixing would fabricate `seat absent` for them on every axis).
  * @param {Function} [options.now] Clock override for tests.
  * @returns {{readWakeRoutes: Function}}
  */
@@ -74,7 +78,7 @@ export function createFleetWakeRoutesSource({
     resolveSeatArming = null,
     wakeReceiverManifestPath = null,
     readPresence = null,
-    wakeIdentityFor = agent => `@${agent.githubUsername ?? agent.id}`,
+    wakeIdentityFor = presenceIdentityForAgent,
     now = () => new Date()
 } = {}) {
     if (typeof listAgents !== 'function') {

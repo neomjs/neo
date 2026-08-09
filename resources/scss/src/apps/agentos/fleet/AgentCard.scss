@@ -158,6 +158,18 @@
         }
     }
 
+    /* the presence band: the plane's who_is_online observation — text-only, --fm-ink-dim,
+       the third axis beside the state word + telltale. Hidden entirely unless OBSERVED: absence
+       of signal, never a verdict. */
+    .fm-card-presence {
+        flex       : none;
+        font-family: var(--fm-font-mono);
+        font-size  : 10px;
+        line-height: 1;
+        white-space: nowrap;
+        color      : var(--fm-ink-dim);
+    }
+
     /* the open-lane count badge — right-pinned; openLaneCount ONLY, never the engine */
     .fm-card-lane-count {
         flex         : none;

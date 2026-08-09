@@ -5,6 +5,20 @@ import FamilyRail             from './FamilyRail.mjs';
 import Image                  from '../../../../src/component/Image.mjs';
 import StateDot, {stateLabel} from './StateDot.mjs';
 
+/**
+ * The closed presence-band → label map (the plane's who_is_online embryo). Only these render; an
+ * out-of-set or `unknown` state keeps the presence element hidden — the closed-set discipline the
+ * session-state label already follows.
+ * @type {Object}
+ */
+const PRESENCE_BAND_LABEL = Object.freeze({
+    online        : 'online',
+    idle          : 'idle',
+    dark          : 'dark',
+    benched       : 'benched',
+    neverConnected: 'never connected'
+});
+
 import {normalizeFleetSources, resolveFleetDisplayState, summarizeFleetSources} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
@@ -167,6 +181,15 @@ class AgentCard extends Container {
                         cls      : ['fm-card-state'],
                         flex     : 'none',
                         reference: 'card-state'
+                    }, {
+                        // the presence band: the plane's who_is_online observation, the THIRD
+                        // independent axis — never fused into the session-state word. Hidden unless
+                        // an OBSERVED band exists: absence of signal, never a verdict.
+                        ntype    : 'component',
+                        cls      : ['fm-card-presence'],
+                        flex     : 'none',
+                        hidden   : true,
+                        reference: 'card-presence'
                     }, {
                         // the open-lane count badge (openLaneCount ONLY — never the engine); right-pinned
                         // in the state-line (SCSS margin-left:auto). null count = no badge (never "0 lanes").
@@ -343,6 +366,21 @@ class AgentCard extends Container {
         me.getReference('card-state').set({
             cls : hot ? ['fm-card-state', 'fm-state-hot'] : ['fm-card-state'],
             text: stateLabel(displayState)
+        });
+
+        // The presence band: session state says what the resident's PROCESS does;
+        // presence says whether the SEAT is alive anywhere (the plane's who_is_online graph
+        // observation). Kept separate by construction — rendered only when the producer OBSERVED
+        // a band; unknown/absent stays hidden (tier-degradation: absence of signal, never a
+        // verdict, never a fabricated offline).
+        const
+            presence         = record.presence ?? null,
+            presenceObserved = presence?.confidence === 'observed' &&
+                Object.hasOwn(PRESENCE_BAND_LABEL, presence?.state);
+
+        me.getReference('card-presence').set({
+            hidden: !presenceObserved,
+            text  : presenceObserved ? `◉ ${PRESENCE_BAND_LABEL[presence.state]}` : ''
         });
 
         // the name slot: the folded display name as MUTABLE DISPLAY STATE over the durable id

@@ -24,5 +24,6 @@ export const FLEET_COCKPIT_SOURCES = Object.freeze({
     runtime    : 'fleet:runtimeStatus',
     lifecycle  : 'fleet:lifecycle',
     wake       : 'fleet:wakeState',
-    throttle   : 'fleet:throttleState'
+    throttle   : 'fleet:throttleState',
+    presence   : 'fleet:presenceState'
 });
