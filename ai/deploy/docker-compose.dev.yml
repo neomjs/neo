@@ -195,6 +195,10 @@ services:
       # which two parity projects resolve to the same directory. That is the exact
       # duplicate-stacks-on-one-plane failure the named-volume election was chosen to prevent.
       - parity-plane:/app/.neo-ai-data-parity
+      # Heap-observation channel, parity half: the env pin relocates the channel under the parity
+      # root (x-plane-env NEO_HEAP_OBSERVATION_DIR), so this dedicated volume shadows that subdir.
+      # Without it the writer still shares via the rw plane root — but the reader would too.
+      - parity-heap-observation:/app/.neo-ai-data-parity/heap-observation
       # Anonymous volume: the image's linux-built node_modules must not be shadowed by the
       # host bind (darwin/arm64 natives → exec format error; AC5 live-run defect 2, #15803).
       - /app/node_modules
@@ -259,6 +263,8 @@ services:
       # which two parity projects resolve to the same directory. That is the exact
       # duplicate-stacks-on-one-plane failure the named-volume election was chosen to prevent.
       - parity-plane:/app/.neo-ai-data-parity
+      # Heap-observation channel, parity half — see the kb-server mount. Writer side stays rw.
+      - parity-heap-observation:/app/.neo-ai-data-parity/heap-observation
       # Anonymous volume: same node_modules shadowing guard as kb-server (AC5 defect 2).
       - /app/node_modules
     # Served identity, same contract as kb-server above — both servers declare `plane {id, dataRoot}`
@@ -334,6 +340,10 @@ services:
       # which two parity projects resolve to the same directory. That is the exact
       # duplicate-stacks-on-one-plane failure the named-volume election was chosen to prevent.
       - parity-plane:/app/.neo-ai-data-parity
+      # Heap-observation channel, parity half — READ side, read-only on purpose: the record
+      # carries provenance self-reported, and the bridge must never author what it publishes.
+      # Without this shadow the rw plane root above would leave the parity reader writable.
+      - parity-heap-observation:/app/.neo-ai-data-parity/heap-observation:ro
       # Same node_modules shadowing guard as the servers (AC5 defect 2).
       - /app/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
@@ -359,6 +369,10 @@ networks:
 volumes:
   parity-chroma: {}
   parity-plane: {}
+  # Heap-observation channel on the parity root: writers are the MCP servers declaring
+  # getHeapObservationServiceKey(), the orchestrator reads it :ro — mirrors the canonical
+  # shared-heap-observation-data one profile over, at the env-pinned parity path.
+  parity-heap-observation: {}
 
 # Environment-backed secret: the host exports the PAT once, Compose materializes it as a mounted
 # file only for the two MCP servers, and rendered config retains the env VAR NAME rather than its
