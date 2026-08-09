@@ -13,7 +13,7 @@
 | **Resolves** | #16710 — the `Required: ADR` gate on the barrel split |
 | **Graduated from** | Discussion #16652 — family-keyed quorum satisfied by the Kimi leg; the Fable signal was author-family |
 | **Depends on** | The eager-singleton lifecycle in `core.Base`: `Neo.setupClass()` instantiates at module load and `initAsync()` is scheduled on the next microtask. This ADR's central claim is false if that changes. |
-| **Aligns with** | ADR 0018's two-hemisphere split — this is the Body/Brain seam expressed as a package-resolution boundary rather than a directory one |
+| **Aligns with** | ADR 0018 — and **explicitly NOT the Body/Brain seam.** Both barrels live in `/ai/`; Body is `/src/`. This is a **Brain-internal host-edge / container-plane** boundary, expressed by package resolution. An earlier revision called it the Body/Brain seam, which is a category error the two-hemisphere anchor exists to prevent; it is corrected here rather than silently, because the vocabulary gap that produced it is real — see §2.7 |
 | **Mechanically amends** | `learn/benefits/ArchitectureOverview.md` — "The SDK Bouncer Pattern" and the `ai/services.mjs` module-table row, both of which name a single aggregator as the critical safety layer |
 | **Anti-anchor for** | a host barrel that re-exports from the cloud root; a static-only proof presented as the whole property; a third barrel; deleting cloud services from the cloud root; treating `initAsync()` as deferral |
 
@@ -60,15 +60,40 @@ barrels. Both wrap at a single site, so a service imported through either barrel
 instance. Had the cloud root re-wrapped its re-exports, the same service would have had two
 identities depending on the import path.
 
-### §2.4 Import-time boot policy is part of the barrel contract
+### §2.4 Inherited boot-policy compatibility — preserved debt with a named successor, NOT law
 
-The pre-split barrel applied `GH_Config.data.syncOnStartup = false` and
-`NeuralLink_Config.data.autoConnect = false` at import time. **Both barrels must apply them.**
+An earlier revision of this ADR said *"both barrels must apply"* the pre-split config writes. **That
+was wrong and is retracted.** It would have institutionalized as architecture what is in fact
+inherited debt, and it duplicated a forbidden pattern into a second site while doing so.
 
-This is stated as a decision rather than an implementation detail because the omission is silent: a
-barrel that imports and re-exports the configs without applying the policy presents an identical
-export surface, so a consumer reading exports infers the old behaviour. A missing export fails
-loudly; a missing assignment fails at connect time, in a process that booted clean.
+**ADR 0019 B4 forbids runtime writes to the reactive config SSOT. This ADR does not amend, weaken, or
+carve out that rule.** One such write survives, as debt, at exactly one site.
+
+**`GH_Config.data.syncOnStartup` — deleted.** Measured `false → false`: its leaf already defaults
+`false`, so the write had no behavioural payload. It dated from a single-agent era when
+`github-workflow` was a pure MCP server. A pure B4 violation carrying nothing.
+
+**`NeuralLink_Config.data.autoConnect = false` — preserved at one owning site**,
+`ai/services.host.mjs`. `ai/services.mjs` imports that module, so the cloud root inherits the policy
+rather than repeating it. Verified: importing either barrel yields `autoConnect: false`, while a
+process importing neither observes `true`.
+
+It survives because removing it changes behaviour, and the reason is specific. `configBase.mjs`
+defaults `autoConnect` to `true`; `ConnectionService.initAsync()` is the **sole** automatic caller and
+gates on that value; and `mcp-server.mjs` — the canonical Neural Link host entrypoint — depends on it,
+because `Server.boot()` awaits `ConnectionService.ready()` and never calls `ensureBridgeAndConnect()`
+itself. **The config value is the connect decision.** Flipping the leaf to `false` was proposed,
+probed, and falsified on precisely that entrypoint.
+
+**Named successor, so this is a lane and not a permanent exemption.** Eliminating the write requires
+choosing a lifecycle owner — explicit `Server`-owned connect, lazy service creation, or another
+boundary — which is an architecture fork, not a cleanup. It belongs in an Ideation Sandbox. A fourth
+option exists and may dissolve the question entirely: **splitting `AiConfig` itself by realm**
+(post-v13.2 refactoring wave), after which each realm carries its own static default and no runtime
+write is needed anywhere.
+
+**Retirement trigger:** when that fork resolves, or when an `AiConfig` realm split lands, this write
+is deleted and this section retires with it. Until then it stays at one site, labelled debt.
 
 ### §2.5 The property needs two instruments, and neither alone is sufficient
 
@@ -93,6 +118,17 @@ produced it.
 | Host barrel re-exports from the cloud root | Restores full reachability; the denial witness fails immediately. |
 | Static walk alone as the acceptance proof | Structurally cannot see `better-sqlite3`; a green run coexists with a false property. |
 | Delete cloud services from the cloud root | The cloud plane is a legitimate consumer; the split is a boundary, not a deletion. |
+| Flip the `autoConnect` leaf default to `false` | Falsified on the canonical Neural Link host entrypoint: `mcp-server.mjs` relies on the `true` default, because `Server.boot()` awaits `ConnectionService.ready()` and never connects explicitly. Probed directly — see §2.4. |
+
+### §2.7 Vocabulary: this is a Brain-internal realm boundary, not the Body/Brain seam
+
+Recorded because getting it wrong is easy and this ADR did. Body is `/src/`; Brain is `/ai/`. **Both
+barrels are in `/ai/`,** so this boundary is *host-edge ↔ container-plane, inside the Brain.*
+
+The failure is worth naming rather than only fixing: no established term existed for "a realm
+boundary inside one hemisphere", so an author reaching for the nearest available vocabulary reached
+for the seam that does have a name. Future placement work in this tree (`#14304`) should expect the
+same pull — and that issue's own deferred gate calls for exactly this SSOT coherence.
 
 ## 3. Consequences and consumer obligations
 

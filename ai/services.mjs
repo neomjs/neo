@@ -27,8 +27,6 @@ import InstanceManager from '../src/manager/Instance.mjs';
 
 // --- GitHub Workflow Services ---
 
-GH_Config.data.syncOnStartup = false;
-
 // --- GitLab Workflow Services ---
 
 // --- Knowledge Base Services ---
@@ -66,8 +64,10 @@ import Memory_WebhookDeliveryService     from './services/memory-core/WebhookDel
 import Memory_Config                     from './mcp/server/memory-core/config.mjs';
 
 // --- Neural Link Services ---
-
-NeuralLink_Config.data.autoConnect = false;
+//
+// The `autoConnect` compatibility write is NOT repeated here. This module imports
+// `./services.host.mjs`, which owns it as a single site, so the policy is inherited rather than
+// duplicated. That file's note explains why the write survives and what retires it.
 
 // --- Daemons ---
 import DreamService                 from './daemons/orchestrator/services/DreamService.mjs';

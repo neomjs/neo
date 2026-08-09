@@ -84,18 +84,29 @@ import _NeuralLink_InteractionService   from './services/neural-link/Interaction
 import _NeuralLink_RuntimeService       from './services/neural-link/RuntimeService.mjs';
 import NeuralLink_Config                from './mcp/server/neural-link/config.mjs';
 
-// --- Import-time boot policy (carried from the pre-split barrel, NOT new) ---
+// --- Inherited boot-policy compatibility: ONE owning site, and it is debt ---
 //
-// These two assignments were applied by `ai/services.mjs` before the split, so every consumer of the
-// old barrel inherited them at import time. A host consumer migrating to this file must see the same
-// initialization policy it had, or the split changes behaviour while claiming to be a regrouping.
+// The pre-split `ai/services.mjs` applied this at import time, so every consumer of the old barrel
+// inherited it. This file is now the single owning site: `ai/services.mjs` imports this module, so
+// the cloud root inherits the same policy without repeating the write.
 //
-// Dropping them is silent, which is why it must stay pinned here: this file already imports and
-// re-exports both configs, so the export surface looks identical either way. `configBase.mjs`
-// defaults `autoConnect` to `true`, and `ConnectionService.initAsync()` calls `ensureBridgeAndConnect()`
-// while it stays true — so the omission does not fail at import, it spawns a Bridge at connect time.
-// A missing export would fail loudly; this fails at connect time, in a process that booted clean.
-GH_Config.data.syncOnStartup     = false;
+// **This is preserved debt, not architecture.** ADR 0019 B4 (ticket-ref-ok: the ADR is the authority
+// that makes this a KNOWN violation rather than an oversight; without the citation "debt" is
+// unsupported) forbids runtime writes to the reactive
+// config SSOT, and this is one. It survives because deleting it changes behaviour: `configBase.mjs`
+// defaults `autoConnect` to `true`, `ConnectionService.initAsync()` is the sole automatic caller and
+// gates on that value, and `mcp-server.mjs` — the canonical Neural Link host entrypoint — relies on
+// it. `Server.boot()` awaits `ConnectionService.ready()` and never calls `ensureBridgeAndConnect()`
+// itself, so the config value IS the connect decision. Flipping the leaf instead was proposed,
+// probed, and falsified on exactly that entrypoint.
+//
+// Its retirement is a real lifecycle fork rather than a cleanup: some component must take explicit
+// ownership of the connect decision before this write can go. The decision record for this barrel
+// boundary carries the successor and its retirement trigger.
+//
+// The companion `GH_Config.data.syncOnStartup = false` was deleted rather than moved: measured
+// `false → false`, because its leaf already defaults false. It dated from a single-agent era when
+// github-workflow was a pure MCP server, and it had no behavioural payload left.
 NeuralLink_Config.data.autoConnect = false;
 
 const __filename = fileURLToPath(import.meta.url);
