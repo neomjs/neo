@@ -60,13 +60,18 @@ function makeChunks(count) {
 }
 
 test.describe('VectorService.embedChunks — cooperative lease yield-point', () => {
-    let SDK, KB_VectorService, KB_Config, TextEmbeddingService;
+    let SDK, KB_VectorService, KB_Config, Memory_Config, TextEmbeddingService, EMBEDDING_BATCH_YIELDED_CODE;
     let originalEmbedTexts, originalBatchConfig;
 
     test.beforeAll(async () => {
         SDK                  = await import('../../../../../../ai/services.mjs');
         KB_Config            = SDK.KB_Config;
+        Memory_Config        = SDK.Memory_Config;
         TextEmbeddingService = SDK.Memory_TextEmbeddingService;
+
+        ({EMBEDDING_BATCH_YIELDED_CODE} = await import(
+            '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs'
+        ));
 
         const VectorServiceModule = await import('../../../../../../ai/services/knowledge-base/VectorService.mjs');
         KB_VectorService          = VectorServiceModule.default;
@@ -89,6 +94,9 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
 
     test.beforeEach(() => {
         Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 1});
+        // Re-applied per test: the inner-yield cases below swap in their own embedder, and a leaked stub
+        // would silently change what a later test is measuring.
+        TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
     });
 
     test('yields BETWEEN batches — stops the loop, first batch still lands (forward progress)', async () => {
@@ -135,5 +143,143 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(result.yielded).toBe(false);
         expect(result.embedded).toBe(150);
         expect(spy.calls.upsert).toBe(3);
+    });
+
+    test('an INNER yield is reported as a yield, and is not retried (#16822)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(150); // 3 batches at batchSize 50
+
+        // 3, not the deployed 5: the retry arm backs off `2 ** retries` seconds, so a maxRetries-5 mutation
+        // run exhausts the 30s test timeout before it exhausts the retries — and a timeout-red would leave
+        // this test looking falsifiable while proving only that something hung.
+        Object.assign(KB_Config.data, {maxRetries: 3});
+
+        let embedCalls = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            embedCalls++;
+            // Batch 1 lands; batch 2 abandons mid-way at a provider-chunk boundary.
+            if (embedCalls === 1) return texts.map(() => new Array(384).fill(0));
+
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 3/10 provider chunk(s)');
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 3;
+            error.totalChunkCount     = 10;
+            throw error
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false // the OUTER checkpoint never fires: the yield must arrive from within
+        }).then(value => value, error => ({error}));
+
+        // Captured rather than awaited bare, so the failure this test exists to catch reads as its own
+        // sentence. Against the untyped `catch (err)` the yield falls into the retry arm, the batch is
+        // re-attempted until the budget is gone, and `embedChunks` then throws — so the caller sees a
+        // hard ingestion failure where the truth was an orderly, resumable release.
+        expect(result.error, `the yield must not surface as an ingestion failure: ${result.error?.message}`).toBeUndefined();
+
+        // The load-bearing number. Each extra attempt re-issues provider work the holder deliberately
+        // stopped, so the fairness fix becomes a maxRetries-fold amplifier of the hold it exists to bound —
+        // silently, because every attempt looks like an ordinary transient embedding failure.
+        expect(embedCalls, 'a yield is a decision, not a transient failure — exactly one attempt per batch').toBe(2);
+        expect(result.yielded, 'the caller must learn to release the lease').toBe(true);
+
+        // Progress made before the yield is durable and is what `selectResumableChunks` skips next sweep.
+        expect(result.embedded).toBe(50);
+        expect(spy.calls.upsert).toBe(1);
+        expect(spy.upsertedIds).toHaveLength(50);
+    });
+
+    test('an inner yield stops the OUTER sweep even if the predicate flips back to false (#16822)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(200); // 4 batches
+
+        let embedCalls = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            embedCalls++;
+            if (embedCalls !== 2) return texts.map(() => new Array(384).fill(0));
+
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 1/10 provider chunk(s)');
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 1;
+            error.totalChunkCount     = 10;
+            throw error
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // Leaving the outer `for` on the strength of the next between-batch checkpoint would work only while
+        // the predicate stays true. It is a lease-expiry predicate consulted across minutes of provider work,
+        // so "still true one batch later" is an assumption, not a property — batches 3 and 4 would resume
+        // under a lease the holder has already decided to release.
+        expect(embedCalls, 'batches 3 and 4 must not run').toBe(2);
+        expect(result.yielded).toBe(true);
+        expect(result.embedded).toBe(50);
+        expect(spy.calls.upsert).toBe(1);
+    });
+
+    test('an ordinary embedding failure is still retried — the yield carve-out did not widen (#16822)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50); // 1 batch
+
+        Object.assign(KB_Config.data, {maxRetries: 3});
+
+        let embedCalls = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            embedCalls++;
+            if (embedCalls < 3) throw new Error('openAiCompatible embedding error HTTP 503: busy');
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // A carve-out that quiets a retry path opens a silent channel if it classifies too broadly. Only the
+        // typed yield code may skip the retry arm; everything else keeps the behaviour it had.
+        expect(embedCalls).toBe(3);
+        expect(result.yielded).toBe(false);
+        expect(result.embedded).toBe(50);
+    });
+
+    test('the per-chunk checkpoint interval fits inside the fairness bound it must respect (#16822)', async () => {
+        const {unloadRetryCount, batchEmbeddingTimeoutMs} = Memory_Config.openAiCompatible,
+              {maxActiveHoldMs}                           = Memory_Config.orchestrator.heavyMaintenance;
+
+        // Worst case between two consultations AFTER the repair: one provider chunk, including its unload
+        // retries, each of which carries the full request timeout.
+        const worstCaseCheckpointIntervalMs = (1 + unloadRetryCount) * batchEmbeddingTimeoutMs;
+
+        expect(
+            worstCaseCheckpointIntervalMs,
+            `a cooperative bound is only a bound if the holder can reach a checkpoint inside it: ` +
+            `(1 + unloadRetryCount=${unloadRetryCount}) * batchEmbeddingTimeoutMs=${batchEmbeddingTimeoutMs} ` +
+            `= ${worstCaseCheckpointIntervalMs}ms vs maxActiveHoldMs=${maxActiveHoldMs}ms`
+        ).toBeLessThan(maxActiveHoldMs);
+
+        // The pre-repair interval, kept as an executable record of what was actually wrong: the same three
+        // leaves multiplied by the caller's batch fan-out and its retry budget. This assertion is expected to
+        // hold — it documents that moving the checkpoint, not retuning any leaf, is what closed the gap.
+        //
+        // Read from `originalBatchConfig`, captured before `beforeEach` narrows the harness: reading
+        // `KB_Config` here would measure this spec's own 50/1 fixture and call it the deployment's bound.
+        const preRepairIntervalMs = originalBatchConfig.maxRetries
+            * Math.ceil(originalBatchConfig.batchSize / Memory_Config.openAiCompatible.batchEmbeddingChunkSize)
+            * worstCaseCheckpointIntervalMs;
+
+        expect(
+            preRepairIntervalMs,
+            'the interval this repair removed was multiples of the bound, not a near miss'
+        ).toBeGreaterThan(maxActiveHoldMs);
     });
 });
