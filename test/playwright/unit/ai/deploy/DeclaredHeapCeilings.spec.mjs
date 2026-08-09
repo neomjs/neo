@@ -47,7 +47,7 @@ const
     compose     = yamlLoad(composeText),
 
     /** Services that run a Node server and therefore have a V8 heap ceiling that can kill them. */
-    NODE_SERVICES = ['kb-server', 'mc-server', 'orchestrator'],
+    NODE_SERVICES = ['kb-server', 'mc-server', 'fleet-server', 'orchestrator'],
 
     /** Flattens a compose `command` (string | string[] | folded scalar) to one searchable string. */
     commandText = service => {

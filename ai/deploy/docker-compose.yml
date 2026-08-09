@@ -7,7 +7,8 @@
 #   - `cloud`:              adds the orchestrator — the full Agent OS deployment,
 #                           running ADR 0014's cloud-safe scheduler profile.
 #   - `ingress`:            adds the Caddy reverse proxy — TLS termination + public
-#                           `/kb` + `/mc` path routing for the MCP servers (Sub C #11724).
+#                           `/kb` + `/mc` MCP routing and optional exact Fleet routes.
+#   - `fleet`:              adds the optional request-time-authenticated Fleet control service.
 #   - `local-model`:        adds an optional self-hosted OpenAI-compatible provider
 #                           runtime. External provider endpoints remain the default.
 #
@@ -454,6 +455,70 @@ services:
           memory: 12g
           cpus: "1.0"
 
+  # Optional Fleet control service (#16735). It is a regular authenticated HTTP service, not a
+  # sixth MCP server: AuthService owns bearer/provider verification while the Fleet entrypoint owns
+  # exact `/fleet` + `/fleet/probe` routes and its immutable request-context projection. The service
+  # is profile-gated so a headless KB/MC deployment remains valid.
+  fleet-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_ENTRYPOINT: ai/services/fleet/fleetServer.mjs
+        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
+    environment:
+      # Caddy reaches Fleet over the compose network. Standalone `ai:fleet-server` remains the
+      # loopback-only transitional dev transport; only this composed entrypoint binds all interfaces.
+      - NEO_MCP_LISTEN_HOST=0.0.0.0
+      - NEO_FLEET_DATA_DIR=/app/.neo-ai-data/fleet
+      # The downloadable Fleet profile must select an installer, not inherit AiConfig's production
+      # OIDC default with no endpoint and fail before listen. GitHub-PAT is the rosterless default;
+      # AiConfig derives the provider-subject pin from this selector (the plural-resident local
+      # overlay explicitly disables it). Non-secret OIDC/provider knobs remain overrideable.
+      - NEO_AUTH_MODE=${NEO_AUTH_MODE:-github-pat}
+      - NEO_AUTH_HOST
+      - NEO_AUTH_PORT
+      - NEO_AUTH_REALM
+      - NEO_AUTH_ISSUER_URL
+      - NEO_OAUTH_CLIENT_ID
+      - NEO_AUTH_GITLAB_API_BASE_URL
+      - NEO_AUTH_GITHUB_API_BASE_URL
+      - NEO_AUTH_PAT_CACHE_TTL_SECONDS
+      - NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS
+      - NEO_AUTH_ALLOWED_CLIENT_IDS
+      - NEO_AUTH_ALLOWED_USERS
+      # One secret-file carrier feeds both the pre-listen provider-subject pin and readiness.
+      # Never interpolate the direct PAT or an OIDC client secret into rendered Compose.
+      - NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE=/run/secrets/mcp-auth-token
+      - NEO_MCP_HEALTHCHECK_TOKEN_FILE=/run/secrets/mcp-auth-token
+      # AuthService's protected resource and Host allowlist derive from this public Fleet URL.
+      - NEO_PUBLIC_URL=https://${NEO_DEPLOY_HOSTNAME:-localhost}/fleet
+    command: ["sh", "-c", "node --max-old-space-size=${NEO_FLEET_SERVER_HEAP_MB:-384} \"$$SERVER_ENTRYPOINT\""]
+    volumes:
+      # One Fleet-owned root co-locates registry, tenant descriptors, encryption/signing keys, and
+      # ciphertext. No graph/MC/KB private volume is mounted into this service.
+      - fleet-data:/app/.neo-ai-data/fleet
+    secrets:
+      - mcp-auth-token
+    networks:
+      - neo-mcp-network
+    expose:
+      - "8083"
+    profiles:
+      - fleet
+    healthcheck:
+      test: ["CMD", "node", "./ai/scripts/diagnostics/fleetHealthcheck.mjs", "--url", "http://127.0.0.1:8083/fleet/probe", "--expected-data-dir", "/app/.neo-ai-data/fleet"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: "${NEO_FLEET_SERVER_MEMORY_LIMIT:-512m}"
+          cpus: "0.5"
+
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
   # deployment (Sub C #11724). `ingress` profile — `docker compose --profile
   # ingress up` (combine with `--profile cloud` for the full stack). Caddy
@@ -537,6 +602,7 @@ networks:
 
 volumes:
   chroma-data:
+  fleet-data:
   orchestrator-state:
   shared-sqlite-data:
   shared-deployment-state-data:
@@ -545,3 +611,9 @@ volumes:
   caddy-data:
   caddy-config:
   local-model-data:
+
+secrets:
+  # Environment-backed in the generic profile so rendered Compose contains only the carrier name,
+  # never the credential. The canonical local overlay replaces this source with its mode-0600 file.
+  mcp-auth-token:
+    environment: NEO_MCP_HEALTHCHECK_TOKEN

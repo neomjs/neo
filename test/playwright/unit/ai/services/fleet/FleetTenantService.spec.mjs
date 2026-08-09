@@ -14,6 +14,7 @@ setup({
 })
 
 import {test, expect} from '@playwright/test'
+import {execFileSync} from 'node:child_process'
 import crypto         from 'node:crypto'
 import fs             from 'node:fs'
 import os             from 'node:os'
@@ -53,6 +54,35 @@ test.describe.serial('Neo.ai.services.fleet.FleetTenantService — connectTenant
         FleetTenantService.probeFn = null
         FleetRegistryService.dataDir = null
         fs.rmSync(tmpDir, {force: true, recursive: true})
+    })
+
+    test('both storage owners consume the one AiConfig Fleet root when no test override is active', () => {
+        const
+            configuredRoot = path.join(tmpDir, 'configured-fleet-root'),
+            resolverPath   = path.resolve('test/playwright/configTemplateResolver.mjs'),
+            neoPath        = path.resolve('src/Neo.mjs'),
+            corePath       = path.resolve('src/core/_export.mjs'),
+            registryPath   = path.resolve('ai/services/fleet/FleetRegistryService.mjs'),
+            tenantPath     = path.resolve('ai/services/fleet/FleetTenantService.mjs'),
+            script         = [
+                `import ${JSON.stringify(resolverPath)};`,
+                `import ${JSON.stringify(neoPath)};`,
+                `import ${JSON.stringify(corePath)};`,
+                `const {default: Registry} = await import(${JSON.stringify(registryPath)});`,
+                `const {default: Tenant} = await import(${JSON.stringify(tenantPath)});`,
+                'process.stdout.write(JSON.stringify({registry: Registry.getDataDir(), tenant: Tenant.getDataDir()}));'
+            ].join('\n'),
+            output         = execFileSync(process.execPath, ['--input-type=module', '--eval', script], {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : {...process.env, NEO_FLEET_DATA_DIR: configuredRoot}
+            }),
+            resolved       = JSON.parse(output.trim().split('\n').at(-1))
+
+        expect(resolved).toEqual({
+            registry: configuredRoot,
+            tenant  : configuredRoot
+        })
     })
 
     test('a successful connect returns the PUBLIC descriptor: endpoint, connected status, cloud-tenant posture — no credential', async () => {

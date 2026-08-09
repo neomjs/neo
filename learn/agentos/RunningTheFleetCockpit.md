@@ -15,6 +15,14 @@ That is the whole boot. The launcher (`buildScripts/devCockpit.mjs`) supervises 
 opens the browser directly on the cockpit surface (`apps/agentos/index.html`). On a fresh checkout
 this lands you on a live roster with working controls — no second terminal, no manual server start.
 
+This command remains the transitional source-development path: it launches the host-side
+`devFleetServer` with its ephemeral process bearer. The canonical local Agent OS composition now
+also carries the optional `fleet` profile, whose `fleet-server` uses request-time `AuthService`
+identity and a persistent Fleet-owned root. Start that plane with the profile command in
+[`local-agent-os/README.md`](../../ai/scripts/lifecycle/local-agent-os/README.md). Cockpit client
+cutover to the composed URL is owned by the following migration slice; S1 makes the authenticated
+service real without pretending the current browser launcher already consumes it.
+
 What it does, in order:
 
 1. **Probes the fleet endpoint** (`127.0.0.1:8083`) for *protocol identity* — not just "is the port

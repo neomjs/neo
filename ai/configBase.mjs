@@ -271,6 +271,13 @@ class ConfigBase extends ConfigProvider {
              */
             fleet: {
                 /**
+                 * @summary Fleet-owned durable root for registry, tenant, encryption-key, and
+                 * signing-key material. The root is one plane member so every storage owner reads
+                 * the same resolved coordinate and container profiles can place one named volume.
+                 * @type {string}
+                 */
+                dataDir        : leaf(path.resolve(planeDataRootDefault, 'fleet'), 'NEO_FLEET_DATA_DIR', 'string', {planeMember: true}),
+                /**
                  * Absolute root under which per-agent isolated harness config/state homes
                  * (`CODEX_HOME` / `CLAUDE_CONFIG_DIR`) are derived — the sibling of the managed
                  * checkouts root.
@@ -306,9 +313,11 @@ class ConfigBase extends ConfigProvider {
                  */
                 bearer         : leaf('', 'NEO_FLEET_BEARER', 'string'),
                 /**
-                 * Origins the cockpit may call the Fleet transport from. CSV-typed: the env form
-                 * is a comma-separated list, the resolved form is an array, so no consumer splits
-                 * or trims a string of its own.
+                 * Exact origins the Fleet Manager cockpit may call browser-facing Agent OS HTTP
+                 * transports from. The legacy local Fleet bridge and the composed KB/MC/Fleet CORS
+                 * boundary consume the same resolved array. CSV-typed: the env form is a
+                 * comma-separated list, the resolved form is an array, so no consumer splits or
+                 * trims a string of its own.
                  * @type {string[]}
                  */
                 cockpitOrigins : leaf(['http://localhost:8080', 'http://127.0.0.1:8080'], 'NEO_FLEET_COCKPIT_ORIGIN', 'csv'),
@@ -1988,6 +1997,7 @@ class ConfigBase extends ConfigProvider {
 export const PLANE_MEMBER_PATHS = Object.freeze([
     'auth.seatTokenRegistryPath',
     'wakeDaemonHeartbeatAlivePath',
+    'fleet.dataDir',
     'fleet.instanceRoot',
     'engines.chroma.dataDirProd',
     'orchestrator.dataDir',
