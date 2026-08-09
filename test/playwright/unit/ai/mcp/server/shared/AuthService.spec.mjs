@@ -1730,12 +1730,24 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(/HTTP 401/);
     });
 
-    test('a 403 is authoritative too, and the entry is EVICTED rather than kept for later', async () => {
+    test('a 403 is RATE LIMITING as often as refusal, so it must not evict — @neo-gpt', async () => {
+        // GitHub answers a primary rate-limit breach with 403, not 429. An earlier revision of this
+        // fix treated 403 as authoritative, which evicted a valid identity and locked the seat out
+        // exactly when many agents share one source address — this deployment's normal condition,
+        // and the failure the whole path exists to prevent. The fix reintroduced its own bug.
         const verifier = makeVerifier({patCacheTtlSeconds: 0});
 
-        await primeThenExpire(verifier, [{status: 403}, {throws: new Error('unreachable')}]);
+        await primeThenExpire(verifier, [{status: 403}]);
 
-        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(/HTTP 403/);
+        expect((await verifier.verifyAccessToken('tok')).clientId).toBe('grace');
+    });
+
+    test('401 remains the ONLY authoritative rejection, and it evicts', async () => {
+        const verifier = makeVerifier({patCacheTtlSeconds: 0});
+
+        await primeThenExpire(verifier, [{status: 401}, {throws: new Error('unreachable')}]);
+
+        await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(/HTTP 401/);
         // Nothing survived the rejection, so an outage afterwards cannot resurrect the identity.
         await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(FakeInvalidTokenError);
     });

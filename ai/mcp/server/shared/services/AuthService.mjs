@@ -40,19 +40,29 @@ import {readSeatTokenRegistry, verifySeatToken}      from '../helpers/seatToken.
 /**
  * @summary Whether a provider HTTP status is the provider ANSWERING "no", or failing to answer.
  *
- * Only `401` and `403` are the credential being rejected. Every other non-OK status — `5xx`, `429`,
- * a proxy's `502` — is the provider unable to answer, which is a transport condition wearing an
- * HTTP status code. Treating those as rejections made a third party's brief unavailability
- * indistinguishable from a revoked token, on the first call of every seat's turn.
+ * **Only `401`.** Every other non-OK status — `5xx`, `429`, a proxy's `502` — is the provider unable
+ * to answer, which is a transport condition wearing an HTTP status code. Treating those as
+ * rejections made a third party's brief unavailability indistinguishable from a revoked token, on
+ * the first call of every seat's turn.
  *
- * A closed positive list rather than a "not 5xx" test: an unrecognised status must degrade toward
- * "we could not ask", never toward "the answer was no".
+ * **`403` is deliberately NOT authoritative, and an earlier revision of this function had it wrong.**
+ * GitHub answers a primary rate-limit breach with `403`, not `429`. Admitting it would evict a valid
+ * identity and lock the seat out precisely when many agents share one source address — which is this
+ * deployment's normal condition and the exact failure this whole path exists to prevent. A bare
+ * status is only evidence in provider-specific context, and `403` carries at least two meanings.
+ *
+ * A closed positive list rather than a "not 5xx" test, for the same reason: an unrecognised status
+ * must degrade toward "we could not ask", never toward "the answer was no". `403` is unrecognised in
+ * the sense that matters — it does not, on its own, say the credential was refused.
+ *
+ * The cost is bounded and one-directional: a genuinely forbidden token survives until its stale
+ * window expires, rather than a rate-limited fleet losing its identities immediately.
  *
  * @param {Number} status HTTP status from the provider identity endpoint.
  * @returns {Boolean} True only when the provider authoritatively rejected the credential.
  */
 export function isAuthoritativeRejection(status) {
-    return status === 401 || status === 403
+    return status === 401
 }
 
 class AuthService extends Base {
