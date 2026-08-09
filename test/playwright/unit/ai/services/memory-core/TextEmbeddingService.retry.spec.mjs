@@ -697,6 +697,86 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         ]);
     });
 
+    test('the lease yield predicate is consulted BETWEEN provider chunks, not only between the caller\'s batches (#16822)', async () => {
+        serverBehavior = 'chunked-batch-succeed';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+
+        const consultations = [];
+        const error         = await TextEmbeddingService
+            .embedTexts(['a', 'b', 'c', 'd', 'e'], 'openAiCompatible', {
+                shouldYield: () => {
+                    consultations.push(requestCount);
+                    return true
+                }
+            })
+            .then(() => null, observed => observed);
+
+        // Without the inner consultation this call issues all three chunks and resolves; the interval between
+        // two consultations would then be the caller's whole batch, which at stock leaves is 16h40m against a
+        // 30-minute fairness bound.
+        expect(error, 'a yielded batch must reject, never resolve with a partial array').toBeInstanceOf(Error);
+        expect(error.code).toBe('EMBEDDING_BATCH_YIELDED');
+        expect(error.completedChunkCount).toBe(1);
+        expect(error.totalChunkCount).toBe(3);
+        expect(error.message).toContain('1/3 provider chunk(s)');
+
+        // One consultation, and it happened AFTER chunk 1 landed — so the second and third were never issued.
+        expect(consultations, 'consulted once, with exactly one chunk already posted').toEqual([1]);
+        expect(requestCount, 'chunks 2 and 3 must not reach the provider').toBe(1);
+        expect(allRequests.map(item => item.body.input)).toEqual([['a', 'b']]);
+    });
+
+    test('the lease yield predicate is never consulted before the first provider chunk — forward progress (#16822)', async () => {
+        serverBehavior = 'chunked-batch-succeed';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;
+
+        let   consulted = 0;
+        const result    = await TextEmbeddingService.embedTexts(['a', 'b'], 'openAiCompatible', {
+            shouldYield: () => {
+                consulted++;
+                return true
+            }
+        });
+
+        // A single-chunk batch under an always-true predicate must still land. An acquisition that yields
+        // before doing any work is a livelock, not fairness — the same guarantee `embedChunks` makes at its
+        // own boundary, and the reason the check is guarded on `completedChunkCount > 0`.
+        expect(consulted, 'no consultation can precede the first chunk').toBe(0);
+        expect(requestCount).toBe(1);
+        expect(result).toEqual([[1, 0], [1, 1]]);
+    });
+
+    test('a predicate that never fires leaves batch chunking completely unchanged — negative control (#16822)', async () => {
+        serverBehavior = 'chunked-batch-succeed';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+
+        let   consulted = 0;
+        const result    = await TextEmbeddingService.embedTexts(['a', 'b', 'c', 'd', 'e'], 'openAiCompatible', {
+            shouldYield: () => {
+                consulted++;
+                return false
+            }
+        });
+
+        // Byte-identical to the sibling test above that passes no predicate at all. A yield-point that alters
+        // legitimate work is worse than none, because it will be switched off within a week.
+        expect(consulted, 'consulted at each of the two inter-chunk boundaries').toBe(2);
+        expect(requestCount).toBe(3);
+        expect(allRequests.map(item => item.body.input)).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
+        expect(result).toEqual([[1, 0], [1, 1], [2, 0], [2, 1], [3, 0]]);
+    });
+
+    test('a non-function shouldYield fails loud rather than silently never yielding (#16822)', async () => {
+        serverBehavior = 'chunked-batch-succeed';
+
+        // The option surface is an explicit allow-list with typed validation; a predicate that is quietly
+        // ignored reads on every surface as a lane that honours the fairness bound and does not.
+        await expect(TextEmbeddingService.embedTexts(['a'], 'openAiCompatible', {shouldYield: true}))
+            .rejects.toThrow('TextEmbeddingService: options.shouldYield must be a function');
+
+        expect(requestCount).toBe(0);
+    });
+
     test('interactive single embeddings queue ahead of subsequent batch chunks and preserve completion', async () => {
         serverBehavior = 'qos-priority';
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;

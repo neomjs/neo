@@ -1,5 +1,7 @@
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
-import TextEmbeddingService from '../memory-core/TextEmbeddingService.mjs';
+import TextEmbeddingService, {
+    isEmbeddingBatchYieldError
+}                             from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig             from '../../mcp/server/memory-core/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import {
@@ -615,9 +617,15 @@ class VectorService extends Base {
      * @param {Object}   options.collection      Chroma collection target.
      * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
      * @param {Function} [options.shouldYield]   Cooperative heavy-maintenance-lease yield predicate,
-     *     consulted BETWEEN batches. Returns truthy once the lease holder has exceeded the fairness bound
+     *     consulted BETWEEN batches here AND between provider chunks inside `TextEmbeddingService.embedTexts`.
+     *     Returns truthy once the lease holder has exceeded the fairness bound
      *     (`HeavyMaintenanceLeaseService.shouldYield`); the loop then stops so a starved heavy task can
      *     interleave. Defaults to never-yield, so callers that do not hold the lease are unaffected.
+     *
+     *     The inner consultation is what makes the bound reachable: this loop alone checks at most once per
+     *     `maxRetries * ceil(batchSize / batchEmbeddingChunkSize) * (1 + unloadRetryCount) *
+     *     batchEmbeddingTimeoutMs`, which is 16h40m at stock leaves against a 30-minute `maxActiveHoldMs`.
+     *     Per-chunk consultation caps the interval at one chunk's worst case.
      * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean}>}
      */
     async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
@@ -689,7 +697,8 @@ class VectorService extends Base {
                         operationLabel          : 'knowledge base tenant ingestion embedding',
                         operationStage          : 'kb-tenant-ingestion-embedding',
                         providerActivityRecorder: KBRecorderService,
-                        service                 : 'knowledge-base'
+                        service                 : 'knowledge-base',
+                        shouldYield
                     });
 
                     const metadatas = batchToEmbed.map(chunk => {
@@ -710,6 +719,15 @@ class VectorService extends Base {
                     logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${batch.length - batchToEmbed.length} skipped).`);
                     success = true;
                 } catch (err) {
+                    // A cooperative yield is a DECISION, not a failure. Falling through to the retry arm would
+                    // spend every `maxRetries` attempt re-issuing work the lease holder deliberately stopped —
+                    // turning the fairness fix into a maxRetries-fold amplifier of the hold it exists to bound.
+                    if (isEmbeddingBatchYieldError(err)) {
+                        yielded = true;
+                        logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) (${embeddedCount} embedded); this batch is not retried and resumes on the next sweep.`);
+                        break;
+                    }
+
                     retries++;
                     console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
                     if (retries < maxRetries) {
@@ -719,6 +737,11 @@ class VectorService extends Base {
                     }
                 }
             }
+
+            // The retry loop exits on success, on exhaustion (which throws), or on a yield — only the last
+            // one leaves the outer sweep to stop, so it is named explicitly rather than relying on the next
+            // between-batch checkpoint observing a predicate that may already have flipped back.
+            if (yielded) break;
         }
 
         return {embedded: embeddedCount, skipped: skippedCount, yielded};
