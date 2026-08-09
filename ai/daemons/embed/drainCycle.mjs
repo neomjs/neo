@@ -4,9 +4,10 @@ import {
     pruneReconciledWalSegments,
     readPendingWalRecords
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
-import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
-import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
+import {classifyRowVector, VECTOR_REJECTION_REASONS}                   from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {createDrainDispositionTracker}                                 from '../shared/drainDisposition.mjs';
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
+import {runWithProviderActivityContext}                                from '../../services/shared/providerActivityLedger.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -66,6 +67,19 @@ export const MAX_RECORD_COOLDOWN_MS = 3600000;
  * @type {Number}
  */
 export const DEFAULT_MAX_IN_CYCLE_MS = 120000;
+
+/**
+ * @summary Runs one WAL-owned collection write with exact provider-stage attribution.
+ * @param {Object} collection Memory collection.
+ * @param {Object} payload Chroma add payload.
+ * @returns {Promise<*>}
+ */
+function addWalRecords(collection, payload) {
+    return runWithProviderActivityContext({
+        operationStage: 'mc-wal-drain-embedding',
+        service       : 'memory-core'
+    }, () => collection.add(payload));
+}
 
 /**
  * @summary Computes the exponential backoff delay for a retry attempt.
@@ -183,7 +197,7 @@ export async function embedBatch({
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            await collection.add(payload);
+            await addWalRecords(collection, payload);
             return {succeeded: [...records], failed: []};
         } catch (error) {
             if (isContentionError(error)) {
@@ -240,7 +254,7 @@ export async function embedBatch({
         }
 
         try {
-            await collection.add({ids: [record.id], metadatas: [record.metadata], documents: [record.document]});
+            await addWalRecords(collection, {ids: [record.id], metadatas: [record.metadata], documents: [record.document]});
             succeeded.push(record);
         } catch (error) {
             failed.push({record, error});

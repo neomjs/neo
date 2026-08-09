@@ -5,6 +5,19 @@ import Base                  from '../../../src/core/Base.mjs';
 import config                from '../../mcp/server/memory-core/config.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {
+    beginProviderActivity,
+    completeProviderActivity,
+    ensureProviderActivitySchema,
+    getProviderActivityMetrics,
+    PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS,
+    refineProviderActivity,
+    startProviderActivity
+}                            from '../shared/providerActivityLedger.mjs';
+import {
+    createProviderActivityStatusWriter,
+    inspectProviderActivityStatus
+}                            from '../shared/providerActivityStatusStore.mjs';
 
 const SENSITIVE_PAYLOAD_KEYS = new Set([
     'body',
@@ -20,7 +33,23 @@ const SENSITIVE_PAYLOAD_KEYS = new Set([
  * @summary Maximum SQLite lock wait allowed on the best-effort telemetry path.
  * @type {Number}
  */
-export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = 50;
+export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS;
+
+/**
+ * @summary Builds an explicit empty provider-activity observer state.
+ * @param {'disabled'|'unavailable'|'partial'} status Availability state.
+ * @returns {Object}
+ */
+function emptyProviderActivity(status) {
+    return {
+        status,
+        totalActivities  : 0,
+        totalInFlight    : 0,
+        aggregates       : [],
+        inFlight         : [],
+        recentCompletions: []
+    };
+}
 
 /**
  * @summary Persists redacted Memory Core MCP tool-call telemetry.
@@ -51,7 +80,13 @@ class MemoryCoreRecorderService extends Base {
          * @summary SQLite connection to the Memory Core graph database.
          * @protected
          */
-        db: null
+        db: null,
+        /**
+         * @member {Object|null} providerActivityStatusWriter=null
+         * @summary Recorder-owned atomic failure-status sidecar writer.
+         * @protected
+         */
+        providerActivityStatusWriter: null
     }
 
     /**
@@ -70,6 +105,11 @@ class MemoryCoreRecorderService extends Base {
                 return;
             }
 
+            this.providerActivityStatusWriter = createProviderActivityStatusWriter({
+                dbPath,
+                recorder: 'memory-core'
+            });
+
             if (dbPath !== ':memory:') {
                 await fs.ensureDir(path.dirname(dbPath));
             }
@@ -85,8 +125,10 @@ class MemoryCoreRecorderService extends Base {
             }
 
             this.ensureSchema();
+            await this.providerActivityStatusWriter.publishSuccess(Date.now());
             logger.info('[MemoryCoreRecorderService] Connected to Memory Core mc_tool_call_log.');
         } catch (err) {
+            await this.providerActivityStatusWriter?.publishFailure(Date.now());
             logger.warn('[MemoryCoreRecorderService] Failed to initialize SQLite connection:', err.message);
         }
     }
@@ -154,6 +196,8 @@ class MemoryCoreRecorderService extends Base {
                    AND duration_ms IS NOT NULL
             `).run();
         }
+
+        ensureProviderActivitySchema(this.db);
     }
 
     /**
@@ -330,10 +374,103 @@ class MemoryCoreRecorderService extends Base {
     }
 
     /**
-     * @summary Returns aggregate, unfinished, and recent-slow Memory Core MCP tool-call metrics without
-     * exposing raw payloads or caller identity. A completed slow row preserves the exact timeline
-     * after it disappears from `unfinishedCalls`; it proves server code returned, never that a
-     * timed-out client received the response.
+     * @summary Persists one bounded provider admission boundary in the shared telemetry artifact.
+     * @param {Object} entry Provider activity descriptor.
+     * @returns {String|null}
+     */
+    beginProviderActivity(entry = {}) {
+        if (!config.toolTelemetry.enabled) return null;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return null;
+        }
+
+        try {
+            return beginProviderActivity(this.db, entry);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[MemoryCoreRecorderService] Failed to persist provider admission telemetry:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * @summary Persists the execution-start boundary for one provider activity.
+     * @param {String} activityId Opaque activity id.
+     * @param {Number} startedAt Provider-start timestamp.
+     * @returns {void}
+     */
+    startProviderActivity(activityId, startedAt) {
+        if (!config.toolTelemetry.enabled || !activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            startProviderActivity(this.db, activityId, startedAt);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[MemoryCoreRecorderService] Failed to persist provider-start telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Persists the model selected by provider-owned dispatch code.
+     * @param {String} activityId Opaque activity id.
+     * @param {Object} activity Dispatch-bound activity refinement.
+     * @returns {void}
+     */
+    refineProviderActivity(activityId, activity) {
+        if (!config.toolTelemetry.enabled || !activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            refineProviderActivity(this.db, activityId, activity);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[MemoryCoreRecorderService] Failed to persist provider-dispatch telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Persists the bounded completion outcome for one provider activity.
+     * @param {String} activityId Opaque activity id.
+     * @param {Object} outcome Completion metadata.
+     * @returns {void}
+     */
+    completeProviderActivity(activityId, outcome = {}) {
+        if (!config.toolTelemetry.enabled || !activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            completeProviderActivity(this.db, activityId, outcome);
+            this.providerActivityStatusWriter?.publishSuccess(Date.now());
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[MemoryCoreRecorderService] Failed to persist provider completion telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Awaits queued atomic provider-status publication for deterministic tests and shutdowns.
+     * @returns {Promise<void>}
+     */
+    async flushProviderActivityStatus() {
+        await this.providerActivityStatusWriter?.flush();
+    }
+
+    /**
+     * @summary Returns tool-call and bounded provider-stage metrics without exposing raw payloads or
+     * caller identity. A completed slow tool row preserves the exact timeline after it disappears
+     * from `unfinishedCalls`; it proves server code returned, never that a timed-out client received
+     * the response. Provider rows independently separate Neo-owned queue wait from execution.
      * @param {Object} options
      * @param {Number} [options.sinceMs=config.toolTelemetry.aggregateWindowMs] Lookback window.
      * @param {Number} [options.limit=config.toolTelemetry.aggregateLimit] Max rows per projection.
@@ -353,33 +490,33 @@ class MemoryCoreRecorderService extends Base {
 
         if (!config.toolTelemetry.enabled) {
             return {
-                status         : 'disabled',
+                status          : 'disabled',
                 sinceMs,
                 limit,
-                slowAfterMs    : safeSlowAfterMs,
-                totalCalls     : 0,
-                totalUnfinished: 0,
-                tools          : [],
-                unfinishedCalls: [],
-                recentSlowCalls: []
+                slowAfterMs     : safeSlowAfterMs,
+                totalCalls      : 0,
+                totalUnfinished : 0,
+                tools           : [],
+                unfinishedCalls : [],
+                recentSlowCalls : [],
+                providerActivity: emptyProviderActivity('disabled')
             };
         }
 
         if (!this.db) {
             return {
-                status         : 'unavailable',
+                status          : 'unavailable',
                 sinceMs,
                 limit,
-                slowAfterMs    : safeSlowAfterMs,
-                totalCalls     : 0,
-                totalUnfinished: 0,
-                tools          : [],
-                unfinishedCalls: [],
-                recentSlowCalls: []
+                slowAfterMs     : safeSlowAfterMs,
+                totalCalls      : 0,
+                totalUnfinished : 0,
+                tools           : [],
+                unfinishedCalls : [],
+                recentSlowCalls : [],
+                providerActivity: emptyProviderActivity('unavailable')
             };
         }
-
-        this.ensureSchema();
 
         const
             safeSinceMs = Number.isFinite(sinceMs) && sinceMs > 0 ? sinceMs : config.toolTelemetry.aggregateWindowMs,
@@ -431,6 +568,30 @@ class MemoryCoreRecorderService extends Base {
             `).all({sinceTs, slowAfterMs: safeSlowAfterMs, limit: safeLimit}),
             now = Date.now();
 
+        let providerActivity;
+
+        try {
+            providerActivity = getProviderActivityMetrics(this.db, {
+                limit  : safeLimit,
+                now,
+                sinceTs
+            });
+        } catch (error) {
+            logger.warn('[MemoryCoreRecorderService] Failed to read provider activity telemetry:', error.message);
+            providerActivity = emptyProviderActivity('partial');
+        }
+
+        const sidecarStatus = inspectProviderActivityStatus({
+            dbPath: config.storagePaths.graph,
+            sinceTs
+        }).status;
+
+        if (sidecarStatus === 'unavailable') {
+            providerActivity = emptyProviderActivity('unavailable');
+        } else if (sidecarStatus === 'partial' && providerActivity.status === 'ok') {
+            providerActivity.status = 'partial';
+        }
+
         return {
             status     : 'ok',
             sinceMs    : safeSinceMs,
@@ -461,7 +622,8 @@ class MemoryCoreRecorderService extends Base {
                 durationMs  : row.duration_ms,
                 success     : row.success === 1,
                 failureStage: row.failure_stage ?? null
-            }))
+            })),
+            providerActivity
         };
     }
 }

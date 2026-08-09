@@ -18,6 +18,7 @@ import Neo                                           from '../../../../../../src
 import RequestContextService                         from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
 import {drainMemoryWal}                              from './util.mjs';
+import {getProviderActivityContext}                  from '../../../../../../ai/services/shared/providerActivityLedger.mjs';
 
 /**
  * add_memory never-fail write path (write-ahead decouple) — falsifier coverage:
@@ -534,5 +535,83 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(summary.embedded).toBe(1);
         expect(memStore.has(result.id)).toBe(true);
         expect((await readPendingWalRecords({dir: testWalDir, ids: [result.id]})).length).toBe(0);
+    });
+
+    test('attributes deferred provider work to the WAL drain and mini-summary instead of add_memory', async () => {
+        const
+            originalSchedule     = MemoryService._scheduleMemoryGraphProjection,
+            originalBuildSummary = MemoryService.buildMiniSummary,
+            events               = [],
+            touchesBefore        = collectionTouches;
+
+        MemoryService._scheduleMemoryGraphProjection = () => {};
+        MemoryService.buildMiniSummary = async () => {
+            events.push({kind: 'unexpected-inline-summary'});
+            return {summary: null, cause: 'unexpected-inline-summary'};
+        };
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'stage prompt',
+                thought : 'stage thought',
+                response: 'stage response'
+            }));
+
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(result.id).toBeTruthy();
+            expect(collectionTouches).toBe(touchesBefore);
+            expect(memStore.has(result.id)).toBe(false);
+            expect(events).toEqual([]);
+            expect(getProviderActivityContext()).toBeNull();
+
+            const drain = await drainMemoryWal({
+                ids       : [result.id],
+                collection: {
+                    add: async ({ids = [], metadatas = []}) => {
+                        events.push({kind: 'embedding', ...getProviderActivityContext()});
+                        ids.forEach((id, index) => memStore.set(id, metadatas[index] || {}));
+                    }
+                }
+            });
+
+            expect(drain.embedded).toBe(1);
+            expect(memStore.has(result.id)).toBe(true);
+            expect(events).toEqual([{
+                kind          : 'embedding',
+                operationStage: 'mc-wal-drain-embedding',
+                service       : 'memory-core'
+            }]);
+            expect(getProviderActivityContext()).toBeNull();
+
+            const summary = await originalBuildSummary.call(MemoryService, {
+                prompt    : 'stage prompt',
+                response  : 'stage response',
+                buildModel: () => ({
+                    generateContent: async (providerPrompt, options) => {
+                        events.push({
+                            kind          : 'chat',
+                            operationStage: options.operationStage,
+                            priority      : options.priority
+                        });
+                        return {response: {text: () => 'provider-stage summary'}};
+                    }
+                })
+            });
+
+            expect(summary).toEqual({summary: 'provider-stage summary', cause: null});
+            expect(events).toEqual([{
+                kind          : 'embedding',
+                operationStage: 'mc-wal-drain-embedding',
+                service       : 'memory-core'
+            }, {
+                kind          : 'chat',
+                operationStage: 'mc-mini-summary',
+                priority      : 'batch'
+            }]);
+        } finally {
+            MemoryService._scheduleMemoryGraphProjection = originalSchedule;
+            MemoryService.buildMiniSummary               = originalBuildSummary;
+        }
     });
 });

@@ -9,6 +9,11 @@ import OllamaProvider from '../../provider/Ollama.mjs';
 import {
     withLmsEmbeddingInputSuffix
 }                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
+import {
+    createProviderActivityLifecycle,
+    observeUnqueuedProviderActivity
+}                           from '../shared/providerActivityLedger.mjs';
+import MemoryCoreRecorderService                                       from './MemoryCoreRecorderService.mjs';
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import {
     bytesToTokens,
@@ -45,14 +50,21 @@ function markEmbeddingModelNotResidentError(error) {
  * @summary Normalizes the additive embedding-call options without widening provider authority.
  * @param {Object} options Caller options.
  * @param {String} defaultOperationLabel Provider-scoped fallback label.
- * @returns {{signal: AbortSignal|undefined, operationLabel: String}}
+ * @returns {Object}
  */
 function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
-        throw new TypeError('TextEmbeddingService: options must be an object containing only signal and operationLabel');
+        throw new TypeError('TextEmbeddingService: options must be an object');
     }
 
-    const unknownKeys = Object.keys(options).filter(key => !['signal', 'operationLabel'].includes(key));
+    const allowedKeys = [
+        'operationLabel',
+        'operationStage',
+        'providerActivityRecorder',
+        'service',
+        'signal'
+    ];
+    const unknownKeys = Object.keys(options).filter(key => !allowedKeys.includes(key));
 
     if (unknownKeys.length > 0) {
         throw new TypeError(`TextEmbeddingService: unsupported embedding option(s): ${unknownKeys.join(', ')}`);
@@ -67,13 +79,40 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     if (options.operationLabel !== undefined && typeof options.operationLabel !== 'string') {
         throw new TypeError('TextEmbeddingService: options.operationLabel must be a string');
     }
+    if (options.operationStage !== undefined && typeof options.operationStage !== 'string') {
+        throw new TypeError('TextEmbeddingService: options.operationStage must be a string');
+    }
+    if (options.service !== undefined && typeof options.service !== 'string') {
+        throw new TypeError('TextEmbeddingService: options.service must be a string');
+    }
+    if (options.providerActivityRecorder !== undefined && options.providerActivityRecorder !== null && typeof options.providerActivityRecorder !== 'object') {
+        throw new TypeError('TextEmbeddingService: options.providerActivityRecorder must be an object or null');
+    }
 
     const requestedLabel = options.operationLabel?.trim() || defaultOperationLabel;
 
     return {
-        signal        : options.signal,
-        operationLabel: requestedLabel.substring(0, EMBEDDING_OPERATION_LABEL_MAX_LENGTH)
+        operationLabel          : requestedLabel.substring(0, EMBEDDING_OPERATION_LABEL_MAX_LENGTH),
+        operationStage          : options.operationStage || 'unknown',
+        providerActivityRecorder: options.providerActivityRecorder === undefined
+            ? MemoryCoreRecorderService
+            : options.providerActivityRecorder,
+        service: options.service || 'unknown',
+        signal : options.signal
     };
+}
+
+/**
+ * @summary Resolves the configured model identifier for one explicit embedding provider.
+ * @param {String} provider Explicit embedding provider.
+ * @returns {String}
+ */
+function getEmbeddingModel(provider) {
+    if (provider === 'openAiCompatible') return aiConfig.openAiCompatible.embeddingModel;
+    if (provider === 'ollama') return aiConfig.ollama.embeddingModel || aiConfig.ollama.model;
+    if (provider === 'gemini') return aiConfig.embeddingModel;
+
+    return 'unknown';
 }
 
 /**
@@ -343,9 +382,26 @@ class TextEmbeddingService extends Base {
      * @private
      */
     #enqueueOpenAiCompatiblePost(inputData, options, priority) {
-        const {operation, operationLabel, signal} = options;
+        const {
+            operation,
+            operationLabel,
+            providerActivity,
+            providerActivityRecorder,
+            signal
+        } = options;
+        const lifecycle = createProviderActivityLifecycle({
+            recorder: providerActivityRecorder,
+            activity: {
+                ...providerActivity,
+                model: 'unknown',
+                priority
+            }
+        });
+        options.providerActivityLifecycle = lifecycle;
+        const enqueuedAt = Date.now();
 
         throwIfEmbeddingAborted(signal, operationLabel);
+        lifecycle.onEnqueued({enqueuedAt});
 
         return new Promise((resolve, reject) => {
             const task = {
@@ -353,6 +409,8 @@ class TextEmbeddingService extends Base {
                 inputData,
                 options,
                 priority,
+                lifecycle,
+                enqueuedAt,
                 settled   : false
             };
 
@@ -377,6 +435,11 @@ class TextEmbeddingService extends Base {
                     this.#openAiCompatiblePostQueue.splice(taskIndex, 1);
                 }
 
+                task.lifecycle.onSettled({
+                    completedAt : Date.now(),
+                    failureStage: 'queue',
+                    success     : false
+                });
                 task.reject(getEmbeddingAbortError(signal, operationLabel));
             };
             task.markDispatched = () => {
@@ -415,9 +478,17 @@ class TextEmbeddingService extends Base {
 
                 task.markDispatched();
 
+                const startedAt = Date.now();
+
+                task.lifecycle.onStarted({startedAt});
+
                 try {
-                    task.resolve(await this.#postOpenAiCompatible(task.inputData, task.options));
+                    const result = await this.#postOpenAiCompatible(task.inputData, task.options);
+
+                    task.lifecycle.onSettled({completedAt: Date.now(), success: true});
+                    task.resolve(result);
                 } catch (err) {
+                    task.lifecycle.onSettled({completedAt: Date.now(), success: false});
                     task.reject(err);
                 }
             }
@@ -696,15 +767,16 @@ class TextEmbeddingService extends Base {
             requestTimeoutMs      = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS,
             signal,
             operationLabel,
-            operation
+            operation,
+            providerActivityLifecycle
         } = options;
         const {
             host,
-            embeddingModel,
             apiKey,
             unloadRetryDelayMs    = 500,
             contentionRetryDelayMs = 1000
         } = aiConfig.openAiCompatible;
+        const embeddingModel = aiConfig.openAiCompatible.embeddingModel;
 
         try {
             operation.phase = 'transport-setup';
@@ -789,6 +861,7 @@ class TextEmbeddingService extends Base {
             if (signal?.aborted) {
                 abortHandler();
             } else {
+                providerActivityLifecycle?.onDispatch({model: embeddingModel});
                 req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
                 req.end();
             }
@@ -822,7 +895,8 @@ class TextEmbeddingService extends Base {
                     requestTimeoutMs,
                     signal,
                     operationLabel,
-                    operation
+                    operation,
+                    providerActivityLifecycle
                 });
             }
 
@@ -836,11 +910,12 @@ class TextEmbeddingService extends Base {
                     requestTimeoutMs,
                     signal,
                     operationLabel,
-                    operation
+                    operation,
+                    providerActivityLifecycle
                 });
             }
             if (isOpenAiCompatibleContentionTimeoutError(err)) {
-                this.#emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err);
+                this.#emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err, embeddingModel);
             }
             logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
             throw err;
@@ -852,13 +927,13 @@ class TextEmbeddingService extends Base {
      * @param {String|String[]} inputData Text input that timed out.
      * @param {Number} requestTimeoutMs Request timeout in milliseconds.
      * @param {Error} err Timeout error.
+     * @param {String} embeddingModel Model captured at the provider dispatch boundary.
      * @returns {void}
      * @private
      */
-    #emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err) {
+    #emitOpenAiCompatibleTimeoutFriction(inputData, requestTimeoutMs, err, embeddingModel) {
         const
-            {embeddingModel} = aiConfig.openAiCompatible,
-            estimate         = this.#getOpenAiCompatibleInputEstimate(inputData);
+            estimate = this.#getOpenAiCompatibleInputEstimate(inputData);
 
         try {
             emitConsumerFriction({
@@ -958,24 +1033,34 @@ class TextEmbeddingService extends Base {
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
      * @param {AbortSignal|undefined} signal Upstream cancellation signal.
      * @param {Object} operation Mutable local-phase observability record.
+     * @param {Object|null} providerActivityRecorder Best-effort telemetry sink.
+     * @param {Object} providerActivity Bounded provider activity descriptor.
      * @returns {Promise<Object>}
      * @private
      */
-    async #embedOllama(inputData, operationLabel, signal, operation) {
+    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity) {
         const
             provider         = this.#getOllamaProvider(),
+            dispatchModel    = provider.embeddingModel || provider.modelName || 'unknown',
             requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs();
 
         try {
             operation.phase = 'in-flight';
             throwIfEmbeddingAborted(signal, operationLabel);
 
-            return await provider.embed(inputData, {
-                num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
-                operationLabel,
-                ...(signal ? {signal} : {}),
-                timeoutMs: requestTimeoutMs,
-                truncate : false
+            return await observeUnqueuedProviderActivity({
+                recorder: providerActivityRecorder,
+                activity: {
+                    ...providerActivity,
+                    model: dispatchModel
+                },
+                task    : () => provider.embed(inputData, {
+                    num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
+                    operationLabel,
+                    ...(signal ? {signal} : {}),
+                    timeoutMs: requestTimeoutMs,
+                    truncate : false
+                })
             });
         } catch (err) {
             if (isCallerAbortError(err, signal)) {
@@ -1004,7 +1089,13 @@ class TextEmbeddingService extends Base {
      * @private
      */
     async #embedOpenAiCompatibleBatch(texts, options) {
-        const {operation, operationLabel, signal} = options;
+        const {
+            operation,
+            operationLabel,
+            providerActivity,
+            providerActivityRecorder,
+            signal
+        } = options;
         const {
             unloadRetryCount        = 3,
             batchEmbeddingChunkSize = 5,
@@ -1025,7 +1116,9 @@ class TextEmbeddingService extends Base {
                       requestTimeoutMs,
                       signal,
                       operationLabel,
-                      operation
+                      operation,
+                      providerActivity,
+                      providerActivityRecorder
                   }, 'batch');
 
             data.push(...(result.data || []).map(item => ({
@@ -1054,6 +1147,9 @@ class TextEmbeddingService extends Base {
      * @param {Object} [options={}] Abort/diagnostic options.
      * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
      * @param {String} [options.operationLabel] Bounded diagnostic label.
+     * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
+     * @param {String} [options.service='unknown'] Stable service owner.
+     * @param {Object|null} [options.providerActivityRecorder] Best-effort telemetry sink.
      * @returns {Promise<number[]>}
      */
     async embedText(text, explicitProvider, options = {}) {
@@ -1062,7 +1158,21 @@ class TextEmbeddingService extends Base {
         const defaultOperationLabel = explicitProvider === 'ollama'
                   ? 'TextEmbeddingService.embedText native Ollama embedding'
                   : `TextEmbeddingService.embedText ${explicitProvider} embedding`,
-              {signal, operationLabel} = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              {
+                  operationLabel,
+                  operationStage,
+                  providerActivityRecorder,
+                  service,
+                  signal
+              } = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              providerActivity          = {
+                  model   : getEmbeddingModel(explicitProvider),
+                  operationStage,
+                  priority: 'interactive',
+                  provider: explicitProvider,
+                  role    : 'embedding',
+                  service
+              },
               operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
 
         try {
@@ -1081,13 +1191,22 @@ class TextEmbeddingService extends Base {
                     requestTimeoutMs     : contentionTimeoutMs,
                     signal,
                     operationLabel,
-                    operation
+                    operation,
+                    providerActivity,
+                    providerActivityRecorder
                 }, 'interactive');
                 return result.data?.[0]?.embedding;
             } else if (explicitProvider === 'ollama') {
                 // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
                 // project the single inner array since this method is the per-text variant.
-                const result = await this.#embedOllama(text, operationLabel, signal, operation);
+                const result = await this.#embedOllama(
+                    text,
+                    operationLabel,
+                    signal,
+                    operation,
+                    providerActivityRecorder,
+                    providerActivity
+                );
                 return result.embeddings?.[0];
             } else if (explicitProvider === 'gemini') {
                 const geminiKey = aiConfig.geminiApiKey;
@@ -1099,7 +1218,15 @@ class TextEmbeddingService extends Base {
                 }
 
                 operation.phase = 'in-flight';
-                const result = await this.embeddingModel.embedContent(text, signal ? {signal} : undefined);
+                const dispatchModel = this.embeddingModel.model || 'unknown';
+                const result        = await observeUnqueuedProviderActivity({
+                    recorder: providerActivityRecorder,
+                    activity: {
+                        ...providerActivity,
+                        model: dispatchModel
+                    },
+                    task    : () => this.embeddingModel.embedContent(text, signal ? {signal} : undefined)
+                });
                 return result.embedding.values;
             } else {
                 // Unknown provider names fail loudly rather than silently fall back to
@@ -1129,6 +1256,9 @@ class TextEmbeddingService extends Base {
      * @param {Object} [options={}] Abort/diagnostic options.
      * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
      * @param {String} [options.operationLabel] Bounded diagnostic label.
+     * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
+     * @param {String} [options.service='unknown'] Stable service owner.
+     * @param {Object|null} [options.providerActivityRecorder] Best-effort telemetry sink.
      * @returns {Promise<number[][]>}
      */
     async embedTexts(texts, explicitProvider, options = {}) {
@@ -1137,7 +1267,21 @@ class TextEmbeddingService extends Base {
         const defaultOperationLabel = explicitProvider === 'ollama'
                   ? 'TextEmbeddingService.embedTexts native Ollama embedding'
                   : `TextEmbeddingService.embedTexts ${explicitProvider} embedding`,
-              {signal, operationLabel} = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              {
+                  operationLabel,
+                  operationStage,
+                  providerActivityRecorder,
+                  service,
+                  signal
+              } = normalizeEmbeddingOptions(options, defaultOperationLabel),
+              providerActivity          = {
+                  model   : getEmbeddingModel(explicitProvider),
+                  operationStage,
+                  priority: 'batch',
+                  provider: explicitProvider,
+                  role    : 'embedding',
+                  service
+              },
               operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
 
         try {
@@ -1145,11 +1289,24 @@ class TextEmbeddingService extends Base {
 
             if (explicitProvider === 'openAiCompatible') {
                 const requestTexts = await this.#prepareOpenAiCompatibleEmbeddingInput(texts, signal, operationLabel, operation);
-                return this.#embedOpenAiCompatibleBatch(requestTexts, {signal, operationLabel, operation});
+                return this.#embedOpenAiCompatibleBatch(requestTexts, {
+                    operation,
+                    operationLabel,
+                    providerActivity,
+                    providerActivityRecorder,
+                    signal
+                });
             } else if (explicitProvider === 'ollama') {
                 // Ollama's `/api/embed` accepts array-of-strings natively + returns
                 // a parallel embeddings array — no per-text fan-out needed.
-                const result = await this.#embedOllama(texts, operationLabel, signal, operation);
+                const result = await this.#embedOllama(
+                    texts,
+                    operationLabel,
+                    signal,
+                    operation,
+                    providerActivityRecorder,
+                    providerActivity
+                );
                 return result.embeddings || [];
             } else if (explicitProvider === 'gemini') {
                 const geminiKey = aiConfig.geminiApiKey;
@@ -1161,8 +1318,18 @@ class TextEmbeddingService extends Base {
                 }
 
                 operation.phase = 'in-flight';
-                const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
-                const result   = await this.embeddingModel.batchEmbedContents({requests}, signal ? {signal} : undefined);
+                const endpointModel = this.embeddingModel.model;
+                const requestModel  = aiConfig.embeddingModel;
+                const dispatchModel = endpointModel || 'unknown';
+                const requests      = texts.map(text => ({model: requestModel, content: {parts: [{text}]}}));
+                const result        = await observeUnqueuedProviderActivity({
+                    recorder: providerActivityRecorder,
+                    activity: {
+                        ...providerActivity,
+                        model: dispatchModel
+                    },
+                    task    : () => this.embeddingModel.batchEmbedContents({requests}, signal ? {signal} : undefined)
+                });
                 return result.embeddings.map(e => e.values);
             } else {
                 // Unknown provider names fail loudly (matches `embedText`).

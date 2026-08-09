@@ -15,6 +15,7 @@ import readline                                                        from 'rea
 import DestructiveOperationGuard                                       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
 import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
+import KBRecorderService                                               from './KBRecorderService.mjs';
 
 const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
@@ -684,7 +685,12 @@ class VectorService extends Base {
 
             while (retries < maxRetries && !success) {
                 try {
-                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
+                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
+                        operationLabel          : 'knowledge base tenant ingestion embedding',
+                        operationStage          : 'kb-tenant-ingestion-embedding',
+                        providerActivityRecorder: KBRecorderService,
+                        service                 : 'knowledge-base'
+                    });
 
                     const metadatas = batchToEmbed.map(chunk => {
                         const metadata = {};

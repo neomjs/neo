@@ -98,7 +98,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     let inFlightRequests;
     let maxInFlightRequests;
     let testPort;
-    let originalHost, originalRetryCount, originalRetryDelay;
+    let originalEmbeddingModel, originalHost, originalRetryCount, originalRetryDelay;
     let originalContentionRetryCount, originalContentionRetryDelay, originalContentionTimeout;
     let originalBatchEmbeddingChunkSize, originalBatchEmbeddingTimeoutMs, originalBatchEmbeddingYieldMs;
     let originalLmsPort;
@@ -141,6 +141,15 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                     }));
                 } else if (serverBehavior === 'fail-then-succeed') {
                     if (requestCount === 1) {
+                        res.writeHead(400, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Model was unloaded while the request was still in queue..' }));
+                    } else {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ data: [{ embedding: [0.4, 0.5, 0.6] }] }));
+                    }
+                } else if (serverBehavior === 'fail-then-change-model') {
+                    if (requestCount === 1) {
+                        aiConfig.openAiCompatible.embeddingModel = 'runtime-retry-model-b';
                         res.writeHead(400, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({ error: 'Model was unloaded while the request was still in queue..' }));
                     } else {
@@ -231,7 +240,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                           };
 
                     if (Array.isArray(inputs) && inputs[0] === 'a') {
-                        setTimeout(respond, 25);
+                        setTimeout(respond, 100);
                     } else {
                         respond();
                     }
@@ -254,6 +263,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         inFlightRequests = 0;
         maxInFlightRequests = 0;
         originalHost = aiConfig.openAiCompatible.host;
+        originalEmbeddingModel = aiConfig.openAiCompatible.embeddingModel;
         originalRetryCount = aiConfig.openAiCompatible.unloadRetryCount;
         originalRetryDelay = aiConfig.openAiCompatible.unloadRetryDelayMs;
         originalContentionRetryCount = aiConfig.openAiCompatible.contentionRetryCount;
@@ -282,6 +292,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
     test.afterEach(() => {
         aiConfig.openAiCompatible.host = originalHost;
+        aiConfig.openAiCompatible.embeddingModel = originalEmbeddingModel;
         aiConfig.openAiCompatible.unloadRetryCount = originalRetryCount;
         aiConfig.openAiCompatible.unloadRetryDelayMs = originalRetryDelay;
         aiConfig.openAiCompatible.contentionRetryCount = originalContentionRetryCount;
@@ -473,9 +484,34 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
     test('first-call-fails-second-call-succeeds path with mock client', async () => {
         serverBehavior = 'fail-then-succeed';
-        const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
+        const activities = [];
+        const recorder   = {
+            beginProviderActivity(entry) { activities.push({type: 'begin', id: 'retry-1', entry}); return 'retry-1' },
+            startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+            refineProviderActivity(id, dispatchActivity) {
+                activities.push({type: 'refine', id, dispatchActivity});
+            },
+            completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+        };
+        const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible', {
+            operationStage          : 'kb-query-embedding',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
         expect(result).toEqual([0.4, 0.5, 0.6]);
         expect(requestCount).toBe(2);
+        expect(activities.map(item => item.type)).toEqual(['begin', 'start', 'refine', 'complete']);
+        expect(activities[0].entry).toMatchObject({
+            operationStage  : 'kb-query-embedding',
+            priority        : 'interactive',
+            provider        : 'openAiCompatible',
+            queueDisposition: 'neo-queued',
+            role            : 'embedding',
+            service         : 'knowledge-base'
+        });
+        expect(activities[2].dispatchActivity).toEqual({model: lastRequest.body.model});
+        expect(activities[3]).toMatchObject({id: 'retry-1', outcome: {success: true}});
     });
 
     test('exhausted-retry-final-failure path', async () => {
@@ -491,6 +527,33 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
         // Initial request + 2 retries = 3 total requests
         expect(requestCount).toBe(3);
+    });
+
+    test('preserves per-attempt model routing and degrades a cross-model retry row to unknown', async () => {
+        serverBehavior = 'fail-then-change-model';
+        const refinements = [];
+        const recorder    = {
+            beginProviderActivity() { return 'model-retry-activity' },
+            startProviderActivity() {},
+            refineProviderActivity(id, activity) { refinements.push({id, activity}) },
+            completeProviderActivity() {}
+        };
+
+        const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible', {
+            operationStage          : 'kb-query-embedding',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
+        expect(result).toEqual([0.4, 0.5, 0.6]);
+        expect(allRequests.map(item => item.body.model)).toEqual([
+            originalEmbeddingModel,
+            'runtime-retry-model-b'
+        ]);
+        expect(refinements).toEqual([
+            {id: 'model-retry-activity', activity: {model: originalEmbeddingModel}},
+            {id: 'model-retry-activity', activity: {model: 'unknown'}}
+        ]);
     });
 
     test('first-call-fails-shape-b-second-call-succeeds path with mock client', async () => {
@@ -639,11 +702,51 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
         aiConfig.openAiCompatible.batchEmbeddingYieldMs = 0;
 
-        const batchPromise = TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'openAiCompatible');
+        const activityById = new Map();
+        const starts       = [];
+        const refinements  = [];
+        let   activityId   = 0;
+        const recorder     = {
+            beginProviderActivity(entry) {
+                const id = `activity-${++activityId}`;
+                activityById.set(id, entry);
+                return id;
+            },
+            startProviderActivity(id) {
+                starts.push(activityById.get(id).operationStage);
+            },
+            refineProviderActivity(id, dispatchActivity) {
+                refinements.push({
+                    model         : dispatchActivity.model,
+                    operationStage: activityById.get(id).operationStage
+                });
+            },
+            completeProviderActivity() {}
+        };
+
+        const batchPromise = TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'openAiCompatible', {
+            operationStage          : 'kb-tenant-ingestion-embedding',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
 
         await waitForCondition(() => allRequests.length === 1, 'first batch chunk request');
 
-        const interactivePromise               = TextEmbeddingService.embedText('urgent', 'openAiCompatible');
+        const interactivePromise = TextEmbeddingService.embedText('urgent', 'openAiCompatible', {
+            operationStage          : 'kb-query-embedding',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
+        await waitForCondition(() => {
+            return [...activityById.values()].some(entry => entry.operationStage === 'kb-query-embedding');
+        }, 'interactive embedding queue admission');
+
+        const runtimeModel = 'runtime-embedding-model-b';
+
+        expect(starts).toHaveLength(1);
+        aiConfig.openAiCompatible.embeddingModel = runtimeModel;
+
         const [batchResult, interactiveResult] = await Promise.all([batchPromise, interactivePromise]);
 
         expect(maxInFlightRequests).toBe(1);
@@ -653,6 +756,25 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             ['b'],
             ['c']
         ]);
+        expect(starts).toEqual([
+            'kb-tenant-ingestion-embedding',
+            'kb-query-embedding',
+            'kb-tenant-ingestion-embedding',
+            'kb-tenant-ingestion-embedding'
+        ]);
+        expect(refinements).toEqual([
+            {model: originalEmbeddingModel, operationStage: 'kb-tenant-ingestion-embedding'},
+            {model: runtimeModel, operationStage: 'kb-query-embedding'},
+            {model: runtimeModel, operationStage: 'kb-tenant-ingestion-embedding'},
+            {model: runtimeModel, operationStage: 'kb-tenant-ingestion-embedding'}
+        ]);
+        expect(allRequests.map(item => item.body.model)).toEqual([
+            originalEmbeddingModel,
+            runtimeModel,
+            runtimeModel,
+            runtimeModel
+        ]);
+        expect(activityById.size).toBe(4);
         expect(interactiveResult).toEqual([2, 0]);
         expect(batchResult).toEqual([
             [1, 0],

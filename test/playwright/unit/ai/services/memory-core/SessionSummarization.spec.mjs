@@ -287,10 +287,12 @@ test.describe('Memory Core Offline Summarization', () => {
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
         const originalModel   = SDK.Memory_SessionService.model;
         let   capturedPrompts = [];
+        let   capturedOptions = [];
 
         SDK.Memory_SessionService.model = {
-            generateContent: async (prompt) => {
+            generateContent: async (prompt, options) => {
                 capturedPrompts.push(prompt);
+                capturedOptions.push(options);
 
                 return {
                     response: {
@@ -319,6 +321,10 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Verify ONLY ONE generation payload happened
         expect(capturedPrompts.length).toBe(1);
+        expect(capturedOptions[0]).toMatchObject({
+            operationStage: 'mc-session-summary',
+            priority      : 'batch'
+        });
 
         // Output should be massive implicitly mapped correctly
         const finalPrompt = capturedPrompts[0];

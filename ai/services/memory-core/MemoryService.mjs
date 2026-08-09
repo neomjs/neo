@@ -31,6 +31,7 @@ import {normalizeAgentIdentityNodeId}                           from '../../grap
 
 import {CONCEPT_EXPANSION_EDGE_TYPES, MEMORY_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildMemoryResolveCandidate}                                                     from './conceptWalkMemoryGate.mjs';
+import MemoryCoreRecorderService                                                         from './MemoryCoreRecorderService.mjs';
 
 /**
  * The `add_memory` success message. Deliberately says ACCEPTED rather than "successfully added":
@@ -1687,11 +1688,13 @@ class MemoryService extends Base {
         const TIMEOUT_MS = aiConfig.memoryService.generateMiniSummaryTimeoutMs;
         try {
             const model = buildModel({
-                modelProvider         : aiConfig.modelProvider,
-                openAiCompatibleConfig: aiConfig.openAiCompatible,
-                ollamaConfig          : aiConfig.ollama,
-                geminiApiKey          : aiConfig.geminiApiKey,
-                geminiModelName       : aiConfig.modelName
+                modelProvider           : aiConfig.modelProvider,
+                openAiCompatibleConfig  : aiConfig.openAiCompatible,
+                ollamaConfig            : aiConfig.ollama,
+                geminiApiKey            : aiConfig.geminiApiKey,
+                geminiModelName         : aiConfig.modelName,
+                providerActivityRecorder: MemoryCoreRecorderService,
+                providerActivityService : 'memory-core'
             });
             if (!model) return {summary: null, cause: 'no-model'};
 
@@ -1709,6 +1712,7 @@ class MemoryService extends Base {
                 model.generateContent(promptText, {
                     timeoutMs     : TIMEOUT_MS,
                     operationLabel: 'miniSummary generation',
+                    operationStage: 'mc-mini-summary',
                     // Batch, not interactive: the only runtime caller is the backfill sweep, so this
                     // queue-jumped real interactive traffic on behalf of a background job.
                     priority      : 'batch',

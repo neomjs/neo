@@ -187,12 +187,16 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
     });
 
     test('a reachable provider that never answers is bounded by the named consumer deadline', async () => {
+        let observedOptions;
         const result = await buildKnowledgeBaseEmbeddingProbeBlock({
             cfg: {
                 embeddingProvider: 'test-provider',
                 vectorDimension  : 3
             },
-            embedText: () => new Promise(() => {}),
+            embedText: (input, provider, options) => {
+                observedOptions = options;
+                return new Promise(() => {});
+            },
             timeoutMs: 5
         });
 
@@ -202,6 +206,10 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
             error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
             errorClassification: 'consumer-probe-timeout',
             errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+        });
+        expect(observedOptions).toMatchObject({
+            operationStage: 'embedding-canary',
+            service       : 'knowledge-base'
         });
     });
 

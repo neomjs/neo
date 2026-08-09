@@ -165,6 +165,83 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         }]);
     });
 
+    test('records native Ollama as unqueued without leaking attribution controls to the provider', async () => {
+        const captured   = [];
+        const activities = [];
+        const recorder   = {
+            beginProviderActivity(entry) { activities.push({type: 'begin', entry}); return `activity-${activities.length}` },
+            startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+            completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+        };
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input, options) {
+                captured.push({input, options});
+                return {embeddings: [[0.1, 0.2]]};
+            }
+        };
+
+        await TextEmbeddingService.embedText('hello', 'ollama', {
+            operationLabel          : 'session/private-123',
+            operationStage          : 'embedding-canary',
+            providerActivityRecorder: recorder,
+            service                 : 'memory-core'
+        });
+        await TextEmbeddingService.embedText('unknown-stage', 'ollama', {
+            operationLabel          : 'asset/private-456',
+            providerActivityRecorder: recorder,
+            service                 : 'memory-core'
+        });
+
+        expect(captured[0].options).toEqual({
+            num_ctx       : aiConfig.localModels.embedding.contextLimitTokens,
+            operationLabel: 'session/private-123',
+            timeoutMs     : aiConfig.ollama.embeddingTimeoutMs,
+            truncate      : false
+        });
+        expect(activities.filter(item => item.type === 'begin').map(item => item.entry)).toEqual([
+            expect.objectContaining({
+                operationStage  : 'embedding-canary',
+                priority        : 'interactive',
+                provider        : 'ollama',
+                queueDisposition: 'not-applicable',
+                role            : 'embedding',
+                service         : 'memory-core'
+            }),
+            expect.objectContaining({
+                operationStage  : 'unknown',
+                queueDisposition: 'not-applicable'
+            })
+        ]);
+        expect(activities.filter(item => item.type === 'complete')).toHaveLength(2);
+    });
+
+    test('attributes native Ollama to the cached provider model without changing its request shape', async () => {
+        const activities = [];
+        const captured   = [];
+
+        TextEmbeddingService.ollamaProvider = {
+            embeddingModel: 'cached-ollama-model-a',
+            async embed(input, options) {
+                captured.push({input, options});
+                return {embeddings: [[0.1, 0.2]]};
+            }
+        };
+
+        await TextEmbeddingService.embedText('hello', 'ollama', {
+            operationStage          : 'embedding-canary',
+            providerActivityRecorder: {
+                beginProviderActivity(entry) { activities.push(entry); return 'cached-ollama-activity' },
+                startProviderActivity() {},
+                completeProviderActivity() {}
+            },
+            service: 'memory-core'
+        });
+
+        expect(activities[0].model).toBe('cached-ollama-model-a');
+        expect(captured[0].options).not.toHaveProperty('model');
+    });
+
     test('native Ollama timeout errors emit provider-scoped ConsumerFriction (#14052)', async () => {
         aiConfig.ollama.embeddingTimeoutMs = 25;
         TextEmbeddingService.ollamaProvider = {
@@ -461,6 +538,59 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             },
             liveWrapperPreserved: true,
             liveSignalAborted   : false
+        });
+    });
+
+    test('attributes Gemini embeddings to the cached SDK endpoint model under config drift', async () => {
+        const evidence = await runIsolatedEmbeddingProbe(async () => {
+            const {default: Service}  = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+            const {default: aiConfig} = await import('./ai/mcp/server/memory-core/config.template.mjs');
+            const activities          = [];
+            const requestModels       = [];
+            const recorder            = {
+                beginProviderActivity(entry) { activities.push(entry); return `activity-${activities.length}` },
+                startProviderActivity() {},
+                completeProviderActivity() {}
+            };
+
+            aiConfig.embeddingModel = 'live-config-model-b';
+            Service.embeddingModel = {
+                model: 'models/cached-sdk-model-a',
+                async embedContent() {
+                    return {embedding: {values: [0.1]}};
+                },
+                async batchEmbedContents({requests}) {
+                    requestModels.push(...requests.map(request => request.model));
+                    return {embeddings: requests.map(() => ({values: [0.2]}))};
+                }
+            };
+
+            await Service.embedText('one', 'gemini', {
+                operationStage          : 'kb-query-embedding',
+                providerActivityRecorder: recorder,
+                service                 : 'knowledge-base'
+            });
+            await Service.embedTexts(['two', 'three'], 'gemini', {
+                operationStage          : 'kb-tenant-ingestion-embedding',
+                providerActivityRecorder: recorder,
+                service                 : 'knowledge-base'
+            });
+
+            console.log(JSON.stringify({
+                models: activities.map(entry => entry.model),
+                requestModels
+            }));
+        }, {GEMINI_API_KEY: 'unit-test-key'});
+
+        expect(evidence).toEqual({
+            models: [
+                'models/cached-sdk-model-a',
+                'models/cached-sdk-model-a'
+            ],
+            requestModels: [
+                'live-config-model-b',
+                'live-config-model-b'
+            ]
         });
     });
 

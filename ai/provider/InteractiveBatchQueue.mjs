@@ -25,7 +25,7 @@
  */
 export default class InteractiveBatchQueue {
     /**
-     * Pending tasks, each `{task, priority, resolve, reject}`.
+     * Pending tasks, each carrying the task/promise controls plus bounded lifecycle timing state.
      * @member {Object[]} #queue=[]
      * @private
      */
@@ -36,16 +36,40 @@ export default class InteractiveBatchQueue {
      * @private
      */
     #active = false;
+    /**
+     * Injectable monotonic-enough wall clock for deterministic lifecycle receipts.
+     * @member {Function} #now=Date.now
+     * @private
+     */
+    #now = Date.now;
+
+    /**
+     * @summary Creates an isolated queue with an optional deterministic clock seam.
+     * @param {Object} [options]
+     * @param {Function} [options.now=Date.now] Timestamp provider.
+     */
+    constructor({now = Date.now} = {}) {
+        if (typeof now !== 'function') {
+            throw new TypeError('InteractiveBatchQueue: options.now must be a function');
+        }
+
+        this.#now = now;
+    }
 
     /**
      * @summary Enqueue an async task under a priority lane; resolves / rejects with the task's result.
      * @param {Function} task An async thunk `() => Promise<*>`, executed when the lane is free.
      * @param {'interactive'|'batch'} [priority='interactive'] Lane priority; interactive is preferred.
+     * @param {Object} [lifecycle] Optional synchronous `onEnqueued/onStarted/onSettled` observer.
      * @returns {Promise<*>}
      */
-    enqueue(task, priority = 'interactive') {
+    enqueue(task, priority = 'interactive', lifecycle = null) {
+        const enqueuedAt = this.#now();
+
+        this.#notify(lifecycle, 'onEnqueued', {enqueuedAt, priority});
+
         return new Promise((resolve, reject) => {
-            this.#queue.push({task, priority, resolve, reject});
+            this.#queue.push({task, priority, resolve, reject, lifecycle, enqueuedAt});
             this.#drain()
         })
     }
@@ -68,9 +92,40 @@ export default class InteractiveBatchQueue {
                 const index = this.#nextIndex(),
                       item  = this.#queue.splice(index, 1)[0];
 
+                const startedAt = this.#now();
+
+                this.#notify(item.lifecycle, 'onStarted', {
+                    enqueuedAt : item.enqueuedAt,
+                    priority   : item.priority,
+                    queueWaitMs: Math.max(0, startedAt - item.enqueuedAt),
+                    startedAt
+                });
+
                 try {
-                    item.resolve(await item.task())
+                    const result      = await item.task(),
+                          completedAt = this.#now();
+
+                    this.#notify(item.lifecycle, 'onSettled', {
+                        completedAt,
+                        enqueuedAt : item.enqueuedAt,
+                        executionMs: Math.max(0, completedAt - startedAt),
+                        priority   : item.priority,
+                        startedAt,
+                        success    : true
+                    });
+                    item.resolve(result)
                 } catch (error) {
+                    const completedAt = this.#now();
+
+                    this.#notify(item.lifecycle, 'onSettled', {
+                        completedAt,
+                        enqueuedAt : item.enqueuedAt,
+                        error,
+                        executionMs: Math.max(0, completedAt - startedAt),
+                        priority   : item.priority,
+                        startedAt,
+                        success    : false
+                    });
                     item.reject(error)
                 }
             }
@@ -95,5 +150,21 @@ export default class InteractiveBatchQueue {
         }
 
         return best
+    }
+
+    /**
+     * @summary Invokes one lifecycle callback without letting telemetry affect queue behavior.
+     * @param {Object|null} lifecycle Optional lifecycle observer.
+     * @param {String} method Observer method name.
+     * @param {Object} event Bounded timing event.
+     * @returns {void}
+     * @private
+     */
+    #notify(lifecycle, method, event) {
+        try {
+            lifecycle?.[method]?.(event);
+        } catch {
+            // Observability is best-effort and cannot alter admission or task results.
+        }
     }
 }

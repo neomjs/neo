@@ -18,14 +18,21 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
+import {
+    createProviderActivityStatusWriter,
+    resolveProviderActivityStatusFile
+} from '../../../../../../ai/services/shared/providerActivityStatusStore.mjs';
 
 test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
+    test.describe.configure({mode: 'serial'});
+
     const
         secret     = 'SENTINEL_SECRET_13506',
         testDbName = `mc-recorder-test-${process.pid}-${Date.now()}.sqlite`;
 
     let originalEnv;
     let testDbPath;
+    let kbStatusWriter;
     let memoryCoreConfig;
     let MemoryCoreRecorderService;
 
@@ -54,16 +61,35 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
         }
 
-        memoryCoreConfig          = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+        memoryCoreConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+        memoryCoreConfig.refreshEnv();
         MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
+
+        // A Playwright worker can reuse this singleton after another spec imported it. Rebind it to
+        // this fixture's explicit database instead of letting initAsync() return on the stale handle.
+        await MemoryCoreRecorderService.flushProviderActivityStatus();
+        try { MemoryCoreRecorderService.db?.close(); } catch (e) {}
+        MemoryCoreRecorderService.db = null;
+        MemoryCoreRecorderService.providerActivityStatusWriter = null;
+
         await MemoryCoreRecorderService.initAsync();
+
+        kbStatusWriter = createProviderActivityStatusWriter({
+            dbPath  : testDbPath,
+            recorder: 'knowledge-base'
+        });
+        await kbStatusWriter.publishSuccess(Date.now());
     });
 
     test.beforeEach(() => {
         MemoryCoreRecorderService.db.exec('DELETE FROM mc_tool_call_log;');
+        MemoryCoreRecorderService.db.exec('DELETE FROM provider_activity_log;');
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
+        await kbStatusWriter?.flush();
+        await MemoryCoreRecorderService?.flushProviderActivityStatus();
+
         if (MemoryCoreRecorderService?.db) {
             try { MemoryCoreRecorderService.db.close(); } catch (e) {}
             MemoryCoreRecorderService.db = null;
@@ -73,6 +99,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
         }
 
+        for (const recorder of ['knowledge-base', 'memory-core']) {
+            const file = resolveProviderActivityStatusFile(testDbPath, recorder);
+            try { fs.unlinkSync(file); } catch (e) {}
+        }
+
         for (const [key, value] of Object.entries(originalEnv || {})) {
             if (value === undefined) {
                 delete process.env[key];
@@ -80,6 +111,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 process.env[key] = value;
             }
         }
+        memoryCoreConfig?.refreshEnv();
     });
 
     test('initializes the redacted Memory Core tool telemetry schema', () => {
@@ -94,6 +126,12 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
         const columns = MemoryCoreRecorderService.db.prepare('PRAGMA table_info(mc_tool_call_log)').all();
         expect(columns.some(column => column.name === 'completed_at')).toBe(true);
+        expect(MemoryCoreRecorderService.db.prepare(`
+            SELECT name
+              FROM sqlite_master
+             WHERE type = 'table'
+               AND name = 'provider_activity_log'
+        `).get().name).toBe('provider_activity_log');
         expect(MemoryCoreRecorderService.db.pragma('busy_timeout', {simple: true})).toBe(50);
     });
 
@@ -263,6 +301,95 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         expect(metrics.tools[0].calls).toBe(2);
         expect(metrics.tools[0].failures).toBe(1);
         expect(JSON.stringify(metrics)).not.toContain('safe');
+    });
+
+    test('projects bounded provider activity beside unchanged tool metrics', () => {
+        const now      = Date.now();
+        const queuedId = MemoryCoreRecorderService.beginProviderActivity({
+            activityId      : 'queued-activity',
+            service         : 'memory-core',
+            operationStage  : 'mc-session-summary',
+            role            : 'chat',
+            provider        : 'ollama',
+            model           : 'gemma4:26b',
+            priority        : 'batch',
+            enqueuedAt      : now - 100,
+            queueDisposition: 'neo-queued',
+            prompt          : secret,
+            operationLabel  : `session/${secret}`,
+            sessionId       : secret
+        });
+
+        MemoryCoreRecorderService.startProviderActivity(queuedId, now - 75);
+        MemoryCoreRecorderService.completeProviderActivity(queuedId, {completedAt: now - 25, success: true});
+
+        const inFlightId = MemoryCoreRecorderService.beginProviderActivity({
+            activityId      : 'in-flight-activity',
+            service         : 'knowledge-base',
+            operationStage  : 'kb-query-embedding',
+            role            : 'embedding',
+            provider        : 'openAiCompatible',
+            model           : 'qwen3-embedding',
+            priority        : 'interactive',
+            enqueuedAt      : now - 50,
+            queueDisposition: 'neo-queued'
+        });
+
+        const remoteId = MemoryCoreRecorderService.beginProviderActivity({
+            activityId      : 'remote-activity',
+            service         : 'dream-pipeline',
+            operationStage  : 'rem-topology',
+            role            : 'chat',
+            provider        : 'gemini',
+            model           : 'gemini-2.5-flash',
+            priority        : 'batch',
+            enqueuedAt      : now - 40,
+            startedAt       : now - 40,
+            queueDisposition: 'not-applicable'
+        });
+
+        MemoryCoreRecorderService.completeProviderActivity(remoteId, {
+            completedAt : now - 10,
+            failureStage: 'provider',
+            success     : false
+        });
+
+        const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 10});
+
+        expect(Object.keys(metrics)).toEqual([
+            'status',
+            'sinceMs',
+            'limit',
+            'slowAfterMs',
+            'totalCalls',
+            'totalUnfinished',
+            'tools',
+            'unfinishedCalls',
+            'recentSlowCalls',
+            'providerActivity'
+        ]);
+        expect(metrics.providerActivity).toMatchObject({
+            status         : 'ok',
+            totalActivities: 3,
+            totalInFlight  : 1
+        });
+        expect(metrics.providerActivity.inFlight).toEqual([
+            expect.objectContaining({activityId: inFlightId, operationStage: 'kb-query-embedding'})
+        ]);
+        expect(metrics.providerActivity.recentCompletions.find(row => row.activityId === queuedId)).toMatchObject({
+            queueDisposition: 'neo-queued',
+            queueWaitMs     : 25,
+            executionMs     : 50,
+            success         : true
+        });
+        expect(metrics.providerActivity.recentCompletions.find(row => row.activityId === remoteId)).toMatchObject({
+            queueDisposition: 'not-applicable',
+            queueWaitMs     : null,
+            executionMs     : 30,
+            success         : false,
+            failureStage    : 'provider'
+        });
+        expect(JSON.stringify(metrics.providerActivity)).not.toContain(secret);
     });
 
     test('returns bounded recent slow completions without caller identity or payloads', () => {
@@ -453,13 +580,19 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             memoryCoreConfig.refreshEnv();
 
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 1_000})).toMatchObject({
-                status         : 'disabled',
-                slowAfterMs    : 1_000,
-                totalCalls     : 0,
-                totalUnfinished: 0,
-                tools          : [],
-                unfinishedCalls: [],
-                recentSlowCalls: []
+                status          : 'disabled',
+                slowAfterMs     : 1_000,
+                totalCalls      : 0,
+                totalUnfinished : 0,
+                tools           : [],
+                unfinishedCalls : [],
+                recentSlowCalls : [],
+                providerActivity: {
+                    status           : 'disabled',
+                    aggregates       : [],
+                    inFlight         : [],
+                    recentCompletions: []
+                }
             });
         } finally {
             process.env.NEO_MC_TOOL_TELEMETRY_ENABLED = originalEnabled;
@@ -486,18 +619,111 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             })).toBeNull();
 
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics()).toMatchObject({
-                status         : 'unavailable',
-                slowAfterMs    : 60_000,
-                totalCalls     : 0,
-                totalUnfinished: 0,
-                tools          : [],
-                unfinishedCalls: [],
-                recentSlowCalls: []
+                status          : 'unavailable',
+                slowAfterMs     : memoryCoreConfig.toolTelemetry.slowAfterMs,
+                totalCalls      : 0,
+                totalUnfinished : 0,
+                tools           : [],
+                unfinishedCalls : [],
+                recentSlowCalls : [],
+                providerActivity: {
+                    status           : 'unavailable',
+                    aggregates       : [],
+                    inFlight         : [],
+                    recentCompletions: []
+                }
             });
 
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({slowAfterMs: 0})).toMatchObject({
-                slowAfterMs    : 60_000,
+                slowAfterMs    : memoryCoreConfig.toolTelemetry.slowAfterMs,
                 recentSlowCalls: []
+            });
+        } finally {
+            MemoryCoreRecorderService.db = originalDb;
+        }
+    });
+
+    test('reports a partial provider projection when only that observer query fails', () => {
+        const originalDb = MemoryCoreRecorderService.db;
+        const proxyDb    = {
+            exec: originalDb.exec.bind(originalDb),
+            prepare(sql) {
+                if (String(sql).includes('FROM provider_activity_log')) {
+                    throw new Error('provider projection unavailable');
+                }
+
+                return originalDb.prepare(sql);
+            }
+        };
+
+        MemoryCoreRecorderService.db = proxyDb;
+
+        try {
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(metrics.status).toBe('ok');
+            expect(metrics.providerActivity).toEqual({
+                status           : 'partial',
+                totalActivities  : 0,
+                totalInFlight    : 0,
+                aggregates       : [],
+                inFlight         : [],
+                recentCompletions: []
+            });
+        } finally {
+            MemoryCoreRecorderService.db = originalDb;
+        }
+    });
+
+    test('returns no provider rows when one required recorder status is unavailable', () => {
+        const
+            id = MemoryCoreRecorderService.beginProviderActivity({
+                activityId      : 'unverifiable-provider-row',
+                service         : 'memory-core',
+                operationStage  : 'mc-mini-summary',
+                role            : 'chat',
+                provider        : 'ollama',
+                model           : 'gemma4:26b',
+                priority        : 'batch',
+                enqueuedAt      : Date.now() - 10,
+                queueDisposition: 'neo-queued'
+            }),
+            kbFile       = resolveProviderActivityStatusFile(testDbPath, 'knowledge-base'),
+            withheldFile = `${kbFile}.withheld`;
+
+        MemoryCoreRecorderService.startProviderActivity(id, Date.now() - 8);
+        MemoryCoreRecorderService.completeProviderActivity(id, {completedAt: Date.now(), success: true});
+        fs.renameSync(kbFile, withheldFile);
+
+        try {
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5}).providerActivity).toEqual({
+                status           : 'unavailable',
+                totalActivities  : 0,
+                totalInFlight    : 0,
+                aggregates       : [],
+                inFlight         : [],
+                recentCompletions: []
+            });
+        } finally {
+            fs.renameSync(withheldFile, kbFile);
+        }
+    });
+
+    test('keeps the metrics observer read-only after recorder initialization', () => {
+        const originalDb = MemoryCoreRecorderService.db;
+        const proxyDb    = {
+            exec() {
+                throw new Error('observer attempted schema DDL');
+            },
+            prepare: originalDb.prepare.bind(originalDb)
+        };
+
+        MemoryCoreRecorderService.db = proxyDb;
+
+        try {
+            expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5})).toMatchObject({
+                status          : 'ok',
+                providerActivity: {status: 'ok'}
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;
