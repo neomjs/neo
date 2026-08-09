@@ -2463,7 +2463,7 @@ paths:
       operationId: manage_wake_subscription
       x-neo-tool-tier: extended
       x-pass-as-object: true
-      description: Subscribe / unsubscribe / update / list / resync / resume / rotate-key agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing. `fleet-identities` is the fleet-telemetry read — the deduplicated identities holding an ACTIVE subscription, identities only, for any authenticated caller (the `who_is_online` disclosure class).
+      description: Subscribe / unsubscribe / update / list / resync / resume / rotate-key agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing. `fleet-identities` is the fleet-telemetry read — the deduplicated identities holding an ACTIVE subscription, identities only, for any authenticated caller (the `who_is_online` disclosure class). `poll-digest` derives the caller's wake digest at read time over the same trigger/filter evaluation — the pull half of wake delivery for clients without host-reachable listeners; an empty answer is a closed state carrying its reason, never a verdict.
       tags: [WakeSubscriptions]
       requestBody:
         required: true
@@ -2476,11 +2476,11 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [bootstrap, subscribe, unsubscribe, update, list, resync, resume, rotate-key, fleet-identities]
+                  enum: [bootstrap, subscribe, unsubscribe, update, list, resync, poll-digest, resume, rotate-key, fleet-identities]
                   description: "Lifecycle action to perform on the subscription. `resume` restores a route that was marked `status: degraded` after repeated delivery failures: it moves the persisted status back to `active` AND clears the in-flight markers in one step, which is what a restore requires - clearing only one half leaves the route skipped."
                 subscriptionId:
                   type: string
-                  description: Required for unsubscribe / update / resync / resume / rotate-key; optional for list (single).
+                  description: Required for unsubscribe / update / resync / poll-digest / resume / rotate-key; optional for list (single).
                 trigger:
                   type: string
                   enum: [SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED]
@@ -2519,7 +2519,7 @@ paths:
                     tmuxSession:      {type: string}
                 sinceLogId:
                   type: integer
-                  description: Required for resync. GraphLog watermark; client-tracked.
+                  description: Required for resync / poll-digest. GraphLog watermark; client-tracked.
       responses:
         '200':
           description: OK

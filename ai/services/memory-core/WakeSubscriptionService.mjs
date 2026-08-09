@@ -10,6 +10,7 @@ import CoalescingEngineService                                                  
 import TurnPresenceService                                                                      from './TurnPresenceService.mjs';
 import WebhookDeliveryService                                                                   from './WebhookDeliveryService.mjs';
 import {DELIVERABLE_HARNESS_TARGET}                                                             from '../../daemons/wake/buildReceiverManifest.mjs';
+import {buildWakeDigest, getHighestWakePriority}                                                from '../../daemons/wake/wakeDigestBuilder.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
 import {readActiveWakeSubscriptionIdentities}                                                   from './readActiveWakeSubscriptionIdentities.mjs';
@@ -390,7 +391,7 @@ class WakeSubscriptionService extends Base {
      * action-specific handlers per ADR 0002 §6.6. ticket-ref-ok: decision-record authority, not issue archaeology
      *
      * @param {Object} opts
-     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'resume' | 'rotate-key' | 'fleet-identities'
+     * @param {String} opts.action One of 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync' | 'poll-digest' | 'resume' | 'rotate-key' | 'fleet-identities'
      * @param {Object} [opts.rest] Action-specific parameters (see individual methods)
      * @returns {Promise<Object>}
      */
@@ -405,12 +406,13 @@ class WakeSubscriptionService extends Base {
             case 'unsubscribe'     : return this.unsubscribe(rest);
             case 'update'          : return this.update     (rest);
             case 'list'            : return this.list       (rest);
+            case 'poll-digest'     : return this.pollDigest (rest);
             case 'resync'          : return this.resync     (rest);
             case 'resume'          : return this.resume     (rest);
             case 'rotate-key'      : return this.rotateKey  (rest);
             default:
                 throw new Error(
-                    `Invalid action '${action}'. Must be one of: bootstrap, fleet-identities, subscribe, unsubscribe, update, list, resync, resume, rotate-key.`
+                    `Invalid action '${action}'. Must be one of: bootstrap, fleet-identities, subscribe, unsubscribe, update, list, poll-digest, resync, resume, rotate-key.`
                 );
         }
     }
@@ -1483,10 +1485,94 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
         }
 
+        const {events, lastLogId} = this._collectSubscriptionEvents(subscription, sinceLogId);
+
+        return {
+            subscriptionId,
+            events,
+            lastLogId,
+            eventsReplayed: events.length
+        };
+    }
+
+    /**
+     * @summary Derives the caller's wake digest AT READ TIME — the pull half of wake delivery
+     * for clients without host-reachable listeners.
+     *
+     * Composes the daemon's flush semantics from the same shared parts: events above the
+     * client-held `sinceLogId` watermark are collected by the same trigger/filter evaluation
+     * `resync` consumes — whose shared `match()` evaluator already reconciles CURRENT read state
+     * per delivery shape, so a wake for an already-read message never matches — and the
+     * survivors pass through the daemon's own `buildWakeDigest`. Nothing is queued server-side:
+     * a missed poll re-includes anything still unread on the next call, the self-healing
+     * property the push path documents. An empty answer is a CLOSED state carrying its reason,
+     * always distinguishable from a transport failure — absence of signal, never a verdict.
+     *
+     * Per ADR 0002 §6.1.6 + §6.6.2 (resync's authority) + ADR 0038 §2.5.1 row 6. ticket-ref-ok: decision-record authority, not issue archaeology
+     *
+     * @param {Object} opts
+     * @param {String} opts.subscriptionId
+     * @param {Number} [opts.sinceLogId=0] GraphLog watermark; client-tracked, never server-persisted
+     * @returns {Promise<Object>} `{subscriptionId, pending, watermark, reason}` when empty, else
+     * `{subscriptionId, pending, digest, digestPriority, watermark, eventsReplayed}`
+     */
+    async pollDigest({subscriptionId, sinceLogId = 0} = {}) {
+        const caller = RequestContextService.getAgentIdentityNodeId();
+        if (!caller) throw RequestContextService.unboundIdentityError('poll-digest');
+        if (!subscriptionId) throw new Error("Missing 'subscriptionId' parameter.");
+
+        const subscription = this._loadSubscription(subscriptionId);
+        if (!subscription) throw new Error(`Subscription not found: ${subscriptionId}`);
+        if (subscription.agentIdentity !== caller) {
+            throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
+        }
+
+        const {events, lastLogId} = this._collectSubscriptionEvents(subscription, sinceLogId);
+
+        const messages = [], tasks = [], permissions = [], heartbeats = [];
+
+        for (const {eventType, payload = {}} of events) {
+            if      (eventType === 'wake/sent_to_me')         messages.push({priority: 'normal', ...payload});
+            else if (eventType === 'wake/task_state_changed') tasks.push(payload);
+            else if (eventType === 'wake/permission_granted') permissions.push(payload);
+            else if (eventType === 'wake/heartbeat_pulse')    heartbeats.push(payload);
+        }
+
+        const pending = messages.length + tasks.length + permissions.length + heartbeats.length;
+
+        if (pending === 0) {
+            return {
+                subscriptionId,
+                pending  : 0,
+                reason   : 'no wake-relevant events above the client watermark in current read state',
+                watermark: lastLogId
+            };
+        }
+
+        return {
+            subscriptionId,
+            pending,
+            digest        : buildWakeDigest(caller, {messages, tasks, permissions, heartbeats}),
+            digestPriority: messages.length > 0 ? getHighestWakePriority(messages) : 'normal',
+            eventsReplayed: events.length,
+            watermark     : lastLogId
+        };
+    }
+
+    /**
+     * Walks GraphLog deltas above a client watermark and evaluates every candidate against the
+     * subscription's trigger+filter spec. Shared by `resync` (replay) and `pollDigest`
+     * (derive-at-read) so the two cannot drift. The watermark is echoed, never persisted.
+     * @protected
+     * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
+     * @param {Number} sinceLogId Client-held GraphLog watermark
+     * @returns {{events: Object[], lastLogId: Number}}
+     */
+    _collectSubscriptionEvents(subscription, sinceLogId) {
         const storage = GraphService.db.storage;
         if (!storage?.getDeltaLog) {
-            logger.warn('[WakeSubscription] resync called but GraphLog storage unavailable; returning empty replay.');
-            return {subscriptionId, events: [], lastLogId: sinceLogId, eventsReplayed: 0};
+            logger.warn('[WakeSubscription] GraphLog storage unavailable; returning an empty event collection.');
+            return {events: [], lastLogId: sinceLogId};
         }
 
         const delta  = storage.getDeltaLog(sinceLogId);
@@ -1515,12 +1601,7 @@ class WakeSubscriptionService extends Base {
             if (matched) events.push(matched);
         }
 
-        return {
-            subscriptionId,
-            events,
-            lastLogId     : delta.lastLogId,
-            eventsReplayed: events.length
-        };
+        return {events, lastLogId: delta.lastLogId}
     }
 
     /**

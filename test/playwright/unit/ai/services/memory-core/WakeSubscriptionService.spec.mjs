@@ -1529,6 +1529,112 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    // -----------------------------------------------------------------------------
+    // poll-digest — derive-at-read: the pull half of wake delivery for clients without host listeners
+    // -----------------------------------------------------------------------------
+
+    test('poll-digest derives the digest from GraphLog state above the client watermark (#16741)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'TASK_STATE_CHANGED',
+                harnessTarget: 'mcp-notifications'
+            });
+            const sqlite = GraphService.db.storage.db;
+            const before = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            appendTaskEvent({
+                eventId       : 'poll-task-working',
+                previousState : 'Submitted',
+                newState      : 'Working',
+                lastModifiedAt: '2026-08-09T14:00:02.003Z'
+            });
+            appendTaskEvent({
+                eventId       : 'poll-task-input',
+                previousState : 'Working',
+                newState      : 'InputRequired',
+                lastModifiedAt: '2026-08-09T14:00:05.006Z'
+            });
+
+            const res = await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: before});
+
+            expect(res.subscriptionId).toBe(subscriptionId);
+            expect(res.pending).toBe(2);
+            expect(res.eventsReplayed).toBe(2);
+            expect(typeof res.digest).toBe('string');
+            expect(res.digest.length).toBeGreaterThan(0);
+            expect(res.digestPriority).toBe('normal');
+            expect(res.watermark).toBeGreaterThan(before);
+        });
+    });
+
+    test('poll-digest empty answer is a closed state carrying its reason — never a verdict', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            });
+
+            const res = await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: 999999});
+
+            expect(res.pending).toBe(0);
+            expect(res.digest).toBeUndefined();
+            expect(typeof res.reason).toBe('string');
+            expect(res.watermark).toBe(999999);
+        });
+    });
+
+    test('poll-digest watermarks are client-held: advancing past events empties the next poll, replay still sees them', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'TASK_STATE_CHANGED',
+                harnessTarget: 'mcp-notifications'
+            });
+            const sqlite = GraphService.db.storage.db;
+            const before = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            appendTaskEvent({
+                eventId       : 'poll-watermark-task',
+                previousState : 'Submitted',
+                newState      : 'Working',
+                lastModifiedAt: '2026-08-09T14:05:02.003Z'
+            });
+
+            const first = await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: before});
+            expect(first.pending).toBe(1);
+
+            // The client-held watermark advancing past the event empties the next poll —
+            // nothing is queued server-side; the stateless self-healing contract.
+            const second = await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: first.watermark});
+            expect(second.pending).toBe(0);
+            expect(second.reason).toBeTruthy();
+
+            // A replay at the original watermark still sees the event — never server-persisted.
+            const replay = await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: before});
+            expect(replay.pending).toBe(1);
+        });
+    });
+
+    test('poll-digest rejects a subscription owned by a different identity', async () => {
+        let subscriptionId;
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            ({subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            }));
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await expect(WakeSubscriptionService.pollDigest({subscriptionId}))
+                .rejects.toThrow('Permission denied');
+        });
+    });
+
+    test("manage routes the 'poll-digest' action to pollDigest", async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.manage({action: 'poll-digest'}))
+                .rejects.toThrow("Missing 'subscriptionId' parameter.");
+        });
+    });
+
     test('emitHeartbeatPulse writes only a heartbeat GraphLog row and replays through resync', async () => {
         const sqlite           = GraphService.db.storage.db;
         const {subscriptionId} = insertDurableSubscription({
