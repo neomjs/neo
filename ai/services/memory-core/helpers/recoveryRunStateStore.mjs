@@ -502,7 +502,8 @@ export async function appendRecoveryRunState(entry, {
     onGraphPublicationError = null,
     retentionLimit,
     writeLog                = null,
-    isAuthorityHeld         = null
+    isAuthorityHeld         = null,
+    preserveOnAuthorityLoss = false
 } = {}) {
     if (!dir) {
         throw new TypeError('appendRecoveryRunState: dir is required');
@@ -515,15 +516,21 @@ export async function appendRecoveryRunState(entry, {
 
     const filePath = path.join(dir, getRecoveryRunStateFileName(entry.recoveryRunId));
 
-    // THE APPEND IS THE EFFECT, and `mkdir` above is awaited — so a caller that verified authority
-    // before calling has already yielded, and only a check here has no await between itself and the
-    // write. Checked inside the store rather than at the caller for the same reason the overlay
-    // writer checks its own commit: no caller can hold a check adjacent to a write it does not
-    // perform.
+    // SAMPLED HERE, with no await between the sample and the write. `mkdir` above is awaited, so a
+    // caller that verified authority before calling has already yielded — and the store is the only
+    // place a check can sit adjacent to this append, for the same reason the overlay writer checks
+    // its own commit.
     //
-    // A recovery-run entry is owner-authoritative — it reads as "the current holder did this" — so a
-    // displaced holder appending one attributes an action to a successor that never took it.
-    if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+    // Sampled and STAMPED rather than only gating, because the record must stay truthful in both
+    // directions. A recovery-run entry is owner-authoritative — it reads as "the current holder did
+    // this" — so one written after a takeover has to say so on its own face, not merely be absent
+    // or present.
+    const heldAtWrite = typeof isAuthorityHeld === 'function' ? isAuthorityHeld() === true : null;
+
+    // A displaced holder must not attribute an action nobody took. `preserveOnAuthorityLoss` is the
+    // caller's assertion that an effect genuinely dispatched, and erasing that is strictly worse
+    // than recording it late: the alternative is a restart that may have landed leaving no trace.
+    if (heldAtWrite === false && !preserveOnAuthorityLoss) {
         const error = new Error('Authority moved before the recovery-run append; refusing.');
 
         error.reason = 'runtime-authority-lost';
@@ -531,7 +538,9 @@ export async function appendRecoveryRunState(entry, {
         throw error;
     }
 
-    await fs.appendFile(filePath, `${JSON.stringify(entry)}\n`, 'utf8');
+    const stamped = heldAtWrite === null ? entry : {...entry, heldAtWrite};
+
+    await fs.appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
     if (graphService) {
         await publishRecoveryRunStateToGraphWithSurface(entry, {

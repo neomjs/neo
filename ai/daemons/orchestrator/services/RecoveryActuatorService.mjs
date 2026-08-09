@@ -630,7 +630,12 @@ export class RecoveryActuatorService extends Base {
             startedAt : now,
             target,
             taskStatus: 'failed',
-            updatedAt
+            updatedAt,
+            // The SECOND append of this method. The entry check above is separated from it by an
+            // awaited `appendHealEvent`, so it cannot bind this one; `finishAction` re-samples and
+            // the store stamps `heldAtWrite`. A record-only terminal dispatched nothing, so it
+            // refuses rather than being preserved.
+            isAuthorityHeld
         });
     }
 
@@ -1216,21 +1221,16 @@ export class RecoveryActuatorService extends Base {
             // classification above is fresh, but `appendRecoveryRunState` awaits `mkdir` before it
             // writes — one more yield this method cannot see from here.
             //
-            // WITHHELD WHENEVER AN EFFECT WAS DISPATCHED, and that exemption is load-bearing.
-            //
-            // Two rules meet here and only look contradictory: a displaced holder must not append an
-            // owner-authoritative entry for an action nobody took, AND an effect that genuinely
-            // dispatched under held authority must never be erased because the lease moved before
-            // the record landed. **The discriminator is whether an effect was dispatched**, not
-            // whether authority is still held — `actioned` and `failed` both mean the executor ran,
-            // so their records must survive; `recorded`, `skipped` and `declined` mean nothing
+            // The oracle ALWAYS travels now, so the store samples authority adjacent to its own
+            // append and stamps `heldAtWrite` on the record. Withholding it (the previous shape)
+            // bought a dispatched audit its survival at the cost of the record no longer saying
+            // whether the holder still held the lease when it landed.
+            isAuthorityHeld,
+            // Whether an effect was DISPATCHED, which is what decides survival — not whether
+            // authority is still held. `actioned` and `failed` both mean the executor ran, so those
+            // records must outlive a takeover; `recorded`, `skipped` and `declined` mean nothing
             // reached a container, so a displaced holder has nothing to attribute and must not write.
-            //
-            // Keying on the uncertainty flag alone was not enough: it would still erase a SUCCESSFUL
-            // restart whose holder lost the lease before the record landed, which is the same
-            // erasure one branch over. `heldAtAppend` is stamped either way, so a record written
-            // without authority says so rather than passing as the current holder's.
-            isAuthorityHeld: ['actioned', 'failed'].includes(finalOutcome.status) ? null : isAuthorityHeld
+            preserveOnAuthorityLoss: ['actioned', 'failed'].includes(finalOutcome.status)
         });
 
         this.recordTaskOutcome(serviceKey, taskStatus, {

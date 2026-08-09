@@ -19,6 +19,8 @@
  * observable as configuration. An interrupted write must leave the previous overlay intact rather than a
  * truncated one.
  */
+import {randomUUID} from 'node:crypto';
+
 import fs   from 'fs/promises';
 import path from 'path';
 
@@ -32,13 +34,6 @@ import {RECOVERY_KNOBS, knobRequiredContext, validateKnobTransaction} from './re
  */
 export const RECOVERY_OVERRIDE_FILENAME = 'recovery-actuator-overrides.json';
 
-/**
- * Per-process sequence for scratch-file names. Combined with the pid it makes every writer's temp
- * path unique, which is what lets the rename be atomic BETWEEN holders and not merely within one.
- * @type {Number}
- * @private
- */
-let tempSequence = 0;
 
 /**
  * @summary Expands dotted leaf paths into the nested shape the config overlay is merged from.
@@ -144,11 +139,14 @@ export async function writeKnobOverride({
           // Same directory as the target, so the rename is within one filesystem and therefore atomic.
           // A temp file elsewhere would degrade to copy-then-delete and reintroduce the partial state
           // this exists to prevent.
-          // Unique PER WRITER, not per knob. The path was `${overridePath}.${knob}.tmp`, shared by
-          // every writer of that knob — so a displaced holder and its successor writing concurrently
-          // used one scratch file, and whichever renamed second could publish a payload the other
-          // had half-written. Uniqueness is what makes the rename atomic BETWEEN holders.
-          tempPath     = `${overridePath}.${knob}.${process.pid}.${++tempSequence}.tmp`;
+          // GLOBALLY unique, not process-unique. The path began as `${overridePath}.${knob}.tmp`,
+          // shared by every writer of that knob, so two holders writing at once used one scratch
+          // file and whichever renamed second could publish a payload the other had half-written.
+          //
+          // A pid + per-module counter did not close it either: the counter restarts in every
+          // independently initialized writer context, and two contexts inside one pid then collide
+          // on the same name. A UUID has no such shared origin.
+          tempPath     = `${overridePath}.${knob}.${randomUUID()}.tmp`;
 
     const assertHeld = () => {
         if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
@@ -169,6 +167,12 @@ export async function writeKnobOverride({
     // writer that requires someone else to have created its destination first is a boot-ordering
     // dependency wearing a filesystem error.
     await fsModule.mkdir(overrideDir, {recursive: true});
+
+    // FRESH PROOF immediately before the scratch file exists. `mkdir` is awaited, so the assertion
+    // above is already stale here — and a displaced holder should not be leaving files in a
+    // successor's directory at all, even inert ones.
+    assertHeld();
+
     await fsModule.writeFile(tempPath, `${JSON.stringify(next, null, 4)}\n`, {mode: 0o644});
 
     // AND AGAIN IMMEDIATELY BEFORE THE COMMIT. This is the only check that binds the effect: `mkdir`
