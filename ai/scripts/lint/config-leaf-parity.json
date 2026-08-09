@@ -117,6 +117,7 @@
         "auth.localBearerToken",
         "auth.mode",
         "auth.patCacheTtlSeconds",
+        "auth.patStaleGraceSeconds",
         "auth.patValidationTimeoutMs",
         "auth.pinFirstProviderSubject",
         "auth.pinFirstProviderSubjectOverride",
