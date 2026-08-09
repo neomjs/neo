@@ -47,6 +47,42 @@ function markEmbeddingModelNotResidentError(error) {
 }
 
 /**
+ * @summary Source-owned code for a batch embedding abandoned at a cooperative lease yield-point.
+ *
+ * A yield MUST be distinguishable from a failure at the consumer boundary: the caller has to release the
+ * heavy-maintenance lease and resume on the next sweep, never spend its retry budget re-attempting work it
+ * deliberately stopped. Returning a partial embedding array cannot express that — it would silently
+ * misalign with the caller's `ids` at upsert time.
+ * @type {String}
+ */
+export const EMBEDDING_BATCH_YIELDED_CODE = 'EMBEDDING_BATCH_YIELDED';
+
+/**
+ * @summary Classifies a cooperative batch-yield abandonment at the consumer boundary.
+ * @param {Error} error The error raised by a batch embedding call.
+ * @returns {Boolean}
+ */
+export function isEmbeddingBatchYieldError(error) {
+    return error?.code === EMBEDDING_BATCH_YIELDED_CODE
+}
+
+/**
+ * @summary Builds the typed abandonment error for a batch stopped at a lease yield-point.
+ * @param {Number} completedChunkCount Provider chunks that completed before the yield.
+ * @param {Number} totalChunkCount Provider chunks the batch would otherwise have issued.
+ * @returns {Error}
+ */
+function createEmbeddingBatchYieldError(completedChunkCount, totalChunkCount) {
+    const error = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s)`);
+
+    error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+    error.completedChunkCount = completedChunkCount;
+    error.totalChunkCount     = totalChunkCount;
+
+    return error
+}
+
+/**
  * @summary Normalizes the additive embedding-call options without widening provider authority.
  * @param {Object} options Caller options.
  * @param {String} defaultOperationLabel Provider-scoped fallback label.
@@ -62,6 +98,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
         'operationStage',
         'providerActivityRecorder',
         'service',
+        'shouldYield',
         'signal'
     ];
     const unknownKeys = Object.keys(options).filter(key => !allowedKeys.includes(key));
@@ -88,6 +125,9 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     if (options.providerActivityRecorder !== undefined && options.providerActivityRecorder !== null && typeof options.providerActivityRecorder !== 'object') {
         throw new TypeError('TextEmbeddingService: options.providerActivityRecorder must be an object or null');
     }
+    if (options.shouldYield !== undefined && typeof options.shouldYield !== 'function') {
+        throw new TypeError('TextEmbeddingService: options.shouldYield must be a function');
+    }
 
     const requestedLabel = options.operationLabel?.trim() || defaultOperationLabel;
 
@@ -97,8 +137,9 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
         providerActivityRecorder: options.providerActivityRecorder === undefined
             ? MemoryCoreRecorderService
             : options.providerActivityRecorder,
-        service: options.service || 'unknown',
-        signal : options.signal
+        service    : options.service || 'unknown',
+        shouldYield: options.shouldYield,
+        signal     : options.signal
     };
 }
 
@@ -1085,6 +1126,7 @@ class TextEmbeddingService extends Base {
      *
      * @param {String[]} texts The texts to embed.
      * @param {Object} options Abort and observability context.
+     * @param {Function} [options.shouldYield] Cooperative heavy-maintenance-lease yield predicate.
      * @returns {Promise<number[][]>}
      * @private
      */
@@ -1094,6 +1136,7 @@ class TextEmbeddingService extends Base {
             operationLabel,
             providerActivity,
             providerActivityRecorder,
+            shouldYield,
             signal
         } = options;
         const {
@@ -1104,11 +1147,29 @@ class TextEmbeddingService extends Base {
         } = aiConfig.openAiCompatible;
         const chunkSize        = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
               requestTimeoutMs = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
+              totalChunkCount  = Math.ceil(texts.length / chunkSize),
               data             = [];
+
+        let completedChunkCount = 0;
 
         for (let offset = 0; offset < texts.length; offset += chunkSize) {
             operation.phase = 'batch-chunk';
             throwIfEmbeddingAborted(signal, operationLabel);
+
+            // Cooperative heavy-maintenance-lease yield-point: BETWEEN provider chunks, never before the
+            // first — the same forward-progress guarantee `VectorService.embedChunks` makes between its own
+            // batches, so at least one chunk always lands per acquisition and the pair cannot livelock.
+            //
+            // The consultation has to happen HERE and not only one frame up, because the interval between two
+            // consultations up there is `maxRetries * ceil(batchSize / chunkSize) * (1 + unloadRetryCount) *
+            // batchEmbeddingTimeoutMs` — 16h40m at stock leaves, against a 30-minute `maxActiveHoldMs`. A
+            // cooperative bound whose checkpoint interval exceeds the bound is not a bound: the holder's
+            // first chance to honour it can arrive after it has already elapsed. Checking per chunk makes
+            // the worst case `(1 + unloadRetryCount) * batchEmbeddingTimeoutMs`.
+            if (completedChunkCount > 0 && shouldYield?.()) {
+                operation.phase = 'lease-yield';
+                throw createEmbeddingBatchYieldError(completedChunkCount, totalChunkCount)
+            }
 
             const chunk  = texts.slice(offset, offset + chunkSize),
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
@@ -1125,6 +1186,8 @@ class TextEmbeddingService extends Base {
                 ...item,
                 index: offset + item.index
             })));
+
+            completedChunkCount++;
 
             if (offset + chunkSize < texts.length) {
                 operation.phase = 'batch-yield';
@@ -1259,6 +1322,10 @@ class TextEmbeddingService extends Base {
      * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
      * @param {String} [options.service='unknown'] Stable service owner.
      * @param {Object|null} [options.providerActivityRecorder] Best-effort telemetry sink.
+     * @param {Function} [options.shouldYield] Cooperative heavy-maintenance-lease yield predicate,
+     *     consulted BETWEEN provider chunks (never before the first). When it returns truthy the batch is
+     *     abandoned with an {@link EMBEDDING_BATCH_YIELDED_CODE} error rather than a partial array, so the
+     *     lease holder can release and resume instead of retrying work it deliberately stopped.
      * @returns {Promise<number[][]>}
      */
     async embedTexts(texts, explicitProvider, options = {}) {
@@ -1272,6 +1339,7 @@ class TextEmbeddingService extends Base {
                   operationStage,
                   providerActivityRecorder,
                   service,
+                  shouldYield,
                   signal
               } = normalizeEmbeddingOptions(options, defaultOperationLabel),
               providerActivity          = {
@@ -1294,6 +1362,7 @@ class TextEmbeddingService extends Base {
                     operationLabel,
                     providerActivity,
                     providerActivityRecorder,
+                    shouldYield,
                     signal
                 });
             } else if (explicitProvider === 'ollama') {
