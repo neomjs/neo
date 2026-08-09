@@ -748,17 +748,6 @@ class DragDrop extends Base {
     }
 
     /**
-     * DragZones will set these configs inside their dragStart() method.
-     * They only persist until the end of a drag OP.
-     * @param {Object}               data
-     * @param {Boolean}              data.alwaysFireDragMove
-     * @param {String|String[]|null} data.boundaryContainerId
-     * @param {String|null}          data.scrollContainerId
-     * @param {Number}               data.scrollFactorLeft
-     * @param {Number}               data.scrollFactorTop
-     * @returns {Object} return the boundaryContainerRect
-     */
-    /**
      * App-side drag zones register themselves at construction, so onDragStart can resolve the
      * owning zone synchronously from the event path — before any setConfigs handshake could
      * land. Idempotent per (root, zone) pair; see also setConfigs(), which re-registers.
@@ -814,6 +803,22 @@ class DragDrop extends Base {
         }
     }
 
+    /**
+     * DragZones will set these configs inside their dragStart() method.
+     * The gesture-scoped keys only persist until the end of a drag OP — with one exception:
+     * the `dragElementRootId → dragZoneId` pair ALSO refreshes the zone registry
+     * ({@link zoneRegistrations}), which deliberately outlives the gesture (zones outlive
+     * drags, and the registry is what lets the next drag:start resolve its zone synchronously).
+     * @param {Object}               data
+     * @param {Boolean}              data.alwaysFireDragMove
+     * @param {String|String[]|null} data.boundaryContainerId
+     * @param {String}               [data.dragElementRootId] refreshes the zone registry
+     * @param {String}               [data.dragZoneId]       the registry value for the root id
+     * @param {String|null}          data.scrollContainerId
+     * @param {Number}               data.scrollFactorLeft
+     * @param {Number}               data.scrollFactorTop
+     * @returns {Object} return the boundaryContainerRect
+     */
     setConfigs(data) {
         let me                    = this,
             {boundaryContainerId} = data,
