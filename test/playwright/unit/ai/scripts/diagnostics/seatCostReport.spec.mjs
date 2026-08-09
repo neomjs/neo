@@ -6,6 +6,7 @@ import path           from 'node:path';
 
 import {
     ABLATION,
+    LEDGER_READERS,
     WARM_WINDOWS,
     bucketByDay,
     buildSeat,
@@ -92,6 +93,30 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         expect(classifyProviderFamily({providerID: 'anthropic', modelID: 'claude-opus-4'})).toBe('claude');
         expect(classifyProviderFamily({providerID: 'openai', modelID: 'gpt-5'})).toBe('gpt');
         expect(classifyProviderFamily({providerID: 'unknown-future-provider', modelID: 'x'})).toBeNull();
+    });
+
+    test('the claude warm window encodes the 1h normal-regime branch, not the 5min overage branch', () => {
+        // Ada's falsifier: her Claude Code seat's harness states 1h as the normal regime
+        // (2026-08-09 first-party read); the 5min drop arrives only inside subscription
+        // overage. Encoding the overage branch as the baseline INVERTS the safeguard — a
+        // claude seat judged cold at 6 minutes would be sunset ~12x too early, PAYING the
+        // fresh-boot cost to dodge a re-bill that was not coming.
+        expect(WARM_WINDOWS.claude).toBe(60 * 60 * 1000);
+    });
+
+    test('the coverage line names every reader-less harness — a missing source as visible as a missing measurement', () => {
+        // Ada's falsifier: gpt:null renders `unmeasured` (a visible hole), but a harness with
+        // no ledger reader produces no rows at all — and the two absences looked identical.
+        const seat   = buildSeat('iris', 'kimi-code', parseKimiWire(wireFixture));
+        const report = renderReport([seat]);
+
+        expect(LEDGER_READERS['kimi-code']).toBe(true);
+        expect(LEDGER_READERS['opencode']).toBe(true);
+        expect(report).toContain('Ledger coverage:');
+
+        for (const harness of Object.keys(LEDGER_READERS).filter(h => !LEDGER_READERS[h])) {
+            expect(report).toContain(harness);
+        }
     });
 
     test('a GPT-backed opencode seat renders unmeasured through the exact CLI classification path', () => {
