@@ -148,6 +148,30 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         expect(createConfigProxy(overridden).probe, 'runtime override bypasses parse').toBe(slashy)
     });
 
+    test('MIGRATION SURFACE: the admission pin keys on the mutable login while the stable id sits beside it', async () => {
+        const source = await fs.readFile(path.join(process.cwd(), AUTH_SERVICE_REL), 'utf8');
+
+        // Source-anchored for the same reason as the strip above: the verifiers and their pin
+        // live inside factories and export nothing pure. BOUND: this proves what the file
+        // DECLARES, not what a given request executes.
+
+        // Both AuthInfo builders derive the caller identity from a mutable provider handle.
+        expect(source.match(/^\s+userId\s+: user\.(login|username),$/gm) || [],
+            'exactly two login-derived userId assignments').toHaveLength(2);
+
+        // …while the IMMUTABLE provider id is resolved in the very same object literal. The
+        // stable coordinate is not missing and does not need plumbing — it is present and
+        // simply not the thing ownership keys on.
+        expect(source.match(/^\s+providerUserId\s+: user\.id == null \? undefined : String\(user\.id\),$/gm) || [],
+            'both builders already resolve the stable provider id').toHaveLength(2);
+
+        // The single ownership decision that compares identities compares the login-derived
+        // field, so a provider-side rename refuses admission even though the stable id — and
+        // therefore any principal backed by it — is unchanged.
+        expect(source).toContain('pinnedProviderSubject = info.userId');
+        expect(source).toContain('if (info.userId !== pinnedProviderSubject)')
+    });
+
     test('case is significant here and INSIGNIFICANT for agent identity — one system, two rules', async () => {
         const {parseAgentList} = await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
 
