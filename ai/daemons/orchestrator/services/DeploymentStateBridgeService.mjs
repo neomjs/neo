@@ -1351,10 +1351,19 @@ function summarizeInspect(inspect) {
  *     or `null` when the container declares no healthcheck at all.
  */
 export function summarizeProbeReliability(health) {
-    const log = Array.isArray(health?.Log) ? health.Log : null;
+    // NOT-APPLICABLE and UNAVAILABLE are different facts and must not collapse. A container that
+    // declares no healthcheck has nothing to report; one that declares a healthcheck and has not
+    // been sampled yet has something to report and does not know it. Returning the same value for
+    // both makes an unsampled service read as an unprobeable one — which is how "no data" gets
+    // mistaken for "no concern".
+    if (!health || typeof health !== 'object') {
+        return {status: 'not-applicable', reason: 'no-healthcheck-declared'};
+    }
 
-    if (!log?.length) {
-        return null;
+    const log = Array.isArray(health.Log) ? health.Log : [];
+
+    if (log.length === 0) {
+        return {status: 'unavailable', reason: 'no-samples-yet'};
     }
 
     // A probe passes on exit 0 and fails on anything else, INCLUDING -1 — which is how a runtime
@@ -1363,21 +1372,23 @@ export function summarizeProbeReliability(health) {
     const sampleCount  = log.length,
           failureCount = log.filter(entry => entry?.ExitCode !== 0).length;
 
+    // RAW FACTS ONLY — deliberately no verdict. An earlier revision published a `disposition`
+    // naming the service `nominal` / `degraded-but-serving` / `failing`, and that was an unlicensed
+    // classification: a bounded observation of probe outcomes cannot decide whether a service is
+    // serving. It also produced wrong answers — an already-unhealthy container with one pass and one
+    // failure read as "degraded-but-serving", and a single old failure followed by four passes read
+    // identically to an actively-degrading one, because a flat ring carries no recency.
+    //
+    // The rate is the fact the healthy/unhealthy binary cannot express; who is serving is the
+    // consumer's decision, made with the runtime's own verdict alongside.
     return {
+        status       : 'available',
         sampleCount,
         failureCount,
         // Rounded to three places: this is read by humans and compared across polls, and an
         // unrounded ratio invites a false precision the 5-entry ring cannot support.
         failureRate  : Math.round((failureCount / sampleCount) * 1000) / 1000,
-        failingStreak: Number.isFinite(health.FailingStreak) ? health.FailingStreak : null,
-        // The vocabulary the binary lacks. `degraded-but-serving` is the whole point: some probes
-        // fail, some pass, the service is answering, and no consecutive-failure threshold will ever
-        // be crossed.
-        disposition  : failureCount === 0
-            ? 'nominal'
-            : failureCount === sampleCount
-                ? 'failing'
-                : 'degraded-but-serving'
+        failingStreak: Number.isFinite(health.FailingStreak) ? health.FailingStreak : null
     };
 }
 

@@ -2115,67 +2115,136 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
 });
 
 /**
- * Degraded-but-serving: the state a binary derived from consecutiveness cannot express.
+ * The rate a healthy/unhealthy binary cannot express — as RAW FACTS, not as a verdict.
  */
-test.describe('summarizeProbeReliability — a rate the healthy/unhealthy binary cannot say', () => {
+test.describe('summarizeProbeReliability — bounded facts, and no unlicensed verdict', () => {
     const probe = exitCode => ({Start: '2026-08-09T14:36:23Z', End: '2026-08-09T14:36:31Z', ExitCode: exitCode});
 
     test('the EXACT observed shape: four failures, one pass, and the runtime still says healthy', () => {
         // Measured on the canonical plane. Every surface reported `healthy` while two maintainer
-        // seats lost Memory Core writes for hours. `FailingStreak` had already reset to 0 on the
+        // seats lost Memory Core writes for hours; `FailingStreak` had already reset to 0 on the
         // pass, so both published numbers were true and neither was reportable as degradation.
-        const summary = summarizeProbeReliability({
+        expect(summarizeProbeReliability({
             Status       : 'healthy',
             FailingStreak: 0,
             Log          : [probe(1), probe(1), probe(1), probe(-1), probe(0)]
-        });
-
-        expect(summary).toEqual({
+        })).toEqual({
+            status       : 'available',
             sampleCount  : 5,
             failureCount : 4,
             failureRate  : 0.8,
-            failingStreak: 0,
-            disposition  : 'degraded-but-serving'
+            failingStreak: 0
         });
+    });
+
+    test('NO VERDICT is published — the observation does not decide whether the service is serving', () => {
+        // @neo-gpt's Required Action 1. An earlier revision named the service
+        // `degraded-but-serving`, which a bounded probe observation cannot license: an ALREADY
+        // UNHEALTHY container with one pass and one failure got that label, and one old failure
+        // followed by four passes got it too, because a flat ring carries no recency.
+        const unhealthyMixed = summarizeProbeReliability({Status: 'unhealthy', FailingStreak: 1, Log: [probe(1), probe(0)]}),
+              oldFailure     = summarizeProbeReliability({Status: 'healthy', FailingStreak: 0, Log: [probe(1), probe(0), probe(0), probe(0), probe(0)]});
+
+        for (const summary of [unhealthyMixed, oldFailure]) {
+            expect(summary).not.toHaveProperty('disposition');
+            expect(JSON.stringify(summary)).not.toContain('serving');
+        }
+
+        // The facts still discriminate — dropping the verdict did not drop the signal.
+        expect(unhealthyMixed.failureRate).toBe(0.5);
+        expect(oldFailure.failureRate).toBe(0.2);
     });
 
     test('a health-check TIMEOUT (-1) counts as a failure — the case the surface most needs', () => {
         // A runtime reports "the check exceeded its own timeout" as -1. Counting only positive exit
-        // codes would discard precisely the probes that were too slow to answer, which is the
-        // failure mode a contended plane actually exhibits.
+        // codes would discard precisely the probes that were too slow to answer.
         expect(summarizeProbeReliability({FailingStreak: 1, Log: [probe(-1), probe(0)]})).toMatchObject({
             failureCount: 1,
-            failureRate : 0.5,
-            disposition : 'degraded-but-serving'
+            failureRate : 0.5
         });
     });
 
-    test('nominal and failing stay distinguishable at the ends', () => {
-        expect(summarizeProbeReliability({FailingStreak: 0, Log: [probe(0), probe(0)]})).toMatchObject({
-            failureRate: 0,
-            disposition: 'nominal'
-        });
-        expect(summarizeProbeReliability({FailingStreak: 2, Log: [probe(1), probe(1)]})).toMatchObject({
-            failureRate: 1,
-            disposition: 'failing'
-        });
+    test('NOT-APPLICABLE and UNAVAILABLE stay distinct — no healthcheck is not an unsampled one', () => {
+        // Collapsing both to null makes a declared-but-unsampled service indistinguishable from an unprobeable
+        // one, so "no data" reads as "no concern".
+        expect(summarizeProbeReliability(undefined)).toMatchObject({status: 'not-applicable'});
+        expect(summarizeProbeReliability({Status: 'starting', Log: []})).toMatchObject({status: 'unavailable'});
+        expect(summarizeProbeReliability(undefined).status)
+            .not.toBe(summarizeProbeReliability({Log: []}).status);
     });
 
-    test('a container with no healthcheck reports null, never a fabricated clean rate', () => {
-        // `failureRate: 0` on a service nobody probes would read as evidence of health.
-        expect(summarizeProbeReliability(undefined)).toBeNull();
-        expect(summarizeProbeReliability({})).toBeNull();
-        expect(summarizeProbeReliability({Log: []})).toBeNull();
+    test('a never-probed service reports NO rate — absence is never a clean zero', () => {
+        // `failureRate: 0` on a service nobody probed would read as evidence of health.
+        expect(summarizeProbeReliability({Log: []})).not.toHaveProperty('failureRate');
     });
 
-    test('the streak alone cannot discriminate — which is why the rate is published beside it', () => {
-        // POSITIVE CONTROL for the ticket's premise. Both of these carry `FailingStreak: 0`, the
-        // value an oscillating service shows every time it is observed just after a pass. Any
-        // consumer keying on the streak sees one number; the rate separates them.
+    test('the streak alone cannot discriminate — which is why the rate travels beside it', () => {
+        // POSITIVE CONTROL for the ticket's premise. Both carry `FailingStreak: 0`, the value an
+        // oscillating service shows whenever it is observed just after a pass.
         const oscillating = summarizeProbeReliability({FailingStreak: 0, Log: [probe(1), probe(1), probe(1), probe(0)]}),
               healthy     = summarizeProbeReliability({FailingStreak: 0, Log: [probe(0), probe(0), probe(0), probe(0)]});
 
         expect(oscillating.failingStreak).toBe(healthy.failingStreak);
-        expect(oscillating.disposition).not.toBe(healthy.disposition);
+        expect(oscillating.failureRate).not.toBe(healthy.failureRate);
+    });
+});
+
+/**
+ * The WRITER seam, not the helper.
+ *
+ * @neo-gpt's falsifier: every test above stays green if the production assignment in
+ * `summarizeInspect` is deleted, because they exercise the pure function and never witness the field
+ * reaching the record an operator reads. Helper coverage is not a writer witness.
+ */
+test.describe('probeReliability reaches the service record', () => {
+    let dir;
+
+    const runtimeWithHealth = Health => ({
+        async readObserve({operation}) {
+            if (operation === 'inspect') {
+                return {
+                    data : {Id: 'c1', RestartCount: 0, Name: '/mc-server', State: {Status: 'running', Health}},
+                    proof: {operation}
+                };
+            }
+            return {data: null, proof: {operation}};
+        }
+    });
+
+    const bridgeFor = Health => createService({
+        diagnosisService    : Neo.create(ContainerHealthDiagnosisService, {}),
+        healLedgerDir       : dir,
+        runtimeAccessService: runtimeWithHealth(Health)
+    });
+
+    test.beforeEach(() => {dir = fs.mkdtempSync(path.join(os.tmpdir(), 'probe-writer-'))});
+    test.afterEach(() => {fs.rmSync(dir, {recursive: true, force: true})});
+
+    test('an oscillating container publishes its RATE in the record, beside the runtime verdict', async () => {
+        const snapshot = await bridgeFor({
+            Status       : 'healthy',
+            FailingStreak: 0,
+            Log          : [{ExitCode: 1}, {ExitCode: 1}, {ExitCode: 1}, {ExitCode: -1}, {ExitCode: 0}]
+        }).collectServiceSnapshot({serviceKey: 'mc-server', observedAt: OBSERVED_AT});
+
+        // Deleting the production assignment turns THIS red; the helper tests would not notice.
+        expect(snapshot.inspect.state.probeReliability).toMatchObject({
+            status      : 'available',
+            sampleCount : 5,
+            failureCount: 4,
+            failureRate : 0.8
+        });
+
+        // Published BESIDE the runtime's own verdict, never folded into it — the recovery lane and
+        // the two-channel evidence pairing both depend on `health` keeping its exact prior meaning.
+        expect(snapshot.inspect.state.health).toBe('healthy');
+    });
+
+    test('a container with no declared healthcheck records not-applicable, not silence', async () => {
+        const snapshot = await bridgeFor(undefined)
+            .collectServiceSnapshot({serviceKey: 'mc-server', observedAt: OBSERVED_AT});
+
+        expect(snapshot.inspect.state.probeReliability).toMatchObject({status: 'not-applicable'});
+        expect(snapshot.inspect.state.health).toBeNull();
     });
 });
