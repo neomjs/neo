@@ -64,41 +64,152 @@ const
     devCompose      = yamlLoad(fs.readFileSync(devComposePath, 'utf8')),
     configBaseText  = fs.readFileSync(configBasePath, 'utf8'),
     planeConfigText = fs.readFileSync(planeConfigPath, 'utf8'),
+    configBaseAst   = acorn.parse(configBaseText,  {ecmaVersion: 'latest', sourceType: 'module'}),
+    planeConfigAst  = acorn.parse(planeConfigText, {ecmaVersion: 'latest', sourceType: 'module'}),
     READER_SERVICE  = 'orchestrator',
     PARITY_VOLUME   = 'parity-heap-observation';
 
 /**
- * The config-authoritative channel path pieces, proved to definition level: the
- * `heapObservation.dir` leaf's resolve expression (anchor name AND segment), the anchor's
- * DEFINITION (a name-pin alone stays green when the definition moves the runtime path — the
- * cycle-3 residual), the `neoRootDir` definition beneath it, and `planeConfig`'s relative root.
- * Every link fails closed.
+ * Collects every AST node of a given type (recursive walk over the structural tree).
+ * @param {*} node
+ * @param {String} type
+ * @param {Object[]} [hits]
+ * @returns {Object[]}
+ */
+function collectByType(node, type, hits=[]) {
+    if (!node || typeof node !== 'object') return hits;
+
+    if (node.type === type) {
+        hits.push(node)
+    }
+
+    for (const value of Object.values(node)) {
+        if (Array.isArray(value)) {
+            value.forEach(item => { item?.type && collectByType(item, type, hits) })
+        } else if (value?.type) {
+            collectByType(value, type, hits)
+        }
+    }
+
+    return hits
+}
+
+/**
+ * Finds a module-scope `const <name> = …` declarator.
+ * @param {Object} ast
+ * @param {String} name
+ * @returns {Object|undefined}
+ */
+function findModuleConst(ast, name) {
+    for (const node of ast.body) {
+        if (node.type === 'VariableDeclaration') {
+            const declarator = node.declarations.find(d => d.id?.name === name);
+
+            if (declarator) return declarator
+        }
+    }
+
+    return undefined
+}
+
+/**
+ * True when the node is `path.resolve(__dirname, '../')` (the repo-root anchor).
+ * @param {*} node
+ * @returns {Boolean}
+ */
+function isPathResolveDirnameParent(node) {
+    return node?.type === 'CallExpression' &&
+        node.callee?.type === 'MemberExpression' &&
+        node.callee.object?.name === 'path' &&
+        node.callee.property?.name === 'resolve' &&
+        node.arguments.length === 2 &&
+        node.arguments[0].type === 'Identifier' && node.arguments[0].name === '__dirname' &&
+        node.arguments[1].type === 'Literal' && /^'\.\.\/?'$/.test(node.arguments[1].raw || '') // '../' or '..'
+}
+
+/**
+ * The config-authoritative channel path pieces, proved STRUCTURALLY to binding level: a regex
+ * pins a spelling, but a substituted import binding (`import {resolvePlaneDataRoot as X}` plus a
+ * local shadow) keeps every spelling while moving the runtime path — so the chain is verified in
+ * the AST: the unaliased import from `./planeConfig.mjs`, no module-scope shadow, the anchor's
+ * definition, the repo-root definition, and the leaf's call shape. Every link fails closed.
  * @returns {{dirSegment: String, dataRootRelative: String}}
  */
 function readChannelPathAuthorities() {
-    const dirExpr = configBaseText.match(/heapObservation:\s*\{[\s\S]*?dir\s*:\s*leaf\(path\.resolve\(([A-Za-z]+),\s*'([^']+)'\)/);
+    // 1. The resolver binding: imported from ./planeConfig.mjs, unaliased, unshadowed.
+    const importDecl = configBaseAst.body.find(
+        node => node.type === 'ImportDeclaration' && node.source.value === './planeConfig.mjs'
+    );
 
-    // Fail closed: an unmatched regex must not silently assert nothing.
-    expect(dirExpr, 'ai/configBase.mjs still declares heapObservation.dir as a leaf(path.resolve(anchor, segment))').toBeTruthy();
-    expect(
-        dirExpr[1],
-        'the heapObservation.dir leaf still anchors on planeDataRootDefault — an anchor move changes the runtime path and must red here'
-    ).toBe('planeDataRootDefault');
+    expect(importDecl, 'ai/configBase.mjs still imports from ./planeConfig.mjs').toBeTruthy();
+
+    const specifier = importDecl.specifiers.find(
+        s => s.type === 'ImportSpecifier' && s.imported?.name === 'resolvePlaneDataRoot'
+    );
 
     expect(
-        /const planeDataRootDefault\s*=\s*resolvePlaneDataRoot\(\{rootDir:\s*neoRootDir\}\)/.test(configBaseText),
+        specifier?.local?.name === 'resolvePlaneDataRoot',
+        'resolvePlaneDataRoot is imported UNALIASED — an alias plus a local shadow would move the runtime path behind an unchanged call spelling'
+    ).toBe(true);
+
+    const shadow = configBaseAst.body.find(node =>
+        (node.type === 'VariableDeclaration' && node.declarations.some(d => d.id?.name === 'resolvePlaneDataRoot')) ||
+        (node.type === 'FunctionDeclaration' && node.id?.name === 'resolvePlaneDataRoot')
+    );
+
+    expect(shadow, 'no module-scope shadow of the imported resolver').toBeFalsy();
+
+    // 2. The anchor's definition: planeDataRootDefault = resolvePlaneDataRoot({rootDir: neoRootDir}).
+    const anchorDef = findModuleConst(configBaseAst, 'planeDataRootDefault'),
+          init      = anchorDef?.init;
+
+    expect(
+        init?.type === 'CallExpression' &&
+        init.callee?.type === 'Identifier' && init.callee.name === 'resolvePlaneDataRoot' &&
+        init.arguments.length === 1 &&
+        init.arguments[0].type === 'ObjectExpression' &&
+        init.arguments[0].properties.some(p =>
+            p.key?.name === 'rootDir' && p.value?.type === 'Identifier' && p.value.name === 'neoRootDir'
+        ),
         'planeDataRootDefault is still DEFINED as resolvePlaneDataRoot({rootDir: neoRootDir}) — a definition-level move changes the runtime path and must red here'
     ).toBe(true);
+
+    // 3. The repo-root definition beneath it.
     expect(
-        /const neoRootDir\s*=\s*path\.resolve\(__dirname,\s*'\.\.\/?'\)/.test(configBaseText),
+        isPathResolveDirnameParent(findModuleConst(configBaseAst, 'neoRootDir')?.init),
         'neoRootDir is still defined as the configBase-relative repository root'
     ).toBe(true);
 
-    const relative = planeConfigText.match(/dataRootRelative:\s*'([^']+)'/);
+    // 4. The leaf call itself: dir = leaf(path.resolve(planeDataRootDefault, '<segment>'), …).
+    const heapProperty = collectByType(configBaseAst, 'Property').find(p => p.key?.name === 'heapObservation'),
+          dirProperty  = heapProperty?.value?.properties?.find(p => p.key?.name === 'dir'),
+          leafCall     = dirProperty?.value;
 
-    expect(relative, 'ai/planeConfig.mjs still declares PLANE_DEFAULTS.dataRootRelative').toBeTruthy();
+    expect(
+        leafCall?.type === 'CallExpression' && leafCall.callee?.name === 'leaf',
+        'heapObservation.dir is still a leaf(…) declaration'
+    ).toBe(true);
 
-    return {dirSegment: dirExpr[2], dataRootRelative: relative[1]}
+    const resolveCall = leafCall.arguments[0];
+
+    expect(
+        resolveCall?.type === 'CallExpression' &&
+        resolveCall.callee?.type === 'MemberExpression' &&
+        resolveCall.callee.object?.name === 'path' && resolveCall.callee.property?.name === 'resolve' &&
+        resolveCall.arguments[0]?.type === 'Identifier' && resolveCall.arguments[0].name === 'planeDataRootDefault' &&
+        resolveCall.arguments[1]?.type === 'Literal' && typeof resolveCall.arguments[1].value === 'string',
+        'the dir leaf still resolves path.resolve(planeDataRootDefault, \'<segment>\') — anchor and segment are bound, not assumed'
+    ).toBe(true);
+
+    // 5. planeConfig's relative root, structurally.
+    const relativeProperty = collectByType(planeConfigAst, 'Property').find(p => p.key?.name === 'dataRootRelative');
+
+    expect(
+        relativeProperty?.value?.type === 'Literal' && typeof relativeProperty.value.value === 'string',
+        'ai/planeConfig.mjs still declares PLANE_DEFAULTS.dataRootRelative'
+    ).toBe(true);
+
+    return {dirSegment: resolveCall.arguments[1].value, dataRootRelative: relativeProperty.value.value}
 }
 
 /**
@@ -118,17 +229,55 @@ function readComposePlaneRoot(composeDoc) {
 }
 
 /**
+ * Classifies one class element's key: public exact name, private name, or unresolvable computed.
+ * A computed key is resolvable only as a string Literal or a no-expression TemplateLiteral —
+ * anything else means the census cannot prove the element is not a producer, so it must red.
+ * @param {Object} element
+ * @returns {{name: String|null, pub: Boolean|null}}
+ */
+function classifyElementKey(element) {
+    const key = element.key;
+
+    if (element.computed) {
+        if (key?.type === 'Literal' && typeof key.value === 'string') {
+            return {name: key.value, pub: true}
+        }
+
+        if (key?.type === 'TemplateLiteral' && key.expressions.length === 0 && key.quasis.length === 1) {
+            return {name: key.quasis[0].value.cooked, pub: true}
+        }
+
+        return {name: null, pub: null} // unresolvable — fail closed upstream
+    }
+
+    if (key?.type === 'PrivateIdentifier') {
+        return {name: `#${key.name}`, pub: false}
+    }
+
+    if (key?.type === 'Identifier') {
+        return {name: key.name, pub: true}
+    }
+
+    if (key?.type === 'Literal' && typeof key.value === 'string') {
+        return {name: key.value, pub: true} // quoted member name — public
+    }
+
+    return {name: null, pub: null}
+}
+
+/**
  * Every MCP-server override of `getHeapObservationServiceKey()`, as `{serverDir, key}` pairs —
  * identity-preserving by construction, enumerated STRUCTURALLY (acorn), never by regex shape.
  * A regex recognizes the spelling it expects and silently drops or miscounts every other valid
- * spelling (a space before `()`, a `static async` modifier stack); a class-body walk recognizes
- * the ELEMENT and can refuse its shape. Discovery rules, all fail-closed:
+ * spelling (a space before `()`, a modifier stack); a class-body walk recognizes the ELEMENT and
+ * can refuse its shape. Discovery rules, all fail-closed:
  *
- * - the elected convention is a plain public, non-static, non-async, non-generator, non-computed
- *   instance method whose body is one direct literal `return '<service-label>'`;
- * - every class element whose semantic name matches in ANY other shape (static / async /
- *   generator / getter / setter / private / computed / class-field / multi-statement body) reds
- *   with a named reason — it is never silently counted OR silently skipped;
+ * - the elected convention is a plain public, non-static, non-async, non-generator instance
+ *   method whose body is one direct literal `return '<service-label>'`;
+ * - a PRIVATE same-named method is never an override (the public BaseServer default still
+ *   answers `null`) — it reds as a shadow-trap, it does not count;
+ * - a computed element whose key cannot be structurally resolved reds — the census cannot prove
+ *   it is not a producer;
  * - a comment mention is not a class element and does not count.
  *
  * `BaseServer` (the null default) lives outside the per-server directories and is not scanned.
@@ -148,26 +297,35 @@ function readReportingRoster() {
 
         for (const classBody of collectClassBodies(ast)) {
             for (const element of classBody.body) {
-                const name = element.key?.type === 'PrivateIdentifier'
-                    ? `#${element.key.name}`
-                    : element.computed
-                        ? (element.key?.type === 'Literal' ? element.key.value : null)
-                        : (element.key?.name ?? element.key?.value);
+                const keyInfo = classifyElementKey(element);
 
-                if (name !== 'getHeapObservationServiceKey' && name !== '#getHeapObservationServiceKey') continue;
+                expect(
+                    keyInfo.pub !== null,
+                    `${entry.name}/Server.mjs carries a computed class element whose key cannot be structurally resolved — ` +
+                    'the census cannot prove it is not a getHeapObservationServiceKey producer; resolve it literally or remove it'
+                ).toBe(true);
+
+                if (keyInfo.name === '#getHeapObservationServiceKey') {
+                    expect(
+                        false,
+                        `${entry.name} defines a PRIVATE #getHeapObservationServiceKey — a private method never overrides the public ` +
+                        'BaseServer default (which still returns null), so this shape reports nothing while looking like a producer'
+                    ).toBe(true)
+                }
+
+                if (keyInfo.name !== 'getHeapObservationServiceKey') continue;
 
                 const isElectedShape =
                     element.type === 'MethodDefinition' &&
                     element.kind === 'method' &&
                     element.static === false &&
-                    element.computed === false &&
                     element.value?.type === 'FunctionExpression' &&
                     element.value.async === false &&
                     element.value.generator === false;
 
                 expect(
                     isElectedShape,
-                    `${entry.name} defines getHeapObservationServiceKey in a non-elected shape (static/async/generator/accessor/private/computed/class-field) — ` +
+                    `${entry.name} defines getHeapObservationServiceKey in a non-elected shape (static/async/generator/accessor/class-field) — ` +
                     'the census refuses it rather than guessing its semantics'
                 ).toBe(true);
 
