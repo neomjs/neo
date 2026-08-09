@@ -742,7 +742,16 @@ class VectorService extends Base {
                         // provider chunks, stores zero ids, and the next sweep re-selects the identical
                         // prefix — so a holder that yields at the same chunk every time never advances.
                         // A reached checkpoint is not a durable one.
-                        const carried = err.embeddings || [];
+                        // Sliced by the count the PRODUCER states it completed, and only after asserting the
+                        // payload matches it. Deriving the slice from `carried.length` alone would let a
+                        // short provider response define its own correctness: one missing vector shifts every
+                        // later one onto its neighbour's id, with no length mismatch to catch it.
+                        const carried  = err.embeddings || [],
+                              expected = err.completedTextCount;
+
+                        if (carried.length !== expected) {
+                            throw new Error(`Yielded batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${expected} completed input(s); refusing to bind vectors to chunk ids by position.`);
+                        }
 
                         if (carried.length > 0) {
                             const partialChunks = batchToEmbed.slice(0, carried.length);

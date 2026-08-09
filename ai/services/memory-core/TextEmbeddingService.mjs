@@ -75,8 +75,25 @@ export function isEmbeddingBatchYieldError(error) {
  * @param {Object[]} data Accumulated `{index, embedding}` entries.
  * @returns {number[][]}
  */
-function toOrderedEmbeddings(data) {
-    return data.slice().sort((a, b) => a.index - b.index).map(d => d.embedding)
+function toOrderedEmbeddings(data, expectedCount) {
+    const ordered = data.slice().sort((a, b) => a.index - b.index);
+
+    // The provider's `index` is the ONLY thing binding a vector to its input, and sorting alone does not
+    // preserve it: a sparse response (`[{index: 1}]`) sorts to position 0, so the caller upserts input 1's
+    // vector under input 0's id — no length mismatch, no error, a permanently wrong row. `expectedCount` is
+    // derived from what was SENT, never from what came back, so a short response cannot define its own
+    // correctness. Only after this check does array position equal provider index by construction.
+    if (ordered.length !== expectedCount) {
+        throw new Error(`openAiCompatible embedding response returned ${ordered.length} vector(s) for ${expectedCount} input(s); refusing to bind vectors to inputs by position`);
+    }
+
+    ordered.forEach((entry, position) => {
+        if (entry.index !== position) {
+            throw new Error(`openAiCompatible embedding response is not densely indexed: position ${position} carries provider index ${entry.index}; refusing to bind vectors to inputs by position`);
+        }
+    });
+
+    return ordered.map(d => d.embedding)
 }
 
 /**
@@ -92,13 +109,18 @@ function toOrderedEmbeddings(data) {
  * @param {Object[]} options.data Accumulated `{index, embedding}` entries for the completed chunks.
  * @returns {Error}
  */
-function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, data}) {
-    const embeddings = toOrderedEmbeddings(data),
-          error      = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s), ${embeddings.length} embedding(s) carried`);
+function createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data}) {
+    // Derived from the chunks SENT, not from `data.length`. A yield only ever happens at a chunk boundary,
+    // so every completed chunk is full-width — which makes this an independent expectation the response
+    // must satisfy, rather than a restatement of whatever the provider chose to return.
+    const completedTextCount = completedChunkCount * chunkSize,
+          embeddings         = toOrderedEmbeddings(data, completedTextCount),
+          error              = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after ${completedChunkCount}/${totalChunkCount} provider chunk(s), ${completedTextCount} embedding(s) carried`);
 
     error.code                = EMBEDDING_BATCH_YIELDED_CODE;
     error.completedChunkCount = completedChunkCount;
     error.totalChunkCount     = totalChunkCount;
+    error.completedTextCount  = completedTextCount;
     error.embeddings          = embeddings;
 
     return error
@@ -1194,7 +1216,7 @@ class TextEmbeddingService extends Base {
             // that yields at the same chunk every time re-embed the same prefix forever.
             if (completedChunkCount > 0 && shouldYield?.()) {
                 operation.phase = 'lease-yield';
-                throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, data})
+                throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data})
             }
 
             const chunk  = texts.slice(offset, offset + chunkSize),
@@ -1221,7 +1243,7 @@ class TextEmbeddingService extends Base {
             }
         }
 
-        return toOrderedEmbeddings(data);
+        return toOrderedEmbeddings(data, texts.length);
     }
 
     /**
