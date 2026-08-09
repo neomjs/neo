@@ -9,6 +9,7 @@ import {buildEmbeddingProbeBlock} from '../shared/embeddingProbe.mjs';
 import {readDeployedRevision}     from '../shared/deployedRevision.mjs';
 import logger                     from '../../mcp/server/knowledge-base/logger.mjs';
 import RuntimeFreshnessService    from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import KBRecorderService          from './KBRecorderService.mjs';
 
 const
     embeddingProbePolicy = Object.freeze({
@@ -69,9 +70,16 @@ export async function buildKnowledgeBaseEmbeddingProbeBlock({
         return TextEmbeddingService.embedText(text, explicitProvider, options);
     });
 
+    const attributedProbe = (text, explicitProvider, options) => probe(text, explicitProvider, {
+        ...options,
+        operationStage          : 'embedding-canary',
+        providerActivityRecorder: KBRecorderService,
+        service                 : 'knowledge-base'
+    });
+
     return buildEmbeddingProbeBlock({
         cfg,
-        embedText     : probe,
+        embedText     : attributedProbe,
         input,
         now,
         operationLabel: 'Knowledge Base embedding probe',

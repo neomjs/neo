@@ -34,6 +34,7 @@ import RequestContextService, {
     normalizeUserId,
     resolveSummaryVisibilityUserId
 } from '../../mcp/server/shared/services/RequestContextService.mjs';
+import MemoryCoreRecorderService from './MemoryCoreRecorderService.mjs';
 
 const CHROMA_SESSION_READ_TIMEOUT_MS = 10000;
 
@@ -185,11 +186,13 @@ class SessionService extends Base {
         }
 
         this.model = buildChatModel({
-            modelProvider         : aiConfig.modelProvider,
-            openAiCompatibleConfig: aiConfig.openAiCompatible,
-            ollamaConfig          : aiConfig.ollama,
-            geminiApiKey          : aiConfig.geminiApiKey,
-            geminiModelName       : aiConfig.modelName
+            modelProvider           : aiConfig.modelProvider,
+            openAiCompatibleConfig  : aiConfig.openAiCompatible,
+            ollamaConfig            : aiConfig.ollama,
+            geminiApiKey            : aiConfig.geminiApiKey,
+            geminiModelName         : aiConfig.modelName,
+            providerActivityRecorder: MemoryCoreRecorderService,
+            providerActivityService : 'memory-core'
         });
     }
 
@@ -708,7 +711,7 @@ ${sessionContent}
         // friction symptom, which the degraded fallback below treats like an oversize skip.
         const runGuardrailed = (prompt, note) => invokeWithGuardrail({
             invocationFn             : () => withTimeout(
-                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', priority: 'batch', reasoning_effort: summaryReasoningEffort || undefined, responseSchema: summarySchema, responseSchemaName: 'sessionSummary'}),
+                this.model.generateContent(prompt, {timeoutMs: summaryTimeoutMs, operationLabel: 'session summarization', operationStage: 'mc-session-summary', priority: 'batch', reasoning_effort: summaryReasoningEffort || undefined, responseSchema: summarySchema, responseSchemaName: 'sessionSummary'}),
                 summaryTimeoutMs,
                 'session summarization'
             ),

@@ -13,6 +13,7 @@ import {getMissingAskSynthesisLeaves}                                           
 import GraphService                                                                  from '../memory-core/GraphService.mjs';
 import {CONCEPT_EXPANSION_EDGE_TYPES, KB_TERMINAL_EDGE_TYPES, enrichWithConceptWalk} from '../graph/conceptAnchoredRetrieval.mjs';
 import {buildKbFileResolveCandidate}                                                 from './conceptWalkKbFileGate.mjs';
+import KBRecorderService                                                             from './KBRecorderService.mjs';
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
@@ -108,11 +109,13 @@ class SearchService extends Base {
         const ask = aiConfig.askSynthesis;
 
         this.model = buildChatModel({
-            modelProvider         : ask.provider,
-            openAiCompatibleConfig: {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            ollamaConfig          : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            geminiApiKey          : ask.apiKey,
-            geminiModelName       : ask.model
+            modelProvider           : ask.provider,
+            openAiCompatibleConfig  : {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            ollamaConfig            : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            geminiApiKey            : ask.apiKey,
+            geminiModelName         : ask.model,
+            providerActivityRecorder: KBRecorderService,
+            providerActivityService : 'knowledge-base'
         });
     }
 
@@ -481,6 +484,7 @@ Instructions:
             result = await this.model.generateContent(prompt, {
                 timeoutMs       : ask.provider === 'gemini' ? ask.timeoutMsRemote : ask.timeoutMs,
                 operationLabel  : 'ask_knowledge_base synthesis',
+                operationStage  : 'kb-ask-synthesis',
                 priority        : 'interactive',
                 reasoning_effort: ask.reasoningEffort || undefined
             });

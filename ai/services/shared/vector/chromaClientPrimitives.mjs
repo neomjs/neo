@@ -1,4 +1,5 @@
 import {knownEmbeddingFunctions, registerEmbeddingFunction} from 'chromadb';
+import {getProviderActivityContext}                         from '../providerActivityLedger.mjs';
 
 export const CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME = 'dynamic_text_embedding_service';
 const CHROMA_COLLECTION_NOT_FOUND_RE = /does not exist|not found|not be found|could not be found|404/i;
@@ -41,26 +42,41 @@ class NeoDummyEmbeddingFunction {
  *
  * @param {Object} [options]
  * @param {Function} [options.providerResolver] Returns the active embedding provider.
+ * @param {String} [options.operationStage='unknown'] Stable provider activity stage.
+ * @param {String} [options.service='unknown'] Stable service owner.
  * @returns {Object}
  */
-export function createDynamicTextEmbeddingFunction({providerResolver = null} = {}) {
+export function createDynamicTextEmbeddingFunction({
+    providerResolver = null,
+    operationStage   = 'unknown',
+    service          = 'unknown'
+} = {}) {
     const embeddingFunction = {
         generate: async (texts) => {
             const {default: TextEmbeddingService} = await import('../../memory-core/TextEmbeddingService.mjs');
             const {default: aiConfig}             = await import('../../../mcp/server/memory-core/config.mjs');
             const provider                        = providerResolver?.() ?? aiConfig.embeddingProvider;
+            const activity                        = getProviderActivityContext();
 
             // Route the whole batch through embedTexts (the batch path: 1h request timeout,
             // sequential chunks of batchEmbeddingChunkSize) — NOT per-text embedText fan-out. The
             // interactive embedText path applies the 15s contentionTimeoutMs, and a Promise.all over
             // the batch storms the single local embedder into self-contention, cutting bulk adds
             // (WAL drain / graph ingestion) short with spurious timeouts.
-            return TextEmbeddingService.embedTexts(texts, provider)
+            return TextEmbeddingService.embedTexts(texts, provider, {
+                operationLabel: 'Chroma dynamic text embedding',
+                operationStage: activity?.operationStage || operationStage,
+                service       : activity?.service || service
+            })
         },
         name       : CHROMA_DYNAMIC_TEXT_EMBEDDING_FUNCTION_NAME,
         getConfig  : () => ({}),
         constructor: {
-            buildFromConfig: () => createDynamicTextEmbeddingFunction({providerResolver})
+            buildFromConfig: () => createDynamicTextEmbeddingFunction({
+                providerResolver,
+                operationStage,
+                service
+            })
         }
     };
 

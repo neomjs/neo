@@ -442,7 +442,8 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
 
     test('REM marathon raw-turn path exposes active diagnostics and output budget before provider return (#13984)', async () => {
-        const originalOverrides = {
+        const MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
+        const originalOverrides         = {
                   [ENV.GRAPH_PROVIDER]   : aiConfig.graphProvider,
                   [ENV.REM_RUN_STATE_DIR]: aiConfig.remRunStateDir
               },
@@ -451,6 +452,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
               expectedGraphOutputLimit     = aiConfig.localModels.chat.graphOutputLimitTokens,
               expectedGraphModel           = aiConfig.openAiCompatible.model,
               baseGenerate                 = OpenAiCompatible.prototype.generate,
+              baseBeginProviderActivity    = MemoryCoreRecorderService.beginProviderActivity,
               remRunStateDir                = path.resolve(process.cwd(), 'tmp', `active-rem-call-${process.pid}-${Date.now()}`),
               turnDocuments                 = Array.from(
                   {length: 192},
@@ -458,13 +460,19 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
               );
 
         let activeOnDiskAfterCall, result;
-        const providerCalls = [];
+        const providerCalls      = [];
+        const providerActivities = [];
 
         try {
             setConfigOverrides({
                 [ENV.GRAPH_PROVIDER]   : 'openAiCompatible',
                 [ENV.REM_RUN_STATE_DIR]: remRunStateDir
             });
+
+            MemoryCoreRecorderService.beginProviderActivity = entry => {
+                providerActivities.push(entry);
+                return null;
+            };
 
             OpenAiCompatible.prototype.generate = async function(messages, options) {
                 const activeDuringCall       = {...SemanticGraphExtractor.activeTriVectorCall},
@@ -494,6 +502,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             activeOnDiskAfterCall = await readActiveRemCallState({dir: remRunStateDir});
         } finally {
             OpenAiCompatible.prototype.generate = baseGenerate;
+            MemoryCoreRecorderService.beginProviderActivity = baseBeginProviderActivity;
             setConfigOverrides(originalOverrides);
             fs.rmSync(remRunStateDir, {recursive: true, force: true});
         }
@@ -509,6 +518,11 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             maxCompletionTokens: expectedGraphOutputLimit,
             operationLabel     : expect.stringContaining('2d993feb-ea2f-4468-8fbd-c53e62365f4d')
         });
+        expect(secondCall.options).not.toHaveProperty('operationStage');
+        expect(providerActivities).toContainEqual(expect.objectContaining({
+            operationStage: 'rem-tri-vector',
+            service       : 'dream-pipeline'
+        }));
         expect(secondCall.activeDuringCall).toMatchObject({
             phase                    : 'triVector',
             sessionId                : '2d993feb-ea2f-4468-8fbd-c53e62365f4d',

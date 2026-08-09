@@ -15,19 +15,19 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import path           from 'path';
-import os             from 'os';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import fs              from 'fs';
+import path            from 'path';
+import os              from 'os';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * Write-side tenant isolation coverage for `VectorService.embed` (#11631).
+ * Write-side tenant isolation coverage for `VectorService.embed`.
  *
  * The tests replace ChromaDB with an in-memory spy collection and stub the embedding
  * provider, so they verify only the write-boundary contract: authoritative tenant
@@ -98,6 +98,7 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
     let originalConfig;
     let tmpDir, fixturePath;
     let warnCalls;
+    let embeddingCalls;
 
     test.beforeAll(async () => {
         SDK              = await import('../../../../../../ai/services.mjs');
@@ -117,18 +118,21 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         originalEmbedTexts    = TextEmbeddingService.embedTexts.bind(TextEmbeddingService);
         originalWarn          = Logger.warn.bind(Logger);
         originalConfig        = {
-            batchSize              : KB_Config.data.batchSize,
-            batchDelay             : KB_Config.data.batchDelay,
-            maxRetries             : KB_Config.data.maxRetries,
-            defaultTenantId        : KB_Config.data.defaultTenantId,
-            defaultRepoSlug        : KB_Config.data.defaultRepoSlug,
-            defaultVisibility      : KB_Config.data.defaultVisibility,
-            spoofRejectionMode     : KB_Config.data.spoofRejectionMode,
-            knowledgeBase          : KB_Config.data.knowledgeBase,
-            mcpSyncMaxChunks       : KB_Config.data.mcpSyncMaxChunks
+            batchSize         : KB_Config.data.batchSize,
+            batchDelay        : KB_Config.data.batchDelay,
+            maxRetries        : KB_Config.data.maxRetries,
+            defaultTenantId   : KB_Config.data.defaultTenantId,
+            defaultRepoSlug   : KB_Config.data.defaultRepoSlug,
+            defaultVisibility : KB_Config.data.defaultVisibility,
+            spoofRejectionMode: KB_Config.data.spoofRejectionMode,
+            knowledgeBase     : KB_Config.data.knowledgeBase,
+            mcpSyncMaxChunks  : KB_Config.data.mcpSyncMaxChunks
         };
 
-        TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
+        TextEmbeddingService.embedTexts = async (...args) => {
+            embeddingCalls.push(args);
+            return args[0].map(() => new Array(384).fill(0));
+        };
 
         tmpDir      = path.resolve(os.tmpdir(), `kb-tenant-stamping-test-${process.pid}-${Date.now()}`);
         fs.mkdirSync(tmpDir, {recursive: true});
@@ -167,6 +171,7 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         });
 
         warnCalls   = [];
+        embeddingCalls = [];
         Logger.warn = (...args) => warnCalls.push(args);
     });
 
@@ -195,6 +200,10 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         expect(row.metadata.visibility).toBe('team');
         expect('originAgentIdentity' in row.metadata).toBe(false);
         expect(row.metadata.tenantConfigVersion).toBe(0);
+        expect(embeddingCalls[0][2]).toMatchObject({
+            operationStage: 'kb-tenant-ingestion-embedding',
+            service       : 'knowledge-base'
+        });
         expect(warnCalls).toHaveLength(0);
     });
 
@@ -244,7 +253,7 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
             }
         });
 
-        const row = getOnlyRow(spy);
+        const row          = getOnlyRow(spy);
         const warnedFields = warnCalls.map(([, details]) => details.field).sort();
 
         expect(row.metadata.tenantId).toBe('server-tenant');
@@ -372,7 +381,7 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
             tenantId: 'tenant-b',
             repoSlug: 'repo'
         });
-        const defaultHash = KB_DatabaseService.createContentHash(baseChunk);
+        const defaultHash         = KB_DatabaseService.createContentHash(baseChunk);
         const explicitDefaultHash = KB_DatabaseService.createContentHash({
             ...baseChunk,
             tenantId: 'neo-shared',
@@ -398,7 +407,7 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
 
         const before = Date.now();
         await KB_VectorService.embed(fixturePath);
-        const after  = Date.now();
+        const after = Date.now();
 
         const {ingestedAt} = getOnlyRow(spy).metadata;
 

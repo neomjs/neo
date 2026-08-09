@@ -298,6 +298,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         // Wiring: ask must pass the interactive budget + a safe operation label to the provider.
         expect(capturedOptions).toBeTruthy();
         expect(capturedOptions.operationLabel).toBe('ask_knowledge_base synthesis');
+        expect(capturedOptions.operationStage).toBe('kb-ask-synthesis');
         expect(Object.prototype.hasOwnProperty.call(capturedOptions, 'timeoutMs')).toBe(true);
 
         // Degraded envelope: references preserved, bounded timeout reason, never collapses to "no documents".
@@ -335,12 +336,78 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(result.degradedCode).toBe('synthesis_timeout');
     });
 
+    test('composes query embedding before synthesis and skips synthesis on an empty result', async () => {
+        const
+            ChromaManager                  = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default,
+            TextEmbeddingService           = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default,
+            originalGetCollection          = ChromaManager.getKnowledgeBaseCollection,
+            originalEmbedText              = TextEmbeddingService.embedText,
+            originalAddLexicalRescueScores = QueryService.addLexicalRescueScores;
+
+        let metadatas = [{
+                source          : tmpFileRelativeToRoot,
+                type            : 'src',
+                name            : 'fixture-source',
+                inheritanceChain: '[]'
+            }],
+            stages         = [],
+            synthesisCalls = 0;
+
+        QueryService.queryDocuments = originalQueryDocuments;
+        QueryService.addLexicalRescueScores = async () => {};
+        TextEmbeddingService.embedText = async (query, provider, options) => {
+            stages.push(options.operationStage);
+            return [0.1, 0.2, 0.3];
+        };
+        ChromaManager.getKnowledgeBaseCollection = async () => ({
+            count: async () => 1,
+            query: async () => ({metadatas: [metadatas]})
+        });
+        SearchService.model = {
+            generateContent: async (prompt, options) => {
+                synthesisCalls++;
+                stages.push(options.operationStage);
+                return {response: {text: () => 'composed-answer'}};
+            }
+        };
+
+        try {
+            const withReferences = await SearchService.ask({query: 'composed fixture', type: 'src'});
+
+            expect(withReferences.answer).toBe('composed-answer');
+            expect(stages).toEqual(['kb-query-embedding', 'kb-ask-synthesis']);
+            expect(synthesisCalls).toBe(1);
+
+            stages    = [];
+            metadatas = [];
+
+            const empty = await SearchService.ask({query: 'empty composed fixture', type: 'src'});
+
+            expect(empty.references).toEqual([]);
+            expect(stages).toEqual(['kb-query-embedding']);
+            expect(synthesisCalls).toBe(1);
+        } finally {
+            QueryService.queryDocuments = originalQueryDocuments;
+            QueryService.addLexicalRescueScores = originalAddLexicalRescueScores;
+            TextEmbeddingService.embedText = originalEmbedText;
+            ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+            SearchService.model = originalModel;
+        }
+    });
+
     test('ask names the download/sync one-liners when the collection is EMPTY (post npm-prepare decouple cold-start)', async () => {
         const ChromaManager         = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
         const originalGetCollection = ChromaManager.getKnowledgeBaseCollection;
+        let   synthesisCalls        = 0;
 
         QueryService.queryDocuments = async () => ({results: []});
         ChromaManager.getKnowledgeBaseCollection = async () => ({count: async () => 0});
+        SearchService.model = {
+            async generateContent() {
+                synthesisCalls++;
+                return {response: {text: () => 'must not run'}};
+            }
+        };
 
         try {
             const result = await SearchService.ask({query: 'anything'});
@@ -348,6 +415,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             expect(result.answer).toContain('npm run ai:download-kb');
             expect(result.answer).toContain('npm run ai:sync-kb');
             expect(result.references).toEqual([]);
+            expect(synthesisCalls).toBe(0);
         } finally {
             ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         }

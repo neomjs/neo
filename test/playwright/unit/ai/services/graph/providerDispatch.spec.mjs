@@ -29,18 +29,18 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
     test('returns configured graph provider without generic modelProvider fallback (#12059)', () => {
         expect(resolveGraphModelProvider({
-            modelProvider : 'gemini',
-            graphProvider : 'openAiCompatible'
+            modelProvider: 'gemini',
+            graphProvider: 'openAiCompatible'
         })).toBe('openAiCompatible');
 
         expect(resolveGraphModelProvider({
-            modelProvider : 'gemini',
-            graphProvider : 'ollama'
+            modelProvider: 'gemini',
+            graphProvider: 'ollama'
         })).toBe('ollama');
 
         expect(resolveGraphModelProvider({
-            modelProvider : 'ollama',
-            graphProvider : 'openAiCompatible'
+            modelProvider: 'ollama',
+            graphProvider: 'openAiCompatible'
         })).toBe('openAiCompatible');
 
         expect(resolveGraphModelProvider({
@@ -48,8 +48,8 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
         })).toBeUndefined();
 
         expect(resolveGraphModelProvider({
-            modelProvider : 'openAiCompatible',
-            graphProvider : 'bogus-provider'
+            modelProvider: 'openAiCompatible',
+            graphProvider: 'bogus-provider'
         })).toBe('bogus-provider');
     });
 
@@ -157,5 +157,55 @@ test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
 
         const result = await provider.generate('hello world');
         expect(result.content).toBe('oai-generated');
+    });
+
+    test('records REM stages as unqueued and strips attribution controls before dispatch', async () => {
+        const calls    = [];
+        const activity = [];
+        const provider = buildGraphProvider({
+            modelProvider                  : 'openAiCompatible',
+            openAiCompatibleConfig         : {host: 'http://oai.test', model: 'graph-model'},
+            openAiCompatibleProviderFactory: () => ({
+                async generate(prompt, options) {
+                    calls.push({prompt, options});
+                    return {content: 'graph-result'};
+                }
+            }),
+            providerActivityRecorder: {
+                beginProviderActivity(entry) { activity.push({type: 'begin', entry}); return 'rem-1' },
+                startProviderActivity(id, startedAt) { activity.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) { activity.push({type: 'complete', id, outcome}) }
+            },
+            providerActivityService: 'dream-pipeline'
+        });
+
+        const result = await provider.generate('hello graph', {
+            operationLabel: 'REM topology private-session',
+            operationStage: 'rem-topology',
+            priority      : 'batch',
+            timeoutMs     : 100
+        });
+
+        expect(result.content).toBe('graph-result');
+        expect(calls).toEqual([{
+            prompt : 'hello graph',
+            options: {
+                operationLabel: 'REM topology private-session',
+                timeoutMs     : 100
+            }
+        }]);
+        expect(activity[0]).toEqual({
+            type : 'begin',
+            entry: expect.objectContaining({
+                model           : 'graph-model',
+                operationStage  : 'rem-topology',
+                priority        : 'batch',
+                provider        : 'openAiCompatible',
+                queueDisposition: 'not-applicable',
+                role            : 'chat',
+                service         : 'dream-pipeline'
+            })
+        });
+        expect(activity.map(item => item.type)).toEqual(['begin', 'start', 'complete']);
     });
 });

@@ -17,8 +17,9 @@ import {
     startDrainLoop,
     MAX_RECORD_COOLDOWN_MS
 } from '../../../../../../ai/daemons/embed/drainCycle.mjs';
-import {createDrainDispositionTracker} from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
+import {createDrainDispositionTracker}          from '../../../../../../ai/daemons/shared/drainDisposition.mjs';
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeoutError.mjs';
+import {getProviderActivityContext}             from '../../../../../../ai/services/shared/providerActivityLedger.mjs';
 
 /**
  * Embed-daemon drain cycle (`ai/daemons/embed/drainCycle.mjs`) — falsifier coverage for the
@@ -379,6 +380,29 @@ test.describe('Neo.ai.daemons.embed.drainCycle', () => {
         expect(failed).toHaveLength(1);
         expect(failed[0].record.id).toBe('y');
         expect(failed[0].error.message).toContain('poison');
+    });
+
+    test('embedBatch owns WAL attribution only around its collection writes', async () => {
+        const records    = [{...record('x', Date.now()), segmentKey: 'unused'}];
+        const collection = createFakeCollection();
+        const contexts   = [];
+
+        collection.onAdd = () => contexts.push(getProviderActivityContext());
+
+        await embedBatch({
+            collection,
+            records,
+            maxRetries   : 0,
+            backoffBaseMs: 1,
+            sleep        : async () => {},
+            log          : () => {}
+        });
+
+        expect(contexts).toEqual([{
+            operationStage: 'mc-wal-drain-embedding',
+            service       : 'memory-core'
+        }]);
+        expect(getProviderActivityContext()).toBeNull();
     });
 
     test('embedBatch: provider contention yields the cycle — one attempt, no isolation pass (#16012)', async () => {

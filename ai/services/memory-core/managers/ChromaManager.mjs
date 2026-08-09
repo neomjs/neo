@@ -223,7 +223,8 @@ class ChromaManager extends AbstractVectorManager {
      */
     #createEmbeddingFunction() {
         return createDynamicTextEmbeddingFunction({
-            providerResolver: () => aiConfig.embeddingProvider
+            providerResolver: () => aiConfig.embeddingProvider,
+            service         : 'memory-core'
         })
     }
 

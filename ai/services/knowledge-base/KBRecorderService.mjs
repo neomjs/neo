@@ -5,6 +5,15 @@ import Base           from '../../../src/core/Base.mjs';
 import ConceptService from '../ConceptService.mjs';
 import config         from '../../mcp/server/knowledge-base/config.mjs';
 import logger         from '../../mcp/server/knowledge-base/logger.mjs';
+import {
+    beginProviderActivity,
+    completeProviderActivity,
+    ensureProviderActivitySchema,
+    PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS,
+    refineProviderActivity,
+    startProviderActivity
+}                     from '../shared/providerActivityLedger.mjs';
+import {createProviderActivityStatusWriter} from '../shared/providerActivityStatusStore.mjs';
 
 /**
  * @summary Captures Knowledge Base query telemetry and materializes Agent FAQ demand clusters.
@@ -38,7 +47,13 @@ class KBRecorderService extends Base {
          * @summary SQLite connection to the shared Memory Core database.
          * @protected
          */
-        db: null
+        db: null,
+        /**
+         * @member {Object|null} providerActivityStatusWriter=null
+         * @summary Recorder-owned atomic failure-status sidecar writer.
+         * @protected
+         */
+        providerActivityStatusWriter: null
     }
 
     /**
@@ -62,11 +77,19 @@ class KBRecorderService extends Base {
                 return;
             }
 
+            this.providerActivityStatusWriter = createProviderActivityStatusWriter({
+                dbPath,
+                recorder: 'knowledge-base'
+            });
+
             await fs.ensureDir(path.dirname(dbPath));
 
             const Database = (await import('better-sqlite3')).default;
 
-            this.db = new Database(dbPath, {verbose: null});
+            this.db = new Database(dbPath, {
+                timeout: PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS,
+                verbose: null
+            });
             this.db.pragma('journal_mode = WAL');
             this.db.exec(`
                 CREATE TABLE IF NOT EXISTS kb_query_log (
@@ -125,8 +148,12 @@ class KBRecorderService extends Base {
                 CREATE INDEX IF NOT EXISTS idx_kb_ingestion_metrics_event     ON kb_ingestion_metrics(event_type);
             `);
 
+            ensureProviderActivitySchema(this.db);
+            await this.providerActivityStatusWriter.publishSuccess(Date.now());
+
             logger.info('[KBRecorderService] Connected to Memory Core kb_query_log / kb_query_faqs.');
         } catch (err) {
+            await this.providerActivityStatusWriter?.publishFailure(Date.now());
             logger.warn('[KBRecorderService] Failed to initialize SQLite connection:', err.message);
         }
     }
@@ -251,8 +278,8 @@ class KBRecorderService extends Base {
     /**
      * @summary Persists a per-tenant ingestion telemetry event into `kb_ingestion_metrics`.
      *
-     * Phase 4A (#11665) write-API. This is the durable contract the Phase 2 cross-tenant
-     * ingestion service (#11626) calls after each push / tombstone / reconcile / error event.
+     * This is the durable per-tenant contract the cross-tenant ingestion service calls after
+     * each push / tombstone / reconcile / error event.
      * Like {@link log}, persistence is a best-effort observability side channel — it never
      * throws back into the ingestion path, preserving ingestion availability even when the
      * telemetry store is unavailable or temporarily locked.
@@ -263,7 +290,7 @@ class KBRecorderService extends Base {
      * this write path O(1) and contention-free.
      *
      * @param {Object}  entry
-     * @param {String}  entry.tenantId        Authoritative tenant id (server-stamped, per #11631).
+     * @param {String}  entry.tenantId        Authoritative server-stamped tenant id.
      * @param {String}  entry.repoSlug        Authoritative repo slug.
      * @param {String} [entry.originAgentIdentity] Authenticated agent identity that triggered the event.
      * @param {String}  entry.eventType       One of `'ingest'`, `'tombstone'`, `'reconcile'`, `'error'`.
@@ -315,10 +342,102 @@ class KBRecorderService extends Base {
     }
 
     /**
+     * @summary Persists one bounded provider admission boundary in the shared telemetry artifact.
+     * @param {Object} entry Provider activity descriptor.
+     * @returns {String|null}
+     */
+    beginProviderActivity(entry = {}) {
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return null;
+        }
+
+        try {
+            return beginProviderActivity(this.db, entry);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[KBRecorderService] Failed to persist provider admission telemetry:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * @summary Persists the execution-start boundary for one provider activity.
+     * @param {String} activityId Opaque activity id.
+     * @param {Number} startedAt Provider-start timestamp.
+     * @returns {void}
+     */
+    startProviderActivity(activityId, startedAt) {
+        if (!activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            startProviderActivity(this.db, activityId, startedAt);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[KBRecorderService] Failed to persist provider-start telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Persists the model selected by provider-owned dispatch code.
+     * @param {String} activityId Opaque activity id.
+     * @param {Object} activity Dispatch-bound activity refinement.
+     * @returns {void}
+     */
+    refineProviderActivity(activityId, activity) {
+        if (!activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            refineProviderActivity(this.db, activityId, activity);
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[KBRecorderService] Failed to persist provider-dispatch telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Persists the bounded completion outcome for one provider activity.
+     * @param {String} activityId Opaque activity id.
+     * @param {Object} outcome Completion metadata.
+     * @returns {void}
+     */
+    completeProviderActivity(activityId, outcome = {}) {
+        if (!activityId) return;
+        if (!this.db) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            return;
+        }
+
+        try {
+            completeProviderActivity(this.db, activityId, outcome);
+            this.providerActivityStatusWriter?.publishSuccess(Date.now());
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[KBRecorderService] Failed to persist provider completion telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Awaits queued atomic provider-status publication for deterministic tests and shutdowns.
+     * @returns {Promise<void>}
+     */
+    async flushProviderActivityStatus() {
+        await this.providerActivityStatusWriter?.flush();
+    }
+
+    /**
      * @summary Rolls up `kb_ingestion_metrics` rows into per-tenant aggregate counters.
      *
-     * Phase 4A (#11665) read-API. Consumed by the Phase 4A-β observability daemon (rollup +
-     * persist) and Phase 4D alerting (threshold checks). Returns one aggregate row per tenant
+     * Consumed by the observability daemon (rollup + persist) and alerting threshold checks.
+     * Returns one aggregate row per tenant
      * for events within the `sinceMs` window — push/tombstone/reconcile/error event counts,
      * total chunk volumes, and error rate.
      *
@@ -478,21 +597,21 @@ class KBRecorderService extends Base {
             .slice(0, limit)
             .map(group => {
                 const
-                    firstSeen          = group.rows[0].timestamp,
-                    lastSeen           = group.rows.at(-1).timestamp,
-                    variants           = [...group.variants],
-                    canonicalQuery     = variants.sort((a, b) => b.length - a.length)[0],
-                    relatedConceptIds  = this.resolveRelatedConceptIds(canonicalQuery),
-                    guideCoverage      = this.hasStrongGuideCoverage(relatedConceptIds),
-                    clusterId          = crypto.createHash('sha256').update(group.normalized).digest('hex');
+                    firstSeen         = group.rows[0].timestamp,
+                    lastSeen          = group.rows.at(-1).timestamp,
+                    variants          = [...group.variants],
+                    canonicalQuery    = variants.sort((a, b) => b.length - a.length)[0],
+                    relatedConceptIds = this.resolveRelatedConceptIds(canonicalQuery),
+                    guideCoverage     = this.hasStrongGuideCoverage(relatedConceptIds),
+                    clusterId         = crypto.createHash('sha256').update(group.normalized).digest('hex');
 
                 return {
                     clusterId,
                     canonicalQuery,
-                    normalizedQuery: group.normalized,
+                    normalizedQuery       : group.normalized,
                     variants,
-                    count          : group.rows.length,
-                    failureCount   : group.failureCount,
+                    count                 : group.rows.length,
+                    failureCount          : group.failureCount,
                     firstSeen,
                     lastSeen,
                     relatedConceptIds,
@@ -575,17 +694,17 @@ class KBRecorderService extends Base {
         `).all(minCount, limit);
 
         const faqs = rows.map(row => ({
-            clusterId              : row.cluster_id,
-            canonicalQuery         : row.canonical_query,
-            normalizedQuery        : row.normalized_query,
-            variants               : this.safeParse(row.variants) || [],
-            count                  : row.occurrence_count,
-            failureCount           : row.failure_count,
-            firstSeen              : row.first_seen,
-            lastSeen               : row.last_seen,
-            relatedConceptIds      : this.safeParse(row.related_concept_ids) || [],
+            clusterId             : row.cluster_id,
+            canonicalQuery        : row.canonical_query,
+            normalizedQuery       : row.normalized_query,
+            variants              : this.safeParse(row.variants) || [],
+            count                 : row.occurrence_count,
+            failureCount          : row.failure_count,
+            firstSeen             : row.first_seen,
+            lastSeen              : row.last_seen,
+            relatedConceptIds     : this.safeParse(row.related_concept_ids) || [],
             hasStrongGuideCoverage: !!row.has_strong_guide_coverage,
-            similarityThreshold    : row.similarity_threshold
+            similarityThreshold   : row.similarity_threshold
         }));
 
         return {

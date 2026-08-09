@@ -11,6 +11,7 @@ import {
 }                                                       from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 import {chunkSession}                                  from './sessionChunker.mjs';
+import MemoryCoreRecorderService                       from '../memory-core/MemoryCoreRecorderService.mjs';
 
 const
     conflictEntryRegex          = /^- \*\*\[(SUPERSEDES|OBSOLETES|DUPLICATE)\]\*\* `([^`]+)`: (.*?) \(Source Session: ([^)]+)\)$/gm,
@@ -125,7 +126,9 @@ class TopologyInferenceEngine extends Base {
                 host      : AiConfig.openAiCompatible.host,
                 keep_alive: AiConfig.openAiCompatible.keep_alive,
                 model     : AiConfig.openAiCompatible.model
-            }
+            },
+            providerActivityRecorder: MemoryCoreRecorderService,
+            providerActivityService : 'dream-pipeline'
         });
     }
 
@@ -360,7 +363,8 @@ ${contextText}
                 const guardrailed = await invokeWithGuardrail({
                     invocationFn             : () => provider.generate(prompt, {
                         ...providerOptions,
-                        operationLabel: `REM topology ${sessionId} chunk ${chunkLabel}`
+                        operationLabel: `REM topology ${sessionId} chunk ${chunkLabel}`,
+                        operationStage: 'rem-topology'
                     }),
                     inputPayload             : prompt,
                     model                    : consumerModel,

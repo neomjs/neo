@@ -344,12 +344,20 @@ test.describe('Neo.ai.services.memory-core.queryRecentTurns', () => {
 
         // A genuine one-line answer must still succeed, or the three assertions above would also pass
         // against a producer that had stopped summarizing at all.
+        let usableOptions;
         const usable = await MemoryService.buildMiniSummary({
             prompt    : 'p', response: 'r',
-            buildModel: () => ({generateContent: async () => ({response: {text: () => '  a real   summary  '}})})
+            buildModel: () => ({generateContent: async (prompt, options) => {
+                usableOptions = options;
+                return {response: {text: () => '  a real   summary  '}};
+            }})
         });
 
         expect(usable).toEqual({summary: 'a real summary', cause: null});
+        expect(usableOptions).toMatchObject({
+            operationStage: 'mc-mini-summary',
+            priority      : 'batch'
+        });
 
         const providerError = await MemoryService.buildMiniSummary({
             prompt    : 'p', response: 'r',

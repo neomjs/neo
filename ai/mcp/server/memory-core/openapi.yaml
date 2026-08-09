@@ -219,8 +219,11 @@ paths:
         arguments, results, or caller identity. Completed calls provide latency/failure aggregates;
         calls that have crossed the start boundary but not the completion boundary are returned
         separately with redacted operation identity and elapsed time; recent completed calls above
-        a caller-selected duration retain their exact redacted timeline after recovery. Use this to
-        diagnose slow, failing, or process-wedging tools in long-running local and shared deployments.
+        a caller-selected duration retain their exact redacted timeline after recovery. The
+        providerActivity field separately attributes bounded chat/embedding stages and distinguishes
+        measured Neo queue wait from provider execution without retaining prompts, labels, or caller
+        identity. Use this to diagnose slow, failing, or process-wedging work in long-running local
+        and shared deployments.
       tags: [Diagnostics]
       requestBody:
         required: false
@@ -2557,6 +2560,7 @@ components:
         - tools
         - unfinishedCalls
         - recentSlowCalls
+        - providerActivity
       properties:
         status:
           type: string
@@ -2696,6 +2700,145 @@ components:
                 type: string
                 nullable: true
                 description: Redacted recorder stage when the call failed, or null on success.
+        providerActivity:
+          $ref: '#/components/schemas/ProviderActivityResponse'
+
+    ProviderActivityResponse:
+      type: object
+      required:
+        - status
+        - totalActivities
+        - totalInFlight
+        - aggregates
+        - inFlight
+        - recentCompletions
+      properties:
+        status:
+          type: string
+          enum: [ok, partial, disabled, unavailable]
+          description: Availability of the bounded provider-stage projection.
+        totalActivities:
+          type: integer
+          minimum: 0
+          description: Activities admitted inside the effective lookback window.
+        totalInFlight:
+          type: integer
+          minimum: 0
+          description: Activities without a completion boundary inside the effective lookback window.
+        aggregates:
+          type: array
+          description: Low-cardinality stage/service/provider/model aggregates.
+          items:
+            $ref: '#/components/schemas/ProviderActivityAggregate'
+        inFlight:
+          type: array
+          description: Oldest-first incomplete activities. Payloads, raw labels, and caller identity are absent.
+          items:
+            $ref: '#/components/schemas/ProviderActivityInFlight'
+        recentCompletions:
+          type: array
+          description: Newest-first completed provider activities inside the effective lookback window.
+          items:
+            $ref: '#/components/schemas/ProviderActivityCompletion'
+
+    ProviderActivityAggregate:
+      type: object
+      required:
+        - service
+        - operationStage
+        - role
+        - provider
+        - model
+        - priority
+        - queueDisposition
+        - calls
+        - failures
+        - inFlight
+        - avgQueueWaitMs
+        - maxQueueWaitMs
+        - avgExecutionMs
+        - maxExecutionMs
+        - lastSeenAt
+      properties:
+        service:          {type: string, enum: [knowledge-base, memory-core, dream-pipeline, orchestrator, unknown]}
+        operationStage:   {type: string, enum: [kb-query-embedding, kb-ask-synthesis, kb-tenant-ingestion-embedding, mc-wal-drain-embedding, mc-mini-summary, mc-session-summary, rem-tri-vector, rem-topology, embedding-canary, unknown]}
+        role:             {type: string, enum: [chat, embedding, unknown]}
+        provider:         {type: string, enum: [gemini, ollama, openAiCompatible, unknown]}
+        model:            {type: string, maxLength: 160}
+        priority:         {type: string, enum: [interactive, batch, unknown]}
+        queueDisposition: {type: string, enum: [neo-queued, not-applicable, unknown]}
+        calls:            {type: integer, minimum: 0}
+        failures:         {type: integer, minimum: 0}
+        inFlight:         {type: integer, minimum: 0}
+        avgQueueWaitMs:   {type: number, nullable: true, minimum: 0}
+        maxQueueWaitMs:   {type: integer, nullable: true, minimum: 0}
+        avgExecutionMs:   {type: number, nullable: true, minimum: 0}
+        maxExecutionMs:   {type: integer, nullable: true, minimum: 0}
+        lastSeenAt:       {type: string, format: date-time, nullable: true}
+
+    ProviderActivityInFlight:
+      type: object
+      required:
+        - activityId
+        - service
+        - operationStage
+        - role
+        - provider
+        - model
+        - priority
+        - enqueuedAt
+        - startedAt
+        - queueDisposition
+        - queueWaitMs
+        - elapsedMs
+      properties:
+        activityId:       {type: string}
+        service:          {type: string, enum: [knowledge-base, memory-core, dream-pipeline, orchestrator, unknown]}
+        operationStage:   {type: string, enum: [kb-query-embedding, kb-ask-synthesis, kb-tenant-ingestion-embedding, mc-wal-drain-embedding, mc-mini-summary, mc-session-summary, rem-tri-vector, rem-topology, embedding-canary, unknown]}
+        role:             {type: string, enum: [chat, embedding, unknown]}
+        provider:         {type: string, enum: [gemini, ollama, openAiCompatible, unknown]}
+        model:            {type: string, maxLength: 160}
+        priority:         {type: string, enum: [interactive, batch, unknown]}
+        enqueuedAt:       {type: string, format: date-time}
+        startedAt:        {type: string, format: date-time, nullable: true}
+        queueDisposition: {type: string, enum: [neo-queued, not-applicable, unknown]}
+        queueWaitMs:      {type: integer, nullable: true, minimum: 0}
+        elapsedMs:        {type: integer, minimum: 0}
+
+    ProviderActivityCompletion:
+      type: object
+      required:
+        - activityId
+        - service
+        - operationStage
+        - role
+        - provider
+        - model
+        - priority
+        - enqueuedAt
+        - startedAt
+        - completedAt
+        - queueDisposition
+        - queueWaitMs
+        - executionMs
+        - success
+        - failureStage
+      properties:
+        activityId:       {type: string}
+        service:          {type: string, enum: [knowledge-base, memory-core, dream-pipeline, orchestrator, unknown]}
+        operationStage:   {type: string, enum: [kb-query-embedding, kb-ask-synthesis, kb-tenant-ingestion-embedding, mc-wal-drain-embedding, mc-mini-summary, mc-session-summary, rem-tri-vector, rem-topology, embedding-canary, unknown]}
+        role:             {type: string, enum: [chat, embedding, unknown]}
+        provider:         {type: string, enum: [gemini, ollama, openAiCompatible, unknown]}
+        model:            {type: string, maxLength: 160}
+        priority:         {type: string, enum: [interactive, batch, unknown]}
+        enqueuedAt:       {type: string, format: date-time}
+        startedAt:        {type: string, format: date-time, nullable: true}
+        completedAt:      {type: string, format: date-time}
+        queueDisposition: {type: string, enum: [neo-queued, not-applicable, unknown]}
+        queueWaitMs:      {type: integer, nullable: true, minimum: 0}
+        executionMs:      {type: integer, nullable: true, minimum: 0}
+        success:          {type: boolean}
+        failureStage:     {type: string, enum: [provider, queue, unknown], nullable: true}
 
     RemPipelineStateResponse:
       type: object

@@ -32,6 +32,7 @@ import {buildSqliteHolderDiagnostics}   from './helpers/harnessClassifier.mjs';
 import {readRecentRemRunStates}         from './helpers/remRunStateStore.mjs';
 import {withTimeout}                    from './helpers/withTimeout.mjs';
 import {isActiveWakeSubscriptionStatus} from './wakeSubscriptionStatusPolicy.mjs';
+import MemoryCoreRecorderService        from './MemoryCoreRecorderService.mjs';
 import {
     LOOPBACK_PROBE_HEALTH_KEY,
     LOOPBACK_PROBE_TIMEOUT_MS,
@@ -221,9 +222,16 @@ export async function buildEmbeddingWriteCanaryBlock({
         return TextEmbeddingService.embedText(text, explicitProvider, options);
     });
 
+    const attributedProbe = (text, explicitProvider, options) => probe(text, explicitProvider, {
+        ...options,
+        operationStage          : 'embedding-canary',
+        providerActivityRecorder: MemoryCoreRecorderService,
+        service                 : 'memory-core'
+    });
+
     return buildEmbeddingProbeBlock({
         cfg,
-        embedText     : probe,
+        embedText     : attributedProbe,
         input,
         now,
         operationLabel: 'Embedding write canary',
