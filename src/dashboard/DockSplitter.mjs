@@ -95,12 +95,32 @@ class DockSplitter extends Component {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me          = this,
+            orientation = me.getValidatedOrientation(me.orientation),
+            vertical    = orientation === 'vertical';
 
         me.addDomListeners([
             {'drag:end'  : me.onDragEnd,   scope: me},
             {'drag:start': me.onDragStart, scope: me}
-        ])
+        ]);
+
+        // Create the drag zone EAGERLY (not on first drag:start): the zone registers itself
+        // with the main-thread DragDrop addon at construction, which is what lets the first
+        // drag:start of a boot already carry its dragZoneId — closing the cold-start window
+        // in which the Escape guard keyed on the still-null id.
+        me.dragZone = Neo.create({
+            module             : DragZone,
+            appName            : me.appName,
+            bodyCursorStyle    : me.getCursorStyle(),
+            boundaryContainerId: me.parent?.id,
+            dragElement        : me.vdom,
+            moveHorizontal     : !vertical,
+            moveVertical       : vertical,
+            owner              : me,
+            useProxyWrapper    : false,
+            windowId           : me.windowId,
+            ...me.dragZoneConfig
+        })
     }
 
     /**
@@ -326,7 +346,7 @@ class DockSplitter extends Component {
      * @param {Object} data
      */
     async onDragStart(data={}) {
-        let me         = this,
+        let me          = this,
             orientation = me.getValidatedOrientation(me.orientation),
             vertical    = orientation === 'vertical';
 
@@ -334,27 +354,14 @@ class DockSplitter extends Component {
             me.parent.disabled = true
         }
 
-        if (!me.dragZone) {
-            me.dragZone = Neo.create({
-                module             : DragZone,
-                appName            : me.appName,
-                bodyCursorStyle    : me.getCursorStyle(),
-                boundaryContainerId: me.parent?.id,
-                dragElement        : me.vdom,
-                moveHorizontal     : !vertical,
-                moveVertical       : vertical,
-                owner              : me,
-                useProxyWrapper    : false,
-                windowId           : me.windowId,
-                ...me.dragZoneConfig
-            })
-        } else {
-            me.dragZone.set({
-                bodyCursorStyle: me.getCursorStyle(),
-                moveHorizontal : !vertical,
-                moveVertical   : vertical
-            })
-        }
+        // The zone exists by construction — refresh the per-gesture facts that can drift
+        // (orientation-driven axes, cursor, the boundary container resolved once mounted).
+        me.dragZone.set({
+            bodyCursorStyle    : me.getCursorStyle(),
+            boundaryContainerId: me.parent?.id,
+            moveHorizontal     : !vertical,
+            moveVertical       : vertical
+        });
 
         await me.captureDragStart(data);
         await me.dragZone.dragStart(data);
