@@ -9,6 +9,7 @@ import path           from 'path';
 import {
     appendMessageWalGraphProjectionMarker,
     appendWalMessage,
+    getMessageWalGraphProjectionStats,
     getMessageWalGraphMarkersFileName,
     getMessageWalRecordsFileName,
     getMessageWalSegmentKey,
@@ -48,6 +49,97 @@ test.describe('Neo.ai.services.memory-core.helpers.messageWalStore', () => {
         expect(getMessageWalSegmentKey(DAY)).toBe('2026-07-30');
         expect(getMessageWalRecordsFileName('2026-07-30')).toBe('message-wal-2026-07-30.jsonl');
         expect(getMessageWalGraphMarkersFileName('2026-07-30')).toBe('message-wal-2026-07-30.graph.jsonl');
+    });
+
+    test('projection markers preserve monotonic route/cohort evidence and surface conflicts (#16767)', async () => {
+        const segmentKey = getMessageWalSegmentKey(DAY);
+
+        await appendWalMessage(record('MESSAGE:known-zero'), {dir: tmpDir, planeId: PLANE_ID});
+        await appendWalMessage(record('MESSAGE:legacy'), {dir: tmpDir, planeId: PLANE_ID});
+        await appendWalMessage(record('MESSAGE:conflict'), {dir: tmpDir, planeId: PLANE_ID});
+
+        await appendMessageWalGraphProjectionMarker({id: 'MESSAGE:known-zero', segmentKey}, {dir: tmpDir});
+
+        let stats = await getMessageWalGraphProjectionStats({dir: tmpDir});
+        expect(stats.broadcastCohortById.has('MESSAGE:known-zero')).toBe(false);
+
+        // One later marker enriches the historical projection receipt without changing its
+        // unique projected-id count or accepted-WAL segment coordinate.
+        await appendMessageWalGraphProjectionMarker({
+            id             : 'MESSAGE:known-zero',
+            segmentKey,
+            mailboxRouting : {disposition: 'known', sentBy: '@alice', to: 'AGENT:*'},
+            broadcastCohort: {disposition: 'known', intendedRecipientCount: 0}
+        }, {dir: tmpDir});
+        await appendMessageWalGraphProjectionMarker({
+            id             : 'MESSAGE:legacy',
+            segmentKey,
+            mailboxRouting : {disposition: 'legacy-unknown'},
+            broadcastCohort: {disposition: 'legacy-unknown'}
+        }, {dir: tmpDir});
+        await appendMessageWalGraphProjectionMarker({
+            id             : 'MESSAGE:conflict',
+            segmentKey,
+            mailboxRouting : {disposition: 'known', sentBy: '@alice', to: 'AGENT:*'},
+            broadcastCohort: {disposition: 'known', intendedRecipientCount: 2}
+        }, {dir: tmpDir});
+        await appendMessageWalGraphProjectionMarker({
+            id             : 'MESSAGE:conflict',
+            segmentKey,
+            mailboxRouting : {disposition: 'legacy-unknown'},
+            broadcastCohort: {disposition: 'legacy-unknown'}
+        }, {dir: tmpDir});
+        await appendMessageWalGraphProjectionMarker({
+            id             : 'MESSAGE:conflict',
+            segmentKey,
+            mailboxRouting : {disposition: 'known', sentBy: '@mallory', to: 'AGENT:*'},
+            broadcastCohort: {disposition: 'known', intendedRecipientCount: 0}
+        }, {dir: tmpDir});
+
+        stats = await getMessageWalGraphProjectionStats({dir: tmpDir});
+
+        expect(stats.projectedCount).toBe(3);
+        expect(stats.segmentById.get('MESSAGE:known-zero')).toBe(segmentKey);
+        expect(stats.mailboxRoutingById.get('MESSAGE:known-zero')).toEqual({
+            disposition: 'known', sentBy: '@alice', to: 'AGENT:*'
+        });
+        expect(stats.broadcastCohortById.get('MESSAGE:known-zero')).toEqual({
+            disposition           : 'known',
+            intendedRecipientCount: 0
+        });
+        expect(stats.mailboxRoutingById.get('MESSAGE:legacy')).toEqual({disposition: 'legacy-unknown'});
+        expect(stats.broadcastCohortById.get('MESSAGE:legacy')).toEqual({disposition: 'legacy-unknown'});
+        expect(stats.mailboxRoutingById.get('MESSAGE:conflict')).toEqual({
+            disposition: 'known', sentBy: '@alice', to: 'AGENT:*'
+        });
+        expect(stats.broadcastCohortById.get('MESSAGE:conflict')).toEqual({
+            disposition           : 'known',
+            intendedRecipientCount: 2
+        });
+        expect([...stats.markerConflicts.mailboxRoutingIds]).toEqual(['MESSAGE:conflict']);
+        expect([...stats.markerConflicts.broadcastCohortIds]).toEqual(['MESSAGE:conflict']);
+    });
+
+    test('a surviving marker keeps a missing payload segment in the projected candidate population (#16767)', async () => {
+        const durable   = await appendWalMessage(record('MESSAGE:missing-payload'), {dir: tmpDir, planeId: PLANE_ID}),
+            payloadPath = path.join(tmpDir, getMessageWalRecordsFileName(durable.segmentKey));
+
+        await appendMessageWalGraphProjectionMarker({
+            id            : 'MESSAGE:missing-payload',
+            segmentKey    : durable.segmentKey,
+            mailboxRouting: {disposition: 'known', sentBy: '@alice', to: '@bob'}
+        }, {dir: tmpDir});
+
+        expect((await getMessageWalGraphProjectionStats({dir: tmpDir})).projectedCount).toBe(1);
+
+        await fs.rm(payloadPath);
+
+        const stats = await getMessageWalGraphProjectionStats({dir: tmpDir});
+        expect(stats.projectedCount).toBe(1);
+        expect(stats.projectedIds.has('MESSAGE:missing-payload')).toBe(true);
+        expect(stats.segmentById.get('MESSAGE:missing-payload')).toBe(durable.segmentKey);
+        expect(stats.payloadSignatureBySegment.get(durable.segmentKey)).toBe('unavailable:ENOENT');
+        expect(await readWalMessagesByIds({dir: tmpDir, ids: ['MESSAGE:missing-payload']})).toEqual([]);
     });
 
     test('server plane provenance overrides a caller spoof and survives every read path', async () => {
