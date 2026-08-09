@@ -465,6 +465,7 @@ export {
 
 const toolService = Neo.create(ToolService, {
     compactToolDescriptions     : true,
+    compactToolSchemas          : true,
     openApiFilePath,
     serviceMapping              : guardedServiceMapping,
     toolListDescriptionMaxLength: 120

@@ -1,7 +1,7 @@
-import path               from 'path';
-import {fileURLToPath}    from 'url';
-import FileSystemService  from './FileSystemService.mjs';
-import ToolService        from '../../../ToolService.mjs';
+import path              from 'path';
+import {fileURLToPath}   from 'url';
+import FileSystemService from './FileSystemService.mjs';
+import ToolService       from '../../../ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -18,7 +18,8 @@ const serviceMapping = {
 };
 
 const toolService = Neo.create(ToolService, {
-    compactToolDescriptions    : true,
+    compactToolDescriptions     : true,
+    compactToolSchemas          : true,
     openApiFilePath,
     serviceMapping,
     toolListDescriptionMaxLength: 120

@@ -62,6 +62,10 @@ paths:
                     type: string
                   message:
                     type: string
+                  inputSchema:
+                    type: object
+                  outputSchema:
+                    type: object
 
   /issues:
     get:
