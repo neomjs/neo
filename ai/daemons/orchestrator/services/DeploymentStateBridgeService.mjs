@@ -4,6 +4,56 @@ import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
 import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
+import {runHealthcheck}                     from '../../../scripts/diagnostics/mcpHealthcheck.mjs';
+
+/**
+ * The message `runHealthcheck` produces when the server ANSWERED and reported a status outside the
+ * accepted set. Matched rather than re-thrown with a code because that module is also a container
+ * healthcheck entrypoint, and adding an error taxonomy to it for one consumer would widen a surface
+ * whose whole value is that it stays small.
+ * @member {RegExp} STATUS_MISMATCH_MESSAGE
+ */
+const STATUS_MISMATCH_MESSAGE = /^Expected healthcheck status /;
+
+/**
+ * @summary Decides whether a failed direct probe is evidence about the SERVICE or about the PROBE.
+ *
+ * Pure, exported, and separate from the call that produces the error, because this is the single
+ * decision that separates "a wedged container gets restarted" from "a healthy container gets
+ * restarted on every sweep" — it has to be exhaustively testable without a live server or a mutated
+ * config singleton.
+ *
+ * Exactly two shapes are statements about the service, and both are discriminated upstream by
+ * `mcpHealthcheck` rather than re-derived here:
+ *
+ * 1. a timeout it classified `service-unresponsive` — the probe was ready well inside its budget and
+ *    the service still produced nothing. Its sibling verdict `probe-starved` is explicitly evidence
+ *    about the BOX, and on a saturated host that difference is our own scheduling latency versus a
+ *    real fault;
+ * 2. the server answered and reported a status outside the accepted set.
+ *
+ * Everything else — refused, unresolved, malformed URL, auth — describes the probe's own
+ * configuration. Those return `null`, because a misconfigured probe read as a failed service would
+ * complete the evidence pair on every sweep and restart a container that was never unwell.
+ *
+ * @param {Error} error The rejection from the probe.
+ * @returns {Object|null} A failed-probe descriptor, or `null` when the failure is not service evidence.
+ */
+export function classifyDirectProbeOutcome(error) {
+    const verdict = error?.probeTiming?.verdict;
+
+    if (verdict === 'service-unresponsive') {
+        return {ok: false, name: 'direct-endpoint-probe', message: 'service-unresponsive'};
+    }
+
+    if (verdict === 'probe-starved') {
+        return null;
+    }
+
+    return STATUS_MISMATCH_MESSAGE.test(error?.message || '')
+        ? {ok: false, name: 'direct-endpoint-probe', message: 'status-not-accepted'}
+        : null
+}
 import {
     isTenantRepoAccessReadinessOutcome
 } from '../../../services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
@@ -135,6 +185,15 @@ export class DeploymentStateBridgeService extends Base {
          */
         providerResidencyProbe: null,
         /**
+         * Direct-probe seam: `async ({url, expectedStatus, timeoutMs, ...}) => void`, resolving when the
+         * service is serving and throwing otherwise. Falls back to `runHealthcheck`. Injected so specs
+         * can drive every failure shape — answered-but-wrong-status, starved, unresponsive, unreachable
+         * — without a live server, which is the only way the probe/service discrimination is testable.
+         * @member {Function|null} directProbeFn=null
+         * @protected
+         */
+        directProbeFn: null,
+        /**
          * @member {Function|null} recoveryRunStateReader=null
          * @protected
          */
@@ -264,6 +323,69 @@ export class DeploymentStateBridgeService extends Base {
             tenantRepoSync,
             maintenance
         });
+    }
+
+    /**
+     * @summary Asks a service directly whether it is serving — the second, independent evidence channel
+     * a `container-unhealthy` state needs before it may license a restart.
+     *
+     * Independence here is the INVOCATION, not the endpoint. This reaches the same MCP `healthcheck`
+     * tool the runtime's canary calls, but from a different process, at a different moment, and — the
+     * part that matters — under THIS deployment's expected-status contract rather than whatever the
+     * probed plane's own compose happens to declare. A plane whose healthcheck omits `degraded` reports
+     * a correctly-serving Memory Core as unhealthy; this probe asks the same server, is told `degraded`,
+     * accepts it, and the evidence pair never forms. That divergence is not hypothetical — it was
+     * observed on a live plane.
+     *
+     * **A probe that could not REACH the service returns `null`, never `{ok: false}`, and that
+     * distinction is the safety property.** A refused connection, an unresolved host, or a malformed URL
+     * says the PROBE is misconfigured; none of them establishes that the service stopped answering.
+     * Reporting one as a failed probe would complete the evidence pair out of a fault in our own
+     * observability and restart a healthy container on every sweep. Absent evidence stays absent.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Compose service key.
+     * @returns {Promise<Object|null>} `{ok, name, message}`, or `null` when no probe is declared for the
+     * service or the probe itself could not run.
+     */
+    async collectDirectProbe({serviceKey}) {
+        const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge,
+              urls         = Array.isArray(bridgeConfig.directProbeUrls) ? bridgeConfig.directProbeUrls : [],
+              // The URL's hostname IS the compose service key, so the declared list is self-describing
+              // and cannot drift out of step with a parallel key list.
+              url          = urls.find(candidate => {
+                  try {
+                      return new URL(candidate).hostname === serviceKey
+                  } catch {
+                      return false
+                  }
+              });
+
+        if (!url) {
+            return null;
+        }
+
+        const probe = this.directProbeFn || runHealthcheck;
+
+        try {
+            await probe({
+                url,
+                clientName    : 'neo-orchestrator-direct-probe',
+                expectedStatus: bridgeConfig.directProbeExpectedStatus,
+                identity      : 'neo-orchestrator-direct-probe',
+                timeoutMs     : bridgeConfig.directProbeTimeoutMs
+            });
+
+            return {ok: true, name: 'direct-endpoint-probe', message: null};
+        } catch (error) {
+            const outcome = classifyDirectProbeOutcome(error);
+
+            if (!outcome) {
+                this.writeLog?.('WARN', `[DeploymentStateBridge] direct probe for ${serviceKey} produced no service evidence: ${error.message}`);
+            }
+
+            return outcome;
+        }
     }
 
     /**
@@ -409,6 +531,11 @@ export class DeploymentStateBridgeService extends Base {
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
 
+        // The SECOND evidence channel. Until this existed, `endpointProbe` had no producer anywhere in
+        // the orchestrator, so ADR-0025 §2.4's authoritative pair could never form and a wedged // ticket-ref-ok: the ADR clause is the reason this call exists at all
+        // container was diagnosed and never acted on.
+        const endpointProbe = await this.collectDirectProbe({serviceKey});
+
         const churnBaseline = this.readChurnBaseline(serviceKey);
 
         // A failed runtime read must not reach `diagnose()` as a silent `inspect: null`. Absent
@@ -466,6 +593,7 @@ export class DeploymentStateBridgeService extends Base {
                 inspect,
                 stats,
                 statsSamples   : this.getStatsSamples(serviceKey),
+                endpointProbe,
                 providerResidency,
                 churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
