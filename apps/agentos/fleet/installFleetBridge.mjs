@@ -1,4 +1,10 @@
-import {FLEET_WIRE_METHODS} from '../config/fleetWireMethods.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireRequest,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    inspectFleetWireResponse
+} from '../config/fleetWireMethods.mjs';
 
 /**
  * Canonical shape of the Fleet process bearer: 32 random bytes as unpadded base64url (43 chars).
@@ -18,6 +24,17 @@ const FLEET_BEARER_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer', 'token', 'authorization'];
 
 /**
+ * Bounded local launch-state errors that may cross the injected shell transport verbatim. Every
+ * other rejection collapses to the generic transport failure before reaching the pane.
+ * @type {Readonly<Object>}
+ */
+export const FLEET_LOCAL_TRANSPORT_ERRORS = Object.freeze({
+    noBearer       : 'fleet bearer not injected — launch the cockpit through the authenticated Fleet boot path; the pane stays fail-closed until the launch contract supplies the process bearer in memory',
+    noLiveWindow   : 'fleet: no live shell window',
+    shellCapability: 'fleet: shell request capability unavailable'
+});
+
+/**
  * @summary Wire one topology-owned app↔fleet transport into the App Worker. Direct-browser mode
  * builds a `fetch`-backed `send` against the Fleet URL; the packaged Electron shell injects a named
  * preload/main `send` whose bearer never enters this realm. Both feed the proxy map generated here
@@ -28,6 +45,10 @@ const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer',
  * The Node-side dual (`ai/services/fleet/createFleetRegistryBridge.mjs`, consumed by CLI tools)
  * binds the AUTHORITY list; the vocabulary-parity lint keeps the two lists identical, so the ends
  * of the wire cannot drift while neither realm imports across the boundary.
+ * Every call creates a fresh version/capability offer and validates the server-selected contract
+ * before returning operation data. Direct-browser mode emits that offer itself; shell mode keeps
+ * the IPC message at `{method, params}` so Electron main can attach its independently loaded,
+ * main-owned offer — the operable-cold contract's browser-client half.
  *
  * **The Fleet ingress trust boundary, client half.** Direct-browser requests carry
  * `Authorization: Bearer <token>` — the process-lifetime secret its launch path injects as an
@@ -48,8 +69,8 @@ const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer',
  *     base64url). `null` installs a fail-closed bridge that rejects every call locally with the
  *     launch-contract remediation — never a network call without credentials.
  * @param {Function} [opts.fetchImpl=globalThis.fetch]     Injectable fetch for tests.
- * @param {Function} [opts.send=null]                      Packaged-shell transport; mutually exclusive
- *     with `url` / `bearerToken`.
+ * @param {Function} [opts.send=null]                      Packaged-shell intent transport; receives
+ *     only `{method, params}` and is mutually exclusive with `url` / `bearerToken`.
  * @param {'worker'|'shell'} [opts.credentialIngress='worker'] Public credential-custody fact.
  * @param {Boolean}  [opts.selected=false]                 Whether this install is an explicit source
  *     selection (the injector path) versus the boot default. Selected bridges render an empty
@@ -67,7 +88,7 @@ export function installFleetBridge({
     target = globalThis
 } = {}) {
     const endpointError = 'installFleetBridge requires an absolute loopback HTTP(S) fleet URL';
-    let fleetUrl, transportSend;
+    let fleetUrl, shellTransport, transportSend;
 
     if (!['shell', 'worker'].includes(credentialIngress)) {
         throw new TypeError("installFleetBridge: credentialIngress must be 'shell' or 'worker'")
@@ -82,8 +103,11 @@ export function installFleetBridge({
             throw new TypeError('installFleetBridge: injected send is mutually exclusive with url and bearerToken')
         }
 
-        transportSend = send
+        shellTransport = true;
+        transportSend  = send
     } else {
+        shellTransport = false;
+
         if (credentialIngress === 'shell') {
             throw new TypeError('installFleetBridge: shell credential ingress requires an injected send')
         }
@@ -112,7 +136,7 @@ export function installFleetBridge({
 
         transportSend = bearerToken === null
             ? async () => {
-                throw new Error('fleet bearer not injected — launch the cockpit through the authenticated Fleet boot path; the pane stays fail-closed until the launch contract supplies the process bearer in memory')
+                throw new Error(FLEET_LOCAL_TRANSPORT_ERRORS.noBearer)
             }
             : async request => {
                 const response = await fetchImpl(fleetUrl.href, {
@@ -129,11 +153,38 @@ export function installFleetBridge({
     }
 
     // The browser's half of the wire contract: one async proxy per twin-listed verb, unwrapping the
-    // `{ok, result|error}` envelope — resolve `result`, throw on `error`.
+    // finite response envelope only after its selection matches this realm's offer. Browser mode
+    // sends that offer directly; shell mode relies on parity with main's independently owned offer.
     const request = async (method, params) => {
-        const envelope = await transportSend({method, params});
+        const
+            offer       = createFleetWireOffer(),
+            wireRequest = createFleetWireRequest(method, params, offer);
 
-        if (!envelope?.ok) {
+        let envelope, inspection;
+
+        try {
+            envelope = await transportSend(shellTransport
+                ? {method: wireRequest.method, params: wireRequest.params}
+                : wireRequest)
+        } catch (error) {
+            const safeError = Object.values(FLEET_LOCAL_TRANSPORT_ERRORS).includes(error?.message)
+                ? error.message
+                : 'fleet: request transport failed';
+
+            throw new Error(safeError)
+        }
+
+        try {
+            inspection = inspectFleetWireResponse(envelope, offer)
+        } catch {
+            throw new Error('fleet: malformed wire response')
+        }
+
+        if (!inspection.ok) {
+            throw new Error(inspection.error)
+        }
+
+        if (envelope.state !== FLEET_WIRE_RESPONSE_STATES.ok) {
             throw new Error(envelope?.error || `fleet: '${method}' failed`);
         }
 

@@ -28,7 +28,12 @@ import FleetTenantService, {
 import FleetRegistryService   from '../../../../../../ai/services/fleet/FleetRegistryService.mjs'
 import FleetControlBridge     from '../../../../../../ai/services/fleet/FleetControlBridge.mjs'
 import {dispatchFleetRequest} from '../../../../../../ai/services/fleet/dispatchFleetRequest.mjs'
-import {FLEET_WIRE_METHODS}   from '../../../../../../ai/services/fleet/fleetWireMethods.mjs'
+import {
+    createFleetWireOffer,
+    createFleetWireRequest,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs'
 
 const PAT = 'glpat-SUPER-SECRET-tenant-credential-42'
 
@@ -1032,10 +1037,18 @@ test.describe.serial('FleetControlBridge + wire — the remote-tenant surface', 
         expect(FLEET_WIRE_METHODS).not.toContain('getCredential')
         expect(FLEET_WIRE_METHODS).not.toContain('resolveMcpCredential')
 
-        await expect(dispatchFleetRequest({method: 'getCredential', params: 't'})).resolves
-            .toEqual({ok: false, error: "fleet: method 'getCredential' is not on the control surface"})
-        await expect(dispatchFleetRequest({method: 'resolveMcpCredential', params: 't'})).resolves
-            .toEqual({ok: false, error: "fleet: method 'resolveMcpCredential' is not on the control surface"})
+        await expect(dispatchFleetRequest({method: 'getCredential', params: 't', protocol: createFleetWireOffer()})).resolves
+            .toMatchObject({
+                error: "fleet: method 'getCredential' is not on the control surface",
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.unsupportedMethod
+            })
+        await expect(dispatchFleetRequest({method: 'resolveMcpCredential', params: 't', protocol: createFleetWireOffer()})).resolves
+            .toMatchObject({
+                error: "fleet: method 'resolveMcpCredential' is not on the control surface",
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.unsupportedMethod
+            })
     })
 
     test('a connectTenant dispatched over the wire returns the fail-closed envelope on service rejection', async () => {
@@ -1043,8 +1056,15 @@ test.describe.serial('FleetControlBridge + wire — the remote-tenant surface', 
             connectTenant: async () => ({status: 'rejected', reason: 'tenant rejected the credential'})
         }
 
-        const result = await dispatchFleetRequest({method: 'connectTenant', params: {tenantUrl: 'https://t', credential: 'bad'}})
+        const result = await dispatchFleetRequest(createFleetWireRequest(
+            'connectTenant',
+            {tenantUrl: 'https://t', credential: 'bad'}
+        ))
 
-        expect(result).toEqual({ok: true, result: {status: 'rejected', reason: 'tenant rejected the credential'}})
+        expect(result).toMatchObject({
+            ok    : true,
+            result: {status: 'rejected', reason: 'tenant rejected the credential'},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        })
     })
 })

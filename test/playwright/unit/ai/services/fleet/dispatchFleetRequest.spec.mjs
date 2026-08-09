@@ -17,11 +17,19 @@ import {test, expect}                             from '@playwright/test';
 import Neo                                        from '../../../../../../src/Neo.mjs';
 import * as core                                  from '../../../../../../src/core/_export.mjs';
 import {dispatchFleetRequest, FLEET_WIRE_METHODS} from '../../../../../../ai/services/fleet/dispatchFleetRequest.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireProtocolStamp,
+    createFleetWireRequest,
+    FLEET_WIRE_CAPABILITIES,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
 
-// dispatchFleetRequest is the pure app↔fleet wire choke-point: it takes a {method, params} request,
-// enforces the wire-level allowlist, forwards to an injected bridge stub, and normalizes to an
-// {ok, result|error} envelope. No socket / transport needed to exercise it — the transport is a thin
-// wrapper that only carries the request in + the envelope out.
+// dispatchFleetRequest is the pure app↔fleet wire choke-point: it selects a client-offered contract
+// before method policy, forwards to an injected bridge stub, and emits one finite response state.
+// No socket / transport is needed to exercise that ordering.
+
+const wireRequest = (method, params) => createFleetWireRequest(method, params);
 
 test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing choke-point', () => {
     let calls, bridge;
@@ -47,49 +55,60 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
     });
 
     test('routes an allowlisted method, forwards params, wraps {ok:true, result}', async () => {
-        const res = await dispatchFleetRequest({method: 'defineAgent', params: {githubUsername: 'alice', harnessType: 'codex'}}, bridge);
-        expect(res).toEqual({ok: true, result: {id: 'alice'}});
+        const res = await dispatchFleetRequest(wireRequest('defineAgent', {githubUsername: 'alice', harnessType: 'codex'}), bridge);
+        expect(res).toEqual({
+            ok      : true,
+            protocol: createFleetWireProtocolStamp(),
+            result  : {id: 'alice'},
+            state   : FLEET_WIRE_RESPONSE_STATES.ok
+        });
         expect(calls).toEqual([['defineAgent', {githubUsername: 'alice', harnessType: 'codex'}]]);
     });
 
     test('awaits async lifecycle operations', async () => {
-        const res = await dispatchFleetRequest({method: 'startAgent', params: 'alice'}, bridge);
-        expect(res).toEqual({ok: true, result: {id: 'alice', state: 'running'}});
+        const res = await dispatchFleetRequest(wireRequest('startAgent', 'alice'), bridge);
+        expect(res).toMatchObject({ok: true, result: {id: 'alice', state: 'running'}, state: FLEET_WIRE_RESPONSE_STATES.ok});
         expect(calls).toEqual([['startAgent', 'alice']]);
     });
 
     test('routes setRepo, forwarding the single payload to the bridge (wire-compatible single-params)', async () => {
         const payload = {id: 'alice', cloneUrl: 'https://github.com/x/y.git', repoSlug: 'x/y'},
-              res     = await dispatchFleetRequest({method: 'setRepo', params: payload}, bridge);
+              res     = await dispatchFleetRequest(wireRequest('setRepo', payload), bridge);
 
-        expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {repo: payload}}});
+        expect(res).toMatchObject({ok: true, result: {id: 'alice', metadata: {repo: payload}}, state: FLEET_WIRE_RESPONSE_STATES.ok});
         expect(calls).toEqual([['setRepo', payload]]);
     });
 
     test('routes configureAgent as one payload and preserves the domain outcome', async () => {
         const
             payload = {id: 'alice', harnessType: 'claude-code', mcpServers: {'memory-core': false}},
-            res     = await dispatchFleetRequest({method: 'configureAgent', params: payload}, bridge);
+            res     = await dispatchFleetRequest(wireRequest('configureAgent', payload), bridge);
 
-        expect(res).toEqual({
+        expect(res).toMatchObject({
             ok    : true,
-            result: {status: 'accepted', agent: {id: 'alice', harnessType: 'claude-code'}}
+            result: {status: 'accepted', agent: {id: 'alice', harnessType: 'claude-code'}},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
         });
         expect(calls).toEqual([['configureAgent', payload]])
     });
 
     test('routes setAvatar, forwarding the single payload to the bridge', async () => {
         const payload = {id: 'alice', avatarUrl: 'https://cdn/x.png'},
-              res     = await dispatchFleetRequest({method: 'setAvatar', params: payload}, bridge);
+              res     = await dispatchFleetRequest(wireRequest('setAvatar', payload), bridge);
 
-        expect(res).toEqual({ok: true, result: {id: 'alice', metadata: {avatarUrl: 'https://cdn/x.png'}}});
+        expect(res).toMatchObject({
+            ok    : true,
+            result: {id: 'alice', metadata: {avatarUrl: 'https://cdn/x.png'}},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        });
         expect(calls).toEqual([['setAvatar', payload]]);
     });
 
     test('rejects a method NOT on the wire allowlist without ever calling the bridge', async () => {
         for (const method of ['getManager', 'getRegistry', 'constructor', 'toString', '__proto__', 'resolveCredential', 'nope']) {
-            const res = await dispatchFleetRequest({method, params: 'x'}, bridge);
+            const res = await dispatchFleetRequest({method, params: 'x', protocol: createFleetWireOffer()}, bridge);
             expect(res.ok).toBe(false);
+            expect(res.state).toBe(FLEET_WIRE_RESPONSE_STATES.unsupportedMethod);
             expect(res.error).toContain('not on the control surface');
         }
         // the dangerous resolver seams were never invoked — the wire allowlist stopped them first
@@ -98,9 +117,10 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
 
     test('fails closed on a thrown op WITHOUT leaking the raw error / stack (sanitized, method-scoped)', async () => {
         const throwing = {startAgent: async () => { throw new Error('spawn failed at /internal/secret/path.mjs:42'); }};
-        const res      = await dispatchFleetRequest({method: 'startAgent', params: 'alice'}, throwing);
+        const res      = await dispatchFleetRequest(wireRequest('startAgent', 'alice'), throwing);
 
         expect(res.ok).toBe(false);
+        expect(res.state).toBe(FLEET_WIRE_RESPONSE_STATES.operationFailed);
         expect(res.error).toBe("fleet: 'startAgent' failed");
         expect(res.error).not.toContain('spawn failed');       // the raw message never crosses the wire
         expect(res.error).not.toContain('/internal/secret')    // no stack / internal-path leak
@@ -109,6 +129,30 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
     test('an absent request object fails closed, not throws', async () => {
         const res = await dispatchFleetRequest(undefined, bridge);
         expect(res.ok).toBe(false);
+        expect(res.state).toBe(FLEET_WIRE_RESPONSE_STATES.unsupportedProtocol);
+        expect(calls).toEqual([])
+    });
+
+    test('version or required-capability skew closes before method lookup or bridge execution', async () => {
+        const requests = [
+            {method: 'listAgents', protocol: {versions: [999], capabilities: [...FLEET_WIRE_CAPABILITIES]}},
+            {method: 'listAgents', protocol: {versions: [1], capabilities: ['method-schema-v1']}}
+        ];
+
+        const states = [];
+
+        for (const request of requests) {
+            const response = await dispatchFleetRequest(request, bridge);
+
+            states.push(response.state);
+            expect(response.ok).toBe(false)
+        }
+
+        expect(states).toEqual([
+            FLEET_WIRE_RESPONSE_STATES.unsupportedProtocol,
+            FLEET_WIRE_RESPONSE_STATES.unsupportedCapability
+        ]);
+        expect(calls).toEqual([])
     });
 
     test('resolveViewerIdentity routes over the wire — the whoami identity-bootstrap is a real pane-callable verb', async () => {
@@ -117,7 +161,7 @@ test.describe('dispatchFleetRequest — the app↔fleet wire allowlist + routing
             return {ok: true, agentIdentityNodeId: '@stamped-viewer'}
         };
 
-        const res = await dispatchFleetRequest({method: 'resolveViewerIdentity'}, bridge);
+        const res = await dispatchFleetRequest(wireRequest('resolveViewerIdentity'), bridge);
 
         expect(res.ok).toBe(true);
         expect(res.result).toEqual({ok: true, agentIdentityNodeId: '@stamped-viewer'});

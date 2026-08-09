@@ -594,12 +594,16 @@ test.describe('onboardPeer — long-lived Fleet owner transport', () => {
     });
 
     test('an unreachable long-lived owner fails closed with the operator recovery command', async () => {
+        const endpointSecret = 'credential-shaped-endpoint-secret';
         const bridge = createOnboardingFleetBridge({
             bearerToken: generateLocalBearerToken(),
-            fetchImpl  : async () => { throw new Error('ECONNREFUSED') }
+            fetchImpl  : async () => { throw new Error('raw-upstream-transport-secret') },
+            url        : `http://127.0.0.1:8083/fleet?token=${endpointSecret}`
         });
 
         await expect(bridge.getAgent('neo-gpt-2')).rejects.toThrow(/npm run ai:fleet-server/);
+        await expect(bridge.getAgent('neo-gpt-2')).rejects.not.toThrow(endpointSecret);
+        await expect(bridge.getAgent('neo-gpt-2')).rejects.not.toThrow('raw-upstream-transport-secret')
     });
 
     test('a missing process bearer fails closed at construction with the launch-contract remedy', () => {

@@ -240,7 +240,9 @@ export function createOnboardingFleetBridge({url = 'http://127.0.0.1:8083/fleet'
         }
     };
 
-    return createFleetRegistryBridge(send)
+    return createFleetRegistryBridge(send, {
+        transportFailureMessage: "onboardPeer: long-lived Fleet owner is unreachable; start it with 'npm run ai:fleet-server' and re-run"
+    })
 }
 
 /**

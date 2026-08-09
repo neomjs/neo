@@ -13,11 +13,25 @@ setup({
     }
 });
 
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../../src/Neo.mjs';
-import * as core            from '../../../../../../src/core/_export.mjs';
-import {installFleetBridge} from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
-import {FLEET_WIRE_METHODS} from '../../../../../../apps/agentos/config/fleetWireMethods.mjs';
+import {test, expect}          from '@playwright/test';
+import Neo                     from '../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../src/core/_export.mjs';
+import {createFleetCapability} from '../../../../../../harness/fleetCapability.mjs';
+import {
+    FLEET_LOCAL_TRANSPORT_ERRORS,
+    installFleetBridge
+} from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireProtocolStamp,
+    createFleetWireRequest,
+    createFleetWireResponse,
+    FLEET_CREDENTIAL_METHODS,
+    FLEET_WIRE_CAPABILITIES,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    inspectFleetWireResponse
+} from '../../../../../../apps/agentos/config/fleetWireMethods.mjs';
 
 // installFleetBridge is the App-Worker wiring that publishes globalThis.AgentOS.fleet.registryBridge.
 // Tests inject a `target` object (instead of the real globalThis) + a stub `fetchImpl`, so the global
@@ -25,7 +39,9 @@ import {FLEET_WIRE_METHODS} from '../../../../../../apps/agentos/config/fleetWir
 
 const fleetUrl   = 'http://127.0.0.1:8083/fleet',
       testBearer = 'A'.repeat(43), // canonical FORMAT (client checks shape only; the server owns real verification)
-      okFetch    = () => async () => ({json: async () => ({ok: true, result: null})});
+      okFetch    = () => async () => ({
+          json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: null})
+      });
 
 test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->fleet HTTP transport', () => {
     test('the selected flag: default install is unselected; the injector-style install stamps selected', () => {
@@ -60,7 +76,7 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
                 credentialIngress: 'shell',
                 send             : async request => {
                     calls.push(request);
-                    return {ok: true, result: [{id: 'alice'}]}
+                    return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: [{id: 'alice'}]})
                 },
                 target
             }),
@@ -77,18 +93,64 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         })
     });
 
+    test('the packaged App Worker to Electron-main composition keeps protocol metadata main-owned', async () => {
+        const
+            event          = {sender: 'trusted'},
+            ipcRequests    = [],
+            serverRequests = [],
+            capability     = createFleetCapability({
+                bearerToken       : testBearer,
+                createWireOffer   : createFleetWireOffer,
+                createWireRequest : createFleetWireRequest,
+                createWireResponse: createFleetWireResponse,
+                credentialMethods : FLEET_CREDENTIAL_METHODS,
+                fetchImpl         : async (url, init) => {
+                    serverRequests.push({request: JSON.parse(init.body), url});
+
+                    return {
+                        json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                            result: [{id: 'alice'}]
+                        })
+                    }
+                },
+                getBrain           : async () => ({fleetPort: 9191, up: true}),
+                inspectWireResponse: inspectFleetWireResponse,
+                isTrustedSender    : candidate => candidate === event,
+                responseStates     : FLEET_WIRE_RESPONSE_STATES,
+                wireMethods        : FLEET_WIRE_METHODS
+            }),
+            bridge = installFleetBridge({
+                credentialIngress: 'shell',
+                send             : request => {
+                    ipcRequests.push(request);
+                    return capability.request(event, request)
+                },
+                target: {}
+            });
+
+        await expect(bridge.listAgents()).resolves.toEqual([{id: 'alice'}]);
+        expect(ipcRequests).toEqual([{method: 'listAgents', params: undefined}]);
+        expect(serverRequests).toEqual([{
+            request: createFleetWireRequest('listAgents', undefined),
+            url    : 'http://127.0.0.1:9191/fleet'
+        }])
+    });
+
     test('rejects mixed direct-browser and injected-shell transport ownership', () => {
-        const send = async () => ({ok: true, result: null});
+        const send = async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: null});
 
         expect(() => installFleetBridge({send, target: {}, url: fleetUrl})).toThrow(/mutually exclusive/);
         expect(() => installFleetBridge({bearerToken: testBearer, send, target: {}})).toThrow(/mutually exclusive/);
         expect(() => installFleetBridge({credentialIngress: 'shell', target: {}, url: fleetUrl})).toThrow(/requires an injected send/)
     });
 
-    test('defineAgent POSTs {method, params} with the Authorization bearer + resolves the envelope result', async () => {
+    test('defineAgent POSTs a main-owned protocol offer with the bearer + resolves the validated result', async () => {
         const calls     = [];
-        const fetchImpl = async (url, init) => { calls.push({url, init}); return {json: async () => ({ok: true, result: {id: 'alice'}})} };
-        const target    = {};
+        const fetchImpl = async (url, init) => {
+            calls.push({url, init});
+            return {json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: {id: 'alice'}})}
+        };
+        const target = {};
 
         installFleetBridge({url: 'http://localhost:9191/fleet', bearerToken: testBearer, fetchImpl, target});
         const res = await target.AgentOS.fleet.registryBridge.defineAgent({githubUsername: 'alice', harnessType: 'codex'});
@@ -98,13 +160,18 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         expect(calls[0].url).toBe('http://localhost:9191/fleet');
         expect(calls[0].init.method).toBe('POST');
         expect(calls[0].init.headers.Authorization).toBe(`Bearer ${testBearer}`);
-        expect(JSON.parse(calls[0].init.body)).toEqual({method: 'defineAgent', params: {githubUsername: 'alice', harnessType: 'codex'}})
+        expect(JSON.parse(calls[0].init.body)).toEqual(
+            createFleetWireRequest('defineAgent', {githubUsername: 'alice', harnessType: 'codex'})
+        )
     });
 
     test('without a bearer every call rejects LOCALLY — the fail-closed unlaunched state sends no network traffic', async () => {
         const calls     = [];
-        const fetchImpl = async (...args) => { calls.push(args); return {json: async () => ({ok: true, result: null})} };
-        const target    = {};
+        const fetchImpl = async (...args) => {
+            calls.push(args);
+            return {json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: null})}
+        };
+        const target = {};
 
         installFleetBridge({url: fleetUrl, fetchImpl, target});
 
@@ -140,6 +207,67 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
         const second = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
         expect(target.AgentOS.fleet.registryBridge).toBe(second)
+    });
+
+    test('malformed, version-skewed, and capability-skewed replies never become pane data', async () => {
+        const responses = [
+            {ok: true, state: 'invented', protocol: createFleetWireProtocolStamp(), result: []},
+            {ok: true, state: FLEET_WIRE_RESPONSE_STATES.ok, protocol: createFleetWireProtocolStamp()},
+            createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: createFleetWireProtocolStamp(2),
+                result  : []
+            }),
+            createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: createFleetWireProtocolStamp(1, [...FLEET_WIRE_CAPABILITIES, 'server-only']),
+                result  : []
+            }),
+            {
+                ...createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+                protocol: {...createFleetWireProtocolStamp(), ownerPrincipal: 'must-never-cross'}
+            }
+        ];
+
+        for (const response of responses) {
+            const bridge = installFleetBridge({
+                credentialIngress: 'shell',
+                send             : async () => response,
+                target           : {}
+            });
+
+            await expect(bridge.listAgents()).rejects.toThrow(/malformed|unoffered/)
+        }
+    });
+
+    test('transport and JSON-parser rejection text is never relayed into the pane', async () => {
+        const secret  = 'raw-upstream-transport-secret';
+        const bridges = [
+            installFleetBridge({
+                credentialIngress: 'shell',
+                send             : async () => { throw new Error(secret) },
+                target           : {}
+            }),
+            installFleetBridge({
+                bearerToken: testBearer,
+                fetchImpl  : async () => ({json: async () => { throw new Error(secret) }}),
+                target     : {},
+                url        : fleetUrl
+            })
+        ];
+
+        for (const bridge of bridges) {
+            await expect(bridge.listAgents()).rejects.toThrow('fleet: request transport failed');
+            await expect(bridge.listAgents()).rejects.not.toThrow(secret)
+        }
+    });
+
+    test('known local launch-state errors retain their bounded remediation', async () => {
+        const bridge = installFleetBridge({
+            credentialIngress: 'shell',
+            send             : async () => { throw new Error(FLEET_LOCAL_TRANSPORT_ERRORS.noLiveWindow) },
+            target           : {}
+        });
+
+        await expect(bridge.listAgents()).rejects.toThrow(FLEET_LOCAL_TRANSPORT_ERRORS.noLiveWindow)
     });
 
     test('fails loud before publishing when the fleet endpoint is missing or invalid', () => {

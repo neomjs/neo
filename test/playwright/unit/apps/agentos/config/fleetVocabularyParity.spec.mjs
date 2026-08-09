@@ -1,4 +1,6 @@
 import {expect, test} from '@playwright/test';
+import {parse}        from 'acorn';
+import {readFileSync} from 'node:fs';
 
 import {compareFleetVocabulary} from '../../../../../../ai/scripts/lint/lint-fleet-vocabulary-parity.mjs';
 
@@ -63,5 +65,151 @@ test.describe('FM vocabulary parity — the realm boundary carries no imports, s
         const violations = compareFleetVocabulary({authority, twin: forkedTwin});
 
         expect(violations.join('\n')).toContain('resolveMcpMatrix')
+    });
+
+    test('protocol-version and capability drift each redden with the exact surface named', () => {
+        const
+            versionDrift = compareFleetVocabulary({
+                authority,
+                twin: {
+                    ...twin,
+                    wire: {...twin.wire, FLEET_WIRE_PROTOCOL_VERSIONS: [999]}
+                }
+            }),
+            capabilityDrift = compareFleetVocabulary({
+                authority,
+                twin: {
+                    ...twin,
+                    wire: {...twin.wire, FLEET_WIRE_CAPABILITIES: [...twin.wire.FLEET_WIRE_CAPABILITIES, 'rogue']}
+                }
+            });
+
+        expect(versionDrift.join('\n')).toContain('FLEET_WIRE_PROTOCOL_VERSIONS');
+        expect(capabilityDrift.join('\n')).toContain('FLEET_WIRE_CAPABILITIES')
+    });
+
+    test('the comparator red-proves a wire-inspector fork that accepts version skew', () => {
+        const forkedTwin = {
+            ...twin,
+            wire: {
+                ...twin.wire,
+                inspectFleetWireResponse: (envelope, offer) => envelope?.protocol?.version === 2
+                    ? {ok: true}
+                    : twin.wire.inspectFleetWireResponse(envelope, offer)
+            }
+        };
+
+        expect(compareFleetVocabulary({authority, twin: forkedTwin}).join('\n'))
+            .toContain('inspectFleetWireResponse')
+    });
+
+    test('the authority selects compatible offers and names both skew classes before dispatch', () => {
+        const compatible = authorityWire.selectFleetWireContract(authorityWire.createFleetWireOffer());
+
+        expect(compatible).toEqual({
+            ok      : true,
+            protocol: authorityWire.createFleetWireProtocolStamp(),
+            state   : authorityWire.FLEET_WIRE_RESPONSE_STATES.ok
+        });
+        expect(authorityWire.selectFleetWireContract({
+            versions    : [999],
+            capabilities: [...authorityWire.FLEET_WIRE_CAPABILITIES]
+        }).state).toBe(authorityWire.FLEET_WIRE_RESPONSE_STATES.unsupportedProtocol);
+        expect(authorityWire.selectFleetWireContract({
+            versions    : [1],
+            capabilities: ['method-schema-v1']
+        }).state).toBe(authorityWire.FLEET_WIRE_RESPONSE_STATES.unsupportedCapability)
+    });
+
+    test('the finite response vocabulary is exhaustive and malformed or unoffered selections fail closed', () => {
+        const
+            offer  = authorityWire.createFleetWireOffer(),
+            states = Object.values(authorityWire.FLEET_WIRE_RESPONSE_STATES);
+
+        expect(new Set(states).size).toBe(states.length);
+        expect(states.sort()).toEqual([
+            'degraded',
+            'ok',
+            'operation-failed',
+            'refused',
+            'unsupported-capability',
+            'unsupported-method',
+            'unsupported-protocol'
+        ]);
+        expect(authorityWire.inspectFleetWireResponse(
+            authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+            offer
+        )).toEqual({ok: true});
+        expect(() => authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok))
+            .toThrow(/requires a result/);
+
+        for (const envelope of [
+            {ok: true, result: []},
+            {ok: true, state: 'invented', protocol: authorityWire.createFleetWireProtocolStamp(), result: []},
+            {
+                ok      : true,
+                state   : authorityWire.FLEET_WIRE_RESPONSE_STATES.ok,
+                protocol: authorityWire.createFleetWireProtocolStamp()
+            },
+            authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: authorityWire.createFleetWireProtocolStamp(2),
+                result  : []
+            }),
+            authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: authorityWire.createFleetWireProtocolStamp(1, [...offer.capabilities, 'server-only']),
+                result  : []
+            }),
+            {
+                ...authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+                ownerPrincipal: 'must-never-cross'
+            },
+            {
+                ...authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+                protocol: {
+                    ...authorityWire.createFleetWireProtocolStamp(),
+                    authorization: {admin: true},
+                    bearer       : 'must-never-cross'
+                }
+            },
+            {
+                ...authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.operationFailed),
+                error: 'x'.repeat(301)
+            },
+            authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.degraded),
+            {
+                ...authorityWire.createFleetWireResponse(authorityWire.FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+                protocol: authorityWire.createFleetWireProtocolStamp(1, [
+                    ...offer.capabilities,
+                    offer.capabilities[0]
+                ])
+            }
+        ]) {
+            expect(authorityWire.inspectFleetWireResponse(envelope, offer).ok).toBe(false)
+        }
+    });
+
+    test('the operable-cold app contract imports no ai or server trust authority', () => {
+        const sources = [
+            ['fleetWireMethods', new URL('../../../../../../apps/agentos/config/fleetWireMethods.mjs', import.meta.url)],
+            ['installFleetBridge', new URL('../../../../../../apps/agentos/fleet/installFleetBridge.mjs', import.meta.url)]
+        ];
+
+        for (const [label, url] of sources) {
+            const
+                ast     = parse(readFileSync(url, 'utf8'), {ecmaVersion: 'latest', sourceType: 'module'}),
+                imports = ast.body
+                    .filter(node => node.type === 'ImportDeclaration')
+                    .map(node => node.source.value);
+
+            expect(imports.every(source => !source.includes('/ai/') &&
+                !/fleetIngressAuth|FleetControlBridge|localBearer|Identity|ownership|authorization/i.test(source)), label)
+                .toBe(true);
+
+            if (label === 'fleetWireMethods') {
+                expect(imports, 'the app vocabulary twin must remain operable-cold').toEqual([])
+            } else {
+                expect(imports).toEqual(['../config/fleetWireMethods.mjs'])
+            }
+        }
     })
 });

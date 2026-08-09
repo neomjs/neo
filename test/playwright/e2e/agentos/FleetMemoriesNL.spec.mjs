@@ -1,5 +1,10 @@
 import {expect, test}                                            from '../../fixtures.mjs';
-import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const CAPTURED_AT = '2026-08-03T08:00:00.000Z';
 
@@ -91,17 +96,17 @@ async function startMemoriesFleet() {
 
                   switch (request.method) {
                       case 'resolveViewerIdentity':
-                          return {ok: true, result: {ok: true, agentIdentityNodeId: '@e2e-operator'}};
+                          return fleetE2ESuccess({ok: true, agentIdentityNodeId: '@e2e-operator'});
                       case 'fleetRoster':
-                          return {ok: true, result: {rows: rosterRows}};
+                          return fleetE2ESuccess({rows: rosterRows});
                       case 'fleetActivity':
-                          return {ok: true, result: {capability: {state: 'wired'}, events: []}};
+                          return fleetE2ESuccess({capability: {state: 'wired'}, events: []});
                       case 'fleetMemories':
-                          return {ok: true, result: memoriesResult(request.params)};
+                          return fleetE2ESuccess(memoriesResult(request.params));
                       case 'getBootIdentity':
-                          return {ok: true, result: {fact: null, classification: 'unknown', advisory: true}};
+                          return fleetE2ESuccess({fact: null, classification: 'unknown', advisory: true});
                       default:
-                          return {ok: false, error: `unexpected memories method: ${request.method}`}
+                          return fleetE2EFailure(`unexpected memories method: ${request.method}`)
                   }
               }
           }),

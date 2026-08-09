@@ -1,7 +1,13 @@
-import {test, expect}                                                          from '../../fixtures.mjs';
-import {NeuralLink_DataService}                                                from '../../../../ai/services.mjs';
-import {FLEET_WIRE_METHODS}                                                    from '../../../../apps/agentos/config/fleetWireMethods.mjs';
-import {authenticatedFleetOptions, reloadRoster, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {test, expect}           from '../../fixtures.mjs';
+import {NeuralLink_DataService} from '../../../../ai/services.mjs';
+import {FLEET_WIRE_METHODS}     from '../../../../apps/agentos/config/fleetWireMethods.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    reloadRoster,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const TEST_AGENT_ID = 'nl-lifecycle-agent';
 
@@ -52,31 +58,31 @@ async function startLifecycleFleetBridge({rejectStart = false} = {}) {
 
             if (request.method === 'startAgent') {
                 if (rejectStart) {
-                    return {ok: false, error: 'fleet: start rejected by lifecycle witness'}
+                    return fleetE2EFailure('fleet: start rejected by lifecycle witness')
                 }
 
                 running.add(request.params);
-                return {ok: true, result: {id: request.params, state: 'running'}}
+                return fleetE2ESuccess({id: request.params, state: 'running'})
             }
 
             if (request.method === 'stopAgent') {
                 running.delete(request.params);
-                return {ok: true, result: {id: request.params, state: 'stopped'}}
+                return fleetE2ESuccess({id: request.params, state: 'stopped'})
             }
 
             if (request.method === 'fleetRoster') {
-                return {ok: true, result: {rows: [rosterRow(running.has(TEST_AGENT_ID) ? 'running' : 'stopped')]}}
+                return fleetE2ESuccess({rows: [rosterRow(running.has(TEST_AGENT_ID) ? 'running' : 'stopped')]})
             }
 
             if (request.method === 'fleetActivity') {
-                return {ok: true, result: {capability: {source: 'fleet:test', state: 'wired', confidence: 'observed'}, events: []}}
+                return fleetE2ESuccess({capability: {source: 'fleet:test', state: 'wired', confidence: 'observed'}, events: []})
             }
 
             if (['listAgents', 'fleetStatus', 'fleetRuntimeStatus'].includes(request.method)) {
-                return {ok: true, result: []}
+                return fleetE2ESuccess([])
             }
 
-            return {ok: false, error: `fleet: unexpected test method '${request.method}'`}
+            return fleetE2EFailure(`fleet: unexpected test method '${request.method}'`)
         }
     });
 

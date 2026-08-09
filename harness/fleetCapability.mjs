@@ -5,6 +5,31 @@ function isRecord(value) {
 }
 
 /**
+ * @summary Finds a sensitive string in any JSON-shaped key or value without relying on serialized
+ * spelling. Direct value comparison remains correct when quotes, slashes, or control characters are
+ * escaped by JSON serialization.
+ * @param {*} value Candidate response subtree.
+ * @param {String[]} sensitiveValues Non-empty secrets that must not cross into the renderer.
+ * @param {WeakSet<Object>} [visited=new WeakSet()] Cycle guard for injected/custom transports.
+ * @returns {Boolean}
+ */
+function containsSensitiveValue(value, sensitiveValues, visited=new WeakSet()) {
+    if (typeof value === 'string') {
+        return sensitiveValues.some(sensitive => value.includes(sensitive))
+    }
+
+    if (!value || typeof value !== 'object') return false;
+    if (visited.has(value)) return false;
+
+    visited.add(value);
+
+    return Object.entries(value).some(([key, child]) =>
+        sensitiveValues.some(sensitive => key.includes(sensitive)) ||
+        containsSensitiveValue(child, sensitiveValues, visited)
+    )
+}
+
+/**
  * @summary Projects the Body-authored Add-Peer intent onto the shell's explicit public field set.
  * Unknown fields are dropped by construction: command, args, env, executable paths, viewer claims,
  * and credential-shaped extras therefore have no route into the Brain request.
@@ -56,9 +81,14 @@ export function projectPublicCredentialIntent(method, params) {
  * positively censused against both the bearer and (for Add-Peer) the submitted credential.
  * @param {Object} options
  * @param {String} options.bearerToken Main-owned per-boot Fleet bearer.
+ * @param {Function} options.createWireOffer Creates the main-owned version/capability offer.
+ * @param {Function} options.createWireRequest Creates the outbound versioned request.
+ * @param {Function} options.createWireResponse Creates closed local refusal envelopes.
  * @param {String[]} options.credentialMethods Canonical credential-bearing Fleet methods.
  * @param {Function} options.getBrain Resolves the main-owned Brain boot receipt.
+ * @param {Function} options.inspectWireResponse Validates the selected server contract.
  * @param {Function} options.isTrustedSender Validates a real Electron IPC event.
+ * @param {Object} options.responseStates Canonical finite response-state vocabulary.
  * @param {String[]} options.wireMethods Canonical app↔Fleet method allowlist.
  * @param {Function|null} [options.credentialProvider=null] Main-owned async credential ingress. It
  * receives only `{event, intent, method}` after all public validation; Body-supplied secret fields
@@ -70,34 +100,54 @@ export function projectPublicCredentialIntent(method, params) {
  */
 export function createFleetCapability({
     bearerToken,
+    createWireOffer,
+    createWireRequest,
+    createWireResponse,
     credentialMethods,
     credentialProvider = null,
     fetchImpl = globalThis.fetch,
     getBrain,
+    inspectWireResponse,
     isTrustedSender,
     onAdmitted = null,
+    responseStates,
     wireMethods
 } = {}) {
     const
         validCredentialMethods = Array.isArray(credentialMethods) && credentialMethods.every(method => typeof method === 'string'),
         validWireMethods       = Array.isArray(wireMethods) && wireMethods.every(method => typeof method === 'string');
 
-    if (typeof bearerToken !== 'string' || typeof getBrain !== 'function' ||
+    if (typeof bearerToken !== 'string' ||
+        typeof createWireOffer !== 'function' ||
+        typeof createWireRequest !== 'function' ||
+        typeof createWireResponse !== 'function' ||
+        typeof getBrain !== 'function' ||
+        typeof inspectWireResponse !== 'function' ||
         typeof isTrustedSender !== 'function' || typeof fetchImpl !== 'function' ||
         !validCredentialMethods || !validWireMethods ||
         credentialMethods.some(method => !wireMethods.includes(method)) ||
+        !isRecord(responseStates) ||
+        typeof responseStates.ok !== 'string' ||
+        typeof responseStates.refused !== 'string' ||
         !(credentialProvider === null || typeof credentialProvider === 'function') ||
         !(onAdmitted === null || typeof onAdmitted === 'function')) {
-        throw new TypeError('createFleetCapability requires bearerToken, canonical method allowlists, getBrain, isTrustedSender, fetchImpl, and optional credentialProvider/onAdmitted hooks')
+        throw new TypeError('createFleetCapability requires the canonical wire contract, bearerToken, method allowlists, getBrain, isTrustedSender, fetchImpl, and optional credentialProvider/onAdmitted hooks')
     }
 
     const
         credentialMethodSet = new Set(credentialMethods),
         wireMethodSet       = new Set(wireMethods),
-        reject              = error => ({ok: false, error});
+        reject              = error => createWireResponse(responseStates.refused, {error});
 
-    const send = async (request, sensitiveValues = []) => {
-        let boot, envelope;
+    const send = async (method, params, sensitiveValues = []) => {
+        let boot, envelope, offer, request;
+
+        try {
+            offer   = createWireOffer();
+            request = createWireRequest(method, params, offer)
+        } catch {
+            return reject('fleet: client wire contract failed')
+        }
 
         try {
             boot = await getBrain()
@@ -124,27 +174,38 @@ export function createFleetCapability({
             return reject('fleet: request transport failed')
         }
 
-        let serialized;
+        const protectedValues = [...new Set([bearerToken, ...sensitiveValues]
+            .flatMap(value => typeof value === 'string' ? [value, value.trim()] : [])
+            .filter(Boolean))];
+
+        let containsSecret;
 
         try {
-            serialized = JSON.stringify(envelope)
+            JSON.stringify(envelope);
+            containsSecret = containsSensitiveValue(envelope, protectedValues)
         } catch {
             return reject('fleet: invalid response')
         }
 
-        if ([bearerToken, ...sensitiveValues].some(value => value && serialized.includes(value))) {
+        if (containsSecret) {
             return reject('fleet: secret-bearing response rejected')
         }
 
-        if (envelope?.ok !== true) {
-            return reject(typeof envelope?.error === 'string' ? envelope.error.slice(0, 300) : 'fleet: request failed')
+        const inspection = inspectWireResponse(envelope, offer);
+
+        if (!inspection?.ok) {
+            return reject(inspection?.error || 'fleet: malformed wire response')
+        }
+
+        if (envelope.state !== responseStates.ok) {
+            return envelope
         }
 
         try {
             onAdmitted?.({method: request.method})
         } catch {/* receipt instrumentation never owns the product response */}
 
-        return {ok: true, result: envelope.result}
+        return envelope
     };
 
     return {
@@ -181,13 +242,10 @@ export function createFleetCapability({
                     return reject(`fleet: shell credential ingress canceled for '${request.method}'`)
                 }
 
-                return send({
-                    method: request.method,
-                    params: {...intent, credential}
-                }, [credential])
+                return send(request.method, {...intent, credential}, [credential])
             }
 
-            return send({method: request.method, params: request.params})
+            return send(request.method, request.params)
         }
     }
 }
