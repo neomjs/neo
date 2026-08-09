@@ -1711,7 +1711,13 @@ class MemoryService extends Base {
                     operationLabel: 'miniSummary generation',
                     // Batch, not interactive: the only runtime caller is the backfill sweep, so this
                     // queue-jumped real interactive traffic on behalf of a background job.
-                    priority      : 'batch'
+                    priority      : 'batch',
+                    // Same summary-task leaf `SessionService.summarizeSession` reads: both are
+                    // summarization, so a second knob would be two names for one decision. Omitted when
+                    // empty via `|| undefined`, matching that call site exactly — a one-line summary has
+                    // no use for a hidden thinking pass, and without this the model can spend the whole
+                    // completion budget reasoning and return nothing.
+                    reasoning_effort: aiConfig.localModels.chat.summaryReasoningEffort || undefined
                 }),
                 TIMEOUT_MS,
                 'miniSummary generation'

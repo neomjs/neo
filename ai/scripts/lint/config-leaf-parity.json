@@ -471,6 +471,7 @@
         "askSynthesis.maxCallsPerMinute",
         "askSynthesis.model",
         "askSynthesis.provider",
+        "askSynthesis.reasoningEffort",
         "askSynthesis.timeoutMs",
         "askSynthesis.timeoutMsRemote",
         "authMiddleware",
