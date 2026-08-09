@@ -51,7 +51,8 @@ import path from 'path';
 import url  from 'url';
 
 const
-    __dirname    = path.dirname(url.fileURLToPath(import.meta.url)),
+    __filename   = url.fileURLToPath(import.meta.url),
+    __dirname    = path.dirname(__filename),
     REPO_ROOT    = path.resolve(__dirname, '../../..'),
     WORKFLOW_DIR = path.join(REPO_ROOT, '.github/workflows'),
     REGISTRY_REL = 'ai/scripts/lint/guard-ci-parity-registry.json',
@@ -67,6 +68,26 @@ const
     REGISTRY_PATH = process.env.NEO_GUARD_CI_PARITY_REGISTRY
         ? path.resolve(process.env.NEO_GUARD_CI_PARITY_REGISTRY)
         : path.join(REPO_ROOT, REGISTRY_REL);
+
+/**
+ * @summary Every surface whose contents can change this lint's verdict — the SSOT its CI workflow's
+ * path filter must cover.
+ *
+ * Exported so the sibling `scanned ⊆ watched` spec takes it as authority rather than a hand-copied
+ * duplicate: widening what this predicate reads widens this array in the same edit, and an unwidened
+ * workflow filter then fails that spec without anyone remembering to update a registry.
+ *
+ * That is the `scanned ⊆ watched` invariant, and this lint is subject to it like any other — which
+ * is how it should be, since a guard exempting itself from a coverage rule is the joke it exists to
+ * prevent.
+ *
+ * @type {String[]}
+ */
+export const SCAN_SURFACE = Object.freeze([
+    'package.json',
+    '.github/workflows/**',
+    REGISTRY_REL
+]);
 
 /**
  * @summary Every distinct guard script invoked by `lint-staged`, derived — never hardcoded.
@@ -245,4 +266,9 @@ function runLint() {
     return {exitCode: 1}
 }
 
-process.exit(runLint().exitCode);
+// Import-safe, per the house pattern in `lint-retry-bounds.mjs` and `lint-config-template-ssot.mjs`:
+// the sibling `scanned ⊆ watched` spec imports SCAN_SURFACE from this module, and a bare
+// `process.exit()` at module scope would terminate the test process on import.
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    process.exit(runLint().exitCode)
+}
