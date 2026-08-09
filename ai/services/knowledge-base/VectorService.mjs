@@ -19,6 +19,25 @@ import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './h
 import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
 import KBRecorderService                                               from './KBRecorderService.mjs';
 
+/**
+ * @summary Flattens one chunk into Chroma-storable scalar metadata.
+ *
+ * The single producer for both the full-batch upsert and the partial upsert a cooperative lease yield
+ * performs. Two sites deriving this independently could drift, and drift here means a stored vector
+ * whose metadata disagrees with the vector beside it.
+ * @param {Object} chunk Tenant-stamped chunk.
+ * @returns {Object}
+ */
+function buildChunkMetadata(chunk) {
+    const metadata = {};
+
+    for (const [key, value] of Object.entries(chunk)) {
+        metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
+    }
+
+    return metadata
+}
+
 const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
 const STALE_STRATEGY_SKIP   = 'skip';
@@ -701,13 +720,7 @@ class VectorService extends Base {
                         shouldYield
                     });
 
-                    const metadatas = batchToEmbed.map(chunk => {
-                        const metadata = {};
-                        for (const [key, value] of Object.entries(chunk)) {
-                            metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
-                        }
-                        return metadata;
-                    });
+                    const metadatas = batchToEmbed.map(buildChunkMetadata);
 
                     await collection.upsert({
                         ids: batchToEmbed.map(chunk => chunk.id),
@@ -724,7 +737,26 @@ class VectorService extends Base {
                     // turning the fairness fix into a maxRetries-fold amplifier of the hold it exists to bound.
                     if (isEmbeddingBatchYieldError(err)) {
                         yielded = true;
-                        logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) (${embeddedCount} embedded); this batch is not retried and resumes on the next sweep.`);
+
+                        // Persist what the yield already paid for. Without this the acquisition completes
+                        // provider chunks, stores zero ids, and the next sweep re-selects the identical
+                        // prefix — so a holder that yields at the same chunk every time never advances.
+                        // A reached checkpoint is not a durable one.
+                        const carried = err.embeddings || [];
+
+                        if (carried.length > 0) {
+                            const partialChunks = batchToEmbed.slice(0, carried.length);
+
+                            await collection.upsert({
+                                ids       : partialChunks.map(chunk => chunk.id),
+                                embeddings: carried,
+                                metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                            });
+
+                            embeddedCount += partialChunks.length;
+                        }
+
+                        logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
                     }
 

@@ -252,6 +252,83 @@ test.describe('VectorService.embedChunks — cooperative lease yield-point', () 
         expect(result.embedded).toBe(50);
     });
 
+    test('an inner yield PERSISTS the chunks it already paid for (#16822)', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50); // 1 batch
+
+        TextEmbeddingService.embedTexts = async () => {
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s), 10 embedding(s) carried');
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.embeddings          = Array.from({length: 10}, () => new Array(384).fill(0));
+            throw error
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // The prefix must land, and it must land under the RIGHT ids — the first 10 in order, never a
+        // suffix and never a re-indexed set. Persisting nothing is the livelock; persisting misaligned is
+        // worse than the livelock.
+        expect(result.yielded).toBe(true);
+        expect(result.embedded, 'completed provider work must count as embedded').toBe(10);
+        expect(spy.upsertedIds).toEqual(chunks.slice(0, 10).map(chunk => chunk.id));
+    });
+
+    test('repeated acquisitions that always yield still MONOTONICALLY advance and terminate (#16822)', async () => {
+        const spy         = createSpyCollection();
+        const allChunks   = makeChunks(150);
+        const embeddedIds = new Set();
+
+        // Every acquisition yields after exactly two provider chunks — the pathological case: 2 x 20min
+        // exceeds the 30min bound before chunk 3, on every single acquisition, forever.
+        TextEmbeddingService.embedTexts = async texts => {
+            const carried = Math.min(10, texts.length);
+            const error   = new Error(`openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s), ${carried} embedding(s) carried`);
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.embeddings          = Array.from({length: carried}, () => new Array(384).fill(0));
+            throw error
+        };
+
+        const progress = [];
+        let   sweeps   = 0;
+
+        // The resume contract: each sweep re-selects only what is not already stored.
+        while (embeddedIds.size < allChunks.length && sweeps < 40) {
+            sweeps++;
+
+            const remaining = allChunks.filter(chunk => !embeddedIds.has(chunk.id)),
+                  before    = embeddedIds.size,
+                  result    = await KB_VectorService.embedChunks({
+                      collection     : spy,
+                      chunksToProcess: remaining,
+                      shouldYield    : () => false
+                  });
+
+            spy.upsertedIds.forEach(id => embeddedIds.add(id));
+            spy.upsertedIds.length = 0;
+            progress.push(embeddedIds.size);
+
+            expect(result.yielded).toBe(true);
+            expect(
+                embeddedIds.size,
+                `sweep ${sweeps} stored nothing new — this is the livelock: completed provider chunks discarded, the same prefix re-selected forever`
+            ).toBeGreaterThan(before);
+        }
+
+        // 150 chunks, 10 durable per acquisition. Termination is the assertion; the 40-sweep ceiling exists
+        // only so a livelock fails as a red test instead of hanging the suite.
+        expect(embeddedIds.size).toBe(150);
+        expect(sweeps).toBe(15);
+        expect(progress).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]);
+    });
+
     test('the per-chunk checkpoint interval fits inside the fairness bound it must respect (#16822)', async () => {
         const {unloadRetryCount, batchEmbeddingTimeoutMs} = Memory_Config.openAiCompatible,
               {maxActiveHoldMs}                           = Memory_Config.orchestrator.heavyMaintenance;
