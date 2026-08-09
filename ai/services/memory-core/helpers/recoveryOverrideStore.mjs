@@ -33,6 +33,14 @@ import {RECOVERY_KNOBS, knobRequiredContext, validateKnobTransaction} from './re
 export const RECOVERY_OVERRIDE_FILENAME = 'recovery-actuator-overrides.json';
 
 /**
+ * Per-process sequence for scratch-file names. Combined with the pid it makes every writer's temp
+ * path unique, which is what lets the rename be atomic BETWEEN holders and not merely within one.
+ * @type {Number}
+ * @private
+ */
+let tempSequence = 0;
+
+/**
  * @summary Expands dotted leaf paths into the nested shape the config overlay is merged from.
  * @param {Object} values Values keyed by dotted leaf path.
  * @param {Object} [into={}] Existing overlay content to merge into.
@@ -136,28 +144,46 @@ export async function writeKnobOverride({
           // Same directory as the target, so the rename is within one filesystem and therefore atomic.
           // A temp file elsewhere would degrade to copy-then-delete and reintroduce the partial state
           // this exists to prevent.
-          tempPath     = `${overridePath}.${knob}.tmp`;
+          // Unique PER WRITER, not per knob. The path was `${overridePath}.${knob}.tmp`, shared by
+          // every writer of that knob — so a displaced holder and its successor writing concurrently
+          // used one scratch file, and whichever renamed second could publish a payload the other
+          // had half-written. Uniqueness is what makes the rename atomic BETWEEN holders.
+          tempPath     = `${overridePath}.${knob}.${process.pid}.${++tempSequence}.tmp`;
 
-    // LAST-OWNED POINT for this durable write. `readRecoveryOverrides` above is awaited, so a caller
-    // that checked authority before calling has already yielded — and the three lines below are the
-    // overlay actually landing on disk, which the next converge will apply. A displaced holder must
-    // not leave an intent behind that its successor then enacts.
-    //
-    // Checked here rather than only at the caller because the yield is INSIDE this function: no
-    // caller can hold a check adjacent to a write it does not perform.
-    if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
-        const error = new Error(`Authority moved before the '${knob}' override write; refusing.`);
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error(`Authority moved before the '${knob}' override write; refusing.`);
 
-        error.reason = 'runtime-authority-lost';
+            error.reason = 'runtime-authority-lost';
 
-        throw error;
-    }
+            throw error;
+        }
+    };
+
+    // Checked here because the yield is INSIDE this function — no caller can hold a check adjacent
+    // to a write it does not itself perform — and a holder that has already lost authority should
+    // not create directories or scratch files it has no right to.
+    assertHeld();
 
     // The mount exists but its subdirectory may not on a plane that has never written one, and a
     // writer that requires someone else to have created its destination first is a boot-ordering
     // dependency wearing a filesystem error.
     await fsModule.mkdir(overrideDir, {recursive: true});
     await fsModule.writeFile(tempPath, `${JSON.stringify(next, null, 4)}\n`, {mode: 0o644});
+
+    // AND AGAIN IMMEDIATELY BEFORE THE COMMIT. This is the only check that binds the effect: `mkdir`
+    // and `writeFile` are both awaited, so the assertion above is already stale here, and the rename
+    // is the instant the overlay becomes configuration the next converge applies. A scratch file
+    // left by a refusal is inert; a renamed one is an instruction.
+    try {
+        assertHeld();
+    } catch (error) {
+        // The scratch file is ours, and a refusal must not leave one behind to accumulate on every
+        // takeover.
+        await fsModule.rm?.(tempPath, {force: true});
+        throw error;
+    }
+
     await fsModule.rename(tempPath, overridePath);
 
     return {applied: true, path: overridePath, violations: []}

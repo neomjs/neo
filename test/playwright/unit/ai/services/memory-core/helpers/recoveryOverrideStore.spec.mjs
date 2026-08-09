@@ -205,6 +205,68 @@ test.describe('recoveryOverrideStore — a write aimed at a boot path (#16374)',
         await expect(fs.readFile(path.join(dir, RECOVERY_OVERRIDE_FILENAME), 'utf8')).rejects.toThrow();
     });
 
+    test('authority lost INSIDE the write — after mkdir, before the atomic commit — publishes nothing', async () => {
+        // @neo-gpt-emmy's exact interval: `mkdir` and `writeFile` are both awaited, so a check that
+        // passed before them is already stale at the rename — and the rename is the instant the
+        // overlay becomes configuration the next converge applies. Flipping authority inside the
+        // write is the only way to reach this; a flat `false` refuses earlier and proves nothing.
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-override-midwrite-'));
+
+        let held = true;
+
+        const fsModule = {
+            mkdir   : fs.mkdir,
+            readFile: fs.readFile,
+            rename  : fs.rename,
+            rm      : fs.rm,
+            async writeFile(...args) {
+                await fs.writeFile(...args);
+                held = false;               // takeover lands between the scratch write and the commit
+            }
+        };
+
+        await expect(writeKnobOverride({
+            context        : CTX,
+            knob           : KNOB,
+            overrideDir    : dir,
+            values         : VALUES,
+            env            : {},
+            fsModule,
+            isAuthorityHeld: () => held
+        })).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        // No overlay published...
+        await expect(fs.access(path.join(dir, RECOVERY_OVERRIDE_FILENAME))).rejects.toThrow();
+        // ...and no scratch file left to accumulate on every takeover.
+        expect((await fs.readdir(dir)).filter(name => name.endsWith('.tmp'))).toEqual([]);
+    });
+
+    test('two concurrent writers of the SAME knob do not share a scratch path', async () => {
+        // The path was `${overridePath}.${knob}.tmp`, identical for every writer of that knob, so a
+        // displaced holder and its successor writing at once used one file and whichever renamed
+        // second could publish a payload the other had half-written.
+        const dir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-override-temp-')),
+              observed = [];
+
+        const fsModule = {
+            mkdir   : fs.mkdir,
+            readFile: fs.readFile,
+            rename  : fs.rename,
+            rm      : fs.rm,
+            async writeFile(target, ...rest) {
+                observed.push(target);
+                return fs.writeFile(target, ...rest);
+            }
+        };
+
+        const call = () => writeKnobOverride({context: CTX, knob: KNOB, overrideDir: dir, values: VALUES, env: {}, fsModule});
+
+        await Promise.all([call(), call()]);
+
+        expect(observed).toHaveLength(2);
+        expect(observed[0]).not.toBe(observed[1]);
+    });
+
     test('POSITIVE CONTROL: a held oracle still writes, so the guard is discriminating', async () => {
         const dir    = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-override-authority-ok-')),
               result = await writeKnobOverride({

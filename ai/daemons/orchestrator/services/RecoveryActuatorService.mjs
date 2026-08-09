@@ -349,7 +349,8 @@ export class RecoveryActuatorService extends Base {
                 startedAt : now,
                 target,
                 taskStatus: gate.status === 'recorded' ? 'failed' : 'skipped',
-                updatedAt : now
+                updatedAt : now,
+                isAuthorityHeld
             });
         }
 
@@ -442,7 +443,8 @@ export class RecoveryActuatorService extends Base {
                 startedAt,
                 target,
                 taskStatus: 'completed',
-                updatedAt
+                updatedAt,
+                isAuthorityHeld
             });
         } catch (error) {
             // A refusal by the runtime's own authority guard is NOT an executor failure, and collapsing
@@ -520,7 +522,8 @@ export class RecoveryActuatorService extends Base {
                 startedAt,
                 target,
                 taskStatus: 'failed',
-                updatedAt
+                updatedAt,
+                isAuthorityHeld
             });
         }
     }
@@ -1161,8 +1164,23 @@ export class RecoveryActuatorService extends Base {
         startedAt,
         target,
         taskStatus,
-        updatedAt
+        updatedAt,
+        isAuthorityHeld = null
     }) {
+        // FRESHLY CLASSIFIED, here rather than at the caller. Everything between the caller's own
+        // measurement and this point is awaited — `writeHealAttempts`, the executor, the heal-event
+        // append — so a provenance value computed there is stale by the time the record lands. There
+        // are no awaits between this line and the append below, which is what makes it the last
+        // point that can honestly describe the write.
+        //
+        // It refines rather than overrides: a run already known to have dispatched under held
+        // authority and lost it stays `uncertain`. What this cannot do is claim an effect was clean
+        // when authority had already moved before the record was written.
+        const heldAtAppend = typeof isAuthorityHeld === 'function' ? isAuthorityHeld() === true : null,
+              finalOutcome = heldAtAppend === false
+                  ? {...outcome, heldAtAppend, authorityLostBeforeRecord: true}
+                  : (heldAtAppend === null ? outcome : {...outcome, heldAtAppend});
+
         const runId            = this.getRecoveryRunId({recoveryRunId, serviceKey, action, startedAt}),
               reobserveRequest = outcome.status === 'actioned'
                   ? createRecoveryReobserveRequest({
@@ -1185,7 +1203,7 @@ export class RecoveryActuatorService extends Base {
                   completedAt  : updatedAt,
                   backoffUntil,
                   reobserveRequest,
-                  details      : outcome
+                  details      : finalOutcome
               });
 
         await appendRecoveryRunState(entry, {
