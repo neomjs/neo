@@ -214,6 +214,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey   : 'memory',
+            nodeCommand  : false,
             endpointProbe: {ok: false, name: 'mcp-healthcheck', message: 'timeout'}
         });
 
@@ -230,8 +231,9 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const service = createService();
 
         const decision = service.diagnose({
-            serviceKey: 'memory',
-            inspect   : runningInspect({Status: 'exited', ExitCode: 137})
+            serviceKey : 'memory',
+            nodeCommand: false,
+            inspect    : runningInspect({Status: 'exited', ExitCode: 137})
         });
 
         expect(decision.status).toBe('diagnosed');
@@ -354,6 +356,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey           : 'memory',
+            nodeCommand          : false,
             inspect              : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
             logs                 : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
             nodeCommand          : true,
@@ -384,6 +387,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey : 'memory',
+            nodeCommand: false,
             inspect    : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
             logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
             nodeCommand: true
@@ -397,6 +401,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey : 'memory',
+            nodeCommand: false,
             inspect    : runningInspect({Status: 'exited', ExitCode: 137, OOMKilled: true}),
             logs       : {text: 'terminated', truncated: false},
             nodeCommand: true
@@ -411,8 +416,9 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const service = createService();
 
         const advisory = service.diagnose({
-            serviceKey: 'knowledge',
-            inspect   : runningInspect({Health: {Status: 'starting'}})
+            serviceKey : 'knowledge',
+            nodeCommand: false,
+            inspect    : runningInspect({Health: {Status: 'starting'}})
         });
 
         expect(advisory.status).toBe('advisory');
@@ -420,6 +426,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const diagnosed = service.diagnose({
             serviceKey   : 'knowledge',
+            nodeCommand  : false,
             inspect      : runningInspect({Health: {Status: 'unhealthy'}}),
             endpointProbe: {ok: false, name: 'healthcheck'}
         });
@@ -436,8 +443,9 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         const service = createService({cpuSaturationPercent: 90, memorySaturationPercent: 80});
 
         const decision = service.diagnose({
-            serviceKey: 'model',
-            stats     : statsSample({cpuPercent: 380, memoryPercent: 85})
+            serviceKey : 'model',
+            nodeCommand: false,
+            stats      : statsSample({cpuPercent: 380, memoryPercent: 85})
         });
 
         expect(decision.status).toBe('healthy');
@@ -450,6 +458,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey  : 'model',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 380, memoryPercent: 85, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 360, memoryPercent: 82, observedAtMs: 1_030_000})
@@ -492,6 +501,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const advisory = service.diagnose({
             serviceKey           : 'model',
+            nodeCommand          : false,
             ollamaEvalAttribution: evalAttribution
         });
 
@@ -500,6 +510,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const diagnosed = service.diagnose({
             serviceKey  : 'model',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 390, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 390, observedAtMs: 1_030_000})
@@ -526,6 +537,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey       : 'model',
+            nodeCommand      : false,
             providerResidency: {
                 provider              : 'ollama',
                 host                  : 'http://model:11434',
@@ -566,6 +578,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey       : 'model',
+            nodeCommand      : false,
             providerResidency: {
                 provider             : 'ollama',
                 ready                : false,
@@ -600,6 +613,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey       : 'model',
+            nodeCommand      : false,
             providerResidency: {
                 provider       : 'ollama',
                 ready          : true,
@@ -629,6 +643,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey       : 'model',
+            nodeCommand      : false,
             inspect          : runningInspect({Status: 'exited', ExitCode: 137}),
             providerResidency: {
                 provider      : 'unknown',
@@ -655,6 +670,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const decision = service.diagnose({
             serviceKey : 'orchestrator',
+            nodeCommand: false,
             configCheck: {
                 ok      : false,
                 key     : 'NEO_MODEL_CONTEXT',
@@ -692,7 +708,8 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         };
 
         const decision = await service.collectAndDiagnose({
-            serviceKey: 'memory',
+            serviceKey : 'memory',
+            nodeCommand: false,
             runtimeAccessService
         });
 
@@ -701,6 +718,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const failed = await service.collectAndDiagnose({
             serviceKey          : 'memory',
+            nodeCommand         : false,
             runtimeAccessService: {
                 async readObserve() {
                     throw new Error('socket unavailable');
@@ -857,6 +875,7 @@ test.describe('restart churn', () => {
     test('a churning container is diagnosed and RECORDED, never restarted', () => {
         const decision = createService().diagnose({
             serviceKey   : 'orchestrator',
+            nodeCommand  : false,
             inspect      : inspect('c1', 4),
             churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
             observedAt   : OBSERVED_AT + 60000
@@ -881,6 +900,7 @@ test.describe('restart churn', () => {
     test('the churn fact is non-authoritative, so it cannot tip another class into a restart', () => {
         const decision = createService().diagnose({
             serviceKey   : 'orchestrator',
+            nodeCommand  : false,
             inspect      : inspect('c1', 4, {Status: 'running', Health: {Status: 'unhealthy'}}),
             churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
             observedAt   : OBSERVED_AT + 60000
@@ -895,6 +915,7 @@ test.describe('restart churn', () => {
     test('a failed runtime read is never reported as healthy', () => {
         const decision = createService().diagnose({
             serviceKey       : 'orchestrator',
+            nodeCommand      : false,
             inspect          : null,
             inspectReadFailed: true,
             observedAt       : OBSERVED_AT
@@ -913,6 +934,7 @@ test.describe('restart churn', () => {
     test('a quiet container yields no churn fact and no diagnosis', () => {
         const decision = createService().diagnose({
             serviceKey   : 'orchestrator',
+            nodeCommand  : false,
             inspect      : inspect('c1', 0),
             churnBaseline: {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0},
             observedAt   : OBSERVED_AT + 60000
@@ -924,9 +946,10 @@ test.describe('restart churn', () => {
 
     test('the decision carries the next baseline so the caller can persist it', () => {
         const decision = createService().diagnose({
-            serviceKey: 'orchestrator',
-            inspect   : inspect('c1', 3),
-            observedAt: OBSERVED_AT
+            serviceKey : 'orchestrator',
+            nodeCommand: false,
+            inspect    : inspect('c1', 3),
+            observedAt : OBSERVED_AT
         });
 
         expect(decision.churnBaseline).toEqual({containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 3});
@@ -940,6 +963,7 @@ test.describe('restart churn', () => {
 
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
@@ -970,6 +994,7 @@ test.describe('restart churn', () => {
 
         const decision = service.diagnose({
             serviceKey  : 'model',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
@@ -992,6 +1017,7 @@ test.describe('restart churn', () => {
 
         const decision = service.diagnose({
             serviceKey  : 'model',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 380, memoryPercent: 96, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 360, memoryPercent: 94, observedAtMs: 1_030_000})
@@ -1019,6 +1045,7 @@ test.describe('restart churn', () => {
 
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 380, memoryPercent: 40, observedAtMs: 1_000_000}),
                 statsSample({cpuPercent: 360, memoryPercent: 42, observedAtMs: 1_030_000})
@@ -1060,6 +1087,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_000_010)]   // 10ms apart
         });
 
@@ -1072,6 +1100,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_000_000)]
         });
 
@@ -1083,6 +1112,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [
                 statsSample({cpuPercent: 380, memoryPercent: 95}),
                 statsSample({cpuPercent: 370, memoryPercent: 93})
@@ -1096,6 +1126,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_029_999)]   // 29.999s
         });
 
@@ -1109,6 +1140,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, memorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'some-unrostered-service',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_045_000)]
         });
 
@@ -1122,14 +1154,30 @@ test.describe('sustained window is measured, not asserted', () => {
     });
 
     test.describe('memory-saturation scope — a Node service is measured against its own heap', () => {
-        /** A stats sample at 95% CONTAINER memory, carrying a heap envelope at the same instant. */
-        function nodeSample({observedAtMs, heapPercent = null, unavailableReason = null}) {
+        /**
+         * A stats sample at 95% CONTAINER memory carrying a heap envelope.
+         *
+         * `observedAtMs` is the DOCKER poll time; `subjectObservedAt` is when the process actually
+         * measured itself. Keeping them separate is the whole point of these fixtures: the earlier
+         * revision conflated them, so the window could be measured from the observer's clock while
+         * the subject's report stood still. `pairable` is modelled because the bridge publishes
+         * `status: 'available'` with `pairable: false` — read-recent but not eligible for arithmetic.
+         */
+        function nodeSample({
+            observedAtMs,
+            heapPercent = null,
+            unavailableReason = null,
+            subjectObservedAt = observedAtMs,
+            pairable = true
+        }) {
             const sample = statsSample({memoryPercent: 95, observedAtMs});
 
             sample.heapObservation = {
                 status     : heapPercent === null ? 'unavailable' : 'available',
                 unavailableReason,
+                pairable,
                 observation: heapPercent === null ? null : {
+                    observedAt            : subjectObservedAt,
                     state                 : 'observed',
                     ceilingState          : 'declared',
                     declaredCeilingBytes  : 768 * 1024 * 1024,
@@ -1147,9 +1195,9 @@ test.describe('sustained window is measured, not asserted', () => {
          * assertion below depend on a CPU fact firing alongside — coupling the scope question to an
          * unrelated threshold, and letting a scope regression hide behind a missing second fact.
          */
-        function memorySaturationFact(service, serviceKey, statsSamples) {
+        function memorySaturationFact(service, serviceKey, statsSamples, nodeCommand = null) {
             return service
-                .collectStatsFacts({serviceKey, stats: null, statsSamples, observedAt: OBSERVED_AT})
+                .collectStatsFacts({serviceKey, stats: null, statsSamples, observedAt: OBSERVED_AT, nodeCommand})
                 .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
         }
 
@@ -1209,22 +1257,143 @@ test.describe('sustained window is measured, not asserted', () => {
         });
 
         test('a service whose reporter never deployed says so by name', () => {
-            // The live case today: the merged reader emits no key at all for a service running an
+            // The live case today: the merged reader emits no key AT ALL for a service running an
             // older revision. "We never heard from it" and "it told us it could not measure" are
             // different repairs, so they must not collapse into one reason.
+            //
+            // The fixture originally supplied an envelope here, which contradicted the test's own
+            // name — an envelope means the bridge DID publish. A never-deployed reporter is the
+            // no-envelope case, and `nodeCommand` is what still identifies the service as Node.
             const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
             const facts   = service.collectStatsFacts({
                 serviceKey  : 'memory',
+                nodeCommand : true,
                 stats       : null,
                 statsSamples: [
-                    nodeSample({observedAtMs: 1_000_000, unavailableReason: null}),
-                    nodeSample({observedAtMs: 1_045_000, unavailableReason: null})
+                    statsSample({memoryPercent: 95, observedAtMs: 1_000_000}),
+                    statsSample({memoryPercent: 95, observedAtMs: 1_045_000})
                 ],
                 observedAt  : OBSERVED_AT
             });
 
             expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable)
                 .details.unavailableReason).toBe('not-deployed');
+        });
+
+        // ---- Window provenance (@neo-gpt, PR review RA-1/RA-2). -----------------------------------
+        // The window must be measured from the SUBJECT's own observation times, not from the Docker
+        // polls that happened to read them, and every arm short of full pairable coverage must stay
+        // advisory rather than reaching either `healthy` or the container ratio.
+
+        test('a DEAD reporter cannot manufacture a sustained window by being read twice', () => {
+            // The severe case. One stale record, re-read at two Docker polls 45s apart, produced two
+            // identical 91% values and a claimed 45-SECOND sustained heap window — an authoritative
+            // critical fact synthesised entirely from the observer's clock while the subject stood
+            // still. This is precisely the failure the channel was built to avoid: a sick process
+            // does not report a bad number, it stops reporting.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+
+            expect(memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, heapPercent: 91, subjectObservedAt: 999_000}),
+                nodeSample({observedAtMs: 1_045_000, heapPercent: 91, subjectObservedAt: 999_000})
+            ])).toBeUndefined();
+        });
+
+        test('an UNPAIRABLE reading is not evidence, however recent the read was', () => {
+            // `readHeapObservation` publishes `status: 'available'` with `pairable: false` when the
+            // report is too far from the container sample to enter a ratio with it. Read recency and
+            // arithmetic eligibility are different properties, and only the envelope knows.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+
+            expect(memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, heapPercent: 91, subjectObservedAt: 1_000_000, pairable: false}),
+                nodeSample({observedAtMs: 1_045_000, heapPercent: 91, subjectObservedAt: 1_045_000, pairable: false})
+            ])).toBeUndefined();
+        });
+
+        test('a MIXED window is announced, not silently dropped into healthy', () => {
+            // One usable envelope plus one unavailable selected `heap` scope, then failed the count
+            // floor and emitted NEITHER fact — so the decision read `healthy`. That is the same
+            // fail-open Grace caught, surviving in the arm her fix did not cover.
+            const service  = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const decision = service.diagnose({
+                serviceKey  : 'memory',
+                inspect     : runningInspect(),
+                nodeCommand : true,
+                statsSamples: [
+                    nodeSample({observedAtMs: 1_000_000, heapPercent: 91, subjectObservedAt: 1_000_000}),
+                    nodeSample({observedAtMs: 1_045_000, unavailableReason: 'stale'})
+                ]
+            });
+
+            expect(decision.status).toBe('advisory');
+            expect(decision.facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
+            expect(decision.facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable)).toBeDefined();
+        });
+
+        test('a Node service with NO envelope must not fall back to the container ratio', () => {
+            // Absence of an envelope is evidence of nothing — which is what the code comment claimed
+            // while the branch treated it as sufficient evidence for container scope. `nodeCommand`
+            // is the source-owned discriminator and it says this IS Node, so the cross-scope ratio
+            // this slice removes must not be emitted.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const facts   = service.collectStatsFacts({
+                serviceKey  : 'memory',
+                stats       : null,
+                nodeCommand : true,
+                statsSamples: [
+                    statsSample({memoryPercent: 95, observedAtMs: 1_000_000}),
+                    statsSample({memoryPercent: 95, observedAtMs: 1_045_000})
+                ],
+                observedAt  : OBSERVED_AT
+            });
+
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable)).toBeDefined();
+        });
+
+        test('an UNKNOWN service (nodeCommand null, no envelope) also fails closed', () => {
+            // Neither signal classifies it. Emitting a cross-scope ratio here would be a guess with
+            // a number attached.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const facts   = service.collectStatsFacts({
+                serviceKey  : 'some-unrostered-service',
+                stats       : null,
+                nodeCommand : null,
+                statsSamples: [
+                    statsSample({memoryPercent: 95, observedAtMs: 1_000_000}),
+                    statsSample({memoryPercent: 95, observedAtMs: 1_045_000})
+                ],
+                observedAt  : OBSERVED_AT
+            });
+
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation)).toBeUndefined();
+        });
+
+        test('CONTROL — an explicit non-Node envelope still keeps the container ratio', () => {
+            // The arm that must NOT change: only a source-owned `not-node` refusal licenses the
+            // container ratio, and it still does.
+            const service    = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+            const memoryFact = memorySaturationFact(service, 'chroma', [
+                nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
+                nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
+            ]);
+
+            expect(memoryFact.details.memoryScope).toBe('container');
+            expect(memoryFact.details.meanPercent).toBeCloseTo(95, 0);
+        });
+
+        test('CONTROL — a fully pairable, distinctly-timed window DOES emit', () => {
+            // Proves every refusal above fails for its stated reason rather than because the heap
+            // path stopped working: same threshold, same window, distinct SUBJECT stamps 45s apart.
+            const service    = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const memoryFact = memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, heapPercent: 91, subjectObservedAt: 1_000_000}),
+                nodeSample({observedAtMs: 1_045_000, heapPercent: 91, subjectObservedAt: 1_045_000})
+            ]);
+
+            expect(memoryFact.details.memoryScope).toBe('heap');
+            expect(memoryFact.details.observedWindowMs).toBe(45_000);
         });
 
         test('CONTROL — the same samples DO emit when the heap reading is usable', () => {
@@ -1251,15 +1420,21 @@ test.describe('sustained window is measured, not asserted', () => {
             expect(memoryFact.details.meanPercent).toBeCloseTo(95, 0);
         });
 
-        test('a service with no envelope at all keeps the container ratio', () => {
-            // Every service looks like this before the heap channel deploys — which is the live plane
-            // today. An absent envelope is evidence of nothing, and must not be read as non-Node OR
-            // as a reason to go silent.
+        test('an explicitly non-Node service keeps the container ratio WITHOUT any envelope', () => {
+            // Retired and replaced. This test previously asserted that ANY service with no envelope
+            // keeps the container ratio, on the reasoning that "an absent envelope is evidence of
+            // nothing". The first half was right and the conclusion was backwards: evidence of
+            // nothing cannot license the cross-scope ratio either. @neo-gpt's review reproduced the
+            // consequence — a declared Node service with no envelope still emitted the exact fact
+            // this slice exists to remove.
+            //
+            // What survives is the real requirement: a service the SOURCE identifies as non-Node
+            // keeps container scope, and does so without needing the heap channel deployed at all.
             const service    = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
             const memoryFact = memorySaturationFact(service, 'memory', [
                 statsSample({memoryPercent: 95, observedAtMs: 1_000_000}),
                 statsSample({memoryPercent: 95, observedAtMs: 1_045_000})
-            ]);
+            ], false);
 
             expect(memoryFact.details.memoryScope).toBe('container');
         });
@@ -1269,6 +1444,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_045_000)]
         });
 
@@ -1287,6 +1463,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_045_000)]   // 45s
         });
 
@@ -1316,6 +1493,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [
                 saturated(1_000_000),
                 saturated(1_045_000),
@@ -1333,6 +1511,7 @@ test.describe('sustained window is measured, not asserted', () => {
         const service  = createService({cpuSaturationPercent: 90, storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({
             serviceKey  : 'chroma',
+            nodeCommand : false,
             statsSamples: [saturated(1_000_000), saturated(1_030_000), saturated(1_045_000)]
         });
 

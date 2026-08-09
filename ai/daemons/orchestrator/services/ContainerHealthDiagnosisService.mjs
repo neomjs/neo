@@ -295,7 +295,7 @@ export class ContainerHealthDiagnosisService extends Base {
             })] : []),
             ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
             ...this.collectLifecycleFacts({serviceKey, inspect, observedAt, logs, nodeCommand, declaredHeapCeilingMb}),
-            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
+            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt, nodeCommand}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
             ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
@@ -520,7 +520,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object[]}
      */
-    collectStatsFacts({serviceKey, stats, statsSamples, observedAt}) {
+    collectStatsFacts({serviceKey, stats, statsSamples, observedAt, nodeCommand = null}) {
         const samples = normalizeStatsSamples({stats, statsSamples});
         if (samples.length < this.configValues.minResourceSamples) return [];
 
@@ -537,17 +537,24 @@ export class ContainerHealthDiagnosisService extends Base {
             // A Node service's memory saturation is measured against its own heap, never against the
             // container. `heapScope` decides which numerator is legitimate for this service and
             // whether one is available at all; see `resolveMemorySaturationScope`.
-            heapScope       = resolveMemorySaturationScope(samples),
-            memoryPercents  = heapScope.scope === MEMORY_SATURATION_SCOPES.heap
+            heapScope       = resolveMemorySaturationScope({samples, nodeCommand}),
+            isHeapScope     = heapScope.scope === MEMORY_SATURATION_SCOPES.heap,
+            memoryPercents  = isHeapScope
                 ? heapScope.percents
                 : samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
             // Per-sample observation times, stamped by `rememberStatsSample` when each sample was
             // taken. The window is now MEASURED from these rather than asserted from config, so
             // back-to-back samples cannot satisfy a sustained-window claim.
             timestamps      = samples.map(sample => sample?.observedAtMs).filter(Number.isFinite),
+            // The heap window is measured from the SUBJECT's own observation times, never from the
+            // Docker polls that read them. Those two clocks tick independently: the poll advances
+            // every collection, while a stopped reporter's stamp does not move at all. Measuring the
+            // span from the observer's clock let one stale record, re-read twice, assert a sustained
+            // window nothing had sustained. CPU keeps the Docker stamps, which are its true subject.
+            memoryTimestamps = isHeapScope ? heapScope.timestamps : timestamps,
             minWindowMs     = this.configValues.sampleWindowMs,
             cpuWindow       = summarizeSustainedWindow({values: cpuPercents, threshold: this.configValues.cpuSaturationPercent, expectedCount: samples.length, timestamps, minWindowMs}),
-            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps, minWindowMs});
+            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps: memoryTimestamps, minWindowMs});
 
         if (cpuWindow.sustained) {
             facts.push(this.createFact({
@@ -1384,34 +1391,75 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
  * @param {Object[]} samples Stats samples, each optionally carrying `heapObservation`.
  * @returns {Object} `{scope, percents}` — `percents` is populated only for the `heap` scope.
  */
-function resolveMemorySaturationScope(samples) {
+function resolveMemorySaturationScope({samples, nodeCommand}) {
     const
         envelopes = samples.map(sample => sample?.heapObservation).filter(Boolean),
-        // A service is "Node" for this purpose when the bridge published an envelope that is not the
-        // explicit non-Node refusal. An absent envelope is NOT evidence of non-Node — it is evidence
-        // of nothing, and it is what every service looks like before this channel deploys.
-        isNodeService = envelopes.some(envelope => envelope.unavailableReason !== 'not-node');
+        // Only a SOURCE-OWNED refusal licenses the container ratio. `nodeCommand === false` is the
+        // bridge's own reading of `Config.Cmd`; an all-`not-node` envelope set is the same refusal
+        // arriving through the channel. An ABSENT envelope is evidence of nothing — an earlier
+        // revision said exactly that in this comment while the branch below treated absence as
+        // sufficient evidence for container scope, which let a declared Node service keep emitting
+        // the cross-scope fact this whole slice exists to remove.
+        explicitlyNotNode = nodeCommand === false ||
+            (envelopes.length > 0 && envelopes.every(envelope => envelope.unavailableReason === 'not-node'));
 
-    if (!isNodeService) {
-        return {scope: MEMORY_SATURATION_SCOPES.container, percents: [], unavailableReason: null};
+    if (explicitlyNotNode) {
+        return {scope: MEMORY_SATURATION_SCOPES.container, percents: [], timestamps: [], unavailableReason: null};
     }
 
-    const percents = envelopes
-        .map(envelope => calculateHeapSaturationPercent(envelope.observation))
-        .filter(Number.isFinite);
+    // Node, or unclassifiable. Both require a heap window; an unclassifiable service must not get a
+    // cross-scope ratio, because that would be a guess with a number attached.
+    const
+        // Per sample, not per envelope: a sample with no envelope is a HOLE in the window, and the
+        // distinction is lost if absent envelopes are filtered away before counting.
+        readings = samples.map(sample => {
+            const envelope = sample?.heapObservation;
 
-    if (percents.length > 0) {
-        return {scope: MEMORY_SATURATION_SCOPES.heap, percents, unavailableReason: null};
+            // `status: 'available'` means the read was recent enough to describe the service;
+            // `pairable` means it is close enough to the container sample to enter arithmetic. The
+            // bridge publishes them separately because they answer different questions, and consuming
+            // only the first promotes a reading into stronger evidence than its source licensed.
+            if (!envelope || envelope.status !== 'available' || envelope.pairable !== true) {
+                return null;
+            }
+
+            const
+                percent = calculateHeapSaturationPercent(envelope.observation),
+                // The SUBJECT's own measurement time, never this collection's. Stamping a self-report
+                // with the observer's clock let one dead process's single record, re-read at two
+                // polls 45 s apart, claim a 45-second sustained window — a critical fact synthesised
+                // from the observer's clock while the subject stood still. That is the exact failure
+                // this channel exists to make impossible: a sick process does not report a bad
+                // number, it stops reporting.
+                stamp   = envelope.observation?.observedAt;
+
+            return Number.isFinite(percent) && Number.isFinite(stamp) ? {percent, stamp} : null;
+        }),
+        usable = readings.filter(Boolean);
+
+    // FULL coverage or nothing. A window with one usable reading and one hole is not a weaker
+    // measurement of the same thing — it is an unmeasured span, and it previously selected `heap`
+    // scope, failed the count floor, and emitted no fact at all, which published `healthy`.
+    if (usable.length === 0 || usable.length !== samples.length) {
+        return {
+            scope     : MEMORY_SATURATION_SCOPES.unavailable,
+            percents  : [],
+            timestamps: [],
+            // Names which repair is owed. A partially covered window is its own case: the channel is
+            // working and something interrupted it, which reads very differently from never having
+            // heard from the service at all.
+            unavailableReason: usable.length > 0
+                ? 'partial-window'
+                : envelopes.map(envelope => envelope.unavailableReason).filter(Boolean).pop() ||
+                  (envelopes.length > 0 ? 'unpairable' : 'not-deployed')
+        };
     }
 
     return {
-        scope   : MEMORY_SATURATION_SCOPES.unavailable,
-        percents: [],
-        // The most recent stated reason, so the emitted fact names which repair is owed. `null`
-        // envelopes carry none, and a Node service whose reader is simply not deployed yet produces
-        // exactly that — reported as `not-deployed` rather than as an empty string, because "we never
-        // heard from it" and "it told us it could not measure" are different situations.
-        unavailableReason: envelopes.map(envelope => envelope.unavailableReason).filter(Boolean).pop() || 'not-deployed'
+        scope            : MEMORY_SATURATION_SCOPES.heap,
+        percents         : usable.map(reading => reading.percent),
+        timestamps       : usable.map(reading => reading.stamp),
+        unavailableReason: null
     };
 }
 
