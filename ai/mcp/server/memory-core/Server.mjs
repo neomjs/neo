@@ -353,6 +353,8 @@ class Server extends BaseServer {
                 // than an empty backlog — zero pending against live provider load is the alarm condition,
                 // not a safe default.
                 MemoryCoreRecorderService.walDrainDispositionProvider = this.walDrainLoop.getDisposition;
+                MemoryCoreRecorderService.walDrainInProgressProvider   = this.walDrainLoop.getInProgress;
+                MemoryCoreRecorderService.walDrainWindowProvider       = this.walDrainLoop.getWindowSince;
                 // Release on process exit (the realistic single-process clean-shutdown path); a
                 // signal-kill leaves the lock for the next host to reclaim as stale.
                 process.on('exit', () => this.walDrainLock?.release());

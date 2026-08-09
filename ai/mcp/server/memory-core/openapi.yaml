@@ -2726,7 +2726,8 @@ components:
         - reason
         - counts
         - observedAt
-        - withinWindow
+        - inProgress
+        - window
       properties:
         status:
           type: string
@@ -2764,12 +2765,53 @@ components:
           format: date-time
           nullable: true
           description: When the reported cycle completed.
-        withinWindow:
-          type: boolean
+        inProgress:
+          type: object
+          nullable: true
           description: >
-            Whether `observedAt` falls inside this response's lookback window. False means the drain
-            observation and the provider-activity aggregates describe different periods and must not
-            be divided.
+            The work the currently-running cycle selected, published BEFORE it completes. Null when no
+            cycle is running. Without this, a cycle waiting on the provider is invisible and live work
+            reads as no work — the exact interval this projection exists to interpret.
+          required: [pendingAtStart, selectedCount, startedAt]
+          properties:
+            pendingAtStart:
+              type: integer
+              nullable: true
+              description: Items pending when the cycle began.
+            selectedCount:
+              type: integer
+              nullable: true
+              description: Items this cycle admitted for embedding.
+            startedAt:
+              type: string
+              format: date-time
+              nullable: true
+        window:
+          type: object
+          nullable: true
+          description: >
+            Completed drain cycles aggregated over the SAME lookback as `providerActivity`. This is the
+            comparable denominator; the `counts` field above describes one latest cycle and is not.
+            Null when no observation is available.
+          required: [cycles, oldestRetainedAt, totals, truncated]
+          properties:
+            cycles:
+              type: integer
+              description: Completed cycles inside the lookback.
+            oldestRetainedAt:
+              type: string
+              format: date-time
+              nullable: true
+            totals:
+              type: object
+              additionalProperties:
+                type: integer
+              description: Summed pending, selected, embedded and failed across those cycles.
+            truncated:
+              type: boolean
+              description: >
+                True when the lookback reaches further back than retained history, so the aggregate is
+                partial. A partial answer reported as a total is the same false zero as a defaulted one.
 
     ProviderActivityResponse:
       type: object

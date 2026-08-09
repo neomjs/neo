@@ -89,13 +89,76 @@
  * @param {Function} [options.now=Date.now] Injectable clock.
  * @returns {{recordCycle: Function, recordFailure: Function, getDisposition: Function}}
  */
-export function createDrainDispositionTracker({now = Date.now} = {}) {
-    let state  = 'unobserved',
-        reason = 'no-drain-cycle-completed-yet',
-        counts = null,
-        at     = null;
+export function createDrainDispositionTracker({historyLimit = 256, now = Date.now} = {}) {
+    let state      = 'unobserved',
+        reason     = 'no-drain-cycle-completed-yet',
+        counts     = null,
+        at         = null,
+        inProgress = null;
+
+    // Completed cycles, oldest first. The receipt above is a LAST-VALUE LATCH and cannot answer a
+    // windowed question: an idle poll overwrites a work-bearing cycle that is still inside a
+    // consumer's lookback, so "latest says pending 0" and "no work happened in the window" are
+    // different propositions. A consumer aggregating provider activity over `sinceTs` needs the
+    // cycles that fall in the SAME window, which is what this retains.
+    const history = [];
 
     return {
+        /**
+         * @summary Publishes the work a cycle SELECTED, before it completes.
+         *
+         * Without this, a cycle that has selected items and is waiting on the provider is invisible:
+         * the tracker cannot speak until the provider call returns, so the exact interval a load
+         * observer most needs to interpret reads as "no work". In-progress is cleared by the
+         * completion or failure that follows it.
+         * @param {Object} [data]
+         * @param {Number} [data.selected] Items admitted into this cycle.
+         * @param {Number} [data.pending] Items pending when the cycle began.
+         */
+        recordCycleStart({pending, selected} = {}) {
+            inProgress = {
+                pendingAtStart: Number.isFinite(pending)  ? pending  : null,
+                selectedCount : Number.isFinite(selected) ? selected : null,
+                startedAt     : now()
+            }
+        },
+
+        /**
+         * @summary Aggregates the completed cycles inside a consumer's lookback.
+         *
+         * `truncated` is not decoration: the ring is bounded, so a lookback older than the oldest
+         * retained cycle is a PARTIAL answer, and a partial answer reported as a total is the same
+         * false-zero this module exists to prevent.
+         * @param {Number} sinceTs Lower bound, epoch ms.
+         * @returns {Object}
+         */
+        getWindowSince(sinceTs) {
+            const inWindow = history.filter(entry => entry.at >= sinceTs),
+                  totals   = {embedded: 0, failed: 0, pending: 0, selected: 0};
+
+            for (const {counts: c} of inWindow) {
+                totals.embedded += Number(c?.embedded)  || 0;
+                totals.failed   += Number(c?.failed)    || 0;
+                totals.pending  += Number(c?.pending)   || 0;
+                totals.selected += Number(c?.selected)  || 0
+            }
+
+            return {
+                cycles          : inWindow.length,
+                oldestRetainedAt: history.length ? history[0].at : null,
+                totals,
+                truncated       : history.length === historyLimit && history[0].at > sinceTs
+            }
+        },
+
+        /**
+         * @summary The work the currently-running cycle selected, or null when none is running.
+         * @returns {Object|null}
+         */
+        getInProgress() {
+            return inProgress && {...inProgress}
+        },
+
         /**
          * @summary Records a completed cycle. Cleanliness is read from ONE producer-declared field,
          * `summary.outstanding`, never re-derived here from producer-specific counts.
@@ -111,8 +174,15 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
          * @param {Object} summary The loop's per-cycle summary; `outstanding` is the residue field.
          */
         recordCycle(summary = {}) {
-            counts = {...summary};
-            at     = now();
+            counts     = {...summary};
+            at         = now();
+            inProgress = null;
+
+            history.push({at, counts: {...summary}});
+
+            if (history.length > historyLimit) {
+                history.shift()
+            }
 
             if (summary.inactive) {
                 state  = 'inactive';
@@ -142,10 +212,11 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
          * @param {Error|String} error
          */
         recordFailure(error) {
-            state  = 'unobserved';
-            reason = `drain-cycle-failed: ${error?.message ?? error ?? 'unknown'}`;
-            counts = null;
-            at     = now()
+            state      = 'unobserved';
+            reason     = `drain-cycle-failed: ${error?.message ?? error ?? 'unknown'}`;
+            counts     = null;
+            at         = now();
+            inProgress = null
         },
 
         /**
