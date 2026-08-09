@@ -1772,6 +1772,70 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         await expect(verifier.verifyAccessToken('tok')).rejects.toThrow(FakeInvalidTokenError);
     });
 
+    test('GITLAB carries the identical contract — my own Contract Ledger required it', async () => {
+        // Both verifiers carry the identical shape, so they must carry the identical contract: an
+        // unreachable provider serves stale, an authoritative 401 evicts and rejects. Asserted here
+        // because the GitHub arm shipped first and this one is easy to leave behind.
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig: {auth: {
+                gitlabApiBaseUrl      : 'https://gitlab.example.com/',
+                patCacheTtlSeconds    : 0,
+                patValidationTimeoutMs: 5000,
+                patStaleGraceSeconds  : 3600
+            }},
+            logger,
+            InvalidTokenError: FakeInvalidTokenError
+        });
+
+        globalThis.fetch = async () => ({ok: true, status: 200, json: async () => ({id: 1, username: 'grace'})});
+        await verifier.verifyAccessToken('glpat-tok');
+
+        globalThis.fetch = async () => { throw new Error('unreachable') };
+        expect((await verifier.verifyAccessToken('glpat-tok')).userId).toBe('grace');
+
+        globalThis.fetch = async () => ({ok: false, status: 401, json: async () => ({})});
+        await expect(verifier.verifyAccessToken('glpat-tok')).rejects.toThrow(/HTTP 401/);
+    });
+
+    test('a stale-served identity is ACCEPTED by the real requireBearerAuth middleware', async () => {
+        // @neo-gpt's falsifier: helper-only rows can prove the verifier while the consumed SDK
+        // middleware rejects every result as expired. `expiresAt` is required and must be in the
+        // FUTURE, so a stale-serve that reconstructs an already-expired envelope would satisfy every
+        // test above and still fail the actual auth path. This crosses the middleware.
+        const {requireBearerAuth} = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js'),
+              {InvalidTokenError} = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
+
+        const verifier = AuthService.createGithubPatVerifier({
+            // A REALISTIC ttl, not 0 — the stale entry must reconstruct a future expiry.
+            aiConfig: withAuth({patCacheTtlSeconds: 1, patStaleGraceSeconds: 3600}),
+            logger,
+            InvalidTokenError
+        });
+
+        stubFetch([{status: 200}]);
+        await verifier.verifyAccessToken('tok');
+
+        await new Promise(resolve => setTimeout(resolve, 1100));   // past ttl, inside grace
+        stubFetch([{throws: new Error('unreachable')}]);
+
+        const middleware = requireBearerAuth({verifier});
+        const req        = {headers: {authorization: 'Bearer tok'}};
+        const res        = {
+            statusCode: 200,
+            status(code) { this.statusCode = code; return this },
+            json() { return this },
+            set() { return this },
+            setHeader() { return this },
+            end() { return this }
+        };
+
+        await new Promise(resolve => middleware(req, res, resolve));
+
+        // The whole point: the request is AUTHORIZED, not merely the verifier satisfied.
+        expect(req.auth?.clientId).toBe('grace');
+        expect(req.auth.expiresAt).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    });
+
     test('a token never validated is rejected when the provider is unreachable', async () => {
         // Fail-open must never mean fail-open for strangers: with no prior affirmative answer there
         // is nothing to serve, and the request is rejected exactly as before.

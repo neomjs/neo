@@ -767,7 +767,27 @@ class AuthService extends Base {
             allowedUsers        = this.#normalizePatAllowlist(aiConfig.auth.allowedUsers),
             requireClientId     = allowedClientIds.length > 0,
             requireUser         = allowedUsers.length > 0,
+            staleGraceMs        = Math.max(0, Number(aiConfig.auth.patStaleGraceSeconds) || 0) * 1000,
             cache               = new Map(); // tokenHash -> {user, tokenInfo, expiresAt} (cache-freshness, ms)
+
+        /**
+         * Identical contract to the GitHub verifier's: an UNREACHABLE provider may serve the last
+         * affirmative answer within a bounded grace window; a REJECTING one never can. Duplicated
+         * rather than shared because the two verifiers keep separate caches and entry shapes, and a
+         * premature abstraction over an auth boundary hides which provider a decision belongs to.
+         */
+        const serveStaleGitlab = (entry, reason) => {
+            if (!entry || staleGraceMs === 0 || Date.now() > entry.expiresAt + staleGraceMs) {
+                return null
+            }
+
+            logger.warn(
+                `[AuthService] GitLab provider unreachable (${reason}); serving previously-validated ` +
+                `identity '${entry.user?.username}' from cache, ${Math.round((Date.now() - entry.expiresAt) / 1000)}s past TTL.`
+            );
+
+            return entry
+        };
 
         // Builds the AuthInfo shape consumed by the SDK `requireBearerAuth` middleware AND
         // `RequestContextService`. `expiresAt` is REQUIRED by `requireBearerAuth` — it rejects auth
@@ -820,7 +840,20 @@ class AuthService extends Base {
                     });
 
                     if (!userResponse.ok) {
-                        cache.delete(tokenHash);
+                        // Same split as the GitHub arm: only an authoritative rejection evicts. A
+                        // 5xx, a 429 or a proxy's 502 is the provider failing to ANSWER, and a
+                        // displaced identity must not be destroyed because a third party is down.
+                        if (isAuthoritativeRejection(userResponse.status)) {
+                            cache.delete(tokenHash);
+                            throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${userResponse.status})`)
+                        }
+
+                        const stale = serveStaleGitlab(cached, `HTTP ${userResponse.status}`);
+
+                        if (stale) {
+                            return buildInfo(token, stale.user, stale.tokenInfo)
+                        }
+
                         throw new InvalidTokenError(`GitLab PAT validation failed (HTTP ${userResponse.status})`)
                     }
 
@@ -864,6 +897,19 @@ class AuthService extends Base {
 
                     return buildInfo(token, user, tokenInfo)
                 } catch (error) {
+                    // An InvalidTokenError raised above already made its own eviction decision —
+                    // authoritative rejections deleted the entry, transient ones deliberately kept
+                    // it. Re-deleting unconditionally, as this used to, destroys the fallback.
+                    if (error instanceof InvalidTokenError) {
+                        throw error
+                    }
+
+                    const stale = serveStaleGitlab(cached, signal.aborted ? `timeout after ${validationTimeoutMs}ms` : 'network error');
+
+                    if (stale) {
+                        return buildInfo(token, stale.user, stale.tokenInfo)
+                    }
+
                     cache.delete(tokenHash);
 
                     if (signal.aborted) {
