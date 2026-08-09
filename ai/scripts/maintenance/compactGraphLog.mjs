@@ -1,12 +1,12 @@
 // Bootstrap Neo namespace BEFORE importing runtime config; `ConfigProvider` consumes core utilities
 // through `Neo.gatekeep()` / `Neo.isObject()` once the config module is loaded.
-import Neo                            from '../../../src/Neo.mjs';
-import * as core                      from '../../../src/core/_export.mjs';
-import {Command}                      from 'commander';
-import Database                       from 'better-sqlite3';
-import fs                             from 'fs-extra';
-import path                           from 'path';
-import {pathToFileURL}                from 'url';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import {Command}       from 'commander';
+import Database        from 'better-sqlite3';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {pathToFileURL} from 'url';
 import {
     activeWakeSubscriptionStatusSql,
     WAKE_SUBSCRIPTION_DEFAULT_STATUS
@@ -55,8 +55,8 @@ export function getDefaultGraphLogCompactionOptions({aiConfig}) {
 
     return {
         dbPath          : aiConfig.storagePaths.graph,
-        bridgeStateFile: aiConfig.wakeDaemon.bridgeLastSyncIdPath,
-        wakeStateFile  : aiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath,
+        bridgeStateFile : aiConfig.wakeDaemon.bridgeLastSyncIdPath,
+        wakeStateFile   : aiConfig.wakeDaemon.wakeSubscriptionLiveCursorPath,
         safetyMarginRows: DEFAULT_SAFETY_MARGIN_ROWS
     };
 }
@@ -123,9 +123,9 @@ export function getGraphLogStats({db, dbPath = null, fsModule = fs}) {
     `).get()?.bytes ?? null;
 
     return {
-        rowCount    : row.rowCount || 0,
-        minLogId    : row.minLogId || 0,
-        maxLogId    : row.maxLogId || 0,
+        rowCount: row.rowCount || 0,
+        minLogId: row.minLogId || 0,
+        maxLogId: row.maxLogId || 0,
         pageSize,
         pageCount,
         freelist,
@@ -411,8 +411,8 @@ export function runGraphLogCompaction({
         db.pragma('journal_mode = WAL');
         db.pragma('busy_timeout = 5000');
 
-        const before          = getGraphLogStats({db, dbPath, fsModule});
-        const subscriptions   = listActiveWakeSubscriptions({db});
+        const before              = getGraphLogStats({db, dbPath, fsModule});
+        const subscriptions       = listActiveWakeSubscriptions({db});
         const wakeDaemonWatermark = readWakeDaemonWatermark({
             stateFile  : bridgeStateFile,
             latestLogId: before.maxLogId,
@@ -444,7 +444,7 @@ export function runGraphLogCompaction({
             db.exec('VACUUM');
         }
 
-        const after = getGraphLogStats({db, dbPath, fsModule});
+        const after  = getGraphLogStats({db, dbPath, fsModule});
         const result = {before, after, subscriptions, wakeDaemonWatermark, wakeWatermark, plan, compaction, checkpointResult};
 
         logCompactionResult(result, {apply, vacuum, logger});
@@ -465,7 +465,7 @@ export function runGraphLogCompaction({
 export function buildGraphLogCompactionOutcome(result, {apply = false} = {}) {
     const {before = {}, after = {}, plan = {}, compaction = {}} = result || {};
     const safetyBlocked = plan.disposition === 'safety-blocked';
-    const status = safetyBlocked
+    const status        = safetyBlocked
         ? 'safety-blocked'
         : !apply
             ? 'dry-run'
@@ -572,7 +572,7 @@ export async function runCli(argv = process.argv, {aiConfig = null} = {}) {
     const options = command.opts();
 
     const result = runGraphLogCompaction({
-        dbPath           : path.resolve(options.db),
+        dbPath          : path.resolve(options.db),
         bridgeStateFile : path.resolve(options.bridgeStateFile),
         wakeStateFile   : path.resolve(options.wakeStateFile),
         safetyMarginRows: parseNonNegativeInteger(options.safetyMargin, 'safety-margin'),
