@@ -1121,6 +1121,150 @@ test.describe('sustained window is measured, not asserted', () => {
         });
     });
 
+    test.describe('memory-saturation scope — a Node service is measured against its own heap', () => {
+        /** A stats sample at 95% CONTAINER memory, carrying a heap envelope at the same instant. */
+        function nodeSample({observedAtMs, heapPercent = null, unavailableReason = null}) {
+            const sample = statsSample({memoryPercent: 95, observedAtMs});
+
+            sample.heapObservation = {
+                status     : heapPercent === null ? 'unavailable' : 'available',
+                unavailableReason,
+                observation: heapPercent === null ? null : {
+                    state                 : 'observed',
+                    ceilingState          : 'declared',
+                    declaredCeilingBytes  : 768 * 1024 * 1024,
+                    heapSizeLimitBytes    : 816 * 1024 * 1024,
+                    oldGenerationUsedBytes: Math.round(768 * 1024 * 1024 * (heapPercent / 100))
+                }
+            };
+
+            return sample;
+        }
+
+        /**
+         * Exercises `collectStatsFacts` directly rather than through `diagnose()`. The diagnosis
+         * layer gates on `minAuthoritativeFacts: 2`, so routing through it would make every
+         * assertion below depend on a CPU fact firing alongside — coupling the scope question to an
+         * unrelated threshold, and letting a scope regression hide behind a missing second fact.
+         */
+        function memorySaturationFact(service, serviceKey, statsSamples) {
+            return service
+                .collectStatsFacts({serviceKey, stats: null, statsSamples, observedAt: OBSERVED_AT})
+                .find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.memorySaturation);
+        }
+
+        test('the fact reports the HEAP percent, not the container percent', () => {
+            // Both are present in the same samples and they disagree: 95% container, 91% heap. Only
+            // one of them is the ratio the process dies on.
+            const service    = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const memoryFact = memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, heapPercent: 91}),
+                nodeSample({observedAtMs: 1_045_000, heapPercent: 91})
+            ]);
+
+            expect(memoryFact.details.memoryScope).toBe('heap');
+            expect(memoryFact.details.meanPercent).toBeCloseTo(91, 0);
+            expect(memoryFact.details.meanPercent).not.toBeCloseTo(95, 0);
+        });
+
+        test('a Node service with NO usable heap reading emits NO fact — fail closed', () => {
+            // The criterion of the whole slice. These samples sit at 95% container against an 80%
+            // threshold, so the OLD implementation emits a critical memory-saturation fact here.
+            // Falling back to that ratio when the heap channel is down would reinstate the
+            // cross-scope pair precisely when the number is least trustworthy.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            expect(memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, unavailableReason: 'stale'}),
+                nodeSample({observedAtMs: 1_045_000, unavailableReason: 'stale'})
+            ])).toBeUndefined();
+        });
+
+        test('the unmeasured axis is ANNOUNCED — absence must not publish as healthy', () => {
+            // Caught by @neo-opus-grace on the surface-overlap ping, and it is the more dangerous
+            // half: `diagnose()` publishes `status: facts.length > 0 ? 'advisory' : 'healthy'`, so
+            // failing closed on the numerator would have made a Node service with no heap reading
+            // report GREEN on exactly the axis that stopped being measured. Fail-closed on the
+            // metric, fail-OPEN on the envelope.
+            const service  = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const decision = service.diagnose({
+                serviceKey  : 'memory',
+                inspect     : runningInspect(),
+                statsSamples: [
+                    nodeSample({observedAtMs: 1_000_000, unavailableReason: 'stale'}),
+                    nodeSample({observedAtMs: 1_045_000, unavailableReason: 'stale'})
+                ]
+            });
+
+            expect(decision.status).not.toBe('healthy');
+            expect(decision.status).toBe('advisory');
+
+            const fact = decision.facts
+                .find(entry => entry.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable);
+
+            expect(fact.details.unavailableReason).toBe('stale');
+            // Non-authoritative by construction: it must not reach minAuthoritativeFacts, license an
+            // action, or claim anything about the heap itself. It reports an absent MEASUREMENT.
+            expect(fact.authoritative).toBe(false);
+            expect(fact.severity).toBe('warning');
+        });
+
+        test('a service whose reporter never deployed says so by name', () => {
+            // The live case today: the merged reader emits no key at all for a service running an
+            // older revision. "We never heard from it" and "it told us it could not measure" are
+            // different repairs, so they must not collapse into one reason.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const facts   = service.collectStatsFacts({
+                serviceKey  : 'memory',
+                stats       : null,
+                statsSamples: [
+                    nodeSample({observedAtMs: 1_000_000, unavailableReason: null}),
+                    nodeSample({observedAtMs: 1_045_000, unavailableReason: null})
+                ],
+                observedAt  : OBSERVED_AT
+            });
+
+            expect(facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable)
+                .details.unavailableReason).toBe('not-deployed');
+        });
+
+        test('CONTROL — the same samples DO emit when the heap reading is usable', () => {
+            // Proves the test above fails for the stated reason. Identical container numbers,
+            // identical threshold and window; only the heap envelope differs.
+            const service = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            expect(memorySaturationFact(service, 'memory', [
+                nodeSample({observedAtMs: 1_000_000, heapPercent: 91}),
+                nodeSample({observedAtMs: 1_045_000, heapPercent: 91})
+            ])).toBeDefined();
+        });
+
+        test('a NON-Node service keeps the container ratio, unchanged', () => {
+            // `chroma` is the live example: a third-party image with no V8 heap to bound. Container
+            // usage over the container limit is the honest measure of container pressure, and this
+            // slice must not disturb it.
+            const service    = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
+            const memoryFact = memorySaturationFact(service, 'chroma', [
+                nodeSample({observedAtMs: 1_000_000, unavailableReason: 'not-node'}),
+                nodeSample({observedAtMs: 1_045_000, unavailableReason: 'not-node'})
+            ]);
+
+            expect(memoryFact.details.memoryScope).toBe('container');
+            expect(memoryFact.details.meanPercent).toBeCloseTo(95, 0);
+        });
+
+        test('a service with no envelope at all keeps the container ratio', () => {
+            // Every service looks like this before the heap channel deploys — which is the live plane
+            // today. An absent envelope is evidence of nothing, and must not be read as non-Node OR
+            // as a reason to go silent.
+            const service    = createService({memorySaturationPercent: 80, sampleWindowMs: 30000});
+            const memoryFact = memorySaturationFact(service, 'memory', [
+                statsSample({memoryPercent: 95, observedAtMs: 1_000_000}),
+                statsSample({memoryPercent: 95, observedAtMs: 1_045_000})
+            ]);
+
+            expect(memoryFact.details.memoryScope).toBe('container');
+        });
+    });
+
     test('CONTROL — a DECLARED key records declared:true, so the flag discriminates', () => {
         const service  = createService({storeMemorySaturationPercent: 80, sampleWindowMs: 30000});
         const decision = service.diagnose({

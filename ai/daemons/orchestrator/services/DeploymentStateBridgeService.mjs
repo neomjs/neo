@@ -407,10 +407,6 @@ export class DeploymentStateBridgeService extends Base {
             });
         }
 
-        if (stats) {
-            this.rememberStatsSample(serviceKey, stats, observedAt);
-        }
-
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
 
         const churnBaseline = this.readChurnBaseline(serviceKey);
@@ -448,6 +444,20 @@ export class DeploymentStateBridgeService extends Base {
                 nodeCommand: inspectSummary?.nodeCommand ?? null,
                 observedAt
             });
+
+        // Remembered HERE rather than at the read above, because the heap observation rides ON the
+        // stats sample and is only resolvable once `inspectSummary` exists. Nothing between the two
+        // points reads the sample window, so the move is behaviour-preserving for the container
+        // metrics — and it is what lets the V8-scoped ratio reuse the SAME sustained-window machinery
+        // instead of growing a second retention lifecycle with its own bound and its own drift.
+        //
+        // The pairing is correct by construction rather than by convention: both terms carry this
+        // collection's `observedAt`, so a heap percent and a container percent from one sample
+        // describe one instant. A parallel sample store would have to re-establish that alignment,
+        // and could silently lose it.
+        if (stats) {
+            this.rememberStatsSample(serviceKey, stats, observedAt, heapObservation);
+        }
 
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
@@ -890,14 +900,20 @@ export class DeploymentStateBridgeService extends Base {
      * @param {Object} stats Docker stats sample.
      * @param {Number} [observedAt] Epoch ms for this sample. Omitted leaves the sample unstamped,
      *     which fails the span check closed rather than inheriting an unearned window.
+     * @param {Object|null} [heapObservation] This service's self-reported heap envelope at the same
+     *     instant, carried ON the sample so the V8-scoped ratio inherits this window rather than
+     *     maintaining a second one. `null` is the honest value for a non-Node or unreported service
+     *     and must never be read as zero usage.
      * @returns {void}
      */
-    rememberStatsSample(serviceKey, stats, observedAt) {
+    rememberStatsSample(serviceKey, stats, observedAt, heapObservation = null) {
         const samples = this.statsSamplesByService.get(serviceKey) || [];
 
-        // Shallow copy with an additive key: the percent calculators read specific Docker fields and
+        // Shallow copy with additive keys: the percent calculators read specific Docker fields and
         // ignore anything else, so this cannot alter their arithmetic.
-        samples.push(Number.isFinite(observedAt) ? {...stats, observedAtMs: observedAt} : stats);
+        samples.push(Number.isFinite(observedAt)
+            ? {...stats, observedAtMs: observedAt, heapObservation}
+            : {...stats, heapObservation});
 
         this.statsSamplesByService.set(serviceKey, samples.slice(-AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow));
     }
