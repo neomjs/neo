@@ -60,6 +60,7 @@ x-plane-env: &plane-env
   NEO_FLEET_DATA_DIR: /app/.neo-ai-data-parity/fleet
   NEO_FLEET_INSTANCE_ROOT: /app/.neo-ai-data-parity/fleet/instances
   NEO_CHROMA_DATA_DIR: /app/.neo-ai-data-parity/chroma/unified
+  NEO_HEAP_OBSERVATION_DIR: /app/.neo-ai-data-parity/heap-observation
   NEO_AI_ORCHESTRATOR_DIR: /app/.neo-ai-data-parity/orchestrator-daemon
   NEO_AI_DB_PATH: /app/.neo-ai-data-parity/sqlite/memory-core-graph.sqlite
   # Profile-pinned Tier-1 leaves: excluded from PLANE_MEMBER_PATHS, so the boot walk cannot

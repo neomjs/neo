@@ -141,6 +141,19 @@ class Server extends BaseServer {
     }
 
     /**
+     * @summary Publishes this server's heap observation as the `mc-server` Compose service.
+     *
+     * The label matches this server's own `logger.filePrefix` and the orchestrator bridge's
+     * `allowedServices` entry — the same string the bridge resolves `mc-server.json` from, so the
+     * record's identity check passes for the right reason rather than by coincidence.
+     *
+     * This server overrides `boot()` without chaining `super.boot()`; the reporter is started from
+     * `BaseServer.initAsync()` for exactly that reason, so no start call belongs in the override.
+     * @returns {String}
+     */
+    getHeapObservationServiceKey() { return 'mc-server' }
+
+    /**
      * @summary Tools allowed without the healthcheck gate. The A2A
      * mailbox/permission surface is graph/SQLite-scoped and must remain reachable during
      * summarization/vector-provider incidents so agents can coordinate the recovery — as is

@@ -10,6 +10,7 @@ import {
     resolvePlaneDataRoot
 } from '../../planeConfig.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
+import HeapObservationReporterService                                    from './shared/services/HeapObservationReporterService.mjs';
 
 // The durable-root reference for the plane fail-closed check: THIS checkout's ANCHOR plane root.
 // The anchor computation reads no env by construction, so this reference cannot drift with the
@@ -289,6 +290,24 @@ class BaseServer extends Base {
     async afterHealthcheck(health) { /* no-op */ }
     /** @summary Hook fired after transport-connect completes in default `initAsync` sequence. */
     async afterTransportConnected() { /* no-op */ }
+
+    /**
+     * @summary Names this server in the self-reported heap-observation channel, or opts out.
+     *
+     * **The key is the Compose service label, and that is a contract rather than a convention.** The
+     * orchestrator's deployment-state bridge resolves `<serviceKey>.json` from the same allowlist it
+     * enumerates services with, and refuses any record whose stamped key differs from the path it read
+     * — so a server that returns a name of its own invention publishes a file nothing reads, and a
+     * server that returns a *sibling's* name gets its heap attributed to another process.
+     *
+     * `null` is the default because most servers should not publish: the channel exists for the
+     * long-lived, heap-bounded Node services the bridge already observes from outside. Opting in is a
+     * one-line declaration rather than a call, so a server cannot half-integrate by declaring intent
+     * and forgetting to start anything.
+     *
+     * @returns {String|null} Compose service label, or `null` to publish nothing.
+     */
+    getHeapObservationServiceKey() { return null }
 
     // ===== Building blocks (callable from overridden initAsync) =====
 
@@ -769,6 +788,50 @@ class BaseServer extends Base {
     async initAsync() {
         await super.initAsync();
         await this.boot();
+        this.startHeapObservation();
+    }
+
+    /**
+     * @summary Starts this server's self-reported heap observation, if it declared a service key.
+     *
+     * **Placed in `initAsync()` rather than `boot()` on purpose.** Subclasses with a non-canonical
+     * bootstrap override `boot()` and do NOT call `super.boot()` — memory-core is exactly that case —
+     * so a start wired into the default `boot()` would silently skip the servers most worth observing.
+     * `initAsync()` is the one point every server passes through, which is what makes a single owner
+     * possible instead of one call site per server to forget.
+     *
+     * **After `boot()`, not before.** The publish directory is a config leaf, and `loadCustomConfig()`
+     * runs inside `boot()`; starting earlier would resolve the path against the pre-overlay value and
+     * publish into a directory the reader does not watch. The cost is that no observation exists during
+     * startup — which the reader already reports honestly as `absent`, never as health.
+     *
+     * The reporter's `start()` is total by contract, and this is the call site that requires it: a
+     * server must not fail to come up because it could not describe its own heap.
+     * @returns {void}
+     * @protected
+     */
+    startHeapObservation() {
+        const serviceKey = this.getHeapObservationServiceKey();
+
+        if (!serviceKey) return;
+
+        const writeLog = (level, message) => (level === 'ERROR' ? this.logger?.error : this.logger?.info)?.call(this.logger, message);
+
+        HeapObservationReporterService.start({serviceKey, writeLog});
+
+        // Matches the embedding-probe teardown idiom: the interval is unref'd and so never holds the
+        // process open, but an explicit stop keeps the timer from firing against a torn-down config.
+        process.once('exit', () => this.stopHeapObservation());
+    }
+
+    /**
+     * @summary Stops this server's heap observation. Idempotent, and safe to call on a server that
+     * never started one — the reporter owns a single timer and clearing an absent one is a no-op.
+     * @returns {void}
+     * @protected
+     */
+    stopHeapObservation() {
+        HeapObservationReporterService.stop();
     }
 
     /**

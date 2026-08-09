@@ -114,6 +114,16 @@ class Server extends BaseServer {
     }
 
     /**
+     * @summary Publishes this server's heap observation as the `kb-server` Compose service.
+     *
+     * The label matches this server's own `logger.filePrefix` and the orchestrator bridge's
+     * `allowedServices` entry — the same string the bridge resolves `kb-server.json` from, so the
+     * record's identity check passes for the right reason rather than by coincidence.
+     * @returns {String}
+     */
+    getHeapObservationServiceKey() { return 'kb-server' }
+
+    /**
      * @summary Tools allowed without the healthcheck gate.
      * @returns {Array<String>}
      */

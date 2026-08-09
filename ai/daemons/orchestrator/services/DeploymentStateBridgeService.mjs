@@ -438,7 +438,16 @@ export class DeploymentStateBridgeService extends Base {
                 proofByOperation.inspect?.target?.containerId &&
                 proofByOperation.logs.target.containerId === proofByOperation.inspect.target.containerId
             ),
-            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget});
+            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget}),
+            // Consumes the SAME `nodeCommand` observation the heap attribution uses, rather than
+            // re-deriving what "a Node service" means. Placed after the summary for that reason
+            // alone; it is otherwise a sibling of `providerResidency` — nullable, non-Docker-derived,
+            // and published on the same record.
+            heapObservation = this.readHeapObservation({
+                serviceKey,
+                nodeCommand: inspectSummary?.nodeCommand ?? null,
+                observedAt
+            });
 
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
@@ -485,6 +494,7 @@ export class DeploymentStateBridgeService extends Base {
             stats         : summarizeStats(stats),
             logs          : logSummary,
             providerResidency,
+            heapObservation,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,
             // so a healthy store exposed none of them and no load-independent claim about the
@@ -662,6 +672,121 @@ export class DeploymentStateBridgeService extends Base {
             this.writeLog?.('WARN', `[DeploymentStateBridge] churn baseline unreadable for ${serviceKey}: ${error.message}`);
 
             return {unreadable: true}
+        }
+    }
+
+    /**
+     * @summary Reads one service's self-reported heap observation and bounds it before publishing.
+     *
+     * **This is the only field on the record the process wrote about itself.** Everything else is
+     * observed from outside over the Docker socket. That difference is marked rather than smoothed,
+     * because the two provenances fail in opposite directions: an external observation degrades when
+     * the *observer* breaks, while a self-report degrades when the *subject* breaks — a process dying
+     * of heap exhaustion stops reporting precisely when the number is most wanted. So absence here is
+     * never health, and the previous value is never served as the current one.
+     *
+     * **Staleness and pairability are the same measurement at two thresholds, and saying so is the
+     * point.** The container `stats` sample is stamped with this collection's `observedAt`, so the
+     * age of the self-report IS its skew against the container reading; there is no second,
+     * independent check to hide behind. They are separated because they answer different questions:
+     * `staleAfterMs` asks whether the observation still describes the service at all, while
+     * `maxSkewMs` asks whether it may be put in a ratio with the container number. On this deployment
+     * container memory was measured moving ~93 MiB inside 45 seconds, so an observation may be recent
+     * enough to report and still too far away to do arithmetic against — which is why `pairable` is a
+     * separate field rather than a stricter `status`.
+     *
+     * `config` defaults to the use-site read and exists as one seam so a spec can exercise the
+     * disabled and bounded arms against a temporary directory. The shared `AiConfig` singleton is
+     * never mutated to isolate a test — that is the mechanism that bled test data into live stores.
+     *
+     * @param {Object}       options
+     * @param {String}       options.serviceKey  Service whose observation to read.
+     * @param {Boolean|null} options.nodeCommand Whether the container runs a Node process.
+     * @param {Number}       options.observedAt  Epoch ms of this collection — the container reading's stamp.
+     * @param {Object}      [options.config]     Resolved `heapObservation` leaves.
+     * @returns {Object} Always an envelope; `observation` is `null` whenever `status` is `unavailable`.
+     */
+    readHeapObservation({serviceKey, nodeCommand, observedAt, config = AiConfig.heapObservation}) {
+        const
+            maxSkewMs    = config.maxSkewMs,
+            staleAfterMs = config.staleAfterMs,
+            unavailable  = reason => ({
+                schemaVersion    : 1,
+                recordType       : 'deployment-heap-observation',
+                serviceKey,
+                provenance       : 'self-reported',
+                status           : 'unavailable',
+                unavailableReason: reason,
+                ageMs            : null,
+                pairable         : false,
+                maxSkewMs,
+                staleAfterMs,
+                observation      : null
+            });
+
+        if (!config.enabled) {
+            // A disabled channel is not evidence of a healthy heap, exactly as a disabled log read is
+            // not evidence of a clean exit.
+            return unavailable('channel-disabled')
+        }
+
+        // Fail closed on identity rather than on the file's absence: a non-Node service must never
+        // produce an observation even if a stale or hand-placed file sits at its path.
+        if (nodeCommand !== true) {
+            return unavailable('not-node')
+        }
+
+        let record;
+
+        try {
+            record = fs.readJsonSync(path.resolve(config.dir, `${serviceKey}.json`))
+        } catch (error) {
+            return unavailable(error.code === 'ENOENT' ? 'absent' : 'unreadable')
+        }
+
+        if (record?.recordType !== 'process-heap-observation') {
+            return unavailable('malformed')
+        }
+
+        // The reader resolved this path from `serviceKey`; the writer stamped the record with its own.
+        // Comparing them is what makes a mixed-up mount or a copied file detectable instead of
+        // silently attributing one process's heap to another — the same falsifier `incarnationBounded`
+        // applies to log slices.
+        if (record.serviceKey !== serviceKey) {
+            return unavailable('identity-mismatch')
+        }
+
+        const stamp = record.observation?.observedAt;
+
+        if (!Number.isFinite(stamp)) {
+            return unavailable('malformed')
+        }
+
+        const ageMs = observedAt - stamp;
+
+        // A report from the future means the two clocks disagree, and pairing numbers across
+        // disagreeing clocks is the arithmetic hazard this bound exists to prevent. Reported as its
+        // own reason rather than folded into staleness, because the remedy is different.
+        if (ageMs < -maxSkewMs) {
+            return unavailable('clock-skew')
+        }
+
+        if (ageMs > staleAfterMs) {
+            return unavailable('stale')
+        }
+
+        return {
+            schemaVersion    : 1,
+            recordType       : 'deployment-heap-observation',
+            serviceKey,
+            provenance       : 'self-reported',
+            status           : 'available',
+            unavailableReason: null,
+            ageMs,
+            pairable         : Math.abs(ageMs) <= maxSkewMs,
+            maxSkewMs,
+            staleAfterMs,
+            observation      : record.observation
         }
     }
 
