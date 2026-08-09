@@ -118,14 +118,39 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 };
             }
         };
+        // The handoff is CAPTURED, not just invoked. The heap attribution lives in diagnosis but its
+        // evidence is produced here, so a bridge that silently stopped passing the log summary or the
+        // Config.Cmd observations would leave the attribution permanently unavailable while every
+        // other assertion in this tree stayed green. Destructuring only the old arguments is exactly
+        // how that break would hide.
+        let diagnoseArgs = null;
+
         const diagnosisService = {
-            diagnose({serviceKey, inspect, statsSamples}) {
+            diagnose(args) {
+                diagnoseArgs = args;
+
+                const {serviceKey, inspect, statsSamples} = args;
+
                 return {serviceKey, status: inspect.State.Health.Status, sampleCount: statsSamples.length};
             }
         };
 
         const service  = createService({runtimeAccessService, diagnosisService});
         const snapshot = await service.collectSnapshot();
+
+        expect(diagnoseArgs, 'the bridge must hand diagnosis its heap-attribution evidence').toMatchObject({
+            declaredHeapCeilingMb: null,
+            // The incarnation bound must travel WITH the slice. This fixture's container is running,
+            // so it has no FinishedAt and therefore no interval — `false` here is the correct answer
+            // and the one that keeps diagnosis from attributing a death that has not happened.
+            logs       : {incarnationBounded: false, text: expect.any(String)},
+            nodeCommand: false
+        });
+
+        // The same summarized receipt reaches diagnosis AND publication — one object, not two
+        // derivations that could drift apart.
+        expect(snapshot.services[0].logs.incarnationBounded).toBe(false);
+        expect(snapshot.services[0].logs.text).toBe(diagnoseArgs.logs.text);
 
         expect(calls.map(call => call.operation)).toEqual(['inspect', 'stats', 'logs']);
         expect(snapshot.services).toHaveLength(1);
@@ -177,6 +202,64 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 broadLookupFailure  : false
             }
         });
+    });
+
+    test('a logs read that landed on a DIFFERENT container is never incarnation-bounded', async () => {
+        // `readObserve` resolves a target per call, so a compose recreate between inspect and logs
+        // lands them on different containers. A legitimately-applied interval on the WRONG container
+        // is not this incarnation — and the payloads alone cannot show it, only the proof targets can.
+        const runtimeAccessService = {
+            async readObserve({operation}) {
+                if (operation === 'inspect') {
+                    return {
+                        data: {
+                            Config: {Cmd: ['node', 'server.mjs']},
+                            State : {
+                                FinishedAt: '2026-08-08T20:05:00.900Z',
+                                Health    : {Status: 'unhealthy'},
+                                StartedAt : '2026-08-08T20:00:00.900Z',
+                                Status    : 'exited'
+                            }
+                        },
+                        proof: {operation: 'inspect', target: {containerId: 'container-A'}}
+                    };
+                }
+
+                if (operation === 'logs') {
+                    return {
+                        data: {
+                            appliedSince: '2026-08-08T20:00:00.900Z',
+                            appliedUntil: '2026-08-08T20:05:00.900Z',
+                            bounded     : true,
+                            containerId : 'container-B',
+                            logs        : 'FATAL ERROR: Reached heap limit - JavaScript heap out of memory',
+                            tail        : 25
+                        },
+                        proof: {operation: 'logs', target: {containerId: 'container-B'}}
+                    };
+                }
+
+                return {data: null, proof: {operation}};
+            }
+        };
+
+        let diagnoseArgs = null;
+
+        const service = createService({
+            diagnosisService: {
+                diagnose(args) {
+                    diagnoseArgs = args;
+                    return {status: 'diagnosed'}
+                }
+            },
+            runtimeAccessService
+        });
+
+        const snapshot = await service.collectSnapshot();
+
+        expect(diagnoseArgs.logs.incarnationBounded,
+            'a producer bound on a different container must not read as this incarnation').toBe(false);
+        expect(snapshot.services[0].logs.incarnationBounded).toBe(false);
     });
 
     test('the declared heap ceiling travels Config.Cmd → inspect → diagnostics through the OWNER', async () => {
