@@ -21,6 +21,7 @@ import {
 } from './conceptSpineCanonicalization.mjs';
 import {buildGraphProvider, resolveGraphModelProvider} from './providerDispatch.mjs';
 import {chunkSession}                                  from './sessionChunker.mjs';
+import MemoryCoreRecorderService                       from '../memory-core/MemoryCoreRecorderService.mjs';
 
 /**
  * @class Neo.ai.daemons.services.SemanticGraphExtractor
@@ -180,7 +181,9 @@ class SemanticGraphExtractor extends Base {
                 host      : AiConfig.openAiCompatible.host,
                 keep_alive: AiConfig.openAiCompatible.keep_alive,
                 model     : AiConfig.openAiCompatible.model
-            }
+            },
+            providerActivityRecorder: MemoryCoreRecorderService,
+            providerActivityService : 'dream-pipeline'
         });
     }
 
@@ -594,7 +597,8 @@ class SemanticGraphExtractor extends Base {
                 responseSchema     : triVectorSchema,
                 responseSchemaName : 'triVector',
                 maxCompletionTokens: graphOutputLimitTokens,
-                operationLabel     : `REM Tri-Vector ${session.meta.sessionId} ${assetRef} attempt ${attempt}/${maxRetries}`
+                operationLabel     : `REM Tri-Vector ${session.meta.sessionId} ${assetRef} attempt ${attempt}/${maxRetries}`,
+                operationStage     : 'rem-tri-vector'
             };
 
             logger.info(

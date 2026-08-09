@@ -48,7 +48,7 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     });
 
     test('modelProvider=ollama returns generateContent wrapping native Ollama provider', async () => {
-        const captured = [];
+        const captured   = [];
         const fakeOllama = {
             host     : 'fake://injected',
             modelName: 'fake-injected',
@@ -90,7 +90,7 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     });
 
     test('modelProvider=ollama refreshes provider host/model/keepAlive per invocation', async () => {
-        const captured = [];
+        const captured   = [];
         const fakeOllama = {
             host     : null,
             modelName: null,
@@ -103,7 +103,7 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
 
         // Pass a mutable ollamaConfig ref so we can change it between invocations.
         const ollamaConfig = {host: 'http://v1.test', model: 'model-v1', keep_alive: -1};
-        const model = buildChatModel({
+        const model        = buildChatModel({
             modelProvider        : 'ollama',
             ollamaConfig,
             ollamaProviderFactory: () => fakeOllama
@@ -122,7 +122,7 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     });
 
     test('modelProvider=openAiCompatible returns generateContent wrapping OpenAi-compatible provider', async () => {
-        const captured = [];
+        const captured     = [];
         const fakeProvider = {
             host     : null,
             modelName: null,
@@ -206,7 +206,8 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     });
 
     test('routes local requests through the injected queue and strips priority from provider options (#12748)', async () => {
-        const captured = [];
+        const captured     = [];
+        const activity     = [];
         const fakeProvider = {
             async generate(promptText, generationOptions) {
                 captured.push({promptText, generationOptions});
@@ -218,14 +219,127 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
             modelProvider                  : 'openAiCompatible',
             openAiCompatibleConfig         : {host: 'http://oai.test', model: 'm'},
             openAiCompatibleProviderFactory: () => fakeProvider,
-            chatRequestQueue               : queue
+            chatRequestQueue               : queue,
+            providerActivityRecorder       : {
+                beginProviderActivity(entry) { activity.push({type: 'begin', entry}); return 'activity-1' },
+                startProviderActivity(id, startedAt) { activity.push({type: 'start', id, startedAt}) },
+                refineProviderActivity(id, dispatchActivity) {
+                    activity.push({type: 'refine', id, dispatchActivity});
+                },
+                completeProviderActivity(id, outcome) { activity.push({type: 'complete', id, outcome}) }
+            },
+            providerActivityService: 'memory-core'
         });
 
-        const response = await model.generateContent('hi', {timeoutMs: 100, priority: 'batch'});
+        const response = await model.generateContent('hi', {
+            operationLabel: 'identity-bearing-label/session-123',
+            operationStage: 'mc-session-summary',
+            priority      : 'batch',
+            timeoutMs     : 100
+        });
 
         expect(response.response.text()).toBe('r:hi');
         // `priority` is a queue-control param — it MUST NOT leak into the provider request.
-        expect(captured[0].generationOptions).toEqual({timeoutMs: 100});
+        expect(captured[0].generationOptions).toEqual({
+            operationLabel: 'identity-bearing-label/session-123',
+            timeoutMs     : 100
+        });
+        expect(activity[0]).toEqual({
+            type : 'begin',
+            entry: expect.objectContaining({
+                model           : 'unknown',
+                operationStage  : 'mc-session-summary',
+                priority        : 'batch',
+                provider        : 'openAiCompatible',
+                queueDisposition: 'neo-queued',
+                role            : 'chat',
+                service         : 'memory-core'
+            })
+        });
+        expect(activity.map(item => item.type)).toEqual(['begin', 'start', 'refine', 'complete']);
+        expect(activity[2].dispatchActivity).toEqual({model: 'm'});
+        expect(activity[3]).toMatchObject({type: 'complete', id: 'activity-1', outcome: {success: true}});
+    });
+
+    test('records the same runtime model snapshot the queued local provider dispatches', async () => {
+        const config      = {host: 'http://oai.test', model: 'model-a'};
+        const routed      = [];
+        const refinements = [];
+        let queued;
+        const queue = {
+            enqueue(task, priority, lifecycle) {
+                lifecycle.onEnqueued({enqueuedAt: 10, priority});
+
+                return new Promise((resolve, reject) => {
+                    queued = {task, lifecycle, resolve, reject};
+                });
+            }
+        };
+        const model = buildChatModel({
+            modelProvider                  : 'openAiCompatible',
+            openAiCompatibleConfig         : config,
+            openAiCompatibleProviderFactory: () => ({
+                async generate() {
+                    routed.push(this.modelName);
+                    return {content: 'ok'};
+                }
+            }),
+            chatRequestQueue        : queue,
+            providerActivityRecorder: {
+                beginProviderActivity() { return 'runtime-model-activity' },
+                startProviderActivity() {},
+                refineProviderActivity(id, dispatchActivity) {
+                    refinements.push({id, dispatchActivity});
+                },
+                completeProviderActivity() {}
+            }
+        });
+
+        const pending = model.generateContent('hello', {operationStage: 'mc-session-summary'});
+
+        config.model = 'model-b';
+        queued.lifecycle.onStarted({startedAt: 20});
+
+        try {
+            const result = await queued.task();
+
+            queued.lifecycle.onSettled({completedAt: 30, success: true});
+            queued.resolve(result);
+        } catch (error) {
+            queued.lifecycle.onSettled({completedAt: 30, success: false});
+            queued.reject(error);
+        }
+
+        expect((await pending).response.text()).toBe('ok');
+        expect(routed).toEqual(['model-b']);
+        expect(refinements).toEqual([{
+            id              : 'runtime-model-activity',
+            dispatchActivity: {model: 'model-b'}
+        }]);
+    });
+
+    test('keeps provider routing independent of an injected queue that ignores lifecycle callbacks', async () => {
+        const factoryModels = [];
+        const routedModels  = [];
+        const model         = buildChatModel({
+            modelProvider         : 'openAiCompatible',
+            openAiCompatibleConfig: {host: 'http://oai.test', model: 'actual-model'},
+            chatRequestQueue      : {enqueue(task) { return task() }},
+            openAiCompatibleProviderFactory(config) {
+                factoryModels.push(config.modelName);
+
+                return {
+                    async generate() {
+                        routedModels.push(this.modelName);
+                        return {content: 'ok'};
+                    }
+                };
+            }
+        });
+
+        expect((await model.generateContent('hello')).response.text()).toBe('ok');
+        expect(factoryModels).toEqual(['actual-model']);
+        expect(routedModels).toEqual(['actual-model']);
     });
 
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {
@@ -237,9 +351,9 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
     });
 
     test('modelProvider=gemini delegates to geminiClientFactory when key present', () => {
-        const fakeGemini = {generateContent: async () => ({response: {text: () => 'gemini-mock'}})};
+        const fakeGemini   = {generateContent: async () => ({response: {text: () => 'gemini-mock'}})};
         const factoryCalls = [];
-        const model = buildChatModel({
+        const model        = buildChatModel({
             modelProvider      : 'gemini',
             geminiApiKey       : 'gem-key',
             geminiModelName    : 'gemini-pro',
@@ -250,6 +364,46 @@ test.describe('buildChatModel provider selector (#11965 Sub-2)', () => {
         });
         expect(model).toBe(fakeGemini);
         expect(factoryCalls).toEqual([{apiKey: 'gem-key', modelName: 'gemini-pro'}]);
+    });
+
+    test('records Gemini as unqueued and strips attribution controls before provider dispatch', async () => {
+        const calls    = [];
+        const activity = [];
+        const model    = buildChatModel({
+            modelProvider      : 'gemini',
+            geminiApiKey       : 'gem-key',
+            geminiModelName    : 'gemini-pro',
+            geminiClientFactory: () => ({
+                async generateContent(prompt, options) {
+                    calls.push({prompt, options});
+                    return {response: {text: () => 'ok'}};
+                }
+            }),
+            providerActivityRecorder: {
+                beginProviderActivity(entry) { activity.push({type: 'begin', entry}); return 'remote-1' },
+                startProviderActivity(id, startedAt) { activity.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) { activity.push({type: 'complete', id, outcome}) }
+            },
+            providerActivityService: 'knowledge-base'
+        });
+
+        await model.generateContent('hello', {
+            operationStage: 'kb-ask-synthesis',
+            priority      : 'interactive',
+            timeoutMs     : 500
+        });
+
+        expect(calls).toEqual([{prompt: 'hello', options: {timeoutMs: 500}}]);
+        expect(activity[0]).toEqual({
+            type : 'begin',
+            entry: expect.objectContaining({
+                operationStage  : 'kb-ask-synthesis',
+                provider        : 'gemini',
+                queueDisposition: 'not-applicable',
+                service         : 'knowledge-base'
+            })
+        });
+        expect(activity.map(item => item.type)).toEqual(['begin', 'start', 'complete']);
     });
 });
 
@@ -263,6 +417,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
     let originalMemoryCollection;
     let originalModel;
     let originalSessionsCollection;
+    let originalStageSessionSummaryReceipt;
     let originalUpsertNode;
 
     let linkNodesCalls;
@@ -286,6 +441,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
         originalMemoryCollection           = SessionService.memoryCollection;
         originalModel                      = SessionService.model;
         originalSessionsCollection         = SessionService.sessionsCollection;
+        originalStageSessionSummaryReceipt = SessionService.stageSessionSummaryReceipt;
         originalLinkNodes                  = GraphService.linkNodes;
         originalUpsertNode                 = GraphService.upsertNode;
 
@@ -320,6 +476,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
                 sessionUpserts.push(payload);
             }
         };
+        SessionService.stageSessionSummaryReceipt = () => {};
         SessionService.model = {
             async generateContent() {
                 return {
@@ -352,6 +509,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
         SessionService.memoryCollection           = originalMemoryCollection;
         SessionService.model                      = originalModel;
         SessionService.sessionsCollection         = originalSessionsCollection;
+        SessionService.stageSessionSummaryReceipt = originalStageSessionSummaryReceipt;
         GraphService.linkNodes                    = originalLinkNodes;
         GraphService.upsertNode                   = originalUpsertNode;
     });

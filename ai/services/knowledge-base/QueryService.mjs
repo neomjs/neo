@@ -8,6 +8,7 @@ import {describeRetrievalProvenance}            from './retrievalProvenance.mjs'
 import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 import dotenv                                   from 'dotenv';
 import path                                     from 'path';
+import KBRecorderService                        from './KBRecorderService.mjs';
 
 const {queryScoreWeights} = aiConfig;
 
@@ -143,8 +144,13 @@ class QueryService extends Base {
         }
 
         const collection           = await ChromaManager.getKnowledgeBaseCollection();
-        const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider);
-        const queryLower           = query.toLowerCase();
+        const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider, {
+            operationLabel          : 'knowledge base query embedding',
+            operationStage          : 'kb-query-embedding',
+            providerActivityRecorder: KBRecorderService,
+            service                 : 'knowledge-base'
+        });
+        const queryLower = query.toLowerCase();
 
         // Read-side tenant filter: a requester retrieves its own tenant's chunks plus
         // Neo's curated `neo-shared` corpus. The requester is derived server-side from the

@@ -1,5 +1,6 @@
-import Ollama           from '../../provider/Ollama.mjs';
-import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
+import Ollama                            from '../../provider/Ollama.mjs';
+import OpenAiCompatible                  from '../../provider/OpenAiCompatible.mjs';
+import {observeUnqueuedProviderActivity} from '../shared/providerActivityLedger.mjs';
 
 export const GRAPH_MODEL_PROVIDERS = Object.freeze(['ollama', 'openAiCompatible']);
 
@@ -59,6 +60,8 @@ export function isGraphModelProviderSupported(provider) {
  * @param {Object} [options.openAiCompatibleConfig] `{host, model, apiKey, keep_alive, ...}` config block.
  * @param {Function} [options.ollamaProviderFactory] Test seam — defaults to `Neo.create(Ollama, cfg)`.
  * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — defaults to `Neo.create(OpenAiCompatible, cfg)`.
+ * @param {Object} [options.providerActivityRecorder] Best-effort bounded provider telemetry sink.
+ * @param {String} [options.providerActivityService='unknown'] Stable service owner.
  * @returns {{generate: Function}} Provider instance with `generate(prompt, options)` method.
  *     Both native Ollama and OpenAI-compatible providers expose this shape.
  * @throws {Error} For unsupported `modelProvider` values.
@@ -68,8 +71,12 @@ export function buildGraphProvider({
     ollamaConfig,
     openAiCompatibleConfig,
     ollamaProviderFactory          = (cfg) => Neo.create(Ollama, cfg),
-    openAiCompatibleProviderFactory = (cfg) => Neo.create(OpenAiCompatible, cfg)
+    openAiCompatibleProviderFactory = (cfg) => Neo.create(OpenAiCompatible, cfg),
+    providerActivityRecorder,
+    providerActivityService = 'unknown'
 }) {
+    let provider, model;
+
     switch (modelProvider) {
         case 'ollama': {
             const ollamaProviderConfig = {
@@ -80,7 +87,9 @@ export function buildGraphProvider({
             if (ollamaConfig?.keep_alive !== undefined) {
                 ollamaProviderConfig.keepAlive = ollamaConfig.keep_alive;
             }
-            return ollamaProviderFactory(ollamaProviderConfig);
+            provider = ollamaProviderFactory(ollamaProviderConfig);
+            model    = ollamaConfig?.model;
+            break;
         }
 
         case 'openAiCompatible': {
@@ -92,7 +101,9 @@ export function buildGraphProvider({
             if (openAiCompatibleConfig?.keep_alive !== undefined) {
                 openAiCompatibleProviderConfig.keepAlive = openAiCompatibleConfig.keep_alive;
             }
-            return openAiCompatibleProviderFactory(openAiCompatibleProviderConfig);
+            provider = openAiCompatibleProviderFactory(openAiCompatibleProviderConfig);
+            model    = openAiCompatibleConfig?.model;
+            break;
         }
 
         default:
@@ -101,4 +112,29 @@ export function buildGraphProvider({
                 `Expected one of: 'ollama', 'openAiCompatible'.`
             );
     }
+
+    if (!providerActivityRecorder) return provider;
+
+    return {
+        generate(prompt, options = {}) {
+            const {
+                operationStage = 'unknown',
+                priority       = 'batch',
+                ...providerOptions
+            } = options;
+
+            return observeUnqueuedProviderActivity({
+                recorder: providerActivityRecorder,
+                activity: {
+                    model,
+                    operationStage,
+                    priority,
+                    provider: modelProvider,
+                    role    : 'chat',
+                    service : providerActivityService
+                },
+                task: () => provider.generate(prompt, providerOptions)
+            });
+        }
+    };
 }

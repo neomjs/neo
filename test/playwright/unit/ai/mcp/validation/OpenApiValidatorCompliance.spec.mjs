@@ -538,6 +538,79 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(() => new Ajv({strict: false}).compile(schema)).not.toThrow();
     });
 
+    test('memory-core provider activity output is bounded, nullable where unmeasured, and AJV-compatible (#16770)', () => {
+        const
+            doc        = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+            operation  = doc.paths['/diagnostics/tool-metrics'].post,
+            schema     = toOpenApiJsonSchema(buildOutputZodSchema(doc, operation)),
+            response   = doc.components.schemas.ProviderActivityResponse,
+            aggregate  = doc.components.schemas.ProviderActivityAggregate,
+            inFlight   = doc.components.schemas.ProviderActivityInFlight,
+            completion = doc.components.schemas.ProviderActivityCompletion;
+
+        expect(doc.components.schemas.MemoryCoreToolMetricsResponse.required).toContain('providerActivity');
+        expect(response.properties.status.enum).toEqual(['ok', 'partial', 'disabled', 'unavailable']);
+        expect(response.required).toEqual([
+            'status',
+            'totalActivities',
+            'totalInFlight',
+            'aggregates',
+            'inFlight',
+            'recentCompletions'
+        ]);
+        expect(Object.keys(aggregate.properties)).toEqual([
+            'service',
+            'operationStage',
+            'role',
+            'provider',
+            'model',
+            'priority',
+            'queueDisposition',
+            'calls',
+            'failures',
+            'inFlight',
+            'avgQueueWaitMs',
+            'maxQueueWaitMs',
+            'avgExecutionMs',
+            'maxExecutionMs',
+            'lastSeenAt'
+        ]);
+        expect(Object.keys(inFlight.properties)).toEqual([
+            'activityId',
+            'service',
+            'operationStage',
+            'role',
+            'provider',
+            'model',
+            'priority',
+            'enqueuedAt',
+            'startedAt',
+            'queueDisposition',
+            'queueWaitMs',
+            'elapsedMs'
+        ]);
+        expect(Object.keys(completion.properties)).toEqual([
+            'activityId',
+            'service',
+            'operationStage',
+            'role',
+            'provider',
+            'model',
+            'priority',
+            'enqueuedAt',
+            'startedAt',
+            'completedAt',
+            'queueDisposition',
+            'queueWaitMs',
+            'executionMs',
+            'success',
+            'failureStage'
+        ]);
+        expect(completion.properties.queueDisposition.enum).toContain('not-applicable');
+        expect(completion.properties.queueWaitMs.nullable).toBe(true);
+        expect(() => new Ajv({strict: false}).compile(schema)).not.toThrow();
+    });
+
     test('knowledge-base query schemas expose skill, adr, and concept content types', async () => {
         const expectedTypes = ['all', 'blog', 'guide', 'src', 'example', 'ticket', 'release', 'test', 'skill', 'adr', 'concept'],
               doc           = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/knowledge-base/openapi.yaml'), 'utf8')),

@@ -13,9 +13,9 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../../src/Neo.mjs';
-import * as core         from '../../../../../src/core/_export.mjs';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../src/Neo.mjs';
+import * as core             from '../../../../../src/core/_export.mjs';
 import InteractiveBatchQueue from '../../../../../ai/provider/InteractiveBatchQueue.mjs';
 
 /**
@@ -79,8 +79,8 @@ test.describe('Neo.ai.provider.InteractiveBatchQueue', () => {
     });
 
     test('never runs two tasks concurrently (one-at-a-time on the serialized lane)', async () => {
-        const queue   = new InteractiveBatchQueue();
-        let inFlight  = 0,
+        const queue    = new InteractiveBatchQueue();
+        let   inFlight = 0,
             maxInFlight = 0;
 
         const task = () => async () => {
@@ -109,5 +109,49 @@ test.describe('Neo.ai.provider.InteractiveBatchQueue', () => {
         await expect(failing).rejects.toThrow('boom');
         await expect(after).resolves.toBe('ok');
         expect(ran).toEqual(['after']); // the lane kept draining after the rejection
+    });
+
+    test('records deterministic queue wait and execution without changing interactive-first order', async () => {
+        const ticks     = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+        const queue     = new InteractiveBatchQueue({now: () => ticks.shift()});
+        const ran       = [];
+        const events    = [];
+        const gate      = deferred();
+        const lifecycle = label => ({
+            onEnqueued: event => events.push({label, type: 'enqueued', ...event}),
+            onStarted : event => events.push({label, type: 'started',  ...event}),
+            onSettled : event => events.push({label, type: 'settled',  ...event})
+        });
+
+        const p1 = queue.enqueue(async () => { ran.push('B1'); await gate.promise }, 'batch', lifecycle('B1'));
+        const p2 = queue.enqueue(async () => { ran.push('B2') }, 'batch', lifecycle('B2'));
+        const p3 = queue.enqueue(async () => { ran.push('I1') }, 'interactive', lifecycle('I1'));
+
+        gate.resolve();
+        await Promise.all([p1, p2, p3]);
+
+        expect(ran).toEqual(['B1', 'I1', 'B2']);
+        expect(events.filter(event => event.label === 'I1')).toEqual([
+            {label: 'I1', type: 'enqueued', enqueuedAt: 30, priority: 'interactive'},
+            {label: 'I1', type: 'started', enqueuedAt: 30, priority: 'interactive', queueWaitMs: 20, startedAt: 50},
+            {label: 'I1', type: 'settled', completedAt: 60, enqueuedAt: 30, executionMs: 10, priority: 'interactive', startedAt: 50, success: true}
+        ]);
+    });
+
+    test('lifecycle observer failures cannot alter task results or lane draining', async () => {
+        const queue             = new InteractiveBatchQueue();
+        const throwingLifecycle = {
+            onEnqueued() { throw new Error('observer enqueue failed') },
+            onStarted()  { throw new Error('observer start failed') },
+            onSettled()  { throw new Error('observer settle failed') }
+        };
+
+        const first  = queue.enqueue(async () => 'ok', 'interactive', throwingLifecycle);
+        const second = queue.enqueue(async () => { throw new Error('task failed') }, 'batch', throwingLifecycle);
+        const third  = queue.enqueue(async () => 'after', 'batch', throwingLifecycle);
+
+        await expect(first).resolves.toBe('ok');
+        await expect(second).rejects.toThrow('task failed');
+        await expect(third).resolves.toBe('after');
     });
 });

@@ -56,8 +56,12 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
     });
 
     function installQueryStub(metadatasOrFactory, capture) {
-        capture.options = [];
-        TextEmbeddingService.embedText = async () => [0.1, 0.2, 0.3];
+        capture.options        = [];
+        capture.embeddingCalls = [];
+        TextEmbeddingService.embedText = async (...args) => {
+            capture.embeddingCalls.push(args);
+            return [0.1, 0.2, 0.3];
+        };
 
         ChromaManager.getKnowledgeBaseCollection = async () => ({
             query: async options => {
@@ -95,6 +99,10 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
 
         expect(capture.options[0].queryEmbeddings).toEqual([[0.1, 0.2, 0.3]]);
         expect(capture.options[0].where).toEqual({type: 'guide'});
+        expect(capture.embeddingCalls[0][2]).toMatchObject({
+            operationStage: 'kb-query-embedding',
+            service       : 'knowledge-base'
+        });
         expect(result.topResult).toBe('learn/guides/testing/UnitTesting.md');
         expect(result.results).toHaveLength(1);
     });

@@ -1,4 +1,8 @@
 import InteractiveBatchQueue from './InteractiveBatchQueue.mjs';
+import {
+    createProviderActivityLifecycle,
+    observeUnqueuedProviderActivity
+}                            from '../services/shared/providerActivityLedger.mjs';
 
 let GoogleGenerativeAIClass,
     OllamaProviderClass,
@@ -89,6 +93,8 @@ function toGeminiEnvelope(result) {
  * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — if omitted, lazily imports `./OpenAiCompatible.mjs` and calls `Neo.create(...)`.
  * @param {Function} [options.geminiClientFactory] Test seam — if omitted, lazily imports `@google/generative-ai` on first `generateContent()`.
  * @param {InteractiveBatchQueue} [options.chatRequestQueue] Test seam — the serializing queue the local providers route through; defaults to the process-wide {@link sharedLocalChatRequestQueue}.
+ * @param {Object} [options.providerActivityRecorder] Best-effort bounded provider telemetry sink.
+ * @param {String} [options.providerActivityService='unknown'] Stable service owner for emitted activity.
  * @returns {Object|null} Gemini-shaped `{generateContent}` model, OR `null` for gemini without an API key.
  * @throws {Error} When `modelProvider` is not in the supported set.
  */
@@ -101,7 +107,9 @@ export function buildChatModel({
     ollamaProviderFactory,
     openAiCompatibleProviderFactory,
     geminiClientFactory,
-    chatRequestQueue = sharedLocalChatRequestQueue
+    chatRequestQueue = sharedLocalChatRequestQueue,
+    providerActivityRecorder,
+    providerActivityService = 'unknown'
 } = {}) {
     if (modelProvider === 'openAiCompatible') {
         const cfg = openAiCompatibleConfig || {};
@@ -129,23 +137,40 @@ export function buildChatModel({
 
         return {
             generateContent: (promptText, generationOptions = {}) => {
-                const {priority = 'interactive', ...providerOptions} = generationOptions;
+                const {
+                    operationStage = 'unknown',
+                    priority       = 'interactive',
+                    ...providerOptions
+                } = generationOptions;
+                const lifecycle = createProviderActivityLifecycle({
+                    recorder: providerActivityRecorder,
+                    activity: {
+                        model   : 'unknown',
+                        operationStage,
+                        priority,
+                        provider: 'openAiCompatible',
+                        role    : 'chat',
+                        service : providerActivityService
+                    }
+                });
 
                 // Serialize through the shared local-endpoint queue so a heavy `batch` summary cannot
                 // block an `interactive` request. `priority` is a queue-control param — stripped here
                 // so it never leaks into the provider request.
                 return chatRequestQueue.enqueue(async () => {
-                    const provider = await getProvider();
+                    const provider      = await getProvider(),
+                          dispatchModel = cfg.model;
 
                     provider.apiKey    = cfg.apiKey;
                     provider.host      = cfg.host;
-                    provider.modelName = cfg.model;
+                    provider.modelName = dispatchModel;
                     if (cfg.keep_alive !== undefined) {
                         provider.keepAlive = cfg.keep_alive;
                     }
 
+                    lifecycle.onDispatch({model: dispatchModel});
                     return toGeminiEnvelope(await provider.generate(promptText, providerOptions));
-                }, priority);
+                }, priority, lifecycle);
             }
         };
     }
@@ -176,20 +201,37 @@ export function buildChatModel({
 
         return {
             generateContent: (promptText, generationOptions = {}) => {
-                const {priority = 'interactive', ...providerOptions} = generationOptions;
+                const {
+                    operationStage = 'unknown',
+                    priority       = 'interactive',
+                    ...providerOptions
+                } = generationOptions;
+                const lifecycle = createProviderActivityLifecycle({
+                    recorder: providerActivityRecorder,
+                    activity: {
+                        model   : 'unknown',
+                        operationStage,
+                        priority,
+                        provider: 'ollama',
+                        role    : 'chat',
+                        service : providerActivityService
+                    }
+                });
 
                 // Serialize through the shared local-endpoint queue (see the openAiCompatible branch).
                 return chatRequestQueue.enqueue(async () => {
-                    const provider = await getProvider();
+                    const provider      = await getProvider(),
+                          dispatchModel = cfg.model;
 
                     provider.host      = cfg.host;
-                    provider.modelName = cfg.model;
+                    provider.modelName = dispatchModel;
                     if (cfg.keep_alive !== undefined) {
                         provider.keepAlive = cfg.keep_alive;
                     }
 
+                    lifecycle.onDispatch({model: dispatchModel});
                     return toGeminiEnvelope(await provider.generate(promptText, providerOptions));
-                }, priority);
+                }, priority, lifecycle);
             }
         };
     }
@@ -197,12 +239,18 @@ export function buildChatModel({
     if (modelProvider === 'gemini') {
         if (!geminiApiKey) return null;
 
-        if (geminiClientFactory) {
-            return geminiClientFactory(geminiApiKey, geminiModelName);
+        const customModel = geminiClientFactory
+            ? geminiClientFactory(geminiApiKey, geminiModelName)
+            : null;
+
+        if (customModel && !providerActivityRecorder) {
+            return customModel;
         }
 
         let modelPromise;
         const getModel = () => {
+            if (customModel) return Promise.resolve(customModel);
+
             modelPromise ||= Promise.resolve((async () => {
                 const GoogleGenerativeAI = await getGoogleGenerativeAIClass();
                 return new GoogleGenerativeAI(geminiApiKey).getGenerativeModel({model: geminiModelName});
@@ -216,9 +264,26 @@ export function buildChatModel({
                 // Remote gemini is high-concurrency → never queued. Strip the queue-control `priority`
                 // so it never reaches the SDK; the remaining options forward unchanged (when no
                 // priority is passed, `rest` equals the original options — preserving prior behavior).
-                const {priority, ...rest} = generationOptions;
+                const {
+                    operationStage = 'unknown',
+                    priority       = 'interactive',
+                    ...providerOptions
+                } = generationOptions;
+
                 const model = await getModel();
-                return model.generateContent(promptText, rest);
+
+                return observeUnqueuedProviderActivity({
+                    recorder: providerActivityRecorder,
+                    activity: {
+                        model   : model.model || 'unknown',
+                        operationStage,
+                        priority,
+                        provider: 'gemini',
+                        role    : 'chat',
+                        service : providerActivityService
+                    },
+                    task: () => model.generateContent(promptText, providerOptions)
+                });
             }
         };
     }
