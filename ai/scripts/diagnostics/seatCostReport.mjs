@@ -30,6 +30,9 @@ import {fileURLToPath} from 'node:url';
  *     live db is read (fixture and JSON paths never load it — the base install tier has no
  *     native compile).
  *
+ * Harnesses without a ledger reader produce NO rows and are named on the report's coverage
+ * line ({@link LEDGER_READERS}) — a missing source must be as visible as a missing measurement.
+ *
  * Provider-family classification is preserved through ingestion: each record carries its
  * model identity (kimi `model`; opencode `providerID`/`modelID`) and the seat's warm window
  * resolves from the classified family — a GPT-backed opencode seat renders `unmeasured`,
@@ -51,17 +54,43 @@ const DAY_MS             = 86_400_000;
 const NEEDLE_WEEK_TOKENS = 30_000_000;
 
 /**
- * Warm windows keyed by provider FAMILY (never by harness — a harness can host any provider):
- * Anthropic: documented default TTL 5min (extended 1h at 2× write cost; drops to 5m in
- * subscription overage). GPT: unmeasured — the column renders `unmeasured`, never an
- * invented number. Kimi (both harnesses, K3): measured TTL-cliff onset — hit ratio holds ≥92%
+ * Warm windows keyed by provider FAMILY (never by harness — a harness can host any provider).
+ * Anthropic has three documented branches — default TTL 5min, extended 1h at 2× write cost, and
+ * a drop to 5min inside subscription overage — and this table operationalizes the **1h branch as
+ * the claude baseline**: first-party harness read from @neo-opus-ada's Claude Code seat
+ * (2026-08-09), where 1h is the normal regime and the 5min drop arrives only with overage.
+ * Encoding the 5min overage branch instead would INVERT the safeguard: kimi's failure mode is
+ * idling past the cliff into a full re-bill, while a claude seat judged cold at 6 minutes gets
+ * sunset ~12× too early and PAYS the 60–150k fresh-boot cost to dodge a re-bill that was not
+ * coming. Per-harness qualifier: the read is first-party for that one Claude Code configuration;
+ * Claude Desktop stays unmeasured until its own reading lands — and no claude ledger reader
+ * exists yet ({@link LEDGER_READERS}), so no claude seat renders until one does, at which moment
+ * the per-harness reading is required. GPT: unmeasured — the column renders `unmeasured`, never
+ * an invented number. Kimi (both harnesses, K3): measured TTL-cliff onset — hit ratio holds ≥92%
  * through ~20min gaps and degrades to ~0% past 1h (2026-08-08 cross-harness measurement).
  * @type {Object<String,Number|null>}
  */
 export const WARM_WINDOWS = {
     'kimi'  : 20 * 60 * 1000,
-    'claude': 5 * 60 * 1000,
+    'claude': 60 * 60 * 1000,
     'gpt'   : null
+};
+
+/**
+ * Ledger-reader coverage keyed by HARNESS (a reader is the code that extracts a seat's token
+ * ledger; a family's warm window is a separate axis). `false` means no reader exists — such a
+ * harness produces NO rows in the report, and a missing source must be as visible as a missing
+ * measurement: a `null` warm window renders `unmeasured`, but a reader-less harness renders
+ * nothing at all, and the two look identical to whoever reads the output unless the coverage
+ * line names it ({@link renderReport}).
+ * @type {Object<String,Boolean>}
+ */
+export const LEDGER_READERS = {
+    'claude-code'   : false,
+    'claude-desktop': false,
+    'codex'         : false,
+    'kimi-code'     : true,
+    'opencode'      : true
 };
 
 /**
@@ -303,6 +332,11 @@ export function renderReport(seats, {ablation = false} = {}) {
     }
 
     lines.push('', `*fresh input + output as a share of an estimated ~${fmt(NEEDLE_WEEK_TOKENS)} billable-token week (empirical; the provider dashboard is the calibration authority).`);
+
+    const covered  = Object.keys(LEDGER_READERS).filter(harness =>  LEDGER_READERS[harness]),
+          noReader = Object.keys(LEDGER_READERS).filter(harness => !LEDGER_READERS[harness]);
+
+    lines.push('', `Ledger coverage: readers exist for ${covered.join(', ')}; NO ledger reader (the harness produces no rows — a missing source, distinct from \`unmeasured\`): ${noReader.length > 0 ? noReader.join(', ') : 'none'}.`);
 
     if (ablation) {
         const ablationDays = days.filter(d => d >= ABLATION.cappedFrom && seats.some(s => s.days.get(d)));

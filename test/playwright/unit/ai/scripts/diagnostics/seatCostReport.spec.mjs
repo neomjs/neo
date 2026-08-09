@@ -6,6 +6,7 @@ import path           from 'node:path';
 
 import {
     ABLATION,
+    LEDGER_READERS,
     WARM_WINDOWS,
     bucketByDay,
     buildSeat,
@@ -92,6 +93,44 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
         expect(classifyProviderFamily({providerID: 'anthropic', modelID: 'claude-opus-4'})).toBe('claude');
         expect(classifyProviderFamily({providerID: 'openai', modelID: 'gpt-5'})).toBe('gpt');
         expect(classifyProviderFamily({providerID: 'unknown-future-provider', modelID: 'x'})).toBeNull();
+    });
+
+    test('the claude warm window encodes the 1h normal-regime branch, not the 5min overage branch', () => {
+        // Ada's falsifier: her Claude Code seat's harness states 1h as the normal regime
+        // (2026-08-09 first-party read); the 5min drop arrives only inside subscription
+        // overage. Encoding the overage branch as the baseline INVERTS the safeguard — a
+        // claude seat judged cold at 6 minutes would be sunset ~12x too early, PAYING the
+        // fresh-boot cost to dodge a re-bill that was not coming.
+        expect(WARM_WINDOWS.claude).toBe(60 * 60 * 1000);
+    });
+
+    test('the coverage line names every reader-less harness — a missing source as visible as a missing measurement', () => {
+        // Ada's falsifier: gpt:null renders `unmeasured` (a visible hole), but a harness with
+        // no ledger reader produces no rows at all — and the two absences looked identical.
+        // The rendered line is asserted LITERALLY (never derived from the registry under
+        // test): a coverage line that stopped naming a reader-less harness goes red here.
+        const seat   = buildSeat('iris', 'kimi-code', parseKimiWire(wireFixture));
+        const report = renderReport([seat]);
+
+        expect(report).toContain('Ledger coverage: readers exist for kimi-code, opencode');
+        expect(report).toContain('NO ledger reader (the harness produces no rows — a missing source, distinct from `unmeasured`): claude-code, claude-desktop, codex.');
+    });
+
+    test('the LEDGER_READERS roster is a conscious-update pin — a wrong value goes red', () => {
+        // Ada's mutation falsifier: deriving the coverage expectation from the same object
+        // the renderer iterates let a flipped `true` pass silently (confirmed 14/14 green
+        // at the pre-pin head). The roster is pinned BY DESIGN (the identityRoots spec
+        // precedent): wiring a reader without updating this pin fails here — never silently.
+        // When the flip is a CLAUDE harness gaining a reader: `WARM_WINDOWS.claude` rests on
+        // a single-harness read (Claude Code, 2026-08-09) — measure the new harness's own
+        // window before it inherits the family value. That reading, not a pin edit, is the fix.
+        expect(LEDGER_READERS).toEqual({
+            'claude-code'   : false,
+            'claude-desktop': false,
+            'codex'         : false,
+            'kimi-code'     : true,
+            'opencode'      : true
+        });
     });
 
     test('a GPT-backed opencode seat renders unmeasured through the exact CLI classification path', () => {
