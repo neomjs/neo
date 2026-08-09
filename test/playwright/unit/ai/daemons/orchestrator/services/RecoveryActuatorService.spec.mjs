@@ -308,6 +308,49 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBeGreaterThan(0);
     });
 
+    test('the provider repair receives the oracle and refuses before the warm leaves the process', async () => {
+        // @neo-gpt-emmy's last interval. I argued against threading a lease into a
+        // provider-readiness module — a COUPLING objection against her SAFETY one — and weighted
+        // them the wrong way round. The repair reaches a privileged effect, so it gets the oracle.
+        //
+        // The refusal must come from INSIDE the repair, after its read-only role resolution: a
+        // caller-side check cannot bind an effect dispatched past its own await.
+        let receivedOracle = null;
+
+        const {service, runtimeCalls} = createService({
+            serviceConfig: {
+                async providerResidencyRepair({isAuthorityHeld}) {
+                    receivedOracle = isAuthorityHeld;
+                    // The takeover lands during the repair's own read-only preparation — the
+                    // interval a caller-side check cannot cover.
+                    held = false;
+
+                    // Stands in for the real helper's assertion at its last-owned point.
+                    if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+                        const error = new Error('Authority moved before the provider residency repair; refusing.');
+                        error.reason = 'runtime-authority-lost';
+                        throw error;
+                    }
+
+                    return {ready: true, provider: 'ollama', warmedModels: []};
+                }
+            }
+        });
+
+        let held = true;
+
+        const result = await service.apply('local-model', 'warm-provider', {
+            now            : 10_000,
+            // Held through every pre-dispatch check; the repair flips it from the inside.
+            isAuthorityHeld: () => held
+        });
+
+        expect(typeof receivedOracle).toBe('function');
+        expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+        // No lifecycle write may accompany a refused warm.
+        expect(runtimeCalls).toEqual([]);
+    });
+
     test('reconfigure carries the authority oracle into the restart it triggers after its durable write', async () => {
         // `writeKnobOverride` is awaited, so the dispatch check in `executeTargetAction` is no longer
         // the last point owned before the container is restarted. The oracle must reach

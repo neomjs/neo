@@ -660,7 +660,7 @@ export async function checkOpenAiCompatibleEmbeddingServing({
         });
 
         if (!response.ok) {
-            const text = typeof response.text === 'function' ? await response.text() : '',
+            const text    = typeof response.text === 'function' ? await response.text() : '',
                   message = `HTTP ${response.status}${text ? ` - ${text.slice(0, 256)}` : ''}`;
 
             return {
@@ -1782,9 +1782,9 @@ export async function ensureOllamaModelsReady({
             attemptedModels          : [],
             failedModels             : [],
             error                    : {message: error.message},
-            warning              : `[provider/ollama] model residency probe failed: ${error.message}`,
+            warning                  : `[provider/ollama] model residency probe failed: ${error.message}`,
             attempts,
-            elapsedMs            : Date.now() - startedAt
+            elapsedMs                : Date.now() - startedAt
         };
     }
 
@@ -1950,8 +1950,29 @@ export async function repairProviderRoleSetResidency({
     timeoutMs,
     log = logger,
     lmsRepairFn = ensureLmsModelsLoaded,
-    ollamaRepairFn = ensureOllamaModelsReady
+    ollamaRepairFn = ensureOllamaModelsReady,
+    isAuthorityHeld = null
 } = {}) {
+    /**
+     * Re-asserted immediately before the repair dispatches, after the read-only config resolution
+     * above it. @neo-gpt-emmy required this and I argued against it — that a lease concern does not
+     * belong in a provider-readiness module. That objection was about COUPLING; hers was about a
+     * privileged effect firing without authority, which is SAFETY. Safety outranks coupling, and I
+     * weighted them the wrong way round.
+     *
+     * A warm is not a durable mutation of shared state the way an overlay or a ledger append is, so
+     * a successor re-warming is idempotent — but "the effect is recoverable" is not the same as "the
+     * effect may fire unauthorised", and only the second question is this guard's business.
+     */
+    const assertHeld = () => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error('Authority moved before the provider residency repair; refusing.');
+
+            error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
     if (!config || typeof config !== 'object') {
         throw new TypeError('repairProviderRoleSetResidency: config is required');
     }
@@ -1972,6 +1993,10 @@ export async function repairProviderRoleSetResidency({
                 reason : 'no-active-ollama-roles'
             };
         }
+
+        // Last point owned before the unload/load/warm sequence leaves this process. The role
+        // resolution above is read-only, so nothing has been mutated if this refuses.
+        assertHeld();
 
         const result = await ollamaRepairFn({
             host                 : readinessConfig.host,
@@ -2014,6 +2039,11 @@ export async function repairProviderRoleSetResidency({
                 reason : 'no-active-openai-compatible-roles'
             };
         }
+
+        // Same last-owned point on the LMS arm. Both providers reach a privileged effect from this
+        // function, so fencing only the ollama branch would leave the other open — the exact
+        // half-fixed shape this PR has already produced once.
+        assertHeld();
 
         const result = await lmsRepairFn({
             host          : getOpenAiCompatibleHost(config),
@@ -2117,7 +2147,7 @@ export function createParallelModelCapacityWarning({
     const missing          = missingModels.length ? missingModels.join(', ') : 'none';
     const extra            = extraModels.length ? extraModels.join(', ') : 'none';
     const requiredObserved = Neo.isNumber(observedRequiredCount) ? observedRequiredCount : observedCount;
-    const base      = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
+    const base             = `[provider/${provider}] expected ${requireParallelModels}+ required models loaded ` +
         `(chat=${model || 'unset'}, embedding=${embeddingModel || 'unset'}); observed ${requiredObserved} required / ${observedCount} total loaded ` +
         `(available=${available}, required=${requiredModels.join(', ') || 'none'}, missing=${missing}, extra=${extra}); ` +
         'model swap penalty likely;';
@@ -2264,10 +2294,10 @@ export async function warnProviderParallelModelCapacity({
     } catch (error) {
         const provider = config ? resolveGraphModelProvider(config) : 'unknown';
         const result   = {
-            ready: false,
+            ready  : false,
             provider,
-            error: {message: error?.message || String(error)},
-            warning : `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
+            error  : {message: error?.message || String(error)},
+            warning: `[provider/${provider}] parallel-model capacity probe failed: ${error?.message || error}`
         };
 
         log.warn?.(result.warning, result);

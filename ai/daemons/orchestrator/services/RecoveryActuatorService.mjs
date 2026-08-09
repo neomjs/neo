@@ -985,6 +985,9 @@ export class RecoveryActuatorService extends Base {
                   attempts : AiConfig.orchestrator.providerReadiness.attempts,
                   delayMs  : AiConfig.orchestrator.providerReadiness.delayMs,
                   timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs,
+                  // Carried INTO the repair so the assertion sits after its read-only role
+                  // resolution and immediately before the unload/load/warm leaves the process.
+                  isAuthorityHeld,
                   log      : {
                       info: message => this.writeLog?.('INFO', message),
                       warn: message => this.writeLog?.('WARN', message)
