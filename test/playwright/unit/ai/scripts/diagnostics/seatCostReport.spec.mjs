@@ -107,16 +107,30 @@ test.describe('seatCostReport — harness ledger aggregation', () => {
     test('the coverage line names every reader-less harness — a missing source as visible as a missing measurement', () => {
         // Ada's falsifier: gpt:null renders `unmeasured` (a visible hole), but a harness with
         // no ledger reader produces no rows at all — and the two absences looked identical.
+        // The rendered line is asserted LITERALLY (never derived from the registry under
+        // test): a coverage line that stopped naming a reader-less harness goes red here.
         const seat   = buildSeat('iris', 'kimi-code', parseKimiWire(wireFixture));
         const report = renderReport([seat]);
 
-        expect(LEDGER_READERS['kimi-code']).toBe(true);
-        expect(LEDGER_READERS['opencode']).toBe(true);
-        expect(report).toContain('Ledger coverage:');
+        expect(report).toContain('Ledger coverage: readers exist for kimi-code, opencode');
+        expect(report).toContain('NO ledger reader (the harness produces no rows — a missing source, distinct from `unmeasured`): claude-code, claude-desktop, codex.');
+    });
 
-        for (const harness of Object.keys(LEDGER_READERS).filter(h => !LEDGER_READERS[h])) {
-            expect(report).toContain(harness);
-        }
+    test('the LEDGER_READERS roster is a conscious-update pin — a wrong value goes red', () => {
+        // Ada's mutation falsifier: deriving the coverage expectation from the same object
+        // the renderer iterates let a flipped `true` pass silently (confirmed 14/14 green
+        // at the pre-pin head). The roster is pinned BY DESIGN (the identityRoots spec
+        // precedent): wiring a reader without updating this pin fails here — never silently.
+        // When the flip is a CLAUDE harness gaining a reader: `WARM_WINDOWS.claude` rests on
+        // a single-harness read (Claude Code, 2026-08-09) — measure the new harness's own
+        // window before it inherits the family value. That reading, not a pin edit, is the fix.
+        expect(LEDGER_READERS).toEqual({
+            'claude-code'   : false,
+            'claude-desktop': false,
+            'codex'         : false,
+            'kimi-code'     : true,
+            'opencode'      : true
+        });
     });
 
     test('a GPT-backed opencode seat renders unmeasured through the exact CLI classification path', () => {
