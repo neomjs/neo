@@ -873,7 +873,24 @@ class AuthService extends Base {
                         });
 
                         if (!tokenInfoResponse.ok) {
-                            cache.delete(tokenHash);
+                            // The SECOND non-OK path in this verifier, and the first revision of
+                            // this fix repaired only the first. @neo-gpt caught it: a 503 here
+                            // evicted a valid identity exactly as it did on `/user`, so the arm was
+                            // half-fixed and the remaining half failed in the same way.
+                            //
+                            // I had enumerated the awaits and not the RETURN paths. One `!ok` per
+                            // fetch, two fetches — the count was available before I wrote a line.
+                            if (isAuthoritativeRejection(tokenInfoResponse.status)) {
+                                cache.delete(tokenHash);
+                                throw new InvalidTokenError(`GitLab token info validation failed (HTTP ${tokenInfoResponse.status})`)
+                            }
+
+                            const stale = serveStaleGitlab(cached, `token-info HTTP ${tokenInfoResponse.status}`);
+
+                            if (stale) {
+                                return buildInfo(token, stale.user, stale.tokenInfo)
+                            }
+
                             throw new InvalidTokenError(`GitLab token info validation failed (HTTP ${tokenInfoResponse.status})`)
                         }
 

@@ -1797,6 +1797,40 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         await expect(verifier.verifyAccessToken('glpat-tok')).rejects.toThrow(/HTTP 401/);
     });
 
+    test('GitLab TOKEN-INFO 503 also serves stale — every non-OK return, not just the first', async () => {
+        // @neo-gpt's follow-up blocker. This verifier has TWO fetches and therefore two `!ok`
+        // returns; the first revision repaired only `/user`, so a 503 on `/oauth/token/info` still
+        // evicted a valid identity. I had enumerated the awaits and not the return paths.
+        const gitlabCfg = {auth: {
+            gitlabApiBaseUrl      : 'https://gitlab.example.com/',
+            patCacheTtlSeconds    : 0,
+            patValidationTimeoutMs: 5000,
+            patStaleGraceSeconds  : 3600,
+            allowedClientIds      : ['mcp-oauth-app']
+        }};
+
+        const verifier = AuthService.createGitlabPatVerifier({
+            aiConfig: gitlabCfg, logger, InvalidTokenError: FakeInvalidTokenError
+        });
+
+        // Prime: /user 200 then token-info 200.
+        let queue = [
+            {ok: true, status: 200, json: async () => ({id: 7, username: 'grace'})},
+            {ok: true, status: 200, json: async () => ({application: {uid: 'mcp-oauth-app'}, scope: ['api']})}
+        ];
+        globalThis.fetch = async () => queue.shift();
+        await verifier.verifyAccessToken('glpat-tok');
+
+        // Re-validate: /user answers, token-info is UNREACHABLE.
+        queue = [
+            {ok: true, status: 200, json: async () => ({id: 7, username: 'grace'})},
+            {ok: false, status: 503, json: async () => ({})}
+        ];
+        globalThis.fetch = async () => queue.shift();
+
+        expect((await verifier.verifyAccessToken('glpat-tok')).userId).toBe('grace');
+    });
+
     test('a stale-served identity is ACCEPTED by the real requireBearerAuth middleware', async () => {
         // @neo-gpt's falsifier: helper-only rows can prove the verifier while the consumed SDK
         // middleware rejects every result as expired. `expiresAt` is required and must be in the
