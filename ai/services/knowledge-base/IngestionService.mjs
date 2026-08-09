@@ -543,17 +543,21 @@ class IngestionService extends Base {
      * @protected
      */
     boundResolverFailureReason(error) {
+        // MEMBERSHIP, not a pattern. An earlier version of this admitted anything matching
+        // `/^KB_[A-Z0-9_]{1,120}$/` and called that a closed vocabulary; it is not, because the
+        // producer chooses the string. `KB_SECRET_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789` satisfies
+        // that pattern and travelled verbatim into a durable record — the exact boundary this
+        // method exists to hold, defeated by the shape of the check rather than by its intent.
+        //
+        // A resolver is an injected dependency reaching a remote; it has no business emitting this
+        // service's own `KB_*` codes, so no `KB_*` arm survives. The admitted set is exactly the
+        // transport conditions worth telling an operator apart — a refusal and a timeout are
+        // different problems — and every other value, however well-formed, collapses to one literal.
         const
-            transportCodes = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'EAI_AGAIN'],
-            code           = error?.code;
+            admittedCodes = ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EHOSTUNREACH', 'EAI_AGAIN'],
+            code          = error?.code;
 
-        if (typeof code !== 'string') {
-            return 'unclassified';
-        }
-
-        return transportCodes.includes(code) || /^KB_[A-Z0-9_]{1,120}$/.test(code)
-            ? code
-            : 'unclassified';
+        return typeof code === 'string' && admittedCodes.includes(code) ? code : 'unclassified';
     }
 
     /**

@@ -598,6 +598,39 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(serialized).not.toContain('could not read Username');
     });
 
+    test('a PATTERN-ADMISSIBLE hostile code is still rejected — the gate is membership, not shape', async () => {
+        // The control above is not sufficient on its own and @neo-gpt caught why: a URL fails any
+        // `KB_*` shape check, so it passes even against a gate that only tests SHAPE. This code is
+        // deliberately well-formed — it satisfies `/^KB_[A-Z0-9_]{1,120}$/` exactly — and must still
+        // be refused, because the producer chooses the string and a pattern cannot bound a value
+        // its own author controls.
+        const hostile = 'KB_SECRET_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+        expect(hostile).toMatch(/^KB_[A-Z0-9_]{1,120}$/);
+
+        Service.revisionResolver = {
+            resolveDeletedPaths: async () => {
+                const error = new Error('resolver failed');
+                error.code    = hostile;
+                throw error;
+            }
+        };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_RESOLVER_FAILED',
+            details: {reason: 'unclassified'}
+        });
+        expect(JSON.stringify(summary)).not.toContain('KB_SECRET');
+    });
+
     test('applies tombstone, manifest, and mock revision-boundary deletion signaling', async () => {
         collection = createSpyCollection([
             {id: 'keep', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/live.js'}},
