@@ -104,6 +104,8 @@ export async function readRecoveryOverrides(overridePath, fsModule = fs) {
  * @param {String} options.overrideDir Directory on the writer-owned mount.
  * @param {Object} [options.env=process.env] Environment to test leaf pinning against.
  * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle, re-asserted immediately
+ *     before the durable write because the preparation above it awaits.
  * @returns {Promise<{applied: Boolean, path: String|null, violations: String[]}>}
  */
 export async function writeKnobOverride({
@@ -111,8 +113,9 @@ export async function writeKnobOverride({
     values,
     context,
     overrideDir,
-    env      = process.env,
-    fsModule = fs
+    env             = process.env,
+    fsModule        = fs,
+    isAuthorityHeld = null
 } = {}) {
     const {valid, violations} = validateKnobTransaction({context, knob, values});
 
@@ -134,6 +137,21 @@ export async function writeKnobOverride({
           // A temp file elsewhere would degrade to copy-then-delete and reintroduce the partial state
           // this exists to prevent.
           tempPath     = `${overridePath}.${knob}.tmp`;
+
+    // LAST-OWNED POINT for this durable write. `readRecoveryOverrides` above is awaited, so a caller
+    // that checked authority before calling has already yielded — and the three lines below are the
+    // overlay actually landing on disk, which the next converge will apply. A displaced holder must
+    // not leave an intent behind that its successor then enacts.
+    //
+    // Checked here rather than only at the caller because the yield is INSIDE this function: no
+    // caller can hold a check adjacent to a write it does not perform.
+    if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+        const error = new Error(`Authority moved before the '${knob}' override write; refusing.`);
+
+        error.reason = 'runtime-authority-lost';
+
+        throw error;
+    }
 
     // The mount exists but its subdirectory may not on a plane that has never written one, and a
     // writer that requires someone else to have created its destination first is a boot-ordering

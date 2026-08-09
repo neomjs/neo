@@ -723,7 +723,8 @@ export class RecoveryActuatorService extends Base {
             // Derived from the bridge's snapshot leaf rather than re-resolved: both files live on the
             // same writer-owned mount, and deriving keeps them together if that root ever relocates.
             overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
-            values     : knobValues
+            values     : knobValues,
+            isAuthorityHeld
         });
 
         if (!applied) {
@@ -810,7 +811,8 @@ export class RecoveryActuatorService extends Base {
             knob,
             // Same writer-owned mount as `reconfigure` — one overlay, one owner, one revert surface.
             overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
-            values     : knobValues
+            values     : knobValues,
+            isAuthorityHeld
         });
 
         if (!applied) {
@@ -890,7 +892,7 @@ export class RecoveryActuatorService extends Base {
         this.assertAuthorityHeld({isAuthorityHeld, action, target});
 
         if (action === 'warm-provider') {
-            return this.warmProviderResidency({target, reason});
+            return this.warmProviderResidency({target, reason, isAuthorityHeld});
         }
 
         if (action === 'reconfigure') {
@@ -968,7 +970,13 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async warmProviderResidency({target, reason}) {
+    async warmProviderResidency({target, reason, isAuthorityHeld = null}) {
+        // Asserted immediately before the repair dispatches. The repair itself performs awaited
+        // provider work, so this is the last point Neo owns before a privileged effect leaves the
+        // process; loss DURING the repair is post-dispatch uncertainty, which the catch path records
+        // rather than fences.
+        this.assertAuthorityHeld({isAuthorityHeld, action: 'warm-provider', target});
+
         const repair = this.providerResidencyRepair || repairProviderRoleSetResidency,
               result = await repair({
                   attempts : AiConfig.orchestrator.providerReadiness.attempts,

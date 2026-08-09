@@ -181,4 +181,42 @@ test.describe('recoveryOverrideStore — a write aimed at a boot path (#16374)',
     test('the required context is reachable without importing the registry', async () => {
         expect(requiredContextForKnob(KNOB)).toEqual([BUDGET]);
     });
+
+    test('a holder that lost authority during preparation writes NOTHING to disk', async () => {
+        // @neo-gpt-emmy's exact-head finding: `readRecoveryOverrides` is awaited before the
+        // mkdir/write/rename sequence, so a caller that checked authority before calling has already
+        // yielded. The check has to live HERE — no caller can hold one adjacent to a write it does
+        // not itself perform. A displaced holder must not leave an intent its successor then enacts.
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-override-authority-'));
+
+        let reads = 0;
+
+        await expect(writeKnobOverride({
+            context    : CTX,
+            knob       : KNOB,
+            overrideDir: dir,
+            values     : VALUES,
+            env        : {},
+            // Held while the caller decided; gone by the time the write is reached.
+            isAuthorityHeld: () => ++reads < 1
+        })).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        // The load-bearing assertion: the refusal is worthless if the overlay landed anyway.
+        await expect(fs.readFile(path.join(dir, RECOVERY_OVERRIDE_FILENAME), 'utf8')).rejects.toThrow();
+    });
+
+    test('POSITIVE CONTROL: a held oracle still writes, so the guard is discriminating', async () => {
+        const dir    = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-override-authority-ok-')),
+              result = await writeKnobOverride({
+                  context        : CTX,
+                  knob           : KNOB,
+                  overrideDir    : dir,
+                  values         : VALUES,
+                  env            : {},
+                  isAuthorityHeld: () => true
+              });
+
+        expect(result.applied).toBe(true);
+        expect(await readRecoveryOverrides(result.path)).toBeTruthy();
+    });
 });
