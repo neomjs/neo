@@ -18,8 +18,92 @@ import {withAppendLock}                    from './walAppendLock.mjs';
  * @module ai/services/memory-core/helpers/messageWalStore
  */
 
-const MESSAGE_WAL_SEGMENT_RE = /^message-wal-(\d{4}-\d{2}-\d{2})\.jsonl$/;
-const projectionStatsCache   = new Map();
+const MESSAGE_WAL_SEGMENT_RE    = /^message-wal-(\d{4}-\d{2}-\d{2})\.jsonl$/,
+    MESSAGE_WAL_GRAPH_MARKER_RE = /^message-wal-(\d{4}-\d{2}-\d{2})\.graph\.jsonl$/;
+const projectionStatsCache = new Map();
+
+/**
+ * @summary Normalizes the immutable sender/destination fact stored beside a graph marker.
+ *
+ * Recipient-cohort knowledge is deliberately not part of this value. Historical broadcasts can
+ * have a trustworthy `sentBy` / `to: 'AGENT:*'` route while lacking the later send-time audience
+ * snapshot, so route and cohort evidence must remain independently upgradeable.
+ *
+ * @param {*} value Candidate marker value.
+ * @returns {{disposition: 'known', sentBy: String, to: String}|{disposition: 'legacy-unknown'}|null}
+ * @private
+ */
+function normalizeMailboxRoutingMarker(value) {
+    if (
+        value?.disposition === 'known' &&
+        typeof value.sentBy === 'string' && value.sentBy.length > 0 &&
+        typeof value.to === 'string' && value.to.length > 0
+    ) {
+        return {disposition: 'known', sentBy: value.sentBy, to: value.to}
+    }
+
+    if (value?.disposition === 'legacy-unknown') {
+        return {disposition: 'legacy-unknown'}
+    }
+
+    return null
+}
+
+/**
+ * @summary Normalizes the immutable broadcast-cohort fact stored beside a graph marker.
+ *
+ * `known` means the accepted WAL carried a send-time audience snapshot, including the valid
+ * zero-recipient case. `legacy-unknown` is an explicit compatibility disposition for historical
+ * rows that predate that snapshot; it is deliberately distinct from known zero so read-path
+ * integrity checks never manufacture recipients or repeatedly parse the same legacy WAL row.
+ *
+ * @param {*} value Candidate marker value.
+ * @returns {{disposition: 'known', intendedRecipientCount: Number}|{disposition: 'legacy-unknown'}|null}
+ * @private
+ */
+function normalizeBroadcastCohortMarker(value) {
+    if (value?.disposition === 'known' && Number.isSafeInteger(value.intendedRecipientCount) && value.intendedRecipientCount >= 0) {
+        return {disposition: 'known', intendedRecipientCount: value.intendedRecipientCount}
+    }
+
+    if (value?.disposition === 'legacy-unknown') {
+        return {disposition: 'legacy-unknown'}
+    }
+
+    return null
+}
+
+/**
+ * @summary Merges append-only projection-marker evidence without allowing later weaker facts to
+ * downgrade known evidence.
+ *
+ * The first known fact is authoritative because the initial projection marker is written from the
+ * accepted WAL record. A later unknown can never erase it. A later conflicting known fact is kept
+ * out of the serving value and surfaced through the conflict set instead of silently winning by
+ * file position.
+ *
+ * @param {Map<String,Object>} factsById Resolved monotonic facts.
+ * @param {Set<String>} conflictIds Ids carrying conflicting known facts.
+ * @param {String} id Message id.
+ * @param {Object|null} incoming Normalized incoming fact.
+ * @param {Function} equalKnown Compares two known facts.
+ * @returns {void}
+ * @private
+ */
+function mergeProjectionMarkerFact(factsById, conflictIds, id, incoming, equalKnown) {
+    if (!incoming) return;
+
+    const current = factsById.get(id);
+
+    if (!current || (current.disposition === 'legacy-unknown' && incoming.disposition === 'known')) {
+        factsById.set(id, incoming);
+        return
+    }
+
+    if (current.disposition === 'known' && incoming.disposition === 'known' && !equalKnown(current, incoming)) {
+        conflictIds.add(id);
+    }
+}
 
 /**
  * @summary Names the `messageWal` config leaves missing from a config slice.
@@ -112,11 +196,19 @@ export async function appendWalMessage(record, {dir, planeId, now, lockOptions} 
  * @param {String} marker.id Stable `MESSAGE:*` id.
  * @param {String} marker.segmentKey WAL segment key containing the accepted record.
  * @param {Number} [marker.projectedAt] Epoch-ms projection completion time.
+ * @param {Object} [marker.mailboxRouting] Immutable canonical sender/destination fact.
+ * @param {Object} [marker.broadcastCohort] Immutable intended-cohort fact for broadcasts.
  * @param {Object} options
  * @param {String} options.dir Message WAL directory.
  * @returns {Promise<String>} Written markers file path.
  */
-export async function appendMessageWalGraphProjectionMarker({id, segmentKey, projectedAt}, {dir} = {}) {
+export async function appendMessageWalGraphProjectionMarker({
+    id,
+    segmentKey,
+    projectedAt,
+    mailboxRouting,
+    broadcastCohort
+}, {dir} = {}) {
     if (!dir) {
         throw new TypeError('appendMessageWalGraphProjectionMarker: dir is required');
     }
@@ -124,11 +216,32 @@ export async function appendMessageWalGraphProjectionMarker({id, segmentKey, pro
         throw new TypeError('appendMessageWalGraphProjectionMarker: id and segmentKey are required');
     }
 
+    const normalizedMailboxRouting = mailboxRouting === undefined
+        ? undefined
+        : normalizeMailboxRoutingMarker(mailboxRouting);
+    const normalizedBroadcastCohort = broadcastCohort === undefined
+        ? undefined
+        : normalizeBroadcastCohortMarker(broadcastCohort);
+
+    if (mailboxRouting !== undefined && !normalizedMailboxRouting) {
+        throw new TypeError('appendMessageWalGraphProjectionMarker: mailboxRouting must be known with sentBy/to or legacy-unknown');
+    }
+    if (broadcastCohort !== undefined && !normalizedBroadcastCohort) {
+        throw new TypeError('appendMessageWalGraphProjectionMarker: broadcastCohort must be known with a non-negative integer count or legacy-unknown');
+    }
+
     await fs.mkdir(dir, {recursive: true});
 
     const filePath = path.join(dir, getMessageWalGraphMarkersFileName(segmentKey));
 
-    await fs.appendFile(filePath, `${JSON.stringify({id, projectedAt: projectedAt ?? Date.now()})}\n`, 'utf8');
+    const marker = {
+        id,
+        projectedAt: projectedAt ?? Date.now(),
+        ...(normalizedMailboxRouting ? {mailboxRouting: normalizedMailboxRouting} : {}),
+        ...(normalizedBroadcastCohort ? {broadcastCohort: normalizedBroadcastCohort} : {})
+    };
+
+    await fs.appendFile(filePath, `${JSON.stringify(marker)}\n`, 'utf8');
 
     return filePath;
 }
@@ -241,7 +354,47 @@ async function getGraphMarkerFileStats(dir, segmentKeys) {
 }
 
 /**
- * @summary Lists message WAL segment keys newest first.
+ * @summary Builds change-sensitive signatures for accepted-message payload segments.
+ *
+ * Read-path repair uses these signatures only to bound retries for an unreadable indexed record.
+ * File kind is included so replacing an accidental directory with the expected JSONL file wakes a
+ * deferred candidate immediately, even if coarse filesystem timestamps happen to coincide.
+ *
+ * @param {String} dir Message WAL directory.
+ * @param {String[]} segmentKeys Segment keys newest first.
+ * @returns {Promise<Map<String,String>>}
+ * @private
+ */
+async function getPayloadSignaturesBySegment(dir, segmentKeys) {
+    const signatures = new Map();
+
+    for (const segmentKey of segmentKeys) {
+        const filePath = path.join(dir, getMessageWalRecordsFileName(segmentKey));
+
+        try {
+            const stat = await fs.stat(filePath);
+            signatures.set(segmentKey, [
+                stat.isFile() ? 'file' : 'non-file',
+                stat.dev,
+                stat.ino,
+                stat.size,
+                stat.mtimeMs
+            ].join(':'));
+        } catch (e) {
+            signatures.set(segmentKey, `unavailable:${e?.code || 'unknown'}`);
+        }
+    }
+
+    return signatures
+}
+
+/**
+ * @summary Lists the union of accepted-payload and graph-marker segment keys newest first.
+ *
+ * Graph markers remain the durable projected-id index even when a payload segment is temporarily
+ * missing or unreadable. Deriving this population from payload names alone made those ids vanish
+ * as false-healthy before the unreadable-candidate boundary could observe them.
+ *
  * @param {String} dir Message WAL directory.
  * @returns {Promise<String[]>}
  * @private
@@ -257,8 +410,9 @@ async function listMessageWalSegmentKeys(dir) {
     }
 
     return names
-        .map(name => name.match(MESSAGE_WAL_SEGMENT_RE)?.[1])
+        .map(name => name.match(MESSAGE_WAL_SEGMENT_RE)?.[1] || name.match(MESSAGE_WAL_GRAPH_MARKER_RE)?.[1])
         .filter(Boolean)
+        .filter((segmentKey, index, keys) => keys.indexOf(segmentKey) === index)
         .sort((a, b) => b.localeCompare(a));
 }
 
@@ -320,30 +474,58 @@ export async function readWalMessages({dir} = {}) {
  *
  * @param {Object} options
  * @param {String} options.dir Message WAL directory.
- * @returns {Promise<{projectedCount: Number, projectedIds: Set<String>, segmentById: Map<String,String>}>}
+ * @returns {Promise<{projectedCount: Number, projectedIds: Set<String>, segmentById: Map<String,String>, mailboxRoutingById: Map<String,Object>, broadcastCohortById: Map<String,Object>, markerConflicts: Object, payloadSignatureBySegment: Map<String,String>}>}
  */
 export async function getMessageWalGraphProjectionStats({dir} = {}) {
     if (!dir) {
         throw new TypeError('getMessageWalGraphProjectionStats: dir is required');
     }
 
-    const segmentKeys = await listMessageWalSegmentKeys(dir);
-    const markerStats = await getGraphMarkerFileStats(dir, segmentKeys);
-    const signature   = markerStats.map(item => item.signature).join('|');
-    const cached      = projectionStatsCache.get(dir);
+    const segmentKeys               = await listMessageWalSegmentKeys(dir);
+    const markerStats               = await getGraphMarkerFileStats(dir, segmentKeys);
+    const payloadSignatureBySegment = await getPayloadSignaturesBySegment(dir, segmentKeys);
+    const signature                 = [
+        ...markerStats.map(item => item.signature),
+        ...[...payloadSignatureBySegment].map(([segmentKey, value]) => `payload:${segmentKey}:${value}`)
+    ].join('|');
+    const cached = projectionStatsCache.get(dir);
 
     if (cached?.signature === signature) {
         return cached.stats;
     }
 
-    const segmentById = new Map();
+    const segmentById       = new Map(),
+        mailboxRoutingById  = new Map(),
+        broadcastCohortById = new Map(),
+        markerConflicts     = {
+            mailboxRoutingIds : new Set(),
+            broadcastCohortIds: new Set()
+        };
 
     for (const {filePath, segmentKey} of markerStats) {
         for (const entry of await readJsonlEntries(filePath)) {
-            const id = entry?.id;
+            const id            = entry?.id,
+                mailboxRouting  = normalizeMailboxRoutingMarker(entry?.mailboxRouting),
+                broadcastCohort = normalizeBroadcastCohortMarker(entry?.broadcastCohort);
 
             if (typeof id === 'string' && id.startsWith('MESSAGE:') && !segmentById.has(id)) {
                 segmentById.set(id, segmentKey);
+            }
+            if (typeof id === 'string' && id.startsWith('MESSAGE:')) {
+                mergeProjectionMarkerFact(
+                    mailboxRoutingById,
+                    markerConflicts.mailboxRoutingIds,
+                    id,
+                    mailboxRouting,
+                    (current, incoming) => current.sentBy === incoming.sentBy && current.to === incoming.to
+                );
+                mergeProjectionMarkerFact(
+                    broadcastCohortById,
+                    markerConflicts.broadcastCohortIds,
+                    id,
+                    broadcastCohort,
+                    (current, incoming) => current.intendedRecipientCount === incoming.intendedRecipientCount
+                );
             }
         }
     }
@@ -351,7 +533,11 @@ export async function getMessageWalGraphProjectionStats({dir} = {}) {
     const stats = {
         projectedCount: segmentById.size,
         projectedIds  : new Set(segmentById.keys()),
-        segmentById
+        segmentById,
+        mailboxRoutingById,
+        broadcastCohortById,
+        markerConflicts,
+        payloadSignatureBySegment
     };
 
     projectionStatsCache.set(dir, {signature, stats});
