@@ -6,16 +6,17 @@ import {
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
-    configDrift        : 'config-drift',
-    containerDown      : 'container-down',
-    containerUnhealthy : 'container-unhealthy',
-    endpointProbeFailed: 'endpoint-probe-failed',
-    evalContention     : 'ollama-eval-contention',
-    memorySaturation   : 'memory-saturation',
-    providerResidency  : 'provider-residency-degraded',
-    resourceSaturation : 'resource-saturation',
-    restartChurn       : 'restart-churn',
-    runtimeReadFailed  : 'runtime-read-failed'
+    configDrift               : 'config-drift',
+    containerDown             : 'container-down',
+    containerUnhealthy        : 'container-unhealthy',
+    endpointProbeFailed       : 'endpoint-probe-failed',
+    evalContention            : 'ollama-eval-contention',
+    heapObservationUnavailable: 'heap-observation-unavailable',
+    memorySaturation          : 'memory-saturation',
+    providerResidency         : 'provider-residency-degraded',
+    resourceSaturation        : 'resource-saturation',
+    restartChurn              : 'restart-churn',
+    runtimeReadFailed         : 'runtime-read-failed'
 });
 
 export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
@@ -294,7 +295,7 @@ export class ContainerHealthDiagnosisService extends Base {
             })] : []),
             ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
             ...this.collectLifecycleFacts({serviceKey, inspect, observedAt, logs, nodeCommand, declaredHeapCeilingMb}),
-            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
+            ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt, nodeCommand}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
             ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
@@ -519,7 +520,7 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object[]}
      */
-    collectStatsFacts({serviceKey, stats, statsSamples, observedAt}) {
+    collectStatsFacts({serviceKey, stats, statsSamples, observedAt, nodeCommand = null}) {
         const samples = normalizeStatsSamples({stats, statsSamples});
         if (samples.length < this.configValues.minResourceSamples) return [];
 
@@ -533,14 +534,27 @@ export class ContainerHealthDiagnosisService extends Base {
                 ? this.configValues.storeMemorySaturationPercent
                 : this.configValues.memorySaturationPercent,
             cpuPercents     = samples.map(calculateDockerCpuPercent).filter(Number.isFinite),
-            memoryPercents  = samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
+            // A Node service's memory saturation is measured against its own heap, never against the
+            // container. `heapScope` decides which numerator is legitimate for this service and
+            // whether one is available at all; see `resolveMemorySaturationScope`.
+            heapScope       = resolveMemorySaturationScope({samples, nodeCommand}),
+            isHeapScope     = heapScope.scope === MEMORY_SATURATION_SCOPES.heap,
+            memoryPercents  = isHeapScope
+                ? heapScope.percents
+                : samples.map(calculateDockerMemoryPercent).filter(Number.isFinite),
             // Per-sample observation times, stamped by `rememberStatsSample` when each sample was
             // taken. The window is now MEASURED from these rather than asserted from config, so
             // back-to-back samples cannot satisfy a sustained-window claim.
             timestamps      = samples.map(sample => sample?.observedAtMs).filter(Number.isFinite),
+            // The heap window is measured from the SUBJECT's own observation times, never from the
+            // Docker polls that read them. Those two clocks tick independently: the poll advances
+            // every collection, while a stopped reporter's stamp does not move at all. Measuring the
+            // span from the observer's clock let one stale record, re-read twice, assert a sustained
+            // window nothing had sustained. CPU keeps the Docker stamps, which are its true subject.
+            memoryTimestamps = isHeapScope ? heapScope.timestamps : timestamps,
             minWindowMs     = this.configValues.sampleWindowMs,
             cpuWindow       = summarizeSustainedWindow({values: cpuPercents, threshold: this.configValues.cpuSaturationPercent, expectedCount: samples.length, timestamps, minWindowMs}),
-            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps, minWindowMs});
+            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps: memoryTimestamps, minWindowMs});
 
         if (cpuWindow.sustained) {
             facts.push(this.createFact({
@@ -563,6 +577,46 @@ export class ContainerHealthDiagnosisService extends Base {
                     meanPercent     : cpuWindow.mean
                 }
             }));
+        }
+
+        // Fail closed rather than fall back. A Node service whose heap the channel cannot report gets
+        // NO memory-saturation fact, because the only remaining numerator is the cross-scope one this
+        // slice exists to remove — and an inverted signal is worse than a missing one: it protects a
+        // service with a large native footprint and stays silent for the lean service that is
+        // actually about to exhaust its old space. The death itself remains attributable at n=1 from
+        // the heap-limit log line, which needs no ratio.
+        //
+        // **The silence is announced, and that half is not optional.** `diagnose()` publishes
+        // `status: facts.length > 0 ? 'advisory' : 'healthy'`, so a Node service with no heap reading
+        // and no other facts would otherwise report **`healthy`** — green on precisely the axis that
+        // just stopped being measured. Failing closed on the numerator would have become failing OPEN
+        // on the envelope, which is the more dangerous of the two and is easy to miss because the
+        // numerator decision is so obviously right. (@neo-opus-grace caught this on review of the
+        // surface-overlap ping; the fix is hers.)
+        //
+        // The shape is lifted from `runtimeReadFailed` above rather than invented: `warning` +
+        // `authoritative: false` cannot reach `minAuthoritativeFacts`, licenses no action, and cannot
+        // be computed from a cross-scope pair — so AC-1 stands untouched — while a single fact is
+        // enough to flip the envelope from `healthy` to `advisory`. It reports an absent measurement,
+        // never a state of the heap.
+        if (heapScope.scope === MEMORY_SATURATION_SCOPES.unavailable) {
+            facts.push(this.createFact({
+                type         : CONTAINER_HEALTH_FACT_TYPES.heapObservationUnavailable,
+                serviceKey,
+                observedAt,
+                severity     : 'warning',
+                authoritative: false,
+                details      : {
+                    metric           : 'memory',
+                    // WHY the axis is unmeasured. `not-deployed` is the live case today and reads very
+                    // differently from `stale` or `identity-mismatch`, so collapsing them would hide
+                    // which repair is owed.
+                    unavailableReason: heapScope.unavailableReason,
+                    sampleCount      : samples.length
+                }
+            }));
+
+            return facts;
         }
 
         if (memoryWindow.sustained) {
@@ -588,7 +642,12 @@ export class ContainerHealthDiagnosisService extends Base {
                     serviceClassDeclared: serviceClassification.declared,
                     minPercent          : memoryWindow.min,
                     maxPercent          : memoryWindow.max,
-                    meanPercent         : memoryWindow.mean
+                    meanPercent         : memoryWindow.mean,
+                    // WHICH memory this percent describes. Without it the fact is ambiguous between
+                    // two different denominators, and a consumer comparing facts across services —
+                    // or across this change — would be comparing unlike quantities while both read
+                    // as "memory 91%".
+                    memoryScope         : heapScope.scope
                 }
             }));
         }
@@ -1294,6 +1353,176 @@ export function calculateDockerMemoryPercent(stats) {
     }
 
     return (usage / limit) * 100;
+}
+
+/**
+ * Which memory a `memory-saturation` percent describes. Published on the fact because the two are
+ * different quantities that both read as "memory 91%".
+ * @type {Object}
+ */
+export const MEMORY_SATURATION_SCOPES = Object.freeze({
+    container  : 'container',
+    heap       : 'heap',
+    unavailable: 'unavailable'
+});
+
+/**
+ * @summary Decides which numerator this service's memory saturation may legitimately use.
+ *
+ * **A service's scope is read from the observation envelope, not from a roster.** Each stats sample
+ * carries the heap envelope captured at the same instant, and that envelope already answers "is this
+ * a Node process" — the bridge refuses to publish an observation for anything whose `Config.Cmd` is
+ * not Node and says so with `not-node`. Re-deriving that here would put a second definition of "a
+ * Node service" in the codebase, and the two would drift.
+ *
+ * Three outcomes, and the third is the point of the slice:
+ *
+ * - **`container`** — no envelope, or an envelope explicitly reporting `not-node`. Container usage
+ *   over the container limit is the honest measure of container pressure for these, and nothing about
+ *   this slice changes them. `chroma` is the live example.
+ * - **`heap`** — a Node service with at least one usable V8 reading in the window. Old-generation
+ *   usage over the declared ceiling.
+ * - **`unavailable`** — a Node service with no usable reading: channel disabled, stale, skewed,
+ *   identity-mismatched, an undeclared ceiling, or simply not deployed yet. **No fact is emitted.**
+ *   Falling back to the container ratio here would reinstate exactly the cross-scope pair this slice
+ *   removes, and would do it silently on the path where the heap channel is broken — which is the
+ *   moment the number is least trustworthy and most likely to be believed.
+ *
+ * @param {Object[]} samples Stats samples, each optionally carrying `heapObservation`.
+ * @returns {Object} `{scope, percents}` — `percents` is populated only for the `heap` scope.
+ */
+function resolveMemorySaturationScope({samples, nodeCommand}) {
+    const
+        envelopes = samples.map(sample => sample?.heapObservation).filter(Boolean),
+        // **`nodeCommand === false` is the ONLY thing that licenses the container ratio**, and the
+        // envelope deliberately does not count — even when every envelope in the window says
+        // `not-node`.
+        //
+        // Two reasons, both found by falsifier rather than by reading:
+        //
+        // 1. The producer's `not-node` was not the positive classification it looked like. Its gate
+        //    is `nodeCommand !== true`, so an UNKNOWN identity — an unreadable inspect — refused with
+        //    the same word as a genuine non-Node service. Consuming it as authority let an unknown
+        //    service manufacture an authoritative container-scoped `memory-saturation`, and with a
+        //    CPU fact alongside it reached `diagnosed → throttle-shed` while inspect was unreadable.
+        //    The producer now distinguishes `identity-unknown`; this consumer no longer depends on
+        //    that distinction being right, which is the more durable half of the fix.
+        // 2. Envelopes ride on RETAINED samples. A window held from earlier collections could carry
+        //    an all-`not-node` set while the current `nodeCommand` reads `true` — a stale classification
+        //    silently outvoting a live one.
+        //
+        // An ABSENT envelope is evidence of nothing, and so is a refusal: neither can establish that
+        // a service has no heap. Only the direct `Config.Cmd` reading can.
+        explicitlyNotNode = nodeCommand === false;
+
+    if (explicitlyNotNode) {
+        return {scope: MEMORY_SATURATION_SCOPES.container, percents: [], timestamps: [], unavailableReason: null};
+    }
+
+    // Node, or unclassifiable. Both require a heap window; an unclassifiable service must not get a
+    // cross-scope ratio, because that would be a guess with a number attached.
+    const
+        // Per sample, not per envelope: a sample with no envelope is a HOLE in the window, and the
+        // distinction is lost if absent envelopes are filtered away before counting.
+        readings = samples.map(sample => {
+            const envelope = sample?.heapObservation;
+
+            // `status: 'available'` means the read was recent enough to describe the service;
+            // `pairable` means it is close enough to the container sample to enter arithmetic. The
+            // bridge publishes them separately because they answer different questions, and consuming
+            // only the first promotes a reading into stronger evidence than its source licensed.
+            if (!envelope || envelope.status !== 'available' || envelope.pairable !== true) {
+                return null;
+            }
+
+            const
+                percent = calculateHeapSaturationPercent(envelope.observation),
+                // The SUBJECT's own measurement time, never this collection's. Stamping a self-report
+                // with the observer's clock let one dead process's single record, re-read at two
+                // polls 45 s apart, claim a 45-second sustained window — a critical fact synthesised
+                // from the observer's clock while the subject stood still. That is the exact failure
+                // this channel exists to make impossible: a sick process does not report a bad
+                // number, it stops reporting.
+                stamp   = envelope.observation?.observedAt;
+
+            return Number.isFinite(percent) && Number.isFinite(stamp) ? {percent, stamp} : null;
+        }),
+        usable = readings.filter(Boolean);
+
+    // FULL coverage or nothing. A window with one usable reading and one hole is not a weaker
+    // measurement of the same thing — it is an unmeasured span, and it previously selected `heap`
+    // scope, failed the count floor, and emitted no fact at all, which published `healthy`.
+    if (usable.length === 0 || usable.length !== samples.length) {
+        return {
+            scope     : MEMORY_SATURATION_SCOPES.unavailable,
+            percents  : [],
+            timestamps: [],
+            // Names which repair is owed. A partially covered window is its own case: the channel is
+            // working and something interrupted it, which reads very differently from never having
+            // heard from the service at all.
+            unavailableReason: usable.length > 0
+                ? 'partial-window'
+                : envelopes.map(envelope => envelope.unavailableReason).filter(Boolean).pop() ||
+                  (envelopes.length > 0 ? 'unpairable' : 'not-deployed')
+        };
+    }
+
+    return {
+        scope            : MEMORY_SATURATION_SCOPES.heap,
+        percents         : usable.map(reading => reading.percent),
+        timestamps       : usable.map(reading => reading.stamp),
+        unavailableReason: null
+    };
+}
+
+/**
+ * @summary Old-generation usage against the ceiling the process was DECLARED with — the ratio a Node
+ * service actually dies on.
+ *
+ * **Both terms are moved, not just made more precise.** `calculateDockerMemoryPercent` above pairs
+ * container usage with the container limit; that pair is honest about container pressure and says
+ * nothing about a heap. Using it to anticipate a heap death is a cross-scope ratio: the process aborts
+ * when V8 old space reaches `--max-old-space-size`, while container usage at that instant is the
+ * ceiling *plus* young generation, native allocations, the binary and off-heap `Buffer`s. Measured on
+ * this deployment, a 768 MiB ceiling under a 1 GiB limit at a 90% threshold means the container fact
+ * can only fire first if that non-heap remainder reaches **153.6 MiB and sustains** — so the detector's
+ * sensitivity to a heap death is a function of NON-heap memory. It protects a bloated service and
+ * misses a lean one. That inversion is why the numerator had to change scope rather than the threshold
+ * change value.
+ *
+ * **The denominator is the DECLARED ceiling and never `heapSizeLimitBytes`.** The reported limit is the
+ * obvious V8-scoped candidate and it is a trap that would reproduce this defect one layer in, wearing a
+ * V8-scoped name: it sits **above** the declaration by exactly `3 × max-semi-space-size`, and V8 sizes
+ * the semi-space from the memory limit it detects at startup — `+3 / +48 / +96 / +192` MiB at a
+ * 512m / 1g / 2g / 4g cgroup, saturating. At the shipped configuration that is 816 against a declared
+ * 768: a 6.25% overstatement of headroom the process does not have. The offset cannot be corrected for,
+ * because it is a stepped function of a limit this code neither sets nor reads.
+ *
+ * **Fail-closed on anything but a declared ceiling.** `undeclared` and `ambiguous` both yield `null`
+ * rather than a substituted bound: a process with no observable declaration has no denominator, and
+ * inventing one would put a number nobody measured inside the evidence a heal decision reads. `null`
+ * means "not computable here", never "healthy" — the caller must not coerce it.
+ *
+ * @param {Object|null} observation A `process-heap-observation` record's `observation` payload.
+ * @returns {Number|null} Percent of the declared old-generation ceiling in use, or `null`.
+ */
+export function calculateHeapSaturationPercent(observation) {
+    if (!observation || observation.state !== 'observed' || observation.ceilingState !== 'declared') {
+        return null;
+    }
+
+    const
+        // Old generation ONLY. `usedHeapBytes` folds in the young generation, which is collected on a
+        // different cadence and bounded by a different flag, so it would move the numerator for
+        // reasons unrelated to the exhaustion this ratio exists to anticipate.
+        usedBytes    = Number(observation.oldGenerationUsedBytes),
+        ceilingBytes = Number(observation.declaredCeilingBytes);
+
+    if (!Number.isFinite(usedBytes) || !Number.isFinite(ceilingBytes) || usedBytes < 0 || ceilingBytes <= 0) {
+        return null;
+    }
+
+    return (usedBytes / ceilingBytes) * 100;
 }
 
 function normalizeStatsSamples({stats, statsSamples}) {
