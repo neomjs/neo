@@ -119,6 +119,42 @@ async function produceProviderBaseUrl({baseUrl, token}) {
     return (await produceAuthInfo({baseUrl, token})).providerBaseUrl
 }
 
+/**
+ * @summary Runs the REAL GitHub-PAT verifier — the second provider axis of the stable tuple.
+ *
+ * `authProvider` is one of the three coordinates backing the principal, so a matrix that only ever
+ * executes the GitLab verifier holds it constant and can never exercise the cross-provider case.
+ * GitHub's payload names the handle `login` rather than `username`, which is precisely why the
+ * mapping has to be executed rather than assumed equivalent.
+ * @param {Object} options
+ * @param {String} [options.baseUrl='https://api.github.com']
+ * @param {String} [options.login='octocat']
+ * @param {Number} [options.providerId=4242]
+ * @param {String} options.token Must be unique per call — the verifier caches by token hash
+ * @returns {Promise<Object>} The produced AuthInfo
+ */
+async function produceGithubAuthInfo({baseUrl = 'https://api.github.com', login = 'octocat', providerId = 4242, token}) {
+    globalThis.fetch = async () => ({
+        ok     : true,
+        status : 200,
+        headers: {get: () => 'repo, read:user'},
+        json   : async () => ({id: providerId, login, name: login})
+    });
+
+    const verifier = AuthService.createGithubPatVerifier({
+        aiConfig         : {auth: {
+            githubApiBaseUrl      : baseUrl,
+            patCacheTtlSeconds    : 300,
+            patValidationTimeoutMs: 5000,
+            allowedUsers          : []
+        }},
+        logger           : {info: () => {}, warn: () => {}, error: () => {}},
+        InvalidTokenError: FakeInvalidTokenError
+    });
+
+    return verifier.verifyAccessToken(token)
+}
+
 test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)', () => {
     test.beforeAll(async () => {
         AuthService   = (await import('../../../../../../../../ai/mcp/server/shared/services/AuthService.mjs')).default;
@@ -210,6 +246,39 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
             normalizeAgentIdentityNodeId(distinct.userId),
             'a different login is a different key — the collision is login-specific'
         ).not.toBe(normalizeAgentIdentityNodeId(self.userId))
+    });
+
+    test('CROSS-PROVIDER COLLISION: a GitLab and a GitHub account sharing one login share one durable key', async () => {
+        const {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs');
+
+        // The widest form of the collision, and the one the earlier arms could not reach because
+        // they held `authProvider` constant. `authProvider` is one of the three coordinates backing
+        // the principal, so a matrix that only executes one verifier tests two thirds of the tuple.
+        // Both verifiers are executed here, so the divergence is produced rather than assumed.
+        const
+            gitlabInfo = await produceAuthInfo({baseUrl: 'https://gitlab.example.com', login: 'octocat', providerId: 4242, token: 'glpat-xprov'}),
+            githubInfo = await produceGithubAuthInfo({login: 'octocat', providerId: 777001, token: 'ghp-xprov'});
+
+        // All three stable coordinates differ — different provider, different instance, different
+        // immutable id. These are two unrelated humans by every measure the principal is built on.
+        expect(gitlabInfo.authProvider,    'provider differs').not.toBe(githubInfo.authProvider);
+        expect(gitlabInfo.providerBaseUrl, 'instance differs').not.toBe(githubInfo.providerBaseUrl);
+        expect(gitlabInfo.providerUserId,  'immutable id differs').not.toBe(githubInfo.providerUserId);
+
+        // …and the durable key is identical, because it carries none of them. A GitLab `octocat`
+        // and a GitHub `octocat` are one AgentIdentity node today.
+        expect(
+            normalizeAgentIdentityNodeId(githubInfo.userId),
+            'two accounts on different providers collapse onto one durable key'
+        ).toBe(normalizeAgentIdentityNodeId(gitlabInfo.userId));
+
+        // Control on the widened axis: the collapse still tracks the handle, not the provider pair.
+        const otherLogin = await produceGithubAuthInfo({login: 'hubcat', providerId: 777002, token: 'ghp-xprov-control'});
+
+        expect(
+            normalizeAgentIdentityNodeId(otherLogin.userId),
+            'a different GitHub login is still a different key'
+        ).not.toBe(normalizeAgentIdentityNodeId(gitlabInfo.userId))
     });
 
     test('the same leaf yields TWO spellings, because the trailing-slash strip lives at the consumer', async () => {
