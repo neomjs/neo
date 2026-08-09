@@ -2737,8 +2737,12 @@ components:
         state:
           type: string
           nullable: true
-          enum: [clean, dirty, inactive, unobserved, null]
-          description: Producer-declared cycle verdict, or null when no receipt is available.
+          enum: [clean, dirty, inactive, unobserved]
+          description: >
+            Producer-declared cycle verdict; null when no receipt is available. Nullability is carried
+            by `nullable`, never by a `null` member inside the enum — a `type: string` whose enum also
+            admits null contradicts itself, and the Zod round-trip drops the type and leaves `nullable`
+            orphaned, which AJV then rejects.
         drainedClean:
           type: boolean
           nullable: true
