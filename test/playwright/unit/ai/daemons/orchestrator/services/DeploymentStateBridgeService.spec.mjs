@@ -2050,10 +2050,17 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
             return {diagnoseArgs, service: snapshot.services[0]}
         };
 
-        const asNode    = await collect(['node', '--max-old-space-size=768', 'server.mjs']),
-              asNonNode = await collect(['python3', 'server.py']);
+        let asNode, asNonNode;
 
-        Object.assign(AiConfig.orchestrator.deploymentStateBridge, previous);
+        // `finally`, not a trailing statement: an assertion or collection throwing before the
+        // restore would leave the shared singleton mutated for every spec that runs after this
+        // one, and the symptom surfaces as an unrelated failure in another file.
+        try {
+            asNode    = await collect(['node', '--max-old-space-size=768', 'server.mjs']);
+            asNonNode = await collect(['python3', 'server.py'])
+        } finally {
+            Object.assign(AiConfig.orchestrator.deploymentStateBridge, previous)
+        }
 
         // Non-vacuity: the two runs genuinely differ on the field under test, so equality below is
         // a result rather than an artifact of nothing having changed.
