@@ -2,7 +2,14 @@
 
 This manifest defines the public API for the Neo.mjs AI Infrastructure SDK. Agents should read this file to discover available services and their method signatures before writing execution scripts.
 
-**Import Path:** `ai/services.mjs` (Relative to project root)
+**Import Path — choose by execution realm** (both relative to project root):
+
+| your process runs… | import from | why |
+|---|---|---|
+| on the **host** — stdio MCP servers, `ai/scripts` entrypoints, build scripts | **`ai/services.host.mjs`** | Cannot reach a durable store by import alone. A host machine has only the base package tier, and the cloud root eagerly resolves packages it does not have. |
+| in a **container** — Knowledge Base, Memory Core, Chroma, graph, Dream pipeline | `ai/services.mjs` | The cloud composition root. It re-exports every host service too, so it remains correct for anything spanning both. |
+
+`ai/services.mjs` still exports everything it always did — **existing imports are unchanged and remain valid.** The host barrel is a narrower door, not a replacement: pick it when your process will run somewhere the cloud packages are absent.
 
 ---
 
@@ -97,7 +104,7 @@ async function main() {
 
     // 3. Search for Solution
     const docs = await KB_QueryService.queryDocuments({ query: bug.title });
-    
+
     console.log(`Analyzing bug #${bug.number} with context: ${docs.topResult}`);
 }
 

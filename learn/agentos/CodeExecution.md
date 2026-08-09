@@ -34,9 +34,13 @@ The agent imports the **Neo.mjs AI SDK** directly into its script. This SDK expo
 
 ---
 
-## The SDK: `ai/services.mjs`
+## The SDK: two barrels, one safety layer
 
 The heart of this system is the **Neo.mjs AI SDK**. It serves as a bridge, exporting the internal service classes of our MCP servers for direct use in Node.js scripts.
+
+It ships as **two entry points, chosen by where your process runs.** `ai/services.host.mjs` serves the host plane and cannot reach a durable store by import alone — a host machine has only the base package tier, and importing the cloud root there eagerly resolves packages it does not have. `ai/services.mjs` is the cloud composition root and **re-exports every host service**, so existing imports keep working unchanged and anything spanning both planes stays correct.
+
+The validating-Proxy machinery sits below both, so a service is the **same Proxy instance** whichever barrel imports it. The examples below use `ai/services.mjs` and remain valid; substitute the host barrel when the script will run outside a container.
 
 **Import Path:**
 ```javascript readonly
