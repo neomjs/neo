@@ -1159,7 +1159,7 @@ paths:
         - name: assignee
           in: query
           required: false
-          description: Filter issues by a single assignee login. Applied server-side, so `limit` bounds the MATCHES returned rather than the rows searched — check `truncated` before treating the result as this agent's complete ownership.
+          description: Filter issues by a single assignee login. Applied server-side, so `limit` bounds the MATCHES returned rather than the rows searched — check `truncated` before treating the result as this agent's complete ownership. `@me` resolves to the authenticated viewer login (the same contract `manage_issue_assignees` honors).
           schema:
             type: string
         - name: projection

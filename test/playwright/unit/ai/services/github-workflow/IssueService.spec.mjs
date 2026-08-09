@@ -1728,3 +1728,102 @@ test.describe('Neo.ai.services.github-workflow.IssueService — createIssue REST
         expect(result.message).toContain('issue number');
     });
 });
+
+test.describe('Neo.ai.services.github-workflow.IssueService — listIssues @me assignee alias (#16806)', () => {
+    let IssueService;
+    let GraphqlService;
+    let originalQuery;
+    let originalRest;
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+        originalRest  = GraphqlService.rest.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+        GraphqlService.rest  = originalRest;
+    });
+
+    // Hermetic guard: the alias path routes the viewer lookup through GraphqlService.rest. Any test
+    // that reaches it MUST stub rest explicitly; an unstubbed reach throws loudly here rather than
+    // hitting real GitHub.
+    test.beforeEach(() => {
+        GraphqlService.rest = async (method, path) => {
+            throw new Error(`Unexpected GraphqlService.rest call in listIssues @me test: ${method} ${path}`);
+        };
+    });
+
+    function installIssueListStub(capture = {}) {
+        GraphqlService.query = async (query, variables) => {
+            capture.query     = query;
+            capture.variables = variables;
+
+            return {repository: {issues: {nodes: []}}};
+        };
+    }
+
+    test('resolves the @me alias to the viewer login before the GraphQL query', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        let restCalls = 0;
+        GraphqlService.rest = async (method, path) => {
+            restCalls++;
+
+            if (method === 'GET' && path === '/user') {
+                return {login: 'neo-kimi-iris'};
+            }
+
+            throw new Error(`Unexpected GraphqlService.rest call: ${method} ${path}`);
+        };
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: '@me'});
+
+        expect(restCalls).toBe(1);
+        expect(capture.variables.assignee).toBe('neo-kimi-iris');
+        expect(result.count).toBe(0);
+    });
+
+    test('passes concrete logins through with no viewer round-trip', async () => {
+        const capture = {};
+        installIssueListStub(capture);
+
+        // The beforeEach hermetic guard makes any rest reach throw, so reaching the query with the
+        // login unchanged proves the short-circuit: no GET /user happens for a concrete login.
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: 'neo-gpt'});
+
+        expect(capture.variables.assignee).toBe('neo-gpt');
+        expect(result.count).toBe(0);
+    });
+
+    test('returns GITHUB_API_ERROR and issues no GraphQL query when the viewer lookup fails', async () => {
+        let queryIssued = false;
+        GraphqlService.query = async () => {
+            queryIssued = true;
+            return {repository: {issues: {nodes: []}}};
+        };
+
+        GraphqlService.rest = async () => {
+            throw new Error('GET /user failed');
+        };
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: '@me'});
+
+        expect(result.error).toBe('GitHub API request failed');
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(queryIssued).toBe(false);
+    });
+
+    test('returns GITHUB_API_ERROR naming @me when the viewer response carries no login', async () => {
+        GraphqlService.rest = async () => ({});
+
+        const result = await IssueService.listIssues({limit: 10, state: 'open', assignee: '@me'});
+
+        expect(result.code).toBe('GITHUB_API_ERROR');
+        expect(result.message).toContain('@me');
+    });
+});
