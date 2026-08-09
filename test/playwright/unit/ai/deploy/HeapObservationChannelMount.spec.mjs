@@ -27,18 +27,22 @@ import {load as yamlLoad} from 'js-yaml';
  * the writer's side, so the fail-closed metric (`unavailable/absent`) was published while the
  * envelope reported a healthy reporter.
  *
- * WHY the writer roster is DERIVED and never listed. A hardcoded pair silently excludes the
- * third server someone adds next — which is the same defect one layer out. The roster comes
- * from the servers that actually declare `getHeapObservationServiceKey()`, and discovery
- * REFUSES an override it cannot resolve: an indirect producer (`const key = 'x'; return key`)
- * must red here, never sail past the regex into an unasserted mount.
+ * WHY the writer roster is DERIVED, identity-preserving, and never listed. A hardcoded pair
+ * silently excludes the third server someone adds next; a key-unpreserving roster cannot tell
+ * which SERVER declared which label, so a sibling-attributed key (`knowledge-base` returning
+ * `'mc-server'`) would mount the wrong service and pass. Discovery therefore pairs every
+ * declaring server directory with its literal key, refuses any override shape it cannot
+ * resolve (an indirect or non-plain-method producer must red, never vanish), and binds each
+ * declaration to the compose service whose `TARGET_SERVER` build arg names that directory.
  *
- * WHY targets bind EXACTLY, per profile. A shared final path segment proves nothing: swapping
- * every mount target to a coordinated wrong path leaves a suffix-check green. The expected
- * base target is derived from two independent authorities — the compose file's own plane-root
- * convention (read off the deployment-state mount) and the config leaf's directory segment —
- * and the parity profile's target comes from its `NEO_HEAP_OBSERVATION_DIR` pin, because the
- * resolved path differs per profile by design.
+ * WHY targets bind EXACTLY, across two independent authorities. A shared final path segment
+ * proves nothing: swapping every mount target to a coordinated wrong path leaves a suffix
+ * check green. The expected target is built from the config-authoritative chain — the
+ * `heapObservation.dir` leaf's own resolve expression (anchor name AND segment, so moving
+ * the anchor reds) crossed against `planeConfig`'s relative root — and the compose file's
+ * declared in-container plane root (read off a sibling channel's mount). The two must agree,
+ * so a mutation on EITHER side fails: config-anchor move, relative-root rename, or a
+ * coordinated compose-only target shift.
  *
  * WHY static parsing rather than only `docker compose config`: the mount lines ARE the
  * invariant, and reading them from source is a complete hermetic test of the property. The
@@ -47,56 +51,72 @@ import {load as yamlLoad} from 'js-yaml';
  */
 
 const
-    repoRoot       = path.resolve(process.cwd()),
-    composePath    = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
-    devComposePath = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
-    configBasePath = path.join(repoRoot, 'ai/configBase.mjs'),
-    mcpServerRoot  = path.join(repoRoot, 'ai/mcp/server'),
-    compose        = yamlLoad(fs.readFileSync(composePath, 'utf8')),
-    devCompose     = yamlLoad(fs.readFileSync(devComposePath, 'utf8')),
-    configBaseText = fs.readFileSync(configBasePath, 'utf8'),
-    READER_SERVICE = 'orchestrator',
-    PARITY_VOLUME  = 'parity-heap-observation';
+    repoRoot        = path.resolve(process.cwd()),
+    composePath     = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
+    devComposePath  = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
+    configBasePath  = path.join(repoRoot, 'ai/configBase.mjs'),
+    planeConfigPath = path.join(repoRoot, 'ai/planeConfig.mjs'),
+    mcpServerRoot   = path.join(repoRoot, 'ai/mcp/server'),
+    compose         = yamlLoad(fs.readFileSync(composePath, 'utf8')),
+    devCompose      = yamlLoad(fs.readFileSync(devComposePath, 'utf8')),
+    configBaseText  = fs.readFileSync(configBasePath, 'utf8'),
+    planeConfigText = fs.readFileSync(planeConfigPath, 'utf8'),
+    READER_SERVICE  = 'orchestrator',
+    PARITY_VOLUME   = 'parity-heap-observation';
 
 /**
- * The directory segment `AiConfig.heapObservation.dir` appends to the plane data root. Read from
- * the config source rather than restated, so renaming the leaf reds this spec instead of silently
- * leaving the mount pointing at a directory nothing writes.
- * @returns {String}
+ * The config-authoritative channel path pieces: the `heapObservation.dir` leaf's resolve
+ * expression (anchor name AND segment — moving the anchor must red, not silently re-derive)
+ * crossed with `planeConfig`'s relative root.
+ * @returns {{dirSegment: String, dataRootRelative: String}}
  */
-function readObservationDirSegment() {
-    const match = configBaseText.match(/heapObservation:\s*\{[\s\S]*?dir\s*:\s*leaf\(path\.resolve\([^,]+,\s*'([^']+)'\)/);
+function readChannelPathAuthorities() {
+    const dirExpr = configBaseText.match(/heapObservation:\s*\{[\s\S]*?dir\s*:\s*leaf\(path\.resolve\(([A-Za-z]+),\s*'([^']+)'\)/);
 
     // Fail closed: an unmatched regex must not silently assert nothing.
-    expect(match, 'ai/configBase.mjs still declares heapObservation.dir as a plane-root-relative leaf').toBeTruthy();
+    expect(dirExpr, 'ai/configBase.mjs still declares heapObservation.dir as a leaf(path.resolve(anchor, segment))').toBeTruthy();
+    expect(
+        dirExpr[1],
+        'the heapObservation.dir leaf still anchors on planeDataRootDefault — an anchor move changes the runtime path and must red here'
+    ).toBe('planeDataRootDefault');
 
-    return match[1]
+    const relative = planeConfigText.match(/dataRootRelative:\s*'([^']+)'/);
+
+    expect(relative, 'ai/planeConfig.mjs still declares PLANE_DEFAULTS.dataRootRelative').toBeTruthy();
+
+    return {dirSegment: dirExpr[2], dataRootRelative: relative[1]}
 }
 
 /**
- * The canonical plane root as the COMPOSE file holds it, derived from a sibling channel's mount
- * rather than restated: the orchestrator's `shared-deployment-state-data` target minus its last
- * segment. A coordinated wrong-target mutation on the heap channel cannot move this anchor, so
- * exact binding against it is what a suffix check could never prove.
+ * The in-container plane root as the COMPOSE file declares it, read off a sibling channel's
+ * mount (the orchestrator's `shared-deployment-state-data` target minus its last segment) —
+ * never restated here. Cross-asserted against the config-side relative root by the caller, so
+ * neither side can drift alone.
+ * @param {Object} composeDoc
  * @returns {String}
  */
-function readBasePlaneRoot() {
-    const anchor = mountsOf(compose, READER_SERVICE).find(entry => entry.volume === 'shared-deployment-state-data');
+function readComposePlaneRoot(composeDoc) {
+    const anchor = mountsOf(composeDoc, READER_SERVICE).find(entry => entry.volume === 'shared-deployment-state-data');
 
-    expect(anchor, 'the orchestrator still mounts shared-deployment-state-data — the plane-root anchor').toBeTruthy();
+    expect(anchor, 'the orchestrator still mounts shared-deployment-state-data — the compose-side plane-root anchor').toBeTruthy();
 
     return anchor.target.replace(/\/[^/]+$/, '')
 }
 
 /**
- * Service keys of every MCP server that reports an observation, derived from the source that
- * decides it — and hardened against the two census failure modes: an override written in a shape
- * this guard cannot resolve (refused, not skipped) and a duplicate key (a second reporter
- * impersonating an existing one). `BaseServer` returns null; a server opts in by overriding.
- * @returns {String[]}
+ * Every MCP-server override of `getHeapObservationServiceKey()`, as `{serverDir, key}` pairs —
+ * identity-preserving by construction. Discovery rules, all fail-closed:
+ *
+ * - the elected convention is a PLAIN instance method with a direct literal return;
+ * - any other definitional shape (static / async / generator / getter / private / computed /
+ *   class-field) reds with a named reason — it is never silently counted OR silently skipped;
+ * - a comment mention is not a definition and does not count.
+ *
+ * `BaseServer` (the null default) lives outside the per-server directories and is not scanned.
+ * @returns {Array<{serverDir: String, key: String}>}
  */
-function readReportingServiceKeys() {
-    const keys = [];
+function readReportingRoster() {
+    const roster = [];
 
     for (const entry of fs.readdirSync(mcpServerRoot, {withFileTypes: true})) {
         if (!entry.isDirectory()) continue;
@@ -105,23 +125,58 @@ function readReportingServiceKeys() {
 
         if (!fs.existsSync(serverPath)) continue;
 
-        const override = fs.readFileSync(serverPath, 'utf8')
-            .match(/getHeapObservationServiceKey\(\)\s*\{([\s\S]*?)\}/);
+        const text  = fs.readFileSync(serverPath, 'utf8'),
+              plain = text.match(/^ {4}getHeapObservationServiceKey\(\)\s*\{([\s\S]*?)\}/m);
 
-        if (!override) continue; // no override — the BaseServer null default stands
+        if (plain) {
+            const literal = plain[1].match(/return\s*'([^']+)'/);
 
-        const literal = override[1].match(/return\s*'([^']+)'/);
+            expect(
+                literal,
+                `${entry.name} overrides getHeapObservationServiceKey() without a direct literal return — ` +
+                'an unresolvable producer must red, not vanish'
+            ).toBeTruthy();
+
+            roster.push({serverDir: entry.name, key: literal[1]});
+            continue
+        }
+
+        const variant = text.match(/^ *(?:static|async)\s+getHeapObservationServiceKey|^ *\*\s*getHeapObservationServiceKey|^ *get\s+getHeapObservationServiceKey|^ *#getHeapObservationServiceKey|^ *\[['"]getHeapObservationServiceKey['"]\]\s*\(|^ *getHeapObservationServiceKey\s*=/m);
 
         expect(
-            literal,
-            `${entry.name} overrides getHeapObservationServiceKey() in a shape this guard cannot resolve — ` +
-            'use a direct literal return or extend the resolver; an unresolvable producer must red, not vanish'
-        ).toBeTruthy();
-
-        keys.push(literal[1])
+            variant,
+            `${entry.name} defines getHeapObservationServiceKey in a non-plain shape (static/async/generator/getter/private/computed/class-field) — ` +
+            'that is not the elected override convention and this guard refuses it rather than guessing its semantics'
+        ).toBeNull()
     }
 
-    return keys.sort()
+    return roster
+}
+
+/**
+ * The compose-side producer identity map: service label → the server directory its image builds
+ * (`build.args.TARGET_SERVER`). This is what makes a declared key checkable against the DECLARING
+ * server's own compose label instead of any label that happens to exist.
+ * @param {Object} composeDoc
+ * @returns {Object<String, String>}
+ */
+function readServerLabels(composeDoc) {
+    const map = {};
+
+    for (const [label, service] of Object.entries(composeDoc.services || {})) {
+        const target = service.build?.args?.TARGET_SERVER;
+
+        if (target) {
+            expect(
+                Object.values(map).includes(target),
+                `two compose services build the same server directory ${target} — the identity census cannot attribute a declaration`
+            ).toBe(false);
+
+            map[label] = target
+        }
+    }
+
+    return map
 }
 
 /**
@@ -144,24 +199,42 @@ function mountsOf(composeDoc, serviceKey) {
 }
 
 test.describe('the heap-observation channel crosses a container boundary', () => {
-    test('every reporting server shares ONE named volume with the bridge that reads it, at the exact resolved path', () => {
+    test('every reporting server shares ONE named volume with the bridge that reads it, at the config-authoritative path', () => {
         const
-            dirSegment     = readObservationDirSegment(),
-            expectedTarget = `${readBasePlaneRoot()}/${dirSegment}`,
-            reportingKeys  = readReportingServiceKeys();
+            {dirSegment, dataRootRelative} = readChannelPathAuthorities(),
+            composePlaneRoot               = readComposePlaneRoot(compose);
+
+        // The cross-domain coherence assertion: the compose-declared in-container root and the
+        // config-declared relative root must agree — a rename on EITHER side reds here, even when
+        // every mount inside one file stays mutually consistent.
+        expect(composePlaneRoot.endsWith(`/${dataRootRelative}`),
+            `the compose plane root (${composePlaneRoot}) still ends at the config-declared ${dataRootRelative}`
+        ).toBe(true);
+
+        const
+            expectedTarget = `${composePlaneRoot}/${dirSegment}`,
+            roster         = readReportingRoster(),
+            serverLabels   = readServerLabels(compose);
 
         // A roster that derived to nothing would make every assertion below vacuous.
-        expect(reportingKeys.length, 'at least one MCP server declares getHeapObservationServiceKey()')
+        expect(roster.length, 'at least one MCP server declares getHeapObservationServiceKey()')
             .toBeGreaterThan(0);
 
-        // One key, one service, one mount: a duplicate key means a second reporter impersonates an
-        // existing one and its own service never gets a mount — the roster must be a set, and every
-        // key must name a real Compose service.
-        expect(new Set(reportingKeys).size, 'reporting service keys are unique').toBe(reportingKeys.length);
+        // One key, one service, one mount: keys unique, each naming a real compose service, and
+        // each declared by the server directory THAT service builds — sibling attribution reds.
+        expect(new Set(roster.map(entry => entry.key)).size, 'reporting service keys are unique')
+            .toBe(roster.length);
 
-        for (const serviceKey of reportingKeys) {
-            expect(compose.services, `${serviceKey} names a service in the canonical compose file`)
-                .toHaveProperty(serviceKey)
+        for (const {serverDir, key} of roster) {
+            expect(compose.services, `${key} names a service in the canonical compose file`).toHaveProperty(key);
+
+            const declaringLabel = Object.keys(serverLabels).find(label => serverLabels[label] === serverDir);
+
+            expect(declaringLabel, `${serverDir} is built by exactly one compose service (TARGET_SERVER)`).toBeTruthy();
+            expect(
+                key,
+                `${serverDir}/Server.mjs declares '${key}' but runs as '${declaringLabel}' — a reporter must declare its OWN compose label; sibling attribution misattributes the observation`
+            ).toBe(declaringLabel)
         }
 
         const readerMounts = mountsOf(compose, READER_SERVICE).filter(entry => entry.target === expectedTarget);
@@ -174,21 +247,22 @@ test.describe('the heap-observation channel crosses a container boundary', () =>
         expect(compose.volumes, 'the channel volume is declared in the top-level volumes block')
             .toHaveProperty(sharedVolume);
 
-        for (const serviceKey of reportingKeys) {
-            const writerMounts = mountsOf(compose, serviceKey).filter(entry => entry.target === expectedTarget);
+        for (const {key} of roster) {
+            const writerMounts = mountsOf(compose, key).filter(entry => entry.target === expectedTarget);
 
-            expect(writerMounts, `${serviceKey} reports a heap observation, so it must mount the channel at the resolved path`)
+            expect(writerMounts, `${key} reports a heap observation, so it must mount the channel at the resolved path`)
                 .toHaveLength(1);
-            expect(writerMounts[0].volume, `${serviceKey} shares the bridge's volume — a private one delivers nothing`)
+            expect(writerMounts[0].volume, `${key} shares the bridge's volume — a private one delivers nothing`)
                 .toBe(sharedVolume);
-            expect(writerMounts[0].readOnly, `${serviceKey} WRITES its observation; a :ro mount is a silent no-op`)
+            expect(writerMounts[0].readOnly, `${key} WRITES its observation; a :ro mount is a silent no-op`)
                 .toBe(false)
         }
     });
 
     test('the bridge reads the channel read-only — it may never author what it publishes as self-reported', () => {
         const
-            expectedTarget = `${readBasePlaneRoot()}/${readObservationDirSegment()}`,
+            {dirSegment}   = readChannelPathAuthorities(),
+            expectedTarget = `${readComposePlaneRoot(compose)}/${dirSegment}`,
             readerMount    = mountsOf(compose, READER_SERVICE).find(entry => entry.target === expectedTarget);
 
         expect(readerMount, `${READER_SERVICE} mounts the heap-observation channel`).toBeTruthy();
@@ -198,11 +272,11 @@ test.describe('the heap-observation channel crosses a container boundary', () =>
 
     test('the parity profile carries the same invariant at its pinned path — writers rw, reader :ro', () => {
         const
-            dirSegment    = readObservationDirSegment(),
-            reportingKeys = readReportingServiceKeys(),
+            {dirSegment} = readChannelPathAuthorities(),
+            roster       = readReportingRoster(),
             // The parity profile relocates the channel by env pin, so its target is authoritative
             // from the profile file — never the base literal. Fail closed when the pin vanishes.
-            parityDir     = devCompose['x-plane-env']?.NEO_HEAP_OBSERVATION_DIR;
+            parityDir    = devCompose['x-plane-env']?.NEO_HEAP_OBSERVATION_DIR;
 
         expect(parityDir, 'docker-compose.dev.yml still pins NEO_HEAP_OBSERVATION_DIR in x-plane-env').toBeTruthy();
         expect(parityDir.endsWith(`/${dirSegment}`), 'the parity pin ends at the same leaf directory segment')
@@ -213,19 +287,19 @@ test.describe('the heap-observation channel crosses a container boundary', () =>
         // The parity participants also inherit the base-path mount through Compose merge; nothing
         // reads it on this profile (the env pin moved the dir), so it is inert — the LIVE path is
         // the pinned one, and that is the one this arm constrains.
-        for (const serviceKey of [...reportingKeys, READER_SERVICE]) {
-            const mounts = mountsOf(devCompose, serviceKey).filter(entry => entry.target === parityDir);
+        for (const key of [...roster.map(entry => entry.key), READER_SERVICE]) {
+            const mounts = mountsOf(devCompose, key).filter(entry => entry.target === parityDir);
 
-            expect(mounts, `${serviceKey} runs the parity profile, so it must mount the channel at the pinned path`)
+            expect(mounts, `${key} runs the parity profile, so it must mount the channel at the pinned path`)
                 .toHaveLength(1);
-            expect(mounts[0].volume, `${serviceKey} shares the one parity channel volume`)
+            expect(mounts[0].volume, `${key} shares the one parity channel volume`)
                 .toBe(PARITY_VOLUME);
             expect(
                 mounts[0].readOnly,
-                serviceKey === READER_SERVICE
+                key === READER_SERVICE
                     ? 'the parity reader is read-only too — a rw plane root must not leave the bridge able to author a self-reported record'
-                    : `${serviceKey} WRITES its observation on parity as well`
-            ).toBe(serviceKey === READER_SERVICE)
+                    : `${key} WRITES its observation on parity as well`
+            ).toBe(key === READER_SERVICE)
         }
     })
 });
