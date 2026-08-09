@@ -4,6 +4,7 @@ import * as yaml      from 'js-yaml';
 import path           from 'node:path';
 
 import {SCAN_SURFACE as CONFIG_TEMPLATE_SURFACE} from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
+import {SCAN_SURFACE as DEFERRED_MEMBER_SURFACE} from '../../../../../../ai/scripts/lint/lint-deferred-member-readiness.mjs';
 import {SCAN_SURFACE as MCP_LOCATION_SURFACE}    from '../../../../../../ai/scripts/lint/lint-mcp-test-locations.mjs';
 import {SCAN_SURFACE as RETRY_BOUND_SURFACE}     from '../../../../../../ai/scripts/lint/lint-retry-bounds.mjs';
 import {DEFAULT_SCAN_PATHS as ARCHAEOLOGY_PATHS} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
@@ -64,6 +65,11 @@ const REGISTRY = Object.freeze({
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',
         surface  : CONFIG_TEMPLATE_SURFACE
+    },
+    'deferred-member-readiness-lint.yml': {
+        scriptRel: 'ai/scripts/lint/lint-deferred-member-readiness.mjs',
+        source   : 'imported',
+        surface  : DEFERRED_MEMBER_SURFACE
     },
     'content-logical-identity-lint.yml': {
         scriptRel: 'buildScripts/util/check-content-logical-identity.mjs',

@@ -71,6 +71,7 @@
         "ai:lint-fleet-vocabulary-parity"      : "node ./ai/scripts/lint/lint-fleet-vocabulary-parity.mjs",
         "ai:lint-guides"                       : "node ./ai/scripts/lint/lint-guides.mjs",
         "ai:lint-identity-engine-coherence"    : "node ./ai/scripts/lint/lint-identity-engine-coherence.mjs",
+        "ai:lint-deferred-member-readiness"    : "node ./ai/scripts/lint/lint-deferred-member-readiness.mjs",
         "ai:lint-identity-vocabulary"          : "node ./ai/scripts/lint/lint-identity-vocabulary.mjs",
         "ai:lint-mcp-test-locations"           : "node ./ai/scripts/lint/lint-mcp-test-locations.mjs",
         "ai:lint-openapi-service-parity"       : "node ./ai/scripts/lint/lint-openapi-service-parity.mjs",
@@ -261,6 +262,9 @@
         "test/**/*.mjs": [
             "node ./buildScripts/util/check-aiconfig-test-mutation.mjs",
             "node ./buildScripts/util/check-derived-domain.mjs"
+        ],
+        "{{ai,src,apps,buildScripts}/**/*.mjs,ai/scripts/lint/deferred-member-registry.json}": [
+            "node ./ai/scripts/lint/lint-deferred-member-readiness.mjs"
         ],
         "ai/{services,services.mjs}/**": [
             "node ./ai/scripts/lint/lint-openapi-service-parity.mjs"

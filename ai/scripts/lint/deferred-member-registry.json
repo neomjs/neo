@@ -1,0 +1,209 @@
+{
+  "$schema": {
+    "purpose": "Accepted reads of a member assigned in initAsync() that go through neither readiness discipline. Enforced by ai/scripts/lint/lint-deferred-member-readiness.mjs.",
+    "key": "<relPath>#<method>:<member> — one obligation per method+member, NOT per read. Keyed by symbol rather than line so an unrelated edit above the site does not force a re-baseline, which is exactly where a real regression slips through.",
+    "shape": "How the read fails the invariant: bare-read (TypeError during the window) | truthy-skip (work silently skipped, caller told nothing) | optional-chain (evaluates undefined and flows on). Drift in shape fails the lint: a truthy-skip becoming a bare-read turns silence into a crash, and the old reason no longer describes it.",
+    "reason": "REQUIRED. Why this read is accepted. Entries fall in two honest classes — 'deliberate' (examined, the behaviour is intended) and 'pre-existing, un-audited' (recorded at introduction so it gates from day one; assessing it is a separate lane per #16644's Out of Scope). Inventing a confident rationale for a site nobody examined would make this a suppression list wearing a reason field.",
+    "witness": "REQUIRED, and its paths are resolved by the lint. A witness naming a file deleted two refactors ago reads exactly like one naming a live file.",
+    "baselineAtIntroduction": 39,
+    "shrinkLane": "Every entry here is a candidate for a discipline. The highest-value ones are the truthy-skip entries on write paths — see the purgeSession entries below, where silence means a caller is told a purge succeeded that deleted nothing.",
+    "outOfScope": "Members assigned outside initAsync(), and cross-file reads (ServiceA's member read by ServiceB). This lint is per-file by construction; see the header's bounds."
+  },
+  "sites": {
+    "ai/Agent.mjs#ready:initError": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. This IS the readiness machinery — it re-throws a stored construction error to the awaiting caller. A member whose entire purpose is to be absent on the happy path cannot carry an absence guard that throws.",
+      "witness": "ai/Agent.mjs — `ready()` tests `this.initError` and rethrows it; absence is the success case."
+    },
+    "ai/Agent.mjs#schedule:loop": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. `schedule()` guards `!this.loop` before touching the scheduler, so an event scheduled before the loop exists is dropped rather than crashing. Pre-readiness scheduling is a caller error, not a state this method should throw on.",
+      "witness": "ai/Agent.mjs — `schedule()` early-returns on absent `loop`."
+    },
+    "ai/Agent.mjs#start:loop": {
+      "shape": "optional-chain",
+      "reason": "Deliberate. `start()` on an un-initialised agent is a no-op by design; the optional chain is the intent, not an oversight.",
+      "witness": "ai/Agent.mjs — `this.loop?.start()`."
+    },
+    "ai/Agent.mjs#stop:loop": {
+      "shape": "optional-chain",
+      "reason": "Deliberate, and load-bearing on the teardown path: `stop()` must be safe to call on an agent that never finished starting, which is precisely the case a shutdown during init produces.",
+      "witness": "ai/Agent.mjs — `this.loop?.stop()`."
+    },
+    "ai/agent/Loop.mjs#executeTools:toolRegistry": {
+      "shape": "truthy-skip",
+      "reason": "Pre-existing, un-audited. Guards `this.toolRegistry && this.toolRegistry[name]` before dispatch, so an unknown tool and an unready registry are indistinguishable to the caller — plausibly fine, not verified.",
+      "witness": "ai/agent/Loop.mjs — `executeTools()`."
+    },
+    "ai/agent/Loop.mjs#processEvent:tools": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. `this.tools` is passed straight into the provider call; absence would send `undefined` rather than throw, so the failure would surface as a provider-side error naming nothing about readiness.",
+      "witness": "ai/agent/Loop.mjs — `processEvent()` passes `tools: this.tools`."
+    },
+    "ai/context/Assembler.mjs#augmentSystemPrompt:skillsContext": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Skills context is additive to a prompt; an absent one yields a prompt without the skills section, which is a degraded but coherent result rather than a failure.",
+      "witness": "ai/context/Assembler.mjs — `augmentSystemPrompt()` appends only when present."
+    },
+    "ai/daemons/orchestrator/services/DreamService.mjs#findUndigestedSessions:sessionsCollection": {
+      "shape": "truthy-skip",
+      "reason": "Pre-existing, un-audited. A read path on the dream sweep; an unready collection yields an empty sweep, which is silently indistinguishable from 'nothing to digest'.",
+      "witness": "ai/daemons/orchestrator/services/DreamService.mjs — `findUndigestedSessions()`."
+    },
+    "ai/daemons/orchestrator/services/DreamService.mjs#processUndigestedSessions:sessionsCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. A WRITE path (`update`) with no guard — the shape most likely to deserve a discipline, since a TypeError here aborts a sweep mid-flight.",
+      "witness": "ai/daemons/orchestrator/services/DreamService.mjs — `processUndigestedSessions()` calls `update()`."
+    },
+    "ai/services/knowledge-base/KBRecorderService.mjs#getTenantIngestionRollup:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Telemetry read; returns `[]` when the recorder db is absent. A rollup that cannot be computed is correctly empty rather than fatal.",
+      "witness": "ai/services/knowledge-base/KBRecorderService.mjs — `if (!this.db) return [];`."
+    },
+    "ai/services/knowledge-base/KBRecorderService.mjs#log:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Best-effort telemetry write. Losing a log row during the startup window is strictly preferable to failing the operation being logged.",
+      "witness": "ai/services/knowledge-base/KBRecorderService.mjs — `if (!this.db) return;`."
+    },
+    "ai/services/knowledge-base/KBRecorderService.mjs#recordIngestionMetric:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Same best-effort telemetry contract as `log()` — the metric is dropped, the ingestion proceeds.",
+      "witness": "ai/services/knowledge-base/KBRecorderService.mjs — `if (!this.db) return;`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs##readCheckpoint:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Private helper reached only from methods that have already touched `this.db`, so in practice the outer call fails first — an argument this lint deliberately cannot make, since it does not follow call graphs.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `#readCheckpoint()`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs#admitBatch:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. The admission transaction — eleven reads collapsed into this one obligation, all fixed by one discipline. A TypeError mid-transaction is the worst shape in this registry.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `admitBatch()` opens `this.db.transaction(...)`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs#ensureSchema:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Schema bootstrap is a no-op without a db; the schema is re-ensured on the next call that has one.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `if (!this.db) return;`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs#getHostedSourceHealth:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `getHostedSourceHealth()`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs#getReceipt:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `getReceipt()`."
+    },
+    "ai/services/memory-core/CommunityBatchAdmissionService.mjs#listObservations:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/CommunityBatchAdmissionService.mjs — `listObservations()`."
+    },
+    "ai/services/memory-core/GraphService.mjs#createUnavailableError:graphInitError": {
+      "shape": "optional-chain",
+      "reason": "Deliberate, and necessarily so: this method BUILDS the typed unavailable-error that `requireDb()` throws. It runs precisely when the graph is degraded, so its own read of `graphInitError` must tolerate absence — it falls back to a literal reason string. A guard here would be circular.",
+      "witness": "ai/services/memory-core/GraphService.mjs — `createUnavailableError()` feeds `requireDb()`, the discipline this lint recognises."
+    },
+    "ai/services/memory-core/MemoryCoreRecorderService.mjs#beginToolCall:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Guarded by `!config.toolTelemetry.enabled || !this.db` and returns null — the caller already handles a null handle because telemetry is optional by configuration.",
+      "witness": "ai/services/memory-core/MemoryCoreRecorderService.mjs — `beginToolCall()` early-returns null."
+    },
+    "ai/services/memory-core/MemoryCoreRecorderService.mjs#ensureSchema:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Schema bootstrap no-ops without a db and is re-ensured later.",
+      "witness": "ai/services/memory-core/MemoryCoreRecorderService.mjs — `if (!this.db) return;`."
+    },
+    "ai/services/memory-core/MemoryCoreRecorderService.mjs#logToolCall:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Best-effort telemetry write; a dropped row must never fail the tool call it describes.",
+      "witness": "ai/services/memory-core/MemoryCoreRecorderService.mjs — `logToolCall()` early-returns."
+    },
+    "ai/services/memory-core/SessionService.mjs#findSessionsToSummarize:memoryCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited — and the site #16644's acceptance criteria name as the red case. Recorded here so the lint gates NEW violations from day one; giving this member a discipline is the first entry of the shrink lane, not this PR.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `findSessionsToSummarize()` awaits `this.memoryCollection.get()` with no guard, and the file awaits `this.ready()` zero times."
+    },
+    "ai/services/memory-core/SessionService.mjs#findSessionsToSummarize:sessionsCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Same method, second deferred member, same absent discipline.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `findSessionsToSummarize()` awaits `this.sessionsCollection.get()`."
+    },
+    "ai/services/memory-core/SessionService.mjs#ingestAntigravityArtifacts:memoryCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Write path (`upsert`) plus a vector-persistence verification that also takes the collection directly.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `ingestAntigravityArtifacts()`."
+    },
+    "ai/services/memory-core/SessionService.mjs#purgeSession:memoryCollection": {
+      "shape": "truthy-skip",
+      "reason": "EXAMINED, and accepted only because fixing it is out of scope here — this is the registry's highest-value shrink candidate. When the collection is absent the delete is skipped and the method still returns `{success: true, deletedMemories: 0}` with the message 'deleted 0 memories', which a caller cannot distinguish from a genuinely empty session. The WAL tombstone pass above it runs UNCONDITIONALLY, so the window produces a torn purge: tombstones written, content rows retained, success reported.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `purgeSession()` guards the delete with `if (this.memoryCollection)` yet returns `success: true` unconditionally."
+    },
+    "ai/services/memory-core/SessionService.mjs#purgeSession:sessionsCollection": {
+      "shape": "truthy-skip",
+      "reason": "EXAMINED. Same torn-purge shape as the memoryCollection entry above — summaries silently retained while the receipt says the purge succeeded.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `purgeSession()` guards the summary delete with `if (this.sessionsCollection)`."
+    },
+    "ai/services/memory-core/SessionService.mjs#recoverSessionSummaryReceipts:sessionsCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Passes the collection into a helper as a config value, so absence propagates outward rather than failing here.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `recoverSessionSummaryReceipts()` passes `collection: this.sessionsCollection`."
+    },
+    "ai/services/memory-core/SessionService.mjs#setSessionId:memoryCollection": {
+      "shape": "truthy-skip",
+      "reason": "Pre-existing, un-audited. The guarded work is an orphaned-session prune, so skipping it leaves a zero-memory session id rather than corrupting anything — the mildest of the truthy-skip entries.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `setSessionId()` guards the prune with `if (this.memoryCollection)`."
+    },
+    "ai/services/memory-core/SessionService.mjs#summarizeSession:memoryCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Paginated read loop; the method guards its `sessionId` argument but not the collection.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `summarizeSession()` awaits `this.memoryCollection.get()` inside its pagination loop."
+    },
+    "ai/services/memory-core/SessionService.mjs#summarizeSession:sessionsCollection": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Write path — the summary upsert at the end of the same method.",
+      "witness": "ai/services/memory-core/SessionService.mjs — `summarizeSession()` awaits `this.sessionsCollection.upsert()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs##recordAudit:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Private audit-append helper.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `#recordAudit()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#ensureSchema:db": {
+      "shape": "truthy-skip",
+      "reason": "Deliberate. Schema bootstrap no-ops without a db, consistent with the other recorder services.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `if (!this.db) return;`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#getRegistrationForTenant:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `getRegistrationForTenant()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#listAuditForTenant:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `listAuditForTenant()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#registerForTenant:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. WRITE path — a registration that throws a TypeError mid-write is a shrink-lane candidate alongside the admission transaction.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `registerForTenant()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#resolveRegistration:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. Read path with no guard.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `resolveRegistration()`."
+    },
+    "ai/services/memory-core/SourceRegistryService.mjs#transitionLifecycleForTenant:db": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. WRITE path — a lifecycle transition failing mid-write leaves the registry between states.",
+      "witness": "ai/services/memory-core/SourceRegistryService.mjs — `transitionLifecycleForTenant()`."
+    },
+    "src/component/wrapper/Mermaid.mjs#loadFiles:addon": {
+      "shape": "bare-read",
+      "reason": "Pre-existing, un-audited. The only site outside `ai/`, and the reason the scan roots are not narrowed to `ai/`: the invariant is a core.Base lifecycle property, not a Memory Core one.",
+      "witness": "src/component/wrapper/Mermaid.mjs — `loadFiles()` reads `this.addon`."
+    }
+  }
+}
