@@ -153,6 +153,10 @@ paths:
                     type: string
                   message:
                     type: string
+                  inputSchema:
+                    type: object
+                  outputSchema:
+                    type: object
 
   /deployment/state/snapshot:
     post:

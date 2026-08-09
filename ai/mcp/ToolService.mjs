@@ -365,16 +365,21 @@ class ToolService_tmp extends Base {
     }
 
     /**
-     * @summary Projects a JSON Schema for `tools/list` by removing every `description` key,
-     * recursively.
+     * @summary Projects a JSON Schema for `tools/list` by removing every annotation-position
+     * `description` — position-aware, never key-name-blind.
      *
-     * Blacklist, not whitelist: ONLY `description` is dropped, so every shape-bearing key —
-     * `type`, `required`, `enum`, `properties`, `items`, `additionalProperties`, `$ref`, `format`,
-     * `default`, and any future assertion keyword — survives by construction. That is what makes
-     * the projection validation-neutral: in JSON Schema, `description` is an annotation and is
-     * never part of the accept/reject semantics, so a stripped schema accepts and rejects exactly
-     * the set the described one did. A whitelist would silently drop the next assertion keyword the
-     * contract starts using.
+     * `description` is an annotation ONLY where a schema object carries it. The walker descends
+     * exclusively into schema-valued positions — the `properties` / `$defs` / `patternProperties` /
+     * `dependentSchemas` maps, the `items` / `contains` / `additionalProperties` / `not` / `if` /
+     * `then` / `else` subschemas, and the `oneOf` / `anyOf` / `allOf` / `prefixItems` arrays —
+     * and copies everything else verbatim. Three failure modes are excluded by construction:
+     *
+     * - an APPLICATION property named `description` (a key under `properties`) is data, not an
+     *   annotation: the property declaration survives; only its own annotation is stripped;
+     * - object-valued assertion data (`enum`, `const`, `default`, `examples`) is never descended
+     *   into, so a `description` key inside a default value survives untouched;
+     * - a keyword the walker does not know is copied rather than recursed, so the next schema
+     *   feature the contract adopts cannot be silently mangled — at worst its prose stays.
      *
      * Returns fresh objects — the described input is never mutated, because the handbook surface
      * keeps it (the prose is relocated, not deleted).
@@ -383,23 +388,49 @@ class ToolService_tmp extends Base {
      * @protected
      */
     stripSchemaDescriptions(schema) {
+        if (!schema || typeof schema !== 'object') {
+            return schema
+        }
+
         if (Array.isArray(schema)) {
             return schema.map(item => this.stripSchemaDescriptions(item))
         }
 
-        if (schema && typeof schema === 'object') {
-            const projected = {};
+        const
+            SCHEMA_MAP_KEYS   = new Set(['properties', '$defs', 'patternProperties', 'dependentSchemas']),
+            SUBSCHEMA_KEYS    = new Set(['items', 'additionalItems', 'additionalProperties', 'unevaluatedProperties', 'contains', 'propertyNames', 'not', 'if', 'then', 'else']),
+            SCHEMA_ARRAY_KEYS = new Set(['oneOf', 'anyOf', 'allOf', 'prefixItems']),
+            projected         = {};
 
-            for (const [key, value] of Object.entries(schema)) {
-                if (key !== 'description') {
-                    projected[key] = this.stripSchemaDescriptions(value)
+        for (const [key, value] of Object.entries(schema)) {
+            if (key === 'description') {
+                continue // the annotation at THIS schema position
+            }
+
+            if (value && typeof value === 'object') {
+                if (SCHEMA_MAP_KEYS.has(key)) {
+                    projected[key] = Object.fromEntries(
+                        Object.entries(value).map(([name, subschema]) => [name, this.stripSchemaDescriptions(subschema)])
+                    );
+                    continue
+                }
+
+                if (SUBSCHEMA_KEYS.has(key)) {
+                    projected[key] = this.stripSchemaDescriptions(value);
+                    continue
+                }
+
+                if (SCHEMA_ARRAY_KEYS.has(key) && Array.isArray(value)) {
+                    projected[key] = value.map(subschema => this.stripSchemaDescriptions(subschema));
+                    continue
                 }
             }
 
-            return projected
+            // type / required / enum / const / default / format / $ref / unknown keys: verbatim.
+            projected[key] = value
         }
 
-        return schema
+        return projected
     }
 
     /**
@@ -657,8 +688,16 @@ class ToolService_tmp extends Base {
             return Object.entries(exactProfile.tools).map(([toolName, profileTool]) => {
                 const tool = me.allToolsForListing.find(candidate => candidate.name === toolName);
 
+                // The profile's constrained schema replaces the default one — and must ride the
+                // SAME prose projection as the default listing, or a harness-projected seat gets
+                // the full description payload the compaction exists to keep off the wire.
                 return profileTool.inputJsonSchema
-                    ? {...tool, inputSchema: profileTool.inputJsonSchema}
+                    ? {
+                        ...tool,
+                        inputSchema: me.compactToolSchemas
+                            ? me.stripSchemaDescriptions(profileTool.inputJsonSchema)
+                            : profileTool.inputJsonSchema
+                    }
                     : tool;
             });
         }

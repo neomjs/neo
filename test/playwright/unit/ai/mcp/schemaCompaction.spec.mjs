@@ -14,6 +14,8 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
+import Ajv             from 'ajv';
+import crypto          from 'node:crypto';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Neo             from '../../../../../src/Neo.mjs';
@@ -45,7 +47,10 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
     });
 
     /**
-     * @summary Collects every `description` value under a schema node, recursively.
+     * @summary Collects every annotation-position `description` under a schema node. Mirrors the
+     * walker's position discipline: a property NAMED `description` (an object-valued declaration
+     * under `properties`) is application data and is not collected — a key-name-blind collector
+     * would false-positive on exactly the handbook response contract that declares one.
      * @param {*} node
      * @param {String[]} [hits]
      * @returns {String[]}
@@ -55,10 +60,14 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
             node.forEach(item => collectDescriptions(item, hits))
         } else if (node && typeof node === 'object') {
             Object.entries(node).forEach(([key, value]) => {
-                if (key === 'description') {
+                if (key === 'description' && typeof value === 'string') {
                     hits.push(value)
-                } else {
+                } else if (['properties', '$defs', 'patternProperties', 'dependentSchemas'].includes(key) && value && typeof value === 'object') {
+                    Object.values(value).forEach(subschema => collectDescriptions(subschema, hits))
+                } else if (['items', 'additionalItems', 'additionalProperties', 'unevaluatedProperties', 'contains', 'propertyNames', 'not', 'if', 'then', 'else'].includes(key)) {
                     collectDescriptions(value, hits)
+                } else if (['oneOf', 'anyOf', 'allOf', 'prefixItems'].includes(key) && Array.isArray(value)) {
+                    value.forEach(subschema => collectDescriptions(subschema, hits))
                 }
             })
         }
@@ -120,6 +129,76 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
             expect(service.stripSchemaDescriptions(null)).toBe(null);
             expect(service.stripSchemaDescriptions('description')).toBe('description');
             expect(service.stripSchemaDescriptions([{description: 'x', type: 'string'}])).toEqual([{type: 'string'}])
+        });
+
+        test('an application PROPERTY named description is data, not an annotation — it survives', () => {
+            // The position-blind failure this guards: a schema declaring a real `description`
+            // property, required and closed. Only the property's own ANNOTATION may leave.
+            const service = Object.create(ToolService.prototype),
+                  schema  = {
+                      type       : 'object',
+                      description: 'schema annotation',
+                      properties : {
+                          description: {type: 'string', description: 'annotation for the property'}
+                      },
+                      required            : ['description'],
+                      additionalProperties: false
+                  },
+                  stripped = service.stripSchemaDescriptions(schema);
+
+            expect(stripped.description).toBeUndefined();
+            expect(stripped.properties.description).toEqual({type: 'string'});
+            expect(stripped.required).toEqual(['description']);
+            expect(stripped.additionalProperties).toBe(false)
+        });
+
+        test('object-valued assertion data is never descended into (enum / const / default)', () => {
+            const service = Object.create(ToolService.prototype),
+                  schema  = {
+                      type   : 'object',
+                      default: {description: 'data, not annotation'},
+                      enum   : [{description: 'x'}, 'plain'],
+                      const  : undefined
+                  },
+                  stripped = service.stripSchemaDescriptions({type: 'object', default: schema.default, enum: schema.enum});
+
+            expect(stripped.default).toEqual({description: 'data, not annotation'});
+            expect(stripped.enum).toEqual([{description: 'x'}, 'plain'])
+        });
+
+        test('the real validator proves an identical accept/reject set (Ajv battery)', () => {
+            const
+                service = Object.create(ToolService.prototype),
+                ajv     = new Ajv({allErrors: true}),
+                schema  = {
+                    type       : 'object',
+                    description: 'schema annotation',
+                    properties : {
+                        description: {type: 'string', description: 'property annotation'},
+                        count      : {type: 'integer', description: 'count annotation', default: 0},
+                        mode       : {enum: ['a', 'b'], description: 'mode annotation'}
+                    },
+                    required            : ['description'],
+                    additionalProperties: false
+                },
+                projected = service.stripSchemaDescriptions(schema),
+                validateOriginal  = ajv.compile(schema),
+                validateProjected = ajv.compile(projected),
+                battery = [
+                    {description: 'ok'},                          // accept
+                    {description: 'ok', count: 3, mode: 'a'},     // accept
+                    {},                                           // reject: missing required
+                    {description: 42},                            // reject: wrong type
+                    {description: 'ok', extra: true},             // reject: additionalProperties false
+                    {description: 'ok', mode: 'c'}                // reject: enum
+                ];
+
+            for (const value of battery) {
+                expect(
+                    validateProjected(value),
+                    `accept/reject must match for ${JSON.stringify(value)}`
+                ).toBe(validateOriginal(value))
+            }
         })
     });
 
@@ -183,6 +262,50 @@ test.describe('ToolService compactToolSchemas — the schema-prose projection (#
             expect(handbook.inputSchema).toBeUndefined();
             expect(handbook.outputSchema).toBeUndefined();
             expect(Object.keys(handbook).sort()).toEqual(['description', 'found', 'handbook', 'source', 'title', 'toolId'])
+        })
+    });
+
+    test.describe('every listing route rides the projection — production-bound witnesses', () => {
+        test('the exact-profile route (neural-link local-readonly-probe) lists compact schemas; the handbook keeps the prose', async () => {
+            // The bypass this pins: the exact-profile branch swaps in the profile's constrained
+            // schema — if that swap skips the projection, a harness-projected seat gets the full
+            // prose payload the flag exists to keep off the wire.
+            const service = Neo.create(ToolService, {
+                    compactToolSchemas: true,
+                    openApiFilePath   : path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'),
+                    serviceMapping    : {}
+                }),
+                {tools} = await service.listTools({toolProjection: 'local-readonly-probe'}),
+                tree    = tools.find(tool => tool.name === 'get_component_tree');
+
+            expect(tools.length).toBeGreaterThan(0);
+            expect(tree, 'get_component_tree is inside the local-readonly-probe profile').toBeTruthy();
+            expect(collectDescriptions(tree.inputSchema)).toEqual([]);
+
+            const handbook = service.getToolHandbook('get_component_tree');
+
+            expect(collectDescriptions(handbook.inputSchema).length).toBeGreaterThan(0)
+        });
+
+        test('the advertised-surface digest is computed over the SAME projected objects the listing emits', async () => {
+            // The anti-bypass pin for the digest: if the digest ever reads a second, unprojected
+            // source (raw OpenAPI schemas carry prose), the recomputed value diverges and reds.
+            const service = Neo.create(ToolService, {
+                    compactToolSchemas: true,
+                    openApiFilePath   : path.join(repoRoot, 'ai/mcp/server/file-system/openapi.yaml'),
+                    serviceMapping    : {}
+                });
+
+            await service.listTools(); // owns initializeToolMapping — getToolsForProjection does not
+
+            const listing = service.getToolsForProjection(null),
+                canonical = listing.filter(Boolean)
+                    .map(tool => ({name: tool.name, inputSchema: tool.inputSchema ?? null}))
+                    .sort((lhs, rhs) => lhs.name < rhs.name ? -1 : lhs.name > rhs.name ? 1 : 0),
+                expected  = crypto.createHash('sha256').update(service.canonicalize(canonical)).digest('hex').slice(0, 12);
+
+            expect(service.getAdvertisedSurfaceDigest()).toBe(expected);
+            expect(listing.every(tool => collectDescriptions(tool.inputSchema).length === 0)).toBe(true)
         })
     })
 });
