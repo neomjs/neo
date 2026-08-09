@@ -2022,9 +2022,14 @@ class MailboxService extends Base {
      *   state-machine transitions, RBAC, and idempotent claim-and-lock semantics. Schema follows
      *   Neo's A2A hybrid contract: an A2A subset plus `expiresAt` / `Blocked`. See
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
+     * @param {Object} [options]
+     * @param {Boolean} [options.deferProjection=false] Return after the accepted message is durable
+     *   in the WAL and schedule its graph projection. The MCP write boundary enables this mode so
+     *   an overloaded graph cannot withhold the durable receipt; internal callers retain the
+     *   immediate-projection default.
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = null, partOfThread, taggedConcepts = [], wakeSuppressed = null, task }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = null, partOfThread, taggedConcepts = [], wakeSuppressed = null, task }, {deferProjection = false} = {}) {
         const db             = GraphService.requireDb('MailboxService.addMessage');
         const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const boundSender    = RequestContextService.getAgentIdentityNodeId();
@@ -2257,6 +2262,18 @@ class MailboxService extends Base {
             planeId: aiConfig.plane.id
         });
 
+        if (deferProjection) {
+            this._scheduleMessageGraphProjection(walRecord);
+
+            return {
+                messageId,
+                sentAt          : timestamp,
+                priority,
+                status          : 'sent',
+                projectionStatus: 'pending'
+            }
+        }
+
         let projectionStatus = 'projected';
 
         try {
@@ -2276,6 +2293,31 @@ class MailboxService extends Base {
             status: 'sent',
             ...(projectionStatus === 'pending' ? {projectionStatus} : {})
         };
+    }
+
+    /**
+     * @summary Schedules graph projection after a durable message receipt has crossed the MCP
+     * response boundary.
+     *
+     * The accepted-message WAL remains the authority. This best-effort fast path normally projects
+     * on the next event-loop turn; the message-WAL drain is the durable retry owner when the process
+     * exits or projection fails.
+     *
+     * @param {Object} walRecord Accepted message WAL record.
+     * @returns {void}
+     * @private
+     */
+    _scheduleMessageGraphProjection(walRecord) {
+        const timer = setTimeout(() => {
+            this._projectMessageWalRecord(walRecord).catch(error => {
+                logger.error('[MailboxService.addMessage] deferred graph projection failed after durable receipt', {
+                    messageId: walRecord.id,
+                    error    : error?.message || String(error)
+                });
+            });
+        }, 0);
+
+        timer.unref?.();
     }
 
     /**
