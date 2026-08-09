@@ -620,6 +620,70 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect((await readLedger()).filter(event => event.status === 'actioned')).toEqual([]);
     });
 
+    test('(d) MID-RESOLUTION takeover — authority moves while the target resolves; no runtime mutation', async () => {
+        // Cycle-4 witness. The check inside `apply()` still preceded an awaited `resolveServiceTarget()`,
+        // so a holder displaced during target resolution landed the restart anyway. This flips authority
+        // at exactly that boundary — inside the runtime service, after resolution begins.
+        let held = true;
+
+        const {controller, actuator, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => held}
+        });
+
+        const runtime  = actuator.deploymentRuntimeAccessService,
+              original = runtime.applyLifecycle.bind(runtime);
+
+        runtime.applyLifecycle = async options => {
+            held = false;                                   // the successor reclaims mid-resolution
+
+            if (typeof options.isAuthorityHeld === 'function' && options.isAuthorityHeld() !== true) {
+                const error = new Error('runtime-authority-lost');
+
+                error.reason = 'runtime-authority-lost';
+                throw error;
+            }
+
+            return original(options);
+        };
+
+        const outcome = await controller.consume({decision: wedged('mc-server')});
+
+        expect(runtimeCalls).toEqual([]);                   // the mutation never happened
+        expect(outcome.actuatorOutcome.status).toBe('failed');
+    });
+
+    test('(e) POST-EFFECT loss — the successor\'s anti-thrash state is NOT overwritten', async () => {
+        // The two shared surfaces get opposite treatment, and this asserts both halves. `heal-attempts`
+        // is MUTABLE state the successor reads to make its own decisions, so a displaced holder must
+        // not write it. The recovery-run ledger is append-only audit of an action that really landed,
+        // so it IS written — carrying `authorityLostAfterEffect` as provenance rather than an unbound
+        // success claim.
+        const fsExtra = (await import('fs-extra')).default;
+
+        let held = true;
+
+        const {controller, actuator, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => held}
+        });
+
+        const runtime  = actuator.deploymentRuntimeAccessService,
+              original = runtime.applyLifecycle.bind(runtime);
+
+        runtime.applyLifecycle = async options => {
+            const result = await original(options);
+
+            held = false;                                   // lost DURING the effect, after it landed
+
+            return result;
+        };
+
+        await controller.consume({decision: wedged('mc-server')});
+
+        expect(runtimeCalls).toHaveLength(1);               // the restart genuinely happened
+        // ...and the successor's mutable anti-thrash state was left alone.
+        expect(await fsExtra.pathExists(path.join(tmpDir, 'heal-attempts.json'))).toBe(false);
+    });
+
     test('consumeSnapshot on a missing or empty snapshot is a no-op rather than a throw', async () => {
         const {controller, runtimeCalls} = createStack();
 

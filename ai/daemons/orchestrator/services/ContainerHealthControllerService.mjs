@@ -426,7 +426,11 @@ export class ContainerHealthControllerService extends Base {
         // work. If the action genuinely landed while authority was held, the actuator's own
         // recovery-run entry already records it — this receipt is the redundant half, so dropping it
         // loses provenance rather than the event.
-        if (outcome?.status === 'actioned' && typeof this.isAuthorityHeld === 'function' && this.isAuthorityHeld() !== true) {
+        // NOT scoped to `actioned` any more. @neo-gpt: "controller receipt guarding is limited to
+        // outcome.status === 'actioned'" — so a `failed`, `deferred` or `rejected` receipt still landed
+        // in the successor's ledger after loss. Any owner-authoritative receipt is one, whatever the
+        // outcome it reports, because the ledger entry names THIS instance as the actor either way.
+        if (typeof this.isAuthorityHeld === 'function' && this.isAuthorityHeld() !== true) {
             this.writeLog?.('WARN', `[ContainerHealthController] authority lost before the ${decision.serviceKey} receipt; not writing an owner-authoritative success entry.`);
 
             return;

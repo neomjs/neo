@@ -345,23 +345,42 @@ export class RecoveryActuatorService extends Base {
         const startedAt = now;
 
         try {
-            const result = await this.executeTargetAction({target, action, knob, knobValues, reason});
+            const result = await this.executeTargetAction({target, action, knob, knobValues, reason, isAuthorityHeld});
 
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
                   nextAttempt   = gate.attempt + 1,
                   nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
 
-            this.persistAttempt({
-                attempts,
-                serviceKey,
-                action,
-                attempt     : nextAttempt,
-                backoffUntil: nextBackoffAt,
-                now         : updatedAt,
-                status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
-            });
-            await this.writeHealAttempts(attempts);
+            // POST-EFFECT, and the two shared surfaces get OPPOSITE treatment on purpose — this is the
+            // distinction four review cycles converged on, and collapsing it either way is wrong.
+            //
+            // `heal-attempts.json` is MUTABLE state the successor reads to make its own anti-thrash
+            // decisions. A displaced holder writing it corrupts a decision that is no longer its to
+            // make, so it is skipped outright.
+            //
+            // The recovery-run ledger is APPEND-ONLY audit. The action genuinely landed — refusing to
+            // record it would erase the only evidence that a restart happened, which is worse than a
+            // marked record. So it is written WITH provenance: `authorityLostAfterEffect` says this
+            // entry was produced by a holder that had been displaced by the time it wrote, which is
+            // exactly the "capability-bound receipt with explicit provenance" shape rather than an
+            // unbound post-loss success claim.
+            const heldAfterEffect = typeof isAuthorityHeld !== 'function' || isAuthorityHeld() === true;
+
+            if (heldAfterEffect) {
+                this.persistAttempt({
+                    attempts,
+                    serviceKey,
+                    action,
+                    attempt     : nextAttempt,
+                    backoffUntil: nextBackoffAt,
+                    now         : updatedAt,
+                    status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
+                });
+                await this.writeHealAttempts(attempts);
+            } else {
+                this.writeLog?.('WARN', `[RecoveryActuator] Authority moved during the ${serviceKey} ${action}; not writing the successor's heal-attempt state.`);
+            }
 
             return this.finishAction({
                 action,
@@ -370,10 +389,14 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status           : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
+                    status        : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
                     serviceKey,
                     action,
-                    targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                    // Provenance, not a status. The action landed; this says under what authority the
+                    // RECORD of it was written, so a successor reading the ledger can tell its own
+                    // entries from a displaced predecessor's without inferring from timestamps.
+                    ...(heldAfterEffect ? {} : {authorityLostAfterEffect: true}),
                     runtimeAccess    : result.runtimeAccess || null,
                     supervisor       : result.supervisor || null,
                     recorded         : result.recorded || null,
@@ -744,7 +767,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async executeTargetAction({target, action, reason, knob, knobValues}) {
+    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
         if (action === 'warm-provider') {
             return this.warmProviderResidency({target, reason});
         }
@@ -758,7 +781,7 @@ export class RecoveryActuatorService extends Base {
         }
 
         if (target.kind === 'compose-service') {
-            return this.restartComposeService({target, reason});
+            return this.restartComposeService({target, reason, isAuthorityHeld});
         }
 
         if (target.kind === 'supervised-task') {
@@ -798,7 +821,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async restartComposeService({target, reason}) {
+    async restartComposeService({target, reason, isAuthorityHeld = null}) {
         if (!this.deploymentRuntimeAccessService?.applyLifecycle) {
             throw new Error('Deployment runtime access service is unavailable');
         }
@@ -806,7 +829,12 @@ export class RecoveryActuatorService extends Base {
         const result = await this.deploymentRuntimeAccessService.applyLifecycle({
             serviceKey: target.id,
             operation : 'restart',
-            reason    : reason || `recovery-actuator:${target.serviceKey}`
+            reason    : reason || `recovery-actuator:${target.serviceKey}`,
+            // Carried to the LAST point we own — after target resolution, before the mutation. Spread
+            // conditionally so a caller without an oracle sends a byte-identical request to before,
+            // which keeps the specs' strict argument assertions meaningful rather than forcing them
+            // to loosen to `toMatchObject` and stop noticing unexpected arguments.
+            ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {})
         });
 
         return {
