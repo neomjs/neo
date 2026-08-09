@@ -72,21 +72,32 @@ function runLint({mutate} = {}) {
  *
  * @param {Object} config
  * @param {Object} config.lintStaged
- * @param {Object<String, String>} config.workflows
+ * @param {Object<String, String|Object>} config.workflows String source, or `{source, defaultTrigger}`
  * @param {Object} [config.clientOnly={}]
+ * @param {String} [config.preCommit='npx lint-staged\n']
  * @returns {Object} `{code, output}`
  */
-function runFixture({lintStaged, workflows, clientOnly = {}}) {
+function runFixture({lintStaged, workflows, clientOnly = {}, preCommit = 'npx lint-staged\n'}) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-guard-parity-root-'));
 
     try {
         fs.writeJsonSync(path.join(dir, 'package.json'), {'lint-staged': lintStaged}, {spaces: 4});
 
-        Object.entries(workflows).forEach(([file, source]) => {
+        fs.ensureDirSync(path.join(dir, '.husky'));
+        fs.writeFileSync(path.join(dir, '.husky/pre-commit'), preCommit);
+
+        Object.entries(workflows).forEach(([file, workflow]) => {
+            const
+                source         = typeof workflow === 'string' ? workflow : workflow.source,
+                defaultTrigger = typeof workflow === 'string' || workflow.defaultTrigger !== false,
+                renderedSource = defaultTrigger && !/^on:/m.test(source)
+                    ? `on:\n  pull_request:\n    branches: [dev]\n${source}`
+                    : source;
+
             const filePath = path.join(dir, '.github/workflows', file);
 
             fs.ensureDirSync(path.dirname(filePath));
-            fs.writeFileSync(filePath, source)
+            fs.writeFileSync(filePath, renderedSource)
         });
 
         const registryPath = path.join(dir, 'ai/scripts/lint/guard-ci-parity-registry.json');
@@ -134,13 +145,17 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
         [
             'package.json',
+            '.husky/pre-commit',
             '.github/workflows/specimen.yml',
             '.github/workflows/specimen.yaml',
             SELF_REL,
             'ai/scripts/lint/guard-ci-parity-registry.json'
         ].forEach(source => {
             expect(path.matchesGlob(source, pattern), `${source} must trigger the local carrier`).toBe(true)
-        })
+        });
+
+        expect(fs.readFileSync(path.join(REPO_ROOT, '.husky/pre-commit'), 'utf8').trim())
+            .toMatch(/npx lint-staged$/)
     });
 
     test('RED: an unmirrored guard missing from the registry fails, and is NAMED', () => {
@@ -187,8 +202,8 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
     test('a guard NAMED in a workflow comment is not counted as INVOKED by it', () => {
         // The detection trap. `ticket-archaeology-lint.yml` mentions block-alignment in prose while
-        // not invoking it. Comment stripping is what keeps a prose mention from reading as coverage;
-        // this pins the behaviour so a later "simplification" cannot quietly remove it.
+        // not invoking it. Structural YAML traversal plus direct-command classification keeps that
+        // prose outside execution evidence; this pins the boundary against later simplification.
         const workflow = fs.readFileSync(
             path.join(REPO_ROOT, '.github/workflows/ticket-archaeology-lint.yml'), 'utf8'
         );
@@ -215,13 +230,35 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
                 '*.mjs': ['node ./tools/arbitrary-name.mjs']
             },
             workflows: {
-                'arbitrary.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./tools/arbitrary-name.mjs\n`
+                'arbitrary-lint.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./tools/arbitrary-name.mjs\n`
             }
         });
 
         expect(code, `the guard must not disappear with its own carrier.\n\n${output}`).toBe(1);
         expect(output).toContain(SELF_REL);
         expect(output).toMatch(/commit-time carrier missing/i)
+    });
+
+    test('RED: missing or unreachable Git hook lint-staged carriers are detected directly', () => {
+        [
+            {label: 'missing', preCommit: ''},
+            {label: 'early exit', preCommit: 'exit 0\nnpx lint-staged\n'},
+            {label: 'dead branch', preCommit: 'if false; then\n  npx lint-staged\nfi\n'}
+        ].forEach(({label, preCommit}) => {
+            const {code, output} = runFixture({
+                lintStaged: {
+                    '*.mjs': [`node ./${SELF_REL}`]
+                },
+                workflows: {
+                    'guard-lint.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`
+                },
+                preCommit
+            });
+
+            expect(code, `${label} hook must not certify commit-time reachability.\n\n${output}`).toBe(1);
+            expect(output).toContain('.husky/pre-commit');
+            expect(output).toMatch(/npx lint-staged.*carrier missing/i)
+        })
     });
 
     test('RED: a same-basename workflow execution does not mirror a different path', () => {
@@ -234,8 +271,8 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
                 ]
             },
             workflows: {
-                'guard.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
-                'alpha.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./alpha/shared-name.mjs\n`
+                'guard-lint.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                'alpha-lint.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./alpha/shared-name.mjs\n`
             }
         });
 
@@ -244,21 +281,115 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
         expect(output).not.toMatch(/alpha\/shared-name\.mjs\s*$/m)
     });
 
-    test('RED: an mjs argument inside run is a mention, not a Node execution', () => {
+    test('RED: shell mentions, dead commands, and masked commands are not execution evidence', () => {
+        [
+            {label: 'echo', step: '      - run: "echo node ./tools/mentioned-only.mjs"\n'},
+            {label: 'comment', step: '      - run: "# node ./tools/mentioned-only.mjs"\n'},
+            {label: 'prefixed executable', step: '      - run: fake-node ./tools/mentioned-only.mjs\n'},
+            {label: 'path prefix', step: '      - run: node ./tools/mentioned-only.mjsx\n'},
+            {label: 'Node check mode', step: '      - run: node --check ./tools/mentioned-only.mjs\n'},
+            {label: 'dead branch', step: '      - run: "if false; then node ./tools/mentioned-only.mjs; fi"\n'},
+            {label: 'masked failure', step: '      - run: "node ./tools/mentioned-only.mjs || true"\n'},
+            {
+                label: 'expression injection',
+                step : '      - run: node ./tools/mentioned-only.mjs ${{ matrix.suffix }}\n'
+            },
+            {label: 'shell directory change', step: '      - run: "cd nested && node ./tools/mentioned-only.mjs"\n'},
+            {label: 'continue-on-error', step: '      - continue-on-error: true\n        run: node ./tools/mentioned-only.mjs\n'},
+            {label: 'conditional step', step: '      - if: false\n        run: node ./tools/mentioned-only.mjs\n'},
+            {
+                label   : 'conditional job',
+                workflow: 'jobs:\n  lint:\n    if: false\n    steps:\n      - run: node ./tools/mentioned-only.mjs\n'
+            },
+            {label: 'custom shell', step: '      - shell: "echo {0}"\n        run: node ./tools/mentioned-only.mjs\n'},
+            {
+                label   : 'inherited workflow shell',
+                workflow: 'defaults:\n  run:\n    shell: "echo {0}"\njobs:\n  lint:\n    steps:\n      - run: node ./tools/mentioned-only.mjs\n'
+            },
+            {
+                label   : 'inherited job shell',
+                workflow: 'jobs:\n  lint:\n    defaults:\n      run:\n        shell: "echo {0}"\n    steps:\n      - run: node ./tools/mentioned-only.mjs\n'
+            },
+            {
+                label: 'execution-sensitive environment',
+                step : '      - env:\n          NODE_OPTIONS: --import=data:text/javascript,process.exit(0)\n        run: node ./tools/mentioned-only.mjs\n'
+            },
+            {label: 'later status mask', step: '      - run: |\n          node ./tools/mentioned-only.mjs\n          echo masked\n'}
+        ].forEach(({label, step, workflow}) => {
+            const {code, output} = runFixture({
+                lintStaged: {
+                    '*.mjs': [
+                        `node ./${SELF_REL}`,
+                        'node ./tools/mentioned-only.mjs'
+                    ]
+                },
+                workflows: {
+                    'guard-lint.yml'  : `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                    'mention-lint.yml': workflow || `jobs:\n  lint:\n    steps:\n${step}`
+                }
+            });
+
+            expect(code, `${label} must not certify a CI mirror.\n\n${output}`).toBe(1);
+            expect(output).toContain('tools/mentioned-only.mjs')
+        })
+    });
+
+    test('declarative working-directory preserves the executed script full path', () => {
         const {code, output} = runFixture({
             lintStaged: {
                 '*.mjs': [
                     `node ./${SELF_REL}`,
-                    'node ./tools/mentioned-only.mjs'
+                    'node ./nested/tools/scoped.mjs'
                 ]
             },
             workflows: {
-                'guard.yml'  : `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
-                'mention.yml': `jobs:\n  lint:\n    steps:\n      - run: echo ./tools/mentioned-only.mjs\n`
+                'guard-lint.yml' : `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                'scoped-lint.yml': 'jobs:\n  lint:\n    steps:\n      - working-directory: nested\n        run: node ./tools/scoped.mjs\n'
             }
         });
 
-        expect(code, `echoing a path is not executing its guard.\n\n${output}`).toBe(1);
-        expect(output).toContain('tools/mentioned-only.mjs')
+        expect(code, `declarative working-directory should resolve the full-path mirror.\n\n${output}`).toBe(0);
+        expect(output).toMatch(/\[lint-guard-ci-parity\] OK/)
+    });
+
+    test('RED: workflows that do not gate dev pull requests are not mirrors', () => {
+        [
+            {
+                label   : 'triggerless',
+                workflow: {source: 'jobs:\n  lint:\n    steps:\n      - run: node ./tools/dead.mjs\n', defaultTrigger: false}
+            },
+            {
+                label   : 'dispatch only',
+                workflow: 'on:\n  workflow_dispatch:\njobs:\n  lint:\n    steps:\n      - run: node ./tools/dead.mjs\n'
+            },
+            {
+                label   : 'other branch',
+                workflow: 'on:\n  pull_request:\n    branches: [main]\njobs:\n  lint:\n    steps:\n      - run: node ./tools/dead.mjs\n'
+            },
+            {
+                label   : 'post-close only',
+                workflow: 'on:\n  pull_request:\n    branches: [dev]\n    types: [closed]\njobs:\n  lint:\n    steps:\n      - run: node ./tools/dead.mjs\n'
+            },
+            {
+                label   : 'ignored paths',
+                workflow: 'on:\n  pull_request:\n    branches: [dev]\n    paths-ignore: ["**"]\njobs:\n  lint:\n    steps:\n      - run: node ./tools/dead.mjs\n'
+            }
+        ].forEach(({label, workflow}) => {
+            const {code, output} = runFixture({
+                lintStaged: {
+                    '*.mjs': [
+                        `node ./${SELF_REL}`,
+                        'node ./tools/dead.mjs'
+                    ]
+                },
+                workflows: {
+                    'guard-lint.yml': `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                    'dead-lint.yml' : workflow
+                }
+            });
+
+            expect(code, `${label} must not certify a dev merge gate.\n\n${output}`).toBe(1);
+            expect(output).toContain('tools/dead.mjs')
+        })
     })
 });

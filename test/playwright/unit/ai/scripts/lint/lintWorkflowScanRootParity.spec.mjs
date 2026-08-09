@@ -224,7 +224,7 @@ function readWorkflowPaths(workflowName) {
 }
 
 test.describe('lint workflow scan-root parity (scanned ⊆ watched, mechanically)', () => {
-    const lintWorkflows = fs.readdirSync(WORKFLOWS_DIR).filter(name => name.endsWith('-lint.yml'));
+    const lintWorkflows = fs.readdirSync(WORKFLOWS_DIR).filter(name => /-lint\.ya?ml$/.test(name));
 
     test('completeness: every path-filtered lint workflow is registered; no registry entry is stale', () => {
         const pathFiltered = lintWorkflows.filter(name => {

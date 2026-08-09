@@ -261,7 +261,7 @@
             "node ./buildScripts/util/check-aiconfig-test-mutation.mjs",
             "node ./buildScripts/util/check-derived-domain.mjs"
         ],
-        "{package.json,.github/workflows/*.yml,.github/workflows/*.yaml,ai/scripts/lint/lint-guard-ci-parity.mjs,ai/scripts/lint/guard-ci-parity-registry.json}": [
+        "{package.json,.husky/pre-commit,.github/workflows/*.yml,.github/workflows/*.yaml,ai/scripts/lint/lint-guard-ci-parity.mjs,ai/scripts/lint/guard-ci-parity-registry.json}": [
             "node ./ai/scripts/lint/lint-guard-ci-parity.mjs"
         ],
         "ai/{services,services.mjs}/**": [

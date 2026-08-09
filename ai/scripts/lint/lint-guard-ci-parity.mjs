@@ -27,9 +27,10 @@
  * ## Why only parsed `run:` commands count
  *
  * A workflow that merely *names* a guard in prose, `on.paths`, an environment value, or a shell
- * argument does not invoke it. Workflows are parsed as YAML, then only `jobs.*.steps[].run` strings
- * are inspected for direct `node … <script>.mjs` commands. Counting any wider YAML or shell-token
- * population would create a false green inside the guard whose purpose is catching false greens.
+ * argument does not invoke it. Eligible `*-lint.yml/.yaml` workflows must gate `dev` pull requests;
+ * their YAML is parsed, then only unmasked `jobs.*.steps[].run` strings are inspected for direct
+ * `node … <script>.mjs` commands. Counting any wider population would create a false green inside the
+ * guard whose purpose is catching false greens.
  *
  * ## Scope
  *
@@ -52,6 +53,8 @@ const
     WORKFLOW_DIR = path.join(REPO_ROOT, '.github/workflows'),
     REGISTRY_REL = 'ai/scripts/lint/guard-ci-parity-registry.json',
     SELF_REL     = 'ai/scripts/lint/lint-guard-ci-parity.mjs',
+    HOOK_REL     = '.husky/pre-commit',
+    HOOK_PATH    = path.join(REPO_ROOT, HOOK_REL),
     PKG_PATH     = path.join(REPO_ROOT, 'package.json'),
 
     /**
@@ -81,6 +84,7 @@ const
  */
 export const SCAN_SURFACE = Object.freeze([
     'package.json',
+    HOOK_REL,
     '.github/workflows/**',
     REGISTRY_REL
 ]);
@@ -116,34 +120,116 @@ function normalizeScriptPath(script, workingDirectory = '.') {
 }
 
 /**
- * @summary Extracts only scripts directly executed by static `node … <script>.mjs` commands.
+ * @summary Extracts only scripts directly executed by standalone static `node … <script>.mjs` lines.
  *
- * Other `.mjs` tokens inside the shell body are arguments or prose, not execution evidence. The
- * global match supports multiple Node commands in one `run:` block without treating arbitrary YAML
- * mentions as mirrors.
+ * Other `.mjs` tokens inside the shell body are arguments or prose, not execution evidence. Shell
+ * control operators, runtime expressions, directory changes, and masked commands remain unclassified
+ * rather than being credited optimistically. Declarative workflow `working-directory` is the supported
+ * path carrier; the execution step itself must not override its environment.
  *
  * @param {String} command
  * @param {String} [workingDirectory='.']
  * @returns {String[]}
  */
 function executedNodeScripts(command, workingDirectory = '.') {
-    const scripts = [];
+    const statements = `${command}`.split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'));
 
-    for (const match of `${command}`.matchAll(
-        /\bnode\s+(?:(?:--[\w-]+)(?:=[^\s]+)?\s+)*(['"]?)([\w./-]+\.mjs)\1/g
-    )) {
-        const script = normalizeScriptPath(match[2], workingDirectory);
-
-        script && scripts.push(script)
+    if (statements.length !== 1) {
+        return []
     }
 
-    return scripts
+    const classifiedStatement = statements[0];
+
+    if (classifiedStatement.includes('${{') || /&&|\|\||[;|&]/.test(classifiedStatement)) {
+        return []
+    }
+
+    const match = classifiedStatement.match(
+        /^node\s+(['"]?)([\w./-]+\.mjs)\1(?:\s+[^#;&|]*)?(?:\s+#.*)?$/
+    );
+
+    const script = match && normalizeScriptPath(match[2], workingDirectory);
+
+    return script ? [script] : []
+}
+
+/**
+ * @summary Proves the configured lint-staged guard remains reachable from the real Git hook.
+ *
+ * The hook carrier is intentionally exact and unmasked: lint-staged must be the terminal substantive
+ * command, and only standalone Node pre-checks may precede it. If the project changes this sequence,
+ * the predicate and its witness must change together instead of silently assuming reach.
+ *
+ * @returns {Boolean}
+ */
+function hasLintStagedHookCarrier() {
+    if (!fs.existsSync(HOOK_PATH)) {
+        return false
+    }
+
+    const statements = fs.readFileSync(HOOK_PATH, 'utf8')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'));
+
+    if (statements.pop() !== 'npx lint-staged') {
+        return false
+    }
+
+    return statements.every(statement => executedNodeScripts(statement).length === 1)
+}
+
+/**
+ * @summary Returns whether a workflow is an unconditional pull-request gate for the `dev` branch.
+ *
+ * Manual, post-close, ignored-path, and other-branch workflows may execute a guard eventually, but
+ * they cannot prevent a no-verify change from merging. Complex branch patterns stay unclassified;
+ * literal `dev` or an unfiltered pull-request trigger are the reviewable merge-gate shapes.
+ *
+ * @param {Object} workflow
+ * @returns {Boolean}
+ */
+function hasDevPullRequestGate(workflow) {
+    const triggers = workflow.on ?? workflow[true];
+
+    if (triggers === 'pull_request' || Array.isArray(triggers) && triggers.includes('pull_request')) {
+        return true
+    }
+
+    if (!triggers || typeof triggers !== 'object' || !Object.hasOwn(triggers, 'pull_request')) {
+        return false
+    }
+
+    const pullRequest = triggers.pull_request;
+
+    if (pullRequest == null) {
+        return true
+    }
+
+    if (
+        typeof pullRequest !== 'object' ||
+        Object.hasOwn(pullRequest, 'branches-ignore') ||
+        Object.hasOwn(pullRequest, 'paths-ignore') ||
+        Object.hasOwn(pullRequest, 'types')
+    ) {
+        return false
+    }
+
+    if (!Object.hasOwn(pullRequest, 'branches')) {
+        return true
+    }
+
+    const branches = [pullRequest.branches].flat();
+
+    return branches.includes('dev') && !branches.some(branch => `${branch}`.startsWith('!'))
 }
 
 /**
  * @summary Every distinct guard script invoked by `lint-staged`, derived — never hardcoded.
  *
- * Deriving is the point: adding a tenth guard with no workflow must fail without anyone editing
+ * Deriving is the point: adding another guard with no workflow must fail without anyone editing
  * this file. A hardcoded list would answer today's question and rot.
  *
  * **No naming allowlist.** An earlier revision matched `check-*` / `lint-*`, which is a filter on the
@@ -193,19 +279,43 @@ function workflowExecutions() {
     }
 
     return fs.readdirSync(WORKFLOW_DIR)
-        .filter(file => /\.ya?ml$/.test(file))
+        .filter(file => /-lint\.ya?ml$/.test(file))
         .map(file => {
             const
                 workflow = yaml.load(fs.readFileSync(path.join(WORKFLOW_DIR, file), 'utf8')) || {},
                 executed = new Set();
 
+            if (
+                !hasDevPullRequestGate(workflow) ||
+                Object.hasOwn(workflow, 'env') ||
+                Object.hasOwn(workflow.defaults?.run || {}, 'shell')
+            ) {
+                return {file, executed}
+            }
+
             const workflowDirectory = workflow.defaults?.run?.['working-directory'] || '.';
 
             Object.values(workflow.jobs || {}).forEach(job => {
+                if (
+                    !job ||
+                    Object.hasOwn(job, 'env') ||
+                    Object.hasOwn(job, 'if') ||
+                    Object.hasOwn(job.defaults?.run || {}, 'shell') ||
+                    job['continue-on-error']
+                ) {
+                    return
+                }
+
                 const jobDirectory = job?.defaults?.run?.['working-directory'] || workflowDirectory;
 
                 (job?.steps || []).forEach(step => {
-                    if (typeof step?.run !== 'string') {
+                    if (
+                        typeof step?.run !== 'string' ||
+                        Object.hasOwn(step, 'env') ||
+                        Object.hasOwn(step, 'if') ||
+                        Object.hasOwn(step, 'shell') ||
+                        step['continue-on-error']
+                    ) {
                         return
                     }
 
@@ -265,6 +375,10 @@ function runLint() {
 
     !guards.includes(SELF_REL) && invalid.push(
         `${SELF_REL} — commit-time carrier missing from package.json lint-staged`
+    );
+
+    !hasLintStagedHookCarrier() && invalid.push(
+        `${HOOK_REL} — direct \`npx lint-staged\` carrier missing; configured guards are not commit-time reachable`
     );
 
     // The registry is a RATCHET: it may shrink freely and may not grow silently.
