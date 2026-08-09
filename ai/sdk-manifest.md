@@ -2,14 +2,18 @@
 
 This manifest defines the public API for the Neo.mjs AI Infrastructure SDK. Agents should read this file to discover available services and their method signatures before writing execution scripts.
 
-**Import Path — choose by execution realm** (both relative to project root):
+**Import Path — choose by the exports you need, NOT by where your process runs** (both paths relative to project root):
 
-| your process runs… | import from | why |
-|---|---|---|
-| on the **host** — stdio MCP servers, `ai/scripts` entrypoints, build scripts | **`ai/services.host.mjs`** | Cannot reach a durable store by import alone. A host machine has only the base package tier, and the cloud root eagerly resolves packages it does not have. |
-| in a **container** — Knowledge Base, Memory Core, Chroma, graph, Dream pipeline | `ai/services.mjs` | The cloud composition root. It re-exports every host service too, so it remains correct for anything spanning both. |
+| exports your script needs | import from |
+|---|---|
+| only `GH_` · `GL_` · `NeuralLink_` · `Shared_` | **`ai/services.host.mjs`** |
+| any `KB_` or `Memory_` | `ai/services.mjs` |
 
-`ai/services.mjs` still exports everything it always did — **existing imports are unchanged and remain valid.** The host barrel is a narrower door, not a replacement: pick it when your process will run somewhere the cloud packages are absent.
+`ai/services.mjs` exports everything it always did, so **existing imports are unchanged and remain valid.**
+
+**Why the axis is exports and not location.** The host barrel does not carry `KB_*` or `Memory_*` at all — importing them from it is a missing-export error, not a degraded mode. So "my script runs on the host, therefore I use the host barrel" is wrong whenever the script needs a Knowledge Base or Memory Core service.
+
+**And if your host-side script does need `KB_` or `Memory_`, the friction is the point, not a packaging inconvenience.** Those services reach a durable store, and a host machine has only the base package tier — so importing the cloud root there can fail on packages that are simply absent. The barrel split makes that visible at the import instead of at runtime. Treat it as a design signal about where the work belongs, not as something to route around.
 
 ---
 
