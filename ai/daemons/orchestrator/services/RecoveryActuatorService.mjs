@@ -308,6 +308,28 @@ export class RecoveryActuatorService extends Base {
         const attempts = await this.readHealAttempts(),
               gate     = this.evaluateEnvelope({attempts, serviceKey, action, now});
 
+        // REVALIDATED HERE, after the awaited preparation above and before ANY write — not by the
+        // caller before `apply` was entered. `readHealAttempts` is I/O, so a caller that checked
+        // authority and then awaited this method has already yielded: a GC pause or a suspended VM
+        // lets a successor reclaim the lease inside that window.
+        //
+        // The check sits above the gate branch rather than below it because a DENIED gate writes
+        // too. `finishAction` appends a recovery-run entry and persists anti-thrash state, so a
+        // displaced holder returning through the denial path still overwrote the successor's state
+        // and emitted an owner-authoritative record. "No effect" is not "no write".
+        //
+        // `evaluateEnvelope` is synchronous, so this remains the last point before the privileged
+        // effect on the admitted path as well: one check, both paths, no await after it.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'authority-lost',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+            };
+        }
+
         if (!gate.admitted) {
             return this.finishAction({
                 action,
@@ -662,7 +684,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async reconfigureComposeService({target, knob, knobValues, reason}) {
+    async reconfigureComposeService({target, knob, knobValues, reason, isAuthorityHeld = null}) {
         const context = {};
 
         for (const leafPath of requiredContextForKnob(knob)) {
@@ -687,7 +709,11 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
         }
 
-        const restart = await this.restartComposeService({target, reason});
+        // The oracle travels INTO the restart. `writeKnobOverride` above is awaited, so the dispatch
+        // check in `executeTargetAction` is no longer the last point we own before this container is
+        // actually restarted — and `restartComposeService` already re-asserts after it resolves the
+        // container, which is the boundary that matters.
+        const restart = await this.restartComposeService({target, reason, isAuthorityHeld});
 
         return {...restart, knob, overridePath}
     }
@@ -721,7 +747,7 @@ export class RecoveryActuatorService extends Base {
      * @param {String|null} options.reason Controller reason.
      * @returns {Promise<Object>}
      */
-    async raiseComposeServiceCeiling({target, knob, knobValues, reason}) {
+    async raiseComposeServiceCeiling({target, knob, knobValues, reason, isAuthorityHeld = null}) {
         const declaredService = RECOVERY_KNOBS[knob]?.serviceKey;
 
         // The knob declares which service its sizing derivation belongs to; an intent authored for the
@@ -747,6 +773,12 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Live memory limit for '${target.id}' is unreadable from inspect — refusing to raise against an unknown bound`);
         }
 
+        // Re-asserted after the awaited inspect and BEFORE the first durable write. The dispatch
+        // check happened before `readObserve` yielded; a successor can have taken the lease inside
+        // that window, and a displaced holder must not leave a durable knob override behind — the
+        // next converge would apply an intent its author no longer had authority to form.
+        this.assertAuthorityHeld({isAuthorityHeld, action: 'raise-ceiling', target});
+
         const {applied, path: overridePath, violations} = await writeKnobOverride({
             context    : {[`runtime.${target.id}.liveMemoryLimitBytes`]: liveLimitBytes},
             knob,
@@ -763,12 +795,16 @@ export class RecoveryActuatorService extends Base {
             throw new Error(`Knob transaction refused for '${knob}': ${violations.join('; ')}`);
         }
 
+        // The oracle travels into the live mutation as well: `writeKnobOverride` above is awaited, so
+        // this is a second yield point. `applyLifecycle` re-checks after it resolves the container —
+        // the last boundary Neo owns before the cgroup actually moves.
         const memoryLimitBytes = knobValues[leafPaths[0]],
               update           = await this.deploymentRuntimeAccessService.applyLifecycle({
                   serviceKey: target.id,
                   operation : 'update-memory-limit',
                   memoryLimitBytes,
-                  reason    : reason || `recovery-actuator:${target.serviceKey}`
+                  reason    : reason || `recovery-actuator:${target.serviceKey}`,
+                  isAuthorityHeld
               });
 
         // DELIBERATELY no restartComposeService here. The omission is the contract, asserted by a
@@ -786,16 +822,25 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Executes the typed target action through the matching privilege envelope.
+     * @summary Refuses a privileged effect when the runtime authority lease is no longer held.
+     *
+     * **One assertion, called at every last-owned point rather than once at dispatch.** An action
+     * that awaits internally — an inspect, a durable override write — has yielded between the
+     * dispatch check and its own mutation, and the only check that binds an effect is the one with
+     * no await between it and the effect. Extracted so those points share a single refusal shape
+     * instead of three hand-copied throws that can drift apart.
+     *
+     * A null/absent oracle is not a refusal: callers that never held a lease (tests, direct
+     * invocation) keep working unchanged.
+     *
      * @param {Object} options
-     * @returns {Promise<Object>}
+     * @param {Function|null} [options.isAuthorityHeld] Live authority oracle.
+     * @param {String} options.action Action name, for the refusal message.
+     * @param {Object} options.target Resolved target, for the refusal message.
+     * @throws {Error} `reason: 'runtime-authority-lost'` when the oracle reports the lease is gone.
+     * @protected
      */
-    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
-        // The LAST COMMON POINT before every effect kind dispatches. `applyLifecycle` carries its own
-        // post-resolution guard, but `warm-provider`, `reconfigure`, `raise-ceiling`, the supervised-task
-        // recycle and the deploy-target record do not pass through it — so a check placed only on the
-        // compose path would fence one effect and leave four open. Enumerated here rather than added
-        // per-branch, because a fifth effect kind added later inherits the guard by construction.
+    assertAuthorityHeld({isAuthorityHeld, action, target}) {
         if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
             const error = new Error(`Authority moved before the ${action} effect on '${target.id}'; refusing.`);
 
@@ -803,17 +848,31 @@ export class RecoveryActuatorService extends Base {
 
             throw error;
         }
+    }
+
+    /**
+     * @summary Executes the typed target action through the matching privilege envelope.
+     * @param {Object} options
+     * @returns {Promise<Object>}
+     */
+    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
+        // The last COMMON point before every effect kind dispatches — common in syntax, which is not
+        // the same as last-owned in time. It fences an action whose effect begins immediately
+        // (`warm-provider` awaits its repair as its first statement), and it is NOT sufficient for an
+        // action that awaits internally before its own mutation. Those carry the oracle inward and
+        // re-assert at their own last point; see `reconfigureComposeService` / `raiseComposeServiceCeiling`.
+        this.assertAuthorityHeld({isAuthorityHeld, action, target});
 
         if (action === 'warm-provider') {
             return this.warmProviderResidency({target, reason});
         }
 
         if (action === 'reconfigure') {
-            return this.reconfigureComposeService({knob, knobValues, reason, target});
+            return this.reconfigureComposeService({knob, knobValues, reason, target, isAuthorityHeld});
         }
 
         if (action === 'raise-ceiling') {
-            return this.raiseComposeServiceCeiling({knob, knobValues, reason, target});
+            return this.raiseComposeServiceCeiling({knob, knobValues, reason, target, isAuthorityHeld});
         }
 
         if (target.kind === 'compose-service') {
