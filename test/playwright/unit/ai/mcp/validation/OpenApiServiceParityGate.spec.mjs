@@ -4,6 +4,13 @@ import fs              from 'node:fs';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+// The RUNTIME authority, imported under a DISTINCT name. Importing it as bare `camelToSnake` would
+// collide with the lint's export of the same name below and make this guard compare the mirror to
+// itself — a tautology that passes forever, which is the exact vacuity class this test exists to
+// prevent. It became importable when the machinery moved to a plain, Neo-free shared module; before
+// that it was private to `ai/services.mjs` and had to be regex-extracted from source and rebuilt.
+import {camelToSnake as runtimeCamelToSnake} from '../../../../../../ai/services/shared/serviceProxy.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 import {
@@ -117,15 +124,16 @@ test.describe('openapi ↔ service parity — a consumed parameter must be decla
     test('the method→operationId join is DERIVED from the runtime authority, not restated', () => {
         // Two copied literals is what this asserted first, and @neo-gpt was right that it proves
         // nothing about agreement: both sides could drift together or the mirror could diverge on any
-        // input not literally listed. `services.mjs#camelToSnake` is module-private and importing that
-        // module boots the whole SDK, so the authority is read from its SOURCE and executed.
-        const source = fs.readFileSync(path.join(repoRoot, 'ai/services.mjs'), 'utf8'),
-              match  = source.match(/function camelToSnake\(str\)\s*\{([\s\S]*?)\n\}/);
-
-        expect(match, 'the runtime transform must be locatable, or this guard is vacuous').toBeTruthy();
-
-        // eslint-disable-next-line no-new-func
-        const runtimeCamelToSnake = new Function('str', match[1]);
+        // input not literally listed. So the authority itself is executed rather than mirrored.
+        //
+        // This used to read the function's SOURCE and rebuild it with `new Function`, because
+        // `camelToSnake` was private to `ai/services.mjs` and importing that module booted the whole
+        // SDK. It now lives in `services/shared/serviceProxy.mjs` — a plain module with no Neo
+        // coupling — so the authority can simply be IMPORTED. Strictly stronger: a regex that stops
+        // matching yields a null and, before this was noticed, would have taken the guard's own
+        // vacuity assertion to find it. An import that stops resolving is a hard error.
+        // `runtimeCamelToSnake` is the imported authority; `camelToSnake` is the lint's mirror. The
+        // assertion below is authority-vs-mirror, which is the only comparison that means anything.
 
         // ── The corpus is now ACTUALLY drawn from reality ────────────────────────────────────────
         //

@@ -14,7 +14,7 @@
  * @see ai/scripts/migrations/refetchTruncatedIssues.mjs
  * @see ai/services/github-workflow/SyncService.mjs
  */
-import {GH_SyncService} from '../../services.mjs';
+import {GH_SyncService} from '../../services.host.mjs';
 
 async function main() {
     const argv    = process.argv.slice(2);

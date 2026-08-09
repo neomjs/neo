@@ -18,7 +18,7 @@
  * @see ai/services/github-workflow/SyncService.mjs
  * @see https://github.com/neomjs/neo/issues/10090
  */
-import {GH_SyncService} from '../../services.mjs';
+import {GH_SyncService} from '../../services.host.mjs';
 
 function parseStdin() {
     return new Promise((resolve, reject) => {

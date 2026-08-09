@@ -19,10 +19,10 @@
  * @keywords Release Automation, Git Plumbing, Local-First, Knowledge Base, GitHub Sync, CI/CD
  */
 
-import {execSync}       from 'child_process';
-import fs               from 'fs-extra';
-import path             from 'path';
-import {GH_SyncService} from '../../ai/services.mjs';
+import {execSync}                      from 'child_process';
+import fs                              from 'fs-extra';
+import path                            from 'path';
+import {GH_SyncService}                from '../../ai/services.host.mjs';
 import {findLogicalIdentityCollisions} from '../util/check-content-logical-identity.mjs';
 
 const root = path.resolve();
@@ -118,7 +118,7 @@ async function main() {
 
     // Verify Release Notes
     // The user is expected to have manually bumped the version in package.json before running this script.
-    const newVersion = getPackageVersion();
+    const newVersion      = getPackageVersion();
     const releaseNotePath = path.join(root, `resources/content/release-notes/v${newVersion}.md`);
 
     if (!fs.existsSync(releaseNotePath)) {
@@ -199,7 +199,7 @@ async function main() {
     runCommand('git checkout dev', 'Failed to checkout dev');
 
     const noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
-    const atomicLog = `\n\nAll changes delivered in 1 atomic commit: [${mainCommitHash.substring(0, 7)}](https://github.com/neomjs/neo/commit/${mainCommitHash})`;
+    const atomicLog   = `\n\nAll changes delivered in 1 atomic commit: [${mainCommitHash.substring(0, 7)}](https://github.com/neomjs/neo/commit/${mainCommitHash})`;
 
     if (!noteContent.includes('All changes delivered in 1 atomic commit:')) {
         fs.appendFileSync(releaseNotePath, atomicLog);
@@ -218,10 +218,10 @@ async function main() {
     console.log('\n🚀 Step 5: Creating GitHub Release...');
 
     // Parse release notes to extract title and body (removing frontmatter)
-    let releaseTitle = `v${newVersion}`;
-    let releaseBodyPath = releaseNotePath;
-    const tempBodyPath = path.join(root, 'temp_release_body.md');
-    let tempFileCreated = false;
+    let   releaseTitle    = `v${newVersion}`;
+    let   releaseBodyPath = releaseNotePath;
+    const tempBodyPath    = path.join(root, 'temp_release_body.md');
+    let   tempFileCreated = false;
 
     try {
         let noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
