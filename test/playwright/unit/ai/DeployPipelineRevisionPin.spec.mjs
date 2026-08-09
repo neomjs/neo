@@ -263,7 +263,7 @@ test.describe('deploy revision boundary (#16087)', () => {
                 .filter(([, service]) => service?.build?.args?.TARGET_SERVER ||
                     service?.build?.args?.SERVICE_ENTRYPOINT);
 
-        expect(services.map(([name]) => name).sort()).toEqual(['kb-server', 'mc-server', 'orchestrator']);
+        expect(services.map(([name]) => name).sort()).toEqual(['fleet-server', 'kb-server', 'mc-server', 'orchestrator']);
 
         for (const [name, service] of services) {
             expect(

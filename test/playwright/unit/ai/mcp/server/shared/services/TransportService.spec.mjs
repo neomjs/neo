@@ -22,7 +22,11 @@ import path             from 'node:path';
 import Neo              from '../../../../../../../../src/Neo.mjs';
 import * as core        from '../../../../../../../../src/core/_export.mjs';
 
-const noOpAuthMiddleware = (_req, _res, next) => next();
+const
+    noOpAuthMiddleware = (_req, _res, next) => next(),
+    testFleetConfig    = Object.freeze({
+        cockpitOrigins: Object.freeze(['http://localhost:8080', 'http://127.0.0.1:8080'])
+    });
 
 test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
@@ -46,6 +50,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         const mockAiConfig = {
             mcpHttpHost   : 'localhost',
             mcpHttpPort   : testPort,
+            fleet         : testFleetConfig,
             auth          : {},
             authMiddleware: noOpAuthMiddleware
         };
@@ -122,6 +127,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         const mockAiConfig = {
             mcpHttpHost   : 'localhost',
             mcpHttpPort   : probePort,
+            fleet         : testFleetConfig,
             auth          : {},
             authMiddleware: noOpAuthMiddleware
         };
@@ -201,6 +207,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                     publicUrl     : 'https://public.example.com',
                     mcpHttpHost   : 'internal-host',
                     mcpHttpPort   : 3000,
+                    fleet         : testFleetConfig,
                     auth          : {},
                     authMiddleware: noOpAuthMiddleware
                 },
@@ -217,6 +224,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                 aiConfig: {
                     mcpHttpHost   : 'internal-host',
                     mcpHttpPort   : 3000,
+                    fleet         : testFleetConfig,
                     auth          : {},
                     authMiddleware: noOpAuthMiddleware
                 },
@@ -234,6 +242,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                     publicUrl     : '',
                     mcpHttpHost   : 'internal-host',
                     mcpHttpPort   : 3000,
+                    fleet         : testFleetConfig,
                     auth          : {},
                     authMiddleware: noOpAuthMiddleware
                 },
@@ -277,6 +286,35 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
         test('ignores an unparseable publicUrl without throwing', () => {
             expect(TransportService.computeAllowedHosts({publicUrl: 'not a url'})).toEqual(['localhost', '127.0.0.1', '[::1]']);
+        });
+    });
+
+    test.describe('computeAllowedOrigins exact CORS allowlist — #16735', () => {
+        let TransportService;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default
+        });
+
+        test('combines configured cockpit origins with the public URL origin and de-duplicates', () => {
+            expect(TransportService.computeAllowedOrigins({
+                fleet: {
+                    cockpitOrigins: [
+                        'http://localhost:8080',
+                        'https://agent-os.example.test'
+                    ]
+                }
+            }, new URL('https://agent-os.example.test/mc/mcp')))
+                .toEqual(['http://localhost:8080', 'https://agent-os.example.test'])
+        });
+
+        test('rejects wildcard, opaque, non-HTTP, and path-bearing configured origins', () => {
+            for (const origin of ['*', 'null', 'file:///tmp/cockpit', 'https://agent-os.example.test/path']) {
+                expect(() => TransportService.computeAllowedOrigins({
+                    fleet: {cockpitOrigins: [origin]}
+                }, new URL('https://agent-os.example.test/mcp')), origin)
+                    .toThrow(/one exact HTTP\(S\) origin/)
+            }
         });
     });
 
@@ -326,6 +364,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                         aiConfig: {
                             mcpHttpHost: '127.0.0.1',
                             mcpHttpPort: 0,
+                            fleet      : testFleetConfig,
                             auth       : {mode}
                         },
                         logger      : {info: () => {}, warn: () => {}, error: () => {}},
@@ -373,6 +412,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                     aiConfig: {
                         mcpHttpHost: '127.0.0.1',
                         mcpHttpPort: 0,
+                        fleet      : testFleetConfig,
                         auth       : {mode: 'github-pat'}
                     },
                     logger      : {info: () => {}, warn: () => {}, error: () => {}},
@@ -414,6 +454,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                 mcpListenHost: '127.0.0.1',
                 mcpHttpPort  : 0,
                 publicUrl    : oidcAudience,
+                fleet        : testFleetConfig,
                 auth         : {
                     mode              : 'oidc',
                     host              : 'https://oidc.test',
@@ -493,6 +534,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                     mcpHttpHost  : '127.0.0.1',
                     mcpListenHost: '127.0.0.1',
                     mcpHttpPort  : 0,
+                    fleet        : testFleetConfig,
                     auth         : {
                         mode              : 'oidc',
                         host              : null,
@@ -673,6 +715,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                 mcpHttpHost  : '127.0.0.1',
                 mcpListenHost: '127.0.0.1',
                 mcpHttpPort  : 0,
+                fleet        : testFleetConfig,
                 auth         : {
                     mode                   : 'github-pat',
                     host                   : null,
@@ -931,6 +974,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                         mcpListenHost: '127.0.0.1',
                         mcpHttpPort  : 0,
                         plane        : {id: planeId},
+                        fleet        : testFleetConfig,
                         auth         : {
                             mode                   : 'seat-token',
                             pinFirstProviderSubject: false,
@@ -991,6 +1035,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
                 mcpHttpHost  : '127.0.0.1',
                 mcpListenHost: '127.0.0.1',
                 mcpHttpPort  : 0,
+                fleet        : testFleetConfig,
                 auth         : {
                     mode              : 'local-bearer',
                     localBearerToken  : token,

@@ -95,6 +95,103 @@ class TransportService extends Base {
     }
 
     /**
+     * @summary Computes the exact browser-Origin allowlist shared by KB, MC, and composed Fleet.
+     *
+     * The Fleet Manager cockpit origins are the declarative cross-origin authority. The resolved
+     * service resource URL contributes its scheme/authority so same-deployment browser clients
+     * remain admitted regardless of the service path. Every configured entry must already be one
+     * canonical HTTP(S) origin: wildcards, opaque/null origins, credentials, and path-bearing URLs
+     * fail boot instead of silently widening the CORS boundary.
+     *
+     * @param {Object} aiConfig Resolved AiConfig tree.
+     * @param {Object} aiConfig.fleet Fleet Manager configuration branch.
+     * @param {String[]} aiConfig.fleet.cockpitOrigins Exact configured cockpit origins.
+     * @param {URL} resourceUrl Resolved canonical URL for the active protected resource.
+     * @returns {Readonly<String[]>} Frozen, de-duplicated canonical origins.
+     * @throws {TypeError} When a configured origin is not one exact HTTP(S) origin.
+     */
+    computeAllowedOrigins(aiConfig, resourceUrl) {
+        const origins = new Set();
+
+        if (!Array.isArray(aiConfig.fleet.cockpitOrigins)) {
+            throw new TypeError('[TransportService] fleet.cockpitOrigins must be an array of exact origins')
+        }
+
+        const addOrigin = (candidate, source) => {
+            let url;
+
+            try {
+                url = new URL(candidate)
+            } catch {
+                throw new TypeError(`[TransportService] ${source} must be one exact HTTP(S) origin`)
+            }
+
+            if (!['http:', 'https:'].includes(url.protocol) || candidate !== url.origin) {
+                throw new TypeError(`[TransportService] ${source} must be one exact HTTP(S) origin`)
+            }
+
+            origins.add(url.origin)
+        };
+
+        for (const origin of aiConfig.fleet.cockpitOrigins) {
+            addOrigin(origin, 'fleet.cockpitOrigins entry')
+        }
+
+        if (!(resourceUrl instanceof URL)) {
+            throw new TypeError('[TransportService] resourceUrl must be a URL')
+        }
+
+        addOrigin(resourceUrl.origin, 'resourceUrl origin');
+
+        return Object.freeze([...origins])
+    }
+
+    /**
+     * @summary Installs one fail-closed exact-origin CORS boundary on an Express application.
+     *
+     * A present foreign or opaque Origin is refused before authentication or route dispatch and
+     * receives no CORS grant. Origin-less healthchecks and non-browser clients continue. Allowed
+     * preflights are completed by the canonical middleware before the authenticated routes.
+     *
+     * @param {Object} options
+     * @param {Object} options.app Express application.
+     * @param {Object} options.aiConfig Resolved AiConfig tree.
+     * @param {Function} options.corsMiddleware CORS middleware factory.
+     * @param {URL} options.resourceUrl Resolved protected-resource URL.
+     * @param {Object} [options.errorBody] Stable 403 response envelope.
+     * @returns {Readonly<String[]>} Installed exact-origin allowlist.
+     */
+    installCors({
+        app,
+        aiConfig,
+        corsMiddleware,
+        resourceUrl,
+        errorBody={error: 'origin not admitted'}
+    }) {
+        const
+            allowedOrigins = this.computeAllowedOrigins(aiConfig, resourceUrl),
+            allowedSet     = new Set(allowedOrigins);
+
+        app.use((req, res, next) => {
+            const origin = req.get('Origin');
+
+            if (origin !== undefined && !allowedSet.has(origin)) {
+                res.status(403).json(errorBody);
+                return
+            }
+
+            next()
+        });
+
+        app.use(corsMiddleware({
+            origin        : allowedOrigins,
+            exposedHeaders: ['Mcp-Session-Id']
+        }));
+
+        return allowedOrigins
+    }
+
+    /**
      * @summary Sets up the Streamable HTTP transport for an MCP server.
      * @param {Object} options
      * @param {Object} options.server The Neo MCP Server instance
@@ -110,6 +207,21 @@ class TransportService extends Base {
         const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
         const crypto                            = await import('crypto');
         const cors                              = await import('cors');
+        const getFullUrl                        = (host, port) => {
+            if (host.includes('://')) {
+                return new URL(host)
+            }
+
+            const protocol = (host === 'localhost' || host === '127.0.0.1') ? 'http' : 'https';
+
+            return new URL(`${protocol}://${host}:${port}`)
+        };
+        // The config owns the advertised transport host (default + the platform-standard `HOST`
+        // env binding on the `mcpHttpHost` leaf) — consumed at the use site, never re-derived
+        // from env here.
+        const mcpServerUrl = aiConfig.publicUrl
+            ? new URL(aiConfig.publicUrl)
+            : getFullUrl(aiConfig.mcpHttpHost, aiConfig.mcpHttpPort);
         // Host-allowlist for the SDK's DNS-rebinding protection. Always includes localhost (the
         // container healthcheck hits 127.0.0.1) plus the publicUrl hostname + NEO_MCP_ALLOWED_HOSTS,
         // so a cloud deployment behind a reverse proxy on a public hostname is not rejected with
@@ -124,23 +236,7 @@ class TransportService extends Base {
         const { default: AuthService } = await import('./AuthService.mjs');
         AuthService.setupPreCors({app, aiConfig});
 
-        app.use(cors.default({
-            origin        : '*',
-            exposedHeaders: ['Mcp-Session-Id'],
-        }));
-
-        const getFullUrl = (host, port) => {
-            if (host.includes('://')) {
-                return new URL(host);
-            }
-            const protocol = (host === 'localhost' || host === '127.0.0.1') ? 'http' : 'https';
-            return new URL(`${protocol}://${host}:${port}`);
-        };
-
-        // The config owns the advertised transport host (default + the platform-standard `HOST`
-        // env binding on the `mcpHttpHost` leaf) — consumed at the use site, never re-derived
-        // from env here.
-        const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(aiConfig.mcpHttpHost, aiConfig.mcpHttpPort);
+        this.installCors({app, aiConfig, corsMiddleware: cors.default, resourceUrl: mcpServerUrl});
         this.mcpServerUrl = mcpServerUrl;
 
         // AuthService owns the legal Streamable-HTTP state machine. Transport delegates every

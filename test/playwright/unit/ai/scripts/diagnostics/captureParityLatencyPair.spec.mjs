@@ -198,6 +198,17 @@ test.describe('default actor — session, source, and cleanup contracts', () => 
         }
     });
 
+    test('the isolated stdio plane relocates the Fleet-owned root with every other member', () => {
+        const actor = new ParityLatencyCaptureActor({capturePlan: CAPTURE_PLAN});
+
+        actor.stdioDataRoot = '/capture/plane';
+
+        const env = actor.createStdioCaptureEnv();
+
+        expect(env.NEO_PLANE_DATA_ROOT).toBe('/capture/plane');
+        expect(env.NEO_FLEET_DATA_DIR).toBe('/capture/plane/fleet')
+    });
+
     test('terminates an HTTP session before closing its local SDK client', async () => {
         const
             actor = new ParityLatencyCaptureActor({capturePlan: CAPTURE_PLAN}),
