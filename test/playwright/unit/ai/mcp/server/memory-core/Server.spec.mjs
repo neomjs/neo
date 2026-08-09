@@ -37,7 +37,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         '@github-outsider-15990',
         '@existing-gitlab-agent-14388',
         '@colliding-gitlab-agent-14388',
-        '@concurrent-gitlab-agent-14388'
+        '@concurrent-gitlab-agent-14388',
+        '@xprovider-shared-login'
     ]);
 
     async function createServerWithoutBoot({autoProvisionIdentitySources} = {}) {
@@ -233,6 +234,67 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         expect(boundId).toBe('@neo-opus-4-7');
 
         serverInstance.destroy();
+    });
+
+    test('a second provider sharing one login overwrites the first identity on ONE persisted node', async () => {
+        // The durable half of the owner-principal question, executed rather than read from source.
+        // The graph node id derives from the authenticated login, so two accounts that share a
+        // handle across DIFFERENT providers do not merely resolve alike — the later first-write
+        // lands on the same row and REWRITES the stored provider coordinates, because an existing
+        // auto-provisioned node is refreshed with the full property set.
+        await GraphService.initAsync();
+
+        const serverInstance = await createServerWithoutBoot({
+            autoProvisionIdentitySources: ['gitlab-pat', 'github-pat']
+        });
+
+        try {
+            await serverInstance.buildRequestContext({
+                token              : 'glpat-xprovider',
+                userId             : 'xprovider-shared-login',
+                username           : 'GitLab Holder',
+                source             : 'gitlab-pat',
+                authProvider       : 'gitlab',
+                authSource         : 'gitlab-pat',
+                providerBaseUrl    : 'https://gitlab.example.com',
+                providerUserId     : 4242,
+                providerUsername   : 'xprovider-shared-login',
+                providerDisplayName: 'GitLab Holder'
+            });
+
+            const afterFirst = rawGraphNode('@xprovider-shared-login');
+
+            expect(afterFirst.properties.authProvider,    'the first write owns the row').toBe('gitlab');
+            expect(afterFirst.properties.providerUserId,  '…with its own immutable id').toBe('4242');
+
+            // A different human, on a different provider, who happens to hold the same handle.
+            await serverInstance.buildRequestContext({
+                token              : 'ghp-xprovider',
+                userId             : 'xprovider-shared-login',
+                username           : 'GitHub Holder',
+                source             : 'github-pat',
+                authProvider       : 'github',
+                authSource         : 'github-pat',
+                providerBaseUrl    : 'https://api.github.com',
+                providerUserId     : 777001,
+                providerUsername   : 'xprovider-shared-login',
+                providerDisplayName: 'GitHub Holder'
+            });
+
+            const afterSecond = rawGraphNode('@xprovider-shared-login');
+
+            // Same row — not a second identity.
+            expect(afterSecond.properties.createdAt, 'no second node was created').toBe(afterFirst.properties.createdAt);
+
+            // …and the first principal's coordinates are gone. This is the concrete damage behind
+            // the login-keyed identity: not just a shared key, but silent takeover of a stored
+            // identity record by whoever authenticates next under the same handle.
+            expect(afterSecond.properties.authProvider,   'the second provider overwrote the first').toBe('github');
+            expect(afterSecond.properties.providerBaseUrl, 'the instance coordinate was overwritten').toBe('https://api.github.com');
+            expect(afterSecond.properties.providerUserId,  'the immutable id was overwritten').toBe('777001')
+        } finally {
+            serverInstance.destroy();
+        }
     });
 
     test('#14388: GitLab-PAT request context auto-provisions a missing AgentIdentity', async () => {

@@ -369,9 +369,7 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
     });
 
     test('FIRST WRITE: the durable graph key is the mutable login, and the stable id rides along as a property', async () => {
-        const
-            {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs'),
-            serverSource                   = await fs.readFile(path.join(process.cwd(), 'ai/mcp/server/memory-core/Server.mjs'), 'utf8');
+        const {normalizeAgentIdentityNodeId} = await import('../../../../../../../../ai/graph/normalizeAgentIdentityNodeId.mjs');
 
         // The real derivation, imported rather than replicated — it is a pure module.
         expect(normalizeAgentIdentityNodeId('octocat')).toBe('@octocat');
@@ -387,16 +385,17 @@ test.describe('ownerPrincipal normalization axes — OQ9 witness matrix (#16738)
         // be flipped by passing something else.
         expect(normalizeAgentIdentityNodeId).toHaveLength(1);
 
-        // Source-anchored (Server.mjs is a service class): the auto-provisioner keys the node on
-        // the authenticated userId, while persisting the immutable provider id as a PROPERTY of
-        // that same row. BOUND: proves what the file declares, not what a request executes.
-        expect(serverSource).toContain('graphNodeId = normalizeAgentIdentityNodeId(userId)');
-        expect(serverSource).toContain('providerUserId     : reqAuth.providerUserId == null ? undefined : String(reqAuth.providerUserId)');
-
-        // Which is the migration-feasibility fact: every already-provisioned row carries the
-        // stable coordinate, so a re-key can be derived from persisted data without re-contacting
-        // the provider. Whether to freeze or version normalization is a different question, but
-        // it is not gated on data we would have to go and collect.
+        // The persistence half is NOT asserted from source text here. It is executed where the
+        // seam lives — `Server.spec.mjs`, "a second provider sharing one login overwrites the
+        // first identity on ONE persisted node" — which drives two produced identities through
+        // `buildRequestContext()` and reads the stored row. That arm shows the concrete damage a
+        // source read cannot: the later write does not merely share the key, it OVERWRITES the
+        // first principal's stored coordinates on the same node.
+        //
+        // Migration-feasibility fact carried by that same row: every provisioned identity already
+        // persists the stable coordinate, so a re-key derives from stored data without
+        // re-contacting any provider. Freeze-vs-version is a separate question, but it is not
+        // gated on data we would have to go and collect.
     });
 
     test('case is significant here and INSIGNIFICANT for agent identity — one system, two rules', async () => {
