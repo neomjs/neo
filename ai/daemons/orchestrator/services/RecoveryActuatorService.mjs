@@ -449,7 +449,16 @@ export class RecoveryActuatorService extends Base {
             // the two writes the successor's state for an action that never happened. `runtime-authority-lost`
             // means the mutation was declined precisely BECAUSE we no longer hold authority — so there
             // is no effect to audit and no attempt to charge against a budget that is not ours.
-            if (error?.reason === 'runtime-authority-lost' || (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true)) {
+            //
+            // ONLY the explicit reason takes this branch. It is thrown by our own guards, every one
+            // of which sits BEFORE its effect, so "no effect happened" is knowledge rather than
+            // inference. The previous condition also took this branch whenever authority merely
+            // READ as lost at catch time, which is a different and much weaker fact: a restart POST
+            // dispatched under held authority, followed by a takeover and a socket reset, arrived
+            // here with an ordinary transport error and was reported `declined` with no audit at
+            // all. A possibly-landed restart was erased — and erased silently, which is worse than
+            // a loud failure because nothing observes it.
+            if (error?.reason === 'runtime-authority-lost') {
                 return {
                     status        : 'declined',
                     reasonCode    : 'authority-lost',
@@ -459,21 +468,33 @@ export class RecoveryActuatorService extends Base {
                 };
             }
 
+            // Any other error while authority is no longer held means the effect's outcome is
+            // UNKNOWN, not absent. Represented on the existing `failed` terminal with structured
+            // detail rather than a new terminal value: the action set is closed (ADR-0026 AC-9 — // ticket-ref-ok: the ADR is the authority forbidding a widened action set) and
+            // an unknown outcome is a property of this run, not a new kind of run.
+            const authorityLostAfterDispatch = typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true;
+
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
                   nextAttempt   = gate.attempt + 1,
                   nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
 
-            this.persistAttempt({
-                attempts,
-                serviceKey,
-                action,
-                attempt     : nextAttempt,
-                backoffUntil: nextBackoffAt,
-                now         : updatedAt,
-                status      : 'failed'
-            });
-            await this.writeHealAttempts(attempts);
+            // The append-only audit below is written in BOTH cases; the mutable shared state is not.
+            // A displaced holder must not charge an attempt against a budget the successor now owns
+            // — that is the same reasoning the pre-effect refusal uses — but the record of a
+            // possibly-landed effect belongs to the ledger regardless of who holds the lease now.
+            if (!authorityLostAfterDispatch) {
+                this.persistAttempt({
+                    attempts,
+                    serviceKey,
+                    action,
+                    attempt     : nextAttempt,
+                    backoffUntil: nextBackoffAt,
+                    now         : updatedAt,
+                    status      : 'failed'
+                });
+                await this.writeHealAttempts(attempts);
+            }
 
             return this.finishAction({
                 action,
@@ -487,7 +508,12 @@ export class RecoveryActuatorService extends Base {
                     serviceKey,
                     action,
                     targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
-                    error         : error.message
+                    error         : error.message,
+                    // `not-applied` is a claim; `uncertain` is the absence of one. A reader that
+                    // cannot tell them apart will assume the effect did not happen, which is the
+                    // assumption that makes a duplicate restart look safe.
+                    effectDisposition         : authorityLostAfterDispatch ? 'uncertain' : 'not-applied',
+                    authorityLostAfterDispatch
                 },
                 recoveryRunId,
                 serviceKey,

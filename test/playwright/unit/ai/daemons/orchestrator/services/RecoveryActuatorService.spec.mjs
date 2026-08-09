@@ -271,6 +271,43 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBe(runsBefore);
     });
 
+    test('a dispatched effect whose outcome is lost after takeover is recorded UNCERTAIN, never erased', async () => {
+        // @neo-gpt's third interval. The restart POST goes out under held authority; the takeover
+        // happens; the socket resets before the outcome is known. This previously returned
+        // `declined` with NO audit at all, so a restart that may well have landed left no trace —
+        // a silent failure, which outranks a loud one because nothing observes it.
+        // The takeover happens INSIDE the dispatch, which is both the real sequence and the only
+        // way to reach this interval: a counter-based oracle trips one of the pre-effect guards
+        // first and returns the correct `declined`, never exercising the post-dispatch path.
+        let held = true;
+
+        const {service, actuatorConfig} = createService({
+            deploymentRuntimeAccessService: {
+                async applyLifecycle() {
+                    held = false;                       // successor claims the lease, POST already sent
+                    const error = new Error('socket hang up');
+                    error.code    = 'ECONNRESET';       // the answer never comes back
+                    throw error;
+                }
+            }
+        });
+
+        const result = await service.apply('mc-server', 'restart', {
+            now            : 10_000,
+            isAuthorityHeld: () => held
+        });
+
+        // NOT `declined`: we do not know that nothing happened.
+        expect(result.status).toBe('failed');
+        expect(result).toMatchObject({
+            effectDisposition         : 'uncertain',
+            authorityLostAfterDispatch: true
+        });
+
+        // The append-only audit exists — the whole point of the interval.
+        expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBeGreaterThan(0);
+    });
+
     test('reconfigure carries the authority oracle into the restart it triggers after its durable write', async () => {
         // `writeKnobOverride` is awaited, so the dispatch check in `executeTargetAction` is no longer
         // the last point owned before the container is restarted. The oracle must reach
