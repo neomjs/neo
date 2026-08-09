@@ -178,9 +178,48 @@ class DragZone extends Base {
     construct(config) {
         super.construct(config);
 
+        let me = this;
+
         if (!Neo.main.addon.DragDrop) {
-            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id)
+            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', me.id)
+        } else {
+            // Eager registration: the main-thread addon resolves the owning zone synchronously
+            // inside onDragStart, so the first drag:start of a boot already carries a zone id.
+            // Best-effort: a zone whose drag element is only assigned later re-registers on its
+            // first setConfigs handshake. Fire-and-forget — never block construction on the RPC.
+            let dragElementRoot = me.dragElement && me.getDragElementRoot();
+
+            if (dragElementRoot?.id) {
+                // optional-chained: bare harnesses may stub the addon without the registry API
+                Neo.main.addon.DragDrop.registerZone?.({
+                    appName          : me.appName,
+                    windowId         : me.windowId,
+                    dragElementRootId: dragElementRoot.id,
+                    dragZoneId       : me.id
+                })
+            }
         }
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        let me = this;
+
+        // Drop the eager registration so a stale root id can never resolve to a dead zone.
+        // The main side tolerates both shapes — by root id, or by zone id across the map.
+        // optional-chained: bare harnesses may stub the addon without the registry API
+        if (Neo.main.addon.DragDrop) {
+            Neo.main.addon.DragDrop.unregisterZone?.({
+                appName          : me.appName,
+                windowId         : me.windowId,
+                dragElementRootId: me.dragElement?.id,
+                dragZoneId       : me.id
+            })
+        }
+
+        super.destroy(...args)
     }
 
     /**
