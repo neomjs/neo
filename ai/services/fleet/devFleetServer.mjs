@@ -179,6 +179,14 @@ async function boot() {
         console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
     }
 
+    // The roster's presence AXIS rides the same proven plane reader as the decomposed
+    // routes verb below — one producer contract, two consumers, never a second authority. Host
+    // mode stays null ⇒ the adapter renders every row honestly `unknown` under a degraded
+    // capability until a host presence surface lands.
+    FleetManager.presenceStateOptions = planeClient
+        ? {readPresence: createPlaneWhoIsOnlineReader(planeClient)}
+        : null;
+
     // The decomposed wake-routes verb rides the SAME per-mode truth the fused wake axis was bound
     // to above — one authority per axis, never a second source. Presence joins plane-side over the
     // proven client; host mode wraps the daemon PID-file liveness read and leaves presence and

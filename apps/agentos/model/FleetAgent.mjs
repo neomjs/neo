@@ -83,6 +83,14 @@ class FleetAgent extends Model {
             name        : 'throttle',
             defaultValue: null
         }, {
+            // The presence axis, same passthrough contract as `wake`/`throttle`: the
+            // roster row's `{source, state, confidence, lastSeenAt, reason?}` observation, where
+            // `state` is the plane's who_is_online band embryo (`online | idle | dark | benched |
+            // neverConnected | unknown`). The THIRD independent signal — presence-fresh ≠
+            // wake-route-healthy ≠ identity-bound — and the view never re-derives or fuses it.
+            name        : 'presence',
+            defaultValue: null
+        }, {
             // the launch seam's derived launchability truth (a launch template exists for the
             // family), stamped Brain-side on the roster row; tri-state — true / false / null
             // (not read back yet) — so the field carries no type coercion

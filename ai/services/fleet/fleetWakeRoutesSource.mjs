@@ -1,4 +1,5 @@
 import {createSeatArmingReader} from './seatArmingReader.mjs';
+import {PRESENCE_STATES}        from './fleetPresenceStateAdapter.mjs';
 import {redactCredentials}      from './redactCredentials.mjs'
 
 /**
@@ -26,7 +27,7 @@ export const WAKE_ROUTES_SOURCE_LABEL = 'fleet:wakeRoutes'
 
 const
     DELIVERY_STATES  = Object.freeze(['alive', 'down', 'unknown']),
-    PRESENCE_STATES  = Object.freeze(['online', 'idle', 'dark', 'benched', 'neverConnected']),
+    // PRESENCE_STATES imports from the adapter sibling — the vocabulary's one exporting home.
     ARMED_UNOBSERVED = Object.freeze({
         state : 'unobserved',
         // The absent-reader branch, not a structural gap: a deployment with no local wake lane
