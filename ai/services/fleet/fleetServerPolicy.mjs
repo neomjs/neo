@@ -1,5 +1,10 @@
 import {dispatchFleetRequest} from './dispatchFleetRequest.mjs';
-import {FLEET_WIRE_METHODS}   from './fleetWireMethods.mjs';
+import {
+    createFleetWireResponse,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    selectFleetWireContract
+} from './fleetWireMethods.mjs';
 
 /**
  * @summary The complete S1 wire policy for the composed Fleet service. Authentication makes the
@@ -57,24 +62,30 @@ export const FLEET_S1_READY_METHODS = Object.freeze(
 );
 
 /**
- * @summary Dispatch one composed-service request through the S1 availability boundary.
- * Unknown verbs retain the canonical wire refusal; known future-slice verbs return a top-level
- * degradation envelope naming their owning semantic slice and never touch `FleetControlBridge`.
- * @param {Object} request Fleet wire request (`{method, params}`).
+ * @summary Negotiate one composed-service request before applying the S1 availability boundary.
+ * Unknown verbs retain the canonical `unsupported-method` state; known future-slice verbs return a
+ * versioned `degraded` state naming their semantic owner and never touch `FleetControlBridge`.
+ * @param {Object} request Versioned Fleet wire request (`{method, params, protocol}`).
  * @param {Object} [bridge] Injectable bridge used by the canonical dispatcher.
- * @returns {Promise<Object>} Canonical success/failure envelope or named-slice degradation.
+ * @returns {Promise<Object>} Versioned finite-state response or named-slice degradation.
  */
 export async function dispatchFleetS1Request(request={}, bridge) {
-    const disposition = Object.hasOwn(FLEET_S1_METHOD_POLICY, request?.method)
+    const
+        selection   = selectFleetWireContract(request?.protocol),
+        disposition = Object.hasOwn(FLEET_S1_METHOD_POLICY, request?.method)
         ? FLEET_S1_METHOD_POLICY[request.method]
         : null;
 
+    if (!selection.ok) {
+        return createFleetWireResponse(selection.state, selection)
+    }
+
     if (disposition?.startsWith('awaiting-')) {
-        return {
-            ok      : false,
+        return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.degraded, {
             degraded: disposition,
-            error   : `fleet: '${request.method}' awaits ${SLICE_LABELS[disposition]}`
-        }
+            error   : `fleet: '${request.method}' awaits ${SLICE_LABELS[disposition]}`,
+            protocol: selection.protocol
+        })
     }
 
     return dispatchFleetRequest(request, bridge)

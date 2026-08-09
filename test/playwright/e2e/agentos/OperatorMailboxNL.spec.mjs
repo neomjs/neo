@@ -1,6 +1,11 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}                     from '../../fixtures.mjs';
 import {createFleetMailboxMirrorSnapshot} from '../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs';
-import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const rosterRows = [
     {id: 'review-a', githubUsername: 'review-peer-a', displayName: 'Review Peer A', engineTag: 'fixture', family: 'gpt'},
@@ -16,27 +21,24 @@ async function startOperatorMailboxFleet() {
 
                   switch (request.method) {
                       case 'resolveViewerIdentity':
-                          return {ok: true, result: {ok: true, agentIdentityNodeId: '@e2e-operator'}};
+                          return fleetE2ESuccess({ok: true, agentIdentityNodeId: '@e2e-operator'});
                       case 'fleetRoster':
-                          return {ok: true, result: {rows: rosterRows}};
+                          return fleetE2ESuccess({rows: rosterRows});
                       case 'fleetActivity':
-                          return {ok: true, result: {capability: {state: 'wired'}, events: []}};
+                          return fleetE2ESuccess({capability: {state: 'wired'}, events: []});
                       case 'fleetMailboxMirror':
-                          return {
-                              ok    : true,
-                              result: createFleetMailboxMirrorSnapshot({
+                          return fleetE2ESuccess(createFleetMailboxMirrorSnapshot({
                                   messages: [],
                                   page    : {limit: 50, offset: request.params?.offset ?? 0},
                                   subject : '@e2e-operator',
                                   viewer  : '@e2e-operator'
-                              })
-                          };
+                              }));
                       case 'composeOperatorMessage':
                           return request.params?.to === '@review-peer-b'
-                              ? {ok: true, result: {status: 'rejected', reason: 'fixture rejection'}}
-                              : {ok: true, result: {messageId: `fixture-${requests.length}`, sentAt: new Date().toISOString()}};
+                              ? fleetE2ESuccess({status: 'rejected', reason: 'fixture rejection'})
+                              : fleetE2ESuccess({messageId: `fixture-${requests.length}`, sentAt: new Date().toISOString()});
                       default:
-                          return {ok: false, error: `unexpected operator-mailbox method: ${request.method}`}
+                          return fleetE2EFailure(`unexpected operator-mailbox method: ${request.method}`)
                   }
               }
           }),
@@ -83,12 +85,12 @@ test.describe('AgentOS operator mailbox mounted delivery journey (#15377)', () =
             expect(mailbox.properties.snapshot.admission).toMatchObject({state: 'granted', subjectAgentId: '@e2e-operator'});
             expect(form.properties.recipientOptions.map(row => row.id)).toEqual(['AGENT:*', '@review-peer-a', '@review-peer-b']);
 
-            const listState       = await app.getComponent(list.properties.id, ['selectionModel']),
+            const listState        = await app.getComponent(list.properties.id, ['selectionModel']),
                   selectionModelId = listState.selectionModel.id,
-                  subject         = page.getByRole('textbox', {name: 'Subject'}),
-                  message         = page.getByRole('textbox', {name: 'Message'}),
-                  send            = page.getByRole('button', {name: 'Send'}),
-                  choose          = async name => {
+                  subject          = page.getByRole('textbox', {name: 'Subject'}),
+                  message          = page.getByRole('textbox', {name: 'Message'}),
+                  send             = page.getByRole('button', {name: 'Send'}),
+                  choose           = async name => {
                       const row = overlay
                           .locator('.fm-operator-compose-recipients-list')
                           .getByRole('listitem')

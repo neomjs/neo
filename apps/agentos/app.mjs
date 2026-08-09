@@ -1,5 +1,5 @@
 import Viewport             from './view/Viewport.mjs';
-import {installFleetBridge} from './fleet/installFleetBridge.mjs';
+import {FLEET_LOCAL_TRANSPORT_ERRORS, installFleetBridge} from './fleet/installFleetBridge.mjs';
 import WindowManager        from '../../src/manager/Window.mjs';
 
 /**
@@ -60,7 +60,7 @@ export const onStart = () => {
 
                 return windowId
                     ? Neo.Main.fleetRequest({request, windowId})
-                    : Promise.resolve({ok: false, error: 'fleet: no live shell window'})
+                    : Promise.reject(new Error(FLEET_LOCAL_TRANSPORT_ERRORS.noLiveWindow))
             }
         })
     } else {

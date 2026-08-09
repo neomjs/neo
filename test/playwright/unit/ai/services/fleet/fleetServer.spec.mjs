@@ -13,6 +13,7 @@ import {test, expect}                  from '@playwright/test';
 import Neo                             from '../../../../../../src/Neo.mjs';
 import * as core                       from '../../../../../../src/core/_export.mjs';
 import {mkdir, mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {request as httpRequest}        from 'node:http';
 import os                              from 'node:os';
 import path                            from 'node:path';
 import RequestContextService           from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
@@ -29,11 +30,18 @@ import {
     FLEET_S1_METHOD_POLICY,
     FLEET_S1_READY_METHODS
 }                                  from '../../../../../../ai/services/fleet/fleetServerPolicy.mjs';
-import {FLEET_WIRE_METHODS}        from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {
+    createFleetWireResponse,
+    createFleetWireRequest,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES
+}                                  from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
 
 const
     nativeFetch = globalThis.fetch,
     logger      = {info() {}, warn() {}, error() {}};
+
+const wireBody = (method, params) => JSON.stringify(createFleetWireRequest(method, params));
 
 function createConfig({authMiddleware=null, auth={}}={}) {
     return {
@@ -78,6 +86,33 @@ async function startApp(options={}) {
         baseUrl: `http://127.0.0.1:${server.address().port}`,
         close  : () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
     }
+}
+
+async function rawHttpRequest(baseUrl, {body='', headers={}, method='GET', pathname='/fleet'}={}) {
+    const url = new URL(baseUrl);
+
+    return new Promise((resolve, reject) => {
+        const request = httpRequest({
+            headers,
+            host: url.hostname,
+            method,
+            path: pathname,
+            port: url.port
+        }, response => {
+            let responseBody = '';
+
+            response.setEncoding('utf8');
+            response.on('data', chunk => { responseBody += chunk });
+            response.on('end', () => resolve({
+                body   : JSON.parse(responseBody),
+                headers: response.headers,
+                status : response.statusCode
+            }))
+        });
+
+        request.once('error', reject);
+        request.end(body)
+    })
 }
 
 test.describe.configure({mode: 'serial'});
@@ -145,6 +180,167 @@ test.describe('composed Fleet S1 server', () => {
         }
     });
 
+    test('the exact Fleet route adapts the SDK Host refusal without admitting auth or dispatch', async () => {
+        const calls  = {auth: 0, dispatch: 0};
+        const server = await startApp({
+            authMiddleware(req, res, next) {
+                calls.auth++;
+                req.auth = {userId: 'alice', source: 'test-provider'};
+                next()
+            },
+            serverOptions: {
+                dispatch() {
+                    calls.dispatch++;
+                    return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []})
+                }
+            }
+        });
+
+        try {
+            const response = await rawHttpRequest(server.baseUrl, {
+                body   : wireBody('listAgents'),
+                headers: {
+                    'Content-Type': 'application/json',
+                    Host          : 'evil.example'
+                },
+                method: 'POST'
+            });
+
+            expect(response.status).toBe(403);
+            expect(response.body).toEqual(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: request not admitted'
+            }));
+            expect(response.body).not.toHaveProperty('jsonrpc');
+            expect(JSON.stringify(response.body)).not.toContain('evil.example');
+            expect(calls).toEqual({auth: 0, dispatch: 0})
+        } finally {
+            await server.close()
+        }
+    });
+
+    test('built-in bearer refusals retain HTTP auth semantics but expose only the Fleet envelope', async () => {
+        const invalidToken = 'invalid-provider-secret';
+
+        globalThis.fetch = async (input, init) => {
+            if (String(input) === 'https://api.github.test/user') {
+                expect(init.headers.Authorization).toBe(`Bearer ${invalidToken}`);
+
+                return new Response(JSON.stringify({message: 'provider denied the secret'}), {
+                    status : 401,
+                    headers: {'content-type': 'application/json'}
+                })
+            }
+
+            return nativeFetch(input, init)
+        };
+
+        const server = await startApp();
+
+        try {
+            for (const headers of [
+                {'Content-Type': 'application/json'},
+                {Authorization: `Bearer ${invalidToken}`, 'Content-Type': 'application/json'}
+            ]) {
+                const response = await nativeFetch(`${server.baseUrl}/fleet`, {
+                    body  : wireBody('listAgents'),
+                    headers,
+                    method: 'POST'
+                });
+                const payload = await response.json();
+
+                expect(response.status).toBe(401);
+                expect(response.headers.get('www-authenticate')).toContain('Bearer error="invalid_token"');
+                expect(payload).toEqual(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                    error: 'fleet: request not admitted'
+                }));
+                expect(payload).not.toHaveProperty('error_description');
+                expect(JSON.stringify(payload)).not.toContain(invalidToken);
+                expect(JSON.stringify(payload)).not.toContain('provider denied')
+            }
+        } finally {
+            await server.close()
+        }
+    });
+
+    test('custom auth send and end terminals are normalized onto the same finite refusal', async () => {
+        const terminals = [
+            ['string send', res => res.status(401).send('Unauthorized private detail')],
+            ['object send', res => res.status(401).send({error: 'private auth detail'})],
+            ['direct end',  res => { res.status(401); res.end('Unauthorized private detail') }],
+            ['success envelope', res => res.status(401).json(createFleetWireResponse(
+                FLEET_WIRE_RESPONSE_STATES.ok,
+                {result: ['must-not-cross']}
+            ))]
+        ];
+
+        for (const [name, terminate] of terminals) {
+            let   dispatchCalls = 0;
+            const server        = await startApp({
+                authMiddleware(req, res) {
+                    terminate(res)
+                },
+                serverOptions: {
+                    dispatch() {
+                        dispatchCalls++;
+                        return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []})
+                    }
+                }
+            });
+
+            try {
+                const response = await nativeFetch(`${server.baseUrl}/fleet`, {
+                    body   : wireBody('listAgents'),
+                    headers: {'Content-Type': 'application/json'},
+                    method : 'POST'
+                });
+
+                expect(response.status, name).toBe(401);
+                expect(response.headers.get('content-type'), name).toContain('application/json');
+                expect(await response.json(), name).toEqual(createFleetWireResponse(
+                    FLEET_WIRE_RESPONSE_STATES.refused,
+                    {error: 'fleet: request not admitted'}
+                ));
+                expect(dispatchCalls, name).toBe(0)
+            } finally {
+                await server.close()
+            }
+        }
+    });
+
+    test('custom auth end overload callbacks survive finite-envelope normalization', async () => {
+        for (const withChunk of [false, true]) {
+            let   callbackCalls = 0;
+            const server        = await startApp({
+                authMiddleware(req, res) {
+                    res.status(401);
+
+                    if (withChunk) {
+                        res.end('private auth detail', () => { callbackCalls++ })
+                    } else {
+                        res.end(() => { callbackCalls++ })
+                    }
+                }
+            });
+
+            try {
+                const response = await nativeFetch(`${server.baseUrl}/fleet`, {
+                    body   : wireBody('listAgents'),
+                    headers: {'Content-Type': 'application/json'},
+                    method : 'POST'
+                });
+
+                expect(response.status, String(withChunk)).toBe(401);
+                expect(await response.json(), String(withChunk)).toEqual(createFleetWireResponse(
+                    FLEET_WIRE_RESPONSE_STATES.refused,
+                    {error: 'fleet: request not admitted'}
+                ));
+                expect(callbackCalls, String(withChunk)).toBe(1)
+            } finally {
+                await server.close()
+            }
+        }
+    });
+
     test('the plural-local posture authenticates two provider subjects but exposes no roster or tenant data', async () => {
         const subjects = new Map([
             ['alice-provider-token', {id: 7, login: 'alice', name: 'Alice'}],
@@ -186,7 +382,7 @@ test.describe('composed Fleet S1 server', () => {
                     const response = await nativeFetch(`${server.baseUrl}/fleet`, {
                         method: 'POST',
                         headers,
-                        body  : JSON.stringify({method, params: method === 'getAgent' ? subject.login : undefined})
+                        body  : wireBody(method, method === 'getAgent' ? subject.login : undefined)
                     });
 
                     expect(response.status, `${subject.login}:${method}`).toBe(200);
@@ -300,7 +496,11 @@ test.describe('composed Fleet S1 server', () => {
                 body: '{'
             });
             expect(admitted.status).toBe(400);
-            expect(await admitted.json()).toEqual({ok: false, error: 'fleet: invalid JSON body'})
+            expect(await admitted.json()).toMatchObject({
+                error: 'fleet: invalid JSON body',
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.refused
+            })
         } finally {
             await server.close()
         }
@@ -333,7 +533,11 @@ test.describe('composed Fleet S1 server', () => {
 
                 expect(response.status, origin).toBe(403);
                 expect(response.headers.get('access-control-allow-origin'), origin).toBeNull();
-                expect(await response.json()).toEqual({ok: false, error: 'fleet: origin not admitted'})
+                expect(await response.json()).toMatchObject({
+                    error: 'fleet: origin not admitted',
+                    ok   : false,
+                    state: FLEET_WIRE_RESPONSE_STATES.refused
+                })
             }
 
             const preflight = await nativeFetch(`${server.baseUrl}/fleet`, {
@@ -376,7 +580,11 @@ test.describe('composed Fleet S1 server', () => {
             });
 
             expect(response.status).toBe(413);
-            expect(await response.json()).toEqual({ok: false, error: 'fleet: request body too large'})
+            expect(await response.json()).toMatchObject({
+                error: 'fleet: request body too large',
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.refused
+            })
         } finally {
             await server.close()
         }
@@ -408,7 +616,11 @@ test.describe('composed Fleet S1 server', () => {
             const payload = await response.json();
 
             expect(response.status).toBe(200);
-            expect(payload).toEqual({ok: false, error: 'fleet: request failed'});
+            expect(payload).toMatchObject({
+                error: 'fleet: request failed',
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.operationFailed
+            });
             expect(logs).toEqual(['[FleetServer] dispatch failed']);
             expect(JSON.stringify({payload, logs})).not.toContain(secret)
         } finally {
@@ -491,7 +703,13 @@ test.describe('composed Fleet S1 server', () => {
                 dispatch: async request => {
                     await new Promise(resolve => setTimeout(resolve, request.params.delay));
                     const context = RequestContextService.get();
-                    return {ok: true, result: {userId: context.userId, frozen: Object.isFrozen(context)}}
+                    return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                        protocol: {
+                            version     : request.protocol.versions[0],
+                            capabilities: request.protocol.capabilities
+                        },
+                        result: {userId: context.userId, frozen: Object.isFrozen(context)}
+                    })
                 }
             }
         });
@@ -500,7 +718,7 @@ test.describe('composed Fleet S1 server', () => {
             const call = (userId, delay) => nativeFetch(`${server.baseUrl}/fleet`, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json', 'X-Test-User': userId},
-                body   : JSON.stringify({method: 'listAgents', params: {delay}})
+                body   : wireBody('listAgents', {delay})
             }).then(response => response.json());
 
             const [alice, bob] = await Promise.all([call('alice', 25), call('bob', 1)]);
@@ -566,7 +784,7 @@ test.describe('composed Fleet S1 server', () => {
                 },
                 engines        : {chroma: {dataDirProd: member('chroma/unified')}},
                 heapObservation: {dir: member('heap-observation')},
-                orchestrator: {
+                orchestrator   : {
                     dataDir              : member('orchestrator-daemon'),
                     dbPath               : member('orchestrator-daemon/orchestrator.sqlite'),
                     deploymentStateBridge: {snapshotPath: member('deployment-state/snapshot.json')},
@@ -633,8 +851,8 @@ test.describe('Fleet S1 wire policy', () => {
         }]));
 
         for (const method of FLEET_S1_READY_METHODS) {
-            expect(await dispatchFleetS1Request({method, params: 'x'}, bridge))
-                .toEqual({ok: true, result: method})
+            expect(await dispatchFleetS1Request(createFleetWireRequest(method, 'x'), bridge))
+                .toMatchObject({ok: true, result: method, state: FLEET_WIRE_RESPONSE_STATES.ok})
         }
 
         const expectedSlices = {
@@ -665,8 +883,9 @@ test.describe('Fleet S1 wire policy', () => {
         };
 
         for (const [method, degraded] of Object.entries(expectedSlices)) {
-            expect(await dispatchFleetS1Request({method, params: 'x'}, bridge)).toMatchObject({
-                ok: false,
+            expect(await dispatchFleetS1Request(createFleetWireRequest(method, 'x'), bridge)).toMatchObject({
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.degraded,
                 degraded
             })
         }
@@ -678,9 +897,13 @@ test.describe('Fleet S1 wire policy', () => {
 
     test('unknown methods retain the canonical fail-closed wire envelope', async () => {
         for (const method of ['futureUnclassifiedVerb', 'constructor', 'toString', '__proto__']) {
-            expect(await dispatchFleetS1Request({method}, {})).toEqual({
+            expect(await dispatchFleetS1Request({
+                method,
+                protocol: createFleetWireRequest('listAgents').protocol
+            }, {})).toMatchObject({
+                error: `fleet: method '${method}' is not on the control surface`,
                 ok   : false,
-                error: `fleet: method '${method}' is not on the control surface`
+                state: FLEET_WIRE_RESPONSE_STATES.unsupportedMethod
             })
         }
     })

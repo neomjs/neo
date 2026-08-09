@@ -4,14 +4,27 @@ import {
     projectPublicAgentIntent,
     projectPublicCredentialIntent
 } from '../../../../harness/fleetCapability.mjs';
-import {FLEET_CREDENTIAL_METHODS, FLEET_WIRE_METHODS} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireRequest,
+    createFleetWireResponse,
+    FLEET_CREDENTIAL_METHODS,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    inspectFleetWireResponse
+} from '../../../../ai/services/fleet/fleetWireMethods.mjs';
 
 const bearerToken = 'B'.repeat(43);
 
 const createCapability = options => createFleetCapability({
     bearerToken,
-    credentialMethods: FLEET_CREDENTIAL_METHODS,
-    wireMethods      : FLEET_WIRE_METHODS,
+    createWireOffer    : createFleetWireOffer,
+    createWireRequest  : createFleetWireRequest,
+    createWireResponse : createFleetWireResponse,
+    credentialMethods  : FLEET_CREDENTIAL_METHODS,
+    inspectWireResponse: inspectFleetWireResponse,
+    responseStates     : FLEET_WIRE_RESPONSE_STATES,
+    wireMethods        : FLEET_WIRE_METHODS,
     ...options
 });
 
@@ -22,15 +35,16 @@ test.describe('harness Fleet capability', () => {
             getBrain         : async () => ({fleetPort: 8083, up: true}),
             isTrustedSender  : () => true,
             wireMethods      : ['defineAgent']
-        })).toThrow(/canonical method allowlists/);
+        })).toThrow(/canonical wire contract/);
 
         const
             credentialMethods = [],
             wireMethods       = ['listAgents'],
-            capability        = createFleetCapability({
-                bearerToken,
+            capability        = createCapability({
                 credentialMethods,
-                fetchImpl      : async () => ({json: async () => ({ok: true, result: []})}),
+                fetchImpl      : async () => ({
+                    json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []})
+                }),
                 getBrain       : async () => ({fleetPort: 8083, up: true}),
                 isTrustedSender: () => true,
                 wireMethods
@@ -39,7 +53,11 @@ test.describe('harness Fleet capability', () => {
         credentialMethods.push('listAgents');
         wireMethods.length = 0;
 
-        await expect(capability.request({}, {method: 'listAgents', params: {}})).resolves.toEqual({ok: true, result: []})
+        await expect(capability.request({}, {method: 'listAgents', params: {}})).resolves.toMatchObject({
+            ok    : true,
+            result: [],
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        })
     });
 
     test('checks sender trust before inspecting the request or touching credential, readiness, and network seams', async () => {
@@ -61,9 +79,10 @@ test.describe('harness Fleet capability', () => {
                 isTrustedSender   : () => false
             });
 
-        await expect(capability.request({sender: 'untrusted'}, request)).resolves.toEqual({
+        await expect(capability.request({sender: 'untrusted'}, request)).resolves.toMatchObject({
             error: 'fleet: untrusted shell sender',
-            ok   : false
+            ok   : false,
+            state: FLEET_WIRE_RESPONSE_STATES.refused
         });
         expect(calls).toEqual({brain: 0, credential: 0, fetch: 0})
     });
@@ -84,6 +103,7 @@ test.describe('harness Fleet capability', () => {
                 {method: 42},
                 {method: 'getManager'},
                 {extra: true, method: 'listAgents'},
+                {method: 'listAgents', protocol: createFleetWireOffer()},
                 {method: 'defineAgent', params: {githubUsername: '', harnessType: 'codex'}},
                 {method: 'connectTenant', params: {tenantUrl: ''}}
             ];
@@ -110,16 +130,18 @@ test.describe('harness Fleet capability', () => {
         await expect(capability.request({}, {
             method: 'defineAgent',
             params: {githubUsername: 'alice', harnessType: 'codex'}
-        })).resolves.toEqual({
+        })).resolves.toMatchObject({
             error: "fleet: shell credential ingress unavailable for 'defineAgent'",
-            ok   : false
+            ok   : false,
+            state: FLEET_WIRE_RESPONSE_STATES.refused
         });
         await expect(capability.request({}, {
             method: 'connectTenant',
             params: {tenantUrl: 'https://tenant.example.com'}
-        })).resolves.toEqual({
+        })).resolves.toMatchObject({
             error: "fleet: shell credential ingress unavailable for 'connectTenant'",
-            ok   : false
+            ok   : false,
+            state: FLEET_WIRE_RESPONSE_STATES.refused
         });
 
         expect(calls).toEqual({brain: 0, fetch: 0})
@@ -136,7 +158,12 @@ test.describe('harness Fleet capability', () => {
                 credentialProvider: async input => { calls.credential.push(input); return mainCredential },
                 fetchImpl         : async (url, init) => {
                     calls.fetch.push({init, url});
-                    return {json: async () => ({ok: true, result: {id: 'agent-alice'}})}
+                    return {
+                        json: async () => createFleetWireResponse(
+                            FLEET_WIRE_RESPONSE_STATES.ok,
+                            {result: {id: 'agent-alice'}}
+                        )
+                    }
                 },
                 getBrain       : async () => ({fleetPort: 9191, up: true}),
                 isTrustedSender: candidate => candidate === event
@@ -156,7 +183,11 @@ test.describe('harness Fleet capability', () => {
                 }
             });
 
-        expect(result).toEqual({ok: true, result: {id: 'agent-alice'}});
+        expect(result).toMatchObject({
+            ok    : true,
+            result: {id: 'agent-alice'},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        });
         expect(calls.credential).toEqual([{
             event,
             intent: {
@@ -179,7 +210,8 @@ test.describe('harness Fleet capability', () => {
                 githubUsername: 'alice',
                 harnessType   : 'codex',
                 id            : 'agent-alice'
-            }
+            },
+            protocol: createFleetWireOffer()
         });
         expect(JSON.stringify(outbound)).not.toContain(rendererCredential);
         expect(JSON.stringify(outbound)).not.toContain('renderer-command');
@@ -204,7 +236,12 @@ test.describe('harness Fleet capability', () => {
                 credentialProvider: async input => { calls.credential.push(input); return mainCredential },
                 fetchImpl         : async (url, init) => {
                     calls.fetch.push({init, url});
-                    return {json: async () => ({ok: true, result: {status: 'connected'}})}
+                    return {
+                        json: async () => createFleetWireResponse(
+                            FLEET_WIRE_RESPONSE_STATES.ok,
+                            {result: {status: 'connected'}}
+                        )
+                    }
                 },
                 getBrain       : async () => ({fleetPort: 8083, up: true}),
                 isTrustedSender: candidate => candidate === event
@@ -218,7 +255,11 @@ test.describe('harness Fleet capability', () => {
                 }
             });
 
-        expect(result).toEqual({ok: true, result: {status: 'connected'}});
+        expect(result).toMatchObject({
+            ok    : true,
+            result: {status: 'connected'},
+            state : FLEET_WIRE_RESPONSE_STATES.ok
+        });
         expect(calls.credential).toEqual([{
             event,
             intent: {tenantUrl: 'https://tenant.example.com/agentos/'},
@@ -230,7 +271,8 @@ test.describe('harness Fleet capability', () => {
             params: {
                 credential: mainCredential,
                 tenantUrl : 'https://tenant.example.com/agentos/'
-            }
+            },
+            protocol: createFleetWireOffer()
         });
         expect(projectPublicCredentialIntent('connectTenant', {
             credential: 'discard-me',
@@ -252,9 +294,10 @@ test.describe('harness Fleet capability', () => {
         await expect(capability.request({}, {
             method: 'defineAgent',
             params: {githubUsername: 'alice', harnessType: 'codex'}
-        })).resolves.toEqual({
+        })).resolves.toMatchObject({
             error: "fleet: shell credential ingress canceled for 'defineAgent'",
-            ok   : false
+            ok   : false,
+            state: FLEET_WIRE_RESPONSE_STATES.refused
         });
         expect(calls).toEqual({brain: 0, fetch: 0})
     });
@@ -267,7 +310,9 @@ test.describe('harness Fleet capability', () => {
                     bearerToken,
                     credentialProvider: async () => mainCredential,
                     fetchImpl         : async () => ({
-                        json: async () => ({ok: false, error: `upstream reflected ${reflectedSecret}`})
+                        json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+                            error: `upstream reflected ${reflectedSecret}`
+                        })
                     }),
                     getBrain       : async () => ({fleetPort: 8083, up: true}),
                     isTrustedSender: () => true
@@ -277,8 +322,86 @@ test.describe('harness Fleet capability', () => {
                     params: {githubUsername: 'alice', harnessType: 'codex'}
                 });
 
-            expect(result).toEqual({error: 'fleet: secret-bearing response rejected', ok: false});
+            expect(result).toMatchObject({
+                error: 'fleet: secret-bearing response rejected',
+                ok   : false,
+                state: FLEET_WIRE_RESPONSE_STATES.refused
+            });
             expect(JSON.stringify(result)).not.toContain(reflectedSecret)
+        }
+    });
+
+    test('censuses escaped provider credentials from failure text and nested success data', async () => {
+        const credentials = [
+            'github_pat_quote_"_value',
+            'github_pat_backslash_\\_value',
+            'github_pat_newline_\n_value',
+            '  github_pat_trimmed_value  '
+        ];
+
+        for (const credential of credentials) {
+            for (const reflection of new Set([credential, credential.trim()])) {
+                for (const envelope of [
+                    createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
+                        error: `upstream reflected ${reflection}`
+                    }),
+                    createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                        result: {nested: {credential: reflection}}
+                    }),
+                    createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                        result: {nested: {[reflection]: 'reflected key'}}
+                    })
+                ]) {
+                    const capability = createCapability({
+                            bearerToken,
+                            credentialProvider: async () => credential,
+                            fetchImpl         : async () => ({json: async () => envelope}),
+                            getBrain          : async () => ({fleetPort: 8083, up: true}),
+                            isTrustedSender   : () => true
+                        }),
+                        result = await capability.request({}, {
+                            method: 'defineAgent',
+                            params: {githubUsername: 'alice', harnessType: 'codex'}
+                        });
+
+                    expect(result).toEqual(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                        error: 'fleet: secret-bearing response rejected'
+                    }))
+                }
+            }
+        }
+    });
+
+    test('a skewed or malformed server reply is returned only as a closed local refusal', async () => {
+        const replies = [
+            {ok: true, result: []},
+            {ok: true, state: FLEET_WIRE_RESPONSE_STATES.ok, protocol: createFleetWireResponse(
+                FLEET_WIRE_RESPONSE_STATES.ok,
+                {result: []}
+            ).protocol},
+            createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {
+                protocol: {version: 2, capabilities: createFleetWireOffer().capabilities},
+                result  : []
+            }),
+            {
+                ...createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []}),
+                protocol: {
+                    ...createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: []}).protocol,
+                    bearer: 'must-never-cross'
+                }
+            }
+        ];
+
+        for (const reply of replies) {
+            const capability = createCapability({
+                fetchImpl      : async () => ({json: async () => reply}),
+                getBrain       : async () => ({fleetPort: 8083, up: true}),
+                isTrustedSender: () => true
+            });
+            const result = await capability.request({}, {method: 'listAgents'});
+
+            expect(result).toMatchObject({ok: false, state: FLEET_WIRE_RESPONSE_STATES.refused});
+            expect(result.error).toMatch(/malformed|unoffered/)
         }
     })
 });

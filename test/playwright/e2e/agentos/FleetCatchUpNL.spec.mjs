@@ -1,5 +1,10 @@
 import {expect, test}                                            from '../../fixtures.mjs';
-import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const WINDOW = {
     semantics  : 'half-open',
@@ -84,19 +89,19 @@ async function startCatchUpFleet() {
 
                   switch (request.method) {
                       case 'resolveViewerIdentity':
-                          return {ok: true, result: {ok: true, agentIdentityNodeId: '@e2e-operator'}};
+                          return fleetE2ESuccess({ok: true, agentIdentityNodeId: '@e2e-operator'});
                       case 'fleetRoster':
-                          return {ok: true, result: {rows: rosterRows}};
+                          return fleetE2ESuccess({rows: rosterRows});
                       case 'fleetActivity':
-                          return {ok: true, result: {capability: {state: 'wired'}, events: []}};
+                          return fleetE2ESuccess({capability: {state: 'wired'}, events: []});
                       case 'fleetHistory':
-                          return {ok: true, result: historyResult(request.params)};
+                          return fleetE2ESuccess(historyResult(request.params));
                       case 'markFleetCaughtUp':
-                          return {ok: true, result: {status: 'advanced', lastSeen: request.params.windowEnd}};
+                          return fleetE2ESuccess({status: 'advanced', lastSeen: request.params.windowEnd});
                       case 'getBootIdentity':
-                          return {ok: true, result: {fact: null, classification: 'unknown', advisory: true}};
+                          return fleetE2ESuccess({fact: null, classification: 'unknown', advisory: true});
                       default:
-                          return {ok: false, error: `unexpected catch-up method: ${request.method}`}
+                          return fleetE2EFailure(`unexpected catch-up method: ${request.method}`)
                   }
               }
           }),

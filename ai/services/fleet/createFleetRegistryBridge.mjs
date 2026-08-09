@@ -1,12 +1,18 @@
-import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireRequest,
+    FLEET_WIRE_METHODS,
+    FLEET_WIRE_RESPONSE_STATES,
+    inspectFleetWireResponse
+} from './fleetWireMethods.mjs';
 
 /**
  * @summary Build the pane-facing fleet registry bridge from a transport `send`. Given a request
  * sender, returns the exact object the agentos pane resolves at
  * `globalThis.AgentOS.fleet.registryBridge` (`apps/agentos/view/Accounts.mjs:260`) — one async method
- * per wire-allowlisted operation ({@link FLEET_WIRE_METHODS}), each forwarding `{method, params}`
- * through `send` and unwrapping the `{ok, result|error}` envelope (resolving `result`, throwing on
- * `error`).
+ * per wire-allowlisted operation ({@link FLEET_WIRE_METHODS}). Each operation sends a fresh
+ * version/capability offer, then accepts result data only after the response selects a contract the
+ * client offered — the operable-cold contract's Node-client half.
  *
  * The NODE-side client factory (CLI tools like `ai/scripts/fleet/onboardPeer.mjs`, integration
  * specs), binding the same {@link FLEET_WIRE_METHODS} authority `dispatchFleetRequest` validates
@@ -16,7 +22,7 @@ import {FLEET_WIRE_METHODS} from './fleetWireMethods.mjs';
  * **Dependency-light by design** — it imports only the dep-free wire-method list, never
  * the Node-only FleetControlBridge / crypto / fs chain.
  *
- * @param {Function} send A transport sender: `({method, params}) => Promise<{ok:Boolean, result?:*, error?:String}>`.
+ * @param {Function} send A transport sender for versioned Fleet request/response envelopes.
  * @returns {Object} the registry bridge — one async method per {@link FLEET_WIRE_METHODS} entry
  *                   (`defineAgent(payload)`, `startAgent(id)`, `listAgents()`, …).
  */
@@ -26,9 +32,29 @@ export function createFleetRegistryBridge(send) {
     }
 
     const request = async (method, params) => {
-        const envelope = await send({method, params});
+        const
+            offer       = createFleetWireOffer(),
+            wireRequest = createFleetWireRequest(method, params, offer);
 
-        if (!envelope?.ok) {
+        let envelope, inspection;
+
+        try {
+            envelope = await send(wireRequest)
+        } catch {
+            throw new Error('fleet: request transport failed')
+        }
+
+        try {
+            inspection = inspectFleetWireResponse(envelope, offer)
+        } catch {
+            throw new Error('fleet: malformed wire response')
+        }
+
+        if (!inspection.ok) {
+            throw new Error(inspection.error)
+        }
+
+        if (envelope.state !== FLEET_WIRE_RESPONSE_STATES.ok) {
             throw new Error(envelope?.error || `fleet: '${method}' failed`);
         }
 

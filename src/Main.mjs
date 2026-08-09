@@ -285,7 +285,7 @@ class Main extends core.Base {
     fleetRequest({request} = {}) {
         return globalThis.neoShell?.fleetRequest
             ? globalThis.neoShell.fleetRequest(request)
-            : {ok: false, error: 'fleet: shell request capability unavailable'}
+            : Promise.reject(new Error('fleet: shell request capability unavailable'))
     }
 
     /**

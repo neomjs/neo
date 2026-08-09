@@ -13,11 +13,16 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import FleetRegistryService       from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
-import {startFleetBridgeServer}   from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {test, expect}           from '@playwright/test';
+import Neo                      from '../../../../../../src/Neo.mjs';
+import * as core                from '../../../../../../src/core/_export.mjs';
+import FleetRegistryService     from '../../../../../../ai/services/fleet/FleetRegistryService.mjs';
+import {startFleetBridgeServer} from '../../../../../../ai/services/fleet/fleetBridgeServer.mjs';
+import {
+    createFleetWireOffer,
+    createFleetWireRequest,
+    FLEET_WIRE_RESPONSE_STATES
+} from '../../../../../../ai/services/fleet/fleetWireMethods.mjs';
 import {installFleetBridge}       from '../../../../../../apps/agentos/fleet/installFleetBridge.mjs';
 import {generateLocalBearerToken} from '../../../../../../ai/mcp/server/shared/helpers/localBearer.mjs';
 import RequestContextService      from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
@@ -146,7 +151,7 @@ test.describe('fleet transport — full-chain integration (real server + real re
 
     test('an off-allowlist method is rejected in layers: 401 unauthenticated, allowlist-refused authenticated', async () => {
         const url  = `http://127.0.0.1:${server.address().port}/fleet`,
-              body = JSON.stringify({method: 'getManager', params: 'x'});
+              body = JSON.stringify({method: 'getManager', params: 'x', protocol: createFleetWireOffer()});
 
         // Layer 1 (ingress): without the process bearer the request dies at the ingress guard —
         // the resolver-seam probe never even reaches the method allowlist.
@@ -165,6 +170,7 @@ test.describe('fleet transport — full-chain integration (real server + real re
         const envelope = await authenticated.json();
 
         expect(envelope.ok).toBe(false);
+        expect(envelope.state).toBe(FLEET_WIRE_RESPONSE_STATES.unsupportedMethod);
         expect(envelope.error).toContain('not on the control surface')
     });
 
@@ -187,7 +193,7 @@ test.describe('fleet transport — full-chain integration (real server + real re
             const admitted = await fetch(url, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
-                body   : JSON.stringify({method: 'resolveViewerIdentity'})
+                body   : JSON.stringify(createFleetWireRequest('resolveViewerIdentity'))
             });
             const {ok, result} = await admitted.json();
 
@@ -206,7 +212,7 @@ test.describe('fleet transport — full-chain integration (real server + real re
             const denied = await fetch(url, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body   : JSON.stringify({method: 'resolveViewerIdentity'})
+                body   : JSON.stringify(createFleetWireRequest('resolveViewerIdentity'))
             });
             expect(denied.status).toBe(401)
         } finally {
@@ -243,7 +249,10 @@ test.describe('fleet transport — full-chain integration (real server + real re
             const admitted = await fetch(url, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
-                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer'}})
+                body   : JSON.stringify(createFleetWireRequest(
+                    'fleetMailboxMirror',
+                    {subjectAgentId: '@integration-viewer'}
+                ))
             });
             const {ok, result} = await admitted.json();
 
@@ -259,7 +268,10 @@ test.describe('fleet transport — full-chain integration (real server + real re
             const spoofed = await fetch(url, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearerToken}`},
-                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer', viewerIdentity: '@evil'}})
+                body   : JSON.stringify(createFleetWireRequest(
+                    'fleetMailboxMirror',
+                    {subjectAgentId: '@integration-viewer', viewerIdentity: '@evil'}
+                ))
             });
             const spoofEnvelope = await spoofed.json();
 
@@ -271,7 +283,10 @@ test.describe('fleet transport — full-chain integration (real server + real re
             const denied = await fetch(url, {
                 method : 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body   : JSON.stringify({method: 'fleetMailboxMirror', params: {subjectAgentId: '@integration-viewer'}})
+                body   : JSON.stringify(createFleetWireRequest(
+                    'fleetMailboxMirror',
+                    {subjectAgentId: '@integration-viewer'}
+                ))
             });
 
             expect(denied.status).toBe(401);

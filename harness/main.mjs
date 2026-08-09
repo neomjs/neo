@@ -439,13 +439,18 @@ h1{font-size:20px;margin:0 0 16px}p{color:#b9c4d8;margin:8px 0}.hint{color:#8ea4
 // promise is read at call time so an early-rendering UI receives a named not-ready envelope while a
 // later call joins the exact boot the lifecycle owner retained.
 const fleetCapability = createFleetCapability({
-    bearerToken       : fleetBearerToken,
-    credentialMethods : fleetRuntimeContracts.FLEET_CREDENTIAL_METHODS,
-    credentialProvider: promptFleetCredential,
-    getBrain          : () => brainBootPromise,
-    isTrustedSender   : isTrustedIpcSender,
-    onAdmitted        : ({method}) => diagnosticMode && smokeState.fleetMethods.push(method),
-    wireMethods       : fleetRuntimeContracts.FLEET_WIRE_METHODS
+    bearerToken        : fleetBearerToken,
+    createWireOffer    : fleetRuntimeContracts.createFleetWireOffer,
+    createWireRequest  : fleetRuntimeContracts.createFleetWireRequest,
+    createWireResponse : fleetRuntimeContracts.createFleetWireResponse,
+    credentialMethods  : fleetRuntimeContracts.FLEET_CREDENTIAL_METHODS,
+    credentialProvider : promptFleetCredential,
+    getBrain           : () => brainBootPromise,
+    inspectWireResponse: fleetRuntimeContracts.inspectFleetWireResponse,
+    isTrustedSender    : isTrustedIpcSender,
+    onAdmitted         : ({method}) => diagnosticMode && smokeState.fleetMethods.push(method),
+    responseStates     : fleetRuntimeContracts.FLEET_WIRE_RESPONSE_STATES,
+    wireMethods        : fleetRuntimeContracts.FLEET_WIRE_METHODS
 });
 
 /**
@@ -1001,7 +1006,7 @@ async function bootProductBrain() {
         });
 
         registerBrainChild({child: fleet, label: 'fleet'});
-        await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
+        await awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort, repoRoot: organismRoot})
     }
 
     console.log(`HARNESS_BRAIN_MODE ${mode}${plan.planeBase ? ` planeBase=${plan.planeBase}` : ''} fleetPort=${fleetPort} started=[${brainState.children.map(entry => entry.label).join(',') || 'none'}]`);
@@ -1108,7 +1113,7 @@ async function bootSmokeBrain() {
 
     await Promise.all([
         awaitOrchestratorReady({child: orchestrator}),
-        awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort})
+        awaitFleetReady({bearerToken: fleetBearerToken, child: fleet, port: fleetPort, repoRoot: organismRoot})
     ]);
 
     return {

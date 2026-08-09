@@ -1,6 +1,11 @@
-import {test, expect}                                            from '../../fixtures.mjs';
-import {createFleetMailboxMirrorSnapshot}                        from '../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs';
-import {authenticatedFleetOptions, wireAuthenticatedFleetBridge} from './authenticatedFleetHarness.mjs';
+import {test, expect}                     from '../../fixtures.mjs';
+import {createFleetMailboxMirrorSnapshot} from '../../../../ai/services/fleet/fleetMailboxMirrorAdapter.mjs';
+import {
+    authenticatedFleetOptions,
+    fleetE2EFailure,
+    fleetE2ESuccess,
+    wireAuthenticatedFleetBridge
+} from './authenticatedFleetHarness.mjs';
 
 const FILM_HOLD_MS = Math.max(0, Number(process.env.NEO_FILM_HOLD_MS) || 0);
 
@@ -21,11 +26,9 @@ async function startNWindowFleet() {
 
                   switch (request.method) {
                       case 'resolveViewerIdentity':
-                          return {ok: true, result: {ok: true, agentIdentityNodeId: '@e2e-operator'}};
+                          return fleetE2ESuccess({ok: true, agentIdentityNodeId: '@e2e-operator'});
                       case 'fleetRoster':
-                          return {
-                              ok    : true,
-                              result: {
+                          return fleetE2ESuccess({
                                   rows: [{
                                       id                 : 'neo-fable',
                                       githubUsername     : 'neo-fable',
@@ -67,12 +70,9 @@ async function startNWindowFleet() {
                                           }
                                       }
                                   }]
-                              }
-                          };
+                              });
                       case 'fleetActivity':
-                          return {
-                              ok    : true,
-                              result: {
+                          return fleetE2ESuccess({
                                   capability: {state: 'wired'},
                                   events    : [{
                                       type      : 'a2a-activity',
@@ -80,12 +80,9 @@ async function startNWindowFleet() {
                                       occurredAt: refreshed ? '2026-08-02T00:00:02.000Z' : '2026-08-02T00:00:01.000Z',
                                       payload   : {text: refreshed ? 'Three-window hold live' : 'Film stage ready'}
                                   }]
-                              }
-                          };
+                              });
                       case 'fleetMailboxMirror':
-                          return {
-                              ok    : true,
-                              result: createFleetMailboxMirrorSnapshot({
+                          return fleetE2ESuccess(createFleetMailboxMirrorSnapshot({
                                   messages: [{
                                       messageId: `film-message-${generation}`,
                                       subject  : refreshed ? 'Mailbox vessel live' : 'Mailbox stage ready',
@@ -97,10 +94,9 @@ async function startNWindowFleet() {
                                   page   : {limit: 50, offset: request.params?.offset ?? 0},
                                   subject: '@e2e-operator',
                                   viewer : '@e2e-operator'
-                              })
-                          };
+                              }));
                       default:
-                          return {ok: false, error: `unexpected N-window fixture method: ${request.method}`}
+                          return fleetE2EFailure(`unexpected N-window fixture method: ${request.method}`)
                   }
               }
           }),
