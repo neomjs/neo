@@ -51,12 +51,22 @@ import path from 'path';
 import url  from 'url';
 
 const
-    __dirname     = path.dirname(url.fileURLToPath(import.meta.url)),
-    REPO_ROOT     = path.resolve(__dirname, '../../..'),
-    WORKFLOW_DIR  = path.join(REPO_ROOT, '.github/workflows'),
-    REGISTRY_REL  = 'ai/scripts/lint/guard-ci-parity-registry.json',
-    REGISTRY_PATH = path.join(REPO_ROOT, REGISTRY_REL),
-    PKG_PATH      = path.join(REPO_ROOT, 'package.json');
+    __dirname    = path.dirname(url.fileURLToPath(import.meta.url)),
+    REPO_ROOT    = path.resolve(__dirname, '../../..'),
+    WORKFLOW_DIR = path.join(REPO_ROOT, '.github/workflows'),
+    REGISTRY_REL = 'ai/scripts/lint/guard-ci-parity-registry.json',
+    PKG_PATH     = path.join(REPO_ROOT, 'package.json'),
+
+    /**
+     * The committed registry, unless a spec points this at a fixture.
+     *
+     * The override exists so the sibling spec can prove this guard goes RED without mutating the
+     * real registry — a red-proof that edits the tree it is proving things about would leave the
+     * repo dirty on failure and could not run in parallel. Production never sets it.
+     */
+    REGISTRY_PATH = process.env.NEO_GUARD_CI_PARITY_REGISTRY
+        ? path.resolve(process.env.NEO_GUARD_CI_PARITY_REGISTRY)
+        : path.join(REPO_ROOT, REGISTRY_REL);
 
 /**
  * @summary Every distinct guard script invoked by `lint-staged`, derived — never hardcoded.
