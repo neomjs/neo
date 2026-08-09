@@ -372,10 +372,17 @@ export class DeploymentStateBridgeService extends Base {
             logs              = null,
             providerResidency = null;
 
+        // Retained per operation because target IDENTITY, not just the payload, decides whether two
+        // reads describe the same container. `readObserve` resolves a target per call, so a compose
+        // recreate between inspect and logs lands them on different containers — and the payloads
+        // alone cannot show it.
+        const proofByOperation = {};
+
         const read = async (operation, args = {}) => {
             try {
                 const result = await this.runtimeAccessService.readObserve({serviceKey, operation, ...args});
                 proofs.push(result.proof);
+                proofByOperation[operation] = result.proof;
                 return result.data;
             } catch (error) {
                 errors.push(summarizeRuntimeAccessError(error, {operation}));
@@ -389,7 +396,15 @@ export class DeploymentStateBridgeService extends Base {
         const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge;
 
         if (bridgeConfig.includeLogs) {
-            logs = await read('logs', {tail: bridgeConfig.logTail});
+            // The interval is derived from the SAME inspect this snapshot publishes, so the slice
+            // and the stopped fact describe one incarnation. A running container has no
+            // `FinishedAt`, so it yields no interval and the read stays unbounded — correct, since
+            // there is no death to attribute yet.
+            logs = await read('logs', {
+                since: inspect?.State?.StartedAt  ?? null,
+                tail : bridgeConfig.logTail,
+                until: inspect?.State?.FinishedAt ?? null
+            });
         }
 
         if (stats) {
@@ -408,6 +423,23 @@ export class DeploymentStateBridgeService extends Base {
         const inspectReadFailed = inspect === null &&
             errors.some(entry => entry?.operation === 'inspect' || entry?.detail?.operation === 'inspect');
 
+        // Summarized ONCE, here, and reused by both the diagnosis and the published snapshot below.
+        // The heap attribution needs the same two `Config.Cmd` observations this service already
+        // derives (`nodeCommand`, `declaredHeapCeilingMb`) plus the same bounded tail it already
+        // reads — so diagnosis consumes them rather than re-deriving, and there stays exactly one
+        // place that decides what "a Node service" and "the log tail" mean.
+        const
+            inspectSummary = summarizeInspect(inspect),
+            // The interval proves a TIME RANGE; this proves it was applied to the container whose
+            // inspect produced the stopped fact. Both are required before a slice may be called
+            // incarnation-bounded — a matching range on a different container is not this run.
+            sameTarget     = Boolean(
+                proofByOperation.logs?.target?.containerId &&
+                proofByOperation.inspect?.target?.containerId &&
+                proofByOperation.logs.target.containerId === proofByOperation.inspect.target.containerId
+            ),
+            logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget});
+
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
                 inspectReadFailed,
@@ -418,6 +450,11 @@ export class DeploymentStateBridgeService extends Base {
                 providerResidency,
                 churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
+                // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
+                // attribution, never as "not a heap death". A disabled channel is not evidence.
+                logs                 : logSummary,
+                nodeCommand          : inspectSummary?.nodeCommand ?? null,
+                declaredHeapCeilingMb: inspectSummary?.declaredHeapCeilingMb ?? null,
                 observedAt
             })
             : null;
@@ -444,9 +481,9 @@ export class DeploymentStateBridgeService extends Base {
             targetIdentity: {kind: 'compose-service', id: serviceKey},
             observedAt,
             status        : errors.length > 0 ? 'degraded' : 'available',
-            inspect       : summarizeInspect(inspect),
+            inspect       : inspectSummary,
             stats         : summarizeStats(stats),
-            logs          : summarizeLogs(logs, bridgeConfig.logMaxBytes),
+            logs          : logSummary,
             providerResidency,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,
@@ -1149,16 +1186,25 @@ function summarizeStats(stats) {
     };
 }
 
-function summarizeLogs(logs, maxBytes) {
+function summarizeLogs(logs, maxBytes, {sameTarget = false} = {}) {
     if (!logs || typeof logs !== 'object') return null;
 
     const bounded = boundUtf8Tail(logs.logs, maxBytes);
 
     return {
-        tail     : Number.isFinite(logs.tail) ? logs.tail : null,
-        text     : bounded.text,
-        truncated: bounded.truncated,
-        maxBytes : bounded.maxBytes
+        // `incarnationBounded` is set ONLY from the producer's echoed receipt — never from a
+        // caller-supplied flag and never inferred here. A consumer that attributes a death to this
+        // slice is trusting that the daemon actually applied the interval, so the claim has to
+        // originate where it was applied rather than where it is wanted.
+        appliedSince: typeof logs.appliedSince === 'string' ? logs.appliedSince : null,
+        appliedUntil: typeof logs.appliedUntil === 'string' ? logs.appliedUntil : null,
+        // BOTH proofs or nothing: the producer applied a real interval, AND it applied it to the
+        // same container the stopped fact describes.
+        incarnationBounded: logs.bounded === true && sameTarget === true,
+        maxBytes          : bounded.maxBytes,
+        tail              : Number.isFinite(logs.tail) ? logs.tail : null,
+        text              : bounded.text,
+        truncated         : bounded.truncated
     };
 }
 

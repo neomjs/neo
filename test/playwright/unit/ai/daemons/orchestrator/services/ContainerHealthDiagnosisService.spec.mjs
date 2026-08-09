@@ -17,7 +17,8 @@ import {
     isStoreBackedService,
     evaluateRestartChurn,
     calculateDockerCpuPercent,
-    calculateDockerMemoryPercent
+    calculateDockerMemoryPercent,
+    classifyHeapExhaustion
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 
 const OBSERVED_AT = 1710000000000;
@@ -121,6 +122,160 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
         });
         expect(decision.diagnosis.evidenceFacts.map(fact => fact.type))
             .toContain(CONTAINER_HEALTH_FACT_TYPES.containerDown);
+    });
+
+    test('heap attribution needs BOTH the fatal line and a Node command', () => {
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
+
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion,
+            'the line names a heap and the command proves there was one to exhaust').toBe(true);
+
+        // The scoping red control. A non-Node process cannot exhaust a V8 heap, so a tail carrying
+        // the phrase (another container's output, or a service logging the text) must not attribute.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: false}).heapExhaustion,
+            'a non-Node service has no V8 heap, whatever the tail contains').toBe(false);
+
+        expect(classifyHeapExhaustion({logs: {text: 'ECONNREFUSED, exiting', truncated: false}, nodeCommand: true}).heapExhaustion,
+            'a Node service that died of something else is a positive negative').toBe(false);
+    });
+
+    test('the declared ceiling licenses WORDING, never the attribution itself', () => {
+        const fatal = {text: 'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
+
+        // The population the originating incident came from: Node, no declared ceiling, dead of a
+        // heap. Scoping attribution to the ceiling would blind this to exactly that case.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, declaredHeapCeilingMb: null}))
+            .toMatchObject({heapExhaustion: true, declaredHeapCeilingMb: null});
+
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, declaredHeapCeilingMb: 768}))
+            .toMatchObject({heapExhaustion: true, declaredHeapCeilingMb: 768});
+    });
+
+    test('a kernel OOM kill alongside a matching tail is an unresolvable conflict, not a verdict', () => {
+        const fatal = {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true};
+
+        // The kernel and V8 make CONTRADICTORY claims about the same death and this payload cannot
+        // adjudicate: either V8 exhausted its heap and the container was reaped afterwards, or the
+        // cgroup killed a container whose slice still carries an older fatal line.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, oomKilled: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'evidence-conflict'});
+
+        // No conflict when the kernel did not intervene — the attribution stands.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true, oomKilled: false}).heapExhaustion)
+            .toBe(true);
+
+        // And an unobserved oomKilled must not manufacture a conflict.
+        expect(classifyHeapExhaustion({logs: fatal, nodeCommand: true}).heapExhaustion).toBe(true);
+    });
+
+    test('an unbounded slice refuses to attribute — the tail spans restarts', () => {
+        const fatal = 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory';
+
+        // Emmy's specimen: an old fatal line, a healthy boot, then an unrelated current crash. A
+        // match anywhere in an unbounded slice would name the wrong cause with full confidence.
+        const stale = {
+            text     : `${fatal}\n[restart] healthy boot\nTypeError: unrelated current crash`,
+            truncated: false
+        };
+
+        expect(classifyHeapExhaustion({logs: stale, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'log-incarnation-unbounded'});
+
+        // Absent the producer's bound, even a clean single-line slice must refuse — the classifier
+        // cannot tell a current death from a historical one without being told.
+        expect(classifyHeapExhaustion({logs: {text: fatal, truncated: false}, nodeCommand: true}).unavailableReason)
+            .toBe('log-incarnation-unbounded');
+
+        // With the bound stated, the same evidence attributes.
+        expect(classifyHeapExhaustion({
+            logs       : {text: fatal, truncated: false, incarnationBounded: true},
+            nodeCommand: true
+        }).heapExhaustion).toBe(true);
+    });
+
+    test('unavailable is null WITH a reason — a disabled channel is not a negative', () => {
+        expect(classifyHeapExhaustion({logs: null, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'logs-unavailable'});
+
+        expect(classifyHeapExhaustion({logs: {text: 'x', truncated: false}, nodeCommand: null}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'command-unreadable'});
+
+        // A truncated tail that does not match cannot separate "no heap death" from "the line fell
+        // outside the window" — but truncation cannot manufacture the line, so a match still counts.
+        expect(classifyHeapExhaustion({logs: {text: 'nothing here', truncated: true}, nodeCommand: true}))
+            .toMatchObject({heapExhaustion: null, unavailableReason: 'log-tail-truncated'});
+
+        // Truncation cannot manufacture the line, so a matching truncated tail stays conclusive
+        // ABOUT TRUNCATION — but it still needs the incarnation bound, because a surviving line can
+        // belong to an earlier run. Both conditions, not either.
+        expect(classifyHeapExhaustion({
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: true, incarnationBounded: true},
+            nodeCommand: true
+        }).heapExhaustion, 'a truncated but incarnation-bounded match is conclusive').toBe(true);
+
+        expect(classifyHeapExhaustion({
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: true},
+            nodeCommand: true
+        }).unavailableReason, 'truncation-conclusiveness does not substitute for the incarnation bound')
+            .toBe('log-incarnation-unbounded');
+    });
+
+    test('the crash diagnosis names the heap exhaustion without changing the action', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey           : 'memory',
+            inspect              : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
+            logs                 : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
+            nodeCommand          : true,
+            declaredHeapCeilingMb: 768
+        });
+
+        // The action was never wrong — a stopped container is restarted either way. The cause is
+        // what was missing, and a restart that never implicates the ceiling repeats forever.
+        expect(decision.actionClass, 'attribution must not change the heal')
+            .toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+
+        expect(decision.diagnosis.details.classificationReason)
+            .toBe('lifecycle-crash-heap-exhaustion-declared-ceiling');
+
+        const downFact = decision.facts.find(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
+
+        expect(downFact.details, 'raw evidence and attribution travel together').toMatchObject({
+            declaredHeapCeilingMb: 768,
+            exitCode             : 139,
+            heapExhaustion       : true,
+            oomKilled            : false
+        });
+    });
+
+    test('an undeclared Node service still attributes, without claiming a ceiling it never had', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey : 'memory',
+            inspect    : runningInspect({Status: 'exited', ExitCode: 139, OOMKilled: false}),
+            logs       : {text: 'FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory', truncated: false, incarnationBounded: true},
+            nodeCommand: true
+        });
+
+        expect(decision.diagnosis.details.classificationReason).toBe('lifecycle-crash-heap-exhaustion');
+    });
+
+    test('a non-heap death keeps the generic crash reason', () => {
+        const service = createService();
+
+        const decision = service.diagnose({
+            serviceKey : 'memory',
+            inspect    : runningInspect({Status: 'exited', ExitCode: 137, OOMKilled: true}),
+            logs       : {text: 'terminated', truncated: false},
+            nodeCommand: true
+        });
+
+        // The narrowing must discriminate rather than decorate.
+        expect(decision.diagnosis.details.classificationReason).toBe('lifecycle-crash');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
     });
 
     test('requires multi-fact evidence before diagnosing unhealthy probe-like states', () => {

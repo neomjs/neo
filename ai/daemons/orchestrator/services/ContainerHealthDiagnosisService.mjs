@@ -35,6 +35,22 @@ export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
 export const SERVICE_CLASSES = Object.freeze({store: 'store', transient: 'transient'});
 
 /**
+ * @summary The V8 fatal line that NAMES a heap exhaustion, on one line, strictly.
+ *
+ * Both shapes V8 emits — `Reached heap limit` and `Ineffective mark-compacts near heap limit` —
+ * carry `JavaScript heap out of memory` on the same `FATAL ERROR:` line, so requiring the pair is
+ * strict without enumerating V8's wording variants.
+ *
+ * **This replaced an exit-code discriminator, and the reason generalises.** No abort code carries
+ * heap semantics: it names the manner of death, never its cause, and its value is not even stable
+ * across base images — the canonical `mc-server` image exits `139` where a host Node exits `134`,
+ * and it exits `139` whether or not a ceiling was declared. The log line is the only observation
+ * that says *heap*.
+ * @member {RegExp} HEAP_FATAL_LINE
+ */
+export const HEAP_FATAL_LINE = /FATAL ERROR:[^\n]*JavaScript heap out of memory/;
+
+/**
  * @summary EXHAUSTIVE service classification, declared per key rather than inferred from absence.
  *
  * Covers every key in `orchestrator.deploymentRuntimeAccess.allowedServices`, which is the roster
@@ -245,6 +261,12 @@ export class ContainerHealthDiagnosisService extends Base {
         churnBaseline = null,
         inspectReadFailed = false,
         plannedRestarts = 0,
+        // Summarized ONCE by the bridge from the same `Config.Cmd` and the same allowlisted log
+        // read it already performs — passed in rather than re-derived here, so there is exactly one
+        // place that decides what "a Node service" and "the log tail" mean.
+        logs = null,
+        nodeCommand = null,
+        declaredHeapCeilingMb = null,
         observedAt = this.now()
     } = {}) {
         this.validateServiceKey(serviceKey);
@@ -271,7 +293,7 @@ export class ContainerHealthDiagnosisService extends Base {
                 details      : {operation: 'inspect'}
             })] : []),
             ...this.collectRestartChurnFacts({serviceKey, churn, observedAt}),
-            ...this.collectLifecycleFacts({serviceKey, inspect, observedAt}),
+            ...this.collectLifecycleFacts({serviceKey, inspect, observedAt, logs, nodeCommand, declaredHeapCeilingMb}),
             ...this.collectStatsFacts({serviceKey, stats, statsSamples, observedAt}),
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
@@ -434,9 +456,13 @@ export class ContainerHealthDiagnosisService extends Base {
     /**
      * Collects container lifecycle facts from Docker inspect data.
      * @param {Object} options
+     * @param {Object|null} [options.logs=null] Bounded log summary, for heap attribution.
+     * @param {Boolean|null} [options.nodeCommand=null] Whether `Config.Cmd` invoked Node.
+     * @param {Number|null} [options.declaredHeapCeilingMb=null] Declared ceiling, when observable.
+ * @param {Boolean|null} [options.oomKilled=null] Whether the kernel reclaimed the container.
      * @returns {Object[]}
      */
-    collectLifecycleFacts({serviceKey, inspect, observedAt}) {
+    collectLifecycleFacts({serviceKey, inspect, observedAt, logs = null, nodeCommand = null, declaredHeapCeilingMb = null}) {
         if (!inspect || typeof inspect !== 'object') return [];
 
         const
@@ -446,6 +472,13 @@ export class ContainerHealthDiagnosisService extends Base {
             facts       = [];
 
         if (status && !RUNNING_STATES.has(status)) {
+            const heap = classifyHeapExhaustion({
+                logs,
+                nodeCommand,
+                declaredHeapCeilingMb,
+                oomKilled: typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null
+            });
+
             facts.push(this.createFact({
                 type         : CONTAINER_HEALTH_FACT_TYPES.containerDown,
                 serviceKey,
@@ -455,7 +488,14 @@ export class ContainerHealthDiagnosisService extends Base {
                 details      : {
                     status,
                     exitCode: Number.isFinite(state.ExitCode) ? state.ExitCode : null,
-                    error   : typeof state.Error === 'string' ? state.Error : null
+                    error   : typeof state.Error === 'string' ? state.Error : null,
+                    // RAW EVIDENCE, not attribution inputs. Both are worth recording — a cgroup kill
+                    // and a self-abort are different failures — but neither says *heap*, and the
+                    // exit code's value is not even stable across base images.
+                    oomKilled: typeof state.OOMKilled === 'boolean' ? state.OOMKilled : null,
+                    // The attribution, with its own limits attached. `unavailableReason` is what
+                    // keeps a disabled log channel distinguishable from a non-heap death.
+                    ...heap
                 }
             }));
         }
@@ -728,13 +768,34 @@ export class ContainerHealthDiagnosisService extends Base {
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown ||
             fact.type === CONTAINER_HEALTH_FACT_TYPES.containerUnhealthy
         );
-        if (lifecycleFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown) || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
+        const downFacts = lifecycleFacts.filter(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown);
+
+        if (downFacts.length || this.hasAuthoritativeEvidence(lifecycleFacts, facts)) {
+            // The ACTION is unchanged and was never wrong — a stopped container is restarted either
+            // way. What was missing is the CAUSE: a service that exhausted its declared V8 ceiling
+            // recorded as a generic crash, so the ceiling was never implicated and the same abort
+            // recurred indefinitely. That is why nothing looked broken from the outside.
+            //
+            // The reason narrows only on evidence that NAMES a heap — the strict fatal line on a
+            // Node command. It is an attribution, not a candidate: when the log channel is open the
+            // evidence is conclusive, and when it is not the reason simply stays generic rather
+            // than asserting a weaker version of a claim nothing supports.
+            const heapFact = downFacts.find(fact => fact.details?.heapExhaustion === true);
+
             return {
                 recoveryClass: 'crash',
                 actionClass  : CONTAINER_HEALTH_ACTION_CLASSES.restart,
-                confidence   : lifecycleFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.containerDown) ? 0.9 : 0.8,
+                confidence   : downFacts.length ? 0.9 : 0.8,
                 evidenceFacts: this.selectEvidenceFacts(facts, lifecycleFacts),
-                reason       : 'lifecycle-crash'
+                // Only a numeric declared ceiling licenses the wording that implicates one. An
+                // undeclared Node service still attributes the heap death — that population is
+                // precisely where this class was first observed.
+                reason       : heapFact
+                    ? (Number.isFinite(heapFact.details.declaredHeapCeilingMb)
+                        ? 'lifecycle-crash-heap-exhaustion-declared-ceiling'
+                        : 'lifecycle-crash-heap-exhaustion')
+                    : 'lifecycle-crash'
             };
         }
 
@@ -1136,6 +1197,91 @@ export function calculateDockerCpuPercent(stats) {
         (Array.isArray(cpuStats.cpu_usage?.percpu_usage) ? cpuStats.cpu_usage.percpu_usage.length : 1);
 
     return (cpuDelta / systemDelta) * onlineCpus * 100;
+}
+
+/**
+ * @summary Attributes a container death to V8 heap exhaustion from evidence that NAMES a heap.
+ *
+ * Two observations, both already produced by `DeploymentStateBridgeService` from the same
+ * `Config.Cmd` and the same allowlisted log read — this re-derives neither:
+ *
+ * - **the strict fatal line** (`HEAP_FATAL_LINE`) — the only evidence that says *heap*;
+ * - **`nodeCommand`** — whether the process had a V8 heap to exhaust at all.
+ *
+ * Both are required. The line alone would attribute a tail that captured another container's
+ * output, or a service that merely logs the phrase; `nodeCommand` alone says nothing about how the
+ * process died.
+ *
+ * **`declaredHeapCeilingMb` is deliberately NOT part of the discriminator.** A missing
+ * `--max-old-space-size` proves the ceiling is UNDECLARED, never that the process is non-Node — and
+ * undeclared-Node is exactly the population the originating incident came from, so scoping to the
+ * ceiling would blind this to the case it exists for. The ceiling is a supporting fact that
+ * licenses stronger *wording*, never the attribution itself.
+ *
+ * Tri-state, and `null` is load-bearing: logs disabled, an unreadable command, or a divergent
+ * command means the question was never asked, which must read as absence of signal rather than as a
+ * negative. `unavailableReason` travels with it so a reader can tell a disabled channel from a
+ * non-heap death — the two are opposite facts that a bare `false` would merge.
+ * @param {Object} options
+ * @param {Object|null} options.logs Bounded log summary (`{text, truncated, incarnationBounded, …}`) from the bridge. `incarnationBounded` must be `true` before a match may attribute.
+ * @param {Boolean|null} options.nodeCommand Whether `Config.Cmd` invoked Node.
+ * @param {Number|null} [options.declaredHeapCeilingMb=null] Declared ceiling, when observable.
+ * @param {Boolean|null} [options.oomKilled=null] Whether the kernel reclaimed the container.
+ * @returns {Object} `{heapExhaustion, unavailableReason, declaredHeapCeilingMb}`
+ */
+export function classifyHeapExhaustion({logs, nodeCommand, declaredHeapCeilingMb = null, oomKilled = null}) {
+    const unavailable = reason => ({
+        declaredHeapCeilingMb: null,
+        heapExhaustion       : null,
+        unavailableReason    : reason
+    });
+
+    // The command decides whether the question is even meaningful, so an unreadable one cannot
+    // produce a negative — a non-Node VERDICT and an unread command are different facts.
+    if (nodeCommand === null || nodeCommand === undefined) return unavailable('command-unreadable');
+
+    if (nodeCommand === false) {
+        return {
+            declaredHeapCeilingMb: null,
+            // A positive negative: the process had no V8 heap, so it cannot have exhausted one.
+            heapExhaustion   : false,
+            unavailableReason: null
+        }
+    }
+
+    if (!logs || typeof logs.text !== 'string') return unavailable('logs-unavailable');
+
+    const matched = HEAP_FATAL_LINE.test(logs.text);
+
+    // The kernel and V8 are making CONTRADICTORY claims about the same death, and this payload
+    // cannot adjudicate: either V8 exhausted its heap and the container was reaped afterwards, or
+    // the cgroup killed a container whose log slice still carries an older fatal line. Recording
+    // `oomKilled` beside a confident heap verdict would publish the contradiction as agreement, so
+    // an unresolvable conflict is absence of signal — never the weaker of the two answers.
+    if (matched && oomKilled === true) return unavailable('evidence-conflict');
+
+    // A truncated tail that does NOT match cannot distinguish "no heap death" from "the line fell
+    // outside the window", so it must not answer. A truncated tail that DOES match is conclusive —
+    // truncation cannot manufacture the line.
+    if (!matched && logs.truncated === true) return unavailable('log-tail-truncated');
+
+    // The Docker log stream spans RESTARTS. An unbounded slice can therefore carry a fatal line from
+    // an earlier incarnation above a healthy boot above an unrelated current crash, and a match
+    // anywhere in it would name the wrong cause with full confidence — the same
+    // wider-than-the-thing-it-names defect this diagnosis path exists to remove, one layer down.
+    //
+    // So a match only attributes when the producer states the slice belongs to the stopped run.
+    // Until it does, this refuses rather than guesses: a matching line that cannot be proven to
+    // belong to this incarnation is unavailable evidence, never a weaker heap verdict.
+    if (matched && logs.incarnationBounded !== true) return unavailable('log-incarnation-unbounded');
+
+    return {
+        // Only a numeric ceiling licenses wording that implicates a DECLARED ceiling; an undeclared
+        // Node service still attributes, without claiming a bound it never had.
+        declaredHeapCeilingMb: matched && Number.isFinite(declaredHeapCeilingMb) ? declaredHeapCeilingMb : null,
+        heapExhaustion       : matched,
+        unavailableReason    : null
+    }
 }
 
 export function calculateDockerMemoryPercent(stats) {
