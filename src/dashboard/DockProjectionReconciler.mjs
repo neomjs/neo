@@ -346,7 +346,12 @@ class DockProjectionReconciler extends Base {
                 await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
             }
 
-            return {...stableProjection, overflowPlugins}
+            // `landedInPlace` reports the path this call ACTUALLY took, so a caller never has to
+            // predict it. `geometryOnly` is only an admission REQUEST — `reconcileStableTopology`
+            // returns null on any node/type/ancestry/order/orientation delta and falls through to
+            // the staged transaction below — so a consumer whose contract needs "no topology swap
+            // happened" (rather than "one was not expected") must read this instead of the request.
+            return {...stableProjection, landedInPlace: true, overflowPlugins}
         }
 
         const
@@ -456,7 +461,10 @@ class DockProjectionReconciler extends Base {
             await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
         }
 
-        return {currentTabs, nextShell, overflowPlugins, plans}
+        // The staged transaction replaced the shell, so any downstream contract keyed on
+        // "no topology swap can be pending" must NOT be told otherwise, however the call was
+        // admitted. See the in-place return above.
+        return {currentTabs, landedInPlace: false, nextShell, overflowPlugins, plans}
     }
 
     /**
