@@ -19,12 +19,12 @@ import {
     getMessageWalGraphProjectionStats,
     getMessageWalSegmentKey,
     getMissingMessageWalLeaves,
-    readWalMessages,
     readWalMessagesByIds,
     readPendingMessageWalRecords
 } from './helpers/messageWalStore.mjs';
 import {IDENTITIES}                   from '../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId} from '../../graph/normalizeAgentIdentityNodeId.mjs';
+import {SQLITE_IN_CLAUSE_BATCH_SIZE}  from '../../graph/storage/constants.mjs';
 import {resolveResidentFamilyById}    from '../graph/agentFamilyResolution.mjs';
 import {getMissingMemoryWalLeaves}    from './helpers/memoryWalStore.mjs';
 import {
@@ -37,14 +37,17 @@ import {promisify} from 'util';
 import crypto      from 'crypto';
 
 const
-    execFileAsync                        = promisify(execFile),
-    RELATED_PULL_REQUEST_CACHE_TTL_MS    = 30 * 1000,
-    RELATED_PULL_REQUEST_PATTERN         = /^#(\d+)$/,
-    relatedPullRequestStateCache         = new Map(),
-    WAKE_SUPPRESSION_ALLOWED_TAGS        = new Set(['sunset-protocol-handover', 'lead-role-baton']),
-    MESSAGE_GRAPH_REPAIR_LIMIT           = 250,
-    IDENTITY_ROOTS_BY_ID                 = new Map(IDENTITIES.map(identity => [identity.id, identity])),
-    WAKE_SUPPRESSION_ACTIONABLE_SUBJECTS = [
+    execFileAsync                         = promisify(execFile),
+    RELATED_PULL_REQUEST_CACHE_TTL_MS     = 30 * 1000,
+    RELATED_PULL_REQUEST_PATTERN          = /^#(\d+)$/,
+    relatedPullRequestStateCache          = new Map(),
+    WAKE_SUPPRESSION_ALLOWED_TAGS         = new Set(['sunset-protocol-handover', 'lead-role-baton']),
+    MESSAGE_GRAPH_REPAIR_LIMIT            = 250,
+    MESSAGE_GRAPH_REPAIR_FAILURE_RETRY_MS = 30 * 1000,
+    MESSAGE_WAL_CANDIDATE_CACHE_LIMIT     = 512,
+    MESSAGE_WAL_UNREADABLE_RETRY_MS       = 30 * 1000,
+    IDENTITY_ROOTS_BY_ID                  = new Map(IDENTITIES.map(identity => [identity.id, identity])),
+    WAKE_SUPPRESSION_ACTIONABLE_SUBJECTS  = [
         /^\[re-review/i,
         /^\[review/i,
         /^\[review-response/i,
@@ -54,6 +57,15 @@ const
         /\bCHANGES_REQUESTED\b/i,
         /\blane-override\b/i
     ];
+
+const graphProjectionRepairCursorByView    = new Map(),
+    graphProjectionRepairFailureById       = new Map(),
+    graphProjectionRepairPromiseById       = new Map(),
+    messageWalCandidateRecordCacheById     = new Map(),
+    messageWalCandidateSegmentLoadByKey    = new Map(),
+    messageWalCandidateMetadataCacheById   = new Map(),
+    unreadableMessageWalCandidateStateById = new Map();
+let graphProjectionCandidateScanPromise = null;
 
 // Collision-class substrate: claim signals are STATUS, not interrupts — their broadcasts default to
 // quiet at the `addMessage` resolution seam (operator-directed 2026-07-26; peers read claims at their
@@ -481,6 +493,69 @@ function getCanonicalMessageWalRouting(record) {
         sentBy,
         to
     };
+}
+
+/**
+ * @summary Derives the immutable broadcast-cohort marker from one accepted WAL record.
+ *
+ * Presence of `routing.broadcastRecipients` is itself evidence: an explicit empty array is the
+ * valid zero-audience snapshot, while an absent historical field cannot prove zero and receives
+ * the compatibility disposition `legacy-unknown`. Direct messages have no broadcast cohort.
+ *
+ * @param {Object} record Accepted message WAL record.
+ * @returns {{disposition: 'known', intendedRecipientCount: Number}|{disposition: 'legacy-unknown'}|null}
+ * @private
+ */
+function getMessageWalBroadcastCohort(record) {
+    const {broadcastRecipients, to} = getCanonicalMessageWalRouting(record);
+
+    if (to !== 'AGENT:*') return null;
+
+    return Array.isArray(record?.routing?.broadcastRecipients)
+        ? {disposition: 'known', intendedRecipientCount: broadcastRecipients.length}
+        : {disposition: 'legacy-unknown'}
+}
+
+/**
+ * @summary Derives the immutable canonical sender/destination marker for one accepted WAL record.
+ *
+ * Broadcast cohort knowledge is intentionally separate: a historical broadcast can retain a
+ * trustworthy route while lacking the later recipient snapshot. Invalid historical routes are
+ * explicitly quarantined instead of being re-read and reinterpreted on every mailbox list.
+ *
+ * @param {Object} record Accepted message WAL record.
+ * @returns {{disposition: 'known', sentBy: String, to: String}|{disposition: 'legacy-unknown'}}
+ * @private
+ */
+function getMessageWalMailboxRouting(record) {
+    const {invalidDirectIdentities, sentBy, to} = getCanonicalMessageWalRouting(record);
+
+    return sentBy && to && invalidDirectIdentities.length === 0
+        ? {disposition: 'known', sentBy, to}
+        : {disposition: 'legacy-unknown'}
+}
+
+/**
+ * @summary Checks whether a compact canonical routing marker can affect one mailbox view.
+ * @param {Object} mailboxRouting Projection-marker route fact.
+ * @param {Object} options
+ * @param {String} [options.box='all'] Mailbox box being queried.
+ * @param {String} [options.target] Target identity being queried.
+ * @returns {Boolean}
+ * @private
+ */
+function mailboxRoutingMatchesMailboxView(mailboxRouting, {box = 'all', target} = {}) {
+    if (mailboxRouting?.disposition !== 'known') return false;
+    if (!target) return true;
+
+    const {sentBy, to} = mailboxRouting;
+
+    if (box === 'outbox') return sameMailboxIdentity(sentBy, target);
+
+    const inboxMatch = sameMailboxIdentity(to, target) || to === 'AGENT:*';
+    if (box === 'inbox') return inboxMatch;
+
+    return sameMailboxIdentity(sentBy, target) || inboxMatch
 }
 
 function buildTaggedConceptFilterGroups(values = []) {
@@ -950,54 +1025,491 @@ export function getWakeDeliverySeries({since = null, until = null} = {}) {
 }
 
 /**
- * @summary Checks whether the graph projection is damaged relative to the projected WAL count OR a
- * broadcast has lost its whole delivery cohort — the mailbox read-path guard.
- *
- * Healthy reads use cheap SQLite counts plus the compact graph-marker index and avoid parsing
- * accepted message WAL records. A mismatch means the graph projection may be damaged, so callers
- * should run the full WAL-backed repair path.
- *
- * Two damage classes are detected. (1) The count trio (MESSAGE / SENT_BY / SENT_TO falling below
- * projectedCount) catches a lost message or send-edge. (2) The broadcast-cohort term catches a
- * `SENT_TO → AGENT:*` broadcast whose entire per-recipient `DELIVERED_TO` cohort was lost — invisible
- * to the trio because the MESSAGE node, SENT_BY, and SENT_TO all survive, so all three counts still
- * match projectedCount. Without term (2) a pure read (list/count with no prior mark) of such a
- * broadcast never self-heals, since the read routes through this gate.
- *
- * @returns {Promise<Boolean>}
+ * @summary Stores one process-local fact in a bounded insertion-ordered cache.
+ * @param {Map<String,*>} cache Target cache.
+ * @param {String} key Cache key.
+ * @param {*} value Cached value.
+ * @returns {void}
  * @private
  */
-async function hasMailboxGraphProjectionGap() {
+function setBoundedMessageWalCandidateCache(cache, key, value) {
+    cache.delete(key);
+    cache.set(key, value);
+
+    while (cache.size > MESSAGE_WAL_CANDIDATE_CACHE_LIMIT) {
+        cache.delete(cache.keys().next().value);
+    }
+}
+
+/**
+ * @summary Checks whether two payload signatures still describe the same append-only generation.
+ *
+ * Ordinary growth of today's active segment cannot repair an older missing/corrupt accepted row,
+ * so it must not defeat the retry cooldown. Replacement, file-kind change, or truncation can
+ * change that row and therefore wakes the residual immediately.
+ *
+ * @param {String} previous Previous payload signature.
+ * @param {String} current Current payload signature.
+ * @returns {Boolean}
+ * @private
+ */
+function isSameMessageWalPayloadGeneration(previous, current) {
+    if (previous === current) return true;
+
+    const parse = value => {
+        const [kind, dev, ino, size] = String(value).split(':');
+        return {kind, dev, ino, size: Number(size)}
+    };
+    const before = parse(previous),
+        after    = parse(current);
+
+    if (before.kind !== after.kind || before.dev !== after.dev || before.ino !== after.ino) return false;
+    if (before.kind !== 'file') return true;
+
+    return Number.isFinite(before.size) && Number.isFinite(after.size) && after.size > before.size
+}
+
+/**
+ * @summary Records one unreadable accepted-WAL candidate with generation-aware retry state.
+ * @param {String} id Message id.
+ * @param {String} signature Current payload-segment signature.
+ * @param {String} reason Read failure detail.
+ * @returns {void}
+ * @private
+ */
+function deferUnreadableMessageWalCandidate(id, signature, reason) {
+    const previous = unreadableMessageWalCandidateStateById.get(id),
+        logged     = previous && isSameMessageWalPayloadGeneration(previous.signature, signature) && previous.logged;
+
+    setBoundedMessageWalCandidateCache(unreadableMessageWalCandidateStateById, id, {
+        signature,
+        retryAfter: Date.now() + MESSAGE_WAL_UNREADABLE_RETRY_MS,
+        logged    : true
+    });
+
+    if (!logged) {
+        logger.warn(`[MailboxService] deferred unreadable message WAL candidate ${id}: ${reason}`);
+    }
+}
+
+/**
+ * @summary Returns one shared physical payload load for a WAL segment generation.
+ *
+ * `readWalMessagesByIds()` parses a whole JSONL segment even for one requested id. Keying the
+ * transient promise by segment, payload signature, and projected-id cohort lets global mailbox
+ * views and explicit-id repair calls share that physical work while retaining independent record
+ * selection afterward. The cohort digest is load-bearing: a projection marker can land after the
+ * payload append without changing the payload signature, and that later id must not join a result
+ * filtered through the first caller's older marker snapshot.
+ * The promise resolves to an error envelope so one unreadable segment never rejects unrelated
+ * mailbox reads.
+ *
+ * @param {Object} options
+ * @param {String} options.segmentKey Segment coordinate.
+ * @param {Map<String,String>} options.segmentById Complete projected id-to-segment index.
+ * @param {Map<String,String>} options.payloadSignatureBySegment Payload signatures.
+ * @returns {{joined: Boolean, pending: Promise<{recordById: Map<String,Object>, error: Error|null}>, signature: String}}
+ * @private
+ */
+function getMessageWalCandidateSegmentLoad({segmentKey, segmentById, payloadSignatureBySegment}) {
+    const signature = payloadSignatureBySegment.get(segmentKey) || 'payload-unavailable',
+        segmentIds  = [];
+
+    for (const [id, indexedSegmentKey] of segmentById) {
+        if (indexedSegmentKey === segmentKey) segmentIds.push(id);
+    }
+
+    segmentIds.sort();
+
+    const cohortDigest = crypto.createHash('sha256').update(segmentIds.join('\u0000')).digest('hex'),
+        loadKey        = `${segmentKey}\u0000${signature}\u0000${cohortDigest}`;
+    let pending = messageWalCandidateSegmentLoadByKey.get(loadKey),
+        joined  = Boolean(pending);
+
+    if (!pending) {
+        pending = (async () => {
+            try {
+                const records = await readWalMessagesByIds({
+                    dir: aiConfig.messageWal.dir,
+                    ids: segmentIds
+                });
+                return {recordById: new Map(records.map(record => [record.id, record])), error: null}
+            } catch (error) {
+                return {recordById: new Map(), error}
+            }
+        })();
+
+        messageWalCandidateSegmentLoadByKey.set(loadKey, pending);
+        pending.then(() => {
+            if (messageWalCandidateSegmentLoadByKey.get(loadKey) === pending) {
+                messageWalCandidateSegmentLoadByKey.delete(loadKey);
+            }
+        });
+    }
+
+    return {joined, pending, signature}
+}
+
+/**
+ * @summary Reads exact candidate records by segment while containing unreadable rows behind a
+ * signature-aware retry boundary.
+ *
+ * A stable unreadable segment is retried after a bounded interval and once after process restart.
+ * Replacement, truncation, or file-kind change retries immediately; ordinary append growth keeps
+ * an older missing row behind the same cooldown.
+ * Segment failures are isolated so one corrupt historical file cannot fail unrelated mailbox
+ * reads or hide readable candidates from other segments.
+ *
+ * @param {Object} options
+ * @param {String[]} options.ids Candidate message ids.
+ * @param {Map<String,String>} options.segmentById Marker id-to-segment index.
+ * @param {Map<String,String>} options.payloadSignatureBySegment Payload signatures.
+ * @param {Boolean} [options.bypassUnreadableBackoff=false] True for an explicit-id retry.
+ * @returns {Promise<{recordsById: Map<String,Object>, unreadableIds: Set<String>, deferredIds: Set<String>}>}
+ * @private
+ */
+async function readMessageWalCandidateRecords({
+    ids,
+    segmentById,
+    payloadSignatureBySegment,
+    bypassUnreadableBackoff = false
+}) {
+    const recordsById   = new Map(),
+        unreadableIds   = new Set(),
+        deferredIds     = new Set(),
+        idsBySegment    = new Map(),
+        pendingLoadById = new Map(),
+        joinedLoadIds   = new Set(),
+        signatureById   = new Map(),
+        now             = Date.now();
+
+    for (const id of ids) {
+        const cachedRecord = messageWalCandidateRecordCacheById.get(id);
+
+        if (cachedRecord) {
+            recordsById.set(id, cachedRecord);
+            setBoundedMessageWalCandidateCache(messageWalCandidateRecordCacheById, id, cachedRecord);
+            unreadableMessageWalCandidateStateById.delete(id);
+            continue;
+        }
+
+        const segmentKey = segmentById.get(id),
+            signature    = segmentKey
+                ? payloadSignatureBySegment.get(segmentKey) || 'payload-unavailable'
+                : 'segment-coordinate-missing',
+            deferred     = unreadableMessageWalCandidateStateById.get(id);
+
+        signatureById.set(id, signature);
+
+        if (
+            !bypassUnreadableBackoff &&
+            deferred &&
+            isSameMessageWalPayloadGeneration(deferred.signature, signature) &&
+            deferred.retryAfter > now
+        ) {
+            unreadableIds.add(id);
+            deferredIds.add(id);
+            continue;
+        }
+
+        if (!segmentKey) {
+            unreadableIds.add(id);
+            deferUnreadableMessageWalCandidate(id, signature, 'projection marker has no WAL segment coordinate');
+            continue;
+        }
+
+        if (!idsBySegment.has(segmentKey)) idsBySegment.set(segmentKey, []);
+        idsBySegment.get(segmentKey).push(id);
+    }
+
+    for (const [segmentKey, segmentIds] of idsBySegment) {
+        const {joined, pending: groupLoad, signature} = getMessageWalCandidateSegmentLoad({
+            segmentKey,
+            segmentById,
+            payloadSignatureBySegment
+        });
+
+        for (const id of segmentIds) {
+            if (joined) joinedLoadIds.add(id);
+
+            const idLoad = groupLoad.then(({recordById, error}) => {
+                const record = recordById.get(id);
+
+                if (record) {
+                    setBoundedMessageWalCandidateCache(messageWalCandidateRecordCacheById, id, record);
+                    unreadableMessageWalCandidateStateById.delete(id);
+                    return {record, error: null}
+                }
+
+                deferUnreadableMessageWalCandidate(
+                    id,
+                    signature,
+                    error?.message || 'indexed accepted WAL record was not readable'
+                );
+                return {record: null, error}
+            });
+
+            pendingLoadById.set(id, idLoad);
+        }
+    }
+
+    const loaded = await Promise.all([...pendingLoadById].map(async ([id, pending]) => {
+        return [id, await pending]
+    }));
+
+    for (const [id, {record}] of loaded) {
+        if (record) {
+            recordsById.set(id, record);
+        } else {
+            unreadableIds.add(id);
+            const state   = unreadableMessageWalCandidateStateById.get(id),
+                signature = signatureById.get(id);
+            if (
+                joinedLoadIds.has(id) &&
+                state &&
+                isSameMessageWalPayloadGeneration(state.signature, signature) &&
+                state.retryAfter > now
+            ) {
+                // A joined caller consumed the same failed load; it is deferred from any second
+                // payload attempt in this wave even though this call did not enter through the
+                // pre-existing backoff branch above.
+                deferredIds.add(id);
+            }
+        }
+    }
+
+    return {recordsById, unreadableIds, deferredIds}
+}
+
+/**
+ * @summary Classifies exact projected-WAL ids whose required graph carriers may be damaged.
+ *
+ * The compact graph-marker index is the bounded source population. SQLite supplies exact damaged
+ * ids. Canonical sender/destination facts then filter those ids before accepted payloads are read,
+ * replacing the former global count Boolean and its repeated deployment-age WAL scan.
+ *
+ * Historical markers are enriched once from their indexed record. Route knowledge and broadcast
+ * cohort knowledge stay separate: a legacy broadcast can have a valid route but an unknown
+ * audience. Marker persistence is best-effort serving metadata; a failed append remains observable
+ * but cannot fail the mailbox read, while an in-process immutable-record cache prevents immediate
+ * re-taxing. Zero-audience broadcasts are healthy; known-positive total cohort loss is repairable.
+ *
+ * @returns {Promise<Object>} Exact candidates, compact routes, reusable records, and residuals.
+ * @private
+ */
+async function classifyMailboxGraphProjectionCandidates() {
     const sqlite = GraphService.db?.storage?.db;
+    const stats  = await getMessageWalGraphProjectionStats({dir: aiConfig.messageWal.dir});
+    const {
+        projectedCount,
+        projectedIds,
+        segmentById,
+        markerConflicts,
+        payloadSignatureBySegment
+    } = stats;
+    const mailboxRoutingById  = new Map(stats.mailboxRoutingById),
+        broadcastCohortById   = new Map(stats.broadcastCohortById),
+        reasonsById           = new Map(),
+        enrichedRecordsById   = new Map(),
+        unreadableIds         = new Set(),
+        deferredUnreadableIds = new Set(),
+        compatibility         = {
+            backfilled              : 0,
+            cached                  : 0,
+            knownZero               : 0,
+            legacyUnknown           : 0,
+            routingLegacyUnknown    : 0,
+            unresolved              : 0,
+            unreadableDeferred      : 0,
+            persistenceFailed       : 0,
+            mailboxRoutingConflicts : markerConflicts.mailboxRoutingIds.size,
+            broadcastCohortConflicts: markerConflicts.broadcastCohortIds.size
+        };
 
-    if (!sqlite) return true;
+    for (const id of unreadableMessageWalCandidateStateById.keys()) {
+        if (!projectedIds.has(id)) unreadableMessageWalCandidateStateById.delete(id);
+    }
 
-    const {projectedCount} = await getMessageWalGraphProjectionStats({dir: aiConfig.messageWal.dir});
+    const addReason = (id, reason) => {
+        if (!reasonsById.has(id)) reasonsById.set(id, new Set());
+        reasonsById.get(id).add(reason);
+    };
 
-    if (projectedCount === 0) return false;
+    for (const id of projectedIds) {
+        const cached = messageWalCandidateMetadataCacheById.get(id);
 
-    const row = sqlite.prepare(`
-        SELECT
-            (SELECT COUNT(*) FROM Nodes WHERE id LIKE 'MESSAGE:%' AND json_extract(data, '$.label') = 'MESSAGE') AS messageCount,
-            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_BY') AS sentByCount,
-            (SELECT COUNT(DISTINCT source) FROM Edges WHERE source LIKE 'MESSAGE:%' AND type = 'SENT_TO') AS sentToCount,
-            (SELECT COUNT(*) FROM Edges b
-                 WHERE b.source LIKE 'MESSAGE:%' AND b.type = 'SENT_TO' AND b.target = 'AGENT:*'
-                   AND NOT EXISTS (SELECT 1 FROM Edges d WHERE d.source = b.source AND d.type = 'DELIVERED_TO')) AS brokenBroadcastCount
-    `).get();
+        if (!cached) continue;
+        if (!mailboxRoutingById.has(id) && cached.mailboxRouting) {
+            mailboxRoutingById.set(id, cached.mailboxRouting);
+            compatibility.cached++;
+        }
+        if (!broadcastCohortById.has(id) && cached.broadcastCohort) {
+            broadcastCohortById.set(id, cached.broadcastCohort);
+            compatibility.cached++;
+        }
+    }
 
-    // The first three are count-vs-projectedCount comparisons. The broadcast cohort term is
-    // DELIBERATELY an absolute `> 0`, NOT `deliveredToCount < projectedCount`: projectedCount counts
-    // ALL messages while the delivery-cohort spans broadcasts only, so a single DM would make a
-    // `< projectedCount` term permanently true and force a full WAL scan on every list. This term
-    // instead asks the precise question — a broadcast (`SENT_TO → AGENT:*`) that lost its WHOLE
-    // per-recipient delivery cohort (zero `DELIVERED_TO` rows) — which the count trio cannot see
-    // (its MESSAGE / SENT_BY / SENT_TO all still match projectedCount), so a pure read of it never
-    // self-healed until now.
-    return (row?.messageCount ?? 0) < projectedCount ||
-        (row?.sentByCount ?? 0) < projectedCount ||
-        (row?.sentToCount ?? 0) < projectedCount ||
-        (row?.brokenBroadcastCount ?? 0) > 0;
+    const result = () => ({
+        reasonsById,
+        mailboxRoutingById,
+        enrichedRecordsById,
+        unreadableIds,
+        deferredUnreadableIds,
+        segmentById,
+        payloadSignatureBySegment,
+        compatibility
+    });
+
+    if (projectedCount === 0) return result();
+
+    if (!sqlite) {
+        for (const id of projectedIds) addReason(id, 'graph-storage-unavailable');
+        return result()
+    }
+
+    const orderedProjectedIds    = [...projectedIds],
+        messageIds               = new Set(),
+        edgeStateById            = new Map(),
+        zeroDeliveryBroadcastIds = [];
+
+    for (let index = 0; index < orderedProjectedIds.length; index += SQLITE_IN_CLAUSE_BATCH_SIZE) {
+        const chunk      = orderedProjectedIds.slice(index, index + SQLITE_IN_CLAUSE_BATCH_SIZE),
+            placeholders = chunk.map(() => '?').join(', ');
+
+        for (const row of sqlite.prepare(`
+            SELECT id
+              FROM Nodes
+             WHERE id IN (${placeholders})
+               AND json_extract(data, '$.label') = 'MESSAGE'
+        `).all(...chunk)) {
+            messageIds.add(row.id);
+        }
+
+        for (const row of sqlite.prepare(`
+            SELECT source AS id,
+                   MAX(CASE WHEN type = 'SENT_BY' THEN 1 ELSE 0 END) AS hasSentBy,
+                   MAX(CASE WHEN type = 'SENT_TO' THEN 1 ELSE 0 END) AS hasSentTo,
+                   MAX(CASE WHEN type = 'SENT_TO' AND target = 'AGENT:*' THEN 1 ELSE 0 END) AS isBroadcast,
+                   MAX(CASE WHEN type = 'DELIVERED_TO' THEN 1 ELSE 0 END) AS hasDelivery
+              FROM Edges
+             WHERE source IN (${placeholders})
+               AND type IN ('SENT_BY', 'SENT_TO', 'DELIVERED_TO')
+             GROUP BY source
+        `).all(...chunk)) {
+            edgeStateById.set(row.id, row);
+        }
+    }
+
+    for (const id of orderedProjectedIds) {
+        const edgeState = edgeStateById.get(id);
+
+        if (!messageIds.has(id)) addReason(id, 'missing-message-node');
+        if (!edgeState?.hasSentBy) addReason(id, 'missing-sent-by');
+        if (!edgeState?.hasSentTo) addReason(id, 'missing-sent-to');
+        if (edgeState?.isBroadcast && !edgeState?.hasDelivery) zeroDeliveryBroadcastIds.push(id);
+    }
+
+    const metadataIds = new Set([
+        ...[...reasonsById.keys()].filter(id => !mailboxRoutingById.has(id)),
+        ...zeroDeliveryBroadcastIds.filter(id => !broadcastCohortById.has(id) || !mailboxRoutingById.has(id))
+    ]);
+
+    if (metadataIds.size > 0) {
+        const loaded = await readMessageWalCandidateRecords({
+            ids: [...metadataIds],
+            segmentById,
+            payloadSignatureBySegment
+        });
+
+        loaded.recordsById.forEach((record, id) => enrichedRecordsById.set(id, record));
+        loaded.unreadableIds.forEach(id => unreadableIds.add(id));
+        loaded.deferredIds.forEach(id => deferredUnreadableIds.add(id));
+        compatibility.unreadableDeferred += loaded.deferredIds.size;
+
+        for (const id of metadataIds) {
+            const record = loaded.recordsById.get(id);
+
+            if (!record) {
+                addReason(id, 'unreadable-wal-record');
+                compatibility.unresolved++;
+                continue;
+            }
+
+            const mailboxRouting = getMessageWalMailboxRouting(record),
+                broadcastCohort  = getMessageWalBroadcastCohort(record) || undefined,
+                cachedMetadata   = {mailboxRouting, ...(broadcastCohort ? {broadcastCohort} : {})};
+
+            mailboxRoutingById.set(id, mailboxRouting);
+            if (broadcastCohort) broadcastCohortById.set(id, broadcastCohort);
+
+            try {
+                await appendMessageWalGraphProjectionMarker({
+                    id,
+                    segmentKey: record.segmentKey || segmentById.get(id),
+                    mailboxRouting,
+                    broadcastCohort
+                }, {dir: aiConfig.messageWal.dir});
+                messageWalCandidateMetadataCacheById.delete(id);
+                compatibility.backfilled++;
+            } catch (error) {
+                setBoundedMessageWalCandidateCache(messageWalCandidateMetadataCacheById, id, cachedMetadata);
+                compatibility.persistenceFailed++;
+                logger.warn(`[MailboxService] projection-marker metadata persistence failed for ${id}: ${error.message}`);
+            }
+        }
+    }
+
+    for (const routing of mailboxRoutingById.values()) {
+        if (routing.disposition === 'legacy-unknown') compatibility.routingLegacyUnknown++;
+    }
+
+    for (const id of zeroDeliveryBroadcastIds) {
+        const cohort = broadcastCohortById.get(id);
+
+        if (cohort?.disposition === 'known') {
+            if (cohort.intendedRecipientCount > 0) {
+                addReason(id, 'missing-delivery-cohort');
+            } else {
+                compatibility.knownZero++;
+            }
+        } else if (cohort?.disposition === 'legacy-unknown') {
+            compatibility.legacyUnknown++;
+        } else {
+            addReason(id, 'unreadable-broadcast-intent');
+        }
+    }
+
+    for (const id of enrichedRecordsById.keys()) {
+        if (
+            !reasonsById.has(id) ||
+            mailboxRoutingById.get(id)?.disposition === 'legacy-unknown'
+        ) {
+            messageWalCandidateRecordCacheById.delete(id);
+        }
+    }
+
+    return result()
+}
+
+/**
+ * @summary Coalesces concurrent exact-candidate scans so historical cohort enrichment appends at
+ * most one compatibility marker per process wave.
+ * @returns {Promise<Object>}
+ * @private
+ */
+async function getMailboxGraphProjectionRepairCandidates() {
+    if (graphProjectionCandidateScanPromise) return graphProjectionCandidateScanPromise;
+
+    const pending = classifyMailboxGraphProjectionCandidates();
+    graphProjectionCandidateScanPromise = pending;
+
+    try {
+        return await pending
+    } finally {
+        if (graphProjectionCandidateScanPromise === pending) {
+            graphProjectionCandidateScanPromise = null;
+        }
+    }
 }
 
 /**
@@ -1924,8 +2436,10 @@ class MailboxService extends Base {
 
         if (appendMarker) {
             await appendMessageWalGraphProjectionMarker({
-                id        : messageId,
-                segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
+                id             : messageId,
+                segmentKey     : record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now()),
+                mailboxRouting : getMessageWalMailboxRouting(record),
+                broadcastCohort: getMessageWalBroadcastCohort(record) || undefined
             }, {dir: aiConfig.messageWal.dir});
         }
 
@@ -1962,8 +2476,10 @@ class MailboxService extends Base {
 
                 if (issues.length === 0) {
                     await appendMessageWalGraphProjectionMarker({
-                        id        : record.id,
-                        segmentKey: record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now())
+                        id             : record.id,
+                        segmentKey     : record.segmentKey || getMessageWalSegmentKey(record.timestamp ?? Date.now()),
+                        mailboxRouting : getMessageWalMailboxRouting(record),
+                        broadcastCohort: getMessageWalBroadcastCohort(record) || undefined
                     }, {dir: aiConfig.messageWal.dir});
                 } else if (issues.includes('missing-message-node')) {
                     await this._projectMessageWalRecord(record);
@@ -1992,10 +2508,38 @@ class MailboxService extends Base {
      * @param {String} [options.target] Optional mailbox identity whose view is being queried.
      * @param {String} [options.box='all'] Mailbox box being queried.
      * @param {Number} [options.limit=250] Maximum matching accepted WAL records to inspect.
-     * @returns {Promise<{scanned: Number, intact: Number, repaired: Number, failed: Number, issues: Object}>}
+     * @returns {Promise<Object>} Bounded repair summary with exact candidate and residual counts.
      */
     async repairMessageGraphIntegrity({ids, target, box = 'all', limit = MESSAGE_GRAPH_REPAIR_LIMIT} = {}) {
-        const summary = {scanned: 0, intact: 0, repaired: 0, failed: 0, issues: {}};
+        const summary = {
+            scanned                         : 0,
+            intact                          : 0,
+            repaired                        : 0,
+            failed                          : 0,
+            coalescedCandidateCount         : 0,
+            issues                          : {},
+            candidateCount                  : 0,
+            matchedCandidateCount           : 0,
+            deferredCandidateCount          : 0,
+            deferredFailedCandidateCount    : 0,
+            quarantinedCandidateCount       : 0,
+            unreadableCandidateCount        : 0,
+            deferredUnreadableCandidateCount: 0,
+            cursorStart                     : 0,
+            cursorNext                      : 0,
+            compatibility                   : {
+                backfilled              : 0,
+                cached                  : 0,
+                knownZero               : 0,
+                legacyUnknown           : 0,
+                routingLegacyUnknown    : 0,
+                unresolved              : 0,
+                unreadableDeferred      : 0,
+                persistenceFailed       : 0,
+                mailboxRoutingConflicts : 0,
+                broadcastCohortConflicts: 0
+            }
+        };
 
         if (getMissingMessageWalLeaves(aiConfig.messageWal, ['dir']).length > 0) {
             return summary;
@@ -2004,40 +2548,197 @@ class MailboxService extends Base {
         const idFilter   = Array.isArray(ids) ? new Set(ids) : null,
             boundedLimit = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Number(limit) : MESSAGE_GRAPH_REPAIR_LIMIT;
 
-        if (!idFilter && !await hasMailboxGraphProjectionGap()) {
-            return summary;
+        const candidateState = idFilter ? null : await getMailboxGraphProjectionRepairCandidates(),
+            repairIds        = idFilter || new Set(candidateState.reasonsById.keys());
+
+        summary.candidateCount = repairIds.size;
+        if (candidateState) summary.compatibility = candidateState.compatibility;
+        if (repairIds.size === 0) {
+            if (!idFilter) {
+                graphProjectionRepairCursorByView.clear();
+                graphProjectionRepairFailureById.clear();
+            }
+            return summary
         }
 
-        const acceptedRecords = idFilter
-            ? await readWalMessagesByIds({dir: aiConfig.messageWal.dir, ids: [...idFilter], limit: boundedLimit})
-            : await readWalMessages({dir: aiConfig.messageWal.dir});
+        if (!idFilter) {
+            for (const id of graphProjectionRepairFailureById.keys()) {
+                if (!repairIds.has(id)) graphProjectionRepairFailureById.delete(id);
+            }
+        }
 
-        for (const record of acceptedRecords) {
-            if (summary.scanned >= boundedLimit) break;
-            if (record?.graphProjectionVersion !== 1) continue;
-            if (idFilter && !idFilter.has(record.id)) continue;
-            if (!messageWalRecordMatchesMailboxView(record, {box, target})) continue;
+        const candidateOrder = new Map([...repairIds].map((id, index) => [id, index]));
+        let selectedIds;
 
-            summary.scanned++;
+        if (idFilter) {
+            selectedIds = [...repairIds].slice(0, boundedLimit);
+            summary.matchedCandidateCount  = selectedIds.length;
+            summary.deferredCandidateCount = Math.max(0, repairIds.size - selectedIds.length);
+        } else {
+            const viewMatchingIds = [...repairIds].filter(id => mailboxRoutingMatchesMailboxView(
+                candidateState.mailboxRoutingById.get(id),
+                {box, target}
+            ));
+            const now       = Date.now(),
+                matchingIds = viewMatchingIds.filter(id => {
+                    const failure = graphProjectionRepairFailureById.get(id);
+                    return !failure || failure.retryAfter <= now
+                });
+            const cursorKey = `${target || '*'}\u0000${box}`;
 
-            const issues = getMessageGraphProjectionIssues(record);
-            if (issues.length === 0) {
-                summary.intact++;
+            summary.matchedCandidateCount         = viewMatchingIds.length;
+            summary.deferredFailedCandidateCount  = viewMatchingIds.length - matchingIds.length;
+            summary.deferredCandidateCount        = summary.deferredFailedCandidateCount +
+                Math.max(0, matchingIds.length - boundedLimit);
+            summary.quarantinedCandidateCount = [...repairIds].filter(id => {
+                return candidateState.mailboxRoutingById.get(id)?.disposition !== 'known'
+            }).length;
+
+            if (matchingIds.length === 0) {
+                graphProjectionRepairCursorByView.delete(cursorKey);
+                selectedIds = [];
+            } else {
+                const start   = (graphProjectionRepairCursorByView.get(cursorKey) || 0) % matchingIds.length;
+                const rotated = [
+                    ...matchingIds.slice(start),
+                    ...matchingIds.slice(0, start)
+                ];
+
+                selectedIds = rotated.slice(0, boundedLimit);
+                summary.cursorStart = start;
+                summary.cursorNext  = (start + selectedIds.length) % matchingIds.length;
+                setBoundedMessageWalCandidateCache(
+                    graphProjectionRepairCursorByView,
+                    cursorKey,
+                    summary.cursorNext
+                );
+            }
+        }
+
+        if (selectedIds.length === 0) {
+            if (candidateState) {
+                summary.unreadableCandidateCount = candidateState.unreadableIds.size;
+                summary.deferredUnreadableCandidateCount = candidateState.deferredUnreadableIds.size;
+            }
+            return summary
+        }
+
+        const recordById = new Map();
+
+        if (candidateState) {
+            for (const id of selectedIds) {
+                const record = candidateState.enrichedRecordsById.get(id);
+                if (record) recordById.set(id, record);
+            }
+
+            const missingIds = selectedIds.filter(id => !recordById.has(id));
+            if (missingIds.length > 0) {
+                const loaded = await readMessageWalCandidateRecords({
+                    ids                      : missingIds,
+                    segmentById              : candidateState.segmentById,
+                    payloadSignatureBySegment: candidateState.payloadSignatureBySegment
+                });
+
+                loaded.recordsById.forEach((record, id) => recordById.set(id, record));
+                loaded.unreadableIds.forEach(id => candidateState.unreadableIds.add(id));
+                loaded.deferredIds.forEach(id => candidateState.deferredUnreadableIds.add(id));
+            }
+
+            summary.unreadableCandidateCount = candidateState.unreadableIds.size;
+            summary.deferredUnreadableCandidateCount = candidateState.deferredUnreadableIds.size;
+        } else {
+            const missingIds = [];
+
+            for (const id of selectedIds) {
+                const cachedRecord = messageWalCandidateRecordCacheById.get(id);
+
+                if (cachedRecord) {
+                    recordById.set(id, cachedRecord);
+                    setBoundedMessageWalCandidateCache(messageWalCandidateRecordCacheById, id, cachedRecord);
+                } else {
+                    missingIds.push(id);
+                }
+            }
+
+            if (missingIds.length > 0) {
+                const stats  = await getMessageWalGraphProjectionStats({dir: aiConfig.messageWal.dir});
+                const loaded = await readMessageWalCandidateRecords({
+                    ids                      : missingIds,
+                    segmentById              : stats.segmentById,
+                    payloadSignatureBySegment: stats.payloadSignatureBySegment,
+                    bypassUnreadableBackoff  : true
+                });
+                loaded.recordsById.forEach(record => {
+                    recordById.set(record.id, record);
+                    setBoundedMessageWalCandidateCache(messageWalCandidateRecordCacheById, record.id, record);
+                });
+            }
+        }
+
+        const selectedRecords = selectedIds
+            .map(id => recordById.get(id))
+            .filter(record => record?.graphProjectionVersion === 1 && repairIds.has(record.id))
+            .filter(record => idFilter || messageWalRecordMatchesMailboxView(record, {box, target}))
+            .sort((a, b) => candidateOrder.get(a.id) - candidateOrder.get(b.id));
+
+        for (const record of selectedRecords) {
+            let pending   = graphProjectionRepairPromiseById.get(record.id),
+                coalesced = Boolean(pending);
+
+            if (!pending) {
+                // The canonical topology has one Memory Core service process. This per-id map
+                // single-flights concurrent list/get callers inside that write owner; the
+                // storage-level issue recheck remains the idempotence boundary before mutation.
+                pending = (async () => {
+                    const issues = getMessageGraphProjectionIssues(record);
+
+                    if (issues.length === 0) {
+                        graphProjectionRepairFailureById.delete(record.id);
+                        messageWalCandidateRecordCacheById.delete(record.id);
+                        return {status: 'intact', issues}
+                    }
+
+                    try {
+                        // Surgical mode: rebuild ONLY the flagged-missing pieces. A full
+                        // re-projection here resurrects the WAL's send-time `readAt: null` over
+                        // committed reads on every INTACT node/edge.
+                        await this._projectMessageWalRecord(record, {pumpWake: false, onlyIssues: issues});
+                        graphProjectionRepairFailureById.delete(record.id);
+                        messageWalCandidateRecordCacheById.delete(record.id);
+                        return {status: 'repaired', issues}
+                    } catch (error) {
+                        setBoundedMessageWalCandidateCache(graphProjectionRepairFailureById, record.id, {
+                            retryAfter: Date.now() + MESSAGE_GRAPH_REPAIR_FAILURE_RETRY_MS
+                        });
+                        logger.warn(`[MailboxService] message graph integrity repair failed for ${record.id}: ${error.message}`);
+                        return {status: 'failed', issues, error}
+                    }
+                })();
+
+                graphProjectionRepairPromiseById.set(record.id, pending);
+                pending.then(() => {
+                    if (graphProjectionRepairPromiseById.get(record.id) === pending) {
+                        graphProjectionRepairPromiseById.delete(record.id);
+                    }
+                }, () => {
+                    if (graphProjectionRepairPromiseById.get(record.id) === pending) {
+                        graphProjectionRepairPromiseById.delete(record.id);
+                    }
+                });
+            }
+
+            const outcome = await pending;
+
+            if (outcome.issues.length > 0) summary.issues[record.id] = outcome.issues;
+            if (coalesced) {
+                summary.coalescedCandidateCount++;
                 continue;
             }
 
-            summary.issues[record.id] = issues;
-
-            try {
-                // Surgical mode: rebuild ONLY the flagged-missing pieces. A full re-projection
-                // here resurrects the WAL's send-time `readAt: null` over committed reads on
-                // every INTACT node/edge — the read-state-rollback defect this repair once was.
-                await this._projectMessageWalRecord(record, {pumpWake: false, onlyIssues: issues});
-                summary.repaired++;
-            } catch (error) {
-                summary.failed++;
-                logger.warn(`[MailboxService] message graph integrity repair failed for ${record.id}: ${error.message}`);
-            }
+            summary.scanned++;
+            if (outcome.status === 'intact') summary.intact++;
+            if (outcome.status === 'repaired') summary.repaired++;
+            if (outcome.status === 'failed') summary.failed++;
         }
 
         return summary;

@@ -15,6 +15,7 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
+import fsPromises     from 'fs/promises';
 import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
@@ -193,6 +194,28 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService.db.lastAccessMap.clear();
 
         return edges.length
+    }
+
+    /**
+     * @summary Counts accepted-message payload reads while excluding compact `.graph.jsonl`
+     * marker reads. The returned restore closure keeps the worker-global built-in module clean.
+     * @returns {{getCount: Function, restore: Function}}
+     */
+    function instrumentMessageWalPayloadReads() {
+        const originalReadFile = fsPromises.readFile;
+        let   count            = 0;
+
+        fsPromises.readFile = async (filePath, ...args) => {
+            if (/message-wal-\d{4}-\d{2}-\d{2}\.jsonl$/.test(String(filePath))) count++;
+            return originalReadFile(filePath, ...args)
+        };
+
+        return {
+            getCount: () => count,
+            restore : () => {
+                fsPromises.readFile = originalReadFile;
+            }
+        }
     }
 
     test('addMessage enforces identity and routes correctly', async () => {
@@ -566,9 +589,14 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('listMessages repairs a broadcast whose WHOLE DELIVERED_TO cohort was lost — read-path, no prior mark (#15369)', async () => {
-        // @bob authorizes @alice; @alice broadcasts to AGENT:* (bob is in the send-time audience).
+        // @bob authorizes @alice; @alice broadcasts to AGENT:* (bob + charlie are the immutable
+        // send-time audience). Multi-recipient intent proves a whole-cohort repair, not a one-edge
+        // special case.
         await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
             await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
         });
 
         const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -577,13 +605,14 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         // WAL truth is committed BEFORE we damage the projection — the repair source is real.
         expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [res.messageId]})).toHaveLength(0);
+        expect((await readWalMessages({dir: messageWalDir}))[0].routing.broadcastRecipients).toEqual(['@bob', '@charlie']);
 
         // TOTAL cohort loss: strip every DELIVERED_TO edge (cache AND storage) while the MESSAGE node,
         // SENT_BY, and SENT_TO → AGENT:* all survive. The count trio (MESSAGE/SENT_BY/SENT_TO) therefore
         // still matches projectedCount, so the pre-fix gate is BLIND — this is the exact silent damage
         // class the read-gate could not see, and the only signal is the zero-DELIVERED_TO broadcast term.
         const removed = damageEdgeProjection(res.messageId, 'DELIVERED_TO');
-        expect(removed, 'the broadcast must have had a delivery cohort to lose').toBeGreaterThan(0);
+        expect(removed, 'the broadcast must have had the full two-recipient cohort to lose').toBe(2);
         expect(
             GraphService.db.storage.db.prepare("SELECT COUNT(*) AS c FROM Edges WHERE source = ? AND type = 'DELIVERED_TO'").get(res.messageId).c,
             'storage cohort is truly gone — not a cache-only eviction that self-heals on reload'
@@ -594,16 +623,722 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // (delivery + read-state) is gone. Pre-fix the blind gate early-returns at scanned:0, so the list
         // leaves the cohort broken; post-fix the broadcast-cohort term flips the gate and the WAL-backed
         // repair rebuilds it during the read.
-        const bobInbox = await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
-            return await MailboxService.listMessages({status: 'all'});
-        });
-        expect(bobInbox.messages.map(message => message.messageId)).toContain(res.messageId);
+        const bogusSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        fs.ensureDirSync(bogusSegment);
+
+        try {
+            const bobInbox = await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+                return await MailboxService.listMessages({status: 'all'});
+            });
+            expect(bobInbox.messages.map(message => message.messageId)).toContain(res.messageId);
+        } finally {
+            fs.removeSync(bogusSegment);
+        }
+
+        expect(GraphService.db.storage.db.prepare(`
+            SELECT target
+              FROM Edges
+             WHERE source = ?
+               AND type = 'DELIVERED_TO'
+             ORDER BY target
+        `).all(res.messageId).map(row => row.target)).toEqual(['@bob', '@charlie']);
 
         // THE discriminating assertion (red-proof confirmed by disabling the new term): a follow-up
         // integrity scan finds the cohort already rebuilt by the read. Without the fix the list never
         // repairs, so this scan reports `repaired: 1` — the exact never-self-heals defect this closes.
         const repairCheck = await MailboxService.repairMessageGraphIntegrity({ids: [res.messageId]});
         expect(repairCheck).toMatchObject({scanned: 1, intact: 1, repaired: 0, failed: 0});
+    });
+
+    test('a legitimate zero-audience broadcast stays converged across repeated lists (#16767)', async () => {
+        GraphService.removeNodes(['@bob']);
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: 'zero audience',
+                body   : 'legitimate single-resident broadcast'
+            });
+        });
+        const [record] = await readWalMessages({dir: messageWalDir});
+
+        expect(record.id).toBe(res.messageId);
+        expect(record.routing.broadcastRecipients).toEqual([]);
+        expect(GraphService.db.storage.db.prepare(`
+            SELECT COUNT(*) AS count
+              FROM Edges
+             WHERE source = ?
+               AND type = 'DELIVERED_TO'
+        `).get(res.messageId).count).toBe(0);
+
+        const bogusSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        const reads        = instrumentMessageWalPayloadReads();
+        fs.ensureDirSync(bogusSegment);
+
+        try {
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const outbox = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                    return await MailboxService.listMessages({box: 'outbox', status: 'all'});
+                });
+                expect(outbox.messages.map(message => message.messageId)).toContain(res.messageId);
+            }
+
+            // Known zero lives in the compact projection marker. Neither the first nor second
+            // list reopens an accepted payload, and the corrupt unrelated segment stays untouched.
+            expect(reads.getCount()).toBe(0);
+        } finally {
+            reads.restore();
+            fs.removeSync(bogusSegment);
+        }
+    });
+
+    test('a historical broadcast without cohort evidence receives one durable compatibility disposition (#16767)', async () => {
+        GraphService.removeNodes(['@bob']);
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: 'legacy audience',
+                body   : 'accepted before cohort markers'
+            });
+        });
+        const [record]    = await readWalMessages({dir: messageWalDir});
+        const segmentKey  = record.segmentKey;
+        const payloadPath = path.join(messageWalDir, `message-wal-${segmentKey}.jsonl`);
+        const markerPath  = path.join(messageWalDir, `message-wal-${segmentKey}.graph.jsonl`);
+
+        delete record.routing.broadcastRecipients;
+        fs.writeFileSync(payloadPath, `${JSON.stringify(record)}\n`, 'utf8');
+
+        const originalMarker = JSON.parse(fs.readFileSync(markerPath, 'utf8').trim());
+        delete originalMarker.broadcastCohort;
+        fs.writeFileSync(markerPath, `${JSON.stringify(originalMarker)}\n`, 'utf8');
+
+        const bogusSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        const reads        = instrumentMessageWalPayloadReads();
+        fs.ensureDirSync(bogusSegment);
+
+        try {
+            const first = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                return await MailboxService.listMessages({box: 'outbox', status: 'all'});
+            });
+            expect(first.messages.map(message => message.messageId)).toContain(res.messageId);
+            expect(reads.getCount()).toBe(1);
+
+            const markerEntries = fs.readFileSync(markerPath, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+            expect(markerEntries.at(-1).broadcastCohort).toEqual({disposition: 'legacy-unknown'});
+
+            const second = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                return await MailboxService.listMessages({box: 'outbox', status: 'all'});
+            });
+            expect(second.messages.map(message => message.messageId)).toContain(res.messageId);
+            expect(reads.getCount(), 'the second list must consume the compatibility marker, not reread WAL').toBe(1);
+        } finally {
+            reads.restore();
+            fs.removeSync(bogusSegment);
+        }
+    });
+
+    test('a global discrepancy outside the caller view does not consume the bounded repair window (#16767)', async () => {
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'bob only', body: 'unrelated to charlie'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        // Simulate a marker from before routing metadata was persisted. The first unrelated list may perform the one-time indexed
+        // route migration read; the enriched marker must make every later unrelated list payload-free.
+        const markerPath = fs.readdirSync(messageWalDir)
+            .map(name => path.join(messageWalDir, name))
+            .find(filePath => filePath.endsWith('.graph.jsonl'));
+        const markerEntry = JSON.parse(fs.readFileSync(markerPath, 'utf8').trim());
+        delete markerEntry.mailboxRouting;
+        fs.writeFileSync(markerPath, `${JSON.stringify(markerEntry)}\n`, 'utf8');
+
+        const bogusSegment = path.join(messageWalDir, 'message-wal-2001-01-01.jsonl');
+        const reads        = instrumentMessageWalPayloadReads();
+        fs.ensureDirSync(bogusSegment);
+
+        try {
+            const repair = await MailboxService.repairMessageGraphIntegrity({
+                target: '@charlie', box: 'inbox', limit: 1
+            });
+
+            expect(repair).toMatchObject({
+                candidateCount: 1, matchedCandidateCount: 0, scanned: 0, repaired: 0, failed: 0
+            });
+            expect(reads.getCount()).toBe(1);
+
+            const charlieInbox = await RequestContextService.run({agentIdentityNodeId: '@charlie'}, async () => {
+                return await MailboxService.listMessages({status: 'all'});
+            });
+            expect(charlieInbox.messages).toEqual([]);
+            expect(reads.getCount(), 'route migration must retire the unrelated candidate WAL tax').toBe(1);
+        } finally {
+            reads.restore();
+            fs.removeSync(bogusSegment);
+        }
+    });
+
+    test('a route-marker append failure remains an observable residual, never a list failure or repeated WAL tax (#16767)', async () => {
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'marker append failure', body: 'bounded'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const markerPath = fs.readdirSync(messageWalDir)
+            .map(name => path.join(messageWalDir, name))
+            .find(filePath => filePath.endsWith('.graph.jsonl'));
+        const markerEntry = JSON.parse(fs.readFileSync(markerPath, 'utf8').trim());
+        delete markerEntry.mailboxRouting;
+        fs.writeFileSync(markerPath, `${JSON.stringify(markerEntry)}\n`, 'utf8');
+
+        const originalAppendFile = fsPromises.appendFile,
+            reads                = instrumentMessageWalPayloadReads();
+
+        fsPromises.appendFile = async (filePath, ...args) => {
+            if (String(filePath).endsWith('.graph.jsonl')) throw new Error('injected marker EIO');
+            return originalAppendFile(filePath, ...args)
+        };
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@charlie', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({
+                candidateCount       : 1,
+                matchedCandidateCount: 0,
+                scanned              : 0,
+                failed               : 0,
+                compatibility        : {persistenceFailed: 1}
+            });
+            expect(reads.getCount()).toBe(1);
+
+            const second = await MailboxService.repairMessageGraphIntegrity({
+                target: '@charlie', box: 'inbox', limit: 1
+            });
+            expect(second).toMatchObject({
+                candidateCount       : 1,
+                matchedCandidateCount: 0,
+                scanned              : 0,
+                failed               : 0,
+                compatibility        : {cached: 1, persistenceFailed: 0}
+            });
+            expect(reads.getCount(), 'the immutable in-process route cache bounds a failed append').toBe(1);
+        } finally {
+            fsPromises.appendFile = originalAppendFile;
+            reads.restore();
+        }
+    });
+
+    test('an unreadable candidate segment backs off until its payload signature changes (#16767)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'unreadable candidate', body: 'retry on change'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const [record]  = await readWalMessages({dir: messageWalDir}),
+            payloadPath = path.join(messageWalDir, `message-wal-${record.segmentKey}.jsonl`),
+            payloadText = fs.readFileSync(payloadPath, 'utf8'),
+            reads       = instrumentMessageWalPayloadReads();
+
+        fs.removeSync(payloadPath);
+        fs.ensureDirSync(payloadPath);
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({
+                candidateCount          : 1, matchedCandidateCount: 1, scanned: 0,
+                unreadableCandidateCount: 1, deferredUnreadableCandidateCount: 0
+            });
+            expect(reads.getCount()).toBe(1);
+
+            const second = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(second).toMatchObject({
+                candidateCount          : 1, matchedCandidateCount: 1, scanned: 0,
+                unreadableCandidateCount: 1, deferredUnreadableCandidateCount: 1
+            });
+            expect(reads.getCount(), 'unchanged unreadable payload must stay behind backoff').toBe(1);
+
+            fs.removeSync(payloadPath);
+            fs.writeFileSync(payloadPath, payloadText, 'utf8');
+
+            const third = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(third).toMatchObject({
+                candidateCount: 1, matchedCandidateCount: 1, scanned: 1,
+                repaired      : 1, failed: 0, unreadableCandidateCount: 0
+            });
+            expect(reads.getCount(), 'file-kind/signature change must retry immediately').toBe(2);
+        } finally {
+            reads.restore();
+            if (fs.existsSync(payloadPath) && fs.statSync(payloadPath).isDirectory()) {
+                fs.removeSync(payloadPath);
+                fs.writeFileSync(payloadPath, payloadText, 'utf8');
+            }
+        }
+    });
+
+    test('an unreadable candidate is retried after its durable marker leaves and re-enters the index (#16767)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'marker generation', body: 'prune stale cooldown'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const [record]  = await readWalMessages({dir: messageWalDir}),
+            payloadPath = path.join(messageWalDir, `message-wal-${record.segmentKey}.jsonl`),
+            markerPath  = path.join(messageWalDir, `message-wal-${record.segmentKey}.graph.jsonl`),
+            payloadText = fs.readFileSync(payloadPath, 'utf8'),
+            markerText  = fs.readFileSync(markerPath, 'utf8'),
+            reads       = instrumentMessageWalPayloadReads();
+
+        // Keep the payload generation stable and unreadable for this id while removing only the
+        // durable projection marker. The empty marker population must retire its old cooldown.
+        fs.writeFileSync(payloadPath, '', 'utf8');
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({scanned: 0, unreadableCandidateCount: 1});
+            expect(reads.getCount()).toBe(1);
+
+            fs.removeSync(markerPath);
+            const absent = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(absent).toMatchObject({candidateCount: 0, scanned: 0});
+
+            fs.writeFileSync(markerPath, markerText, 'utf8');
+            const restored = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(restored).toMatchObject({
+                candidateCount          : 1, scanned: 0,
+                unreadableCandidateCount: 1, deferredUnreadableCandidateCount: 0
+            });
+            expect(reads.getCount(), 'a marker generation change must retire stale candidate state').toBe(2);
+        } finally {
+            reads.restore();
+            fs.writeFileSync(payloadPath, payloadText, 'utf8');
+            fs.writeFileSync(markerPath, markerText, 'utf8');
+        }
+    });
+
+    test('ordinary active-segment growth does not wake an older unreadable candidate (#16767)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'missing row', body: 'append-safe backoff'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const [record]      = await readWalMessages({dir: messageWalDir}),
+            payloadPath     = path.join(messageWalDir, `message-wal-${record.segmentKey}.jsonl`),
+            replacementPath = `${payloadPath}.replacement`,
+            payloadText     = fs.readFileSync(payloadPath, 'utf8'),
+            reads           = instrumentMessageWalPayloadReads();
+
+        // Truncate in place so the marker survives but its indexed accepted row is absent.
+        fs.writeFileSync(payloadPath, '', 'utf8');
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({scanned: 0, unreadableCandidateCount: 1});
+            expect(reads.getCount()).toBe(1);
+
+            // A different accepted-looking row grows the same inode. It cannot repair the older
+            // id, so the cooldown must survive this ordinary active-day append.
+            const unrelated = {
+                ...record,
+                id     : 'MESSAGE:unrelated-append',
+                message: {...record.message, id: 'MESSAGE:unrelated-append'}
+            };
+            fs.appendFileSync(payloadPath, `${JSON.stringify(unrelated)}\n`, 'utf8');
+
+            const second = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(second).toMatchObject({
+                scanned: 0, unreadableCandidateCount: 1, deferredUnreadableCandidateCount: 1
+            });
+            expect(reads.getCount(), 'monotonic segment growth must not defeat the backoff').toBe(1);
+
+            fs.writeFileSync(replacementPath, payloadText, 'utf8');
+            fs.renameSync(replacementPath, payloadPath);
+
+            const third = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(third).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+            expect(reads.getCount(), 'inode replacement must retry immediately').toBe(2);
+        } finally {
+            reads.restore();
+            fs.removeSync(replacementPath);
+            fs.removeSync(payloadPath);
+            fs.writeFileSync(payloadPath, payloadText, 'utf8');
+        }
+    });
+
+    test('an equal-size in-place payload correction wakes an unreadable candidate immediately (#16767)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'same-size correction', body: 'mtime is evidence'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const [record]    = await readWalMessages({dir: messageWalDir}),
+            payloadPath   = path.join(messageWalDir, `message-wal-${record.segmentKey}.jsonl`),
+            payloadText   = fs.readFileSync(payloadPath, 'utf8'),
+            replacementId = 'MESSAGE:00000000-0000-4000-8000-000000000000',
+            missingText   = payloadText.split(res.messageId).join(replacementId),
+            originalStat  = fs.statSync(payloadPath),
+            reads         = instrumentMessageWalPayloadReads();
+
+        expect(replacementId.length).toBe(res.messageId.length);
+        expect(Buffer.byteLength(missingText)).toBe(Buffer.byteLength(payloadText));
+        fs.writeFileSync(payloadPath, missingText, 'utf8');
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({scanned: 0, unreadableCandidateCount: 1});
+            expect(reads.getCount()).toBe(1);
+
+            fs.writeFileSync(payloadPath, payloadText, 'utf8');
+            const changedTime = new Date(Date.now() + 2000);
+            fs.utimesSync(payloadPath, changedTime, changedTime);
+
+            const correctedStat = fs.statSync(payloadPath);
+            expect(correctedStat.ino).toBe(originalStat.ino);
+            expect(correctedStat.size).toBe(originalStat.size);
+
+            const second = await MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            expect(second).toMatchObject({scanned: 1, repaired: 1, failed: 0});
+            expect(reads.getCount(), 'changed evidence at equal size must bypass the cooldown').toBe(2);
+        } finally {
+            reads.restore();
+            fs.writeFileSync(payloadPath, payloadText, 'utf8');
+        }
+    });
+
+    test('concurrent same-id repairs await one projection mutation (#16767)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const res = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'single flight', body: 'one writer'});
+        });
+        expect(damageEdgeProjection(res.messageId, 'SENT_BY')).toBe(1);
+
+        const originalProject = MailboxService._projectMessageWalRecord,
+            originalReadFile  = fsPromises.readFile;
+        let   projectCalls = 0,
+            payloadReads   = 0,
+            releasePayloadRead,
+            announceReadEntered;
+        const payloadReadGate = new Promise(resolve => {
+            releasePayloadRead = resolve;
+        });
+        const readEntered = new Promise(resolve => {
+            announceReadEntered = resolve;
+        });
+
+        fsPromises.readFile = async (filePath, ...args) => {
+            if (/message-wal-\d{4}-\d{2}-\d{2}\.jsonl$/.test(String(filePath))) {
+                payloadReads++;
+                announceReadEntered();
+                await payloadReadGate;
+            }
+            return originalReadFile(filePath, ...args)
+        };
+
+        MailboxService._projectMessageWalRecord = async function(record, options) {
+            projectCalls++;
+            return originalProject.call(this, record, options)
+        };
+
+        try {
+            const first  = MailboxService.repairMessageGraphIntegrity({target: '@bob', box: 'inbox', limit: 1});
+            const second = MailboxService.repairMessageGraphIntegrity({target: '@bob', box: 'inbox', limit: 1});
+
+            await readEntered;
+            // The first caller is parked inside the payload read. Give the second caller several
+            // turns to reach the same id; without the load promise it opens the segment too.
+            for (let turn = 0; turn < 3; turn++) {
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            expect(payloadReads).toBe(1);
+            releasePayloadRead();
+
+            const results = await Promise.all([first, second]);
+            expect(projectCalls).toBe(1);
+            expect(payloadReads, 'record loading and mutation must share the single-flight pipeline').toBe(1);
+            expect(results.map(item => item.repaired).sort()).toEqual([0, 1]);
+            expect(results.map(item => item.coalescedCandidateCount).sort()).toEqual([0, 1]);
+            expect(results.every(item => item.failed === 0)).toBe(true);
+        } finally {
+            releasePayloadRead();
+            fsPromises.readFile = originalReadFile;
+            MailboxService._projectMessageWalRecord = originalProject;
+        }
+    });
+
+    test('concurrent global and explicit repairs share one physical segment load (#16767)', async () => {
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
+        });
+        for (const recipient of ['@bob', '@charlie']) {
+            await RequestContextService.run({agentIdentityNodeId: recipient}, async () => {
+                await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+            });
+        }
+
+        const [bobMessage, charlieMessage] = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await Promise.all([
+                MailboxService.addMessage({to: '@bob', subject: 'segment one', body: 'global path'}),
+                MailboxService.addMessage({to: '@charlie', subject: 'segment two', body: 'explicit path'})
+            ])
+        });
+        expect(damageEdgeProjection(bobMessage.messageId, 'SENT_BY')).toBe(1);
+        expect(damageEdgeProjection(charlieMessage.messageId, 'SENT_BY')).toBe(1);
+
+        const originalProject = MailboxService._projectMessageWalRecord,
+            originalReadFile  = fsPromises.readFile;
+        let   projectCalls = 0,
+            payloadReads   = 0,
+            releasePayloadRead,
+            announceReadEntered;
+        const payloadReadGate = new Promise(resolve => {
+            releasePayloadRead = resolve;
+        });
+        const readEntered = new Promise(resolve => {
+            announceReadEntered = resolve;
+        });
+
+        fsPromises.readFile = async (filePath, ...args) => {
+            if (/message-wal-\d{4}-\d{2}-\d{2}\.jsonl$/.test(String(filePath))) {
+                payloadReads++;
+                announceReadEntered();
+                await payloadReadGate;
+            }
+            return originalReadFile(filePath, ...args)
+        };
+
+        MailboxService._projectMessageWalRecord = async function(record, options) {
+            projectCalls++;
+            return originalProject.call(this, record, options)
+        };
+
+        try {
+            const globalRepair = MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            const explicitRepair = MailboxService.repairMessageGraphIntegrity({
+                ids: [charlieMessage.messageId], limit: 1
+            });
+
+            await readEntered;
+            for (let turn = 0; turn < 3; turn++) {
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            expect(payloadReads, 'different ids in one segment must join before either read completes').toBe(1);
+            releasePayloadRead();
+
+            const results = await Promise.all([globalRepair, explicitRepair]);
+            expect(payloadReads).toBe(1);
+            expect(projectCalls).toBe(2);
+            expect(results.map(item => item.repaired)).toEqual([1, 1]);
+            expect(results.every(item => item.failed === 0)).toBe(true);
+        } finally {
+            releasePayloadRead();
+            fsPromises.readFile = originalReadFile;
+            MailboxService._projectMessageWalRecord = originalProject;
+        }
+    });
+
+    test('a marker-cohort change starts a new segment-load generation (#16767)', async () => {
+        GraphService.upsertNode({
+            id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}
+        });
+        for (const recipient of ['@bob', '@charlie']) {
+            await RequestContextService.run({agentIdentityNodeId: recipient}, async () => {
+                await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+            });
+        }
+
+        const bobMessage = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@bob', subject: 'old marker cohort', body: 'first load'});
+        });
+        const charlieMessage = await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            return await MailboxService.addMessage({to: '@charlie', subject: 'new marker cohort', body: 'second load'});
+        });
+        expect(damageEdgeProjection(bobMessage.messageId, 'SENT_BY')).toBe(1);
+        expect(damageEdgeProjection(charlieMessage.messageId, 'SENT_BY')).toBe(1);
+
+        const markerPath = fs.readdirSync(messageWalDir)
+                .map(name => path.join(messageWalDir, name))
+                .find(filePath => filePath.endsWith('.graph.jsonl')),
+            markerText   = fs.readFileSync(markerPath, 'utf8'),
+            markerLines  = markerText.trim().split('\n'),
+            oldCohort    = markerLines.filter(line => JSON.parse(line).id !== charlieMessage.messageId);
+
+        expect(oldCohort.length).toBe(markerLines.length - 1);
+        fs.writeFileSync(markerPath, `${oldCohort.join('\n')}\n`, 'utf8');
+
+        const originalReadFile = fsPromises.readFile;
+        let   payloadReads     = 0,
+            releasePayloadRead,
+            announceReadEntered;
+        const payloadReadGate = new Promise(resolve => {
+            releasePayloadRead = resolve;
+        });
+        const readEntered = new Promise(resolve => {
+            announceReadEntered = resolve;
+        });
+
+        fsPromises.readFile = async (filePath, ...args) => {
+            if (/message-wal-\d{4}-\d{2}-\d{2}\.jsonl$/.test(String(filePath))) {
+                payloadReads++;
+                announceReadEntered();
+                await payloadReadGate;
+            }
+            return originalReadFile(filePath, ...args)
+        };
+
+        try {
+            const oldGeneration = MailboxService.repairMessageGraphIntegrity({
+                target: '@bob', box: 'inbox', limit: 1
+            });
+            await readEntered;
+
+            // The payload is unchanged. Only its durable marker cohort grows while generation one
+            // is parked in readFile; generation two must not join the old cohort-filtered result.
+            fs.writeFileSync(markerPath, markerText, 'utf8');
+            const newGeneration = MailboxService.repairMessageGraphIntegrity({
+                ids: [charlieMessage.messageId], limit: 1
+            });
+
+            for (let turn = 0; turn < 50 && payloadReads < 2; turn++) {
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            expect(payloadReads, 'a marker-only cohort change needs an independent segment result').toBe(2);
+            releasePayloadRead();
+
+            const results = await Promise.all([oldGeneration, newGeneration]);
+            expect(results.map(item => item.repaired)).toEqual([1, 1]);
+            expect(results.every(item => item.failed === 0)).toBe(true);
+        } finally {
+            releasePayloadRead();
+            fsPromises.readFile = originalReadFile;
+            fs.writeFileSync(markerPath, markerText, 'utf8');
+        }
+    });
+
+    test('bounded repair advances past a persistent failed candidate instead of starving the next id (#16767)', async () => {
+        GraphService.upsertNode({
+            id: '@cursor-bob', type: 'AgentIdentity', name: 'Cursor Bob', properties: {accountType: 'agent'}
+        });
+        await RequestContextService.run({agentIdentityNodeId: '@cursor-bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        const ids = [];
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            ids.push((await MailboxService.addMessage({to: '@cursor-bob', subject: 'first', body: 'fails'})).messageId);
+            ids.push((await MailboxService.addMessage({to: '@cursor-bob', subject: 'second', body: 'must advance'})).messageId);
+        });
+        ids.forEach(id => expect(damageEdgeProjection(id, 'SENT_BY')).toBe(1));
+
+        const originalProject = MailboxService._projectMessageWalRecord,
+            reads             = instrumentMessageWalPayloadReads();
+        MailboxService._projectMessageWalRecord = async function(record, options) {
+            if (record.id === ids[0]) throw new Error('deterministic first-candidate failure');
+            return await originalProject.call(this, record, options)
+        };
+
+        try {
+            const first = await MailboxService.repairMessageGraphIntegrity({
+                target: '@cursor-bob', box: 'inbox', limit: 1
+            });
+            expect(first).toMatchObject({
+                candidateCount: 2, matchedCandidateCount: 2, scanned: 1, repaired: 0, failed: 1,
+                cursorStart   : 0, cursorNext: 1
+            });
+
+            const second = await MailboxService.repairMessageGraphIntegrity({
+                target: '@cursor-bob', box: 'inbox', limit: 1
+            });
+            expect(second).toMatchObject({
+                candidateCount              : 2, matchedCandidateCount: 2, scanned: 1, repaired: 1, failed: 0,
+                deferredFailedCandidateCount: 1, cursorStart: 0, cursorNext: 0
+            });
+
+            const third = await MailboxService.repairMessageGraphIntegrity({
+                target: '@cursor-bob', box: 'inbox', limit: 1
+            });
+            expect(third).toMatchObject({
+                candidateCount              : 1, matchedCandidateCount: 1, scanned: 0, repaired: 0, failed: 0,
+                deferredFailedCandidateCount: 1
+            });
+
+            const explicitRetry = await MailboxService.repairMessageGraphIntegrity({ids: [ids[0]], limit: 1});
+            expect(explicitRetry).toMatchObject({scanned: 1, repaired: 0, failed: 1});
+            expect(reads.getCount(), 'cooldown + explicit retry must reuse the immutable accepted record').toBe(2);
+
+            expect(GraphService.db.storage.db.prepare(`
+                SELECT COUNT(*) AS count
+                  FROM Edges
+                 WHERE source = ?
+                   AND type = 'SENT_BY'
+            `).get(ids[0]).count).toBe(0);
+            expect(GraphService.db.storage.db.prepare(`
+                SELECT COUNT(*) AS count
+                  FROM Edges
+                 WHERE source = ?
+                   AND type = 'SENT_BY'
+            `).get(ids[1]).count).toBe(1);
+        } finally {
+            reads.restore();
+            MailboxService._projectMessageWalRecord = originalProject;
+        }
     });
 
     test('a healthy DB of a DM + an INTACT broadcast reports no gap — the fix does NOT false-positive on DMs (#15369)', async () => {
@@ -1695,7 +2430,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(await readPendingMessageWalRecords({dir: messageWalDir, ids: [msgId]})).toHaveLength(0);
     });
 
-    test('surgical repair does not duplicate the projection marker — the marker index stays 1:1 with accepted records (#14992)', async () => {
+    test('surgical repair does not append a second marker; only bounded metadata enrichment may do so (#14992, #16767)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
@@ -1713,8 +2448,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         expect(countMarkerLines()).toBe(1);
 
-        // post-marker damage: repair restores the edge; the pre-existing marker must NOT be
-        // re-appended (observed inflation: 499 markers over 70 accepted records on 2026-07-09)
+        // Post-marker graph damage repairs the edge without another receipt (observed historical
+        // inflation: 499 markers over 70 accepted records). One-time route/cohort compatibility
+        // enrichment is the bounded exception: it appends metadata only when the original marker
+        // predates those facts, never for ordinary surgical graph repair.
         GraphService.db.storage.db.prepare('DELETE FROM Edges WHERE source = ? AND target = ? AND type = ?')
             .run(msgId, '@bob', 'SENT_TO');
         clearGraphCacheWithoutStorageMutation();
