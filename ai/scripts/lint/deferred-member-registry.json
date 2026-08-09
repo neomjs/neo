@@ -5,8 +5,8 @@
     "shape": "How the read fails the invariant: bare-read (TypeError during the window) | truthy-skip (work silently skipped, caller told nothing) | optional-chain (evaluates undefined and flows on). Drift in shape fails the lint: a truthy-skip becoming a bare-read turns silence into a crash, and the old reason no longer describes it.",
     "reason": "REQUIRED. Entries fall in two honest classes — 'deliberate' (examined, the behaviour is intended) and 'pre-existing, un-audited' (recorded at introduction so the gate works from day one; assessing it is a separate lane per #16644's Out of Scope). Inventing a confident rationale for a site nobody examined would make this a suppression list wearing a reason field.",
     "witness": "REQUIRED, and its paths are resolved by the lint. A witness naming a file deleted two refactors ago reads exactly like one naming a live file.",
-    "baselineAtIntroduction": 72,
-    "baselineHistory": "First proposed at 39. @neo-gpt-emmy's review of PR #16774 falsified that census: the scanner could not see multiline method declarations or `const me = this` receiver aliases. Repairing those two blind spots surfaced 33 further obligations, including two files (ai/graph/storage/SQLite.mjs, ai/mcp/client/Client.mjs) that were entirely invisible. 39 was the instrument's reach, not the tree's population.",
+    "baselineAtIntroduction": 47,
+    "baselineHistory": "First proposed at 39 — the instruments reach, not the trees population. Cross-family review falsified it twice. Cycle 1: the scanner could not see multiline method declarations or const me = this receiver aliases; repairing both surfaced 33 further obligations, including two entirely invisible files (39 -> 72). Cycle 2: regex-literal bodies were answering structural questions, single-statement if branches swallowed later same-line throws, and compound member-absence guards were not credited at all. Recognising those correctly DISCIPLINED 25 sites that had been recorded as violations (72 -> 47): SQLite.mjs guards db via `if (!this.db?.open) throw`, and Client.mjs via `if (!me.client || !me.connected) throw`. Both numbers moved because the instrument changed, never because the tree did.",
     "shrinkLane": "Every entry here is a candidate for a discipline. The highest-value ones are truthy-skip entries on WRITE paths — see the purgeSession entries, where silence means a caller is told a purge succeeded that deleted nothing.",
     "outOfScope": "Members assigned outside initAsync(), and cross-file reads (ServiceA's member read by ServiceB). This lint is per-file by construction; see the header's bounds."
   },
@@ -56,66 +56,6 @@
       "reason": "Pre-existing, un-audited. A WRITE path (`update`) with no guard — a TypeError here aborts a sweep mid-flight.",
       "witness": "ai/daemons/orchestrator/services/DreamService.mjs — `processUndigestedSessions()` calls `update()`."
     },
-    "ai/graph/storage/SQLite.mjs#addEdges:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Surfaced only after alias support: this file assigns through `let me = this` and was entirely invisible to the first census.",
-      "witness": "ai/graph/storage/SQLite.mjs — `addEdges()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#addNodes:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced; a truthiness guard skips the write and tells the caller nothing.",
-      "witness": "ai/graph/storage/SQLite.mjs — `addNodes()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#appendGraphLogEvent:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced write path; silence during the window means a lost log event.",
-      "witness": "ai/graph/storage/SQLite.mjs — `appendGraphLogEvent()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#clear:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced. A `clear()` that silently clears nothing is the same receipt problem as purgeSession, and is a shrink-lane candidate.",
-      "witness": "ai/graph/storage/SQLite.mjs — `clear()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#executeTransaction:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced transaction entry point.",
-      "witness": "ai/graph/storage/SQLite.mjs — `executeTransaction()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#getDeltaLog:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced read path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `getDeltaLog()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#getLatestLogId:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced read path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `getLatestLogId()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#hasColumn:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Schema-introspection helper with no guard.",
-      "witness": "ai/graph/storage/SQLite.mjs — `hasColumn()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#hasTable:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Schema-introspection helper with no guard.",
-      "witness": "ai/graph/storage/SQLite.mjs — `hasTable()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#initSchema:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Schema bootstrap, called from `initAsync` itself.",
-      "witness": "ai/graph/storage/SQLite.mjs — `initSchema()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#load:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced load path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `load()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#loadNodeVicinitySync:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced hot read path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `loadNodeVicinitySync()` reads `db`."
-    },
     "ai/graph/storage/SQLite.mjs#loadNodeVicinitySync:normalizeUserId": {
       "shape": "bare-read",
       "reason": "Pre-existing, un-audited. A dynamically imported FUNCTION injected onto the instance in `initAsync` — a genuinely deferred member that happens not to be data. Absence yields `undefined` and a call on it throws.",
@@ -126,61 +66,6 @@
       "reason": "Pre-existing, un-audited. Same dynamic-import injection as `normalizeUserId`; the RLS boundary depends on it being present.",
       "witness": "ai/graph/storage/SQLite.mjs — `initAsync` assigns `me.RequestContextService = rcs.default`."
     },
-    "ai/graph/storage/SQLite.mjs#migrateLegacyGraphColumns:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Migration helper reached from the schema path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `migrateLegacyGraphColumns()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#migrateLegacyGraphLogColumns:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Migration helper reached from the schema path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `migrateLegacyGraphLogColumns()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#migrateLegacySummarizationJobColumns:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Migration helper reached from the schema path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `migrateLegacySummarizationJobColumns()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#readGraphSchemaVersion:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Version probe with no guard.",
-      "witness": "ai/graph/storage/SQLite.mjs — `readGraphSchemaVersion()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#removeEdges:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced delete path — silent skipping on a delete is a shrink-lane candidate.",
-      "witness": "ai/graph/storage/SQLite.mjs — `removeEdges()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#removeNodeIfUnreferenced:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced delete path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `removeNodeIfUnreferenced()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#removeNodes:db": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced delete path.",
-      "witness": "ai/graph/storage/SQLite.mjs — `removeNodes()` reads `db` through the `me` alias."
-    },
-    "ai/graph/storage/SQLite.mjs#resetGraphSchemaOrThrow:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Destructive schema reset with no member guard.",
-      "witness": "ai/graph/storage/SQLite.mjs — `resetGraphSchemaOrThrow()` reads `db`."
-    },
-    "ai/graph/storage/SQLite.mjs#stampSchemaVersion:db": {
-      "shape": "bare-read",
-      "reason": "Pre-existing, un-audited. Schema-version write with no guard.",
-      "witness": "ai/graph/storage/SQLite.mjs — `stampSchemaVersion()` reads `db`."
-    },
-    "ai/mcp/client/Client.mjs#callTool:client": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced; this whole file was invisible to the first census.",
-      "witness": "ai/mcp/client/Client.mjs — `callTool()` reads `client` through the `me` alias."
-    },
-    "ai/mcp/client/Client.mjs#callTool:connected": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. `connected` is a boolean flag assigned in `initAsync`; absence reads `undefined`, which is falsy and therefore behaves like 'not connected' — plausibly benign, not verified.",
-      "witness": "ai/mcp/client/Client.mjs — `initAsync` assigns `me.connected = true`."
-    },
     "ai/mcp/client/Client.mjs#callTool:toolService": {
       "shape": "bare-read",
       "reason": "Pre-existing, un-audited. No guard on the dispatch path.",
@@ -190,16 +75,6 @@
       "shape": "truthy-skip",
       "reason": "Deliberate in shape if not in intent: `close()` must tolerate a client that never finished connecting, which is the same teardown argument as `Agent.stop()`.",
       "witness": "ai/mcp/client/Client.mjs — `close()` guards `transport`."
-    },
-    "ai/mcp/client/Client.mjs#listTools:client": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Alias-surfaced read path.",
-      "witness": "ai/mcp/client/Client.mjs — `listTools()` reads `client` through the `me` alias."
-    },
-    "ai/mcp/client/Client.mjs#listTools:connected": {
-      "shape": "truthy-skip",
-      "reason": "Pre-existing, un-audited. Same falsy-by-absence argument as the `callTool` entry.",
-      "witness": "ai/mcp/client/Client.mjs — `listTools()` tests `connected`."
     },
     "ai/services/knowledge-base/KBRecorderService.mjs#buildAgentFaqs:db": {
       "shape": "truthy-skip",

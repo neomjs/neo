@@ -11,6 +11,7 @@ import {
     methodAt,
     receiverAliases,
     registryGrowthProblems,
+    startsRegex,
     stripSource,
     typedGuardMembers,
     unresolvedWitnessPaths,
@@ -469,6 +470,108 @@ test.describe('lint-deferred-member-readiness — two disciplines, derived popul
 
         test('no read is attributed to <module> — a scanner gap must not become silent under-reporting', () => {
             expect(LIVE.filter(v => v.method === '<module>')).toEqual([]);
+        });
+    });
+
+    /**
+     * Second review cycle. Three more false GREENs and — the new direction — one false RED, where the
+     * gate reported correct code as a defect. A gate that cries wolf gets routed around, so that
+     * direction matters too.
+     */
+    test.describe('reviewer falsifiers, cycle 2 — non-executable text and causal branch extent', () => {
+        test('RED — a regex literal cannot credit readiness', () => {
+            expect(probe([
+                '    read() {',
+                '        const re = /await this.ready()/;',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toHaveLength(1);
+        });
+
+        test('RED — a regex literal cannot manufacture a typed guard', () => {
+            expect(probe([
+                '    requireDb() {',
+                '        if (!this.db) {',
+                '            const re = /throw/;',
+                '            return null;',
+                '        }',
+                '        return this.db;',
+                '    }',
+                '    read() {',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n')).length).toBeGreaterThan(0);
+        });
+
+        test('RED — a brace inside a regex character class cannot close the method', () => {
+            expect(probe([
+                '    read() {',
+                '        const re = /[}]/;',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toHaveLength(1);
+        });
+
+        test('RED — a single-statement branch stops at its own statement', () => {
+            // `if (!this.db) return null; if (flag) throw …` — the later throw is a SECOND statement
+            // and must not land inside the first branch's extent.
+            expect(probe([
+                '    read() {',
+                '        if (!this.db) return null; if (flag) throw new Error(1);',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toHaveLength(1);
+        });
+
+        test('GREEN — a compound member-absence guard credits, as live Client.mjs relies on', () => {
+            expect(probe([
+                '    requireDb() {',
+                '        if (!enabled || !this.db) {',
+                '            throw new Error("unavailable");',
+                '        }',
+                '        return this.db;',
+                '    }',
+                '    read() {',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n'))).toEqual([]);
+
+            // The live positive control the reviewer named.
+            expect(LIVE.filter(v => v.file.endsWith('mcp/client/Client.mjs') && ['client', 'connected'].includes(v.member)))
+                .toEqual([]);
+        });
+
+        /**
+         * The subtlest pair in the file, and the one my own compound fix got wrong first.
+         *
+         * `!x.m?.p` IS a guard for `m`: absence yields `undefined`, `!undefined` is true, and the
+         * branch throws. `!x.m.p` is NOT: it would raise a TypeError before any throw. Widening the
+         * absence match without this distinction credited `db` across `SQLite.mjs` from a guard that
+         * tests `this.db.open`, silently disciplining 21 real obligations.
+         */
+        test('an absence term must be the WHOLE member reference', () => {
+            const guard = consequent => [
+                '    guard() {',
+                `        ${consequent}`,
+                '    }',
+                '    read() {',
+                '        return this.db.q();',
+                '    }'
+            ].join('\n');
+
+            expect(probe(guard('if (!this.db) throw new Error(1);'))).toEqual([]);
+            expect(probe(guard('if (!this.db?.open) throw new Error(1);'))).toEqual([]);
+
+            expect(probe(guard('if (!this.db.open) throw new Error(1);')).length).toBeGreaterThan(0);
+            expect(probe(guard('if (!this.db[key]) throw new Error(1);')).length).toBeGreaterThan(0);
+        });
+
+        test('a slash after a value divides; after an operator it opens a literal', () => {
+            expect(startsRegex('const x = a ')).toBe(false);
+            expect(startsRegex('const x = (a + b) ')).toBe(false);
+            expect(startsRegex('const re = ')).toBe(true);
+            expect(startsRegex('return ')).toBe(true);
+            expect(startsRegex('')).toBe(true);
         });
     });
 

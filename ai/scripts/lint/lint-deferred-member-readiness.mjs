@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @summary Requires every member assigned in `initAsync()` to be read through *some* readiness
- * discipline — awaited readiness, or an accessor that throws a typed error on the member's absence
+ * discipline — awaited readiness, or a guard that throws a typed error on the member's absence
  * path. A member read through neither produces a raw `TypeError` naming no subsystem, during the
  * startup window the deferral itself opened.
  *
@@ -28,9 +28,15 @@
  * in other files. A per-read rule would flag the very file the acceptance criteria name as the green
  * case, 124 times over.
  *
- * So: **a member is disciplined if its file defines a typed-error accessor for it.** The invariant is
- * that the member *has* a discipline, not that every read re-proves it. Whether each internal read
- * routes through the accessor is a weaker, separate question this predicate does not answer.
+ * So: **a member is disciplined if its file contains a method that throws on that member's absence
+ * path.** Stated as "defines an accessor" in an earlier revision, which overclaimed — the check is
+ * satisfied by any causal guard, not only by a dedicated `requireX()`. `SQLite.mjs` qualifies through
+ * `if (!this.db?.open) throw …` inside an ordinary method, and that is the behaviour, so it is what
+ * the prose says.
+ *
+ * The invariant is that the member *has* a discipline, not that every read re-proves it. Whether each
+ * internal read routes through the guard is a weaker, separate question this predicate does not
+ * answer.
  *
  * ## The guard must be CAUSAL, not co-located
  *
@@ -86,7 +92,7 @@
  *   the same method. A `ready()` awaited in one arm of a conditional reads as covering everything
  *   after it.
  * - **No call-graph following.** A method delegating to a helper that awaits readiness is not
- *   credited. The typed accessor's *existence* is checked; its *use* is not.
+ *   credited. The typed guard's *existence* is checked; its *use* is not.
  * - **Aliases must be direct.** `const me = this` is followed; `const {store} = this` and
  *   `const me = other.thing` are not.
  * - **Assignment detection is syntactic.** `Object.assign(this, {…})` or a computed `this[name] = …`
@@ -168,6 +174,33 @@ export const SCAN_SURFACE = Object.freeze([
  * @param {String[]} lines Raw source lines.
  * @returns {String[]} Same length, with comment and literal text replaced by spaces.
  */
+/**
+ * Whether a `/` at the end of `emitted` opens a regex literal rather than dividing.
+ *
+ * @summary The classic ambiguity, resolved the standard way: by what precedes. After a VALUE — an
+ * identifier, number, `)`, `]` — a slash divides. After an operator, a punctuator, or a keyword that
+ * expects an expression, it opens a literal.
+ *
+ * Deliberately conservative in the safe direction: a misread that treats division as a regex blanks a
+ * little arithmetic, which cannot manufacture structure. The opposite misread leaves regex text
+ * executable, which is the defect this exists to remove.
+ * @param {String} emitted Everything already emitted for this line.
+ * @returns {Boolean}
+ */
+export function startsRegex(emitted) {
+    const trimmed = emitted.replace(/\s+$/, '');
+
+    if (trimmed === '') {
+        return true
+    }
+
+    if (/[([{,;:!&|?+\-*%^~=<>]$/.test(trimmed)) {
+        return true
+    }
+
+    return /\b(return|typeof|instanceof|in|of|case|do|else|yield|await|new|delete|void|throw)$/.test(trimmed)
+}
+
 export function stripSource(lines) {
     const out = [];
 
@@ -247,6 +280,37 @@ export function stripSource(lines) {
                 quote   = char;
                 result += ' ';
                 i++;
+                continue
+            }
+
+            // A REGEX LITERAL is non-executable text that looks exactly like structure. This file is
+            // itself full of them, and the scanner scans itself: `/await this.ready()/` credited
+            // readiness, `/throw/` inside an absence branch manufactured a typed guard, and a `}` in a
+            // character class closed a method early. All three were live false verdicts.
+            //
+            // `/` is division or a regex depending on what precedes it, so the last significant
+            // character decides. After a value (identifier, literal, `)`, `]`) it divides; after an
+            // operator, punctuator, or a keyword like `return`, it opens a regex.
+            if (char === '/' && startsRegex(result)) {
+                let j       = i + 1,
+                    inClass = false;
+
+                while (j < line.length) {
+                    const c = line[j];
+
+                    if (c === '\\')                 { j += 2; continue }
+                    if (c === '[')                  { inClass = true  }
+                    else if (c === ']')             { inClass = false }
+                    else if (c === '/' && !inClass) { break }
+
+                    j++
+                }
+
+                // Unterminated on this line: treat the rest as literal text rather than guessing.
+                const end = j < line.length ? j : line.length - 1;
+
+                result += ' '.repeat(end - i + 1);
+                i       = end + 1;
                 continue
             }
 
@@ -471,27 +535,59 @@ export function deferredMembersOf(stripped, ranges) {
  * @param {Number} index Zero-based index of the `if` line.
  * @returns {{start: Number, end: Number}}
  */
-export function ifBlockRange(stripped, index) {
-    if (!/\{\s*$/.test(stripped[index]) && !/\{/.test(stripped[index])) {
-        // Single-statement form: the consequent is the remainder of this line, or the next line.
-        return {start: index, end: /\)\s*\S/.test(stripped[index]) ? index : Math.min(index + 1, stripped.length - 1)}
+export function ifBlockRange(stripped, index, condEnd = -1) {
+    const tail = condEnd >= 0 ? stripped[index].slice(condEnd + 1) : stripped[index];
+
+    if (!/\{/.test(tail)) {
+        // SINGLE-STATEMENT FORM — bounded to the ONE controlled statement.
+        //
+        // Returning the whole line was a false typed-guard credit:
+        // `if (!this.db) return null; if (flag) throw new Error(1);` put an unrelated later throw
+        // inside the branch's text and manufactured a discipline. `if` controls one statement, so the
+        // consequent ends at the first `;`.
+        const semicolon = tail.indexOf(';');
+
+        if (tail.trim() !== '') {
+            return {start: index, end: index, text: semicolon >= 0 ? tail.slice(0, semicolon + 1) : tail}
+        }
+
+        // Consequent on the following line.
+        const next = Math.min(index + 1, stripped.length - 1);
+
+        return {start: index, end: next, text: stripped[next]}
     }
 
     let depth = 0;
 
     for (let i = index; i < stripped.length; i++) {
-        depth += braceDelta(stripped[i]);
+        depth += braceDelta(i === index ? tail : stripped[i]);
 
-        if (depth <= 0 && i > index) {
-            return {start: index, end: i}
-        }
+        if (depth <= 0 && (i > index || /\}/.test(tail))) {
+            const text = i === index ? tail : [tail, ...stripped.slice(index + 1, i + 1)].join('\n');
 
-        if (depth <= 0 && /\}/.test(stripped[i]) && i === index) {
-            return {start: index, end: i}
+            return {start: index, end: i, text}
         }
     }
 
-    return {start: index, end: stripped.length - 1}
+    return {start: index, end: stripped.length - 1, text: [tail, ...stripped.slice(index + 1)].join('\n')}
+}
+
+/**
+ * Index of the `)` matching the `(` at `open`.
+ *
+ * @param {String} line
+ * @param {Number} open
+ * @returns {Number} -1 when unmatched on this line.
+ */
+export function matchParen(line, open) {
+    let depth = 0;
+
+    for (let i = open; i < line.length; i++) {
+        if (line[i] === '(') depth++;
+        else if (line[i] === ')' && --depth === 0) return i
+    }
+
+    return -1
 }
 
 /**
@@ -509,19 +605,46 @@ export function typedGuardMembers(stripped, ranges) {
 
     for (const range of ranges) {
         const receivers = receiverGroup(receiverAliases(stripped, range)),
-              absence   = new RegExp(`if\\s*\\(\\s*!\\s*${receivers}\\.([A-Za-z_$][\\w$]*)\\s*\\)`);
+              // The absence TERM, anywhere inside the condition — not the condition's only term.
+              //
+              // Requiring `!x.member` to be immediately followed by `)` rejected every compound
+              // guard, so `if (!enabled || !this.db) { throw … }` — the shape live `Client.mjs` uses —
+              // was reported as two violations. A false RED on correct code, which teaches people to
+              // route around the gate.
+              //
+              // The term must be the WHOLE member reference. Widening to "anywhere in the condition"
+              // without this lookahead immediately manufactured credit: `if (!this.db.open) throw …`
+              // matched `!this.db` and credited `db` from a guard that tests a PROPERTY OF db — which
+              // presupposes db exists and would itself throw a TypeError on absence. That silently
+              // dropped 21 real obligations in one file. Caught by re-deriving the population after
+              // the fix instead of trusting that the falsifiers passing meant the fix was right.
+              absence   = new RegExp(`!\\s*${receivers}\\.([A-Za-z_$][\\w$]*)\\b(?![.\\[])`, 'g');
 
         for (let i = range.start; i <= range.end; i++) {
-            const match = stripped[i].match(absence);
+            const open = stripped[i].search(/\bif\s*\(/);
 
-            if (!match) {
+            if (open < 0) {
                 continue
             }
 
-            const block = ifBlockRange(stripped, i),
-                  body  = stripped.slice(block.start, block.end + 1).join('\n');
+            const condOpen = stripped[i].indexOf('(', open),
+                  condEnd  = matchParen(stripped[i], condOpen);
 
-            /\bthrow\b/.test(body) && !guards.has(match[1]) && guards.set(match[1], range.name)
+            if (condEnd < 0) {
+                continue
+            }
+
+            const
+                condition = stripped[i].slice(condOpen, condEnd + 1),
+                block     = ifBlockRange(stripped, i, condEnd);
+
+            if (!/\bthrow\b/.test(block.text)) {
+                continue
+            }
+
+            for (const match of condition.matchAll(absence)) {
+                !guards.has(match[1]) && guards.set(match[1], range.name)
+            }
         }
     }
 
