@@ -24,8 +24,11 @@ import ConfigProvider, {createConfigProxy}                         from '../../.
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_MEMBER_PATHS} from '../../../../../../ai/configBase.mjs';
 import {derivePlaneMemberPaths}                                    from '../../../../../../ai/planeConfig.mjs';
 import BaseServer                                                  from '../../../../../../ai/mcp/server/BaseServer.mjs';
-// After the core export, not before: `ai/config.mjs` resolves against a fully initialised `Neo`.
-import AiConfig                                                    from '../../../../../../ai/config.mjs';
+// The committed template, never `ai/config.mjs` — tests resolve committed config templates and never a
+// repo-local ignored overlay. ticket-ref-ok: ADR-0019 B1/C3 is the authority lint-config-template-ssot
+// enforces this import against, so a reader reverting it needs the citation, not just the rule.
+// Imported after the core export so it resolves against a fully initialised `Neo`.
+import AiConfig                                                    from '../../../../../../ai/config.template.mjs';
 
 /**
  * @summary Mock McpServer that captures registered request handlers via the schema object
