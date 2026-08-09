@@ -24,6 +24,8 @@ import {collectProcessHeapObservation} from '../../../../services/shared/process
  * **A write failure degrades the channel and never the service.** This is an observation lane; a
  * service that died because it could not describe its own heap would be a strictly worse outcome than
  * the unobservability it was meant to fix.
+ *
+ * @extends Neo.core.Base
  */
 class HeapObservationReporterService extends Base {
     static config = {

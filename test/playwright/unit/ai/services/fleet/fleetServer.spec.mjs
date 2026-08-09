@@ -564,7 +564,8 @@ test.describe('composed Fleet S1 server', () => {
                     dataDir     : member('fleet'),
                     instanceRoot: member('fleet/instances')
                 },
-                engines     : {chroma: {dataDirProd: member('chroma/unified')}},
+                engines        : {chroma: {dataDirProd: member('chroma/unified')}},
+                heapObservation: {dir: member('heap-observation')},
                 orchestrator: {
                     dataDir              : member('orchestrator-daemon'),
                     dbPath               : member('orchestrator-daemon/orchestrator.sqlite'),
