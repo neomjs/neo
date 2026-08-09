@@ -541,6 +541,85 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect(runtimeCalls.filter(call => call.operation === 'restart')).toHaveLength(1);
     });
 
+    /**
+     * @neo-gpt's cycle-3 witness, reproduced as three controls. He ran the real actuator with authority
+     * flipping inside `readHealAttempts()` and got a restart with `heldAtEffect: false` plus a heal
+     * event with `heldAtWrite: false` — the controller had checked once, then awaited. The lesson
+     * generalises past this class: an authority check with an await between it and the effect does not
+     * bind the effect, and this is the THIRD depth the same fence has had to move to (batch → decision
+     * → effect terminal).
+     */
+    test('(a) TAKEOVER during readHealAttempts — zero lifecycle call, zero shared-state mutation', async () => {
+        let held = true;
+
+        const {controller, actuator, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => held}
+        });
+
+        // Flip authority INSIDE the actuator's awaited preparation — the exact window the witness used.
+        const originalRead = actuator.readHealAttempts.bind(actuator);
+
+        actuator.readHealAttempts = async () => {
+            const attempts = await originalRead();
+
+            held = false;
+
+            return attempts;
+        };
+
+        const outcome = await controller.consume({decision: wedged('mc-server')});
+
+        expect(runtimeCalls).toEqual([]);                          // no privileged effect
+        expect(outcome.actuatorOutcome.status).toBe('declined');
+        expect(outcome.actuatorOutcome.reasonCode).toBe('authority-lost');
+        // And no owner-authoritative success entry anywhere in the shared ledger.
+        expect((await readLedger()).filter(event => event.status === 'actioned')).toEqual([]);
+    });
+
+    test('(b) RECORD-ONLY after loss — zero owner-authoritative ledger writes', async () => {
+        const {controller, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => false}
+        });
+
+        const outcome = await controller.consume({
+            decision: decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.throttleShed)
+        });
+
+        // The rationale this replaces: record-only routes were left unfenced to "preserve evidence the
+        // instance stopped". What they actually wrote was `status: 'recorded'` — a controller-owned
+        // success terminal indistinguishable from ordinary operation, into the successor's ledger.
+        expect(outcome.status).toBe('declined');
+        expect(outcome.reasonCode).toBe('authority-lost');
+        expect(runtimeCalls).toEqual([]);
+        expect(await readLedger()).toEqual([]);
+    });
+
+    test('(c) LOSS BEFORE THE RECEIPT — the action landed, but no unbound post-loss success entry', async () => {
+        let held = true;
+
+        const {controller, actuator, runtimeCalls} = createStack({
+            controllerConfig: {isAuthorityHeld: () => held}
+        });
+
+        // Authority survives the effect and is lost before the controller writes its own receipt.
+        const originalApply = actuator.apply.bind(actuator);
+
+        actuator.apply = async (...args) => {
+            const result = await originalApply(...args);
+
+            held = false;
+
+            return result;
+        };
+
+        const outcome = await controller.consume({decision: wedged('mc-server')});
+
+        expect(runtimeCalls).toHaveLength(1);                      // the restart genuinely happened
+        expect(outcome.actuatorOutcome.status).toBe('actioned');
+        // ...and the controller does NOT then name itself the actor in the successor's ledger.
+        expect((await readLedger()).filter(event => event.status === 'actioned')).toEqual([]);
+    });
+
     test('consumeSnapshot on a missing or empty snapshot is a no-op rather than a throw', async () => {
         const {controller, runtimeCalls} = createStack();
 

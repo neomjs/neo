@@ -235,8 +235,12 @@ export class ContainerHealthControllerService extends Base {
             return this.recordWithoutAction({decision, now, reasonCode: UNMAPPED_ACTION_CLASS_REASON_CODE});
         }
 
+        // Record-only routes are fenced TOO. They end in shared durable ledgers, and a displaced
+        // holder writing `recorded` there is not evidence that it stopped — it is a controller-owned
+        // success terminal, indistinguishable from ordinary operation by anyone reading afterwards.
         if (!route.actuatorAction) {
-            return this.recordWithoutAction({decision, now, reasonCode: route.reasonCode});
+            return this.declineIfAuthorityLost({decision, now, actionClass}) ||
+                await this.recordWithoutAction({decision, now, reasonCode: route.reasonCode});
         }
 
         // Re-asked HERE, immediately before the privileged write, not once for the batch. A snapshot is
@@ -244,20 +248,8 @@ export class ContainerHealthControllerService extends Base {
         // an earlier service was restarting must stop every later one. The recording terminals above are
         // deliberately not fenced: writing a durable record of a diagnosis is not a plane mutation, and
         // losing the record would remove the evidence that this instance stopped acting.
-        if (typeof this.isAuthorityHeld === 'function' && this.isAuthorityHeld() !== true) {
-            this.writeLog?.('WARN', `[ContainerHealthController] authority lost before actuating ${decision.serviceKey}; declining.`);
-
-            return this.createOutcome({
-                actionClass: decision.actionClass,
-                consumed   : false,
-                observedAt : now,
-                reasonCode : 'authority-lost',
-                serviceKey : decision.serviceKey,
-                status     : 'declined'
-            });
-        }
-
-        return this.actuate({decision, now, route});
+        return this.declineIfAuthorityLost({decision, now, actionClass}) ||
+            await this.actuate({decision, now, route});
     }
 
     /**
@@ -295,7 +287,12 @@ export class ContainerHealthControllerService extends Base {
                 // quietly re-aimed at whichever entry happened to be the only match for the key.
                 targetIdentity: diagnosis.targetIdentity || decision.targetIdentity || null,
                 now,
-                reason
+                reason,
+                // Carried INTO the actuator so it is revalidated after its own awaited preparation,
+                // immediately before the privileged effect. A check made out here is separated from
+                // the effect by `readHealAttempts`, which is I/O — and an authority check with an
+                // await between it and the effect does not bind the effect.
+                isAuthorityHeld: this.isAuthorityHeld
             });
         } catch (error) {
             outcome = {
@@ -351,7 +348,7 @@ export class ContainerHealthControllerService extends Base {
                     reasonCode,
                     unactuatedActionClass: actionClass
                 }
-            }), {now, reason: reasonCode});
+            }), {now, reason: reasonCode, isAuthorityHeld: this.isAuthorityHeld});
         } catch (error) {
             outcome = {
                 action    : 'record',
@@ -380,6 +377,34 @@ export class ContainerHealthControllerService extends Base {
     }
 
     /**
+     * @summary Returns a declined outcome when authority is no longer held, or `null` to proceed.
+     *
+     * Shared by every terminal — actuated and record-only alike — because both end in durable state a
+     * successor also owns. Returning `null` rather than a boolean lets each call site read as
+     * `decline || proceed`, so a new terminal that forgets the fence is visible as a missing clause
+     * rather than as an inverted condition.
+     *
+     * @param {Object} options
+     * @returns {Object|null}
+     */
+    declineIfAuthorityLost({decision, now, actionClass}) {
+        if (typeof this.isAuthorityHeld !== 'function' || this.isAuthorityHeld() === true) {
+            return null;
+        }
+
+        this.writeLog?.('WARN', `[ContainerHealthController] authority lost before the ${decision.serviceKey} terminal; declining without touching shared state.`);
+
+        return this.createOutcome({
+            actionClass,
+            consumed  : false,
+            observedAt: now,
+            reasonCode: 'authority-lost',
+            serviceKey: decision.serviceKey,
+            status    : 'declined'
+        });
+    }
+
+    /**
      * @summary Appends one heal-event describing what the controller did with a decision.
      *
      * The event's `status` is the actuator's own outcome status verbatim (`actioned` / `deferred` /
@@ -392,6 +417,18 @@ export class ContainerHealthControllerService extends Base {
      */
     async recordHealEvent({decision, action, now, outcome, reasonCode}) {
         if (!this.healLedgerDir) {
+            return;
+        }
+
+        // The controller's own receipt is written AFTER an awaited `apply()`, so authority can have
+        // moved since the effect. A success entry written past that point is unbound: it names this
+        // instance as the actor in a ledger the successor now owns, and reads as the current holder's
+        // work. If the action genuinely landed while authority was held, the actuator's own
+        // recovery-run entry already records it — this receipt is the redundant half, so dropping it
+        // loses provenance rather than the event.
+        if (outcome?.status === 'actioned' && typeof this.isAuthorityHeld === 'function' && this.isAuthorityHeld() !== true) {
+            this.writeLog?.('WARN', `[ContainerHealthController] authority lost before the ${decision.serviceKey} receipt; not writing an owner-authoritative success entry.`);
+
             return;
         }
 

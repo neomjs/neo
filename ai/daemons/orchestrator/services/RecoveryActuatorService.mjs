@@ -266,6 +266,10 @@ export class RecoveryActuatorService extends Base {
         recoveryRunId = null,
         now = Date.now(),
         reason = null,
+        // Current-authority oracle, `() => Boolean`, revalidated INSIDE this method immediately before
+        // the privileged effect. Optional so existing callers are unchanged; a caller that omits it
+        // keeps today's behaviour exactly.
+        isAuthorityHeld = null,
         // Only `reconfigure` consumes these. A controller names a KNOB, never a config leaf — the
         // transaction boundary belongs to the closed set, so a caller cannot compose an arbitrary
         // group of leaves and have it applied as one.
@@ -316,6 +320,26 @@ export class RecoveryActuatorService extends Base {
                 taskStatus: gate.status === 'recorded' ? 'failed' : 'skipped',
                 updatedAt : now
             });
+        }
+
+        // REVALIDATED HERE, after the awaited preparation above and immediately before the privileged
+        // effect — not by the caller before `apply` was entered. `readHealAttempts` is I/O, so a caller
+        // that checked authority and then awaited this method has already yielded: a GC pause or a
+        // suspended VM lets a successor reclaim the lease inside that window, and the effect still
+        // fires. The only check that binds an effect is the one with no await between it and the effect.
+        //
+        // The refusal returns BEFORE `persistAttempt` and before `finishAction`, deliberately. A
+        // displaced holder must not overwrite the successor's anti-thrash state, and must not emit an
+        // owner-authoritative recovery-run success entry — an unbound post-loss write is worse than no
+        // record, because it reads as the current holder's action.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'authority-lost',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
+            };
         }
 
         const startedAt = now;
@@ -426,8 +450,23 @@ export class RecoveryActuatorService extends Base {
     async recordDiagnosis(diagnosisEvent, {
         recoveryRunId = null,
         now = Date.now(),
-        reason = null
+        reason = null,
+        isAuthorityHeld = null
     } = {}) {
+        // The heal-event ledger and the recovery-run ledger are SHARED durable state, and that is what
+        // makes this a fence rather than bookkeeping. An earlier revision left this terminal open on
+        // the argument that losing the record would erase the evidence an instance stopped acting.
+        // The argument does not survive reading what it actually writes: `status: 'recorded'` is a
+        // controller-owned success terminal, indistinguishable from ordinary operation, so a displaced
+        // holder was not leaving evidence of stopping — it was writing into the successor's ledger as
+        // though it were still the authority.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status    : 'declined',
+                reasonCode: 'authority-lost'
+            };
+        }
+
         let diagnosis;
 
         try {
