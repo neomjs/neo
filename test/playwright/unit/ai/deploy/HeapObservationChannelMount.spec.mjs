@@ -1,8 +1,11 @@
 import {test, expect}     from '@playwright/test';
+import * as acorn         from 'acorn';
 import fs                 from 'node:fs';
 import path               from 'node:path';
 import process            from 'node:process';
 import {load as yamlLoad} from 'js-yaml';
+
+import {resolvePlaneDataRoot} from '../../../../../ai/planeConfig.mjs';
 
 /**
  * Guards the heap-observation channel's TRANSPORT, per deployment profile.
@@ -65,9 +68,11 @@ const
     PARITY_VOLUME   = 'parity-heap-observation';
 
 /**
- * The config-authoritative channel path pieces: the `heapObservation.dir` leaf's resolve
- * expression (anchor name AND segment — moving the anchor must red, not silently re-derive)
- * crossed with `planeConfig`'s relative root.
+ * The config-authoritative channel path pieces, proved to definition level: the
+ * `heapObservation.dir` leaf's resolve expression (anchor name AND segment), the anchor's
+ * DEFINITION (a name-pin alone stays green when the definition moves the runtime path — the
+ * cycle-3 residual), the `neoRootDir` definition beneath it, and `planeConfig`'s relative root.
+ * Every link fails closed.
  * @returns {{dirSegment: String, dataRootRelative: String}}
  */
 function readChannelPathAuthorities() {
@@ -79,6 +84,15 @@ function readChannelPathAuthorities() {
         dirExpr[1],
         'the heapObservation.dir leaf still anchors on planeDataRootDefault — an anchor move changes the runtime path and must red here'
     ).toBe('planeDataRootDefault');
+
+    expect(
+        /const planeDataRootDefault\s*=\s*resolvePlaneDataRoot\(\{rootDir:\s*neoRootDir\}\)/.test(configBaseText),
+        'planeDataRootDefault is still DEFINED as resolvePlaneDataRoot({rootDir: neoRootDir}) — a definition-level move changes the runtime path and must red here'
+    ).toBe(true);
+    expect(
+        /const neoRootDir\s*=\s*path\.resolve\(__dirname,\s*'\.\.\/?'\)/.test(configBaseText),
+        'neoRootDir is still defined as the configBase-relative repository root'
+    ).toBe(true);
 
     const relative = planeConfigText.match(/dataRootRelative:\s*'([^']+)'/);
 
@@ -105,12 +119,17 @@ function readComposePlaneRoot(composeDoc) {
 
 /**
  * Every MCP-server override of `getHeapObservationServiceKey()`, as `{serverDir, key}` pairs —
- * identity-preserving by construction. Discovery rules, all fail-closed:
+ * identity-preserving by construction, enumerated STRUCTURALLY (acorn), never by regex shape.
+ * A regex recognizes the spelling it expects and silently drops or miscounts every other valid
+ * spelling (a space before `()`, a `static async` modifier stack); a class-body walk recognizes
+ * the ELEMENT and can refuse its shape. Discovery rules, all fail-closed:
  *
- * - the elected convention is a PLAIN instance method with a direct literal return;
- * - any other definitional shape (static / async / generator / getter / private / computed /
- *   class-field) reds with a named reason — it is never silently counted OR silently skipped;
- * - a comment mention is not a definition and does not count.
+ * - the elected convention is a plain public, non-static, non-async, non-generator, non-computed
+ *   instance method whose body is one direct literal `return '<service-label>'`;
+ * - every class element whose semantic name matches in ANY other shape (static / async /
+ *   generator / getter / setter / private / computed / class-field / multi-statement body) reds
+ *   with a named reason — it is never silently counted OR silently skipped;
+ * - a comment mention is not a class element and does not count.
  *
  * `BaseServer` (the null default) lives outside the per-server directories and is not scanned.
  * @returns {Array<{serverDir: String, key: String}>}
@@ -125,32 +144,78 @@ function readReportingRoster() {
 
         if (!fs.existsSync(serverPath)) continue;
 
-        const text  = fs.readFileSync(serverPath, 'utf8'),
-              plain = text.match(/^ {4}getHeapObservationServiceKey\(\)\s*\{([\s\S]*?)\}/m);
+        const ast = acorn.parse(fs.readFileSync(serverPath, 'utf8'), {ecmaVersion: 'latest', sourceType: 'module'});
 
-        if (plain) {
-            const literal = plain[1].match(/return\s*'([^']+)'/);
+        for (const classBody of collectClassBodies(ast)) {
+            for (const element of classBody.body) {
+                const name = element.key?.type === 'PrivateIdentifier'
+                    ? `#${element.key.name}`
+                    : element.computed
+                        ? (element.key?.type === 'Literal' ? element.key.value : null)
+                        : (element.key?.name ?? element.key?.value);
 
-            expect(
-                literal,
-                `${entry.name} overrides getHeapObservationServiceKey() without a direct literal return — ` +
-                'an unresolvable producer must red, not vanish'
-            ).toBeTruthy();
+                if (name !== 'getHeapObservationServiceKey' && name !== '#getHeapObservationServiceKey') continue;
 
-            roster.push({serverDir: entry.name, key: literal[1]});
-            continue
+                const isElectedShape =
+                    element.type === 'MethodDefinition' &&
+                    element.kind === 'method' &&
+                    element.static === false &&
+                    element.computed === false &&
+                    element.value?.type === 'FunctionExpression' &&
+                    element.value.async === false &&
+                    element.value.generator === false;
+
+                expect(
+                    isElectedShape,
+                    `${entry.name} defines getHeapObservationServiceKey in a non-elected shape (static/async/generator/accessor/private/computed/class-field) — ` +
+                    'the census refuses it rather than guessing its semantics'
+                ).toBe(true);
+
+                const statements = element.value.body.body,
+                      isLiteralReturn =
+                          statements.length === 1 &&
+                          statements[0].type === 'ReturnStatement' &&
+                          statements[0].argument?.type === 'Literal' &&
+                          typeof statements[0].argument.value === 'string';
+
+                expect(
+                    isLiteralReturn,
+                    `${entry.name} overrides getHeapObservationServiceKey() without a direct literal return — ` +
+                    'an unresolvable producer must red, not vanish'
+                ).toBe(true);
+
+                roster.push({serverDir: entry.name, key: statements[0].argument.value})
+            }
         }
-
-        const variant = text.match(/^ *(?:static|async)\s+getHeapObservationServiceKey|^ *\*\s*getHeapObservationServiceKey|^ *get\s+getHeapObservationServiceKey|^ *#getHeapObservationServiceKey|^ *\[['"]getHeapObservationServiceKey['"]\]\s*\(|^ *getHeapObservationServiceKey\s*=/m);
-
-        expect(
-            variant,
-            `${entry.name} defines getHeapObservationServiceKey in a non-plain shape (static/async/generator/getter/private/computed/class-field) — ` +
-            'that is not the elected override convention and this guard refuses it rather than guessing its semantics'
-        ).toBeNull()
     }
 
     return roster
+}
+
+/**
+ * Yields every ClassBody in an AST (declarations, expressions, default exports, call arguments).
+ * @param {*} node
+ * @returns {Generator<Object>}
+ */
+function* collectClassBodies(node) {
+    if (!node || typeof node !== 'object') return;
+
+    if (node.type === 'ClassBody') {
+        yield node;
+        return // a class body does not nest another class body outside its elements' values
+    }
+
+    for (const value of Object.values(node)) {
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                if (item && typeof item === 'object' && item.type) {
+                    yield* collectClassBodies(item)
+                }
+            }
+        } else if (value && typeof value === 'object' && value.type) {
+            yield* collectClassBodies(value)
+        }
+    }
 }
 
 /**
@@ -210,6 +275,16 @@ test.describe('the heap-observation channel crosses a container boundary', () =>
         expect(composePlaneRoot.endsWith(`/${dataRootRelative}`),
             `the compose plane root (${composePlaneRoot}) still ends at the config-declared ${dataRootRelative}`
         ).toBe(true);
+
+        // Definition-level authority: run the compose-declared container root through the REAL
+        // resolver the config itself uses — the expected path is computed by the substrate, not
+        // re-derived by the guard, so a resolver-behavior change reds here too.
+        const containerRoot = composePlaneRoot.slice(0, -(dataRootRelative.length + 1));
+
+        expect(
+            resolvePlaneDataRoot({rootDir: containerRoot}),
+            'the compose-declared plane root must equal the config resolver applied to the container root'
+        ).toBe(composePlaneRoot);
 
         const
             expectedTarget = `${composePlaneRoot}/${dirSegment}`,
