@@ -78,10 +78,13 @@ class FleetManager extends Base {
      * resolveSubscriptionState}` per the `fleetWakeStateAdapter` contract. `null` ⇒ every source is
      * honestly `unknown`: this service is not a config entrypoint — config resolution belongs to the
      * composing process entrypoint, which resolves the daemon PID path + the identity-bound
-     * subscription read path and injects them here. Plain field, mirroring the sibling seams.
+     * subscription read path and injects them here. Static: the live write is a CLASS-static
+     * assignment from the entrypoint (class-as-singleton injection contract); prototype methods
+     * read it with `this` bound to the class. Declared static so the declaration matches the
+     * write — an instance construction can never shadow the injected value with a field `null`.
      * @member {Object|null} wakeStateOptions=null
      */
-    wakeStateOptions = null
+    static wakeStateOptions = null
     /**
      * Fleet repo-status aggregator seam. Defaults (via {@link getRepoStatusFn}) to `inspectFleetRepos`;
      * inject a recording stub for tests. Plain field.
@@ -93,19 +96,23 @@ class FleetManager extends Base {
      * per the `fleetThrottleStateAdapter` contract. `null` ⇒ every row is honestly `unknown`: no
      * trustworthy throttle truth source exists in the platform yet (the adapter documents the
      * evaluated-and-rejected candidates); the future watchdog-signals producer injects its reader
-     * here. Plain field, mirroring the sibling seams.
+     * here. Static, mirroring the sibling seams: the class-as-singleton injection contract — the
+     * declaration matches the CLASS-static write path, so an instance construction can never
+     * shadow the injected value with a field `null`.
      * @member {Object|null} throttleStateOptions=null
      */
-    throttleStateOptions = null
+    static throttleStateOptions = null
     /**
      * Presence observation options for {@link fleetPresenceStatus} — `{readPresence,
      * presenceIdentityFor}` per the `fleetPresenceStateAdapter` contract. `null` ⇒ every row is
      * honestly `unknown` under a degraded capability: the composing entrypoint injects the
      * identity-proven plane `who_is_online` reader in plane mode and leaves host mode unbound
-     * until a host presence surface lands. Plain field, mirroring the sibling seams.
+     * until a host presence surface lands. Static, mirroring the sibling seams: the
+     * class-as-singleton injection contract — the declaration matches the CLASS-static write
+     * path, so an instance construction can never shadow the injected value with a field `null`.
      * @member {Object|null} presenceStateOptions=null
      */
-    presenceStateOptions = null
+    static presenceStateOptions = null
 
     /**
      * @summary Resolve (field > env > default) the absolute fleet-managed checkout root.

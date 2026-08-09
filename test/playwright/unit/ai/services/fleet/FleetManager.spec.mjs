@@ -263,3 +263,27 @@ test.describe('Neo.ai.services.fleet.FleetManager — fleetThrottleStatus (roste
         }]);
     });
 });
+
+test.describe('Neo.ai.services.fleet.FleetManager — *StateOptions class-static injection contract', () => {
+    const SEAM_KEYS = ['wakeStateOptions', 'throttleStateOptions', 'presenceStateOptions'];
+
+    test('the seams are DECLARED class statics — the declaration exists where the entrypoint write lands', () => {
+        for (const key of SEAM_KEYS) {
+            expect(Object.hasOwn(FleetManager, key), `${key} must be a declared static`).toBe(true)
+        }
+    });
+
+    test('an instance construction can never shadow the class-static injection — no field initializers remain', () => {
+        const instance = Neo.create(FleetManager);
+
+        for (const key of SEAM_KEYS) {
+            // Pre-statics, the instance field initializer assigned null HERE and silently masked
+            // the class-static injection the entrypoint had placed. The witness: no own field,
+            // and the instance read resolves falsy-degraded (never a stale null that looks set).
+            expect(Object.hasOwn(instance, key), `${key} must not exist as an instance field`).toBe(false);
+            expect(instance[key], `${key} reads falsy-degraded on an instance`).toBeFalsy()
+        }
+
+        instance.destroy?.()
+    });
+});
