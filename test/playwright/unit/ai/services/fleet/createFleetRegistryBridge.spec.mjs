@@ -118,6 +118,18 @@ test.describe('createFleetRegistryBridge — the browser-side pane bridge factor
         await expect(bridge.listAgents()).rejects.not.toThrow(secret)
     });
 
+    test('a caller-owned transport remedy stays bounded without relaying the rejected error', async () => {
+        const
+            secret = 'raw-upstream-credential-shaped-secret',
+            remedy = "onboardPeer: Fleet owner is unreachable; start it with 'npm run ai:fleet-server' and re-run",
+            bridge = createFleetRegistryBridge(async () => {
+                throw new Error(secret)
+            }, {transportFailureMessage: remedy});
+
+        await expect(bridge.listAgents()).rejects.toThrow(remedy);
+        await expect(bridge.listAgents()).rejects.not.toThrow(secret)
+    });
+
     test('requires a transport send function', () => {
         expect(() => createFleetRegistryBridge()).toThrow('send(request) function is required');
         expect(() => createFleetRegistryBridge({})).toThrow();

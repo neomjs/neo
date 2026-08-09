@@ -23,12 +23,20 @@ import {
  * the Node-only FleetControlBridge / crypto / fs chain.
  *
  * @param {Function} send A transport sender for versioned Fleet request/response envelopes.
+ * @param {Object} [options]
+ * @param {String} [options.transportFailureMessage='fleet: request transport failed'] Static,
+ *                 caller-owned remediation used when `send` rejects. The rejected error is never
+ *                 interpolated or exposed across the client boundary.
  * @returns {Object} the registry bridge — one async method per {@link FLEET_WIRE_METHODS} entry
  *                   (`defineAgent(payload)`, `startAgent(id)`, `listAgents()`, …).
  */
-export function createFleetRegistryBridge(send) {
+export function createFleetRegistryBridge(send, {transportFailureMessage = 'fleet: request transport failed'} = {}) {
     if (typeof send !== 'function') {
         throw new Error('createFleetRegistryBridge: a transport send(request) function is required');
+    }
+
+    if (typeof transportFailureMessage !== 'string' || !transportFailureMessage.trim() || transportFailureMessage.length > 512 || /[\r\n]/.test(transportFailureMessage)) {
+        throw new Error('createFleetRegistryBridge: transportFailureMessage must be a non-empty single-line string no longer than 512 characters');
     }
 
     const request = async (method, params) => {
@@ -41,7 +49,7 @@ export function createFleetRegistryBridge(send) {
         try {
             envelope = await send(wireRequest)
         } catch {
-            throw new Error('fleet: request transport failed')
+            throw new Error(transportFailureMessage)
         }
 
         try {
