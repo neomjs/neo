@@ -1208,7 +1208,26 @@ export class RecoveryActuatorService extends Base {
 
         await appendRecoveryRunState(entry, {
             dir           : this.recoveryRunStateDir,
-            retentionLimit: this.cfg.recoveryRunRetentionLimit
+            retentionLimit: this.cfg.recoveryRunRetentionLimit,
+            // Carried into the store so the refusal sits adjacent to the append itself: the
+            // classification above is fresh, but `appendRecoveryRunState` awaits `mkdir` before it
+            // writes — one more yield this method cannot see from here.
+            //
+            // WITHHELD WHENEVER AN EFFECT WAS DISPATCHED, and that exemption is load-bearing.
+            //
+            // Two rules meet here and only look contradictory: a displaced holder must not append an
+            // owner-authoritative entry for an action nobody took, AND an effect that genuinely
+            // dispatched under held authority must never be erased because the lease moved before
+            // the record landed. **The discriminator is whether an effect was dispatched**, not
+            // whether authority is still held — `actioned` and `failed` both mean the executor ran,
+            // so their records must survive; `recorded`, `skipped` and `declined` mean nothing
+            // reached a container, so a displaced holder has nothing to attribute and must not write.
+            //
+            // Keying on the uncertainty flag alone was not enough: it would still erase a SUCCESSFUL
+            // restart whose holder lost the lease before the record landed, which is the same
+            // erasure one branch over. `heldAtAppend` is stamped either way, so a record written
+            // without authority says so rather than passing as the current holder's.
+            isAuthorityHeld: ['actioned', 'failed'].includes(finalOutcome.status) ? null : isAuthorityHeld
         });
 
         this.recordTaskOutcome(serviceKey, taskStatus, {
