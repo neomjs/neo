@@ -1894,3 +1894,124 @@ test.describe('DeploymentStateBridgeService — the classification projection is
         expect(snapshot.services[0].classification).toBeNull();
     });
 });
+
+/**
+ * @summary The self-reported heap observation is bounded before publication.
+ *
+ * Every other per-service field is observed from outside over the Docker socket; this one is the
+ * process describing itself, and it fails in the opposite direction — a process dying of heap
+ * exhaustion stops reporting exactly when the number is wanted. So the arms that matter are the ones
+ * proving absence never reads as health and the previous value is never served as the current one.
+ *
+ * A real temporary directory rather than a mocked `fs`: the contract includes reading a file another
+ * process wrote, and `AiConfig` is never mutated to redirect it.
+ */
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap observation bounds', () => {
+    const
+        OBSERVED = 1_786_234_678_257,
+        cfg      = dir => ({dir, enabled: true, maxSkewMs: 15_000, staleAfterMs: 60_000, writeIntervalMs: 10_000}),
+        makeDir  = () => fs.mkdtempSync(path.join(os.tmpdir(), 'neo-heap-read-')),
+        write    = (dir, serviceKey, observedAt, extra = {}) => {
+            fs.writeFileSync(path.join(dir, `${serviceKey}.json`), JSON.stringify({
+                schemaVersion: 1,
+                recordType   : 'process-heap-observation',
+                serviceKey,
+                provenance   : 'self-reported',
+                pid          : 42,
+                observation  : {observedAt, state: 'observed', oldGenerationUsedBytes: 9_000_000},
+                ...extra
+            }));
+
+            return dir
+        },
+        read = (dir, overrides = {}) => createService({}).readHeapObservation({
+            serviceKey : 'mc-server',
+            nodeCommand: true,
+            observedAt : OBSERVED,
+            config     : cfg(dir),
+            ...overrides
+        });
+
+    test('a fresh observation is available AND pairable with the container reading', () => {
+        const result = read(write(makeDir(), 'mc-server', OBSERVED - 2_000));
+
+        expect(result.status).toBe('available');
+        expect(result.pairable).toBe(true);
+        expect(result.ageMs).toBe(2_000);
+        expect(result.provenance).toBe('self-reported');
+        expect(result.observation.oldGenerationUsedBytes).toBe(9_000_000);
+    });
+
+    test('past the skew bound it stays available but is NOT pairable', () => {
+        // Container memory here moves ~93 MiB in 45 s, so a 30 s-old heap reading still describes the
+        // service while being useless in a ratio against a container number taken now. Two thresholds
+        // on one measurement, reported separately rather than collapsed into a stricter status.
+        const result = read(write(makeDir(), 'mc-server', OBSERVED - 30_000));
+
+        expect(result.status).toBe('available');
+        expect(result.pairable).toBe(false);
+        expect(result.ageMs).toBe(30_000);
+    });
+
+    test('a STALE observation is unavailable — the last-known value is never served as current', () => {
+        // The branch that matters: the failure this channel exists to observe is also the failure
+        // that silences it.
+        const result = read(write(makeDir(), 'mc-server', OBSERVED - 61_000));
+
+        expect(result.status).toBe('unavailable');
+        expect(result.unavailableReason).toBe('stale');
+        expect(result.observation).toBeNull();
+    });
+
+    test('a non-Node service never attributes, even with a file sitting at its path', () => {
+        // Red control for the scoping guard: the file is present and well-formed, so only the
+        // `nodeCommand` requirement can reject it. Drop that requirement and this test goes green
+        // against a service that has no heap to report.
+        const result = read(write(makeDir(), 'mc-server', OBSERVED - 1_000), {nodeCommand: false});
+
+        expect(result.status).toBe('unavailable');
+        expect(result.unavailableReason).toBe('not-node');
+        expect(result.observation).toBeNull();
+    });
+
+    test('a record written by a DIFFERENT service is refused, not attributed', () => {
+        const dir = makeDir();
+
+        fs.writeFileSync(path.join(dir, 'mc-server.json'), JSON.stringify({
+            recordType : 'process-heap-observation',
+            serviceKey : 'kb-server',
+            observation: {observedAt: OBSERVED - 1_000, state: 'observed'}
+        }));
+
+        expect(read(dir).unavailableReason).toBe('identity-mismatch');
+    });
+
+    test('an observation from the FUTURE is clock-skew, not freshness', () => {
+        expect(read(write(makeDir(), 'mc-server', OBSERVED + 40_000)).unavailableReason).toBe('clock-skew');
+    });
+
+    test('absent, malformed and disabled each carry their own reason and no observation', () => {
+        const empty = makeDir();
+
+        expect(read(empty).unavailableReason).toBe('absent');
+
+        fs.writeFileSync(path.join(empty, 'mc-server.json'), JSON.stringify({recordType: 'something-else'}));
+        expect(read(empty).unavailableReason).toBe('malformed');
+
+        const live = write(makeDir(), 'mc-server', OBSERVED - 1_000);
+
+        expect(read(live, {config: {...cfg(live), enabled: false}}).unavailableReason).toBe('channel-disabled');
+    });
+
+    test('no unavailable arm ever reports a number — absence is never zero', () => {
+        const dir = write(makeDir(), 'mc-server', OBSERVED - 61_000);
+
+        for (const overrides of [{}, {nodeCommand: false}, {nodeCommand: null}]) {
+            const result = read(dir, overrides);
+
+            expect(result.observation, `${JSON.stringify(overrides)}: observation must be null`).toBeNull();
+            expect(result.pairable).toBe(false);
+            expect(result.unavailableReason).toBeTruthy();
+        }
+    });
+});
