@@ -2003,6 +2003,74 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
         expect(read(live, {config: {...cfg(live), enabled: false}}).unavailableReason).toBe('channel-disabled');
     });
 
+    test('the published field NEVER reaches diagnose() — the fact cannot move with it', async () => {
+        // AC-8's control. Two collections differing only in the heap-observation outcome, with a
+        // REAL fact produced in both. If the envelope varies and the diagnosis does not, the field
+        // provably does not feed the decision — and the handoff witness proves the stronger claim
+        // that `diagnose()` is never even offered it.
+        const previous = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
+
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices  : ['mc-server'],
+            includeLogs      : false,
+            statsSampleWindow: 2
+        });
+
+        const collect = async cmd => {
+            const diagnoseArgs = [];
+
+            const runtimeAccessService = {
+                async readObserve(request) {
+                    if (request.operation === 'inspect') {
+                        return {
+                            data : {Name: '/mc-server', State: {Status: 'running'}, Config: {Cmd: cmd, Image: 'neo'}},
+                            proof: {operation: 'inspect'}
+                        }
+                    }
+
+                    if (request.operation === 'stats') {
+                        return {data: statsSample({cpuPercent: 5, memoryPercent: 95}), proof: {operation: 'stats'}}
+                    }
+
+                    return {data: {logs: ''}, proof: {operation: 'logs'}}
+                }
+            };
+
+            const diagnosisService = {
+                diagnose(args) {
+                    diagnoseArgs.push(args);
+
+                    return {status: 'advisory', facts: [{type: 'memory-saturation', severity: 'critical'}]}
+                }
+            };
+
+            const snapshot = await createService({runtimeAccessService, diagnosisService})
+                .collectSnapshot({generatedAt: OBSERVED_AT});
+
+            return {diagnoseArgs, service: snapshot.services[0]}
+        };
+
+        const asNode    = await collect(['node', '--max-old-space-size=768', 'server.mjs']),
+              asNonNode = await collect(['python3', 'server.py']);
+
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, previous);
+
+        // Non-vacuity: the two runs genuinely differ on the field under test, so equality below is
+        // a result rather than an artifact of nothing having changed.
+        expect(asNode.service.heapObservation.unavailableReason).toBe('absent');
+        expect(asNonNode.service.heapObservation.unavailableReason).toBe('not-node');
+
+        // ...and a real fact exists in both, so this is not two empty diagnoses agreeing.
+        expect(asNode.service.diagnosis.facts).toHaveLength(1);
+        expect(asNode.service.diagnosis.facts[0].type).toBe('memory-saturation');
+
+        expect(asNonNode.service.diagnosis).toEqual(asNode.service.diagnosis);
+
+        // The strongest form: diagnose() is never offered the field at all.
+        expect(asNode.diagnoseArgs).toHaveLength(1);
+        expect(Object.hasOwn(asNode.diagnoseArgs[0], 'heapObservation')).toBe(false);
+    });
+
     test('no unavailable arm ever reports a number — absence is never zero', () => {
         const dir = write(makeDir(), 'mc-server', OBSERVED - 61_000);
 
