@@ -1404,9 +1404,23 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
  *
  * Three outcomes, and the third is the point of the slice:
  *
- * - **`container`** — no envelope, or an envelope explicitly reporting `not-node`. Container usage
- *   over the container limit is the honest measure of container pressure for these, and nothing about
- *   this slice changes them. `chroma` is the live example.
+ * - **`container`** — licensed by **`nodeCommand === false` and nothing else**. Container usage over
+ *   the container limit is the honest measure of container pressure for a genuinely non-Node service,
+ *   and nothing about this slice changes them. `chroma` is the live example.
+ *
+ *   **The envelope deliberately does not count here, even when every envelope in the window says
+ *   `not-node`.** Two independent reasons, both found by falsifier rather than by reading:
+ *
+ *   1. The producer's `not-node` was never the positive classification it looked like — its gate was
+ *      `nodeCommand !== true`, so an UNREADABLE inspect refused with the same word as a genuine
+ *      non-Node service. Consuming that as authority let an unknown identity manufacture an
+ *      authoritative container-scoped fact, and with a CPU fact alongside it reached
+ *      `diagnosed → throttle-shed` while inspect itself was unreadable. The producer now distinguishes
+ *      `identity-unknown`, and this consumer deliberately does **not** depend on that distinction being
+ *      right — which is the more durable half of the repair.
+ *   2. Envelopes ride on **retained** samples; `nodeCommand` is read live per collection. A window held
+ *      from earlier collections can therefore carry an all-`not-node` set while the current
+ *      `nodeCommand` reads `true`, letting a stale classification silently outvote a live one.
  * - **`heap`** — a Node service with at least one usable V8 reading in the window. Old-generation
  *   usage over the declared ceiling.
  * - **`unavailable`** — a Node service with no usable reading: channel disabled, stale, skewed,
@@ -1415,7 +1429,12 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
  *   removes, and would do it silently on the path where the heap channel is broken — which is the
  *   moment the number is least trustworthy and most likely to be believed.
  *
- * @param {Object[]} samples Stats samples, each optionally carrying `heapObservation`.
+ * @param {Object}         options
+ * @param {Object[]}       options.samples Stats samples, each optionally carrying `heapObservation`.
+ * @param {Boolean|null}   options.nodeCommand Live per-collection identity read. **The sole authority
+ *     for the `container` scope**: only an explicit `false` licenses the container ratio. `true` and
+ *     `null` both route to `heap`/`unavailable`, because "not Node" and "could not tell" must not
+ *     collapse into one answer — that collapse is the defect this parameter exists to prevent.
  * @returns {Object} `{scope, percents}` — `percents` is populated only for the `heap` scope.
  */
 function resolveMemorySaturationScope({samples, nodeCommand}) {
