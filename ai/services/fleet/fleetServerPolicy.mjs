@@ -2,10 +2,11 @@ import {dispatchFleetRequest} from './dispatchFleetRequest.mjs';
 import {FLEET_WIRE_METHODS}   from './fleetWireMethods.mjs';
 
 /**
- * @summary The complete S1 wire policy for the composed Fleet service. Only the pinned raw
- * registry/tenant reads are ready; every other verb names the slice that owns its missing
- * semantics. A marker is not a claim that this one slice is the verb's sole prerequisite: for
- * example, S3 owns roster projection while S5 supplies its viewer grants. Extending
+ * @summary The complete S1 wire policy for the composed Fleet service. Authentication makes the
+ * identity-bearing probe ready, but exposes no plane data by itself: every wire verb names the
+ * slice that owns its missing semantics. A marker is not a claim that this one slice is the verb's
+ * sole prerequisite: for example, S3 owns roster projection while S4 supplies stable ownership
+ * and S5 supplies its viewer grants. Extending
  * `FLEET_WIRE_METHODS` without extending this explicit ledger is a boot/test-visible contract
  * breach rather than an accidentally enabled capability.
  * @type {Readonly<Record<String, 'ready'|'awaiting-s2'|'awaiting-s3'|'awaiting-s4'|'awaiting-s5'|'awaiting-c1'>>}
@@ -15,8 +16,8 @@ export const FLEET_S1_METHOD_POLICY = Object.freeze({
     configureAgent        : 'awaiting-s4',
     setRepo               : 'awaiting-s4',
     setAvatar             : 'awaiting-s4',
-    listAgents            : 'ready',
-    getAgent              : 'ready',
+    listAgents            : 'awaiting-s3',
+    getAgent              : 'awaiting-s3',
     startAgent            : 'awaiting-s5',
     stopAgent             : 'awaiting-s5',
     restartAgent          : 'awaiting-s5',
@@ -30,7 +31,7 @@ export const FLEET_S1_METHOD_POLICY = Object.freeze({
     fleetRoster           : 'awaiting-s3',
     fleetMailboxMirror    : 'awaiting-s5',
     connectTenant         : 'awaiting-c1',
-    listTenants           : 'ready',
+    listTenants           : 'awaiting-s4',
     composeOperatorMessage: 'awaiting-s4',
     markFleetCaughtUp     : 'awaiting-s4',
     resolveViewerIdentity : 'awaiting-s4',
@@ -46,7 +47,7 @@ const SLICE_LABELS = Object.freeze({
 });
 
 /**
- * @summary The exact read-only Fleet operations S1 exposes through the composed service.
+ * @summary The exact Fleet wire operations S1 exposes; empty until data authorization exists.
  * @type {ReadonlyArray<String>}
  */
 export const FLEET_S1_READY_METHODS = Object.freeze(

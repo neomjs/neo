@@ -145,6 +145,62 @@ test.describe('composed Fleet S1 server', () => {
         }
     });
 
+    test('the plural-local posture authenticates two provider subjects but exposes no roster or tenant data', async () => {
+        const subjects = new Map([
+            ['alice-provider-token', {id: 7, login: 'alice', name: 'Alice'}],
+            ['bob-provider-token', {id: 8, login: 'bob', name: 'Bob'}]
+        ]);
+
+        globalThis.fetch = async (input, init) => {
+            if (String(input) === 'https://api.github.test/user') {
+                const token   = init.headers.Authorization?.replace(/^Bearer /, '');
+                const subject = subjects.get(token);
+
+                return new Response(JSON.stringify(subject ?? {}), {
+                    status : subject ? 200 : 401,
+                    headers: {'content-type': 'application/json'}
+                })
+            }
+
+            return nativeFetch(input, init)
+        };
+
+        const server = await startApp({auth: {pinFirstProviderSubject: false}});
+
+        try {
+            for (const [token, subject] of subjects) {
+                const headers = {
+                    Authorization : `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                };
+                const probe = await nativeFetch(`${server.baseUrl}/fleet/probe`, {headers});
+
+                expect(probe.status, subject.login).toBe(200);
+                expect((await probe.json()).result.identity.userId, subject.login).toBe(subject.login);
+
+                for (const [method, degraded] of [
+                    ['listAgents', 'awaiting-s3'],
+                    ['getAgent', 'awaiting-s3'],
+                    ['listTenants', 'awaiting-s4']
+                ]) {
+                    const response = await nativeFetch(`${server.baseUrl}/fleet`, {
+                        method: 'POST',
+                        headers,
+                        body  : JSON.stringify({method, params: method === 'getAgent' ? subject.login : undefined})
+                    });
+
+                    expect(response.status, `${subject.login}:${method}`).toBe(200);
+                    expect(await response.json(), `${subject.login}:${method}`).toMatchObject({
+                        ok: false,
+                        degraded
+                    })
+                }
+            }
+        } finally {
+            await server.close()
+        }
+    });
+
     test('the downloadable profile bootstrap pins one provider subject before listen', async () => {
         const
             tempDir = await mkdtemp(path.join(os.tmpdir(), 'neo-fleet-bootstrap-')),
@@ -563,12 +619,12 @@ test.describe('composed Fleet S1 server', () => {
 });
 
 test.describe('Fleet S1 wire policy', () => {
-    test('classifies every wire verb and exposes exactly the three pinned reads', () => {
+    test('classifies every wire verb and exposes no authentication-only data reads', () => {
         expect(Object.keys(FLEET_S1_METHOD_POLICY).sort()).toEqual([...FLEET_WIRE_METHODS].sort());
-        expect(FLEET_S1_READY_METHODS).toEqual(['listAgents', 'getAgent', 'listTenants'])
+        expect(FLEET_S1_READY_METHODS).toEqual([])
     });
 
-    test('dispatches ready verbs and reports every other verb\'s owning semantic slice', async () => {
+    test('refuses every data verb with its owning semantic slice and never dispatches the bridge', async () => {
         const calls  = [];
         const bridge = Object.fromEntries(FLEET_WIRE_METHODS.map(method => [method, params => {
             calls.push([method, params]);
@@ -582,6 +638,8 @@ test.describe('Fleet S1 wire policy', () => {
 
         const expectedSlices = {
             getBootIdentity       : 'awaiting-s2',
+            listAgents            : 'awaiting-s3',
+            getAgent              : 'awaiting-s3',
             fleetStatus           : 'awaiting-s3',
             fleetRuntimeStatus    : 'awaiting-s3',
             fleetActivity         : 'awaiting-s3',
@@ -595,6 +653,7 @@ test.describe('Fleet S1 wire policy', () => {
             markFleetCaughtUp     : 'awaiting-s4',
             resolveViewerIdentity : 'awaiting-s4',
             composeOperatorMessage: 'awaiting-s4',
+            listTenants           : 'awaiting-s4',
             startAgent            : 'awaiting-s5',
             stopAgent             : 'awaiting-s5',
             restartAgent          : 'awaiting-s5',
