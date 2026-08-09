@@ -279,6 +279,14 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(result.id).toBeTruthy();
         expect(result.message).toBe(MEMORY_ACCEPTED_MESSAGE);
 
+        // The response-side budget disclosure: every accepted save self-reports where its
+        // response time went, so a slow save is its own diagnosis record instead of a bare
+        // transport timeout. `presenceTerminal` is CLOSED over completed | deferred | failed.
+        expect(result.stageTimings).toBeTruthy();
+        expect(typeof result.stageTimings.walMs).toBe('number');
+        expect(typeof result.stageTimings.visibilityMs).toBe('number');
+        expect(['completed', 'deferred', 'failed']).toContain(result.stageTimings.presenceTerminal);
+
         // Strongest form of never-fail: addMemory performed ZERO collection resolutions —
         // the embed daemon is the only consumer of the content store on the memory write side.
         expect(collectionTouches).toBe(touchesBefore);

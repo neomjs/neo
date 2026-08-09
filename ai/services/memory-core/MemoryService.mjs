@@ -7,6 +7,7 @@ import SessionService      from './SessionService.mjs';
 import TurnPresenceService from './TurnPresenceService.mjs';
 import {withTimeout,
         WITH_TIMEOUT_CODE} from './helpers/withTimeout.mjs';
+import {runSelfDegradingSyncCall} from './helpers/selfDegradingSyncCall.mjs';
 
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
         PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
@@ -61,6 +62,22 @@ function walTimestampToEpochMs(value) {
 }
 
 export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged to the write-ahead log; `query_recent_turns` returns it immediately, semantic recall waits for the embed drain (see `visibility`).';
+
+/**
+ * Response-side latency budgets for the `addMemory` disclosure stages. The WAL append is the
+ * never-fail durability anchor — but the RESPONSE must never be held hostage by the derived
+ * disclosure work that follows it: on a contended plane (embed drain churning the same SQLite,
+ * inflated mailbox), an unbounded mailbox query, presence write, or pending-WAL scan can push an
+ * ACCEPTED save past the client's transport timeout — the caller then reads durable success as
+ * `-32001` data loss, the exact misread the disclosure exists to prevent. Deliberately module
+ * constants, not config leaves: they price a transport contract (client timeouts), not a
+ * deployment choice.
+ * @type {Number}
+ */
+const MAILBOX_DELTA_BUDGET_MS     = 250;
+const MAILBOX_DELTA_COOLDOWN_MS   = 60_000;
+const PRESENCE_TERMINAL_BUDGET_MS = 300;
+const VISIBILITY_READ_BUDGET_MS   = 400;
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -497,6 +514,9 @@ class MemoryService extends Base {
                 sessionId,
                 timestamp
             };
+            const stageTimings = {};
+            const walStartedAt = Date.now();
+
             const {segmentKey} = await appendWalMemory(
                 {
                     id                    : memoryId,
@@ -511,6 +531,8 @@ class MemoryService extends Base {
                 },
                 {dir: walDir, planeId: aiConfig.plane.id}
             );
+
+            stageTimings.walMs = Date.now() - walStartedAt;
 
             this._scheduleMemoryGraphProjection({
                 memoryId,
@@ -542,20 +564,45 @@ class MemoryService extends Base {
             // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
-            const mailbox = buildMailboxDelta();
+            // The delta is SYNCHRONOUS (better-sqlite3) — it blocks the event loop for its full
+            // duration and no race can bound it. The self-degrading guard prices it retrospectively:
+            // one over-budget run arms a cooldown, and the piggyback honestly disappears
+            // (`mailbox: null` + the reason in `stageTimings`) instead of taxing every mandatory
+            // save on a known-slow box.
+            const mailboxRun = runSelfDegradingSyncCall({
+                fn        : () => buildMailboxDelta(),
+                budgetMs  : MAILBOX_DELTA_BUDGET_MS,
+                cooldownMs: MAILBOX_DELTA_COOLDOWN_MS,
+                state     : this._mailboxDeltaGuard ??= {}
+            });
+            const mailbox = mailboxRun.value;
+
+            stageTimings.mailboxMs = mailboxRun.durationMs ?? null;
+            if (mailboxRun.skipped)       stageTimings.mailboxSkipped = mailboxRun.reason;
+            if (mailboxRun.cooldownArmed) stageTimings.mailboxCooldownArmed = true;
 
             // 6. Completed-turn terminal proof: closes the active turn-presence interval when
             //    add_memory succeeds, but never makes add_memory the liveness primary or a failure
             //    dependency. If graph/presence is degraded, the WAL save remains successful.
+            const presenceStartedAt = Date.now();
             try {
-                await TurnPresenceService.recordTurnPresence({
+                // Pre-attach the late-failure handler BEFORE racing: on a budget overrun the
+                // original write keeps running fire-and-forget (the terminal still lands, late)
+                // and its own catch prevents an unhandled rejection.
+                const presenceWrite = TurnPresenceService.recordTurnPresence({
                     action       : 'terminal',
                     terminalState: 'completed',
                     source       : 'add_memory'
                 });
+                presenceWrite.catch(error => logger.warn(`[MemoryService] Late turn-presence terminal failed (non-fatal): ${error.message}`));
+
+                await withTimeout(presenceWrite, PRESENCE_TERMINAL_BUDGET_MS, 'add_memory presence terminal');
+                stageTimings.presenceTerminal = 'completed';
             } catch (error) {
-                logger.warn(`[MemoryService] Turn presence terminalization skipped (non-fatal): ${error.message}`);
+                stageTimings.presenceTerminal = error.code === WITH_TIMEOUT_CODE ? 'deferred' : 'failed';
+                logger.warn(`[MemoryService] Turn presence terminalization ${stageTimings.presenceTerminal} (non-fatal): ${error.message}`);
             }
+            stageTimings.presenceMs = Date.now() - presenceStartedAt;
 
             // 7. Disclose acceptance PLUS which read families can already see it.
             //
@@ -575,9 +622,29 @@ class MemoryService extends Base {
             // It must also not over-correct. Telling a caller "not queryable" full stop would send
             // them away from `query_recent_turns`, which returns this write immediately — trading one
             // wrong conclusion for its mirror image. Hence per-axis fields rather than one boolean.
-            const visibility = await this.describeWriteVisibility({memoryId, walDir, segmentKey});
+            const visibilityStartedAt = Date.now();
+            const visibility          = await withTimeout(
+                this.describeWriteVisibility({memoryId, walDir, segmentKey}),
+                VISIBILITY_READ_BUDGET_MS,
+                'add_memory visibility read'
+            ).catch(error => {
+                logger.warn(`[MemoryService] Write-visibility read ${error.code === WITH_TIMEOUT_CODE ? 'over budget' : 'failed'} (non-fatal): ${error.message}`);
 
-            return {id: memoryId, sessionId, timestamp, message: MEMORY_ACCEPTED_MESSAGE, visibility, mailbox};
+                // Mirrors describeWriteVisibility's own degraded branch: recency is TRUE by
+                // construction the moment the WAL append returned; semantic state was not
+                // measured, and `null` never masquerades as an observation.
+                return {
+                    recencyQueryable : true,
+                    semanticQueryable: null,
+                    state            : 'embed-state-unavailable',
+                    pendingDrainDepth: null,
+                    thisWritePending : null,
+                    hint             : '`query_recent_turns` returns this write NOW. Embed reconciliation state could not be read within budget; poll `healthcheck` for `memoryWalDrain`.'
+                };
+            });
+            stageTimings.visibilityMs = Date.now() - visibilityStartedAt;
+
+            return {id: memoryId, sessionId, timestamp, message: MEMORY_ACCEPTED_MESSAGE, visibility, mailbox, stageTimings};
         } catch (error) {
             // Reaches here only for WAL acceptance or validation-adjacent failures. Graph
             // projection, embed, and every model-dependent step are off this path by construction.
