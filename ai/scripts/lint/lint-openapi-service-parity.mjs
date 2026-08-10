@@ -148,17 +148,14 @@ export const PARITY_BASELINE = Object.freeze({
     // ── First finding from the ADVISORY direction on the ToolService path ──────────────────────
     // Not a stripped read — the inverse. `get_all_summaries` DECLARES `category` with the
     // description "Filter by category", and its operation description tells an agent to "find
-    // sessions related to a specific category of work". The bound handler is
-    // `SummaryService.listSummaries({limit, offset, agentIdentity})`, which never reads it. So an
-    // agent filtering by category receives unfiltered results and no error, while the capability
-    // genuinely exists on the sibling `querySummaries`. Documentation actively instructing callers to
-    // use a parameter that does nothing is worse than an undocumented gap.
+    // sessions related to a specific category of work". The bound handler never read it, so an agent
+    // filtering received unfiltered results and no error — documentation actively instructing callers
+    // to use a parameter that does nothing is worse than an undocumented gap.
     //
-    // Baselined so the gate stays clean while the disposition is decided — wire it through to a
-    // filter, or remove it from the contract and point callers at `query_summaries`. That is a
-    // behaviour change, not a lint fix.
-    'memory-core.get_all_summaries.category': 'Declared with a "Filter by category" description that listSummaries never reads, while the capability exists on querySummaries. Owned by #16611 as an added ledger row; the fix is to wire the filter or remove the declaration, both behaviour changes rather than lint edits.',
-
+    // RESOLVED by wiring rather than by retreating: `listSummaries` now applies `category` DB-side in
+    // the metadata sweep, composing with tenancy via `$and` exactly as `querySummaries` does. The row
+    // is deleted rather than converted because the parameter is now both declared AND consumed, which
+    // is the state this gate exists to require — a suppression would re-hide it.
     'memory-core.get_session_memories.memorySharing': 'PERMANENT. Deliberately internal: an agent-settable value is a self-service read-scope selector, not a filter. `policy === "team"` sets `tenantScope = null`, dropping the `userId` predicate so the query returns every maintainer\'s records for the session. Harmless on the shipped `team` default — which is exactly why the default is not the case that decides it: a deployment configuring per-org isolation sets `defaultPolicy = "private"`, and there a declared parameter lets a caller re-select `team` and read past the isolation the operator asked for. The risk is concentrated on the one deployment shape that opted in. The siblings that DO declare it (`query_raw_memories`, `query_summaries`) are therefore NOT precedent to follow here — they are over-exposed on a private-default plane, which is a contract-breaking change plus a security disposition and so is not repaired from a lint row.'
 });
 

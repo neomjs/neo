@@ -401,6 +401,77 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
     });
 });
 
+test.describe('SummaryService — listSummaries category filter (#16611)', () => {
+    let spy;
+    let originalGetSummaryCollection;
+
+    test.beforeEach(() => {
+        spy                                = createSpyCollection();
+        originalGetSummaryCollection       = StorageRouter.getSummaryCollection;
+        StorageRouter.getSummaryCollection = async () => spy;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+    });
+
+    const seed = () => {
+        spy.rows.set('s-r1', {id: 's-r1', metadata: {category: 'refactoring', timestamp: 100, title: 'Refactor 1'}, document: 'R1'});
+        spy.rows.set('s-r2', {id: 's-r2', metadata: {category: 'refactoring', timestamp: 200, title: 'Refactor 2'}, document: 'R2'});
+        spy.rows.set('s-b1', {id: 's-b1', metadata: {category: 'bugfix',      timestamp: 300, title: 'Bugfix 1'},   document: 'B1'});
+    };
+
+    test('a declared category actually FILTERS — the defect was silently unfiltered results', async () => {
+        seed();
+
+        const view = await SummaryService.listSummaries({limit: 10, offset: 0, category: 'refactoring'});
+
+        expect(view.count).toBe(2);
+        expect(view.total).toBe(2);
+        expect(view.summaries.map(s => s.title).sort()).toEqual(['Refactor 1', 'Refactor 2']);
+    });
+
+    test('NON-VACUITY — omitting category returns everything, so the filter is not a blanket reject', async () => {
+        seed();
+
+        const view = await SummaryService.listSummaries({limit: 10, offset: 0});
+
+        expect(view.count).toBe(3);
+        expect(view.total).toBe(3);
+    });
+
+    test('`total` and pagination count the FILTERED population, not the whole collection', async () => {
+        // The reason the filter is applied DB-side in the metadata sweep rather than after the slice:
+        // a post-slice filter would report total=3 and page the unfiltered set, so page 2 of a
+        // category query would return rows of another category.
+        seed();
+
+        const page = await SummaryService.listSummaries({limit: 1, offset: 1, category: 'refactoring'});
+
+        expect(page.total).toBe(2);
+        expect(page.count).toBe(1);
+        expect(page.summaries[0].title).toBe('Refactor 1'); // newest-first, so offset 1 is the older
+    });
+
+    test('the filter reaches STORAGE as a where clause, not a post-slice pass', async () => {
+        // Placement is the correctness claim, so it is asserted on the argument the collection actually
+        // received rather than only on the returned rows — the same discipline as the memorySharing
+        // describe above, which pins `queryCall.where`.
+        seed();
+
+        await SummaryService.listSummaries({limit: 10, offset: 0, category: 'refactoring'});
+
+        expect(spy.calls.get.at(-1).where).toEqual({category: 'refactoring'});
+    });
+
+    // BOUND, stated rather than faked: the `$and: [{category}, tenantScope]` arm is only reachable when
+    // `defaultPolicy === 'private'`, and `listSummaries` deliberately exposes no `memorySharing`
+    // parameter to select it (that is the disposition this PR ships). Reaching it would require mutating
+    // AiConfig from a spec, which is gated. So the composition is NOT independently covered here; it
+    // mirrors `querySummaries`' identical `$and` construction, whose tenancy arms are covered above.
+    // A private-default plane control belongs with the sibling read-path work, not in this leaf.
+});
+
 test.describe('SummaryService — provenance trust filtering (#10292)', () => {
     let spy;
     let originalGetSummaryCollection;
