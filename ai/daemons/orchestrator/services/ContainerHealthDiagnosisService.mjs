@@ -1410,20 +1410,26 @@ export function calculateDockerMemoryPercent(stats) {
  * token and nothing whatsoever about how many processes run. Its own docblock says as much — the
  * command is *"a proxy for runtime … and then it holds silently and wrongly"*. **An earlier revision
  * of this block claimed `nodeCommand === false` establishes that the container "has no other processes
- * to aggregate"; that is false and is retired here.** Three observations, and the third is why this
- * was a truth-fold rather than a withdrawal of authority:
+ * to aggregate"; that is false and is retired here.** Three observations, ordered by what they cost —
+ * the first falsifies the premise, the third shows it losing money:
  *
  * - **A non-Node container can be multi-process at rest.** `chroma` runs `["run", "/config.yaml"]` and
  *   hosts `dumb-init` **plus** `chroma`. The shim sits at 0.0 %, so it falsifies the premise without
  *   demonstrating misattribution — the cheap proof, not the costly case.
- * - **The proxy can hold only where it is irrelevant.** The containerized model service is
- *   single-process while idle and spawns a CPU-dominating runner under load — four cores' worth,
- *   sustained, with no client sockets left open. It satisfies the premise exactly when no CPU fact can
- *   fire, and violates it exactly when one can.
- * - **That case is still legitimately `container`-scoped, for a reason this gate does not encode.** The
- *   runner executes the requests the server accepted, so the aggregate *is* the service working. The
- *   scheduled-job case above is a **foreign** workload sharing a container. Same shape, different
- *   class: treating them alike would withdraw a defensible signal, and it would read as rigor.
+ * - **The proxy holds only where it is irrelevant.** The containerized model service is single-process
+ *   while idle and spawns a CPU-dominating runner under load — four cores' worth, sustained, with no
+ *   client sockets left open. It satisfies the premise exactly when no CPU fact can fire, and violates
+ *   it exactly when one can.
+ * - **And the misattribution is real on this arm, not merely possible.** A CPU-only deployment was
+ *   measured holding `cpuPercent: 399.4` on that container while its access log over the sampled window
+ *   carried **only** health polling — `/api/ps`, `/api/tags`, `HEAD /` — and no inference endpoint at
+ *   all. So the compose-declared server was idle, a runner process consumed four cores, and the
+ *   container-wide figure spoke for neither. **`authoritative: true` was granted throughout.** The
+ *   scheduled-job case that motivated the CPU slice was a *foreign* workload sharing a container; this
+ *   is the service's own process doing work no client awaits, which is a different route to the same
+ *   wrong subject. **The non-Node arm carries this gap unrepaired.** It is left as it was because
+ *   withdrawing authority here needs process-cardinality evidence that does not exist in the tree yet,
+ *   and inventing a second proxy to fix the first is how this defect was built.
  *
  * **Latent, with no live instance:** `commandText` reads `Config.Cmd` and never `Config.Entrypoint`, so
  * a Node service whose `node` token sits in the entrypoint would read `false` — gaining container
