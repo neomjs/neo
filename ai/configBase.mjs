@@ -670,10 +670,10 @@ class ConfigBase extends ConfigProvider {
                 // fan-out, and it does not by itself explain a saturated runner — a single request
                 // can peg a container's whole CPU allowance on its own.
                 //
-                // Default 1 matches the openAiCompatible path's long-standing effective behaviour,
-                // so declaring the number changes no deployment's shape; it only makes the number
-                // sayable, testable, and tunable instead of accidental.
-                maxInFlightEmbeddings: leaf(1, 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS', 'number')
+                // Default 1 matches the openAiCompatible path's long-standing serialized behaviour
+                // and deliberately serializes this path too. Deployments that can safely sustain more
+                // concurrency can raise the declared number instead of inheriting caller fan-out.
+                maxInFlightEmbeddings: leaf(1, 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS', 'positiveInt')
             },
             /**
              * @summary Deployment-wide OpenAI-compatible provider defaults.

@@ -164,6 +164,24 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         }
     }
 
+    test('the env leaf admits only POSITIVE INTEGERS and falls back for invalid values (#16780 AC-5)', async () => {
+        const probe = async () => {
+            const config = (await import('./ai/mcp/server/memory-core/config.template.mjs')).default;
+
+            console.log(JSON.stringify({cap: config.ollama.maxInFlightEmbeddings}))
+        };
+        const [zero, negative, fractional, notANumber, two] = await Promise.all([
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '0'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '-1'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '1.5'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: 'NaN'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '2'})
+        ]);
+
+        expect([zero.cap, negative.cap, fractional.cap, notANumber.cap]).toEqual([1, 1, 1, 1]);
+        expect(two.cap).toBe(2);
+    });
+
     test('the declared cap ADMITS at its number — the control that proves the cap is what binds (#16780 AC-5)', async () => {
         // Run FIRST and deliberately at 2. If only the cap-of-1 case existed, accidentally-serial
         // code would pass it and the suite would certify a cap that does nothing. Raising the number
@@ -274,7 +292,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const secondResult = await second;
 
         expect(secondResult, 'the woken waiter learns loudly').toBeTruthy();
-        expect(secondResult.message).toContain('admits no embedding request');
+        expect(secondResult.message).toContain('must be a positive integer');
 
         // The load-bearing half: the caller BEHIND it must also settle rather than hang forever.
         const thirdResult = await Promise.race([
@@ -321,7 +339,65 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const error = await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, observed => observed);
 
         expect(error, 'it must reject, not hang').toBeTruthy();
-        expect(error.message).toContain('admits no embedding request');
+        expect(error.message).toContain('must be a positive integer');
+    });
+
+    test('a FRACTIONAL cap fails LOUD rather than reporting less concurrency than it admits (#16780 AC-5)', async () => {
+        // With a bare numeric leaf, 1.5 admits two requests because the comparison is `inFlight < cap`.
+        // The reporter would then claim cap=1.5 while showing inFlight=2. A cap is a count: reject a
+        // fractional runtime mutation at the use-site even though ConfigProvider also warns on it.
+        aiConfig.ollama.maxInFlightEmbeddings = 1.5;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed() { return Promise.resolve({embeddings: [[0.1]]}) }
+        };
+
+        const error = await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, observed => observed);
+
+        expect(error, 'it must reject, not round the declared cap up').toBeTruthy();
+        expect(error.message).toContain('must be a positive integer');
+    });
+
+    test('a caller aborted while QUEUED settles without waiting for the occupied slot (#16780 AC-5)', async () => {
+        // The provider can remain alive after caller abort, but no provider work exists for a caller
+        // still waiting at admission. It must therefore leave the queue immediately. Waiting for the
+        // occupied request to settle would turn its timeout/cancellation into a second indefinite wait.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            harness    = makeBlockingOllama(),
+            controller = new AbortController(),
+            reason     = new Error('queued caller cancelled');
+
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama'),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama', {
+                  signal: controller.signal
+              }).then(() => 'fulfilled', error => error),
+              third  = TextEmbeddingService.embedTexts(['c'], 'ollama');
+
+        await waitForCondition(
+            () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 2,
+            'the second and third callers to queue'
+        );
+
+        expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
+        controller.abort(reason);
+
+        const observed = await Promise.race([
+            second,
+            new Promise(resolve => setTimeout(() => resolve('HUNG_BEHIND_PROVIDER'), 300))
+        ]);
+
+        expect(observed, 'the exact caller-owned reason settles before provider release').toBe(reason);
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 1});
+        expect(getEventListeners(controller.signal, 'abort'), 'the cancelled waiter leaves no listener').toEqual([]);
+
+        harness.releaseAll();
+        await waitForCondition(() => harness.started === 1, 'the surviving queued caller to dispatch');
+        harness.releaseAll();
+        await Promise.all([first, third]);
     });
 
     test('embedText dispatches to native Ollama provider when explicitProvider=ollama', async () => {
