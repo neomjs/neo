@@ -19,7 +19,7 @@ const PRESENCE_BAND_LABEL = Object.freeze({
     neverConnected: 'never connected'
 });
 
-import {normalizeFleetSources, resolveFleetDisplayState, summarizeFleetSources} from './sourceHealth.mjs';
+import {normalizeFleetSources, resolveFleetDisplayState, summarizeAnsweredAbnormal} from './sourceHealth.mjs';
 
 import {describeNameProvenance, resolveNameSlot} from './nameSlot.mjs';
 import {describeTelltale}                        from './telltale.mjs';
@@ -319,7 +319,10 @@ class AgentCard extends Container {
      *
      * Display fields land on the rail / avatar / identity / lane / strip surfaces. Source facts are
      * summarized once (the strip names the abnormal source and can never contradict the detail
-     * markers — both read {@link #summarizeFleetSources}). The state dot is gated so missing runtime
+     * markers — both read the shared abnormal composer). The strip's abnormal set is
+     * ANSWERED-abnormal only (`summarizeAnsweredAbnormal`): `not-wired` is expected absence and
+     * earns zero pixels here exactly as it carries zero attention weight — ONE interpretation
+     * across strip and aggregate. The state dot is gated so missing runtime
      * evidence cannot render as live; severity adds WEIGHT to the state word, never a hue. The B4/C2
      * control seam renders the honest round-trip: unauthorized disables the cluster, timeout reads as
      * an unfinished "…" with retry open, rejected shows "⚠ reason".
@@ -336,7 +339,7 @@ class AgentCard extends Container {
             controlReason = record.controlReason ?? null,
             pendingAction = record.pendingAction ?? null,
             sources       = normalizeFleetSources(record.sources),
-            summary       = summarizeFleetSources(record.sources),
+            summary       = summarizeAnsweredAbnormal(record.sources),
             // the runtime fact gates a resolved session state: a wired runtime renders the row's
             // state as session truth; without one, an explicit `off` stays the operator-benched
             // participation fact it is, while every other state renders `unobserved` — never a
@@ -441,7 +444,7 @@ class AgentCard extends Container {
 
         // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
         // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
-        // colours the ::before dot; summary.text is a controlled literal from summarizeFleetSources.
+        // colours the ::before dot; summary.text is a controlled literal from summarizeAnsweredAbnormal.
         // EXCEPTION-ONLY: nominal earns zero pixels (the cockpit's own doctrine, operator-falsified
         // when this line rendered "all sources nominal" permanently) — the strip exists exactly when
         // a source is abnormal and NAMES it; full facts stay reachable via the drill.

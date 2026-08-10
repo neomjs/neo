@@ -113,6 +113,46 @@ export function summarizeFleetSources(value) {
         return {level: 'ok', text: 'all sources nominal', ariaLabel: 'Source health: all sources nominal.'}
     }
 
+    return buildAbnormalSummary(sources, abnormal, labels)
+}
+
+/**
+ * @summary The strip's ANSWERED-abnormal summary — the one interpretation of `not-wired` shared
+ * with the aggregate attention fold: a `missing` fact is a producer ANSWERING that something is
+ * gone (renders, with its name and retained reason, and carries weight); `not-wired` is expected
+ * absence (earns zero pixels here exactly as it carries zero weight there — rendering it was the
+ * second permanent default-state line the operator verdict retired). Split from
+ * {@link #summarizeFleetSources} so the legacy any-abnormal summary stays available to the
+ * detail/drill surfaces that enumerate every fact.
+ * @param {*} value Source collection; malformed values fail closed.
+ * @returns {{level: String, text: String, ariaLabel: String}} `level` is `ok` (nothing answered
+ *     abnormal — the strip renders nothing) or `bad`.
+ */
+export function summarizeAnsweredAbnormal(value) {
+    const
+        sources  = normalizeFleetSources(value),
+        labels   = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
+        order    = ['runtime', 'repoStatus', 'roster'],
+        abnormal = order.filter(key => sources[key].state === 'missing');
+
+    if (abnormal.length === 0) {
+        return {level: 'ok', text: '', ariaLabel: 'Source health: nothing answered abnormal.'}
+    }
+
+    return buildAbnormalSummary(sources, abnormal, labels)
+}
+
+/**
+ * @summary Shared abnormal-line composer: leading source name (+N overflow) with the leading
+ * source's retained reason when one exists — name-only otherwise, never a fabricated cause.
+ * @param {Object} sources Normalized source facts.
+ * @param {String[]} abnormal Abnormal keys, action-owning order.
+ * @param {Object} labels Full-word labels.
+ * @returns {{level: String, text: String, ariaLabel: String}}
+ * @private
+ */
+function buildAbnormalSummary(sources, abnormal, labels) {
+
     const
         first = abnormal[0],
         extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '',

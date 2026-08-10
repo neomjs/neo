@@ -58,9 +58,11 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.blueprint.record.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
         expect(card.blueprint.record.sources.runtime).toEqual({
             confidence: 'none',
-            reason    : null,
-            source    : 'fleet:runtimeStatus',
-            state     : 'not-wired'
+            // the DTO owns the reason at the producer boundary — the axis-level explanation for a
+            // not-wired runtime rides every row fact (the review-caught fixture-truth gap closed)
+            reason: 'runtime process status is pending the Fleet runtime-status wire method',
+            source: 'fleet:runtimeStatus',
+            state : 'not-wired'
         })
 
         // serializable end-to-end — a captured perspective can restore a real card from the blueprint
