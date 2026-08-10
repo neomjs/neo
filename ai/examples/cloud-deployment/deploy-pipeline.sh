@@ -47,10 +47,15 @@ COMPOSE_FILE="${NEO_DEPLOY_COMPOSE_FILE:-}"
 # by the rehearsal witness printing "(4 file(s))" for two files.
 compose_file_args=()
 compose_file_count=0
+first_compose_file=""
 while IFS= read -r compose_file_entry; do
     if [ -n "$compose_file_entry" ]; then
         compose_file_args+=(-f "$compose_file_entry")
         compose_file_count=$((compose_file_count + 1))
+
+        if [ -z "$first_compose_file" ]; then
+            first_compose_file="$compose_file_entry"
+        fi
     fi
 done <<< "$(printf '%s' "$COMPOSE_FILE" | tr ':' '\n')"
 
@@ -58,6 +63,18 @@ if [ "$compose_file_count" -eq 0 ]; then
     echo "[deploy] FATAL: NEO_DEPLOY_COMPOSE_FILE must name an ordered, auth-complete Compose file set. Docker was NOT invoked." >&2
     exit 1
 fi
+
+# Compose resolves its default `.env` from the first declared file's project directory. Keep that
+# project-facing location stable while the durable carrier lives outside the checkout, so source
+# updates cannot discard an admitted prescription. The materializer owns the adoption/symlink
+# safety contract; this pipeline only supplies the explicit paths.
+compose_project_dir="$(dirname "$first_compose_file")"
+prescription_root="${NEO_HOST_DEPLOYMENT_PRESCRIPTION_ROOT:-${HOME}/.neo-ai/deployment-prescriptions}"
+prescription_ledger="$prescription_root/prescriptions.jsonl"
+prescription_environment="$prescription_root/active.env"
+prescription_deploy_lock="$prescription_root/deploy.lock"
+project_environment="$compose_project_dir/.env"
+prescription_cli="$SCRIPT_DIR/../../scripts/maintenance/materializeDeploymentPrescriptions.mjs"
 
 # A stable project name pins named-volume identity across redeploys. Export the
 # same value consumed by docker-compose.yml for its top-level project name and
@@ -86,7 +103,14 @@ fi
 # `compose_file_args` is guaranteed non-empty by the abort above, so expanding it is safe on bash 3.2
 # where an EMPTY array expansion is an unbound-variable error under `set -u` (see the note at the
 # preflight below — macOS ships 3.2 and hosted CI does not, so that class fails only on maintainer machines).
-compose() { docker compose "${compose_file_args[@]}" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"; }
+#
+# Compose's default lookup follows project-directory rules that vary with file/flag composition. Pin
+# the same persistent carrier on EVERY pipeline-owned Compose call so the delivery contract does not
+# depend on implicit lookup and the final `ps` observes the same interpolation input as `up`.
+compose() {
+    docker compose --env-file "$prescription_environment" \
+        "${compose_file_args[@]}" -p "$PROJECT_NAME" "${profile_args[@]}" "$@"
+}
 
 # Resolve the deployed revision BEFORE Docker runs (#15792). Every run pins:
 # there is deliberately no unpinned path, because this is the reference pipeline
@@ -225,11 +249,62 @@ else
     node "$PREFLIGHT" --compose-project "$PROJECT_NAME"
 fi
 
-# Build + recreate containers, KEEPING named volumes and the backup bind-mount.
-# `--wait` blocks until every service with a healthcheck reports healthy and
-# exits non-zero if one does not — this is the deploy health gate. `set -e`
-# then fails the job, so a broken redeploy is never reported as success.
-compose up -d --build --wait
+# One host may receive overlapping deploy jobs. The materialized environment and state manifest are a
+# pair, so a second job must not replace either between this job's materialize and receipt phases.
+# `mkdir` is the cross-process atomic claim; the subshell's EXIT trap releases it on every ordinary
+# success/failure path without replacing the revision probe's parent-shell cleanup trap.
+(
+    mkdir -p "$prescription_root"
 
-echo "[deploy] all services healthy — redeploy complete"
-compose ps
+    if ! mkdir "$prescription_deploy_lock" 2>/dev/null; then
+        echo "[deploy] FATAL: deployment lock exists at ${prescription_deploy_lock}; another deploy is active or the stale lock needs operator inspection." >&2
+        echo "[deploy] No prescription was materialized and Docker was NOT invoked." >&2
+        exit 1
+    fi
+
+    release_prescription_deploy_lock() {
+        rmdir "$prescription_deploy_lock" 2>/dev/null || true
+    }
+    trap release_prescription_deploy_lock EXIT
+
+    # Bind state and receipt to this exact deployment transaction. The lock serializes the shared
+    # active environment; the UUID prevents a later run from ever satisfying this run's receipt
+    # contract with a different manifest, even if artifacts are inspected after the lock is released.
+    deployment_run_id="$(node --input-type=module -e \
+        "import {randomUUID} from 'node:crypto'; process.stdout.write(randomUUID())")"
+    prescription_run_root="$prescription_root/runs/$deployment_run_id"
+    prescription_state="$prescription_run_root/materialized-state.json"
+    prescription_receipt="$prescription_run_root/delivery-receipt.json"
+
+    # Materialize admitted host prescriptions before the first Docker mutation. A refusal exits through
+    # `set -e`, leaving the currently running plane untouched. `--adopt-existing-env` is explicit here:
+    # the materializer preserves unrelated operator entries before replacing the project `.env` with its
+    # durable carrier link.
+    node "$prescription_cli" materialize \
+        --ledger "$prescription_ledger" \
+        --env "$prescription_environment" \
+        --state "$prescription_state" \
+        --project-env "$project_environment" \
+        --compose-project "$PROJECT_NAME" \
+        --run-id "$deployment_run_id" \
+        --adopt-existing-env
+
+    # Build + recreate containers, KEEPING named volumes and the backup bind-mount.
+    # `--wait` blocks until every service with a healthcheck reports healthy and
+    # exits non-zero if one does not — this is the deploy health gate. `set -e`
+    # then fails the job, so a broken redeploy is never reported as success.
+    compose up -d --build --wait
+
+    # The receipt is a delivery claim, not an observation claim: reaching it proves the exact revision
+    # passed Compose's health gate with the admitted environment. A failed `up --wait` exits before this
+    # command, so no success artifact can survive a failed deployment.
+    node "$prescription_cli" receipt \
+        --env "$prescription_environment" \
+        --state "$prescription_state" \
+        --receipt "$prescription_receipt" \
+        --run-id "$deployment_run_id" \
+        --deployed-revision "$NEO_REVISION"
+
+    echo "[deploy] all services healthy — redeploy complete"
+    compose ps
+)
