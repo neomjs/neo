@@ -90,11 +90,19 @@
  * @returns {{recordCycle: Function, recordFailure: Function, getDisposition: Function}}
  */
 export function createDrainDispositionTracker({historyLimit = 256, now = Date.now} = {}) {
-    let state      = 'unobserved',
-        reason     = 'no-drain-cycle-completed-yet',
-        counts     = null,
-        at         = null,
-        inProgress = null;
+    // The earliest instant this tracker could attest to anything. A lookback reaching further back
+    // than this is asking about a period the tracker did not exist for, and the only honest answer
+    // is "partial" — a process restart makes that the DAILY case, not an edge one.
+    const coverageStartedAt = now();
+
+    // `evictedThrough` is the newest cycle timestamp the ring has dropped, null while nothing has
+    // been evicted — the second boundary a lookback can fail to clear.
+    let state          = 'unobserved',
+        reason         = 'no-drain-cycle-completed-yet',
+        counts         = null,
+        at             = null,
+        inProgress     = null,
+        evictedThrough = null;
 
     // Completed cycles, oldest first. The receipt above is a LAST-VALUE LATCH and cannot answer a
     // windowed question: an idle poll overwrites a work-bearing cycle that is still inside a
@@ -144,10 +152,16 @@ export function createDrainDispositionTracker({historyLimit = 256, now = Date.no
             }
 
             return {
+                coverageStartedAt,
                 cycles          : inWindow.length,
                 oldestRetainedAt: history.length ? history[0].at : null,
                 totals,
-                truncated       : history.length === historyLimit && history[0].at > sinceTs
+                // Coverage, NOT capacity. A full ring is one way to lose the head of a lookback;
+                // never having observed it is the other, and keying only off `historyLimit` saw
+                // just the first — so a fresh tracker answered "nothing happened, completely" for
+                // a window it could not see at all.
+                truncated       : sinceTs < coverageStartedAt ||
+                                  (evictedThrough !== null && sinceTs <= evictedThrough)
             }
         },
 
@@ -181,7 +195,9 @@ export function createDrainDispositionTracker({historyLimit = 256, now = Date.no
             history.push({at, counts: {...summary}});
 
             if (history.length > historyLimit) {
-                history.shift()
+                // Remember WHAT was dropped, not just that the ring is full: the dropped cycle's
+                // timestamp is the boundary a later lookback must be told it cannot cross.
+                evictedThrough = history.shift().at
             }
 
             if (summary.inactive) {

@@ -713,8 +713,10 @@ class MemoryCoreRecorderService extends Base {
      * So the projection now carries two things that are actually about the same interval:
      * `inProgress` — what the currently-running cycle selected, visible before it completes — and
      * `window` — the cycles that completed inside the SAME `sinceTs` lookback the provider aggregate
-     * uses. `window.truncated` marks a lookback older than retained history, because a partial
-     * answer presented as a total is the same false zero one level down.
+     * uses. `window.truncated` marks a lookback this process cannot fully attest — it began before
+     * `window.coverageStartedAt`, or it reaches a cycle the ring evicted — because a partial answer
+     * presented as a total is the same false zero one level down. Coverage, not capacity: a fresh
+     * tracker after a restart can attest nothing, and must say so rather than report a clean zero.
      *
      * @param {Object} options
      * @param {Number} options.sinceTs Lookback boundary shared with the provider-activity projection.
@@ -755,10 +757,13 @@ class MemoryCoreRecorderService extends Base {
                 startedAt     : Number.isFinite(inProgress.startedAt) ? new Date(inProgress.startedAt).toISOString() : null
             } : null,
             window      : window ? {
-                cycles          : window.cycles,
-                oldestRetainedAt: Number.isFinite(window.oldestRetainedAt) ? new Date(window.oldestRetainedAt).toISOString() : null,
-                totals          : window.totals,
-                truncated       : window.truncated === true
+                // `truncated` says the aggregate is partial; this says WHICH part is missing, and
+                // without it a consumer can only distrust the totals, never bound them.
+                coverageStartedAt: Number.isFinite(window.coverageStartedAt) ? new Date(window.coverageStartedAt).toISOString() : null,
+                cycles           : window.cycles,
+                oldestRetainedAt : Number.isFinite(window.oldestRetainedAt) ? new Date(window.oldestRetainedAt).toISOString() : null,
+                totals           : window.totals,
+                truncated        : window.truncated === true
             } : null
         };
     }

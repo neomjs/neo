@@ -847,6 +847,27 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             expect(walDrain.window.truncated, 'a partial aggregate must say so').toBe(true);
         });
 
+        test('the coverage start reaches the wire as an instant, so `truncated` is bounded not just flagged', () => {
+            // These provider stubs prove RELAY only — that is the recorder's whole job here, and it
+            // is why `truncated`'s correctness is proven in the producer's own spec
+            // (`ai/daemons/shared/drainDisposition.spec.mjs`) rather than through this seam.
+            const coverageStartedAt = Date.now() - 45_000;
+
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state: 'clean', drainedClean: true, reason: null, counts: {pending: 0}, at: Date.now()
+            });
+            MemoryCoreRecorderService.walDrainInProgressProvider = () => null;
+            MemoryCoreRecorderService.walDrainWindowProvider = () => ({
+                coverageStartedAt, cycles: 1, oldestRetainedAt: Date.now() - 40_000,
+                totals: {pending: 0, selected: 0, embedded: 0, failed: 0}, truncated: true
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 3_600_000, limit: 5});
+
+            expect(walDrain.window.coverageStartedAt, 'epoch ms must not reach the wire raw')
+                .toBe(new Date(coverageStartedAt).toISOString());
+        });
+
         test('EVERY status arm carries the required walDrain field (@neo-gpt contract break)', () => {
             // The field is declared required on the response, but the telemetry-disabled and
             // db-unavailable arms returned early without it. OpenAPI and parity checks validate the

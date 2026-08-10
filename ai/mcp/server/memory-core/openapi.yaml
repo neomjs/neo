@@ -2716,9 +2716,11 @@ components:
 
         Two properties are deliberate. `counts` is null — never zero — when this process does not host
         the drain, because zero pending against live provider load IS the anomaly, so a defaulted zero
-        would manufacture the alarm this projection exists to detect. And `withinWindow` reports
-        whether the receipt's cycle landed inside the same lookback as `providerActivity`; the two are
-        only a ratio when it is true.
+        would manufacture the alarm this projection exists to detect. And `window.truncated` reports
+        whether the aggregate may be read as the WHOLE lookback: the window is answered from an
+        in-memory ring, so a lookback reaching past `window.coverageStartedAt` — every process
+        restart does — or past a cycle the ring has evicted is a PARTIAL answer. Totals are a ratio
+        against `providerActivity` only when it is false.
       required:
         - status
         - state
@@ -2793,8 +2795,15 @@ components:
             Completed drain cycles aggregated over the SAME lookback as `providerActivity`. This is the
             comparable denominator; the `counts` field above describes one latest cycle and is not.
             Null when no observation is available.
-          required: [cycles, oldestRetainedAt, totals, truncated]
+          required: [coverageStartedAt, cycles, oldestRetainedAt, totals, truncated]
           properties:
+            coverageStartedAt:
+              type: string
+              format: date-time
+              description: >
+                Earliest instant this process could attest to. A lookback starting before it asks
+                about a period the tracker did not exist for; it is the denominator that makes
+                `truncated` actionable rather than merely alarming.
             cycles:
               type: integer
               description: Completed cycles inside the lookback.
@@ -2810,8 +2819,11 @@ components:
             truncated:
               type: boolean
               description: >
-                True when the lookback reaches further back than retained history, so the aggregate is
-                partial. A partial answer reported as a total is the same false zero as a defaulted one.
+                True when the lookback is not fully covered, so the aggregate is partial — either it
+                starts before `coverageStartedAt` (any process restart) or it reaches a cycle the ring
+                has evicted. Coverage, not capacity: keying only off ring fullness saw the second case
+                and reported a fresh tracker's empty window as a COMPLETE "nothing happened". A partial
+                answer reported as a total is the same false zero as a defaulted one.
 
     ProviderActivityResponse:
       type: object

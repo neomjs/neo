@@ -117,4 +117,72 @@ test.describe('ai/daemons/shared drainDisposition', () => {
 
         expect(t.getDisposition().counts.embedded).toBe(1);
     });
+
+    /**
+     * `truncated` answers ONE question: may a consumer read these totals as the whole window?
+     *
+     * Everything below drives the real tracker. The recorder-side specs stub the provider and so
+     * prove only that the recorder relays whatever it is handed — a producer that computes
+     * `truncated` wrongly passes every one of them. That gap is what these close.
+     */
+    test('a lookback that predates the tracker itself is NOT a complete answer (#16835)', async () => {
+        // The post-restart shape: the process died, the in-memory ring went with it, and the new
+        // tracker's first completed cycle is idle. Durable rows written before the restart are real
+        // work this tracker never saw — so the honest answer is "I cannot say", not "nothing".
+        let   clock = 10000;
+        const t     = createDrainDispositionTracker({now: () => clock});
+
+        t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+
+        const w = t.getWindowSince(0);
+
+        expect(w.totals.embedded, 'the tracker genuinely observed no embeds').toBe(0);
+        expect(w.truncated,
+            'a window starting before the tracker existed is a PARTIAL answer — reporting it as ' +
+            'complete is the same false zero the module exists to prevent').toBe(true);
+    });
+
+    test('eviction also truncates — the ring dropped cycles inside the lookback (#16835)', async () => {
+        // The control that already held: capacity loss. Kept so a coverage-based predicate cannot
+        // regress it.
+        let   clock = 0;
+        const t     = createDrainDispositionTracker({historyLimit: 4, now: () => (clock += 1000)});
+
+        for (let i = 0; i < 10; i++) t.recordCycle({pending: 1, embedded: 1, outstanding: 0});
+
+        const w = t.getWindowSince(0);
+
+        expect(w.cycles, 'only the retained tail is aggregated').toBe(4);
+        expect(w.truncated, 'cycles inside the lookback were evicted').toBe(true);
+    });
+
+    test('a fully covered window is NOT truncated, however quiet it was (#16835)', async () => {
+        // The negative control, and the one that matters most: without it, "always true" satisfies
+        // both tests above. An idle interval the tracker WAS alive for is genuine idleness, and
+        // flagging it would make the alarm fire on every healthy plane — disabled within a week.
+        let   clock = 1000;
+        const t     = createDrainDispositionTracker({now: () => clock});
+
+        clock = 2000; t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+        clock = 3000; t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+
+        const w = t.getWindowSince(1000);
+
+        expect(w.cycles).toBe(2);
+        expect(w.truncated,
+            'the tracker was alive across the whole lookback and evicted nothing — the quiet is ' +
+            'real, and reporting it as unattestable would fire on every healthy plane').toBe(false);
+    });
+
+    test('the covered interval is on the surface, not left to be inferred (#16835)', async () => {
+        // A consumer cannot act on `truncated` alone: it says the answer is partial without saying
+        // which part. `coverageStartedAt` is the denominator of the reading.
+        let   clock = 5000;
+        const t     = createDrainDispositionTracker({now: () => clock});
+
+        clock = 6000; t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+
+        expect(t.getWindowSince(0).coverageStartedAt,
+            'the earliest instant this tracker could attest').toBe(5000);
+    });
 });
