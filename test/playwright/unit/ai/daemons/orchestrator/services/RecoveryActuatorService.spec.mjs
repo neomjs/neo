@@ -286,6 +286,43 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBe(runsBefore);
     });
 
+    for (const [runtimeReason, reasonCode] of [
+        ['runtime-effect-not-admitted', 'effect-no-longer-admitted'],
+        ['runtime-target-incarnation-changed', 'target-incarnation-changed']
+    ]) {
+        test(`a last-boundary ${runtimeReason} refusal charges no recovery attempt`, async () => {
+            let dispatches = 0;
+
+            const {service, actuatorConfig} = createService({
+                deploymentRuntimeAccessService: {
+                    async applyLifecycle() {
+                        dispatches++;
+                        const error = new Error(runtimeReason);
+                        error.reason = runtimeReason;
+                        throw error;
+                    }
+                }
+            });
+
+            const result = await service.apply('local-model', 'restart', {
+                now                  : 10_000,
+                expectedContainerId  : 'local-model-A',
+                isAuthorityHeld      : () => true,
+                isEffectStillAdmitted: () => false
+            });
+
+            expect(dispatches).toBe(1);
+            expect(result).toMatchObject({
+                status    : 'declined',
+                reasonCode,
+                serviceKey: 'local-model',
+                action    : 'restart'
+            });
+            expect(existsSync(actuatorConfig.healAttemptsPath)).toBe(false);
+            expect(existsSync(actuatorConfig.recoveryRunStateDir)).toBe(false);
+        });
+    }
+
     test('a dispatched effect whose outcome is lost after takeover is recorded UNCERTAIN, never erased', async () => {
         // @neo-gpt's third interval. The restart POST goes out under held authority; the takeover
         // happens; the socket resets before the outcome is known. This previously returned

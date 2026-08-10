@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import Database       from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
 import Neo            from '../../../../../../src/Neo.mjs';
@@ -24,6 +25,10 @@ import TaskStateService, { createInitialTaskState } from '../../../../../../ai/d
 import os                                           from 'os';
 import {createBootIdentityReadSource}               from '../../../../../../ai/services/fleet/createBootIdentityReadSource.mjs';
 import {BOOT_FRESHNESS_CLASS}                       from '../../../../../../ai/daemons/orchestrator/services/bootIdentityFreshness.mjs';
+import {
+    beginProviderActivity,
+    ensureProviderActivitySchema
+} from '../../../../../../ai/services/shared/providerActivityLedger.mjs';
 
 let   testOrchestratorSeq            = 0;
 const TEST_DEV_SERVER_PORT           = 18080;
@@ -780,6 +785,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.deploymentRuntimeAccessService = {};
         orchestrator.deploymentStateBridgeService = {};
         orchestrator.containerHealthDiagnosisService = {};
+        orchestrator.containerHealthControllerService = {};
 
         expect(orchestrator.deploymentStateBridgeService.runtimeAccessService)
             .toBe(orchestrator.deploymentRuntimeAccessService);
@@ -791,6 +797,109 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             .toBe(orchestrator.tenantRepoSyncService);
         expect(orchestrator.deploymentStateBridgeService.tenantRepoSyncEnabledReader())
             .toBe(false);
+        expect(typeof orchestrator.deploymentStateBridgeService.providerActivityProbe)
+            .toBe('function');
+        expect(orchestrator.deploymentStateBridgeService.providerActivityWindowMs)
+            .toBeGreaterThan(0);
+        expect(orchestrator.deploymentStateBridgeService.providerActivityLimit)
+            .toBeGreaterThan(0);
+        expect(typeof orchestrator.containerHealthControllerService.isEffectStillAdmitted)
+            .toBe('function');
+    });
+
+    test('provider activity projection fails closed when recorder telemetry is disabled', async () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+
+        orchestrator.deploymentStateBridgeService = {};
+        orchestrator.providerActivityTelemetryEnabledReader = () => false;
+
+        const db = new Database(':memory:');
+        ensureProviderActivitySchema(db);
+        orchestrator.db = db;
+
+        try {
+            expect(orchestrator.deploymentStateBridgeService.providerActivityProbe({
+                sinceTs   : Date.now() - 60_000,
+                limit     : 10,
+                observedAt: Date.now()
+            })).toEqual({
+                status           : 'unavailable',
+                unavailableReason: 'provider-activity-disabled'
+            });
+        } finally {
+            db.close();
+        }
+    });
+
+    test('effect-boundary provider admission veto applies only to residual Ollama restarts', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+
+        orchestrator.containerHealthControllerService = {};
+        orchestrator.isOllamaResidualRestartStillAdmitted = () => false;
+
+        const isEffectStillAdmitted = orchestrator.containerHealthControllerService.isEffectStillAdmitted;
+
+        expect(isEffectStillAdmitted({
+            diagnosis: {details: {classificationReason: 'ollama-residual-load-restart'}}
+        })).toBe(false);
+        expect(isEffectStillAdmitted({
+            diagnosis: {details: {classificationReason: 'container-unhealthy-restart'}}
+        })).toBe(true);
+    });
+
+    test('effect-boundary provider admission follows the real shared-ledger transition', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+        const db           = new Database(':memory:');
+
+        ensureProviderActivitySchema(db);
+        orchestrator.db = db;
+        orchestrator.providerActivityTelemetryEnabledReader = () => true;
+        orchestrator.providerActivityStatusReader = () => ({status: 'ok'});
+
+        try {
+            expect(orchestrator.isOllamaResidualRestartStillAdmitted()).toBe(true);
+
+            beginProviderActivity(db, {
+                service         : 'knowledge-base',
+                operationStage  : 'kb-tenant-ingestion-embedding',
+                role            : 'embedding',
+                provider        : 'ollama',
+                model           : 'qwen3-embedding:latest',
+                priority        : 'batch',
+                enqueuedAt      : Date.now(),
+                startedAt       : Date.now(),
+                queueDisposition: 'not-applicable'
+            });
+
+            expect(orchestrator.isOllamaResidualRestartStillAdmitted()).toBe(false);
+        } finally {
+            db.close();
+        }
+    });
+
+    test('provider activity projection reads the container-plane boot database without heartbeat readiness', async () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+
+        orchestrator.deploymentStateBridgeService = {};
+
+        const db = new Database(':memory:');
+        ensureProviderActivitySchema(db);
+        orchestrator.db = db;
+
+        try {
+            const projection = await orchestrator.deploymentStateBridgeService.providerActivityProbe({
+                sinceTs   : Date.now() - 60_000,
+                limit     : 10,
+                observedAt: Date.now()
+            });
+
+            expect(projection).toMatchObject({
+                totalInFlight         : 0,
+                totalRecentCompletions: 0
+            });
+        } finally {
+            db.close();
+        }
     });
 
     test('refreshes golden path while dream graph mutation is active — decoupled for hourly freshness', async () => {

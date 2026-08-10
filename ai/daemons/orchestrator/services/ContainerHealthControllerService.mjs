@@ -165,6 +165,12 @@ export class ContainerHealthControllerService extends Base {
      * @member {Function|null} isAuthorityHeld=null
      */
     isAuthorityHeld = null
+    /**
+     * Last-boundary effect-admission predicate, `(decision) => Boolean`. Only recovery classes whose
+     * evidence can become unsafe while the actuator awaits preparation opt in.
+     * @member {Function|null} isEffectStillAdmitted=null
+     */
+    isEffectStillAdmitted = null
 
     /**
      * @summary Routes every diagnosed decision in one deployment-state snapshot.
@@ -274,7 +280,13 @@ export class ContainerHealthControllerService extends Base {
      */
     async actuate({decision, now, route}) {
         const {actionClass, diagnosis, serviceKey} = decision,
-              reason                               = `container-health-controller:${diagnosis.details?.classificationReason || route.reasonCode}`;
+              classificationReason                 = diagnosis.details?.classificationReason,
+              reason                               = `container-health-controller:${classificationReason || route.reasonCode}`,
+              needsLiveAdmission                   = classificationReason === 'ollama-residual-load-restart',
+              residualEvidence                     = needsLiveAdmission
+                  ? diagnosis.evidenceFacts?.find(fact => fact?.type === 'ollama-residual-load')
+                  : null,
+              expectedContainerId                   = residualEvidence?.details?.runtimeContainerId;
 
         let outcome;
 
@@ -292,7 +304,13 @@ export class ContainerHealthControllerService extends Base {
                 // immediately before the privileged effect. A check made out here is separated from
                 // the effect by `readHealAttempts`, which is I/O — and an authority check with an
                 // await between it and the effect does not bind the effect.
-                isAuthorityHeld: this.isAuthorityHeld
+                isAuthorityHeld: this.isAuthorityHeld,
+                ...(needsLiveAdmission && typeof this.isEffectStillAdmitted === 'function'
+                    ? {isEffectStillAdmitted: () => this.isEffectStillAdmitted(decision)}
+                    : {}),
+                ...(needsLiveAdmission && typeof expectedContainerId === 'string'
+                    ? {expectedContainerId}
+                    : {})
             });
         } catch (error) {
             outcome = {

@@ -258,6 +258,8 @@ export class RecoveryActuatorService extends Base {
      * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
      * @param {Number} [options.now=Date.now()] Epoch milliseconds.
      * @param {String|null} [options.reason=null] Operator/controller reason.
+     * @param {Function|null} [options.isEffectStillAdmitted=null] Last-boundary effect predicate.
+     * @param {String|null} [options.expectedContainerId=null] Diagnosed container incarnation.
      * @returns {Promise<Object>} Action outcome descriptor.
      */
     async apply(serviceKey, action, {
@@ -270,6 +272,8 @@ export class RecoveryActuatorService extends Base {
         // the privileged effect. Optional so existing callers are unchanged; a caller that omits it
         // keeps today's behaviour exactly.
         isAuthorityHeld = null,
+        isEffectStillAdmitted = null,
+        expectedContainerId = null,
         // Only `reconfigure` consumes these. A controller names a KNOB, never a config leaf — the
         // transaction boundary belongs to the closed set, so a caller cannot compose an arbitrary
         // group of leaves and have it applied as one.
@@ -377,7 +381,16 @@ export class RecoveryActuatorService extends Base {
         const startedAt = now;
 
         try {
-            const result = await this.executeTargetAction({target, action, knob, knobValues, reason, isAuthorityHeld});
+            const result = await this.executeTargetAction({
+                target,
+                action,
+                knob,
+                knobValues,
+                reason,
+                isAuthorityHeld,
+                isEffectStillAdmitted,
+                expectedContainerId
+            });
 
             const updatedAt     = Date.now(),
                   diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
@@ -460,10 +473,16 @@ export class RecoveryActuatorService extends Base {
             // here with an ordinary transport error and was reported `declined` with no audit at
             // all. A possibly-landed restart was erased — and erased silently, which is worse than
             // a loud failure because nothing observes it.
-            if (error?.reason === 'runtime-authority-lost') {
+            if (error?.reason === 'runtime-authority-lost' || error?.reason === 'runtime-effect-not-admitted' ||
+                error?.reason === 'runtime-target-incarnation-changed'
+            ) {
                 return {
-                    status        : 'declined',
-                    reasonCode    : 'authority-lost',
+                    status    : 'declined',
+                    reasonCode: error.reason === 'runtime-authority-lost'
+                        ? 'authority-lost'
+                        : (error.reason === 'runtime-effect-not-admitted'
+                            ? 'effect-no-longer-admitted'
+                            : 'target-incarnation-changed'),
                     serviceKey,
                     action,
                     targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id})
@@ -901,7 +920,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null}) {
+    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null}) {
         // The last COMMON point before every effect kind dispatches — common in syntax, which is not
         // the same as last-owned in time. It fences an action whose effect begins immediately
         // (`warm-provider` awaits its repair as its first statement), and it is NOT sufficient for an
@@ -922,7 +941,13 @@ export class RecoveryActuatorService extends Base {
         }
 
         if (target.kind === 'compose-service') {
-            return this.restartComposeService({target, reason, isAuthorityHeld});
+            return this.restartComposeService({
+                target,
+                reason,
+                isAuthorityHeld,
+                isEffectStillAdmitted,
+                expectedContainerId
+            });
         }
 
         if (target.kind === 'supervised-task') {
@@ -962,7 +987,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async restartComposeService({target, reason, isAuthorityHeld = null}) {
+    async restartComposeService({target, reason, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null}) {
         if (!this.deploymentRuntimeAccessService?.applyLifecycle) {
             throw new Error('Deployment runtime access service is unavailable');
         }
@@ -975,7 +1000,9 @@ export class RecoveryActuatorService extends Base {
             // conditionally so a caller without an oracle sends a byte-identical request to before,
             // which keeps the specs' strict argument assertions meaningful rather than forcing them
             // to loosen to `toMatchObject` and stop noticing unexpected arguments.
-            ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {})
+            ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {}),
+            ...(typeof isEffectStillAdmitted === 'function' ? {isEffectStillAdmitted} : {}),
+            ...(typeof expectedContainerId === 'string' ? {expectedContainerId} : {})
         });
 
         return {
