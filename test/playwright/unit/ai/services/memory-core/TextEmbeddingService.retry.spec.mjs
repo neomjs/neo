@@ -210,6 +210,17 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                             ]
                         }));
                     }, 50);
+                } else if (serverBehavior === 'resident-then-evicted') {
+                    // The mid-sync eviction shape: chunk 1 embeds normally, then the model is gone.
+                    // A preflight that ran before chunk 1 cannot see this.
+                    if (requestCount === 1) {
+                        const inputs = lastRequest.body.input;
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({data: inputs.map((_, index) => ({index, embedding: [index]}))}));
+                        return;
+                    }
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'The requested resource could not be found.' }));
                 } else if (serverBehavior === 'sparse-batch') {
                     // One vector short, and the one returned is NOT index 0.
                     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -772,6 +783,64 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount).toBe(3);
         expect(allRequests.map(item => item.body.input)).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
         expect(result).toEqual([[1, 0], [1, 1], [2, 0], [2, 1], [3, 0]]);
+    });
+
+    test('the residency preflight is a POINT CHECK licensing N requests — eviction after it is invisible (#14154)', async () => {
+        serverBehavior = 'resident-then-evicted';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
+        aiConfig.openAiCompatible.unloadRetryCount        = 1;
+
+        let probeCount = 0;
+
+        // The provider reports the model resident. It is true when asked, and the preflight is
+        // therefore correct — which is the whole point: correctness at t0 is not an invariant over
+        // the batch that follows.
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => {
+            probeCount++;
+            return [{
+                id           : aiConfig.openAiCompatible.embeddingModel,
+                contextLength: aiConfig.localModels.embedding.contextLimitTokens
+            }];
+        };
+
+        const error = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        // ONE preflight for a batch that issues one request per chunk. The window between the check
+        // and the last chunk is the entire batch duration — on the observed plane, long enough for a
+        // chat-model load to evict the embedder mid-sweep. This is the mid-sync 404 the ticket
+        // title: not a cold start, a residency change under a green check.
+        expect(probeCount, 'residency is checked once per embedTexts call, not per provider request').toBe(1);
+
+        expect(error).toBeInstanceOf(Error);
+
+        // The load-bearing distinction. "Never resident" is a configuration fault — wrong identifier,
+        // wrong host, model never loaded — and retrying cannot fix it. "Evicted mid-batch" means the
+        // configuration was RIGHT and something took the slot, which is a capacity question. Both used
+        // to mint EMBEDDING_MODEL_NOT_RESIDENT, so an operator was sent to re-check a config that was
+        // already correct.
+        expect(error.code, 'the code keeps its spelling — two downstream readers own it').toBe('EMBEDDING_MODEL_NOT_RESIDENT');
+        expect(error.residencyDisposition, 'residency was observed at preflight, so this is an eviction').toBe('evicted-mid-batch');
+
+        // Chunk 1 embedded against a resident model; chunk 2 found it gone and burned its bounded
+        // unload retries against a provider that will not reload it. The batch then throws, and from
+        // there the sweep-level stranding takes over — a different defect, one layer up.
+        expect(requestCount, 'chunk 1 succeeded, chunk 2 + its retry both 404').toBe(3);
+    });
+
+    test('a model that was NEVER resident keeps the configuration-fault code (#14154)', async () => {
+        serverBehavior = 'fail-all-404';
+
+        // Preflight finds nothing loaded, so the operation never observes residency. This is the
+        // control that keeps the new code narrow: without it, reclassifying on 404 would relabel every
+        // configuration fault as an eviction and destroy the distinction it exists to create.
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [];
+
+        const error = await TextEmbeddingService.embedTexts(['a'], 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        expect(error.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
+        expect(error.residencyDisposition, 'never observed resident ⇒ configuration fault, not capacity').toBe('never-resident');
     });
 
     test('a SPARSE provider response is refused rather than silently re-based to position 0 (#16826)', async () => {
