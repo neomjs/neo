@@ -136,7 +136,12 @@ export function createProviderActivityStatusWriter({dbPath, recorder, now = Date
                                 throw new Error('providerActivityStatusStore: status merge guard ownership lost');
                             }
 
-                            await fs.promises.rename(temp, file);
+                            // DELIBERATELY NOT the shared write-temp-then-rename primitive. The
+                            // ownership check directly above is the only thing that binds this
+                            // effect, and it must sit BETWEEN the scratch write and the rename. The
+                            // primitive collapses those into one call, which would delete the fence
+                            // and let a holder that has already lost the guard publish its merge.
+                            await fs.promises.rename(temp, file); // atomic-write-ok: guard-ownership re-verify must fence between write and rename
                         } finally {
                             await fs.promises.unlink(temp).catch(() => {});
                         }

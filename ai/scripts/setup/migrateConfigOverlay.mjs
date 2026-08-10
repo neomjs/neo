@@ -27,6 +27,7 @@
 import fs                             from 'fs';
 import path                           from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
+import {writeFileAtomicSync}          from '../../services/shared/atomicFileWrite.mjs';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const neoRootDir = path.resolve(__dirname, '../../../');
@@ -360,22 +361,17 @@ export function extractParentConfigImport(source) {
  * @returns {{backupPath: String}}
  */
 export function writeMigratedOverlay({overlayPath, generated, fileSystem = fs}) {
-    const
-        backupPath = `${overlayPath}.pre-migration.bak`,
-        tempPath   = `${overlayPath}.migration-${process.pid}-${Date.now()}.tmp`;
+    const backupPath = `${overlayPath}.pre-migration.bak`;
 
-    try {
-        fileSystem.writeFileSync(tempPath, generated, {encoding: 'utf8', flag: 'wx'});
-        fileSystem.copyFileSync(overlayPath, backupPath);
-        fileSystem.renameSync(tempPath, overlayPath);
-    } catch (error) {
-        try {
-            fileSystem.rmSync(tempPath, {force: true});
-        } catch {
-            // Preserve the original failure. A cleanup error must never disguise why migration stopped.
-        }
-        throw error
-    }
+    // The backup is taken FIRST rather than between the scratch write and the rename. It copies the
+    // ORIGINAL overlay, which is untouched until the atomic write publishes — so both orders capture
+    // the same bytes, and taking it first means a failed backup aborts before anything was staged.
+    //
+    // The former `${overlayPath}.migration-${pid}-${Date.now()}.tmp` and its catch-block cleanup are
+    // both gone: the primitive owns its scratch and removes it in a `finally`, so there is no longer
+    // a leaked sibling for this function to chase.
+    fileSystem.copyFileSync(overlayPath, backupPath);
+    writeFileAtomicSync(overlayPath, generated, {fsModule: fileSystem, mode: 0o644});
 
     return {backupPath}
 }

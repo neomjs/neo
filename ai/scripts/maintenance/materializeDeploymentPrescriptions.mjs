@@ -12,6 +12,7 @@ import {
     LEDGER_REFUSALS
 } from '../../services/memory-core/helpers/deploymentPrescriptionLedger.mjs';
 import {renderPrescribedEnvironment} from '../../services/memory-core/helpers/deploymentPrescriptionEnvironment.mjs';
+import {writeFileAtomic}             from '../../services/shared/atomicFileWrite.mjs';
 import {
     appendDeploymentPrescription,
     readDeploymentPrescriptions,
@@ -138,23 +139,21 @@ export function mergePrescribedEnvironment(
 
 /**
  * @summary Writes a UTF-8 file through a unique sibling and atomic rename.
+ *
+ * This was the repo's best hand-rolled copy of the shape and is now a thin delegation to the owned
+ * primitive — the implementation moved to `ai/services/shared/atomicFileWrite.mjs` rather than being
+ * duplicated a fourteenth time. The positional `fsModule` signature is kept because this module's
+ * callers and specs inject through it.
+ *
+ * (The previous `@returns {Promise<{createdLink, capturedPath}>}` on this function was wrong — it
+ * described a different helper and the body never returned a value.)
  * @param {String} filePath
  * @param {String} content
  * @param {Object} [fsModule]
- * @returns {Promise<{createdLink: Boolean, capturedPath: String|null}>} Reversible link preparation.
+ * @returns {Promise<void>}
  */
 export async function writeAtomicFile(filePath, content, fsModule = fs) {
-    const absolute = path.resolve(filePath),
-          scratch  = `${absolute}.${process.pid}.${randomUUID()}.tmp`;
-
-    await fsModule.mkdir(path.dirname(absolute), {recursive: true});
-
-    try {
-        await fsModule.writeFile(scratch, content, {encoding: 'utf8', flag: 'wx', mode: 0o600});
-        await fsModule.rename(scratch, absolute)
-    } finally {
-        await fsModule.rm(scratch, {force: true}).catch(() => {})
-    }
+    await writeFileAtomic(filePath, content, {fsModule})
 }
 
 /**
