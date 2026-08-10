@@ -166,6 +166,26 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         }]);
     });
 
+    test('embedTexts refuses a longer native Ollama response so !== cannot regress to <', async () => {
+        TextEmbeddingService.ollamaProvider = {
+            async embed() {
+                return {
+                    embeddings: [
+                        [0.1, 0.2],
+                        [0.3, 0.4],
+                        [0.5, 0.6]
+                    ]
+                };
+            }
+        };
+
+        await expect(
+            TextEmbeddingService.embedTexts(['a', 'b'], 'ollama')
+        ).rejects.toThrow(
+            'ollama embedding response returned 3 vector(s) for 2 input(s); refusing to bind vectors to inputs by position'
+        );
+    });
+
     test('records native Ollama as unqueued without leaking attribution controls to the provider', async () => {
         const captured   = [];
         const activities = [];
