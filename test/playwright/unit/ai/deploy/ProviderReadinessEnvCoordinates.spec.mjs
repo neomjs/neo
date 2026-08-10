@@ -43,8 +43,15 @@ import {load as yamlLoad} from 'js-yaml';
 const
     repoRoot    = path.resolve(process.cwd()),
     configText  = fs.readFileSync(path.join(repoRoot, 'ai/configBase.mjs'), 'utf8'),
-    composePath = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
-    composeDoc  = yamlLoad(fs.readFileSync(composePath, 'utf8')),
+    // BOTH canonical roots. `docker-compose.dev.yml` states it is a standalone parity stack
+    // inheriting nothing from the base, and it instantiates the same three consumers - so a
+    // coordinate absent there is exactly as unreachable as one absent from the public root. A guard
+    // reading one document proves consumer x leaf and silently permits the same defect on the other:
+    // a deployment coordinate is a product of consumer x leaf x ROOT.
+    ROOTS       = ['ai/deploy/docker-compose.yml', 'ai/deploy/docker-compose.dev.yml'].map(rel => ({
+        rel,
+        doc: yamlLoad(fs.readFileSync(path.join(repoRoot, rel), 'utf8'))
+    })),
     SERVICES    = ['kb-server', 'mc-server', 'orchestrator'],
     TES         = 'ai/services/memory-core/TextEmbeddingService.mjs',
     ILS         = 'ai/services/memory-core/lifecycle/InferenceLifecycleService.mjs',
@@ -173,8 +180,8 @@ function declaredReadinessEnvNames() {
  * @param {String} service Compose service key.
  * @returns {Object}
  */
-function serviceEnv(service) {
-    const raw = composeDoc.services?.[service]?.environment || [];
+function serviceEnv(root, service) {
+    const raw = root.doc.services?.[service]?.environment || [];
 
     if (Array.isArray(raw)) {
         return Object.fromEntries(raw
@@ -190,14 +197,15 @@ function serviceEnv(service) {
 
 test.describe('provider-readiness env coordinates', () => {
     for (const {service, env, consumer, anchors, why} of REQUIRED) {
-        test(`${service} receives ${env} — ${why.slice(0, 60)}`, () => {
-            const value = serviceEnv(service)[env];
+      for (const root of ROOTS) {
+        test(`[${path.basename(root.rel)}] ${service} receives ${env} — ${why.slice(0, 48)}`, () => {
+            const value = serviceEnv(root, service)[env];
 
-            expect(value, `${service} must declare ${env}`).toBeDefined();
+            expect(value, `${root.rel}: ${service} must declare ${env}`).toBeDefined();
 
             // Overridable shape: the value interpolates ITS OWN variable. A literal, or an
             // interpolation of a different name, both read as "configured" and are neither.
-            expect(value, `${env} on ${service} must be operator-overridable`)
+            expect(value, `${root.rel}: ${env} on ${service} must be operator-overridable`)
                 .toMatch(new RegExp(`^\\$\\{${env}(:-[^}]*)?\\}$`));
 
             // The receipt. An entry in REQUIRED is a claim about a read that exists; if the read
@@ -209,18 +217,21 @@ test.describe('provider-readiness env coordinates', () => {
                     .toContain(normalize(anchor))
             }
         })
+      }
     }
 
     test('no coordinate ships by symmetry — every declared entry is a consumed one', () => {
         const required = new Set(REQUIRED.map(entry => `${entry.service}|${entry.env}`));
 
-        for (const service of SERVICES) {
-            for (const env of Object.keys(serviceEnv(service))) {
-                if (!/^NEO_ORCHESTRATOR_(PROVIDER_READY|STUCK_RUNNER)_/.test(env)) continue;
+        for (const root of ROOTS) {
+            for (const service of SERVICES) {
+                for (const env of Object.keys(serviceEnv(root, service))) {
+                    if (!/^NEO_ORCHESTRATOR_(PROVIDER_READY|STUCK_RUNNER)_/.test(env)) continue;
 
-                expect(required.has(`${service}|${env}`),
-                    `${service} declares ${env} but nothing in this process reads it — a copied ` +
-                    'block, not a coordinate').toBe(true)
+                    expect(required.has(`${service}|${env}`),
+                        `${root.rel}: ${service} declares ${env} but nothing in this process reads ` +
+                        'it — a copied block, not a coordinate').toBe(true)
+                }
             }
         }
     });
