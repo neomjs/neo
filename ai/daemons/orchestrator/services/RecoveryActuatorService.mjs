@@ -542,6 +542,8 @@ export class RecoveryActuatorService extends Base {
      * @param {String|null} [options.recoveryRunId=null] Optional stable recovery run id.
      * @param {Number} [options.now=Date.now()] Epoch milliseconds.
      * @param {String|null} [options.reason=null] Controller reason.
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle carried into both
+     * durable stores so each can sample adjacent to its own append.
      * @returns {Promise<Object>} Record outcome descriptor.
      */
     async recordDiagnosis(diagnosisEvent, {
@@ -609,7 +611,15 @@ export class RecoveryActuatorService extends Base {
                 targetIdentity: createRecoveryTargetIdentity(diagnosis.targetIdentity),
                 evidenceFacts : diagnosis.evidenceFacts || []
             }
-        }, {dir: this.healEventLedgerDir, now, ...this.healLedgerRetention});
+        }, {
+            dir: this.healEventLedgerDir,
+            now,
+            ...this.healLedgerRetention,
+            // The entry check above precedes an awaited directory setup inside the store. Carry the
+            // oracle to that source boundary so a takeover during setup refuses this owner-success
+            // audit instead of leaving an unqualified `recorded` row.
+            isAuthorityHeld
+        });
 
         const updatedAt = Date.now();
 
@@ -919,7 +929,7 @@ export class RecoveryActuatorService extends Base {
             return this.restartSupervisedTask({target, reason});
         }
 
-        return this.recordDeployTarget({target, action, reason});
+        return this.recordDeployTarget({target, action, reason, isAuthorityHeld});
     }
 
     /**
@@ -1021,9 +1031,11 @@ export class RecoveryActuatorService extends Base {
      * cloud has no human to page, so an un-resolvable deploy-target is RECORDED (durable async-audit), never
      * paged — this completes the escalate/page → record cutover for the last lifecycle page path.
      * @param {Object} options
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle carried into the
+     * heal-event store so it can sample adjacent to the record-only append.
      * @returns {Promise<Object>}
      */
-    async recordDeployTarget({target, action, reason}) {
+    async recordDeployTarget({target, action, reason, isAuthorityHeld = null}) {
         const recorded = {
             serviceKey  : target.serviceKey,
             deployTarget: target.id,
@@ -1036,7 +1048,12 @@ export class RecoveryActuatorService extends Base {
             collection: target.id,
             status    : 'recorded',
             detail    : recorded
-        }, {dir: this.healEventLedgerDir, now: Date.now(), ...this.healLedgerRetention});
+        }, {
+            dir: this.healEventLedgerDir,
+            now: Date.now(),
+            ...this.healLedgerRetention,
+            ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {})
+        });
 
         this.writeLog?.('INFO', `[RecoveryActuator] Redeploy required for ${target.id}; recorded to the heal-event ledger (no operator to page).`);
 

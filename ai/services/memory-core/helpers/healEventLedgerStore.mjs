@@ -95,10 +95,20 @@ export function validateHealLedgerRetention(maxEvents, triggerBytes) {
  * @param {Number} [options.now] Epoch ms used to stamp `at` when the entry omits it.
  * @param {Number} [options.triggerBytes] Byte threshold that arms the auto-prune (from the AiConfig retention leaf). The auto-prune is skipped unless both this and `maxEvents` are finite.
  * @param {Number} [options.maxEvents] Retention cap the triggered auto-prune enforces (from the AiConfig retention leaf).
+ * @param {Function|null} [options.isAuthorityHeld=null] Optional live authority oracle. When supplied, it is
+ * sampled after awaited directory setup and immediately before the append; admitted rows are stamped
+ * `heldAtWrite: true`, while a displaced writer is refused. Callers without an oracle retain the legacy row shape.
  * @returns {Promise<String>} The ledger file path written to.
  * @throws {TypeError} when `entry` is not an object or `dir` is missing/empty.
+ * @throws {Error} with `reason: 'runtime-authority-lost'` when a supplied oracle reports takeover.
  */
-export async function appendHealEvent(entry, {dir, now, triggerBytes, maxEvents} = {}) {
+export async function appendHealEvent(entry, {
+    dir,
+    now,
+    triggerBytes,
+    maxEvents,
+    isAuthorityHeld = null
+} = {}) {
     if (!entry || typeof entry !== 'object') {
         throw new TypeError('appendHealEvent: entry object is required');
     }
@@ -106,10 +116,26 @@ export async function appendHealEvent(entry, {dir, now, triggerBytes, maxEvents}
         throw new TypeError('appendHealEvent: dir is required');
     }
 
-    const stamped = {...entry, at: Number.isFinite(entry.at) ? entry.at : (Number.isFinite(now) ? now : null)};
+    const timed = {...entry, at: Number.isFinite(entry.at) ? entry.at : (Number.isFinite(now) ? now : null)};
 
     await mkdir(dir, {recursive: true});
     const filePath = getHealLedgerFilePath(dir);
+
+    // The caller's entry check cannot bind this write: directory setup above yielded. Sample at the
+    // store boundary, with no await before `appendFile`, so a record-only predecessor cannot write
+    // an unqualified `status: recorded` row after its successor has taken authority.
+    const heldAtWrite = typeof isAuthorityHeld === 'function' ? isAuthorityHeld() === true : null;
+
+    if (heldAtWrite === false) {
+        const error = new Error('Authority moved before the heal-event append; refusing.');
+
+        error.reason = 'runtime-authority-lost';
+
+        throw error;
+    }
+
+    const stamped = heldAtWrite === null ? timed : {...timed, heldAtWrite};
+
     await appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
     // Self-bound (mirrors acceptedLossAuditStore) ONLY when the AiConfig-aware caller supplied the retention

@@ -132,3 +132,104 @@ test.describe('lmsExecOptions — embedding-readiness PATH fix', () => {
         await expect(secondPromise).resolves.toEqual([{id: 'embedding-model'}]);
     });
 });
+
+test.describe('provider residency helpers — production mutation authority fences (#16837)', () => {
+    let ensureLmsModelsLoaded, ensureOllamaModelsReady;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
+
+        ensureLmsModelsLoaded   = mod.ensureLmsModelsLoaded;
+        ensureOllamaModelsReady = mod.ensureOllamaModelsReady;
+    });
+
+    test('LMS refuses the first unload after authority moves during awaited model metadata', async () => {
+        let   held    = true;
+        const unloads = [],
+              loads   = [];
+
+        const repair = ensureLmsModelsLoaded({
+            host          : 'http://127.0.0.1:1234',
+            models        : ['chat-model'],
+            contextLengths: {'chat-model': 4096},
+            attempts      : 1,
+            delayMs       : 0,
+            timeoutMs     : 10,
+            fetchModelIds : async () => ['chat-model'],
+            async fetchLoadedModels() {
+                held = false;
+                return [{id: 'chat-model', contextLength: 1024}];
+            },
+            async unloadModel(model) {
+                unloads.push(model);
+            },
+            async loadModel(model) {
+                loads.push(model);
+            },
+            isAuthorityHeld: () => held,
+            log            : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(unloads).toEqual([]);
+        expect(loads).toEqual([]);
+    });
+
+    test('LMS rechecks authority between a stale-model unload and its replacement load', async () => {
+        let   held    = true;
+        const unloads = [],
+              loads   = [];
+
+        const repair = ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model'],
+            contextLengths   : {'chat-model': 4096},
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            fetchModelIds    : async () => ['chat-model'],
+            fetchLoadedModels: async () => [{id: 'chat-model', contextLength: 1024}],
+            async unloadModel(model) {
+                unloads.push(model);
+                held = false;
+            },
+            async loadModel(model) {
+                loads.push(model);
+            },
+            isAuthorityHeld: () => held,
+            log            : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(unloads).toEqual(['chat-model']);
+        expect(loads).toEqual([]);
+    });
+
+    test('Ollama rechecks authority between role warms instead of authorizing the loop once', async () => {
+        let   held  = true;
+        const warms = [];
+
+        const repair = ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat',      providerRole: 'chat',      model: 'chat-model'},
+                {role: 'embedding', providerRole: 'embedding', model: 'embed-model'}
+            ],
+            requireParallelModels: 2,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            fetchModelIds        : async () => [],
+            async warmModel(role) {
+                warms.push(role.role);
+                held = false;
+                return {};
+            },
+            isAuthorityHeld: () => held,
+            log            : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(warms).toEqual(['chat']);
+    });
+});

@@ -493,6 +493,10 @@ export async function pruneRecoveryRunStates({dir, retentionLimit} = {}) {
  * @param {Object|null} [options.graphPublicationSummary=null] Mutable summary counters for publication attempts.
  * @param {Function|null} [options.onGraphPublicationError=null] Optional callback invoked after graph publication fails.
  * @param {Function|null} [options.writeLog=null] Optional logger for graph publication failures.
+ * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle sampled after directory setup and
+ * immediately before the source append. When omitted, the legacy unstamped append contract is preserved.
+ * @param {Boolean} [options.preserveOnAuthorityLoss=false] Preserve a dispatched-effect audit after authority loss,
+ * stamped `heldAtWrite: false`; non-dispatched records refuse instead.
  * @returns {Promise<String>} Written file path.
  */
 export async function appendRecoveryRunState(entry, {
@@ -543,7 +547,11 @@ export async function appendRecoveryRunState(entry, {
     await fs.appendFile(filePath, `${JSON.stringify(stamped)}\n`, 'utf8');
 
     if (graphService) {
-        await publishRecoveryRunStateToGraphWithSurface(entry, {
+        // Source and projection are ONE accepted operation. Publish the exact record that reached
+        // JSONL — including its store-adjacent authority sample — rather than the caller's earlier
+        // unstamped object. Re-sampling after the append would create a second authority decision;
+        // publishing `entry` loses the decision the source already made.
+        await publishRecoveryRunStateToGraphWithSurface(stamped, {
             graphPublicationSummary,
             graphService,
             onGraphPublicationError,
@@ -616,6 +624,16 @@ function getEntrySortTime(entry) {
     return 0;
 }
 
+/**
+ * @summary Projects one accepted recovery-run source record into the properties shared by its graph proof nodes.
+ *
+ * `heldAtWrite` is copied from the accepted source record. It is never inferred from the earlier
+ * `details.heldAtAppend` sample, and absence stays explicit as `null` on the raw graph surface.
+ * @param {Object} entry Accepted recovery-run source record.
+ * @param {Object} ids Stable graph node ids.
+ * @returns {Object} Graph properties shared by the run and state proof nodes.
+ * @private
+ */
 function createRecoveryRunGraphProperties(entry, {runNodeId, stateNodeId, diagnosisNodeId}) {
     return {
         schemaVersion         : 1,
@@ -641,6 +659,7 @@ function createRecoveryRunGraphProperties(entry, {runNodeId, stateNodeId, diagno
         wallClockMs           : entry.wallClockMs,
         backoffUntil          : entry.backoffUntil,
         hasReobserveRequest   : entry.reobserveRequest !== null,
+        heldAtWrite           : normalizeHeldAtWrite(entry.heldAtWrite, null),
         details               : entry.details
     };
 }
@@ -676,8 +695,22 @@ function normalizeRecoveryRunGraphRecord(record) {
 
     return {
         id: record.id || properties.recoveryRunStateNodeId,
-        ...properties
+        ...properties,
+        // Legacy graph nodes predate the store-adjacent sample. Surface that ignorance instead of
+        // allowing an earlier `details.heldAtAppend` Boolean to masquerade as write-time authority.
+        heldAtWrite: normalizeHeldAtWrite(properties.heldAtWrite, 'unknown')
     };
+}
+
+/**
+ * @summary Normalizes write-time authority without coercing legacy or malformed provenance.
+ * @param {*} value Candidate `heldAtWrite` value.
+ * @param {Boolean|String|null} unknownValue Explicit fallback for the target surface.
+ * @returns {Boolean|String|null} `true`, `false`, or the caller's unknown sentinel.
+ * @private
+ */
+function normalizeHeldAtWrite(value, unknownValue) {
+    return value === true || value === false ? value : unknownValue;
 }
 
 async function publishRecoveryRunStateToGraphWithSurface(entry, {

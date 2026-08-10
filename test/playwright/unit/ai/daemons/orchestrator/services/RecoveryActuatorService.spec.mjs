@@ -1,4 +1,5 @@
 import {test, expect}                   from '@playwright/test';
+import {existsSync, readdirSync}        from 'fs';
 import {mkdtemp, readdir, rm, readFile} from 'fs/promises';
 import os                               from 'os';
 import path                             from 'path';
@@ -14,8 +15,9 @@ import {
     createRecoveryDiagnosisEvent,
     createRecoveryTargetIdentity
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
-import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import AiConfig         from '../../../../../../../ai/config.template.mjs';
+import {RECOVERY_OVERRIDE_FILENAME} from '../../../../../../../ai/services/memory-core/helpers/recoveryOverrideStore.mjs';
+import {readHealLedger}             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import AiConfig                     from '../../../../../../../ai/config.template.mjs';
 
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
@@ -106,6 +108,19 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
     async function readAttempts() {
         return JSON.parse(await readFile(path.join(tmpDir, 'heal-attempts.json'), 'utf8'));
+    }
+
+    function createScratchSensitiveAuthorityOracle(overrideDir) {
+        return () => {
+            try {
+                return !readdirSync(overrideDir).some(fileName =>
+                    fileName.startsWith(`${RECOVERY_OVERRIDE_FILENAME}.`) && fileName.endsWith('.tmp')
+                );
+            } catch (error) {
+                if (error?.code === 'ENOENT') return true;
+                throw error;
+            }
+        };
     }
 
     function backupEscalationDiagnosis(overrides = {}) {
@@ -343,24 +358,17 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(rows.at(-1).heldAtWrite).toBe(false);
     });
 
-    test('the provider repair receives the oracle and refuses before the warm leaves the process', async () => {
-        // @neo-gpt-emmy's last interval. I argued against threading a lease into a
-        // provider-readiness module — a COUPLING objection against her SAFETY one — and weighted
-        // them the wrong way round. The repair reaches a privileged effect, so it gets the oracle.
-        //
-        // The refusal must come from INSIDE the repair, after its read-only role resolution: a
-        // caller-side check cannot bind an effect dispatched past its own await.
+    test('warm-provider carries the oracle into the selected repair adapter', async () => {
+        // Composition control only: the default LMS/Ollama helpers have their own production-bound
+        // per-mutation controls in providerReadinessHelper.spec. This row proves the actuator does
+        // not drop the oracle before whichever provider adapter is selected.
         let receivedOracle = null;
 
         const {service, runtimeCalls} = createService({
             serviceConfig: {
                 async providerResidencyRepair({isAuthorityHeld}) {
                     receivedOracle = isAuthorityHeld;
-                    // The takeover lands during the repair's own read-only preparation — the
-                    // interval a caller-side check cannot cover.
                     held = false;
-
-                    // Stands in for the real helper's assertion at its last-owned point.
                     if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
                         const error = new Error('Authority moved before the provider residency repair; refusing.');
                         error.reason = 'runtime-authority-lost';
@@ -384,18 +392,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
         // No lifecycle write may accompany a refused warm.
         expect(runtimeCalls).toEqual([]);
-    });
-
-    test('reconfigure carries the authority oracle into the restart it triggers after its durable write', async () => {
-        // `writeKnobOverride` is awaited, so the dispatch check in `executeTargetAction` is no longer
-        // the last point owned before the container is restarted. The oracle must reach
-        // `restartComposeService`, which re-asserts after resolving the container.
-        const {service, runtimeCalls} = createService();
-
-        await service.apply('mc-server', 'restart', {now: 10_000, isAuthorityHeld: () => true});
-
-        expect(runtimeCalls[0]).toHaveProperty('isAuthorityHeld');
-        expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
     });
 
     test('warm-provider restores provider role-set residency through the bounded actuator envelope', async () => {
@@ -650,6 +646,22 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         }));
     });
 
+    test('deploy-target record-only takeover during store setup leaves no owner-success audit', async () => {
+        const {service, runtimeCalls} = createService();
+
+        const result = await service.apply('cloud-deploy', 'redeploy', {
+            now   : 301_000,
+            reason: 'config-drift',
+            // Held through apply preparation and dispatch; flips only after the real heal-store
+            // directory appears, proving this deploy branch carries the oracle into that store.
+            isAuthorityHeld : () => !existsSync(service.healEventLedgerDir)
+        });
+
+        expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+        expect(runtimeCalls).toEqual([]);
+        expect(await readHealLedger({dir: service.healEventLedgerDir})).toEqual([]);
+    });
+
     test('recordDiagnosis records a supervised-task diagnosis to the heal-event ledger without executing target actions', async () => {
         const {service, runtimeCalls, supervisorCalls, taskOutcomes} = createService();
         let   executedTargetAction                                   = false;
@@ -690,6 +702,40 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                 ledgerStatus: 'recorded'
             })
         }));
+    });
+
+    test('recordDiagnosis carries authority to the first store and refuses a takeover before its append', async () => {
+        const {service, actuatorConfig} = createService();
+        let   authorityReads            = 0;
+
+        const write = service.recordDiagnosis(backupEscalationDiagnosis(), {
+            now            : 505_000,
+            isAuthorityHeld: () => ++authorityReads === 1
+        });
+
+        await expect(write).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(authorityReads).toBe(2); // entry admitted; store-adjacent sample refused
+        expect(await readHealLedger({dir: service.healEventLedgerDir})).toEqual([]);
+        await expect(readdir(actuatorConfig.recoveryRunStateDir)).rejects.toMatchObject({code: 'ENOENT'});
+    });
+
+    test('takeover between the two record-only sinks preserves only the admitted first-source proof', async () => {
+        const {service, actuatorConfig} = createService();
+        let   authorityReads            = 0;
+
+        const write = service.recordDiagnosis(backupEscalationDiagnosis(), {
+            now            : 506_000,
+            // Entry + heal-event source append are held; finishAction and its recovery-run source
+            // append observe the successor. Removing either downstream fence makes this row red.
+            isAuthorityHeld: () => ++authorityReads <= 2
+        });
+
+        await expect(write).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        const healEvents = await readHealLedger({dir: service.healEventLedgerDir});
+        expect(healEvents).toHaveLength(1);
+        expect(healEvents[0]).toMatchObject({status: 'recorded', heldAtWrite: true});
+        expect(await readdir(actuatorConfig.recoveryRunStateDir)).toEqual([]);
     });
 
     test('recordDiagnosis rejects non-record diagnoses without privileged actions', async () => {
@@ -745,6 +791,53 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                 action: 'reconfigure',
                 target: {kind: 'deploy-target', id: 'cloud-deploy'}
             })).toBe(false);
+        });
+
+        test('the full reconfigure action carries authority through its durable overlay into the restart', async () => {
+            const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
+            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(tmpDir, 'reconfigure-state', 'snapshot.json');
+
+            try {
+                const {service, runtimeCalls} = createService();
+                const result                  = await service.apply('mc-server', 'reconfigure', {
+                    knob           : KNOB,
+                    knobValues     : VALUES,
+                    now            : 100_000,
+                    isAuthorityHeld: () => true
+                });
+
+                expect(result.status).toBe('actioned');
+                expect(runtimeCalls).toHaveLength(1);
+                expect(runtimeCalls[0]).toMatchObject({serviceKey: 'mc-server', operation: 'restart'});
+                expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
+            } finally {
+                AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
+            }
+        });
+
+        test('the full reconfigure action refuses takeover after its scratch write and before overlay publication', async () => {
+            const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
+                  overrideDir          = path.join(tmpDir, 'reconfigure-takeover');
+            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(overrideDir, 'snapshot.json');
+
+            try {
+                const {service, runtimeCalls} = createService();
+                const result                  = await service.apply('mc-server', 'reconfigure', {
+                    knob      : KNOB,
+                    knobValues: VALUES,
+                    now       : 100_000,
+                    // This stays held through every caller-side sample and flips only when the real
+                    // override writer has created its UUID scratch file. Omitting the oracle from
+                    // `writeKnobOverride()` therefore makes this control action the target.
+                    isAuthorityHeld : createScratchSensitiveAuthorityOracle(overrideDir)
+                });
+
+                expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+                expect(runtimeCalls).toEqual([]);
+                expect(await readdir(overrideDir)).toEqual([]);
+            } finally {
+                AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
+            }
         });
 
         test('a refused transaction costs the target NO restart', async () => {
@@ -889,6 +982,66 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             expect(JSON.parse(await readFile(overlayPath, 'utf8'))).toEqual({
                 deploy: {chroma: {memoryCeilingBytes: 8 * GIB}}
             });
+        });
+
+        test('the full raise-ceiling action carries authority into the live update after its durable overlay', async () => {
+            let held           = true,
+                receivedOracle = null,
+                liveEffects    = 0;
+
+            const {service} = createRaiseService({
+                liveLimitBytes                : 2 * GIB,
+                deploymentRuntimeAccessService: {
+                    async applyLifecycle(options) {
+                        receivedOracle = options.isAuthorityHeld;
+                        held = false; // takeover during the runtime adapter's awaited target resolution
+
+                        if (typeof options.isAuthorityHeld === 'function' && options.isAuthorityHeld() !== true) {
+                            const error = new Error('Authority moved before the live ceiling update; refusing.');
+                            error.reason = 'runtime-authority-lost';
+                            throw error;
+                        }
+
+                        liveEffects++;
+                        return {ok: true, proof: {operation: options.operation}};
+                    }
+                }
+            });
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob           : CEILING_KNOB,
+                knobValues     : {[CEIL_LEAF]: 8 * GIB},
+                now            : 100_000,
+                targetIdentity : CHROMA_TARGET,
+                isAuthorityHeld: () => held
+            });
+
+            expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+            expect(typeof receivedOracle).toBe('function');
+            expect(liveEffects).toBe(0);
+
+            // The durable intent was admitted while held; only the later live mutation was refused.
+            const overlayPath = path.join(tmpDir, 'deployment-state', 'recovery-actuator-overrides.json');
+            expect(JSON.parse(await readFile(overlayPath, 'utf8'))).toEqual({
+                deploy: {chroma: {memoryCeilingBytes: 8 * GIB}}
+            });
+        });
+
+        test('the full raise-ceiling action refuses takeover before its scratch overlay becomes durable intent', async () => {
+            const overrideDir             = path.join(tmpDir, 'deployment-state');
+            const {service, runtimeCalls} = createRaiseService({liveLimitBytes: 2 * GIB});
+
+            const result = await service.apply('chroma', 'raise-ceiling', {
+                knob           : CEILING_KNOB,
+                knobValues     : {[CEIL_LEAF]: 8 * GIB},
+                now            : 100_000,
+                targetIdentity : CHROMA_TARGET,
+                isAuthorityHeld: createScratchSensitiveAuthorityOracle(overrideDir)
+            });
+
+            expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+            expect(runtimeCalls).toEqual([]);
+            expect(await readdir(overrideDir)).toEqual([]);
         });
 
         test('is admitted for the store-classed compose service ONLY — the matrix row is mechanical', async () => {

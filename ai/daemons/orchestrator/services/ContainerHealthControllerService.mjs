@@ -411,6 +411,8 @@ export class ContainerHealthControllerService extends Base {
      * `rejected` / `recorded` / `failed`) rather than a controller vocabulary, so `summarizeHealLedger`
      * folds one status space and an anti-thrash deferral stays distinguishable from a refusal. A ledger
      * failure is logged and swallowed: observability must never veto the heal it is observing.
+     * When this controller has a live authority oracle, the same oracle travels into the store so the
+     * append is revalidated after its awaited directory setup, not only at the preflight below.
      *
      * @param {Object} options
      * @returns {Promise<void>}
@@ -452,7 +454,14 @@ export class ContainerHealthControllerService extends Base {
                     targetIdentity: decision.diagnosis.targetIdentity || decision.targetIdentity || null,
                     evidenceFacts : decision.diagnosis.evidenceFacts || []
                 }
-            }, {dir: this.healLedgerDir, now, ...(this.healLedgerRetention || {})});
+            }, {
+                dir: this.healLedgerDir,
+                now,
+                ...(this.healLedgerRetention || {}),
+                // Preserve legacy callers exactly: only an authority-bearing controller asks the
+                // shared store to stamp/refuse this owner-authoritative receipt.
+                ...(typeof this.isAuthorityHeld === 'function' ? {isAuthorityHeld: this.isAuthorityHeld} : {})
+            });
         } catch (error) {
             this.writeLog?.('ERROR', `[ContainerHealthController] heal-event append failed for ${decision.serviceKey}: ${error.message}`);
         }
