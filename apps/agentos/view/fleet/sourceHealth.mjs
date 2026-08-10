@@ -27,7 +27,7 @@ const
  */
 export function normalizeSourceFact(value, expectedSource = null) {
     if (!isPlainObject(value)) {
-        return {source: null, state: 'not-wired', confidence: 'none'}
+        return {source: null, state: 'not-wired', confidence: 'none', reason: null}
     }
 
     const
@@ -35,21 +35,28 @@ export function normalizeSourceFact(value, expectedSource = null) {
             ? value.source.trim()
             : null,
         state      = Object.hasOwn(value, 'state') ? value.state : null,
-        confidence = Object.hasOwn(value, 'confidence') ? value.confidence : null;
+        confidence = Object.hasOwn(value, 'confidence') ? value.confidence : null,
+        // the producer's retained cause survives normalization VERBATIM (trimmed): the abnormal
+        // summary must name source AND reason, and a reason invented here would be a fabrication —
+        // absent stays null. Carried on every branch: a fact failing closed keeps the cause that
+        // explains WHY it failed closed.
+        reason     = Object.hasOwn(value, 'reason') && typeof value.reason === 'string' && value.reason.trim()
+            ? value.reason.trim()
+            : null;
 
     if (!source || expectedSource && source !== expectedSource) {
-        return {source, state: 'not-wired', confidence: 'none'}
+        return {source, state: 'not-wired', confidence: 'none', reason}
     }
 
     if (state === 'missing') {
-        return {source, state: 'missing', confidence: 'none'}
+        return {source, state: 'missing', confidence: 'none', reason}
     }
 
     if (state === 'wired' && (confidence === 'observed' || confidence === 'inferred')) {
-        return {source, state: 'wired', confidence}
+        return {source, state: 'wired', confidence, reason}
     }
 
-    return {source, state: 'not-wired', confidence: 'none'}
+    return {source, state: 'not-wired', confidence: 'none', reason}
 }
 
 /**
@@ -108,12 +115,16 @@ export function summarizeFleetSources(value) {
 
     const
         first = abnormal[0],
-        extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '';
+        extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '',
+        // the leading abnormal source's retained cause rides the line — name AND reason, the
+        // operator-ratified bar for a rendered exception. A reasonless fact renders name-only
+        // (never a fabricated cause); the text node downstream keeps the whole line inert.
+        reason = sources[first].reason ? ` · ${sources[first].reason}` : '';
 
     return {
         level    : 'bad',
-        text     : `${labels[first]} not nominal${extra}`,
-        ariaLabel: `Source health: ${abnormal.map(key => labels[key]).join(', ')} not nominal.`
+        text     : `${labels[first]} not nominal${extra}${reason}`,
+        ariaLabel: `Source health: ${abnormal.map(key => labels[key]).join(', ')} not nominal.${sources[first].reason ? ` ${labels[first]}: ${sources[first].reason}.` : ''}`
     }
 }
 
@@ -133,7 +144,9 @@ export function mapFleetSessionHealth(lifecycle, sources) {
         downgradeRuntime  = () => ({
             sources: {
                 ...normalizedSources,
-                runtime: {source: runtime.source, state: 'not-wired', confidence: 'none'}
+                // the downgrade keeps the producer's retained cause — a fact failing closed keeps
+                // the reason that explains why (the same rule normalizeSourceFact follows)
+                runtime: {source: runtime.source, state: 'not-wired', confidence: 'none', reason: runtime.reason}
             },
             state: 'off'
         });

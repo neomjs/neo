@@ -58,6 +58,7 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.blueprint.record.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
         expect(card.blueprint.record.sources.runtime).toEqual({
             confidence: 'none',
+            reason    : null,
             source    : 'fleet:runtimeStatus',
             state     : 'not-wired'
         })
@@ -125,7 +126,7 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         const card      = toAgentCardDescriptor({id: 'vega', lifecycle, sources})
 
         expect(card.blueprint.record.state).toBe('ok')
-        expect(card.blueprint.record.sources.runtime).toEqual({source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'})
+        expect(card.blueprint.record.sources.runtime).toEqual({source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed', reason: null})
 
         const placeholder = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'running'}})
         expect(placeholder.blueprint.record.state).toBe('off')

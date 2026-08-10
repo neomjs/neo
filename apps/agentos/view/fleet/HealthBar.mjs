@@ -1,6 +1,6 @@
-import Container    from '../../../../src/container/Base.mjs';
-import HealthSwatch from './HealthSwatch.mjs';
-import {resolveFleetDisplayState} from './sourceHealth.mjs';
+import Container                                                            from '../../../../src/container/Base.mjs';
+import HealthSwatch                                                         from './HealthSwatch.mjs';
+import {FLEET_SOURCE_KEYS, normalizeFleetSources, resolveFleetDisplayState} from './sourceHealth.mjs';
 
 /**
  * Canonical category order for the health summary — the seven session-state buckets in the SSOT
@@ -49,15 +49,45 @@ export function healthCounts(agents) {
 }
 
 /**
- * @summary Pure counts → aggregate attention verdict: `true` when any attention-weighted bucket is
+ * @summary Pure counts → session-bucket attention: `true` when any attention-weighted bucket is
  * non-zero. `external`/`unobserved`/`off` deliberately carry no weight — un-managed seats are the
- * normal topology, and a managed-stopped seat is a fact, not an alarm. Exported for the header's
- * nominal/attention class and unit-provable in isolation.
+ * normal topology, and a managed-stopped seat is a fact, not an alarm. One input to
+ * {@link #deriveAttention}; exported separately so the bucket matrix stays unit-provable alone.
  * @param {Object} counts The {@link #healthCounts} result.
  * @returns {Boolean}
  */
 export function hasAttention(counts) {
     return ATTENTION_STATES.some(state => (counts?.[state] ?? 0) > 0)
+}
+
+/**
+ * @summary The single aggregate attention projection — every truth the header dot claims to
+ * summarize, folded in one pure derivation:
+ * - **session buckets** ({@link #hasAttention}: wedged / rate-limited);
+ * - **answered-abnormal sources**: any row source fact whose state is `missing` — a producer
+ *   ANSWERED that something is gone. `not-wired` deliberately contributes nothing: it is the
+ *   expected-absent state of every un-managed seat, and weighting it would make the header
+ *   permanently yellow again — the exact falsified default this ticket retires;
+ * - **degraded presence capability** (the roster-level chip's condition — the two surfaces read
+ *   one fact, so the chip can never render over a green dot);
+ * - **daemon fault** (the spine banner's own fault set, plumbed as a boolean — one authority).
+ * @param {Object} options
+ * @param {Object} [options.counts] The {@link #healthCounts} result.
+ * @param {Object[]} [options.rows=[]] Roster rows carrying `sources` field bags.
+ * @param {Boolean} [options.daemonFault=false] Brain daemon in a fault state.
+ * @param {Boolean} [options.presenceDegraded=false] Presence capability envelope degraded.
+ * @returns {Boolean}
+ */
+export function deriveAttention({counts, rows = [], daemonFault = false, presenceDegraded = false} = {}) {
+    if (hasAttention(counts) || daemonFault || presenceDegraded) {
+        return true
+    }
+
+    return (Array.isArray(rows) ? rows : []).some(row => {
+        const sources = normalizeFleetSources(row?.sources);
+
+        return FLEET_SOURCE_KEYS.some(key => sources[key].state === 'missing')
+    })
 }
 
 /**
@@ -112,6 +142,15 @@ class HealthBar extends Container {
          */
         animateCounts_: true,
         /**
+         * The non-roster attention facts the aggregate dot folds beside the row-derived truth:
+         * `{daemonFault: Boolean, presenceDegraded: Boolean}`, plumbed by the owning surface
+         * (FleetGrid / the cockpit) from the authorities that already hold them — the bar derives
+         * nothing about daemons or capabilities itself, it only summarizes what it is handed.
+         * @member {Object|null} attentionInputs_=null
+         * @reactive
+         */
+        attentionInputs_: null,
+        /**
          * One stable swatch per canonical category, in legend order — counts update in place.
          * @member {Object[]} items
          */
@@ -156,6 +195,17 @@ class HealthBar extends Container {
     }
 
     /**
+     * Triggered after the attentionInputs config changed — the non-roster halves of the aggregate
+     * verdict moved (daemon fault / presence capability), so the fold re-derives.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetAttentionInputs(value, oldValue) {
+        this.isConstructed && this.applyCounts()
+    }
+
+    /**
      * @summary The one listener set this bar seats on its bound store — kept in one place so
      * `afterSetStore` re-seating and `destroy` teardown stay symmetric.
      * @returns {Object}
@@ -177,13 +227,14 @@ class HealthBar extends Container {
     }
 
     /**
-     * @summary One record's fields changed — only a session-`state` change can move a resident
-     * between buckets, so anything else is a no-op for the tally.
+     * @summary One record's fields changed — a session-`state` change can move a resident between
+     * buckets, and a `sources` change can flip both the resolved bucket (unmanaged↔managed) AND
+     * the answered-abnormal half of the aggregate verdict; anything else is a no-op for the tally.
      * @param {Object} data The store recordChange event `{fields, record, index, model}`.
      * @protected
      */
     onStoreRecordChange({fields}) {
-        this.isConstructed && fields.some(field => field.name === 'state') && this.applyCounts()
+        this.isConstructed && fields.some(field => field.name === 'state' || field.name === 'sources') && this.applyCounts()
     }
 
     /**
@@ -206,14 +257,20 @@ class HealthBar extends Container {
 
     /**
      * @summary Push the current per-category counts onto the stable swatch instances — in place, so
-     * the transition animates rather than the bar rebuilding — and reflect the aggregate verdict as
-     * the nominal/attention class pair the skin colours (calm green when nothing needs an operator,
-     * attention only for states one should act on).
+     * the transition animates rather than the bar rebuilding — and reflect the SINGLE aggregate
+     * projection ({@link #deriveAttention}: session buckets + answered-abnormal sources + the
+     * plumbed daemon/presence facts) as the nominal/attention class pair the skin colours.
      */
     applyCounts() {
         let me     = this,
-            counts = healthCounts(me.store?.items ?? []),
-            alert  = hasAttention(counts);
+            rows   = me.store?.items ?? [],
+            counts = healthCounts(rows),
+            alert  = deriveAttention({
+                counts,
+                rows,
+                daemonFault     : me.attentionInputs?.daemonFault      === true,
+                presenceDegraded: me.attentionInputs?.presenceDegraded === true
+            });
 
         me.items.forEach(swatch => {
             swatch.count = counts[swatch.state] ?? 0

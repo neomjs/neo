@@ -180,10 +180,12 @@ test.describe('Fleet cockpit — activity feed binding (loadActivity, #14868)', 
 test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
     let FleetAgent, FleetCockpit, FleetRoster;
 
+    // reason: null on every fact — the fixture doubles as DTO input AND expected normalized
+    // output, and normalization now carries the producer's retained cause (null when absent)
     const liveSources = (runtimeConfidence = 'observed') => ({
-        roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
-        repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
-        runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: runtimeConfidence}
+        roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed', reason: null},
+        repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed', reason: null},
+        runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: runtimeConfidence, reason: null}
     });
 
     // scope the mock to the `fleet` subkey ONLY: `globalThis.AgentOS` is the app's Neo NAMESPACE

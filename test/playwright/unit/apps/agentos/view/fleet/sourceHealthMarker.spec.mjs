@@ -44,7 +44,7 @@ test.describe('Fleet source-health honesty (#14643)', () => {
                     view                 = sourceMarkerView('runtime', health),
                     marker               = Neo.create(SourceHealthMarker, {appName, sourceKey: 'runtime', health});
 
-                expect(normalized).toEqual({source: 'fleet:runtimeStatus', state: expectedState, confidence: expectedConfidence});
+                expect(normalized).toEqual({source: 'fleet:runtimeStatus', state: expectedState, confidence: expectedConfidence, reason: null});
                 expect(view).toMatchObject({
                     stateClass     : `fm-source-${expectedState}`,
                     confidenceClass: `fm-confidence-${expectedConfidence}`,
@@ -63,18 +63,18 @@ test.describe('Fleet source-health honesty (#14643)', () => {
 
     test('malformed, unknown, inherited, and prototype-shaped inputs fail closed', () => {
         for (const value of [null, undefined, [], 'wired', {}, {state: 'unknown', confidence: 'observed'}, Object.create({state: 'wired', confidence: 'observed'})]) {
-            expect(normalizeSourceFact(value)).toEqual({source: null, state: 'not-wired', confidence: 'none'})
+            expect(normalizeSourceFact(value)).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null})
         }
 
         const polluted = Object.create({runtime: {state: 'wired', confidence: 'observed'}});
-        expect(normalizeFleetSources(polluted).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none'});
+        expect(normalizeFleetSources(polluted).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null});
 
         for (const source of [undefined, '', '   ', 42]) {
             expect(normalizeSourceFact({source, state: 'wired', confidence: 'observed'}))
-                .toEqual({source: null, state: 'not-wired', confidence: 'none'})
+                .toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null})
 
             expect(normalizeSourceFact({source, state: 'missing', confidence: 'none'}))
-                .toEqual({source: null, state: 'not-wired', confidence: 'none'})
+                .toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null})
         }
     });
 
@@ -120,8 +120,8 @@ test.describe('Fleet source-health honesty (#14643)', () => {
             }),
             runtime = {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}};
 
-        expect(normalizeSourceFact(inheritedFact)).toEqual({source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'});
-        expect(normalizeFleetSources(inheritedSources).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none'});
+        expect(normalizeSourceFact(inheritedFact)).toEqual({source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none', reason: null});
+        expect(normalizeFleetSources(inheritedSources).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null});
         expect(mapFleetSessionState(inheritedLifecycle, runtime)).toBe('off');
         expect(mapFleetSessionHealth(
             {source: 'fleet:listAgents', state: 'running', confidence: 'observed'},
@@ -134,9 +134,9 @@ test.describe('Fleet source-health honesty (#14643)', () => {
 
         expect(mapFleetSessionHealth(null, sources)).toEqual({
             sources: {
-                roster    : {source: null, state: 'not-wired', confidence: 'none'},
-                repoStatus: {source: null, state: 'not-wired', confidence: 'none'},
-                runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+                roster    : {source: null, state: 'not-wired', confidence: 'none', reason: null},
+                repoStatus: {source: null, state: 'not-wired', confidence: 'none', reason: null},
+                runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none', reason: null}
             },
             state: 'off'
         });

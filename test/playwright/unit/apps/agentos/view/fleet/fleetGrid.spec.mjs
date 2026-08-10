@@ -18,7 +18,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import Instance       from '../../../../../../../src/manager/Instance.mjs';
 
 test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-ranked grid (#14599)', () => {
-    let FleetAgent, FleetGrid, HealthBar, Store, rankFleet, healthCounts, hasAttention;
+    let FleetAgent, FleetGrid, HealthBar, Store, rankFleet, healthCounts, hasAttention, deriveAttention;
 
     const stores = [];
 
@@ -53,7 +53,8 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         rankFleet    = gridMod.rankFleet;
         HealthBar    = barMod.default;
         healthCounts = barMod.healthCounts;
-        hasAttention = barMod.hasAttention;
+        hasAttention    = barMod.hasAttention;
+        deriveAttention = barMod.deriveAttention;
         FleetAgent   = (await import('../../../../../../../apps/agentos/model/FleetAgent.mjs')).default;
         Store        = (await import('../../../../../../../src/data/Store.mjs')).default
     });
@@ -117,6 +118,34 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(hasAttention(null)).toBe(false)
     });
 
+    test('deriveAttention is the SINGLE aggregate projection — every summarized truth folds, and expected-absence still weighs nothing', () => {
+        const zero = {ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, external: 0, off: 0};
+
+        // the un-managed normal: not-wired sources everywhere (the sample/FM-as-client topology)
+        // must NOT trip attention — weighting expected absence would make the header permanently
+        // yellow again, the exact falsified default this ticket retires
+        const unmanagedRows = [{sources: {}}, {sources: null}, {
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+        }];
+        expect(deriveAttention({counts: {...zero, external: 3}, rows: unmanagedRows})).toBe(false);
+
+        // an ANSWERED-abnormal source (a producer said `missing`) is real trouble on a real surface
+        expect(deriveAttention({counts: {...zero, unobserved: 1}, rows: [{
+            sources: {repoStatus: {source: 'fleet:fleetStatus', state: 'missing', confidence: 'none'}}
+        }]})).toBe(true);
+
+        // the plumbed non-roster facts each trip the fold on their own
+        expect(deriveAttention({counts: {...zero, external: 9}, rows: unmanagedRows, daemonFault: true})).toBe(true);
+        expect(deriveAttention({counts: {...zero, external: 9}, rows: unmanagedRows, presenceDegraded: true})).toBe(true);
+
+        // session buckets keep their weight through the fold
+        expect(deriveAttention({counts: {...zero, wedged: 1}, rows: []})).toBe(true);
+
+        // fail-closed shapes
+        expect(deriveAttention({})).toBe(false);
+        expect(deriveAttention()).toBe(false)
+    });
+
     test('rankFleet tiers deterministically (online → idle → benched, sorted by agentId) with the fold threshold', () => {
         // 4 online (ok/limited/wedged) · 3 idle · 2 benched(off) + 1 unknown-guest → benched tail
         const rank = rankFleet(roster(['ok', 'idle', 'off', 'limited', 'idle', 'wedged', 'off', 'idle', 'guest', 'ok']), {foldThreshold: 12});
@@ -171,6 +200,25 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         grid.presenceCapability = {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: 'x'};
         grid.presenceCapability = null;
         expect(chip().hidden).toBe(true);
+
+        // COMPOSITION with the aggregate dot: the chip and the header verdict read ONE fact —
+        // a rendered presence degradation always carries attention weight, and recovery clears
+        // both together (the chip can never sit over a green dot). The daemon plumb rides the
+        // same push seam.
+        const bar = grid.getReference('fleet-health');
+
+        grid.presenceCapability = {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: 'plane read failed'};
+        expect(chip().hidden).toBe(false);
+        expect(bar.cls).toContain('fm-health-attention');
+
+        grid.presenceCapability = null;
+        expect(chip().hidden).toBe(true);
+        expect(bar.cls).toContain('fm-health-nominal');
+
+        grid.daemonFault = true;
+        expect(bar.cls).toContain('fm-health-attention');
+        grid.daemonFault = false;
+        expect(bar.cls).toContain('fm-health-nominal');
 
         grid.destroy();
 
@@ -356,6 +404,25 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(swatchOf(bar, 'external').count).toBe(2);    // un-wired off + mysterious
         expect(swatchOf(bar, 'off').count).toBe(0);
         expect(swatchOf(bar, 'unobserved').count).toBe(3);
+
+        // a SOURCES-only record change re-tallies too: wiring a runtime flips unmanaged→managed
+        // truth with no `state` field write — the mutation the old state-only filter dropped
+        const wired = {
+            roster    : {source: 'fleet:listAgents',    state: 'wired', confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired', confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}
+        };
+        store.items[1].set({sources: wired});               // an `ok` row: unobserved → ok, sources-only
+        expect(swatchOf(bar, 'ok').count).toBe(1);
+        expect(swatchOf(bar, 'unobserved').count).toBe(2);
+
+        // an answered-abnormal source arriving via the SAME sources-only seam trips the aggregate
+        store.items[1].set({sources: {...wired, repoStatus: {source: 'fleet:fleetStatus', state: 'missing', confidence: 'none'}}});
+        expect(bar.cls).toContain('fm-health-attention');
+
+        // recovery through the seam returns the calm verdict
+        store.items[1].set({sources: wired});
+        expect(bar.cls).toContain('fm-health-nominal');
 
         bar.destroy()
     });

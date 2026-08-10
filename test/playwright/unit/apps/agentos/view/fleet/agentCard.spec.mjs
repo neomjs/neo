@@ -173,19 +173,22 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(true);
 
-        // repo missing + runtime not-wired: the summary NAMES the abnormal source (action-owning runtime
-        // first) with a +1 overflow, the dot resolves unobserved (participation-active, session
-        // unobserved — never a benched verdict), the control cluster disables — in place
+        // repo missing + runtime not-wired WITH a retained cause: the summary NAMES the abnormal
+        // source (action-owning runtime first) with a +1 overflow AND the leading source's reason
+        // (name + reason is the rendered-exception bar); the dot resolves unobserved
+        // (participation-active, session unobserved — never a benched verdict), the control
+        // cluster disables — in place
         applySet(card, {sources: {
             roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
             repoStatus: {source: 'fleet:fleetStatus',   state: 'missing',   confidence: 'none'},
-            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none', reason: 'runtime probe refused'}
         }});
 
         expect(card.id).toBe(beforeId);
         expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
         expect(strip.hidden).toBe(false);   // an abnormal source is the exception the strip exists for
-        expect(strip.text).toBe('Runtime not nominal +1');   // pure status: full word, no ▸ affordance, never the RUN/REP/ROS acronym wall
+        expect(strip.text).toBe('Runtime not nominal +1 · runtime probe refused');   // full word + retained cause; no ▸ affordance, never the acronym wall
+        expect(strip.vdom['aria-label']).toBe('Source health: Runtime, Repository not nominal. Runtime: runtime probe refused.');
         expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('unobserved');
         expect(stateDot.live).toBe(false);
