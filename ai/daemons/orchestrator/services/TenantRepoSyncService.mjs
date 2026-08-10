@@ -471,9 +471,12 @@ function isMatchingMaterializationReceipt(receipt, expectedDigest) {
  * replay, or legacy revalidation. It must reach ingestion before this check so an
  * empty manifest can reconcile and delete stale rows. A fresh attempt must prove a
  * safely-counted ingest/delete effect or a source-observed empty manifest, and persist
- * its matching graph receipt. A zero-effect retry may settle only an unacknowledged
- * receipt left by a prior positive attempt whose checkpoint commit failed. Incremental
- * envelopes have no manifest and may remain healthy zero-delta checkpoints.
+ * its matching graph receipt. A zero-effect retry may settle an unacknowledged
+ * receipt left by a prior positive attempt whose checkpoint commit failed, and — only on a
+ * manifest that authoritatively declares NO content — a receipt whose attempt is already
+ * committed, because that is proof of a prior success rather than an absence of proof. On a
+ * manifest that declares content, a zero-effect attempt still cannot manufacture a receipt.
+ * Incremental envelopes have no manifest and may remain healthy zero-delta checkpoints.
  *
  * @param {Object} envelope Tenant-repo ingestion envelope.
  * @param {Object} summary Validated error-free ingestion summary.
