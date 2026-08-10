@@ -108,6 +108,11 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      # Provider-readiness coordinate. Shipped HERE because TextEmbeddingService (:845) reads
+      # `orchestrator.providerReadiness.timeoutMs` and runs inside THIS process - the namespace is
+      # not the consumer. The shipped 3000 was sized where model discovery is instant; a CPU-only
+      # plane needs it raised from the process that waits, and could not reach it before.
+      - NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
       - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       # Embedding-batch recovery levers. `batchSize` is the DURABLE UNIT — a whole slice embeds in
@@ -260,6 +265,11 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      # Provider-readiness coordinates. TextEmbeddingService (:845) reads timeoutMs and
+      # InferenceLifecycleService (:66) reads routineCacheTtlMs - both run in THIS process
+      # (inference-lifecycle is an mc-server startup dependency, confirmed at runtime).
+      - NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
+      - NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS:-}
       - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
     # The recovery actuator writes a config overlay onto the deployment-state mount, which this
@@ -369,6 +379,15 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      # Provider-readiness coordinates, all four consumed here: ConfiguredTaskDefinitionsService,
+      # DreamService and DeploymentStateBridgeService. NOT shipped: the three
+      # NEO_ORCHESTRATOR_STUCK_RUNNER_* leaves - they are RESERVED with zero consumers anywhere in
+      # ai/, and shipping them would advertise knobs that read nothing, which is the same defect
+      # this block exists to close.
+      - NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS=${NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS:-}
+      - NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS:-}
+      - NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
+      - NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS=${NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS:-}
       - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OLLAMA_REQUIRE_PARALLEL_MODELS=${NEO_OLLAMA_REQUIRE_PARALLEL_MODELS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}

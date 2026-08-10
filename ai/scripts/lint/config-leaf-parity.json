@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 63,
+            "remainingUniqueKeys": 67,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -108,6 +108,10 @@
                 "NEO_OPENAI_COMPATIBLE_HOST",
                 "NEO_OPENAI_COMPATIBLE_KEEP_ALIVE",
                 "NEO_OPENAI_COMPATIBLE_MODEL",
+                "NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS",
+                "NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS",
+                "NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS",
+                "NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS",
                 "NEO_SUPERVISED_TASK_HEAP_MB"
             ],
             "secrets": [
