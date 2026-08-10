@@ -166,6 +166,36 @@ const REQUIRED = [{
     anchors : ['requireParallelModels: ollamaConfig.requireParallelModels,'],
     why     : 'buildOllamaReadinessConfig reads it and every caller is orchestrator-side: the ' +
               'configured serve task, DreamService, and the residency repair'
+},
+// NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS is required on ALL THREE services, which is the widest
+// disposition in this table. The reason is the failure mode rather than the reach: an admission cap
+// that does not ship reads as enforced from every surface while admitting without limit, so an
+// operator who set it believes a bound exists that does not. That is strictly worse than shipping no
+// cap at all, and it is the same class of silent inertness found across this whole leaf group.
+{
+    service : 'kb-server',
+    env     : 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS',
+    consumer: TES,
+    anchors : ['const cap = aiConfig.ollama.maxInFlightEmbeddings;', 'if (this.#ollamaInFlightEmbeddings < cap) {'],
+    why     : 'ingest embeds through TextEmbeddingService in this process, and the KB sweep is the ' +
+              'heaviest embedding producer we run — an unshipped cap here admits a whole corpus ' +
+              'without limit against one resident model'
+}, {
+    service : 'mc-server',
+    env     : 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS',
+    consumer: TES,
+    anchors : ['const cap = aiConfig.ollama.maxInFlightEmbeddings;', 'if (this.#ollamaInFlightEmbeddings < cap) {'],
+    why     : 'memory embeddings are written from this process through the same admission gate, and ' +
+              'the WAL drain issues them continuously rather than in one sweep, so the cap is what ' +
+              'keeps drain work from competing with interactive embedding'
+}, {
+    service : 'orchestrator',
+    env     : 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS',
+    consumer: TES,
+    anchors : ['const cap = aiConfig.ollama.maxInFlightEmbeddings;', 'if (this.#ollamaInFlightEmbeddings < cap) {'],
+    why     : 'Orchestrator.mjs calls TextEmbeddingService.embedTexts directly for Dream and ' +
+              'TenantRepoSyncService calls embedText, so the re-embed sweeps that hold the ' +
+              'heavy-maintenance lease run through this gate — the worst place for it to be absent'
 }];
 
 /**

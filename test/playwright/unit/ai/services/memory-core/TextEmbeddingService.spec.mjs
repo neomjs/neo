@@ -28,6 +28,24 @@ import {PROVIDER_TIMEOUT_CODE} from '../../../../../../ai/provider/createTimeout
 const execFileAsync = promisify(execFile);
 
 /**
+ * @summary Polls until `condition` holds, or throws naming what never happened.
+ *
+ * Admission is observed by what the provider was ALLOWED to start, which settles across
+ * microtasks. A fixed sleep would either be flaky or slow; the timeout message carries the
+ * unmet condition so a failure says which wait expired rather than only that one did.
+ */
+async function waitForCondition(condition, message, timeoutMs = 500) {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+        if (condition()) return;
+        await new Promise(resolve => setTimeout(resolve, 5));
+    }
+
+    throw new Error(`Timed out waiting for ${message}`);
+}
+
+/**
  * @summary Runs a config-sensitive embedding probe in a fresh process before any AiConfig singleton exists.
  * @param {Function} probe Self-contained async child probe.
  * @param {Object} [env={}] Environment overrides materialized by the child config provider.
@@ -96,19 +114,290 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
     let TextEmbeddingService;
     let aiConfig;
     let originalEmbeddingTimeoutMs;
+    let originalMaxInFlightEmbeddings;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs');
         TextEmbeddingService = mod.default;
         aiConfig             = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
-        originalEmbeddingTimeoutMs = aiConfig.ollama.embeddingTimeoutMs;
+        originalEmbeddingTimeoutMs    = aiConfig.ollama.embeddingTimeoutMs;
+        originalMaxInFlightEmbeddings = aiConfig.ollama.maxInFlightEmbeddings;
     });
 
     test.afterEach(() => {
         // Restore singleton ollamaProvider slot — fake injection across tests must not leak.
         TextEmbeddingService.ollamaProvider = null;
         aiConfig.ollama.embeddingTimeoutMs  = originalEmbeddingTimeoutMs;
+        aiConfig.ollama.maxInFlightEmbeddings = originalMaxInFlightEmbeddings;
         clearAggregatedFrictions();
+    });
+
+    /**
+     * @summary A provider whose embeds block until released, so concurrency is observable.
+     *
+     * Returns the peak simultaneous in-flight count. A test that only counted calls could not tell
+     * a cap from a fast provider — peak overlap is the property under test.
+     */
+    function makeBlockingOllama() {
+        const releases = [];
+
+        let inFlight = 0,
+            peak     = 0;
+
+        return {
+            get peak() { return peak },
+            get started() { return releases.length },
+            releaseAll() { releases.forEach(resolve => resolve()); releases.length = 0 },
+            provider: {
+                embed(input) {
+                    inFlight++;
+                    peak = Math.max(peak, inFlight);
+
+                    return new Promise(resolve => {
+                        releases.push(() => {
+                            inFlight--;
+                            resolve({embeddings: [[0.1]]})
+                        })
+                    })
+                }
+            }
+        }
+    }
+
+    test('the env leaf admits only POSITIVE INTEGERS and falls back for invalid values (#16780 AC-5)', async () => {
+        const probe = async () => {
+            const config = (await import('./ai/mcp/server/memory-core/config.template.mjs')).default;
+
+            console.log(JSON.stringify({cap: config.ollama.maxInFlightEmbeddings}))
+        };
+        const [zero, negative, fractional, notANumber, two] = await Promise.all([
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '0'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '-1'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '1.5'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: 'NaN'}),
+            runIsolatedEmbeddingProbe(probe, {NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS: '2'})
+        ]);
+
+        expect([zero.cap, negative.cap, fractional.cap, notANumber.cap]).toEqual([1, 1, 1, 1]);
+        expect(two.cap).toBe(2);
+    });
+
+    test('the declared cap ADMITS at its number — the control that proves the cap is what binds (#16780 AC-5)', async () => {
+        // Run FIRST and deliberately at 2. If only the cap-of-1 case existed, accidentally-serial
+        // code would pass it and the suite would certify a cap that does nothing. Raising the number
+        // must raise observed overlap, or the mechanism under test is not the mechanism at work.
+        aiConfig.ollama.maxInFlightEmbeddings = 2;
+
+        const harness = makeBlockingOllama();
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const calls = [
+            TextEmbeddingService.embedTexts(['a'], 'ollama'),
+            TextEmbeddingService.embedTexts(['b'], 'ollama'),
+            TextEmbeddingService.embedTexts(['c'], 'ollama')
+        ];
+
+        await waitForCondition(() => harness.started === 2, 'two concurrent embeds admitted');
+
+        expect(harness.peak, 'a cap of 2 must admit exactly 2 — not 1, not 3').toBe(2);
+
+        harness.releaseAll();
+        await waitForCondition(() => harness.started >= 1, 'the third embed is admitted after a slot frees');
+        harness.releaseAll();
+        await Promise.all(calls);
+    });
+
+    test('the default cap SERIALIZES native Ollama embedding (#16780 AC-5)', async () => {
+        // The path had no admission control at all: it reached the provider through
+        // `observeUnqueuedProviderActivity`, which observes and does not admit. Three callers meant
+        // three simultaneous requests against one resident model.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const harness = makeBlockingOllama();
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const calls = [
+            TextEmbeddingService.embedTexts(['a'], 'ollama'),
+            TextEmbeddingService.embedTexts(['b'], 'ollama'),
+            TextEmbeddingService.embedTexts(['c'], 'ollama')
+        ];
+
+        await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
+
+        expect(harness.peak, 'three callers, one slot — the other two must be waiting, not dispatched').toBe(1);
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 2});
+
+        harness.releaseAll();
+        await waitForCondition(() => harness.started >= 1, 'the next embed is admitted after release');
+        harness.releaseAll();
+        await waitForCondition(() => harness.started >= 1, 'the last embed is admitted');
+        harness.releaseAll();
+        await Promise.all(calls);
+
+        expect(harness.peak, 'peak overlap never rose across the whole sequence').toBe(1);
+    });
+
+    test('a RAISED cap applies to the next admission, not the next process start (#16780 AC-5)', async () => {
+        // The AC says the cap is read at the use site "on every admission, so an operator override
+        // applies to the next request rather than the next process start". The peak-overlap tests do
+        // not prove that clause: they set the cap BEFORE any call, so a value captured once at
+        // construction would satisfy every one of them. This is the mutation they cannot see.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const harness = makeBlockingOllama();
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first = TextEmbeddingService.embedTexts(['a'], 'ollama');
+
+        await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
+
+        // Raise the cap with one request in flight and NOTHING released. A value captured at
+        // construction would still read 1 here, so the next caller would queue and peak would stay 1.
+        aiConfig.ollama.maxInFlightEmbeddings = 2;
+
+        const second = TextEmbeddingService.embedTexts(['b'], 'ollama');
+
+        await waitForCondition(() => harness.started === 2, 'the raised cap admits the next caller');
+
+        expect(harness.peak,
+            'the override applies to the NEXT admission — a cap captured once would hold this at 1').toBe(2);
+
+        harness.releaseAll();
+        await Promise.all([first, second]);
+    });
+
+    test('a cap lowered below 1 while callers are QUEUED does not strand the queue (#16780 AC-5)', async () => {
+        // @neo-opus-grace's pre-review finding. The waiter woken by a release has already been
+        // shifted off the queue; if the re-check then throws on an invalid cap and propagates bare,
+        // that wakeup is consumed — this caller holds no slot and is no longer waiting, so everyone
+        // behind it stalls until some unrelated release happens.
+        //
+        // The throw must still reach its own caller loudly. It must not take the queue with it.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const harness = makeBlockingOllama();
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama'),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama').then(() => 'ok', error => error),
+              third  = TextEmbeddingService.embedTexts(['c'], 'ollama').then(() => 'ok', error => error);
+
+        await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission().waiting, 'two are queued').toBe(2);
+
+        // Invalidate the cap, then release so a waiter wakes into the throwing re-check.
+        aiConfig.ollama.maxInFlightEmbeddings = 0;
+        harness.releaseAll();
+
+        const secondResult = await second;
+
+        expect(secondResult, 'the woken waiter learns loudly').toBeTruthy();
+        expect(secondResult.message).toContain('must be a positive integer');
+
+        // The load-bearing half: the caller BEHIND it must also settle rather than hang forever.
+        const thirdResult = await Promise.race([
+            third,
+            new Promise(resolve => setTimeout(() => resolve('STRANDED'), 300))
+        ]);
+
+        expect(thirdResult, 'the wake was handed on, not consumed').not.toBe('STRANDED');
+
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+        harness.releaseAll();
+        await first.catch(() => {});
+    });
+
+    test('a FAILING embed returns its slot — N failures must not stall the path (#16780 AC-5)', async () => {
+        // The leak that would turn admission control into an outage: release only on success, and the
+        // cap walks down to zero after `cap` failures while every surface reports a healthy service
+        // with no requests in flight. Silent, permanent, and indistinguishable from an idle plane.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed() { return Promise.reject(new Error('provider refused')) }
+        };
+
+        for (let i = 0; i < 3; i++) {
+            await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, error => error);
+        }
+
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
+            'three consecutive failures must leave the path exactly as open as it started')
+            .toEqual({cap: 1, inFlight: 0, waiting: 0});
+    });
+
+    test('a cap below 1 fails LOUD rather than admitting nothing forever (#16780 AC-5)', async () => {
+        // A zero cap blocks every caller permanently. An indefinitely-held embedding request is the
+        // exact state this admission control exists to prevent, so manufacturing one from a config typo would
+        // be this ticket's own defect wearing the fix's clothes.
+        aiConfig.ollama.maxInFlightEmbeddings = 0;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed() { return Promise.resolve({embeddings: [[0.1]]}) }
+        };
+
+        const error = await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, observed => observed);
+
+        expect(error, 'it must reject, not hang').toBeTruthy();
+        expect(error.message).toContain('must be a positive integer');
+    });
+
+    test('a FRACTIONAL cap fails LOUD rather than reporting less concurrency than it admits (#16780 AC-5)', async () => {
+        // With a bare numeric leaf, 1.5 admits two requests because the comparison is `inFlight < cap`.
+        // The reporter would then claim cap=1.5 while showing inFlight=2. A cap is a count: reject a
+        // fractional runtime mutation at the use-site even though ConfigProvider also warns on it.
+        aiConfig.ollama.maxInFlightEmbeddings = 1.5;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed() { return Promise.resolve({embeddings: [[0.1]]}) }
+        };
+
+        const error = await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, observed => observed);
+
+        expect(error, 'it must reject, not round the declared cap up').toBeTruthy();
+        expect(error.message).toContain('must be a positive integer');
+    });
+
+    test('a caller aborted while QUEUED settles without waiting for the occupied slot (#16780 AC-5)', async () => {
+        // The provider can remain alive after caller abort, but no provider work exists for a caller
+        // still waiting at admission. It must therefore leave the queue immediately. Waiting for the
+        // occupied request to settle would turn its timeout/cancellation into a second indefinite wait.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            harness    = makeBlockingOllama(),
+            controller = new AbortController(),
+            reason     = new Error('queued caller cancelled');
+
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama'),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama', {
+                  signal: controller.signal
+              }).then(() => 'fulfilled', error => error),
+              third  = TextEmbeddingService.embedTexts(['c'], 'ollama');
+
+        await waitForCondition(
+            () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 2,
+            'the second and third callers to queue'
+        );
+
+        expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
+        controller.abort(reason);
+
+        const observed = await Promise.race([
+            second,
+            new Promise(resolve => setTimeout(() => resolve('HUNG_BEHIND_PROVIDER'), 300))
+        ]);
+
+        expect(observed, 'the exact caller-owned reason settles before provider release').toBe(reason);
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 1});
+        expect(getEventListeners(controller.signal, 'abort'), 'the cancelled waiter leaves no listener').toEqual([]);
+
+        harness.releaseAll();
+        await waitForCondition(() => harness.started === 1, 'the surviving queued caller to dispatch');
+        harness.releaseAll();
+        await Promise.all([first, third]);
     });
 
     test('embedText dispatches to native Ollama provider when explicitProvider=ollama', async () => {

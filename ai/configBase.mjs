@@ -658,7 +658,22 @@ class ConfigBase extends ConfigProvider {
                 // Upper bound for one native Ollama embedding HTTP request. Keeps explicit
                 // `embeddingProvider: 'ollama'` deployments from stalling the WAL drain.
                 embeddingTimeoutMs   : leaf(300000, 'NEO_OLLAMA_EMBEDDING_TIMEOUT_MS', 'number'),
-                requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number')
+                requireParallelModels: leaf(2, 'NEO_OLLAMA_REQUIRE_PARALLEL_MODELS', 'number'),
+                // How many native Ollama embedding requests this process may hold against the
+                // provider at once. The openAiCompatible path has been serialized since its post
+                // queue existed; this path had NO admission control at all, so its concurrency was
+                // emergent from how many callers happened to exist.
+                //
+                // Scoped honestly: in-flight concurrency here was already near one per process,
+                // because a whole batch goes out as a SINGLE /api/embed call with an array input.
+                // So this bounds the multi-process and multi-caller case rather than a runaway
+                // fan-out, and it does not by itself explain a saturated runner — a single request
+                // can peg a container's whole CPU allowance on its own.
+                //
+                // Default 1 matches the openAiCompatible path's long-standing serialized behaviour
+                // and deliberately serializes this path too. Deployments that can safely sustain more
+                // concurrency can raise the declared number instead of inheriting caller fan-out.
+                maxInFlightEmbeddings: leaf(1, 'NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS', 'positiveInt')
             },
             /**
              * @summary Deployment-wide OpenAI-compatible provider defaults.
