@@ -118,6 +118,18 @@ services:
       - NEO_KB_EMBEDDING_BATCH_SIZE=${NEO_KB_EMBEDDING_BATCH_SIZE:-}
       - NEO_KB_EMBEDDING_BATCH_DELAY_MS=${NEO_KB_EMBEDDING_BATCH_DELAY_MS:-}
       - NEO_KB_EMBEDDING_MAX_RETRIES=${NEO_KB_EMBEDDING_MAX_RETRIES:-}
+      # Knowledge Base embedding-probe policy (#16895). These MUST be listed here for the same reason
+      # stated above for the batch leaves: an env binding the deployment never carries is a knob that
+      # does not exist - which is precisely the defect this leaf set was created to fix, so shipping
+      # it unwired would have reproduced it. kb-server ONLY: the probe lives in the Knowledge Base's
+      # own HealthService and no other process constructs it (verified - orchestrator does not import
+      # it), so wiring it wider would advertise a knob that reads nothing there.
+      # Empty default keeps the leaf default authoritative.
+      - NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_TIMEOUT_MS=${NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_TIMEOUT_MS:-}
+      - NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_CADENCE_MS=${NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_CADENCE_MS:-}
+      - NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_HEALTHY_TTL_MS=${NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_HEALTHY_TTL_MS:-}
+      - NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MS=${NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MS:-}
+      - NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MAX_MS=${NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MAX_MS:-}
       # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
       # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
       # GEMINI_API_KEY). Empty default -> the config-template default applies; with no key the
