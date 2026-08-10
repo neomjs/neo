@@ -518,15 +518,18 @@ class ConfigBase extends ConfigProvider {
             /**
              * The number of chunks to process in a single batch when embedding.
              *
-             * This is the **durable unit**: `VectorService.embedChunks` embeds a whole slice in one
-             * `TextEmbeddingService.embedTexts` call and upserts only after it returns, so all
-             * `batchSize` chunks succeed together or none of them persist. On a starved provider that
-             * makes it the size of the smallest bet the pipeline can win — which is why it carries an
-             * env override: an operator whose corpus will not start needs to shrink the bet until one
+             * This is the **durable unit on the failure arm**: `VectorService.embedChunks` embeds a
+             * whole slice in one `TextEmbeddingService.embedTexts` call and upserts only after it
+             * returns, so a provider failure loses the entire slice. On a starved provider that makes
+             * it the size of the smallest bet the pipeline can win — which is why it carries an env
+             * override: an operator whose corpus will not start needs to shrink the bet until one
              * batch lands, and a single landed batch is permanent.
+             *
+             * **Not universally atomic** — a cooperative heavy-maintenance yield persists the prefix it
+             * already paid for and records a resume marker. Failure loses the slice; a yield does not.
              * @type {number}
              */
-            batchSize: leaf(50, 'NEO_KB_EMBEDDING_BATCH_SIZE', 'number'),
+            batchSize: leaf(50, 'NEO_KB_EMBEDDING_BATCH_SIZE', 'positiveInt'),
             /**
              * Work-volume gate for MCP-callable `manage_knowledge_base sync`: when
              * the post-delta `chunksToProcess.length` exceeds this value AND the call originates
@@ -548,7 +551,7 @@ class ConfigBase extends ConfigProvider {
              * dials or the smaller batch turns a repair into an overnight run.
              * @type {number}
              */
-            batchDelay: leaf(10000, 'NEO_KB_EMBEDDING_BATCH_DELAY_MS', 'number'),
+            batchDelay: leaf(10000, 'NEO_KB_EMBEDDING_BATCH_DELAY_MS', 'nonNegativeInt'),
             /**
              * The maximum number of times to retry a failed embedding batch.
              *
@@ -557,7 +560,7 @@ class ConfigBase extends ConfigProvider {
              * given up on.
              * @type {number}
              */
-            maxRetries: leaf(5, 'NEO_KB_EMBEDDING_MAX_RETRIES', 'number'),
+            maxRetries: leaf(5, 'NEO_KB_EMBEDDING_MAX_RETRIES', 'positiveInt'),
             /**
              * The number of results to fetch from ChromaDB for a query.
              * @type {number}

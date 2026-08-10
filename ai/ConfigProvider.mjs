@@ -13,10 +13,15 @@ const typeParsers = {
     boolean  : Env.parseBool,
     csv      : Env.parseCsv,
     keepAlive: Env.parseKeepAlive,
-    number   : Env.parseNumber,
-    port     : Env.parsePort,
-    string   : Env.parseString,
-    url      : Env.parseUrl
+    // The PARSER is what enforces these domains, not the validator beside it: `#validateLeafValue`
+    // only warns and keeps the value, so returning `undefined` here is the only thing that makes an
+    // out-of-domain env value fall back to the leaf default. Same mechanism `port` relies on.
+    nonNegativeInt: (name, opts) => Env.parseIntAtLeast(name, {...opts, min: 0}),
+    number        : Env.parseNumber,
+    port          : Env.parsePort,
+    positiveInt   : (name, opts) => Env.parseIntAtLeast(name, {...opts, min: 1}),
+    string        : Env.parseString,
+    url           : Env.parseUrl
 };
 
 /**
@@ -28,10 +33,18 @@ const typeParsers = {
 const typeValidators = {
     boolean: value => typeof value === 'boolean',
     csv    : value => Array.isArray(value) && value.every(item => typeof item === 'string'),
-    number : value => typeof value === 'number' && !Number.isNaN(value),
-    port   : value => Number.isInteger(value) && value >= 0 && value <= 65535,
-    string : value => typeof value === 'string',
-    url    : value => typeof value === 'string'
+    // Counts an operator may tune where 0 is a legitimate setting (a delay, a grace window).
+    nonNegativeInt: value => Number.isInteger(value) && value >= 0,
+    number        : value => typeof value === 'number' && !Number.isNaN(value),
+    port          : value => Number.isInteger(value) && value >= 0 && value <= 65535,
+    // Counts where 0 or a negative is not a smaller setting but a BROKEN one — a loop stride, an
+    // attempt budget. `number` would accept them and the damage surfaces far from the config: a
+    // stride of 0 does not shrink a batch, it never advances the loop. The domain belongs on the
+    // leaf for the same reason `port`'s does — the value is rejected at the write choke point
+    // rather than defended against at every consumer.
+    positiveInt: value => Number.isInteger(value) && value >= 1,
+    string     : value => typeof value === 'string',
+    url        : value => typeof value === 'string'
 };
 
 /**

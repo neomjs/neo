@@ -174,9 +174,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test('embedding-batch recovery levers are env-overridable so an operator can shrink the durable unit', () => {
-        // `batchSize` is the DURABLE UNIT: `VectorService.embedChunks` embeds a whole slice in one
-        // provider call and upserts only after it returns, so all of it succeeds together or none of
-        // it persists. Every dial shaping an individual provider request was already reachable
+        // `batchSize` is the durable unit ON THE FAILURE ARM: `VectorService.embedChunks` embeds a
+        // whole slice in one provider call and upserts only after it returns, so a provider failure
+        // loses the whole slice. (A cooperative yield is the exception — it persists the prefix it
+        // already paid for.) Every dial shaping an individual provider request was already reachable
         // (`NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE`, the timeouts) while every dial shaping
         // the unit that must succeed together was not — so an operator whose corpus will not start
         // could make each request smaller and still not shrink the bet. These three close that.
@@ -198,6 +199,47 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
             delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
             freshKB.destroy();
+        }
+    });
+
+    test('embedding-batch levers REFUSE operationally invalid values rather than accepting them as smaller', () => {
+        // Making a knob reachable makes its whole domain reachable. `number` would accept every value
+        // below, and each one breaks the consumer in a way that does not look like a config error:
+        // `batchSize: 0` is the loop stride, so `i += 0` never advances and the sweep hangs forever;
+        // `maxRetries: 0` skips the retry loop entirely and returns a clean zero-embedded result with
+        // no provider call at all. Neither is a "smaller" setting — they are broken ones, which is why
+        // the domain lives on the leaf type (as `port`'s does) rather than in a consumer-side guard.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '0';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '-1';
+
+        const invalidKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(invalidKB.batchSize) .toBe(50);
+            expect(invalidKB.maxRetries).toBe(5);
+            expect(invalidKB.batchDelay).toBe(10000);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            invalidKB.destroy();
+        }
+    });
+
+    test('batchDelay accepts 0 — it is a legitimate setting, not an invalid one', () => {
+        // The distinction the two types encode. Step 3.6 of the operator runbook explicitly tells an
+        // operator to set this to 0 when shrinking the batch, so rejecting it would break the
+        // documented recovery procedure. `positiveInt` for a stride, `nonNegativeInt` for a delay.
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '0';
+
+        const zeroDelayKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(zeroDelayKB.batchDelay).toBe(0);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            zeroDelayKB.destroy();
         }
     });
 
