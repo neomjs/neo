@@ -185,6 +185,23 @@ export class DeploymentStateBridgeService extends Base {
          */
         providerResidencyProbe: null,
         /**
+         * Read-only provider-activity seam. The orchestrator injects the recorder-owned ledger
+         * projection; this service never opens or mutates the telemetry database itself.
+         * @member {Function|null} providerActivityProbe=null
+         * @protected
+         */
+        providerActivityProbe: null,
+        /**
+         * @member {Number|null} providerActivityWindowMs=null
+         * @protected
+         */
+        providerActivityWindowMs: null,
+        /**
+         * @member {Number|null} providerActivityLimit=null
+         * @protected
+         */
+        providerActivityLimit: null,
+        /**
          * Direct-probe seam: `async ({url, expectedStatus, timeoutMs, ...}) => void`, resolving when the
          * service is serving and throwing otherwise. Falls back to `runHealthcheck`. Injected so specs
          * can drive every failure shape — answered-but-wrong-status, starved, unresponsive, unreachable
@@ -296,10 +313,15 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object>}
      */
     async collectSnapshot({generatedAt = this.now()} = {}) {
-        const services = [];
+        const
+            services    = [],
+            serviceKeys = this.getServiceKeys();
 
-        for (const serviceKey of this.getServiceKeys()) {
-            services.push(await this.collectServiceSnapshot({serviceKey, observedAt: generatedAt}));
+        for (const serviceKey of serviceKeys) {
+            // Each service owns its observation clock. In particular, local-model provider activity
+            // is read adjacent to its diagnosis, after preceding service reads, so an Ollama request
+            // that starts during snapshot collection cannot disappear behind a snapshot-start query.
+            services.push(await this.collectServiceSnapshot({serviceKey}));
         }
 
         const recoveryRuns      = await this.collectRecoveryRunSnapshot();
@@ -481,18 +503,20 @@ export class DeploymentStateBridgeService extends Base {
      * Collects one bounded per-service state envelope.
      * @param {Object} options
      * @param {String} options.serviceKey Allowlisted service key.
-     * @param {Number} options.observedAt Epoch ms.
+     * @param {Number|null} [options.observedAt=null] Fixed epoch for deterministic callers.
      * @returns {Promise<Object>}
      */
-    async collectServiceSnapshot({serviceKey, observedAt}) {
+    async collectServiceSnapshot({serviceKey, observedAt = null}) {
         const
-            errors = [],
-            proofs = [];
+            errors         = [],
+            proofs         = [],
+            observationNow = () => Number.isFinite(observedAt) ? observedAt : this.now();
 
         let inspect           = null,
             stats             = null,
             logs              = null,
-            providerResidency = null;
+            providerResidency = null,
+            providerActivity  = null;
 
         // Retained per operation because target IDENTITY, not just the payload, decides whether two
         // reads describe the same container. `readObserve` resolves a target per call, so a compose
@@ -514,6 +538,7 @@ export class DeploymentStateBridgeService extends Base {
 
         inspect = await read('inspect');
         stats   = await read('stats');
+        const statsObservedAt = observationNow();
 
         const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge;
 
@@ -529,7 +554,7 @@ export class DeploymentStateBridgeService extends Base {
             });
         }
 
-        providerResidency = await this.collectProviderResidency({serviceKey, observedAt});
+        providerResidency = await this.collectProviderResidency({serviceKey, observedAt: observationNow()});
 
         // The SECOND evidence channel. Until this existed, `endpointProbe` had no producer anywhere in
         // the orchestrator, so ADR-0025 §2.4's authoritative pair could never form and a wedged // ticket-ref-ok: the ADR clause is the reason this call exists at all
@@ -561,6 +586,10 @@ export class DeploymentStateBridgeService extends Base {
                 proofByOperation.inspect?.target?.containerId &&
                 proofByOperation.logs.target.containerId === proofByOperation.inspect.target.containerId
             ),
+            sampleContainerId = typeof proofByOperation.inspect?.target?.containerId === 'string' &&
+                proofByOperation.inspect.target.containerId === proofByOperation.stats?.target?.containerId
+                ? proofByOperation.inspect.target.containerId
+                : null,
             logSummary     = summarizeLogs(logs, bridgeConfig.logMaxBytes, {sameTarget}),
             // Consumes the SAME `nodeCommand` observation the heap attribution uses, rather than
             // re-deriving what "a Node service" means. Placed after the summary for that reason
@@ -569,7 +598,7 @@ export class DeploymentStateBridgeService extends Base {
             heapObservation = this.readHeapObservation({
                 serviceKey,
                 nodeCommand: inspectSummary?.nodeCommand ?? null,
-                observedAt
+                observedAt : statsObservedAt
             });
 
         // Remembered HERE rather than at the read above, because the heap observation rides ON the
@@ -583,8 +612,20 @@ export class DeploymentStateBridgeService extends Base {
         // describe one instant. A parallel sample store would have to re-establish that alignment,
         // and could silently lose it.
         if (stats) {
-            this.rememberStatsSample(serviceKey, stats, observedAt, heapObservation);
+            this.rememberStatsSample(serviceKey, stats, statsObservedAt, heapObservation, sampleContainerId);
         }
+
+        const statsSamples    = this.getStatsSamples(serviceKey);
+        const plannedRestarts = await this.countPlannedRestarts({serviceKey, observedAt: observationNow()});
+
+        // Query after every preceding async read and immediately before the synchronous diagnosis.
+        // This is the safety boundary: a snapshot-start projection can claim idle even though a
+        // request began while earlier services were still being observed.
+        if (this.isProviderResidencyServiceKey(serviceKey)) {
+            providerActivity = await this.collectProviderActivity({observedAt: observationNow()});
+        }
+
+        const diagnosisObservedAt = observationNow();
 
         const diagnosis = this.diagnosisService?.diagnose
             ? this.diagnosisService.diagnose({
@@ -592,17 +633,20 @@ export class DeploymentStateBridgeService extends Base {
                 serviceKey,
                 inspect,
                 stats,
-                statsSamples   : this.getStatsSamples(serviceKey),
+                statsSamples,
+                runtimeContainerId: sampleContainerId,
                 endpointProbe,
                 providerResidency,
-                churnBaseline  : churnBaseline?.unreadable ? undefined : churnBaseline,
-                plannedRestarts: await this.countPlannedRestarts({serviceKey, observedAt}),
+                providerActivity,
+                providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
+                churnBaseline     : churnBaseline?.unreadable ? undefined : churnBaseline,
+                plannedRestarts,
                 // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
                 // attribution, never as "not a heap death". A disabled channel is not evidence.
                 logs                 : logSummary,
                 nodeCommand          : inspectSummary?.nodeCommand ?? null,
                 declaredHeapCeilingMb: inspectSummary?.declaredHeapCeilingMb ?? null,
-                observedAt
+                observedAt           : diagnosisObservedAt
             })
             : null;
 
@@ -626,19 +670,20 @@ export class DeploymentStateBridgeService extends Base {
             recordType    : 'deployment-service-state',
             serviceKey,
             targetIdentity: {kind: 'compose-service', id: serviceKey},
-            observedAt,
+            observedAt    : diagnosisObservedAt,
             status        : errors.length > 0 ? 'degraded' : 'available',
             inspect       : inspectSummary,
             stats         : summarizeStats(stats),
             logs          : logSummary,
             providerResidency,
+            providerActivity,
             heapObservation,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,
             // so a healthy store exposed none of them and no load-independent claim about the
             // classification machinery was verifiable from outside the process.
             classification: this.diagnosisService?.describeClassification
-                ? this.diagnosisService.describeClassification({serviceKey, statsSamples: this.getStatsSamples(serviceKey)})
+                ? this.diagnosisService.describeClassification({serviceKey, statsSamples})
                 : null,
             diagnosis     : diagnosis ? publishedDiagnosis : null,
             proofs,
@@ -729,7 +774,7 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object|null>}
      */
     async collectProviderResidency({serviceKey, observedAt}) {
-        if (!AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey)) {
+        if (!this.isProviderResidencyServiceKey(serviceKey)) {
             return null;
         }
 
@@ -760,6 +805,76 @@ export class DeploymentStateBridgeService extends Base {
                 message    : error.message,
                 targetIdentity
             };
+        }
+    }
+
+    /**
+     * @summary Resolves whether a Compose service participates in provider-residency observation.
+     * The same predicate gates residency and adjacent provider-activity collection so a configured
+     * service can never receive one half of the residual-load evidence pair without the other.
+     * @param {String} serviceKey Compose service key.
+     * @returns {Boolean}
+     */
+    isProviderResidencyServiceKey(serviceKey) {
+        return AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey);
+    }
+
+    /**
+     * @summary Reads one bounded, recorder-owned provider-work projection without dispatching provider
+     * work or treating an unavailable observer as an idle provider.
+     * @param {Object} options
+     * @param {Number} options.observedAt Snapshot observation epoch ms.
+     * @returns {Promise<Object>}
+     */
+    async collectProviderActivity({observedAt}) {
+        const unavailable = reason => ({
+            schemaVersion             : 1,
+            recordType                : 'deployment-provider-activity',
+            source                    : 'provider-activity-ledger',
+            status                    : 'unavailable',
+            unavailableReason         : reason,
+            observedAt,
+            sinceMs                   : Number.isFinite(this.providerActivityWindowMs) ? this.providerActivityWindowMs : null,
+            totalActivities           : null,
+            totalInFlight             : null,
+            totalRecentCompletions    : null,
+            inFlightTruncated         : null,
+            recentCompletionsTruncated: null,
+            inFlight                  : null,
+            recentCompletions         : null
+        });
+
+        if (typeof this.providerActivityProbe !== 'function') return unavailable('probe-unconfigured');
+        if (!Number.isFinite(this.providerActivityWindowMs) || this.providerActivityWindowMs <= 0 ||
+            !Number.isInteger(this.providerActivityLimit) || this.providerActivityLimit <= 0
+        ) {
+            return unavailable('projection-bounds-invalid');
+        }
+
+        try {
+            const projection = await this.providerActivityProbe({
+                sinceTs: observedAt - this.providerActivityWindowMs,
+                limit  : this.providerActivityLimit,
+                observedAt
+            });
+
+            if (!projection || !['ok', 'partial', 'unavailable'].includes(projection.status)) {
+                return unavailable('projection-malformed');
+            }
+
+            return {
+                ...projection,
+                schemaVersion    : 1,
+                recordType       : 'deployment-provider-activity',
+                source           : 'provider-activity-ledger',
+                observedAt,
+                sinceMs          : this.providerActivityWindowMs,
+                unavailableReason: projection.status === 'ok'
+                    ? null
+                    : (projection.unavailableReason || 'recorder-projection-unavailable')
+            };
+        } catch {
+            return unavailable('projection-read-failed');
         }
     }
 
@@ -1041,16 +1156,24 @@ export class DeploymentStateBridgeService extends Base {
      *     instant, carried ON the sample so the V8-scoped ratio inherits this window rather than
      *     maintaining a second one. `null` is the honest value for a non-Node or unreported service
      *     and must never be read as zero usage.
+     * @param {String|null} [containerId=null] Runtime-access proof identity shared by inspect/stats.
      * @returns {void}
      */
-    rememberStatsSample(serviceKey, stats, observedAt, heapObservation = null) {
-        const samples = this.statsSamplesByService.get(serviceKey) || [];
+    rememberStatsSample(serviceKey, stats, observedAt, heapObservation = null, containerId = null) {
+        let samples = this.statsSamplesByService.get(serviceKey) || [];
+
+        // A sustained window belongs to one container incarnation. A newly proven identity clears
+        // every earlier sample whose identity is absent or different; otherwise a recreate can join
+        // two short high-CPU bursts into one authoritative recovery trigger.
+        if (containerId && samples.some(sample => sample.containerId !== containerId)) {
+            samples = [];
+        }
 
         // Shallow copy with additive keys: the percent calculators read specific Docker fields and
         // ignore anything else, so this cannot alter their arithmetic.
         samples.push(Number.isFinite(observedAt)
-            ? {...stats, observedAtMs: observedAt, heapObservation}
-            : {...stats, heapObservation});
+            ? {...stats, observedAtMs: observedAt, heapObservation, containerId}
+            : {...stats, heapObservation, containerId});
 
         this.statsSamplesByService.set(serviceKey, samples.slice(-AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow));
     }

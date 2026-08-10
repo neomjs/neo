@@ -86,6 +86,8 @@ import {
 import {acquireAuthorityLease, authorityLeaseFilename} from './authorityLease.mjs';
 import {FileLeaseLostError}                            from '../shared/fileLease.mjs';
 import {writeBootIdentityFact}                         from './services/bootIdentityFactStore.mjs';
+import {getProviderActivityMetrics}                    from '../../services/shared/providerActivityLedger.mjs';
+import {inspectProviderActivityStatus}                 from '../../services/shared/providerActivityStatusStore.mjs';
 import {
     inspectHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
@@ -242,6 +244,10 @@ export class Orchestrator extends Base {
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
     initializeDatabaseFn     = initializeDatabaseSelfBootstrap
+    /** @summary Reads the resolved provider-telemetry enablement leaf at use time. */
+    providerActivityTelemetryEnabledReader = () => memoryCoreConfig.toolTelemetry.enabled
+    /** @summary Reads recorder-owned health sidecars for the provider-activity projection. */
+    providerActivityStatusReader = inspectProviderActivityStatus
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport
     graphLogCompactionGetDueTask = graphLogCompactionGetDueTaskImport
@@ -453,7 +459,11 @@ export class Orchestrator extends Base {
                 restartChurnSeverity : restartChurn.severity,
                 restartChurnThreshold: restartChurn.threshold,
                 restartChurnWindowMs : restartChurn.windowMs
-            }
+            },
+            // Preserve AiConfig as the source of truth while keeping this service free of a
+            // non-entrypoint config import. A reader rather than a snapshot keeps a reactive
+            // endpoint override visible at the diagnosis use site.
+            ollamaHostReader: () => AiConfig.ollama.host
         });
     }
 
@@ -476,6 +486,11 @@ export class Orchestrator extends Base {
             // this sweep act"; this answers "may THIS service be acted on now", which is a different
             // question once a snapshot carries several unhealthy services and each actuation takes time.
             isAuthorityHeld    : () => !this.authorityLeaseLost && this.pulseAuthorityLease() === 'held',
+            // Only the residual-Ollama route consumes this. It is carried through the actuator to
+            // the runtime's last-owned boundary, where a newly admitted provider request vetoes the
+            // restart after every intervening cooldown/target-resolution await.
+            isEffectStillAdmitted: decision => decision?.diagnosis?.details?.classificationReason !==
+                'ollama-residual-load-restart' || this.isOllamaResidualRestartStillAdmitted(),
             healLedgerDir      : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             healLedgerRetention: validateHealLedgerRetention(healLedger.maxEvents, healLedger.pruneTriggerBytes),
             writeLog           : this.containerHealthControllerWriteLog
@@ -493,9 +508,63 @@ export class Orchestrator extends Base {
             taskStateService           : this.taskStateService,
             tenantRepoSyncService      : this.tenantRepoSyncService,
             tenantRepoSyncEnabledReader: () => this.tenantRepoSyncEnabled,
+            providerActivityProbe      : options => this.readProviderActivityProjection(options),
+            providerActivityWindowMs   : memoryCoreConfig.toolTelemetry.aggregateWindowMs,
+            providerActivityLimit      : memoryCoreConfig.toolTelemetry.aggregateLimit,
             healLedgerDir              : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             writeLog                   : this.deploymentStateBridgeWriteLog
         });
+    }
+
+    /**
+     * @summary Reads the recorder-owned provider ledger from the canonical container-plane database.
+     * Disabled, unavailable, or unhealthy recorder state is explicit and can never mean idle.
+     * @param {Object} options
+     * @param {Number} options.sinceTs Inclusive recent-completion cutoff.
+     * @param {Number} options.limit Projection row bound.
+     * @param {Number} options.observedAt Observation epoch.
+     * @returns {Object}
+     */
+    readProviderActivityProjection({sinceTs, limit, observedAt}) {
+        if (this.providerActivityTelemetryEnabledReader() !== true) {
+            return {status: 'unavailable', unavailableReason: 'provider-activity-disabled'};
+        }
+
+        // Container-plane boot opens this exact shared graph database before polling. Do not depend
+        // on GraphService readiness: swarm heartbeat is one initializer, but intentionally defaults
+        // off on canonical Agent OS deployments.
+        const db = this.db;
+
+        if (!db) return {status: 'unavailable', unavailableReason: 'graph-database-unavailable'};
+
+        const projection = getProviderActivityMetrics(db, {sinceTs, limit, now: observedAt}),
+              observer   = this.providerActivityStatusReader({
+                  dbPath: memoryCoreConfig.storagePaths.graph,
+                  sinceTs
+              });
+
+        return {
+            ...projection,
+            status: observer.status,
+            ...(observer.status === 'ok' ? {} : {unavailableReason: 'recorder-status-not-ok'})
+        };
+    }
+
+    /**
+     * @summary Revalidates zero live provider demand at the lifecycle effect boundary.
+     * @returns {Boolean}
+     */
+    isOllamaResidualRestartStillAdmitted() {
+        const observedAt = Date.now(),
+              projection = this.readProviderActivityProjection({
+                  sinceTs: observedAt - memoryCoreConfig.toolTelemetry.aggregateWindowMs,
+                  limit  : memoryCoreConfig.toolTelemetry.aggregateLimit,
+                  observedAt
+              });
+
+        return projection.status === 'ok' && projection.totalInFlight === 0 &&
+            projection.inFlightTruncated === false && Array.isArray(projection.inFlight) &&
+            projection.inFlight.length === 0;
     }
 
     beforeSetMaintenanceBackpressureService(value) {

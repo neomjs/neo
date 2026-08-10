@@ -52,12 +52,16 @@ function createService({
     diagnosisService,
     directProbeFn = null,
     providerResidencyProbe = async () => null,
+    providerActivityProbe = null,
+    providerActivityWindowMs = 24 * 60 * 60 * 1000,
+    providerActivityLimit = 50,
     recoveryRunStateReader = null,
     healLedgerDir = null,
     healLedgerReader = null,
     taskStateService = null,
     tenantRepoSyncService = null,
-    tenantRepoSyncEnabledReader = null
+    tenantRepoSyncEnabledReader = null,
+    nowFn = () => OBSERVED_AT
 } = {}) {
     return Neo.create(DeploymentStateBridgeService, {
         runtimeAccessService,
@@ -67,10 +71,13 @@ function createService({
         tenantRepoSyncEnabledReader,
         directProbeFn,
         providerResidencyProbe,
+        providerActivityProbe,
+        providerActivityWindowMs,
+        providerActivityLimit,
         recoveryRunStateReader,
         healLedgerDir,
         healLedgerReader,
-        nowFn: () => OBSERVED_AT
+        nowFn
     });
 }
 
@@ -598,6 +605,328 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 missingModels: ['gemma4:26b'],
                 target       : {kind: 'compose-service', id: 'model'}
             }
+        });
+    });
+
+    test('composes one passive provider-work projection into each configured model-service diagnosis', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['model'],
+            includeLogs    : false
+        });
+
+        const
+            activityCalls        = [],
+            residencyCalls       = [],
+            diagnoses            = [],
+            runtimeAccessService = {
+                async readObserve({operation}) {
+                    if (operation === 'inspect') {
+                        return {
+                            data : {State: {Status: 'running', StartedAt: new Date(OBSERVED_AT - 120_000).toISOString()}},
+                            proof: {operation}
+                        };
+                    }
+
+                    return {
+                        data : statsSample({cpuPercent: 399}),
+                        proof: {operation}
+                    };
+                }
+            },
+            providerResidencyProbe = async options => {
+                residencyCalls.push(options);
+
+                return {
+                    provider       : 'ollama',
+                    ready          : true,
+                    model          : 'gemma4:26b',
+                    embeddingModel : 'qwen3-embedding:latest',
+                    requiredModels : ['gemma4:26b', 'qwen3-embedding:latest'],
+                    availableModels: ['gemma4:26b', 'qwen3-embedding:latest']
+                };
+            },
+            providerActivityProbe = async options => {
+                activityCalls.push(options);
+
+                return {
+                    status                    : 'ok',
+                    totalActivities           : 0,
+                    totalInFlight             : 0,
+                    totalRecentCompletions    : 0,
+                    inFlightTruncated         : false,
+                    recentCompletionsTruncated: false,
+                    aggregates                : [],
+                    inFlight                  : [],
+                    recentCompletions         : []
+                };
+            },
+            diagnosisService = {
+                diagnose(options) {
+                    diagnoses.push(options);
+                    return {status: 'healthy'};
+                }
+            },
+            service = createService({
+                runtimeAccessService,
+                diagnosisService,
+                providerResidencyProbe,
+                providerActivityProbe
+            }),
+            snapshot = await service.collectSnapshot();
+
+        expect(activityCalls).toEqual([{
+            sinceTs   : OBSERVED_AT - 24 * 60 * 60 * 1000,
+            limit     : 50,
+            observedAt: OBSERVED_AT
+        }]);
+        expect(residencyCalls).toEqual([expect.objectContaining({serviceKey: 'model', observedAt: OBSERVED_AT})]);
+        expect(diagnoses).toHaveLength(1);
+        expect(diagnoses[0]).toMatchObject({
+            serviceKey      : 'model',
+            providerActivity: {
+                recordType   : 'deployment-provider-activity',
+                source       : 'provider-activity-ledger',
+                status       : 'ok',
+                observedAt   : OBSERVED_AT,
+                sinceMs      : 24 * 60 * 60 * 1000,
+                totalInFlight: 0
+            },
+            providerResidency: {
+                provider      : 'ollama',
+                targetIdentity: {kind: 'compose-service', id: 'model'}
+            }
+        });
+        expect(snapshot.services[0].providerActivity).toEqual(diagnoses[0].providerActivity);
+    });
+
+    test('routes a sustained passive local-model residual through the real bridge and diagnosis', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['local-model'],
+            includeLogs    : false
+        });
+
+        const
+            runtimeCalls         = [],
+            providerCalls        = [],
+            runtimeAccessService = {
+                async readObserve({operation}) {
+                    runtimeCalls.push(operation);
+
+                    if (operation === 'inspect') {
+                        return {
+                            data: {
+                                State: {
+                                    Status   : 'running',
+                                    StartedAt: new Date(OBSERVED_AT - 120_000).toISOString()
+                                }
+                            },
+                            proof: {operation, target: {containerId: 'local-model-A'}}
+                        };
+                    }
+
+                    return {
+                        data : statsSample({cpuPercent: 399}),
+                        proof: {operation, target: {containerId: 'local-model-A'}}
+                    };
+                }
+            },
+            providerResidencyProbe = async () => ({
+                provider       : 'ollama',
+                host           : 'http://local-model:11434',
+                ready          : true,
+                model          : 'gemma4:26b',
+                embeddingModel : 'qwen3-embedding:latest',
+                availableModels: ['gemma4:26b', 'qwen3-embedding:latest']
+            }),
+            providerActivityProbe = async options => {
+                providerCalls.push(options);
+
+                return {
+                    status                    : 'ok',
+                    totalActivities           : 0,
+                    totalInFlight             : 0,
+                    totalRecentCompletions    : 0,
+                    inFlightTruncated         : false,
+                    recentCompletionsTruncated: false,
+                    aggregates                : [],
+                    inFlight                  : [],
+                    recentCompletions         : []
+                };
+            },
+            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
+                nowFn          : () => OBSERVED_AT,
+                ollamaHostReader: () => 'http://local-model:11434'
+            }),
+            clock = {now: OBSERVED_AT - 30_000},
+            service = createService({
+                runtimeAccessService,
+                diagnosisService,
+                providerResidencyProbe,
+                providerActivityProbe,
+                nowFn: () => clock.now
+            }),
+            first = await service.collectSnapshot({generatedAt: OBSERVED_AT - 30_000});
+
+        clock.now = OBSERVED_AT;
+
+        const second = await service.collectSnapshot({generatedAt: OBSERVED_AT});
+
+        expect(first.services[0].diagnosis.actionClass).toBeNull();
+        expect(second.services[0]).toMatchObject({
+            serviceKey: 'local-model',
+            diagnosis : {
+                status        : 'diagnosed',
+                actionClass   : 'restart',
+                targetIdentity: {kind: 'compose-service', id: 'local-model'},
+                diagnosis     : {
+                    recoveryClass: 'exhaustion',
+                    details      : {classificationReason: 'ollama-residual-load-restart'}
+                }
+            }
+        });
+        expect(second.services[0].diagnosis.diagnosis.evidenceFacts.map(fact => fact.type)).toEqual([
+            'ollama-residual-load',
+            'resource-saturation'
+        ]);
+        expect(providerCalls).toHaveLength(2);
+        expect(runtimeCalls).toEqual(['inspect', 'stats', 'inspect', 'stats']);
+    });
+
+    test('reads provider demand after earlier service awaits and immediately before local-model diagnosis', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['orchestrator', 'local-model'],
+            includeLogs    : false
+        });
+
+        let activityStarted = false;
+
+        const
+            probeSawStarted      = [],
+            runtimeAccessService = {
+                async readObserve({serviceKey, operation}) {
+                    if (serviceKey === 'orchestrator') activityStarted = true;
+
+                    const containerId = `${serviceKey}-A`;
+
+                    if (operation === 'inspect') {
+                        return {
+                            data: {
+                                State: {
+                                    Status   : 'running',
+                                    StartedAt: new Date(OBSERVED_AT - 120_000).toISOString()
+                                }
+                            },
+                            proof: {operation, target: {containerId}}
+                        };
+                    }
+
+                    return {
+                        data : statsSample({cpuPercent: serviceKey === 'local-model' ? 399 : 0}),
+                        proof: {operation, target: {containerId}}
+                    };
+                }
+            },
+            providerResidencyProbe = async () => ({
+                provider       : 'ollama',
+                host           : 'http://local-model:11434',
+                ready          : true,
+                model          : 'gemma4:26b',
+                embeddingModel : 'qwen3-embedding:latest',
+                availableModels: ['gemma4:26b', 'qwen3-embedding:latest']
+            }),
+            providerActivityProbe = async () => {
+                probeSawStarted.push(activityStarted);
+
+                const inFlight = activityStarted ? [{
+                    activityId    : 'activity-after-snapshot-start',
+                    provider      : 'ollama',
+                    service       : 'knowledge-base',
+                    operationStage: 'embedding',
+                    role          : 'embedding',
+                    model         : 'qwen3-embedding:latest',
+                    elapsedMs     : 1
+                }] : [];
+
+                return {
+                    status                    : 'ok',
+                    totalActivities           : inFlight.length,
+                    totalInFlight             : inFlight.length,
+                    totalRecentCompletions    : 0,
+                    inFlightTruncated         : false,
+                    recentCompletionsTruncated: false,
+                    aggregates                : [],
+                    inFlight,
+                    recentCompletions         : []
+                };
+            },
+            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
+                nowFn          : () => OBSERVED_AT,
+                ollamaHostReader: () => 'http://local-model:11434'
+            }),
+            service = createService({
+                runtimeAccessService,
+                diagnosisService,
+                providerResidencyProbe,
+                providerActivityProbe,
+                nowFn: () => OBSERVED_AT
+            });
+
+        service.rememberStatsSample(
+            'local-model',
+            statsSample({cpuPercent: 399}),
+            OBSERVED_AT - 30_000,
+            null,
+            'local-model-A'
+        );
+
+        const snapshot   = await service.collectSnapshot({generatedAt: OBSERVED_AT});
+        const localModel = snapshot.services.find(entry => entry.serviceKey === 'local-model');
+
+        expect(probeSawStarted).toEqual([true]);
+        expect(localModel.providerActivity.totalInFlight).toBe(1);
+        expect(localModel.diagnosis.actionClass).toBeNull();
+        expect(localModel.diagnosis.facts).toContainEqual(expect.objectContaining({
+            type   : 'ollama-residual-load',
+            details: expect.objectContaining({reasonCode: 'provider-demand-in-flight'})
+        }));
+    });
+
+    test('clears the sustained stats window when the runtime container incarnation changes', () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {statsSampleWindow: 2});
+
+        const service = createService();
+
+        service.rememberStatsSample('local-model', statsSample({cpuPercent: 399}), OBSERVED_AT - 30_000, null, 'container-A');
+        service.rememberStatsSample('local-model', statsSample({cpuPercent: 399}), OBSERVED_AT, null, 'container-B');
+
+        expect(service.getStatsSamples('local-model')).toEqual([
+            expect.objectContaining({containerId: 'container-B', observedAtMs: OBSERVED_AT})
+        ]);
+    });
+
+    test('publishes an unavailable provider-work envelope instead of manufacturing idle', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices: ['local-model'],
+            includeLogs    : false
+        });
+
+        const runtimeAccessService = {
+                  async readObserve({operation}) {
+                      return {
+                          data : operation === 'inspect' ? {State: {Status: 'running'}} : statsSample(),
+                          proof: {operation}
+                      };
+                  }
+              },
+              service  = createService({runtimeAccessService}),
+              snapshot = await service.collectSnapshot();
+
+        expect(snapshot.services[0].providerActivity).toMatchObject({
+            recordType       : 'deployment-provider-activity',
+            status           : 'unavailable',
+            unavailableReason: 'probe-unconfigured',
+            totalInFlight    : null,
+            inFlight         : null
         });
     });
 
@@ -1845,10 +2174,12 @@ test.describe('DeploymentStateBridgeService — the classification projection is
         // The falsifier this projection was created for: before it, these fields lived only inside
         // `if (memoryWindow.sustained)`, so a healthy store at a raised ceiling exposed none of them
         // and three successive post-merge verification formulations were each unobservable.
-        const service = Neo.create(DeploymentStateBridgeService, {
+        const clock   = {now: OBSERVED_AT},
+              service = Neo.create(DeploymentStateBridgeService, {
             runtimeAccessService: healthyRuntime(),
             diagnosisService    : Neo.create(ContainerHealthDiagnosisService, {}),
-            writeLog            : () => {}
+            writeLog            : () => {},
+            nowFn               : () => clock.now
         });
 
         const snapshot     = await service.collectSnapshot({generatedAt: OBSERVED_AT}),
@@ -1880,6 +2211,8 @@ test.describe('DeploymentStateBridgeService — the classification projection is
         // And the window ACCUMULATES load-independently: a second healthy observation later yields a
         // measured span, so a reader can verify the sustained-window machinery is alive without ever
         // saturating the service.
+        clock.now = OBSERVED_AT + 45000;
+
         const later = await service.collectSnapshot({generatedAt: OBSERVED_AT + 45000});
 
         expect(later.services[0].classification).toMatchObject({

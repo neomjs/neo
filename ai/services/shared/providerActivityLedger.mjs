@@ -370,21 +370,28 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
               FROM provider_activity_log
              WHERE enqueued_at >= @sinceTs
         `).get({sinceTs})?.total || 0,
+        // In-flight work is bounded by `limit`, never by the historical lookback. A caller may narrow
+        // `sinceTs` to recent completions, but an unresolved provider call older than that window is
+        // still live demand. Filtering it out manufactures an "idle" provider from an active one — the
+        // unsafe direction for every recovery consumer of this projection.
         totalInFlight = db.prepare(`
             SELECT COUNT(*) AS total
               FROM provider_activity_log
-             WHERE enqueued_at >= @sinceTs
-               AND completed_at IS NULL
+             WHERE completed_at IS NULL
+        `).get()?.total || 0,
+        totalRecentCompletions = db.prepare(`
+            SELECT COUNT(*) AS total
+              FROM provider_activity_log
+             WHERE completed_at >= @sinceTs
         `).get({sinceTs})?.total || 0,
         inFlightRows = db.prepare(`
             SELECT activity_id, service, operation_stage, role, provider, model, priority,
                    enqueued_at, started_at, queue_disposition, queue_wait_ms
               FROM provider_activity_log
-             WHERE enqueued_at >= @sinceTs
-               AND completed_at IS NULL
+             WHERE completed_at IS NULL
              ORDER BY enqueued_at ASC, activity_id ASC
              LIMIT @limit
-        `).all({sinceTs, limit}),
+        `).all({limit}),
         recentRows = db.prepare(`
             SELECT activity_id, service, operation_stage, role, provider, model, priority,
                    enqueued_at, started_at, completed_at, queue_disposition, queue_wait_ms,
@@ -410,10 +417,13 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
     });
 
     return {
-        status    : 'ok',
+        status                    : 'ok',
         totalActivities,
         totalInFlight,
-        aggregates: aggregates.map(row => ({
+        totalRecentCompletions,
+        inFlightTruncated         : totalInFlight > inFlightRows.length,
+        recentCompletionsTruncated: totalRecentCompletions > recentRows.length,
+        aggregates                : aggregates.map(row => ({
             service         : row.service,
             operationStage  : row.operation_stage,
             role            : row.role,
