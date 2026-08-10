@@ -366,7 +366,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             'tools',
             'unfinishedCalls',
             'recentSlowCalls',
-            'providerActivity'
+            'providerActivity',
+            // The denominator. `providerActivity` alone cannot distinguish a busy ingestion from a
+            // lane burning against an empty backlog, and this key set is the declared surface — so
+            // the addition is recorded here rather than the pin loosened.
+            'walDrain'
         ]);
         expect(metrics.providerActivity).toMatchObject({
             status         : 'ok',
@@ -728,5 +732,177 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         } finally {
             MemoryCoreRecorderService.db = originalDb;
         }
+    });
+
+    test.describe('walDrain — the denominator that makes provider load interpretable (#16780 AC-7)', () => {
+        let originalProvider;
+
+        test.beforeEach(() => {
+            originalProvider = MemoryCoreRecorderService.walDrainDispositionProvider;
+        });
+
+        test.afterEach(() => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = originalProvider;
+        });
+
+        test('an absent drain host reports unavailable with NULL counts — never a fabricated zero', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = null;
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // The load-bearing assertion of this whole projection. Zero pending against live provider
+            // load IS the anomaly, so defaulting the denominator to 0 would not be conservative — it
+            // would synthesise the exact alarm the field exists to detect, on every process that does
+            // not host the drain.
+            expect(walDrain.status).toBe('unavailable');
+            expect(walDrain.counts, 'an unknown backlog must never read as an empty one').toBeNull();
+            expect(walDrain.reason).toBe('wal-drain-not-hosted-in-this-process');
+            expect(walDrain.inProgress, 'unknown live work is null, not "none"').toBeNull();
+            expect(walDrain.window, 'unknown window work is null, not an empty aggregate').toBeNull();
+        });
+
+        test('a hosted drain publishes its own per-cycle counts beside provider activity', () => {
+            const now = Date.now();
+
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state       : 'clean',
+                drainedClean: true,
+                reason      : null,
+                counts      : {pending: 12, embedded: 12, failed: 0, cooling: 0, outstanding: 0},
+                at          : now - 1_000
+            });
+
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // One reading now carries both halves: attribution AND the work that justified it.
+            expect(metrics.providerActivity).toBeDefined();
+            expect(metrics.walDrain.status).toBe('ok');
+            expect(metrics.walDrain.counts).toEqual({pending: 12, embedded: 12, failed: 0, cooling: 0, outstanding: 0});
+            expect(metrics.walDrain.drainedClean).toBe(true);
+            // `counts` describes ONE latest cycle and is not the comparable denominator. The earlier
+            // version of this test asserted that a timestamp inside the lookback made it comparable;
+            // @neo-gpt falsified that with two healthy sequences, so the claim — and this assertion —
+            // are gone. Comparability now lives in `window`, which covers the same interval.
+            expect(metrics.walDrain).not.toHaveProperty('withinWindow');
+        });
+
+        test('a cycle still waiting on the provider is VISIBLE as selected work (@neo-gpt falsifier 1)', () => {
+            // The healthy sequence that defeated the first implementation: the last completed cycle was
+            // idle, a new cycle has legitimately selected one item, and its provider call is in flight.
+            // The tracker cannot speak about that cycle until the call returns, so the receipt alone
+            // reports pending 0 beside real provider load — licensing exactly the divide-by-zero this
+            // projection exists to prevent.
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state : 'clean', drainedClean: true, reason: null,
+                counts: {pending: 0, embedded: 0, selected: 0, outstanding: 0}, at: Date.now() - 500
+            });
+            MemoryCoreRecorderService.walDrainInProgressProvider = () => ({
+                pendingAtStart: 1, selectedCount: 1, startedAt: Date.now() - 100
+            });
+            MemoryCoreRecorderService.walDrainWindowProvider = () => ({
+                cycles: 1, oldestRetainedAt: Date.now() - 500,
+                totals: {pending: 0, selected: 0, embedded: 0, failed: 0}, truncated: false
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(walDrain.inProgress, 'live selected work must not be invisible').not.toBeNull();
+            expect(walDrain.inProgress.selectedCount).toBe(1);
+        });
+
+        test('work completed inside the lookback survives an idle poll overwriting the receipt (@neo-gpt falsifier 2)', () => {
+            // The second healthy sequence: a work-bearing cycle embedded one item, then the next idle
+            // poll overwrote the latest receipt while that completion was still inside the 60s provider
+            // lookback. `counts` now reads 0/0 and is TRUE of its own cycle — the window aggregate is
+            // what keeps the completed work visible.
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state : 'clean', drainedClean: true, reason: null,
+                counts: {pending: 0, embedded: 0, selected: 0, outstanding: 0}, at: Date.now() - 100
+            });
+            MemoryCoreRecorderService.walDrainInProgressProvider = () => null;
+            MemoryCoreRecorderService.walDrainWindowProvider = () => ({
+                cycles: 2, oldestRetainedAt: Date.now() - 30_000,
+                totals: {pending: 1, selected: 1, embedded: 1, failed: 0}, truncated: false
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(walDrain.counts.embedded, 'the latest receipt is idle, truthfully').toBe(0);
+            expect(walDrain.window.totals.embedded, 'the window still shows the work that explains the load').toBe(1);
+            expect(walDrain.window.cycles).toBe(2);
+        });
+
+        test('a lookback older than retained history is marked truncated, never reported as a total', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state: 'clean', drainedClean: true, reason: null, counts: {pending: 0}, at: Date.now()
+            });
+            MemoryCoreRecorderService.walDrainInProgressProvider = () => null;
+            MemoryCoreRecorderService.walDrainWindowProvider = () => ({
+                cycles: 256, oldestRetainedAt: Date.now() - 10_000,
+                totals: {pending: 0, selected: 5, embedded: 5, failed: 0}, truncated: true
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 3_600_000, limit: 5});
+
+            expect(walDrain.window.truncated, 'a partial aggregate must say so').toBe(true);
+        });
+
+        test('the coverage start reaches the wire as an instant, so `truncated` is bounded not just flagged', () => {
+            // These provider stubs prove RELAY only — that is the recorder's whole job here, and it
+            // is why `truncated`'s correctness is proven in the producer's own spec
+            // (`ai/daemons/shared/drainDisposition.spec.mjs`) rather than through this seam.
+            const coverageStartedAt = Date.now() - 45_000;
+
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => ({
+                state: 'clean', drainedClean: true, reason: null, counts: {pending: 0}, at: Date.now()
+            });
+            MemoryCoreRecorderService.walDrainInProgressProvider = () => null;
+            MemoryCoreRecorderService.walDrainWindowProvider = () => ({
+                coverageStartedAt, cycles: 1, oldestRetainedAt: Date.now() - 40_000,
+                totals: {pending: 0, selected: 0, embedded: 0, failed: 0}, truncated: true
+            });
+
+            const {walDrain} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 3_600_000, limit: 5});
+
+            expect(walDrain.window.coverageStartedAt, 'epoch ms must not reach the wire raw')
+                .toBe(new Date(coverageStartedAt).toISOString());
+        });
+
+        test('EVERY status arm carries the required walDrain field (@neo-gpt contract break)', () => {
+            // The field is declared required on the response, but the telemetry-disabled and
+            // db-unavailable arms returned early without it. OpenAPI and parity checks validate the
+            // DECLARATION, not the runtime branch, so both passed green while the wire contract broke.
+            const originalDb = MemoryCoreRecorderService.db;
+
+            try {
+                MemoryCoreRecorderService.db = null;
+
+                const unavailable = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+                expect(unavailable.status).toBe('unavailable');
+                expect(unavailable.walDrain, 'a required field must exist on every arm').toBeDefined();
+                expect(unavailable.walDrain.status).toBe('unavailable');
+                expect(unavailable.walDrain.counts, 'still null, never zero').toBeNull();
+                expect(unavailable.walDrain.window).toBeNull();
+                expect(unavailable.walDrain.inProgress).toBeNull();
+            } finally {
+                MemoryCoreRecorderService.db = originalDb;
+            }
+        });
+
+        test('a throwing receipt degrades to partial with null counts, and never breaks the metrics call', () => {
+            MemoryCoreRecorderService.walDrainDispositionProvider = () => {
+                throw new Error('receipt exploded')
+            };
+
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            // Telemetry must not take the tool down, and a failed read must not masquerade as an empty
+            // backlog either — the same null-not-zero rule as the absent case.
+            expect(metrics.status).toBe('ok');
+            expect(metrics.walDrain.status).toBe('partial');
+            expect(metrics.walDrain.counts).toBeNull();
+            expect(metrics.walDrain.reason).toContain('receipt exploded');
+        });
     });
 });
