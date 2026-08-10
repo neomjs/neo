@@ -140,3 +140,141 @@ test.describe('writeFileAtomicSync (sync surface)', () => {
         expect(fs.readFileSync(path.join(workDir, 'sync-durable.txt'), 'utf8')).toBe('flushed')
     });
 });
+
+/**
+ * @summary The durability contract, proven by ORDER and by REFUSAL rather than by "the file exists".
+ *
+ * The first version of this suite asserted only that `fsync:true` produced the file — an outcome
+ * identical whether both flushes ran or neither did. @neo-gpt falsified it at exact head: an async
+ * seam whose `open` always threw `EBADF` resolved as success, and the sync surface resolved with a
+ * seam carrying no `openSync` at all. A durability option that reports success without doing the work
+ * is worse than no option, because callers stop carrying their own flush.
+ *
+ * So these assert the sequence `write → file sync → rename → directory sync` and every way it can
+ * fail. Deleting either flush call from the primitive fails the order tests below.
+ */
+test.describe('fsync contract — strict, ordered, and mutation-sensitive', () => {
+    /**
+     * @summary Wraps a real fs surface, recording ordered `[op, basename]` pairs and optionally
+     * failing one specific flush.
+     */
+    function recordingAsyncSeam({failFileSync = false, failDirSync = false, dropOpen = false} = {}) {
+        const calls = [];
+
+        const seam = {
+            ...fsPromises,
+            mkdir    : async (...args) => { calls.push(['mkdir', path.basename(args[0])]);     return fsPromises.mkdir(...args) },
+            writeFile: async (...args) => { calls.push(['writeFile', path.basename(args[0])]); return fsPromises.writeFile(...args) },
+            rename   : async (...args) => { calls.push(['rename', path.basename(args[1])]);    return fsPromises.rename(...args) },
+            rm       : async (...args) => fsPromises.rm(...args)
+        };
+
+        if (dropOpen) {
+            // `...fsPromises` above already spread a working `open` in, so the seam must have it
+            // DELETED to model a module without the capability. Omitting the wrapper is not enough —
+            // an earlier draft of this test did exactly that and passed against a real flush.
+            delete seam.open
+        } else {
+            seam.open = async (target, flags) => {
+                const isFile = target.endsWith('.tmp'),
+                      handle = await fsPromises.open(target, flags);
+
+                return {
+                    sync: async () => {
+                        calls.push([isFile ? 'fileSync' : 'dirSync', path.basename(target)]);
+
+                        if (isFile && failFileSync) throw new Error('probe: file sync refused');
+                        if (!isFile && failDirSync) throw new Error('probe: directory sync refused');
+
+                        return handle.sync()
+                    },
+                    close: () => handle.close()
+                }
+            }
+        }
+
+        return {seam, calls};
+    }
+
+    test('ORDER: write → file sync → rename → directory sync', async () => {
+        const target        = path.join(workDir, 'ordered.txt'),
+              {seam, calls} = recordingAsyncSeam();
+
+        await writeFileAtomic(target, 'ordered', {fsModule: seam, fsync: true});
+
+        const ops = calls.map(([op]) => op).filter(op => op !== 'mkdir');
+
+        expect(ops, 'the flush order is the whole durability guarantee').toEqual([
+            'writeFile', 'fileSync', 'rename', 'dirSync'
+        ]);
+
+        // The file flush targets the SCRATCH (pre-rename); the directory flush targets the directory.
+        expect(calls.find(([op]) => op === 'fileSync')[1].endsWith('.tmp')).toBe(true);
+        expect(calls.find(([op]) => op === 'dirSync')[1]).toBe(path.basename(workDir))
+    });
+
+    test('a missing open seam REFUSES rather than reporting durability it did not perform', async () => {
+        const {seam} = recordingAsyncSeam({dropOpen: true});
+
+        await expect(writeFileAtomic(path.join(workDir, 'no-seam.txt'), 'x', {fsModule: seam, fsync: true}))
+            .rejects.toThrow(/exposes no "open"/);
+    });
+
+    test('a failed PRE-RENAME file sync refuses, and the target is never created', async () => {
+        const target        = path.join(workDir, 'file-sync-fails.txt'),
+              {seam, calls} = recordingAsyncSeam({failFileSync: true});
+
+        await expect(writeFileAtomic(target, 'x', {fsModule: seam, fsync: true}))
+            .rejects.toThrow('probe: file sync refused');
+
+        expect(fs.existsSync(target), 'refusing before the rename means nothing was published').toBe(false);
+        expect(calls.map(([op]) => op)).not.toContain('rename');
+        expect(scratchLeftIn(workDir)).toEqual([])
+    });
+
+    test('a failed POST-RENAME directory sync refuses — the write is committed but NOT durable', async () => {
+        const target        = path.join(workDir, 'dir-sync-fails.txt'),
+              {seam, calls} = recordingAsyncSeam({failDirSync: true});
+
+        await expect(writeFileAtomic(target, 'committed', {fsModule: seam, fsync: true}))
+            .rejects.toThrow('probe: directory sync refused');
+
+        // This is the honest, documented asymmetry: the rename ALREADY happened, so the content is
+        // visible. The throw says "you asked for durable and did not get it", not "nothing happened".
+        expect(calls.map(([op]) => op)).toContain('rename');
+        expect(fs.readFileSync(target, 'utf8')).toBe('committed');
+        expect(scratchLeftIn(workDir)).toEqual([])
+    });
+
+    test('NESTED: every directory this call created is flushed, not just the leaf', async () => {
+        const target        = path.join(workDir, 'p', 'q', 'r', 'deep.txt'),
+              {seam, calls} = recordingAsyncSeam();
+
+        await writeFileAtomic(target, 'deep', {fsModule: seam, fsync: true});
+
+        const flushed = calls.filter(([op]) => op === 'dirSync').map(([, name]) => name);
+
+        expect(flushed, 'flushing only the leaf leaves new ancestor entries unflushed').toEqual(
+            expect.arrayContaining(['r', 'q', 'p'])
+        );
+    });
+
+    test('SYNC surface: a seam without openSync/fsyncSync refuses instead of silently skipping', () => {
+        const {openSync, fsyncSync, ...withoutFlushSeam} = fs;
+
+        expect(() => writeFileAtomicSync(path.join(workDir, 'sync-no-seam.txt'), 'x', {
+            fsModule: withoutFlushSeam, fsync: true
+        })).toThrow(/exposes no "openSync"\/"fsyncSync"/);
+    });
+
+    test('SYNC surface: a failed file sync refuses and publishes nothing', () => {
+        const target  = path.join(workDir, 'sync-flush-fails.txt'),
+              failing = {...fs, fsyncSync: () => { throw new Error('probe: sync flush refused') }};
+
+        expect(() => writeFileAtomicSync(target, 'x', {fsModule: failing, fsync: true}))
+            .toThrow('probe: sync flush refused');
+
+        expect(fs.existsSync(target)).toBe(false);
+        expect(scratchLeftIn(workDir)).toEqual([])
+    });
+});

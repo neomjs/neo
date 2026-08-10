@@ -235,6 +235,12 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
     } finally {
         await handle.close()
     }
+    // DELIBERATELY NOT the shared `writeFileAtomic` primitive. The scratch NAME is a contract between this writer
+    // and the stale-temp reaper below: the reaper matches `${basename}.tmp-` and decodes the owner pid
+    // out of the name to prove the owner is dead before removing it. The primitive owns its own scratch
+    // naming and does not publish a matcher, so adopting it would leave every crash-leaked temp
+    // permanently unreapable. Writer and reaper stay one unit until the primitive exports that
+    // predicate — which would be new public API in service of a single caller.
     await fs.promises.rename(tempPath, filePath);
 
     // Stale-temp sweep: age makes a temp eligible, but only a provably dead encoded owner makes it

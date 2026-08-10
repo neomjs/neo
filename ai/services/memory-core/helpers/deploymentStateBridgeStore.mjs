@@ -1,5 +1,5 @@
-import fs   from 'fs-extra';
-import path from 'path';
+import fs                from 'fs-extra';
+import {writeFileAtomic} from '../../shared/atomicFileWrite.mjs';
 
 export const DEPLOYMENT_STATE_BRIDGE_SCHEMA_VERSION = 1;
 
@@ -106,11 +106,9 @@ export async function writeDeploymentStateSnapshot({
         throw new Error(`Deployment state snapshot exceeds ${maxBytes} bytes`);
     }
 
-    await fs.ensureDir(path.dirname(filePath));
-
-    const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(tempPath, json, 'utf8');
-    await fs.rename(tempPath, filePath);
+    // Was `${filePath}.${pid}.${Date.now()}.tmp` — `Date.now()` has millisecond resolution, so two
+    // snapshots written inside one tick by the same process collided. The primitive's UUID does not.
+    await writeFileAtomic(filePath, json);
 
     return {ok: true, filePath, bytes};
 }
