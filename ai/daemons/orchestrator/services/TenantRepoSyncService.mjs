@@ -505,7 +505,19 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
             && receipt.attemptId === materializationAttempt?.attemptId,
         provesUncommittedRetry = validReceipt
             && receipt.attemptId !== materializationAttempt?.attemptId
-            && receipt.attemptId !== priorState?.lastCommittedMaterializationAttemptId;
+            && receipt.attemptId !== priorState?.lastCommittedMaterializationAttemptId,
+        // **The third receipt state, and its absence is what made a repeated full replay fail.** The two
+        // predicates above are not exhaustive over "a matching receipt exists": a receipt can
+        // be neither the current attempt's nor uncommitted, because it is COMMITTED AND OLDER. That is
+        // what a manual `fullReplay` of an unchanged repo produces — the producer reuses the stored
+        // receipt on a digest match, so `provesCurrentAttempt` is false (its id predates this attempt)
+        // and `provesUncommittedRetry` is false (that id IS the committed one). Both proof paths declined
+        // the same receipt for opposite reasons and it fell through to a throw describing the reverse
+        // situation. A receipt whose attempt is already committed is *proof of a prior success*, not an
+        // absence of proof.
+        provesCommittedSuccess = validReceipt
+            && Boolean(priorState?.lastCommittedMaterializationAttemptId)
+            && receipt.attemptId === priorState.lastCommittedMaterializationAttemptId;
 
     // These two arms are OPPOSITE findings and they used to share one code and one message. The
     // message described the second arm, so an operator hitting the first would be told the reverse of
@@ -545,10 +557,15 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
     // checkpoint classification then remained FAILED and every later sweep replayed from a null base.
     // The producer now emits the same digest-bound current-attempt receipt used for effect-bearing
     // materializations, but only after it observes a zero-error authoritative empty manifest.
-    // Requiring BOTH facts here prevents a forged current receipt on a non-empty manifest from
-    // laundering a silent drop into success. A prior unacknowledged positive receipt has
-    // `provesCurrentAttempt === false`, so it still falls through to the settle-once path below.
-    if (!hasEffect && declaresNoContent && provesCurrentAttempt) {
+    // Requiring the manifest fact prevents a forged receipt on a non-empty manifest from laundering a
+    // silent drop into success — either predicate alone would look correct in review, and the
+    // conjunction is what refuses the forgery.
+    //
+    // **`provesCommittedSuccess` joins `provesCurrentAttempt` because the two are the same claim at
+    // different ages.** A repeated manual `fullReplay` of an unchanged empty repo carries the stored
+    // receipt, whose attempt is already committed: nothing new happened, and nothing new needed to.
+    // Refusing it reported `degraded` with a failure streak on a repo whose checkpoint was `complete`.
+    if (!hasEffect && declaresNoContent && (provesCurrentAttempt || provesCommittedSuccess)) {
         return receipt
     }
 
