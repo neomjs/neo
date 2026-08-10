@@ -1123,14 +1123,13 @@ class ConfigBase extends ConfigProvider {
                     timeoutMs        : leaf(3000, 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', 'number'),
                     routineCacheTtlMs: leaf(1000, 'NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS', 'number'),
                     /**
-                     * Stuck-runner detection. A resident model can be alive yet stuck —
-                     * one pathological request (e.g. a too-large context prefill) grinding at
-                     * ~100%×N-cores while serving nothing, because `OLLAMA_NUM_PARALLEL=1` queues
-                     * everything behind it (the empirical anchor: a `gemma4` runner pegged 58h with
-                     * an idle orchestrator and no users). The supervised `healthProbe` restarts the
-                     * runner only after `consecutiveFailures` SUSTAINED inference-canary failures —
-                     * the false-positive guard against restarting a legitimately-long request — and
-                     * the supervisor restart cooldown bounds the cadence (no thrash).
+                     * Reserved stuck-runner policy coordinates for a safe detector and admitted
+                     * recovery boundary. The former inference-canary `healthProbe` is
+                     * intentionally retired: timing out an already-dispatched inference request can
+                     * itself leave provider work running. No current consumer may interpret
+                     * `canaryTimeoutMs` as permission to dispatch or abort inference. The leaves stay
+                     * stable for deployment compatibility until non-intervening, multi-fact evidence
+                     * is bound to an admitted recovery action.
                      * @type {Object}
                      */
                     stuckRunner: {

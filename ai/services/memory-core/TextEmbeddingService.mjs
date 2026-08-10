@@ -238,12 +238,85 @@ function isCallerAbortError(error, signal) {
  * @summary Fails synchronously before an aborted embedding phase can start more local work.
  * @param {AbortSignal|undefined} signal Upstream cancellation signal.
  * @param {String} operationLabel Bounded operation label.
+ * @param {Object} [operation] Mutable local-phase record for causal abort identity.
  * @returns {void}
  */
-function throwIfEmbeddingAborted(signal, operationLabel) {
+function throwIfEmbeddingAborted(signal, operationLabel, operation) {
     if (signal?.aborted) {
-        throw getEmbeddingAbortError(signal, operationLabel);
+        const error = getEmbeddingAbortError(signal, operationLabel);
+
+        if (operation) {
+            operation.callerAbortError = error;
+        }
+
+        throw error;
     }
+}
+
+/**
+ * @summary Settles one caller abort without abandoning the already-dispatched provider promise.
+ *
+ * Native Ollama can continue computing after the client socket closes. The caller therefore gets
+ * its exact abort reason promptly, while `providerPromise` remains independently handled and the
+ * provider-activity lifecycle stays open until the provider response or provider-owned timeout.
+ * The source tag lives on the local operation record rather than the caller-owned Error, which may
+ * be frozen and must never be mutated.
+ *
+ * @param {Object} options
+ * @param {Promise<*>} options.providerPromise Independently observed provider operation.
+ * @param {AbortSignal|undefined} options.signal Caller-owned cancellation signal.
+ * @param {String} options.operationLabel Bounded operation label.
+ * @param {Object} options.operation Mutable local-phase observability record.
+ * @param {Object} options.providerOutcome Direct raw-provider settlement latch.
+ * @returns {Promise<*>}
+ */
+function settleCallerWhileProviderContinues({providerPromise, signal, operationLabel, operation, providerOutcome}) {
+    if (!signal) {
+        return providerPromise;
+    }
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const cleanup = () => signal.removeEventListener('abort', onAbort);
+        const settle  = (fn, value) => {
+            if (settled) return false;
+
+            settled = true;
+            cleanup();
+            fn(value);
+
+            return true;
+        };
+        const settleCallerAbort = () => {
+            if (settled) return;
+            // The activity wrapper adds an async hop. If the raw provider already settled,
+            // let its observed wrapper outcome win instead of relabeling it as caller abort.
+            if (providerOutcome.state !== 'pending') return;
+
+            const error = getEmbeddingAbortError(signal, operationLabel);
+
+            operation.callerAbortError = error;
+            operation.phase            = 'caller-aborted-provider-pending';
+            settle(reject, error);
+        };
+        const onAbort = () => {
+            // Provider settlement callbacks registered before this abort are already queued.
+            // Giving them one microtask preserves a provider error that causally won first,
+            // while a genuinely pending provider still loses promptly to caller cancellation.
+            queueMicrotask(settleCallerAbort);
+        };
+
+        signal.addEventListener('abort', onAbort, {once: true});
+        providerPromise.then(
+            value => settle(resolve, value),
+            error => settle(reject, error)
+        );
+
+        if (signal.aborted) {
+            onAbort();
+        }
+    });
 }
 
 /**
@@ -1113,7 +1186,7 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Runs the native Ollama embedding call with request-shape and timeout parity.
+     * @summary Runs native Ollama embedding while separating caller abort from provider settlement.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
      * @param {AbortSignal|undefined} signal Upstream cancellation signal.
@@ -1127,37 +1200,55 @@ class TextEmbeddingService extends Base {
         const
             provider         = this.#getOllamaProvider(),
             dispatchModel    = provider.embeddingModel || provider.modelName || 'unknown',
-            requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs();
+            requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs(),
+            providerOutcome  = {state: 'pending'};
 
-        try {
-            operation.phase = 'in-flight';
-            throwIfEmbeddingAborted(signal, operationLabel);
+        operation.phase = 'in-flight';
+        throwIfEmbeddingAborted(signal, operationLabel, operation);
 
-            return await observeUnqueuedProviderActivity({
-                recorder: providerActivityRecorder,
-                activity: {
-                    ...providerActivity,
-                    model: dispatchModel
-                },
-                task    : () => provider.embed(inputData, {
-                    num_ctx : aiConfig.localModels.embedding.contextLimitTokens,
-                    operationLabel,
-                    ...(signal ? {signal} : {}),
-                    timeoutMs: requestTimeoutMs,
-                    truncate : false
-                })
-            });
-        } catch (err) {
-            if (isCallerAbortError(err, signal)) {
-                throw getEmbeddingAbortError(signal, operationLabel);
+        const recordProviderFailure = error => {
+            providerOutcome.state = 'rejected';
+            if (error?.code === PROVIDER_TIMEOUT_CODE) {
+                this.#emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, error);
             }
+        };
+        const providerPromise = observeUnqueuedProviderActivity({
+            recorder: providerActivityRecorder,
+            activity: {
+                ...providerActivity,
+                model: dispatchModel
+            },
+            task    : () => {
+                let rawProviderPromise;
 
-            if (err?.code === PROVIDER_TIMEOUT_CODE) {
-                this.#emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, err);
+                try {
+                    rawProviderPromise = Promise.resolve(provider.embed(inputData, {
+                        num_ctx  : aiConfig.localModels.embedding.contextLimitTokens,
+                        operationLabel,
+                        timeoutMs: requestTimeoutMs,
+                        truncate : false
+                    }));
+                } catch (error) {
+                    recordProviderFailure(error);
+                    throw error;
+                }
+
+                rawProviderPromise.then(
+                    () => providerOutcome.state = 'fulfilled',
+                    recordProviderFailure
+                );
+
+                return rawProviderPromise;
             }
+        });
 
-            throw err;
-        }
+        return settleCallerWhileProviderContinues({
+            providerPromise,
+            signal,
+            operationLabel,
+            operation,
+            providerOutcome
+        });
     }
 
     /**
@@ -1287,7 +1378,7 @@ class TextEmbeddingService extends Base {
               operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
 
         try {
-            throwIfEmbeddingAborted(signal, operationLabel);
+            throwIfEmbeddingAborted(signal, operationLabel, operation);
 
             if (explicitProvider === 'openAiCompatible') {
                 const {
@@ -1345,8 +1436,14 @@ class TextEmbeddingService extends Base {
                 throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
             }
         } catch (error) {
-            if (isCallerAbortError(error, signal)) {
-                const abortError = getEmbeddingAbortError(signal, operationLabel);
+            const isCallerAbort = explicitProvider === 'ollama'
+                ? error === operation.callerAbortError
+                : isCallerAbortError(error, signal);
+
+            if (isCallerAbort) {
+                const abortError = explicitProvider === 'ollama'
+                    ? operation.callerAbortError
+                    : getEmbeddingAbortError(signal, operationLabel);
 
                 logEmbeddingAbort({provider: explicitProvider, operation, error: abortError});
                 throw abortError;
@@ -1401,7 +1498,7 @@ class TextEmbeddingService extends Base {
               operation                = {operationLabel, phase: 'entry', startedAt: Date.now()};
 
         try {
-            throwIfEmbeddingAborted(signal, operationLabel);
+            throwIfEmbeddingAborted(signal, operationLabel, operation);
 
             if (explicitProvider === 'openAiCompatible') {
                 const requestTexts = await this.#prepareOpenAiCompatibleEmbeddingInput(texts, signal, operationLabel, operation);
@@ -1453,8 +1550,14 @@ class TextEmbeddingService extends Base {
                 throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
             }
         } catch (error) {
-            if (isCallerAbortError(error, signal)) {
-                const abortError = getEmbeddingAbortError(signal, operationLabel);
+            const isCallerAbort = explicitProvider === 'ollama'
+                ? error === operation.callerAbortError
+                : isCallerAbortError(error, signal);
+
+            if (isCallerAbort) {
+                const abortError = explicitProvider === 'ollama'
+                    ? operation.callerAbortError
+                    : getEmbeddingAbortError(signal, operationLabel);
 
                 logEmbeddingAbort({provider: explicitProvider, operation, error: abortError});
                 throw abortError;
