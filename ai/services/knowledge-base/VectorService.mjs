@@ -2,8 +2,8 @@ import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import TextEmbeddingService, {
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig             from '../../mcp/server/memory-core/config.mjs';
-import Base                 from '../../../src/core/Base.mjs';
+import mcConfig from '../../mcp/server/memory-core/config.mjs';
+import Base     from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -815,7 +815,11 @@ class VectorService extends Base {
                     throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
                 }
 
-                // The provider has answered this sweep, so this batch is the problem. Skip it and keep going;
+                // At least one batch has landed, so continuing is worth attempting. This is a CONTINUATION
+                // POLICY, not a diagnosis: an earlier success does not prove the batch is at fault — a
+                // provider can die after embedding fine for an hour, and this branch cannot tell that from
+                // one poisoned payload. It only decides that the remaining work is worth trying rather than
+                // abandoning, and records what failed so the caller can decide what the hole means. Skip it and keep going;
                 // the remainder is recoverable work and the failure travels back in `failedBatches`.
                 logger.warn(`[VectorService] Batch ${i / batchSize + 1} failed after ${maxRetries} retries; skipping it and continuing (${embeddedCount} embedded so far). Reason: ${lastError?.message}`);
             }
@@ -938,6 +942,22 @@ class VectorService extends Base {
 
             if (embedResult.skipped > 0) {
                 throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
+            }
+
+            // `embedChunks` is shared by BOTH stale strategies, and a hole means opposite things to
+            // them. On the incremental path a skipped batch is recoverable — the canonical collection
+            // keeps everything that did land and the next sweep re-selects the rest. Here the shadow is
+            // about to REPLACE a complete live corpus, so the same hole is permanent data loss with a
+            // success-shaped receipt: the live collection would be parked and an incomplete shadow
+            // promoted over it.
+            //
+            // Refusing here rather than teaching `embedChunks` about strategies is deliberate: the
+            // batch loop reports what happened, and the transaction boundary decides what that means
+            // for its own commit semantics. Complete-or-preserve stays the shadow's invariant, in the
+            // same shape the over-budget guard above already uses, and the throw precedes both renames
+            // so the live corpus is untouched.
+            if (embedResult.failedBatches?.length > 0) {
+                throw new Error(`KB_EMBEDDING_BATCH_FAILED: shadow-swap refused to promote an incomplete corpus after ${embedResult.failedBatches.length} batch(es) exhausted their retries.`);
             }
 
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);

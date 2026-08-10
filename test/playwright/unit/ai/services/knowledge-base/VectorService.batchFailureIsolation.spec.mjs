@@ -72,7 +72,7 @@ function makeChunks(count) {
 }
 
 test.describe('VectorService.embedChunks — one failing batch must not strand the remainder (#16843)', () => {
-    let SDK, KB_VectorService, KB_Config, TextEmbeddingService;
+    let SDK, KB_VectorService, KB_Config, TextEmbeddingService, ChromaManager;
     let originalEmbedTexts, originalBatchConfig;
 
     test.beforeAll(async () => {
@@ -82,6 +82,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
 
         const VectorServiceModule = await import('../../../../../../ai/services/knowledge-base/VectorService.mjs');
         KB_VectorService          = VectorServiceModule.default;
+        ChromaManager             = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
 
         originalEmbedTexts  = TextEmbeddingService.embedTexts.bind(TextEmbeddingService);
         originalBatchConfig = {
@@ -220,6 +221,65 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(result.embedded).toBe(150);
         expect(result.failedBatches).toHaveLength(0);
         expect(spy.calls.upsert).toBe(3);
+    });
+
+    test('CALLER BOUNDARY: shadow-swap REFUSES to promote when a batch failed', async () => {
+        // The defect this guards, found by @neo-gpt against the real seam: `embedChunks` is shared by
+        // BOTH stale strategies, and a hole means opposite things to them. Incrementally a skipped batch
+        // is recoverable — the canonical collection keeps what landed and the next sweep re-selects the
+        // rest. Under shadow-swap the shadow REPLACES a complete live corpus, so the same hole is
+        // permanent loss behind a success-shaped receipt: live parked, incomplete shadow promoted.
+        //
+        // Asserted on the RENAMES rather than the return value, because the return value is exactly what
+        // looked healthy. Neither collection may be renamed.
+        const renames        = [];
+        const collectionStub = name => ({
+            name,
+            async count()  { return 0 },
+            async get()    { return {ids: []} },
+            async upsert() {},
+            async modify({name: newName}) { renames.push(`${name}->${newName}`) }
+        });
+
+        // Drives the REAL `embedViaShadowSwap`. An earlier version of this spec re-implemented the
+        // promotion decision in the test and was mutation-tested: deleting the production guard left it
+        // green. A guard asserted against a copy of itself is worse than none, because it reads covered.
+        const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
+        const originalClient      = ChromaManager.client;
+        const originalInvalidate  = ChromaManager.invalidateKnowledgeBaseCollectionCache.bind(ChromaManager);
+
+        const shadow = collectionStub('shadow');
+
+        ChromaManager.client = {
+            async createCollection() { return shadow },
+            async getCollection()    { return shadow },
+            async deleteCollection()  {}
+        };
+        ChromaManager.invalidateKnowledgeBaseCollectionCache = () => {};
+
+        const runWith = async embedOutcome => {
+            KB_VectorService.embedChunks = async () => embedOutcome;
+            return KB_VectorService.embedViaShadowSwap({
+                liveCollection  : collectionStub('live'),
+                knowledgeBase   : makeChunks(3),
+                idsToDeleteCount: 0
+            })
+        };
+
+        try {
+            await expect(runWith({
+                embedded     : 1,
+                skipped      : 0,
+                yielded      : false,
+                failedBatches: [{batchIndex: 2, chunkIds: ['chunk-50'], reason: 'provider rejected this payload'}]
+            })).rejects.toThrow(/KB_EMBEDDING_BATCH_FAILED/);
+
+            expect(renames, 'neither collection may be renamed when the shadow is incomplete').toEqual([]);
+        } finally {
+            KB_VectorService.embedChunks                        = originalEmbedChunks;
+            ChromaManager.client                                = originalClient;
+            ChromaManager.invalidateKnowledgeBaseCollectionCache = originalInvalidate
+        }
     });
 
     test('a cooperative yield is NOT recorded as a batch failure', async () => {
