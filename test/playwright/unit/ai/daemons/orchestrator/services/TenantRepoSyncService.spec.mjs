@@ -28,9 +28,13 @@ import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/
 import {classifyEmbeddingRecoveryState, isRepoDue}
                             from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
+    classifyTenantRepoCheckpoint,
     normalizeTenantRepoCheckpointState,
+    requiresTenantRepoCheckpointRevalidation,
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
+import {TENANT_REPO_SYNC_ERROR_CODES}
+    from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoAccessContract.mjs';
 import {createTenantRepoMaterializationDigest}
     from '../../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
@@ -165,6 +169,21 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                         && existing.envelopeDigest === envelopeDigest
                     ) {
                         summary.materializationReceipt = existing;
+                    } else if (
+                        payload.materializationAttempt
+                        && Array.isArray(summary.errors)
+                        && summary.errors.length === 0
+                        && Array.isArray(payload.manifestSnapshot.pathsAfterPush)
+                        && payload.manifestSnapshot.pathsAfterPush.length === 0
+                    ) {
+                        const receipt = {
+                            ...payload.materializationAttempt,
+                            envelopeDigest,
+                            recordedAt: Date.now()
+                        };
+
+                        materializationReceipts.set(key, receipt);
+                        summary.materializationReceipt = receipt;
                     } else if (!payload.materializationAttempt) {
                         materializationReceipts.delete(key);
                     }
@@ -1042,11 +1061,21 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     for (const scenario of [
         {
-            label        : 'bootstrap',
-            fullReplay   : false,
-            priorState   : null,
-            expectedBase : null,
-            manifestPaths: []
+            label       : 'bootstrap',
+            fullReplay  : false,
+            priorState  : null,
+            expectedBase: null,
+            // Was `[]`, which made this the one scenario in the table that did NOT match the table's
+            // own premise — the envelope below states `'source exists but parser materialized nothing'`,
+            // and an empty manifest means no source existed. That combination is now a SUCCESS (see the
+            // empty-repo test above), so asserting `EMPTY_MATERIALIZATION` here contradicted it.
+            //
+            // The change is safe because an empty `pathsAfterPush` is a positive observation rather than
+            // a silent failure: `listRevisionPaths` THROWS `KB_INGEST_ENVELOPE_LIST_FAILED` on any
+            // enumeration error and never returns `[]`, so the array is trustworthy at this guard.
+            // Bootstrap keeps its arm here, testing what the table means to test — a first sync where
+            // content is present and nothing materialized.
+            manifestPaths: ['README.md']
         },
         {
             label     : 'non-linear fallback',
@@ -1396,6 +1425,178 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         const persisted = await fs.readJson(revisionsFile);
         expect(persisted.revisions[`t1/${repoSlug}`].lastIngestedRev).toBe('sha-after-delete');
+    });
+
+    /**
+     * @summary The three zero-effect cases the guard currently collapses into one code.
+     *
+     * The delete-only test above passes because `deleted: 1` makes `hasEffect` true. Everything below
+     * has `ingested: 0` AND `deleted: 0`, which is the state that cannot commit: the producer mints a
+     * receipt only on positive effect, so `provesUncommittedRetry` needs a receipt that never exists,
+     * so the checkpoint never commits, so `lastCommittedMaterializationAttemptId` is never recorded —
+     * and the escape can never engage on any later attempt either. The loop has no exit.
+     *
+     * `manifestSnapshot.pathsAfterPush` is what separates the cases, and it is already on the envelope
+     * at the guard rather than being a proxy for anything.
+     */
+    test('an EMPTY repo completes and commits — nothing to ingest is not a failure', async () => {
+        // The onboarding case: a fresh tenant repo with no ingestible paths. No prior revision state,
+        // so `deleted` is 0 as well — there is nothing to have removed. Under the current guard this
+        // repo can never reach a checkpoint, on this attempt or any future one.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/genuinely-empty',
+            envelopeCalls    = [],
+            ingestCalls      = [];
+
+        await fs.writeJson(revisionsFile, {revisions: {}});
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const options = {
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/empty.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => {
+                envelopeCalls.push(args);
+
+                return {
+                    tenantId    : args.tenantId,
+                    repoSlug    : args.repoSlug,
+                    files       : [],
+                    deleted     : [],
+                    headRevision: 'sha-empty-head',
+                    ...(args.lastIngestedRev ? {} : {
+                        manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: []}
+                    })
+                }
+            },
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                captureCalls : ingestCalls,
+                summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : false,
+            revisionsFilePath: revisionsFile
+        };
+
+        const result = await TenantRepoSyncService.runTask(options);
+
+        expect(result.status).toBe('completed');
+        expect(result.details.repos[0]).toMatchObject({
+            status          : 'active',
+            checkpointStatus: 'complete'
+        });
+
+        // The trap is broken only if the checkpoint DURABLY commits — a `completed` status that leaves
+        // no committed attempt id would re-enter the same state on the next sweep.
+        const persisted = await fs.readJson(revisionsFile);
+        const persistedRepo = persisted.revisions[`t1/${repoSlug}`];
+
+        expect(persistedRepo).toMatchObject({
+            lastIngestedRev                      : 'sha-empty-head',
+            lastCommittedMaterializationAttemptId: ingestCalls[0].payload.materializationAttempt.attemptId
+        });
+        expect(classifyTenantRepoCheckpoint(persistedRepo)).toBe('complete');
+        expect(requiresTenantRepoCheckpointRevalidation(persistedRepo)).toBe(false);
+
+        const second = await TenantRepoSyncService.runTask(options);
+
+        expect(second.status).toBe('completed');
+        expect(envelopeCalls).toHaveLength(2);
+        expect(envelopeCalls[1].lastIngestedRev).toBe('sha-empty-head');
+        expect(classifyTenantRepoCheckpoint(
+            (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`]
+        )).toBe('complete');
+    });
+
+    test('POSITIVE CONTROL — declared paths with NO effect and NO explanation still fails', async () => {
+        // The defect the guard exists for, and the arm that makes the case above meaningful: paths were
+        // declared, nothing landed, and nothing reported why. Without this assertion, "an empty
+        // materialization completes" is indistinguishable from having disabled the guard.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/silent-drop';
+
+        await fs.writeJson(revisionsFile, {revisions: {}});
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/silent.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [{path: 'a.txt'}],
+                headRevision    : 'sha-silent-head',
+                manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: ['a.txt']}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details.repos[0].lastErrorCode).toBe('KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION');
+    });
+
+    test('every chunk OVERSIZED is not an empty materialization — the code must not say nothing arrived', async () => {
+        // `summary.ingested = embeddableChunks.length` and an oversized chunk increments
+        // `skippedOversized` instead of joining that array, so a repo whose every chunk exceeds the
+        // embedding safe band reports `ingested: 0, skippedOversized: N`. `hasEffect` is false, so the
+        // guard raises EMPTY_MATERIALIZATION — telling the operator that nothing arrived and the embed
+        // stage is where to look, when everything arrived and was refused before the provider for a
+        // reason already logged per chunk. Re-ingesting cannot help: the chunks are the same size.
+        //
+        // This asserts only what the code must NOT say. Which code it SHOULD carry, and whether this
+        // case commits or fails, is the open decision on the ticket.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/all-oversized';
+
+        await fs.writeJson(revisionsFile, {revisions: {}});
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/oversized.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [{path: 'huge.txt'}],
+                headRevision    : 'sha-oversized-head',
+                manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: ['huge.txt']}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory: () => ({ingested: 0, deleted: 0, skippedOversized: 1, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile
+        });
+
+        // Both halves. The negative alone would pass against any code at all, including one produced by
+        // an unrelated crash upstream of the guard.
+        expect(result.details.repos[0].lastErrorCode)
+            .not.toBe('KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION');
+        expect(result.details.repos[0].lastErrorCode)
+            .toBe('KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE');
+        // The code has to survive the persistence boundary, which is the entire reason it is a code
+        // rather than a field on the existing one.
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain('KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE');
     });
 
     test('delete-only full replay settles an unacknowledged receipt after checkpoint-write failure exactly once (#16045)', async () => {
