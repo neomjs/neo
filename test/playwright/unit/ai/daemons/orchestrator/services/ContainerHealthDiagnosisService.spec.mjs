@@ -1864,7 +1864,43 @@ test.describe('cpu saturation names its subject', () => {
         expect(sharedRule).toBeLessThan(source.indexOf('MEMORY_SATURATION_SCOPES = Object.freeze'));
         expect(sharedRule).toBeLessThan(source.indexOf('CPU_SATURATION_SCOPES = Object.freeze'));
         // ...and it must name the divergence rather than implying the two behave identically.
-        expect(source.slice(sharedRule, sharedRule + 2600)).toContain('CPU has no equivalent');
+        //
+        // Bounded by the NEXT anchor rather than a character window. The original `+ 2600` was a
+        // numeric bound on a prose block: this lane's fold grew the block to 3,638 characters and the
+        // assertion went red for a reason unrelated to the property it guards, which is the failure
+        // mode a magic window always has — too small and it false-fails, too large and it starts
+        // reading neighbouring text.
+        expect(source.slice(sharedRule, source.indexOf('MEMORY_SATURATION_SCOPES = Object.freeze', sharedRule)))
+            .toContain('CPU has no equivalent');
+    });
+
+    test('the subject rule states its gate as a PROXY, and carries the retired premise as retired', () => {
+        // The gate is `nodeCommand === false`; the rule is about workload ownership. Those are not the
+        // same claim, and an earlier revision of the block said the gate ESTABLISHED the rule. A
+        // structural guard only — it asserts what the contract says, never what the code does, which is
+        // the honest instrument for a prose defect.
+        const
+            source     = fs.readFileSync(
+                path.join(repoRoot, 'ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs'), 'utf8'),
+            sharedRule = source.indexOf('The saturation-SUBJECT rule, stated once for both metrics'),
+            // Collapse JSDoc continuations so an assertion cannot pass or fail on where a line wrapped.
+            block      = source
+                .slice(sharedRule, source.indexOf('MEMORY_SATURATION_SCOPES = Object.freeze', sharedRule))
+                .replace(/\n\s*\*\s?/g, ' ')
+                .replace(/\s+/g, ' ');
+
+        // The rule is stated over workload ownership, which is what the subject actually requires.
+        expect(block).toContain(
+            "only when every process in the container belongs to the service's own workload");
+        // The gate is named a proxy for that rule, not a proof of it.
+        expect(block).toContain('is a PROXY for that rule rather than proof of it');
+        // The retired premise is present ONLY as a retirement, never as the rule.
+        expect(block).toContain('An earlier revision of this block claimed');
+        expect(block).toContain('that is false and is retired here');
+        expect(block, 'the cardinality premise must not return as the rule')
+            .not.toContain('only when the container has no other processes');
+        // A proxy without a retirement condition is a permanent shortcut wearing a temporary label.
+        expect(block).toContain('Retirement trigger');
     });
 
     test('the resolver mirrors the memory gate exactly, and says no', () => {
