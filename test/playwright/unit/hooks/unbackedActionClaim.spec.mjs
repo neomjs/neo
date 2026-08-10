@@ -1,6 +1,7 @@
 import {expect, test}                                           from '@playwright/test';
 import {buildUnbackedActionReminder, detectUnbackedActionClaim} from '../../../../ai/scripts/lifecycle/unbackedActionClaim.mjs';
 import {decideUnbackedActionStopHookAction}                     from '../../../../ai/scripts/lifecycle/stopHookDecision.mjs';
+import {matchDeferencePhrase}                                   from '../../../../ai/scripts/lifecycle/deferencePhraseMatch.mjs';
 
 test.describe('detectUnbackedActionClaim (#16613)', () => {
     test('flags the real occurrence: an imminent-action claim with zero tool calls', () => {
@@ -78,6 +79,41 @@ test.describe('detectUnbackedActionClaim (#16613)', () => {
     test('empty and claim-free text are silent', () => {
         expect(detectUnbackedActionClaim('', {toolCallCount: 0})).toBeNull();
         expect(detectUnbackedActionClaim('Two PRs open, both green.', {toolCallCount: 0})).toBeNull();
+    });
+
+    // The defect a bare `[A-Za-z]+ing` shape shipped with: these all matched, so `Everything is green
+    // now.` — a sentence written constantly — blocked the turn. Kept as a permanent arm because the
+    // suffix is genuinely ambiguous in English and the next author will reach for the simple regex.
+    test('REGRESSION — an -ing word that is not a gerund never flags', () => {
+        for (const sentence of [
+            'Everything is green now.',
+            'Nothing is blocking now.',
+            'Something is running now.',
+            'Anything else can wait; nothing now.',
+            'During the sweep now, three failed.',
+            'Everything now looks correct.',
+            'Nothing is pending right now.'
+        ]) {
+            expect(detectUnbackedActionClaim(sentence, {toolCallCount: 0}), sentence).toBeNull();
+        }
+    });
+
+    test('REGRESSION — a real gerund clause still flags, so the guards did not gut the detector', () => {
+        for (const sentence of [
+            'Picking up the next lane now.',
+            'Kicking the reconciliation sweep off right now.',
+            'Filing the ticket now.'
+        ]) {
+            expect(detectUnbackedActionClaim(sentence, {toolCallCount: 0}), sentence).not.toBeNull();
+        }
+    });
+
+    test('PREMISE — the existing deference matcher is blind to BOTH fixtures, which is why this module exists', () => {
+        // Not a claim about vocabulary: the ticket's premise is that the interrogative detector cannot
+        // see the announcing register at all. If either of these ever matches, this module is redundant
+        // and should be retired rather than maintained.
+        expect(matchDeferencePhrase('Picking up the next lane now.')).toBeFalsy();
+        expect(matchDeferencePhrase('Kicking the reconciliation sweep off right now.')).toBeFalsy();
     });
 });
 

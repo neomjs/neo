@@ -32,7 +32,16 @@ const
     FIRST_PERSON_PROGRESSIVE = /\b(?:I'?m|I am|we'?re|we are)\s+(?:just\s+|now\s+|already\s+)?([a-z]+ing)\b/i,
     // A gerund-headed clause opening a sentence (`Picking up the next lane now.`). Alone this also
     // matches reports of finished work, so it is gated on a now-marker below.
-    GERUND_INITIAL           = /^(?:now\s+|then\s+|next\s+up[,:]?\s+)?([A-Za-z]+ing)\b/,
+    GERUND_INITIAL           = /^(?:now\s+|then\s+|next\s+up[,:]?\s+)?([A-Za-z]+ing)\b\s*(.*)$/,
+    // **Words ending in `-ing` that are never a gerund heading a clause.** Without this the shape
+    // matched `Everything is green now.` — a sentence any agent writes constantly — and would have
+    // blocked the turn. Closed class, so an explicit set is honest here where a suffix rule is not.
+    NON_GERUND_ING           = /^(?:everything|something|nothing|anything|during|morning|evening|ceiling|sibling|string|thing|king|ring|spring|wing|sting|swing)$/i,
+    // A gerund that heads a clause takes an object or particle; it is never followed by a copula or
+    // auxiliary. That is the STRUCTURAL separator: in `Everything is green`, the `-ing` word is the
+    // SUBJECT, not the verb. Guards the same class as the set above without depending on it, so a
+    // pronoun the set misses still fails here.
+    COPULA_OR_AUX_NEXT       = /^(?:is|are|was|were|be|been|being|has|have|had|will|would|can|could|should|may|might|must|does|do|did|seems?|looks?|stays?|remains?|feels?)\b/i,
     // Presents the action as happening at this instant, which is what makes an empty turn a lie.
     NOW_MARKER               = /\b(?:now|right\s+now|immediately|as\s+we\s+speak|starting\s+(?:now|on))\b/i,
     // Any of these move the claim into a LATER turn, where it is a legitimate handoff.
@@ -92,7 +101,17 @@ function candidateSentences(region) {
 function assertsImminentAction(sentence) {
     if (FUTURE_MARKER.test(sentence)) return false;
     if (FIRST_PERSON_PROGRESSIVE.test(sentence)) return true;
-    return GERUND_INITIAL.test(sentence) && NOW_MARKER.test(sentence)
+    if (!NOW_MARKER.test(sentence)) return false;
+
+    const gerundMatch = GERUND_INITIAL.exec(sentence);
+
+    if (!gerundMatch) return false;
+
+    const [, word, remainder] = gerundMatch;
+
+    // Both guards, deliberately: the closed set is precise, the copula rule is general, and either
+    // alone leaves the other's gap open.
+    return !NON_GERUND_ING.test(word) && !COPULA_OR_AUX_NEXT.test(remainder)
 }
 
 /**
