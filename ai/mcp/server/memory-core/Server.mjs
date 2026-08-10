@@ -293,7 +293,10 @@ class Server extends BaseServer {
         // engine never imports the mailbox. `readBackgroundDeliveryState` is the unpermissioned
         // background variant; `inspectReadState` cannot be used here because it requires a bound
         // request identity the flush path does not have.
-        CoalescingEngineService.configure({...wakeDispatch, resolveDeliveryReadState: readBackgroundDeliveryState});
+        // `wakeDispatch` is an AiConfig node and is handed over BY REFERENCE. Never `{...wakeDispatch}`:
+        // the proxy's `ownKeys` trap enumerates local `#dataConfigs` only, so spreading a node whose
+        // leaves live on the Tier-1 root yields `{}` — silently, with every named read still correct.
+        CoalescingEngineService.configure(wakeDispatch, {resolveDeliveryReadState: readBackgroundDeliveryState});
         WebhookDeliveryService.configure(wakeDispatch);
 
         this.mcpServer = this.createMcpServer();

@@ -184,12 +184,32 @@ class CoalescingEngineService extends Base {
      * The service deliberately does not import `AiConfig`: the Memory Core entrypoint is the
      * composition root, preventing hidden defaults from drifting across deployment topology.
      *
-     * @param {Object} options
-     * @param {Number} options.coalesceWindowSeconds
-     * @param {Number} options.flushRefractorySeconds
-     * @param {Number} options.flushHardCapSeconds
+     * **Why the collaborator takes its OWN parameter instead of riding in `dispatchConfig`.** The
+     * first argument is an `AiConfig` node — a `Neo.state.Provider` proxy, not a plain object — and
+     * the caller must be able to hand it over **by reference**. Adding one more key to that bag reads
+     * as harmless and forces the caller to build `{...wakeDispatch, extra}`, which is the one
+     * operation the proxy cannot survive: the `get` trap resolves `override-else-inherit` up the
+     * parent chain, but the `ownKeys` trap (`Provider#getTopLevelDataKeys`) enumerates **local
+     * `#dataConfigs` only**. These leaves are declared on the Tier-1 root (`ai/configBase.mjs`), so
+     * for the Memory Core child provider `{...wakeDispatch}` is measurably `{}` while every named
+     * read still returns its number. The spread does not warn, throw, or degrade — it silently
+     * substitutes an empty object, and the first symptom is a validation error naming a leaf the
+     * caller can plainly see is set.
+     *
+     * Destructuring below is safe for exactly the same reason it is dangerous above: naming the keys
+     * goes through the `get` trap. **Never add a rest element (`...rest`) to that pattern** — rest,
+     * like spread, is `ownKeys`, and would reintroduce this failure from the other side.
+     *
+     * @param {Object} dispatchConfig The `AiConfig` wake-dispatch node. Passed by reference; never materialized.
+     * @param {Number} dispatchConfig.coalesceWindowSeconds
+     * @param {Number} dispatchConfig.flushRefractorySeconds
+     * @param {Number} dispatchConfig.flushHardCapSeconds
+     * @param {Object}          [collaborators]                          Wiring, not configuration.
+     * @param {Function|null}   [collaborators.resolveDeliveryReadState] `(messageId, recipient) => {readAt?}`
      */
-    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds, resolveDeliveryReadState = null} = {}) {
+    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds} = {},
+        {resolveDeliveryReadState = null} = {}
+    ) {
         const values = {coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds};
 
         if (resolveDeliveryReadState !== null && typeof resolveDeliveryReadState !== 'function') {
@@ -205,10 +225,10 @@ class CoalescingEngineService extends Base {
             throw new Error("CoalescingEngineService.configure requires 'flushHardCapSeconds' greater than zero");
         }
 
-        this.defaultWindowSeconds      = coalesceWindowSeconds;
+        this.defaultWindowSeconds     = coalesceWindowSeconds;
+        this.refractoryMs             = flushRefractorySeconds * 1000;
+        this.hardCapMs                = flushHardCapSeconds * 1000;
         this.resolveDeliveryReadState = resolveDeliveryReadState;
-        this.refractoryMs         = flushRefractorySeconds * 1000;
-        this.hardCapMs            = flushHardCapSeconds * 1000;
     }
 
     /**
