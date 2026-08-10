@@ -41,6 +41,20 @@ export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EM
 // risks duplicating it — while `EMPTY_MATERIALIZATION` means nothing arrived and the embed stage is
 // where to look. One code for both told an operator the opposite of what happened half the time.
 export const KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN = 'KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN';
+// The THIRD zero-effect case, and the one that used to be told the opposite of what happened.
+// Content reached the pipeline and every chunk was refused BEFORE the provider — `summary.ingested`
+// counts embeddable chunks only, and an oversized chunk increments `skippedOversized` instead of
+// joining that array, so a repo whose every chunk exceeds the safe band reports `ingested: 0` with
+// `skippedOversized > 0`.
+//
+// It shared `EMPTY_MATERIALIZATION` and therefore told an operator *nothing arrived, look at the embed
+// stage*. Everything arrived; the embed stage never saw it, and re-ingesting cannot help because the
+// chunks are the same size on the next attempt. The actionable surface is chunking or the safe band.
+//
+// A separate CODE for the same reason as its neighbour above: the durable per-repo state persists
+// `lastErrorCode` and nothing else, so a discriminator carried in `details` is dropped at the
+// persistence boundary and never reaches the operator it exists for.
+export const KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE = 'KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE';
 // Non-failure defer reason: another process holds the cross-process tenant-repo-sync
 // lease. Surfaced as a `skipped` reasonCode (never thrown) so the periodic lane and
 // the manual CLI can branch on it without treating operator ownership as an error.
@@ -75,6 +89,7 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
+    KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_STARVED

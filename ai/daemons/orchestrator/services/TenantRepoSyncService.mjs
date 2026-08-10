@@ -42,6 +42,7 @@ import {
     isStarvedOrderInverted
 } from '../scheduling/tenantRepoSync.mjs';
 import {
+    KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
     KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
@@ -492,6 +493,14 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
         validReceipt   = isMatchingMaterializationReceipt(receipt, expectedDigest),
         hasEffect      = [summary.ingested, summary.deleted]
             .some(value => Number.isSafeInteger(value) && value > 0),
+        // The envelope's own manifest, not a proxy for it: `pathsAfterPush` is what the repo carries
+        // after the push, so an EMPTY array is a positive statement that there is nothing to ingest —
+        // and a non-empty one is what makes zero effect a finding.
+        declaredPaths     = envelope.manifestSnapshot.pathsAfterPush,
+        declaresNoContent = Array.isArray(declaredPaths) && declaredPaths.length === 0,
+        // Chunks that reached the pipeline and were refused before the provider. Disjoint from
+        // `ingested`, which counts embeddable chunks only.
+        skippedOversized  = Number.isSafeInteger(summary.skippedOversized) ? summary.skippedOversized : 0,
         provesCurrentAttempt = validReceipt
             && receipt.attemptId === materializationAttempt?.attemptId,
         provesUncommittedRetry = validReceipt
@@ -525,6 +534,53 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
                 // credential discipline already applied to ingestion error messages.
                 ingested            : summary.ingested,
                 deleted             : summary.deleted,
+                receiptPresent      : Boolean(receipt),
+                receiptMatchesDigest: validReceipt
+            }
+        )
+    }
+
+    // **A repo with nothing to ingest is a SUCCESS, and it has to be, or it can never leave.** The
+    // producer mints a receipt only on positive effect, so `provesUncommittedRetry` needs a receipt
+    // that will never exist for this repo — the checkpoint never commits,
+    // `lastCommittedMaterializationAttemptId` is never recorded, and the escape below can therefore
+    // never engage on any later attempt either. Fixing only the first failure would leave every
+    // empty repo permanently backing off. Returning `null` here is what the `manifestSnapshot == null`
+    // arm at the top already does: no receipt to carry, and the caller commits.
+    // `!provesUncommittedRetry` is load-bearing, not defensive. A delete-only repo also declares no
+    // content, and on a retry after a checkpoint-write failure its effect is already applied — so
+    // `hasEffect` is false while a valid unacknowledged receipt is waiting to be settled exactly once.
+    // Returning early there would drop the receipt the caller records as
+    // `lastCommittedMaterializationAttemptId`, and the settle-once invariant would silently break.
+    // With the guard, that case falls through to `return receipt` and only a repo with nothing to
+    // settle takes this arm.
+    // ...and `!priorState?.lastCommittedMaterializationAttemptId` narrows this to the case the ticket
+    // names — a repo that has never committed an attempt. A repo that HAS committed one and later
+    // reports no content is a different question — a replay carrying a receipt whose attempt is already
+    // committed is refused today, and the settle-once invariant asserts that refusal — so this arm
+    // deliberately does not answer it. That residual is an open fork rather than a decision made here.
+    if (!hasEffect
+        && declaresNoContent
+        && !provesUncommittedRetry
+        && !priorState?.lastCommittedMaterializationAttemptId) {
+        return null
+    }
+
+    // Content arrived and every chunk was refused before the provider. Sharing the code below told the
+    // operator *nothing arrived, look at the embed stage* — the reverse of what happened, and the same
+    // mislabelling the arm above was split out to end. Still fail-closed: a repo whose content cannot
+    // be embedded is not synced, and calling it `completed` would make a broken tenant read as healthy.
+    // Whether this case should instead commit is a product judgement recorded as open on the ticket.
+    if (!hasEffect && skippedOversized > 0) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE,
+            'Tenant-repo materialization produced no ingestible chunk: every candidate was refused before the provider.',
+            {
+                phase               : 'full-materialization',
+                ingested            : summary.ingested,
+                deleted             : summary.deleted,
+                skippedOversized,
+                declaredPathCount   : Array.isArray(declaredPaths) ? declaredPaths.length : null,
                 receiptPresent      : Boolean(receipt),
                 receiptMatchesDigest: validReceipt
             }
@@ -1101,6 +1157,7 @@ class TenantRepoSyncService extends Base {
      * | `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | underlying clone/fetch/envelope/ingest failure (wraps the original error) |
      * | `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | full materialization produced NO positive effect and no matching unacknowledged retry receipt — nothing arrived; look at the embed stage |
      * | `KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN` | per-repo `lastErrorCode` | full materialization DID take effect, but no receipt proves this attempt — the rows landed and the proof is missing, so do NOT re-ingest |
+     * | `KB_TENANT_REPO_SYNC_CONTENT_NOT_EMBEDDABLE` | per-repo `lastErrorCode` | the repo declares content and every candidate chunk was refused BEFORE the provider — re-ingesting cannot help; the actionable surface is chunking or the safe band |
      * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
      * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle settles the unacknowledged graph receipt idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
