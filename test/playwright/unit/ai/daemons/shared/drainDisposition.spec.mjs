@@ -174,6 +174,43 @@ test.describe('ai/daemons/shared drainDisposition', () => {
             'real, and reporting it as unattestable would fire on every healthy plane').toBe(false);
     });
 
+    test('a cycle that started, reached the provider, and THREW leaves a hole the window admits (#16835)', async () => {
+        // @neo-gpt's Cycle-3 witness, executed against the real tracker. The dangerous shape: a cycle
+        // starts, its provider call settles DURABLY on the activity ledger, and the cycle then throws
+        // during post-add verification / pending re-read / marker append / prune — `startDrainLoop`
+        // routes every such throw to `recordFailure`. It never becomes a history entry.
+        //
+        // Before the repair this read providerActivity=1 against window totals of 0 with
+        // truncated=false: a hole inside an interval advertised as a complete denominator.
+        let   clock = 1000;
+        const t     = createDrainDispositionTracker({now: () => clock});
+
+        clock = 2000; t.recordCycleStart({pending: 1, selected: 1});
+        clock = 3000; t.recordFailure(new Error('post-add verification failed'));
+        clock = 4000; t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+
+        const w = t.getWindowSince(1000);
+
+        expect(t.getInProgress(), 'the failure clears the in-progress slot — that part was right').toBeNull();
+        expect(w.totals.embedded, 'the failed cycle contributes no counts, because it has none').toBe(0);
+        expect(w.truncated,
+            'a failed cycle did real provider work inside this lookback and left no entry — the ' +
+            'aggregate cannot be offered as the whole of it').toBe(true);
+    });
+
+    test('a failure OUTSIDE the lookback does not truncate it (#16835)', async () => {
+        // The bound on the fix. A failure that predates the window is not this window's hole, and
+        // truncating on it would make every plane that ever failed permanently unattestable.
+        let   clock = 1000;
+        const t     = createDrainDispositionTracker({now: () => clock});
+
+        clock = 2000; t.recordFailure(new Error('old failure, long since past'));
+        clock = 5000; t.recordCycle({pending: 0, embedded: 0, outstanding: 0});
+
+        expect(t.getWindowSince(3000).truncated,
+            'the failure is older than the lookback — it is not this interval\'s gap').toBe(false);
+    });
+
     test('the covered interval is on the surface, not left to be inferred (#16835)', async () => {
         // A consumer cannot act on `truncated` alone: it says the answer is partial without saying
         // which part. `coverageStartedAt` is the denominator of the reading.

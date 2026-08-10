@@ -102,7 +102,8 @@ export function createDrainDispositionTracker({historyLimit = 256, now = Date.no
         counts         = null,
         at             = null,
         inProgress     = null,
-        evictedThrough = null;
+        evictedThrough = null,
+        lastFailureAt  = null;
 
     // Completed cycles, oldest first. The receipt above is a LAST-VALUE LATCH and cannot answer a
     // windowed question: an idle poll overwrites a work-bearing cycle that is still inside a
@@ -161,7 +162,8 @@ export function createDrainDispositionTracker({historyLimit = 256, now = Date.no
                 // just the first — so a fresh tracker answered "nothing happened, completely" for
                 // a window it could not see at all.
                 truncated       : sinceTs < coverageStartedAt ||
-                                  (evictedThrough !== null && sinceTs <= evictedThrough)
+                                  (evictedThrough !== null && sinceTs <= evictedThrough) ||
+                                  (lastFailureAt  !== null && lastFailureAt >= sinceTs)
             }
         },
 
@@ -232,7 +234,20 @@ export function createDrainDispositionTracker({historyLimit = 256, now = Date.no
             reason     = `drain-cycle-failed: ${error?.message ?? error ?? 'unknown'}`;
             counts     = null;
             at         = now();
-            inProgress = null
+            inProgress = null;
+
+            // The third way to lose coverage, and the one that survived two repairs. A cycle can
+            // START, reach the provider — durably, on the activity ledger — and then throw during
+            // post-add verification, pending re-read, marker append or prune; `startDrainLoop` routes
+            // every such throw here. It never becomes a completed history entry, so the window used
+            // to aggregate right past the hole and still report `truncated: false`: provider activity
+            // of 1 against window totals of 0, advertised as a complete denominator.
+            //
+            // Its counts are unknowable — that is what "failed" means — so it is deliberately NOT a
+            // history entry. Only the newest timestamp is kept: the question a lookback asks is
+            // "did any failure land at or after `sinceTs`", and the newest answers it for every
+            // `sinceTs` without an unbounded list.
+            lastFailureAt = at
         },
 
         /**
