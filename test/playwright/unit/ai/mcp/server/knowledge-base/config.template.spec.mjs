@@ -136,7 +136,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // TIER-1-OWNED leaves (auth.*, backupPath) — post-split the child no longer declares them,
         // so env precedence lives at the OWNER. Build a fresh realm root WITH the env set and
         // register it so the child inherits the override up the getParent() chain.
-        const prevRoot  = Neo.ai?.Config;
+        const prevRoot = Neo.ai?.Config;
         delete Neo.ai.Config;
         const freshRoot = Neo.create(RootConfigBase);
         Neo.ai.Config   = freshRoot;
@@ -224,6 +224,56 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
             delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
             invalidKB.destroy();
+        }
+    });
+
+    test('MUTATION-BINDING — a FRACTIONAL value is refused, which is what makes the integer check load-bearing', () => {
+        // This test exists because the suite above did NOT bind the implementation. @neo-gpt-emmy
+        // replaced `Number.isInteger` with `Number.isFinite` in an exact-head tree and the focused
+        // suite stayed 11/11 green: every value it exercised (0, 0, -1) is rejected by BOTH predicates
+        // on the `< min` branch alone, so the integer check was never the reason anything failed.
+        //
+        // A fraction is the single input that separates them. `2.5` is finite and >= min, so only
+        // `Number.isInteger` refuses it — swap the predicate and this test reddens, which is the
+        // property the previous negative matrix claimed and did not have.
+        //
+        // It is not a pedantic case either: `batchSize` is a loop stride (`i += 2.5` desynchronises
+        // every slice boundary) and `maxRetries` is a countdown bound.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '2.5';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '1.5';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '10.25';
+
+        const fractionalKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(fractionalKB.batchSize) .toBe(50);
+            expect(fractionalKB.maxRetries).toBe(5);
+            expect(fractionalKB.batchDelay).toBe(10000);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            fractionalKB.destroy();
+        }
+    });
+
+    test('MUTATION-BINDING — non-finite and non-numeric values fall back rather than poisoning the config', () => {
+        // The other untested half. `Number('Infinity')` is finite-checked away, but `Number('abc')` is
+        // NaN and NaN fails every comparison silently — `NaN < min` is false, so a predicate that
+        // only compared bounds would ADMIT it and hand the consumer a NaN stride. The loop would then
+        // neither advance nor throw.
+        for (const [raw, label] of [['Infinity', 'Infinity'], ['-Infinity', '-Infinity'], ['NaN', 'NaN'], ['abc', 'non-numeric'], ['', 'empty']]) {
+            process.env.NEO_KB_EMBEDDING_BATCH_SIZE = raw;
+
+            const poisonKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+            try {
+                expect(poisonKB.batchSize, `${label} must fall back to the leaf default`).toBe(50);
+                expect(Number.isInteger(poisonKB.batchSize), `${label} must not yield a non-integer`).toBe(true);
+            } finally {
+                delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+                poisonKB.destroy();
+            }
         }
     });
 

@@ -553,7 +553,18 @@ class ConfigBase extends ConfigProvider {
              */
             batchDelay: leaf(10000, 'NEO_KB_EMBEDDING_BATCH_DELAY_MS', 'nonNegativeInt'),
             /**
-             * The maximum number of times to retry a failed embedding batch.
+             * The TOTAL number of attempts allowed for one embedding batch — not the number of
+             * retries on top of a first try.
+             *
+             * The name is legacy and the loop is the authority: `while (retries < maxRetries)` with
+             * `retries` starting at zero, so `5` buys five provider calls in total, not six. Stated
+             * explicitly because the JSDoc previously said "the maximum number of times to retry",
+             * which reads as one initial attempt plus N — an off-by-one an operator would only
+             * discover from a bill.
+             *
+             * That also fixes the domain: `1` is the meaningful floor (one attempt, no retry) and
+             * `0` is not a smaller setting but a broken one, since it skips the loop entirely and
+             * returns a clean zero-embedded result with no provider call at all.
              *
              * Overridable so an operator can bound what a doomed batch costs: against a provider that
              * never answers, every attempt is paid at the full embedding timeout before the batch is

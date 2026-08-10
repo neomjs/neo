@@ -39,9 +39,20 @@ const typeValidators = {
     port          : value => Number.isInteger(value) && value >= 0 && value <= 65535,
     // Counts where 0 or a negative is not a smaller setting but a BROKEN one — a loop stride, an
     // attempt budget. `number` would accept them and the damage surfaces far from the config: a
-    // stride of 0 does not shrink a batch, it never advances the loop. The domain belongs on the
-    // leaf for the same reason `port`'s does — the value is rejected at the write choke point
-    // rather than defended against at every consumer.
+    // stride of 0 does not shrink a batch, it never advances the loop.
+    //
+    // WHERE THE DOMAIN IS ACTUALLY ENFORCED, because the two halves are not symmetric and an earlier
+    // version of this comment claimed they were:
+    //
+    //   - the PARSER (`typeParsers` above, `Env.parseIntAtLeast`) is the enforcement. An
+    //     out-of-domain env value returns `undefined`, so the leaf default stands and no consumer
+    //     ever sees the bad number. This is the path an operator's typo takes.
+    //   - the VALIDATOR here is ADVISORY. `#validateLeafValue` warns and KEEPS the value — its own
+    //     JSDoc says so. It surfaces a programmatic write to a known leaf; it does not reject one.
+    //
+    // Both are worth having and they answer different questions. Describing the validator as
+    // rejecting is the mistake to avoid: a reader who believes the write path is closed will skip
+    // the parser, which is the half that actually protects the consumer.
     positiveInt: value => Number.isInteger(value) && value >= 1,
     string     : value => typeof value === 'string',
     url        : value => typeof value === 'string'
