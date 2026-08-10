@@ -264,6 +264,36 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         expect(reborn.readState().mockTask.deferralStreakStartedAt).toBe(opened);
     });
 
+    test('a LEGACY state file with no deferral field reads null, not undefined (#16561)', () => {
+        // The migration path, asserted rather than assumed: every persisted state file written before
+        // this field existed lacks the key. `readState` spreads the fallback FIRST and the persisted data
+        // over it, so the initial-envelope `null` survives for a key the file does not carry. Reversing
+        // that spread order would yield `undefined`, and `undefined` is the value a threshold comparison
+        // silently mishandles — `undefined > x` is false, so a legacy repo would read as never-deferred
+        // rather than as unmeasured.
+        const {service, stateFile} = createTestService();
+
+        fs.writeJsonSync(stateFile, {
+            mockTask: {
+                running       : false,
+                pid           : null,
+                lastRunAt     : 0,
+                lastSuccessAt : null,
+                lastErrorAt   : null,
+                lastExitCode  : null,
+                lastReason    : null,
+                lastCompletion: null
+            }
+        });
+
+        const migrated = service.readState().mockTask;
+
+        expect(migrated.deferralStreakStartedAt).toBeNull();
+        expect('deferralStreakStartedAt' in migrated).toBe(true);
+        // ...and the field is writable from that state, so a legacy task is not stuck unmeasurable.
+        expect(service.markDeferred('mockTask')).toBeTruthy();
+    });
+
     test('NEGATIVE DIRECTION — a task that RUNS reports no deferral streak (#16561)', () => {
         // The other half of the both-directions requirement. Without it, an implementation that never
         // clears the streak passes the assertions above and reports every task as starved forever — an
