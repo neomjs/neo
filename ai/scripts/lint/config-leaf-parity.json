@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 57,
+            "remainingUniqueKeys": 58,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -96,6 +96,7 @@
                 "NEO_OLLAMA_EMBEDDING_TIMEOUT_MS",
                 "NEO_OLLAMA_HOST",
                 "NEO_OLLAMA_KEEP_ALIVE",
+                "NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS",
                 "NEO_OLLAMA_MODEL",
                 "NEO_OLLAMA_REQUIRE_PARALLEL_MODELS",
                 "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
@@ -225,6 +226,7 @@
         "ollama.embeddingTimeoutMs",
         "ollama.host",
         "ollama.keep_alive",
+        "ollama.maxInFlightEmbeddings",
         "ollama.model",
         "ollama.requireParallelModels",
         "openAiCompatible",

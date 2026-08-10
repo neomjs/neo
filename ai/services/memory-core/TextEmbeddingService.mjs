@@ -552,6 +552,14 @@ class TextEmbeddingService extends Base {
     #openAiCompatiblePostQueue       = [];
     #openAiCompatiblePostQueueActive = false;
 
+    // Native Ollama admission control. The openAiCompatible path has been serialized since
+    // `#openAiCompatiblePostQueue` existed; this path reached the provider through
+    // `observeUnqueuedProviderActivity` — which observes and does NOT admit — so its concurrency was
+    // emergent from caller count. Four callers meant four resident-model requests, which is the
+    // observed shape on a real plane rather than a hypothetical one.
+    #ollamaInFlightEmbeddings = 0;
+    #ollamaEmbeddingWaiters   = [];
+
     /**
      * @param {Object} config The configuration object.
      */
@@ -1265,6 +1273,148 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Attempts to admit one native Ollama embedding request without yielding.
+     *
+     * The cap is read from the SSOT at the use site on every admission, not captured once, so an
+     * operator override takes effect on the next request rather than at the next process start.
+     *
+     * The ConfigProvider leaf rejects invalid persisted/env values. This use-site backstop also covers
+     * direct runtime mutation: a fractional cap would report one number while admitting its ceiling,
+     * and a non-finite cap can turn the queue into either an unbounded path or a permanent stall.
+     * @returns {Boolean} True when the caller acquired a slot.
+     * @private
+     */
+    #tryAcquireOllamaEmbeddingSlot() {
+        const cap = aiConfig.ollama.maxInFlightEmbeddings;
+
+        if (!Number.isInteger(cap) || cap < 1) {
+            throw new Error(`TextEmbeddingService: ollama.maxInFlightEmbeddings must be a positive integer, got ${cap}`);
+        }
+
+        if (this.#ollamaInFlightEmbeddings < cap) {
+            this.#ollamaInFlightEmbeddings++;
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Wakes the longest-waiting native Ollama embedding caller, if any.
+     * @returns {void}
+     * @private
+     */
+    #wakeNextOllamaEmbeddingWaiter() {
+        const waiter = this.#ollamaEmbeddingWaiters.shift();
+
+        if (!waiter) return;
+
+        waiter.cleanup();
+        waiter.resolve()
+    }
+
+    /**
+     * @summary Waits for the next admission retry while keeping caller cancellation live.
+     * @param {AbortSignal|undefined} signal Caller-owned cancellation signal.
+     * @param {String} operationLabel Bounded diagnostic label.
+     * @param {Object} operation Mutable local-phase observability record.
+     * @returns {Promise<void>}
+     * @private
+     */
+    #waitForOllamaEmbeddingWake(signal, operationLabel, operation) {
+        return new Promise((resolve, reject) => {
+            let settled = false;
+
+            const waiter  = {};
+            const cleanup = () => signal?.removeEventListener('abort', onAbort);
+            const settle  = (fn, value) => {
+                if (settled) return;
+
+                settled = true;
+                cleanup();
+                fn(value)
+            };
+            const onAbort = () => {
+                const index = this.#ollamaEmbeddingWaiters.indexOf(waiter);
+
+                if (index !== -1) {
+                    this.#ollamaEmbeddingWaiters.splice(index, 1)
+                }
+
+                const error = getEmbeddingAbortError(signal, operationLabel);
+
+                operation.callerAbortError = error;
+                operation.phase            = 'caller-aborted-awaiting-admission';
+                settle(reject, error)
+            };
+
+            waiter.cleanup = cleanup;
+            waiter.resolve = () => settle(resolve);
+
+            this.#ollamaEmbeddingWaiters.push(waiter);
+            signal?.addEventListener('abort', onAbort, {once: true});
+
+            if (signal?.aborted) onAbort()
+        })
+    }
+
+    /**
+     * @summary Waits for a slot. Only reached when the cap actually binds.
+     *
+     * Split from the synchronous attempt above deliberately. An `await` before dispatch — even one
+     * that resolves immediately — hands control back to the caller, and a caller that aborts on the
+     * next line then cancels the request BEFORE the provider is reached. The provider-neutral cancellation
+     * contract asserts that an uncontended call reaches dispatch before that next-line abort; an
+     * unconditional await broke it by preventing dispatch entirely. Admission must be FREE when there
+     * is room, or it silently re-times every caller's cancellation.
+     * @param {AbortSignal|undefined} signal Caller-owned cancellation signal.
+     * @param {String} operationLabel Bounded diagnostic label.
+     * @param {Object} operation Mutable local-phase observability record.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #awaitOllamaEmbeddingSlot(signal, operationLabel, operation) {
+        // Re-check per iteration rather than trusting the value that queued us. A raised cap does
+        // NOT proactively wake anyone — nothing watches the config — but the next admission
+        // attempt, whether a fresh caller or a woken waiter, reads the current number.
+        let consumedWake = false;
+
+        while (true) {
+            let admitted;
+
+            try {
+                throwIfEmbeddingAborted(signal, operationLabel, operation);
+                admitted = this.#tryAcquireOllamaEmbeddingSlot();
+            } catch (error) {
+                // A caller can abort after a release selected it but before its retry microtask runs.
+                // It consumed a wake without acquiring the slot, so hand that wake to the next waiter.
+                // The same rule covers a queued caller that wakes into a newly-invalid cap.
+                if (consumedWake) this.#wakeNextOllamaEmbeddingWaiter();
+                throw error;
+            }
+
+            if (admitted) return;
+
+            consumedWake = false;
+            await this.#waitForOllamaEmbeddingWake(signal, operationLabel, operation);
+            consumedWake = true;
+        }
+    }
+
+    /**
+     * @summary Releases one native Ollama embedding slot and wakes the longest-waiting caller.
+     *
+     * Wired to both provider-settlement arms, so an aborted or thrown provider request returns its slot.
+     * A release that only ran on success would leak the cap down to zero after N failures and stall the
+     * path completely — turning an admission control into an outage, silently.
+     * @private
+     */
+    #releaseOllamaEmbeddingSlot() {
+        this.#ollamaInFlightEmbeddings--;
+        this.#wakeNextOllamaEmbeddingWaiter()
+    }
+
+    /**
      * @summary Runs native Ollama embedding while separating caller abort from provider settlement.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
@@ -1283,8 +1433,26 @@ class TextEmbeddingService extends Base {
             requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs(),
             providerOutcome  = {state: 'pending'};
 
-        operation.phase = 'in-flight';
-        throwIfEmbeddingAborted(signal, operationLabel, operation);
+        // Admission before the provider call. The uncontended path takes the synchronous branch and
+        // does NOT await — see `#awaitOllamaEmbeddingSlot` for why an unconditional await silently
+        // re-times every caller's cancellation.
+        //
+        // Waiting for a slot is its own phase: without it, a request queued behind the cap is
+        // indistinguishable from one the provider is slow to answer.
+        if (!this.#tryAcquireOllamaEmbeddingSlot()) {
+            operation.phase = 'awaiting-admission';
+            await this.#awaitOllamaEmbeddingSlot(signal, operationLabel, operation);
+        }
+
+        try {
+            operation.phase = 'in-flight';
+            throwIfEmbeddingAborted(signal, operationLabel, operation);
+        } catch (error) {
+            // Already-aborted callers must return the slot they just took, or an abort storm walks
+            // the cap down to zero and stalls the path.
+            this.#releaseOllamaEmbeddingSlot();
+            throw error;
+        }
 
         if (identityTexts !== null) {
             recordEmbeddingSubmissions(providerActivityRecorder, identityTexts);
@@ -1326,6 +1494,16 @@ class TextEmbeddingService extends Base {
             }
         });
 
+        // Release when the PROVIDER settles, NOT when the caller does. This path deliberately lets a
+        // caller settle on abort while its provider request keeps running — so releasing on caller
+        // completion would free a slot whose request is still in flight, and an abort storm would put
+        // N concurrent requests through a cap of 1. Both handlers attached, so this derived promise
+        // cannot reject unhandled.
+        providerPromise.then(
+            () => this.#releaseOllamaEmbeddingSlot(),
+            () => this.#releaseOllamaEmbeddingSlot()
+        );
+
         return settleCallerWhileProviderContinues({
             providerPromise,
             signal,
@@ -1333,6 +1511,24 @@ class TextEmbeddingService extends Base {
             operation,
             providerOutcome
         });
+    }
+
+    /**
+     * @summary Reports native Ollama embedding admission: the declared cap and what is using it.
+     *
+     * A concurrency must be declared AND reported to be worth anything. A cap nothing can observe
+     * is only half the repair: an operator seeing sustained provider load still cannot tell whether
+     * this process is at its limit or nowhere near it, which is the disproportion the whole ticket
+     * is about. `waiting` is the load-bearing field — in-flight at the cap with a queue behind it is
+     * a saturated path, while in-flight at the cap with nothing waiting is simply a busy one.
+     * @returns {{cap: Number, inFlight: Number, waiting: Number}}
+     */
+    getOllamaEmbeddingAdmission() {
+        return {
+            cap     : aiConfig.ollama.maxInFlightEmbeddings,
+            inFlight: this.#ollamaInFlightEmbeddings,
+            waiting : this.#ollamaEmbeddingWaiters.length
+        }
     }
 
     /**
