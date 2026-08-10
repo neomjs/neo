@@ -136,7 +136,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // TIER-1-OWNED leaves (auth.*, backupPath) — post-split the child no longer declares them,
         // so env precedence lives at the OWNER. Build a fresh realm root WITH the env set and
         // register it so the child inherits the override up the getParent() chain.
-        const prevRoot  = Neo.ai?.Config;
+        const prevRoot = Neo.ai?.Config;
         delete Neo.ai.Config;
         const freshRoot = Neo.create(RootConfigBase);
         Neo.ai.Config   = freshRoot;
@@ -152,6 +152,144 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             if (prevRoot === undefined) {delete Neo.ai.Config} else {Neo.ai.Config = prevRoot}
             freshKB.destroy();
             freshRoot.destroy();
+        }
+    });
+
+    test('embedding-batch recovery levers keep their defaults when no env is set', () => {
+        // The defaults are correct for a healthy plane and this change adds reachability, not new
+        // behavior. A deployment that sets none of the three must be byte-identical to before.
+        delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+        delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+        delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+
+        const defaultKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(defaultKB.batchSize) .toBe(50);
+            expect(defaultKB.batchDelay).toBe(10000);
+            expect(defaultKB.maxRetries).toBe(5);
+        } finally {
+            defaultKB.destroy();
+        }
+    });
+
+    test('embedding-batch recovery levers are env-overridable so an operator can shrink the durable unit', () => {
+        // `batchSize` is the durable unit ON THE FAILURE ARM: `VectorService.embedChunks` embeds a
+        // whole slice in one provider call and upserts only after it returns, so a provider failure
+        // loses the whole slice. (A cooperative yield is the exception — it persists the prefix it
+        // already paid for.) Every dial shaping an individual provider request was already reachable
+        // (`NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE`, the timeouts) while every dial shaping
+        // the unit that must succeed together was not — so an operator whose corpus will not start
+        // could make each request smaller and still not shrink the bet. These three close that.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '1';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '2';
+
+        const freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            // Typed as numbers by the leaf's own env decoding — a string here would mean the `'number'`
+            // type argument was dropped, which reads correct and silently breaks the `i += batchSize`
+            // loop arithmetic.
+            expect(freshKB.batchSize) .toBe(1);
+            expect(freshKB.batchDelay).toBe(0);
+            expect(freshKB.maxRetries).toBe(2);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            freshKB.destroy();
+        }
+    });
+
+    test('embedding-batch levers REFUSE operationally invalid values rather than accepting them as smaller', () => {
+        // Making a knob reachable makes its whole domain reachable. `number` would accept every value
+        // below, and each one breaks the consumer in a way that does not look like a config error:
+        // `batchSize: 0` is the loop stride, so `i += 0` never advances and the sweep hangs forever;
+        // `maxRetries: 0` skips the retry loop entirely and returns a clean zero-embedded result with
+        // no provider call at all. Neither is a "smaller" setting — they are broken ones, which is why
+        // the domain lives on the leaf type (as `port`'s does) rather than in a consumer-side guard.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '0';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '-1';
+
+        const invalidKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(invalidKB.batchSize) .toBe(50);
+            expect(invalidKB.maxRetries).toBe(5);
+            expect(invalidKB.batchDelay).toBe(10000);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            invalidKB.destroy();
+        }
+    });
+
+    test('MUTATION-BINDING — a FRACTIONAL value is refused, which is what makes the integer check load-bearing', () => {
+        // This test exists because the suite above did NOT bind the implementation. @neo-gpt-emmy
+        // replaced `Number.isInteger` with `Number.isFinite` in an exact-head tree and the focused
+        // suite stayed 11/11 green: every value it exercised (0, 0, -1) is rejected by BOTH predicates
+        // on the `< min` branch alone, so the integer check was never the reason anything failed.
+        //
+        // A fraction is the single input that separates them. `2.5` is finite and >= min, so only
+        // `Number.isInteger` refuses it — swap the predicate and this test reddens, which is the
+        // property the previous negative matrix claimed and did not have.
+        //
+        // It is not a pedantic case either: `batchSize` is a loop stride (`i += 2.5` desynchronises
+        // every slice boundary) and `maxRetries` is a countdown bound.
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '2.5';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '1.5';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '10.25';
+
+        const fractionalKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(fractionalKB.batchSize) .toBe(50);
+            expect(fractionalKB.maxRetries).toBe(5);
+            expect(fractionalKB.batchDelay).toBe(10000);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+            delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            fractionalKB.destroy();
+        }
+    });
+
+    test('MUTATION-BINDING — non-finite and non-numeric values fall back rather than poisoning the config', () => {
+        // The other untested half. `Number('Infinity')` is finite-checked away, but `Number('abc')` is
+        // NaN and NaN fails every comparison silently — `NaN < min` is false, so a predicate that
+        // only compared bounds would ADMIT it and hand the consumer a NaN stride. The loop would then
+        // neither advance nor throw.
+        for (const [raw, label] of [['Infinity', 'Infinity'], ['-Infinity', '-Infinity'], ['NaN', 'NaN'], ['abc', 'non-numeric'], ['', 'empty']]) {
+            process.env.NEO_KB_EMBEDDING_BATCH_SIZE = raw;
+
+            const poisonKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+            try {
+                expect(poisonKB.batchSize, `${label} must fall back to the leaf default`).toBe(50);
+                expect(Number.isInteger(poisonKB.batchSize), `${label} must not yield a non-integer`).toBe(true);
+            } finally {
+                delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
+                poisonKB.destroy();
+            }
+        }
+    });
+
+    test('batchDelay accepts 0 — it is a legitimate setting, not an invalid one', () => {
+        // The distinction the two types encode. Step 3.6 of the operator runbook explicitly tells an
+        // operator to set this to 0 when shrinking the batch, so rejecting it would break the
+        // documented recovery procedure. `positiveInt` for a stride, `nonNegativeInt` for a delay.
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '0';
+
+        const zeroDelayKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            expect(zeroDelayKB.batchDelay).toBe(0);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            zeroDelayKB.destroy();
         }
     });
 

@@ -13,10 +13,15 @@ const typeParsers = {
     boolean  : Env.parseBool,
     csv      : Env.parseCsv,
     keepAlive: Env.parseKeepAlive,
-    number   : Env.parseNumber,
-    port     : Env.parsePort,
-    string   : Env.parseString,
-    url      : Env.parseUrl
+    // The PARSER is what enforces these domains, not the validator beside it: `#validateLeafValue`
+    // only warns and keeps the value, so returning `undefined` here is the only thing that makes an
+    // out-of-domain env value fall back to the leaf default. Same mechanism `port` relies on.
+    nonNegativeInt: (name, opts) => Env.parseIntAtLeast(name, {...opts, min: 0}),
+    number        : Env.parseNumber,
+    port          : Env.parsePort,
+    positiveInt   : (name, opts) => Env.parseIntAtLeast(name, {...opts, min: 1}),
+    string        : Env.parseString,
+    url           : Env.parseUrl
 };
 
 /**
@@ -28,10 +33,29 @@ const typeParsers = {
 const typeValidators = {
     boolean: value => typeof value === 'boolean',
     csv    : value => Array.isArray(value) && value.every(item => typeof item === 'string'),
-    number : value => typeof value === 'number' && !Number.isNaN(value),
-    port   : value => Number.isInteger(value) && value >= 0 && value <= 65535,
-    string : value => typeof value === 'string',
-    url    : value => typeof value === 'string'
+    // Counts an operator may tune where 0 is a legitimate setting (a delay, a grace window).
+    nonNegativeInt: value => Number.isInteger(value) && value >= 0,
+    number        : value => typeof value === 'number' && !Number.isNaN(value),
+    port          : value => Number.isInteger(value) && value >= 0 && value <= 65535,
+    // Counts where 0 or a negative is not a smaller setting but a BROKEN one — a loop stride, an
+    // attempt budget. `number` would accept them and the damage surfaces far from the config: a
+    // stride of 0 does not shrink a batch, it never advances the loop.
+    //
+    // WHERE THE DOMAIN IS ACTUALLY ENFORCED, because the two halves are not symmetric and an earlier
+    // version of this comment claimed they were:
+    //
+    //   - the PARSER (`typeParsers` above, `Env.parseIntAtLeast`) is the enforcement. An
+    //     out-of-domain env value returns `undefined`, so the leaf default stands and no consumer
+    //     ever sees the bad number. This is the path an operator's typo takes.
+    //   - the VALIDATOR here is ADVISORY. `#validateLeafValue` warns and KEEPS the value — its own
+    //     JSDoc says so. It surfaces a programmatic write to a known leaf; it does not reject one.
+    //
+    // Both are worth having and they answer different questions. Describing the validator as
+    // rejecting is the mistake to avoid: a reader who believes the write path is closed will skip
+    // the parser, which is the half that actually protects the consumer.
+    positiveInt: value => Number.isInteger(value) && value >= 1,
+    string     : value => typeof value === 'string',
+    url        : value => typeof value === 'string'
 };
 
 /**

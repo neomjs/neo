@@ -144,6 +144,37 @@ const Env = {
     },
 
     /**
+     * Decode env value as an integer at or above `min`, falling back when it is not.
+     *
+     * The falling-back is the whole point and it belongs in the PARSER, not a validator: the
+     * ConfigProvider's type validators only `console.warn` and keep the value, so a domain expressed
+     * there is advisory. Returning `undefined` here is what makes the leaf keep its default —
+     * the same mechanism {@link parsePort} uses for its 1..65535 range.
+     *
+     * Exists for counts where a below-range value is not a smaller setting but a broken one: a loop
+     * stride of `0` does not shrink a batch, it stops the loop advancing; an attempt budget of `0`
+     * skips the work entirely and reports success. `min = 1` for a stride or a budget, `min = 0`
+     * for a delay or a grace window where zero is a legitimate operator choice.
+     *
+     * @param {String} envVarName
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @param {Number} [opts.min=1] Smallest accepted value.
+     * @param {Function} [opts.warn=console.warn]
+     * @returns {Number|undefined}
+     */
+    parseIntAtLeast(envVarName, {env = process.env, min = 1, warn = console.warn} = {}) {
+        const rawValue = env[envVarName];
+        if (Neo.isEmpty(rawValue)) return;
+        const num = Number(rawValue);
+        if (!Number.isInteger(num) || num < min) {
+            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be an integer >= ${min}); falling back.`);
+            return;
+        }
+        return num;
+    },
+
+    /**
      * Identity passthrough — reads `env[envVarName]` and returns the raw string (or
      * undefined if absent/empty). Signals "we explicitly want the raw string".
      * @param {String} envVarName
