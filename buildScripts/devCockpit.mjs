@@ -27,8 +27,11 @@
  * The launch contract (bearer half): this launcher IS the cockpit launch path — it generates the
  * one process-lifetime bearer in its own memory and hands it to the fleet child via env
  * (`NEO_FLEET_BEARER`, the in-memory channel), never via URL, log, or file. The browser side then
- * receives it through the worker-realm injector (`ViewportController.wireFleetBridge`) — the
- * Neural Link / Electron seam — so no secret ever persists anywhere restartable.
+ * redeems it itself over the armed handshake (`NEO_FLEET_BEARER_HANDSHAKE` →
+ * `GET /fleet/handshake`, exact-Origin-gated): the page fills its designed in-memory slot before
+ * app boot with no agent in the loop, so no secret ever persists anywhere restartable. The
+ * worker-realm injector (`ViewportController.wireFleetBridge`) stays the explicit-selection seam
+ * for Neural Link / tooling flows.
  *
  * Signals: SIGINT/SIGTERM forward to every child this launcher spawned; a webpack exit tears the
  * session down; a fleet-server exit logs loudly while the cockpit degrades to its honest
@@ -216,8 +219,12 @@ async function main() {
             // a malformed override is ignored — the production default stands
         }
 
+        // NEO_FLEET_BEARER_HANDSHAKE: this launcher opens the page AND holds the bearer, so it is
+        // the one place arming the browser handshake is a coherent custody decision — the page the
+        // webpack child opens redeems the secret itself (apps/agentos/fleet/redeemFleetBearerHandshake.mjs),
+        // closing the launcher→page hand-off without an agent seam.
         const fleet = spawn(fleetCmd[0], fleetCmd.slice(1), {
-            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer},
+            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer, NEO_FLEET_BEARER_HANDSHAKE: '1'},
             stdio: 'inherit'
         });
 

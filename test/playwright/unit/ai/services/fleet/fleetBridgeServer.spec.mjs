@@ -266,6 +266,93 @@ test.describe('fleetBridgeServer — the authenticated Fleet ingress', () => {
         expect(seen).toEqual([])
     });
 
+    test('UNARMED (default): GET /fleet/handshake has no special admission — 401 bearer-less, 404 authenticated, bearer never in a body', async () => {
+        await startServer();
+
+        // Bearer-less with a perfect cockpit Origin: the unarmed guard has no handshake branch, so
+        // the request falls through to the bearer gate exactly like any other GET.
+        const bearerless = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Origin: 'http://localhost:8080'}});
+
+        expect(bearerless.status).toBe(401);
+        expect(bearerless.body).not.toContain(bearer);
+
+        // Authenticated: the path is not a served route on an unarmed server — fail-closed 404.
+        const authenticated = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Authorization: `Bearer ${bearer}`, Origin: 'http://localhost:8080'}});
+
+        expect(authenticated.status).toBe(404);
+        expect(authenticated.body).not.toContain(bearer);
+        expect(seen).toEqual([])
+    });
+
+    test('ARMED: an exact-allowlisted browser Origin redeems the process bearer — no-store, connection-close, exact-origin echo', async () => {
+        await startServer({bearerHandshake: true});
+
+        const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Origin: 'http://localhost:8080'}});
+
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ok: true, result: {bearerToken: bearer}});
+        expect(res.headers['access-control-allow-origin']).toBe('http://localhost:8080');
+        expect(res.headers['vary']).toBe('Origin');
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.headers['connection']).toBe('close');
+        expect(seen, 'a redemption never reaches dispatch').toEqual([]);
+        expect(contexts, 'a redemption never enters the context boundary').toEqual([])
+    });
+
+    test('ARMED: redemption stays available while armed — a page reload is a normal cockpit operation, not a lockout', async () => {
+        await startServer({bearerHandshake: true});
+
+        for (const attempt of [1, 2]) {
+            const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Origin: 'http://127.0.0.1:8080'}});
+
+            expect(res.status, `redemption ${attempt}`).toBe(200);
+            expect(JSON.parse(res.body).result.bearerToken, `redemption ${attempt}`).toBe(bearer)
+        }
+    });
+
+    test('ARMED: an ABSENT Origin is refused — stricter than preflight, because only a browser page has business here', async () => {
+        await startServer({bearerHandshake: true});
+
+        const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {}});
+
+        expect(res.status).toBe(403);
+        expect(res.body).toContain('allowlisted browser origin');
+        expect(res.body).not.toContain(bearer)
+    });
+
+    test('ARMED: foreign and literal-null Origins are refused with no CORS grant and no bearer', async () => {
+        await startServer({bearerHandshake: true});
+
+        for (const origin of ['http://evil.example', 'null']) {
+            const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Origin: origin}});
+
+            expect(res.status, `origin ${origin}`).toBe(403);
+            expect(res.headers['access-control-allow-origin'], `origin ${origin} gets no grant`).toBeUndefined();
+            expect(res.body, `origin ${origin} never sees the bearer`).not.toContain(bearer)
+        }
+    });
+
+    test('ARMED: a spoofed Host is refused before the handshake branch — the Host gate outranks arming', async () => {
+        await startServer({bearerHandshake: true});
+
+        const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Host: 'evil.example:8083', Origin: 'http://localhost:8080'}});
+
+        expect(res.status).toBe(403);
+        expect(res.body).not.toContain(bearer)
+    });
+
+    test('ARMED: only the exact GET /fleet/handshake redeems — sibling paths and POST fall through to the bearer gate', async () => {
+        await startServer({bearerHandshake: true});
+
+        const sibling = await rawRequest({method: 'GET', path: '/fleet/handshakex', headers: {Origin: 'http://localhost:8080'}});
+        expect(sibling.status).toBe(401);
+        expect(sibling.body).not.toContain(bearer);
+
+        const post = await rawRequest({method: 'POST', path: '/fleet/handshake', headers: {Origin: 'http://localhost:8080'}, body: '{}'});
+        expect(post.status).toBe(401);
+        expect(post.body).not.toContain(bearer)
+    });
+
     test('delayed concurrent A/B: request contexts never leak or swap across in-flight requests', async () => {
         // Two servers with DISTINCT viewers share one real AsyncLocalStorage. The slow request
         // resolves after the fast one has entered and left the store; each dispatch reads the store

@@ -150,8 +150,10 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
                 // probe means the bearer hand-down happened. No graph needed (stub viewer).
                 NEO_COCKPIT_FLEET_CMD: JSON.stringify([process.execPath, '--input-type=module', '-e',
                     // absolute specifiers (CWD-independent) + the Neo namespace bootstrap the fleet
-                    // module chain requires at load — the same entry-point invariant devFleetServer keeps
-                    `const root = ${JSON.stringify(repoRoot)}; await import(root + '/src/Neo.mjs'); await import(root + '/src/core/_export.mjs'); await import(root + '/src/manager/Instance.mjs'); const {startFleetBridgeServer} = await import(root + '/ai/services/fleet/fleetBridgeServer.mjs'); const server = await startFleetBridgeServer({port: 8083, bearerToken: process.env.NEO_FLEET_BEARER, viewerContext: {userId: 'cockpit-fixture', username: 'Cockpit Fixture', agentIdentityNodeId: '@cockpit-fixture'}, runInContext: (context, fn) => fn()}); ['SIGTERM', 'SIGINT'].forEach(signal => process.on(signal, () => server.close(() => process.exit(0))))`
+                    // module chain requires at load — the same entry-point invariant devFleetServer keeps.
+                    // The fixture consumes BOTH env halves of the launch contract exactly like
+                    // devFleetServer: the bearer and the handshake arm flag.
+                    `const root = ${JSON.stringify(repoRoot)}; await import(root + '/src/Neo.mjs'); await import(root + '/src/core/_export.mjs'); await import(root + '/src/manager/Instance.mjs'); const {startFleetBridgeServer} = await import(root + '/ai/services/fleet/fleetBridgeServer.mjs'); const server = await startFleetBridgeServer({port: 8083, bearerToken: process.env.NEO_FLEET_BEARER, bearerHandshake: process.env.NEO_FLEET_BEARER_HANDSHAKE === '1', viewerContext: {userId: 'cockpit-fixture', username: 'Cockpit Fixture', agentIdentityNodeId: '@cockpit-fixture'}, runInContext: (context, fn) => fn()}); ['SIGTERM', 'SIGINT'].forEach(signal => process.on(signal, () => server.close(() => process.exit(0))))`
                 ])
             },
             stdio: ['ignore', 'pipe', 'pipe']
@@ -166,7 +168,22 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
             // default endpoint with zero manual server starts
             await expect.poll(async () => (await probeFleetEndpoint(8083)).status, {timeout: 30000}).toBe('fleet');
 
-            expect(output).toContain('starting fleet transport on :8083')
+            expect(output).toContain('starting fleet transport on :8083');
+
+            // The one-command hand-off, witnessed end-to-end through the REAL launcher: the
+            // launcher armed the child (NEO_FLEET_BEARER_HANDSHAKE), so a browser-Origin redemption
+            // returns a canonical bearer — and the redeemed value is proven by USE: the
+            // constant-time bearer gate on /fleet/probe admits it. Redeem → use, no agent seam.
+            const redemption = await fetch('http://127.0.0.1:8083/fleet/handshake', {headers: {Origin: 'http://localhost:8080'}}),
+                  {result}   = await redemption.json();
+
+            expect(redemption.status).toBe(200);
+            expect(result.bearerToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+            const probeWithRedeemed = await fetch('http://127.0.0.1:8083/fleet/probe', {headers: {Authorization: `Bearer ${result.bearerToken}`}});
+
+            expect(probeWithRedeemed.status).toBe(200);
+            expect((await probeWithRedeemed.json()).result.agentIdentityNodeId).toBe('@cockpit-fixture')
         } finally {
             // supervision teardown: one SIGTERM to the launcher ends the whole session
             const exited = new Promise(resolve => launcher.on('exit', resolve));
