@@ -1512,6 +1512,89 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         )).toBe('complete');
     });
 
+    test('a repeated manual full replay of an unchanged EMPTY repo completes the SECOND time too (#16897)', async () => {
+        // The sibling above runs a CADENCE sweep, whose second envelope is manifest-less and incremental,
+        // so it never reaches the zero-effect chain. This one forces `fullReplay: true` on both sweeps,
+        // which rebuilds the FULL manifest each time — identical envelope, identical digest. On the second
+        // run the producer therefore reuses the STORED receipt, whose attempt is already committed:
+        // `provesCurrentAttempt` is false (the id predates this attempt) and `provesUncommittedRetry` is
+        // false (that id IS the committed one). Both proof paths decline the same receipt for opposite
+        // reasons, and it reaches a throw describing the reverse situation.
+        //
+        // The first sweep already passes against `dev`, so a spec running ONE sweep passes against the
+        // defect. The second sweep's `completed` is the assertion that reds.
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/empty-replayed',
+            ingestCalls      = [];
+
+        await fs.writeJson(revisionsFile, {revisions: {}});
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const options = {
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/empty-replayed.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [],
+                deleted         : [],
+                headRevision    : 'sha-unchanged-empty',
+                manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: []}
+            }),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                captureCalls  : ingestCalls,
+                summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
+            }),
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile
+        };
+
+        const first = await TenantRepoSyncService.runTask(options);
+
+        expect(first.status).toBe('completed');
+        expect(first.details.repos[0]).toMatchObject({
+            status          : 'active',
+            checkpointStatus: 'complete'
+        });
+
+        const committedAttemptId = (await fs.readJson(revisionsFile))
+            .revisions[`t1/${repoSlug}`].lastCommittedMaterializationAttemptId;
+
+        expect(committedAttemptId).toBe(ingestCalls[0].payload.materializationAttempt.attemptId);
+
+        const second = await TenantRepoSyncService.runTask(options);
+
+        expect(second.status).toBe('completed');
+        expect(second.details).toMatchObject({completedCount: 1, failedCount: 0});
+        expect(second.details.repos[0]).toMatchObject({
+            status          : 'active',
+            checkpointStatus: 'complete'
+        });
+        expect(second.details.repos[0].lastErrorCode ?? null).toBeNull();
+
+        // The checkpoint stays `complete` and the committed id does NOT advance — nothing new happened,
+        // so nothing new is recorded. A repair that admitted the replay by minting a fresh committed
+        // attempt would pass the status assertions above and fail here.
+        const afterSecond = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+
+        expect(afterSecond.consecutiveFailures).toBe(0);
+        expect(afterSecond.lastCommittedMaterializationAttemptId).toBe(committedAttemptId);
+        expect(classifyTenantRepoCheckpoint(afterSecond)).toBe('complete');
+        expect(requiresTenantRepoCheckpointRevalidation(afterSecond)).toBe(false);
+
+        // Non-vacuity on the setup itself: the second sweep really drove a fresh attempt through
+        // ingestion rather than short-circuiting before it. `retryReceipt` deliberately excludes the
+        // committed id, so without these two the test could go green having never reached the predicate.
+        expect(ingestCalls).toHaveLength(2);
+        expect(ingestCalls[1].payload.materializationAttempt.attemptId).not.toBe(committedAttemptId);
+    });
+
     test('POSITIVE CONTROL — declared paths with NO effect and NO explanation still fails', async () => {
         // The defect the guard exists for, and the arm that makes the case above meaningful: paths were
         // declared, nothing landed, and nothing reported why. Without this assertion, "an empty
@@ -1692,18 +1775,38 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             lastCommittedMaterializationAttemptId: ingestCalls[0].payload.materializationAttempt.attemptId
         });
 
+        // **Narrowed 2026-08-10. This third sweep IS the committed-and-older receipt defect, not a
+        // separate invariant.** It presents an already-committed receipt on a manifest declaring no content and
+        // zero effect — `provesCurrentAttempt` is false (the id predates this attempt) and
+        // `provesUncommittedRetry` is false (that id IS the committed one), so both proof paths declined
+        // the same receipt for opposite reasons and it fell through to a throw describing the reverse
+        // situation. An operator re-syncing a correctly-empty repo got `degraded` plus a failure streak
+        // on a `complete` checkpoint.
+        //
+        // **The cause was isolated by counterfactual rather than assumed.** A companion proposal to
+        // reorder the zero-effect arms was struck as non-reachable through the real producer, and with
+        // that reordering dropped this assertion STILL flipped. So the change here is forced by naming
+        // the committed-and-older receipt state, not by any movement of the arms.
+        //
+        // **What this test owns survives, and is asserted below:** settlement happens exactly ONCE. The
+        // committed attempt id does not advance to the replay's fresh attempt, so re-presenting the same
+        // committed receipt is idempotent success rather than a second settle. The forgery teeth stay
+        // where forgery is possible: a receipt matching NEITHER the current attempt nor the committed one
+        // is still refused, and a zero-effect attempt on a NON-EMPTY manifest still cannot manufacture
+        // one — both covered by the sibling cases above.
         const staleReceiptReplay = await TenantRepoSyncService.runTask(options);
 
         expect(staleReceiptReplay).toMatchObject({
-            status : 'failed',
-            details: {
-                completedCount: 0,
-                failedCount   : 1,
-                repos         : [{
-                    lastErrorCode: 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION'
-                }]
-            }
+            status : 'completed',
+            details: {completedCount: 1, failedCount: 0}
         });
+
+        // Settle-once as IDENTITY rather than as a failure: the committed id is still the one the
+        // recovery sweep durably recorded, and did not move to this replay's attempt.
+        const afterReplay = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+        expect(afterReplay.lastCommittedMaterializationAttemptId)
+            .toBe(ingestCalls[0].payload.materializationAttempt.attemptId);
+
         expect(ingestCalls).toHaveLength(2);
         expect(ingestCalls[1].payload.materializationAttempt.attemptId)
             .not.toBe(ingestCalls[0].payload.materializationAttempt.attemptId);
