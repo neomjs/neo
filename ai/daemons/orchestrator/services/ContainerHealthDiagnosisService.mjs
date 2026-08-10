@@ -561,16 +561,28 @@ export class ContainerHealthDiagnosisService extends Base {
             memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps: memoryTimestamps, minWindowMs});
 
         if (cpuWindow.sustained) {
+            // Whether this container's ratio may speak for THIS service. See the shared subject rule
+            // beside `MEMORY_SATURATION_SCOPES`: a cgroup total aggregates PID 1 plus every fork, so
+            // a Node service running a scheduled child presents as the service saturating. The number
+            // stays reported; only its AUTHORITY is withdrawn, because `authoritative: false` cannot
+            // reach `minAuthoritativeFacts` and therefore licenses no action.
+            const cpuScope = resolveCpuSaturationScope({nodeCommand});
+
             facts.push(this.createFact({
                 type         : CONTAINER_HEALTH_FACT_TYPES.resourceSaturation,
                 serviceKey,
                 observedAt,
                 severity     : 'critical',
-                authoritative: true,
+                authoritative: cpuScope.authoritative,
                 details      : {
                     metric     : 'cpu',
-                    threshold  : this.configValues.cpuSaturationPercent,
-                    sampleCount: samples.length,
+                    // The subject the percent describes, published for the same reason the memory
+                    // fact publishes its scope: two different quantities both read as "cpu 98%", and
+                    // a consumer cannot re-derive which one it was handed.
+                    scope                   : cpuScope.scope,
+                    subjectUnavailableReason: cpuScope.reason,
+                    threshold               : this.configValues.cpuSaturationPercent,
+                    sampleCount             : samples.length,
                     // The window as MEASURED, beside the minimum enforced. Reporting only the
                     // configured value put an unobserved claim inside the evidence a heal decision
                     // reads -- the same defect as reporting the wrong threshold, one field over.
@@ -1383,6 +1395,37 @@ export function calculateDockerMemoryPercent(stats) {
 }
 
 /**
+ * @summary The saturation-SUBJECT rule, stated once for both metrics because they disagreed silently.
+ *
+ * A container ratio answers *"how busy is this container?"*. A fact keyed to a `serviceKey` asserts
+ * *"this service is saturated."* Those are different subjects whenever a container runs more than one
+ * process — and a Node service that forks a scheduled job is exactly that.
+ *
+ * **The rule, identical for both metrics:** the container ratio is a legitimate numerator for a claim
+ * about the service **only when the container has no other processes to aggregate**, which is what
+ * `nodeCommand === false` establishes. For anything else the number is real and its subject is wrong.
+ *
+ * **Where they deliberately differ, and why — this is the part that must stay written down together:**
+ *
+ * - **Memory** has somewhere else to go. The heap-observation channel publishes a subject-scoped
+ *   reading, so `resolveMemorySaturationScope` can *change numerator*, and when it cannot it emits
+ *   **nothing** — a fallback would re-create the cross-scope pair the slice removed, on precisely the
+ *   path where the channel is broken.
+ * - **CPU has no equivalent.** `processHeapObservation` publishes `rssBytes` and V8 heap fields and
+ *   nothing about CPU time; no producer in the tree emits a process-scoped CPU reading. So CPU cannot
+ *   change numerator, and its choice is a *disposition*: emit the container number **non-authoritatively**.
+ *   Container pressure is worth an operator seeing, there is no competing subject-scoped CPU fact for
+ *   it to be confused with, and removing the **authority** removes the defect while removing the
+ *   **signal** would cost real observability for nothing.
+ *
+ * These two paragraphs are co-located on purpose. The divergence above was previously implicit — the
+ * memory path grew a subject check and CPU kept the container ratio four lines away, with nothing
+ * between them saying so, and it took an unrelated observation on a live plane to surface it. A
+ * layout that needs an accident to reveal a contradiction is the defect; consistency achieved in two
+ * places that never reference each other is not consistency.
+ */
+
+/**
  * Which memory a `memory-saturation` percent describes. Published on the fact because the two are
  * different quantities that both read as "memory 91%".
  * @type {Object}
@@ -1392,6 +1435,47 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
     heap       : 'heap',
     unavailable: 'unavailable'
 });
+
+/**
+ * Which CPU a `resource-saturation` percent describes — the sibling of {@link MEMORY_SATURATION_SCOPES}.
+ *
+ * - **`container`** — the container is the subject. Its ratio describes the service, and the fact is
+ *   authoritative.
+ * - **`unattributable`** — the container may aggregate processes beyond the service (a Node service
+ *   that forks, or a service whose identity could not be read). The number is still reported, and it
+ *   is **not** authoritative.
+ * @type {Object}
+ */
+export const CPU_SATURATION_SCOPES = Object.freeze({
+    container     : 'container',
+    unattributable: 'unattributable'
+});
+
+/**
+ * @summary Decides whether a container CPU ratio may speak for the service it is keyed to.
+ *
+ * Mirrors `resolveMemorySaturationScope`'s gate deliberately: **`nodeCommand === false` is the ONLY
+ * thing that licenses the container ratio.** An absent or unreadable identity resolves to
+ * `unattributable` rather than to `container` — an unknown service must not be able to manufacture an
+ * authoritative fact, which is the failure the memory path already paid for once.
+ *
+ * @param {Object} options
+ * @param {Boolean|null} [options.nodeCommand] Whether the container's `Config.Cmd` is Node.
+ * @returns {{scope: String, authoritative: Boolean, reason: String|null}}
+ */
+export function resolveCpuSaturationScope({nodeCommand} = {}) {
+    if (nodeCommand === false) {
+        return {scope: CPU_SATURATION_SCOPES.container, authoritative: true, reason: null};
+    }
+
+    return {
+        scope        : CPU_SATURATION_SCOPES.unattributable,
+        authoritative: false,
+        reason       : nodeCommand === true
+            ? 'node-service-may-fork'
+            : 'service-identity-unknown'
+    }
+}
 
 /**
  * @summary Decides which numerator this service's memory saturation may legitimately use.

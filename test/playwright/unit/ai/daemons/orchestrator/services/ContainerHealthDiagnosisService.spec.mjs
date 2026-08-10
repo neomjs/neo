@@ -1,4 +1,7 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import path           from 'node:path';
+import process        from 'node:process';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 // The COMMITTED declarative config, imported statically. Tests resolve committed config templates
@@ -16,7 +19,9 @@ import {
     classifyServiceKey,
     isStoreBackedService,
     evaluateRestartChurn,
+    CPU_SATURATION_SCOPES,
     calculateDockerCpuPercent,
+    resolveCpuSaturationScope,
     calculateDockerMemoryPercent,
     calculateHeapSaturationPercent,
     classifyHeapExhaustion
@@ -48,6 +53,7 @@ function heapObservation({
 }
 
 const OBSERVED_AT = 1710000000000;
+const repoRoot    = path.resolve(process.cwd());
 
 function createService(config = {}) {
     return Neo.create(ContainerHealthDiagnosisService, {
@@ -1734,5 +1740,140 @@ test.describe('describeClassification — the load-independent projection (#1659
         expect(Object.hasOwn(result, 'sustained')).toBe(false);
         expect(Object.hasOwn(result, 'severity')).toBe(false);
         expect(Object.hasOwn(result, 'authoritative')).toBe(false);
+    });
+});
+
+
+/**
+ * A container CPU ratio may only speak for the service when the container has nothing else to
+ * aggregate. These drive the REAL `diagnose()` seam rather than the resolver in isolation: a spec
+ * that re-implements the disposition would pass against a tree with the production wiring deleted.
+ */
+test.describe('cpu saturation names its subject', () => {
+    /** Two samples over threshold, far enough apart to satisfy the measured sustained window. */
+    function sustainedCpu() {
+        return [
+            statsSample({cpuPercent: 98, observedAtMs: OBSERVED_AT - 40_000}),
+            statsSample({cpuPercent: 99, observedAtMs: OBSERVED_AT})
+        ];
+    }
+
+    function cpuFact(decision) {
+        return decision.facts.find(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.resourceSaturation && fact.details?.metric === 'cpu');
+    }
+
+    test('a NODE service over threshold yields a NON-authoritative fact — the cgroup aggregates its forks', () => {
+        // The live instance: an orchestrator at ~98.7% where PID 1 held ~10% and a legitimate child
+        // job held ~91%. The number is real; the subject is not the service.
+        const decision = createService().diagnose({
+            serviceKey  : 'orchestrator',
+            nodeCommand : true,
+            inspect     : runningInspect(),
+            statsSamples: sustainedCpu()
+        });
+
+        const fact = cpuFact(decision);
+
+        expect(fact, 'the fact is still emitted — the signal is kept, only its authority is withdrawn').toBeTruthy();
+        expect(fact.authoritative).toBe(false);
+        expect(fact.details.scope).toBe(CPU_SATURATION_SCOPES.unattributable);
+        expect(fact.details.subjectUnavailableReason).toBe('node-service-may-fork');
+    });
+
+    test('POSITIVE CONTROL — a non-Node container over threshold is still authoritative', () => {
+        // Without this the guard could pass by disabling the metric outright. `nodeCommand === false`
+        // is the one thing that licenses the container ratio, exactly as the memory path has it.
+        const decision = createService().diagnose({
+            serviceKey  : 'chroma',
+            nodeCommand : false,
+            inspect     : runningInspect(),
+            statsSamples: sustainedCpu()
+        });
+
+        const fact = cpuFact(decision);
+
+        expect(fact.authoritative).toBe(true);
+        expect(fact.details.scope).toBe(CPU_SATURATION_SCOPES.container);
+        expect(fact.details.subjectUnavailableReason).toBeNull();
+    });
+
+    test('an UNREADABLE identity is unattributable, never container — an unknown service cannot manufacture authority', () => {
+        // The failure the memory path already paid for: consuming a refusal as a positive
+        // classification let an unknown service produce an authoritative container-scoped fact.
+        for (const nodeCommand of [null, undefined]) {
+            const fact = cpuFact(createService().diagnose({
+                serviceKey  : 'kb',
+                nodeCommand,
+                inspect     : runningInspect(),
+                statsSamples: sustainedCpu()
+            }));
+
+            expect(fact.authoritative, `nodeCommand=${nodeCommand} must not be authoritative`).toBe(false);
+            expect(fact.details.subjectUnavailableReason).toBe('service-identity-unknown');
+        }
+    });
+
+    test('a sustained CPU fact ALONE cannot license an action on a Node service', () => {
+        // Why the flag is the whole point: `authoritative: false` cannot reach `minAuthoritativeFacts`.
+        // Before this change the same input contributed one of the two facts an authoritative
+        // classification needs, with a shallow healthcheck available as the second.
+        const decision = createService().diagnose({
+            serviceKey  : 'orchestrator',
+            nodeCommand : true,
+            inspect     : runningInspect(),
+            statsSamples: sustainedCpu()
+        });
+
+        expect(decision.facts.filter(fact => fact.authoritative)).toHaveLength(0);
+        expect(decision.actionClass ?? null).toBeNull();
+    });
+
+    test('AC-4 — the PAIRING is covered: unhealthy container PLUS sustained CPU still cannot reach the gate', () => {
+        // This is the combination the ticket is actually about, and the previous test did not cover
+        // it. `minAuthoritativeFacts` is 2, and before this change a Node service could supply a
+        // sustained CPU fact as one of them while a shallow healthcheck supplied the other — the
+        // pairing that `resolveMemorySaturationScope`'s own comment records reaching
+        // `diagnosed -> throttle-shed` on the memory side.
+        const decision = createService().diagnose({
+            serviceKey  : 'orchestrator',
+            nodeCommand : true,
+            inspect     : runningInspect({Health: {Status: 'unhealthy'}}),
+            statsSamples: sustainedCpu()
+        });
+
+        const authoritative = decision.facts.filter(fact => fact.authoritative);
+
+        expect(authoritative.length, 'the CPU fact must not be the second authoritative signature')
+            .toBeLessThan(2);
+        expect(cpuFact(decision).authoritative).toBe(false);
+    });
+
+    test('AC-5 — the two subject rules are CO-LOCATED, not merely consistent', () => {
+        // The layout defect this ticket exists to close: the memory path grew a subject check and CPU
+        // kept the container ratio four lines away with nothing between them saying so. A guard on the
+        // shared block, because "both are correct in two files that never reference each other" is the
+        // state that produced the bug.
+        const source = fs.readFileSync(
+            path.join(repoRoot, 'ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs'), 'utf8');
+
+        const sharedRule = source.indexOf('The saturation-SUBJECT rule, stated once for both metrics');
+
+        expect(sharedRule, 'the shared subject rule must exist').toBeGreaterThan(-1);
+        // It must sit immediately before BOTH scope enums, so a reader landing on either finds it.
+        expect(sharedRule).toBeLessThan(source.indexOf('MEMORY_SATURATION_SCOPES = Object.freeze'));
+        expect(sharedRule).toBeLessThan(source.indexOf('CPU_SATURATION_SCOPES = Object.freeze'));
+        // ...and it must name the divergence rather than implying the two behave identically.
+        expect(source.slice(sharedRule, sharedRule + 2600)).toContain('CPU has no equivalent');
+    });
+
+    test('the resolver mirrors the memory gate exactly, and says no', () => {
+        // Non-vacuity for the predicate itself: a resolver that returned `container` for everything
+        // would make every assertion above pass through the authoritative branch only by accident.
+        expect(resolveCpuSaturationScope({nodeCommand: false}).authoritative).toBe(true);
+        expect(resolveCpuSaturationScope({nodeCommand: true}).authoritative).toBe(false);
+        expect(resolveCpuSaturationScope({}).authoritative).toBe(false);
+        expect(resolveCpuSaturationScope({nodeCommand: false}).scope).toBe(CPU_SATURATION_SCOPES.container);
+        expect(resolveCpuSaturationScope({nodeCommand: true}).scope).toBe(CPU_SATURATION_SCOPES.unattributable);
     });
 });
