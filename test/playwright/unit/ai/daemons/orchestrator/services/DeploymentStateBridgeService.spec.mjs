@@ -42,7 +42,21 @@ const BRIDGE_CONFIG_PATHS = [
     'orchestrator.deploymentStateBridge.maxSnapshotBytes'
 ];
 
-const RUNTIME_ACCESS_CONFIG_PATHS = ['orchestrator.deploymentRuntimeAccess.allowedServices'];
+/**
+ * Every `orchestrator.deploymentRuntimeAccess` leaf this file writes.
+ *
+ * The first version of this list held `allowedServices` alone, while the suite also writes
+ * `enabled`, `composeProject` and `readOperations`. Three live writes therefore kept leaking after a
+ * repair whose whole premise is that an unnamed leaf is an unrestored leaf — the rule was stated in
+ * the same change that under-applied it, which is exactly why the control below asserts the
+ * restoration rather than trusting the list.
+ */
+const RUNTIME_ACCESS_CONFIG_PATHS = [
+    'orchestrator.deploymentRuntimeAccess.enabled',
+    'orchestrator.deploymentRuntimeAccess.composeProject',
+    'orchestrator.deploymentRuntimeAccess.allowedServices',
+    'orchestrator.deploymentRuntimeAccess.readOperations'
+];
 
 let restoreBridgeConfig,
     restoreRuntimeAccessConfig;
@@ -1973,6 +1987,47 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(infoLines[1].message).toContain('service-state changed');
 
         try { fs.unlinkSync(snapshotPath); } catch {}
+    });
+
+    /**
+     * @summary The census control — it reads THIS FILE and refuses a leaf the snapshot lists miss.
+     *
+     * Asserting that the listed leaves restore would be circular: the baseline would be built from
+     * the same list it is meant to validate, so a leaf nobody named is a leaf nobody checks. That is
+     * how the first version of this repair shipped with three live runtime-access writes still
+     * leaking while every assertion stayed green.
+     *
+     * So the source is the population. Both write-shapes this suite uses are extracted mechanically
+     * — the direct `node.leaf =` assignment and the keys of an `Object.assign(node, {...})` block —
+     * and the snapshot lists must cover the result. Adding a mutated leaf without listing it reddens
+     * here rather than surfacing three suites later in an unrelated worker.
+     */
+    test('CONTROL: the snapshot lists cover every config leaf this file writes', () => {
+        const
+            source = readFileSync(new URL(import.meta.url), 'utf8'),
+            listed = new Set([...BRIDGE_CONFIG_PATHS, ...RUNTIME_ACCESS_CONFIG_PATHS]),
+            found  = new Set();
+
+        for (const node of ['deploymentStateBridge', 'deploymentRuntimeAccess']) {
+            const prefix = `orchestrator.${node}`;
+
+            for (const [, leaf] of source.matchAll(new RegExp(`AiConfig\\.orchestrator\\.${node}\\.([a-zA-Z][a-zA-Z0-9]*)\\s*=(?![=>])`, 'g'))) {
+                found.add(`${prefix}.${leaf}`);
+            }
+
+            for (const [, block] of source.matchAll(new RegExp(`Object\\.assign\\(AiConfig\\.orchestrator\\.${node},\\s*\\{([^}]*)\\}`, 'g'))) {
+                for (const [, leaf] of block.matchAll(/^\s*([a-zA-Z][a-zA-Z0-9]*)\s*:/gm)) {
+                    found.add(`${prefix}.${leaf}`);
+                }
+            }
+        }
+
+        // Non-vacuity: a regex that matched nothing would pass this test silently, which is the
+        // exact defect class it exists to catch.
+        expect(found.size, 'the extractor must actually find the suite\'s writes').toBeGreaterThan(5);
+
+        expect([...found].filter(leaf => !listed.has(leaf)), 'mutated but not snapshotted — it will leak into the next spec in this worker')
+            .toEqual([]);
     });
 });
 
