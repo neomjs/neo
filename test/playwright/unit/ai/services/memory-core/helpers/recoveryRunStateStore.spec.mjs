@@ -1,9 +1,16 @@
-import {test, expect}                            from '@playwright/test';
-import Neo                                       from '../../../../../../../src/Neo.mjs';
-import * as core                                 from '../../../../../../../src/core/_export.mjs';
-import {mkdtemp, rm, readdir, utimes, writeFile} from 'fs/promises';
-import os                                        from 'os';
-import path                                      from 'path';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
+import {
+    mkdtemp,
+    rm,
+    readdir,
+    readFile,
+    utimes,
+    writeFile
+} from 'fs/promises';
+import os   from 'os';
+import path from 'path';
 
 import {
     appendRecoveryRunState,
@@ -296,6 +303,75 @@ test.describe('RecoveryRunStateStore', () => {
 
         const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 1});
         expect(recent[0].recoveryRunId).toBe('recovery-graph');
+    });
+
+    test('a displaced dispatched audit publishes the exact `heldAtWrite: false` source record to every state proof', async () => {
+        const nodes    = [];
+        const filePath = await appendRecoveryRunState(runEntry('recovery-displaced', 2100, {
+            details: {heldAtAppend: true}
+        }), {
+            dir                    : tmpDir,
+            isAuthorityHeld        : () => false,
+            preserveOnAuthorityLoss: true,
+            graphService           : {
+                async upsertNode(node) {
+                    nodes.push(node);
+                }
+            }
+        });
+
+        const sourceRecord = JSON.parse((await readFile(filePath, 'utf8')).trim().split('\n').at(-1));
+        const stateProofs  = nodes.filter(node => [
+            RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRun,
+            RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState
+        ].includes(node.type));
+
+        expect(sourceRecord.heldAtWrite).toBe(false);
+        expect(stateProofs).toHaveLength(2);
+        expect(stateProofs.every(node => node.properties.heldAtWrite === false)).toBe(true);
+
+        const [remoteProof] = selectRecoveryRunGraphRecords(nodes);
+        expect(remoteProof).toMatchObject({
+            heldAtWrite: false,
+            details    : {heldAtAppend: true}
+        });
+    });
+
+    test('an admitted audit publishes `heldAtWrite: true` from source to graph', async () => {
+        const nodes    = [];
+        const filePath = await appendRecoveryRunState(runEntry('recovery-held', 2200), {
+            dir            : tmpDir,
+            isAuthorityHeld: () => true,
+            graphService   : {
+                async upsertNode(node) {
+                    nodes.push(node);
+                }
+            }
+        });
+
+        const sourceRecord  = JSON.parse((await readFile(filePath, 'utf8')).trim().split('\n').at(-1));
+        const [remoteProof] = selectRecoveryRunGraphRecords(nodes);
+
+        expect(sourceRecord.heldAtWrite).toBe(true);
+        expect(remoteProof.heldAtWrite).toBe(true);
+    });
+
+    test('legacy or unstamped graph provenance is `unknown`, never inferred from `details.heldAtAppend`', () => {
+        const currentNodes = createRecoveryRunGraphNodes(runEntry('recovery-unstamped', 2300, {
+            details: {heldAtAppend: true}
+        }));
+        const legacyState = structuredClone(currentNodes.find(
+            node => node.type === RECOVERY_RUN_GRAPH_NODE_TYPES.recoveryRunState
+        ));
+
+        delete legacyState.properties.heldAtWrite;
+
+        const [current] = selectRecoveryRunGraphRecords(currentNodes),
+              [legacy]  = selectRecoveryRunGraphRecords([legacyState]);
+
+        expect(current.heldAtWrite).toBe('unknown');
+        expect(legacy.heldAtWrite).toBe('unknown');
+        expect(legacy.details.heldAtAppend).toBe(true);
     });
 
     test('appendRecoveryRunState surfaces graph publication failure without losing the local ledger', async () => {

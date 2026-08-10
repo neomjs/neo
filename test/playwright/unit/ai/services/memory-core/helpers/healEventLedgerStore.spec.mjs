@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
+import {existsSync}   from 'fs';
 import fs             from 'fs/promises';
 import os             from 'os';
 import path           from 'path';
@@ -53,6 +54,53 @@ test.describe('healEventLedgerStore — durable append-only heal ledger', () => 
         const dir = await tmpDir();
         await appendHealEvent({type: 'unfreeze', collection: 'c1', status: 'unfrozen'}, {dir, now: 777});
         expect((await readHealLedger({dir}))[0].at).toBe(777);
+        await fs.rm(dir, {recursive: true, force: true});
+    });
+
+    test('an admitted authority-bound append carries truthful write-time provenance', async () => {
+        const dir = await tmpDir();
+
+        await appendHealEvent({type: 'ambiguous', collection: 'backup', status: 'recorded'}, {
+            dir,
+            now            : 778,
+            isAuthorityHeld: () => true
+        });
+
+        expect((await readHealLedger({dir}))[0]).toMatchObject({
+            at         : 778,
+            heldAtWrite: true,
+            status     : 'recorded'
+        });
+        await fs.rm(dir, {recursive: true, force: true});
+    });
+
+    test('takeover during awaited directory setup refuses before the first audit append', async () => {
+        const root = await tmpDir(),
+              dir  = path.join(root, 'durable-ledger');
+
+        const write = appendHealEvent(
+            {type: 'ambiguous', collection: 'backup', status: 'recorded'},
+            {
+                dir,
+                // The oracle stays held until the production `mkdir()` has completed. Moving the
+                // store fence above that await, or removing it, lets the forbidden row land.
+                isAuthorityHeld: () => !existsSync(dir)
+            }
+        );
+
+        await expect(write).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(await readHealLedger({dir})).toEqual([]);
+        await fs.rm(root, {recursive: true, force: true});
+    });
+
+    test('callers without an authority oracle retain the legacy row shape', async () => {
+        const dir = await tmpDir();
+
+        await appendHealEvent({type: 'heal', collection: 'c1', status: 'healed'}, {dir, now: 779});
+
+        const [event] = await readHealLedger({dir});
+        expect(event).toEqual({type: 'heal', collection: 'c1', status: 'healed', at: 779});
+        expect(Object.hasOwn(event, 'heldAtWrite')).toBe(false);
         await fs.rm(dir, {recursive: true, force: true});
     });
 

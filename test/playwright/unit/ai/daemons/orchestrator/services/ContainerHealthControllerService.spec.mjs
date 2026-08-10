@@ -16,7 +16,11 @@ import {
     ContainerHealthDiagnosisService
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import {RecoveryActuatorService}              from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
-import {HEAL_LEDGER_DIR_NAME, readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {
+    appendHealEvent,
+    HEAL_LEDGER_DIR_NAME,
+    readHealLedger
+} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import {createRecoveryDiagnosisEvent}         from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 const OBSERVED_AT = 1710000000000;
@@ -618,6 +622,28 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect(outcome.actuatorOutcome.status).toBe('actioned');
         // ...and the controller does NOT then name itself the actor in the successor's ledger.
         expect((await readLedger()).filter(event => event.status === 'actioned')).toEqual([]);
+    });
+
+    test('takeover inside the receipt store cannot land an unqualified controller audit', async () => {
+        let held = true;
+
+        const {controller, runtimeCalls} = createStack({
+            controllerConfig: {
+                isAuthorityHeld: () => held,
+                async appendHealEventFn(entry, options) {
+                    // The action and controller preflight were admitted. Flip only inside the append
+                    // seam, immediately before the real store's awaited setup + adjacent fence.
+                    held = false;
+                    return appendHealEvent(entry, options);
+                }
+            }
+        });
+
+        const outcome = await controller.consume({decision: wedged('mc-server')});
+
+        expect(runtimeCalls).toHaveLength(1);
+        expect(outcome.actuatorOutcome.status).toBe('actioned');
+        expect(await readLedger()).toEqual([]);
     });
 
     test('(d) a runtime AUTHORITY-LOST refusal is not collapsed into executor failure, and writes nothing', async () => {
