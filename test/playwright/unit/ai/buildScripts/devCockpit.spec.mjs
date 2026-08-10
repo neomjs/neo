@@ -33,6 +33,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * listener, and a closed port — a listener is never presumed to be a fleet server.
  */
 test.describe('buildScripts/devCockpit — the live-by-default boot plan', () => {
+    // Two witnesses below OWN the real :8083 endpoint (the composed boot and the reuse
+    // falsifier). Parallel workers would race them onto the same port — and under the
+    // authenticated-reuse contract the loser correctly REFUSES, failing the wrong test.
+    test.describe.configure({mode: 'serial'});
 
     test('a non-default fleet port REFUSES with the named endpoint-authority reason', () => {
         const plan = planCockpitBoot({fleetPort: 9999});
@@ -56,14 +60,40 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
         expect(plan.notes[0]).toContain('non-JSON')
     });
 
-    test('a confirmed fleet occupant → REUSE, never a second server', () => {
-        const plan = planCockpitBoot({fleetPort: 8083, endpointStatus: 'fleet', endpointDetail: 'wire-protocol identity confirmed'});
+    test('a fleet occupant WITH the authenticated proof → REUSE, never a second server', () => {
+        const plan = planCockpitBoot({
+            fleetPort     : 8083,
+            endpointStatus: 'fleet',
+            endpointDetail: 'wire-protocol identity confirmed',
+            reuseProof    : {reusable: true, reason: 'same token, same viewer', viewer: '@cockpit-witness', pid: 4242}
+        });
 
         expect(plan.refuse).toBe(false);
         expect(plan.spawnFleet).toBe(false);
         expect(plan.spawnWebpack).toBe(true);
-        expect(plan.notes[0]).toContain('reusing');
+        expect(plan.notes[0]).toContain('VERIFIED same token, same viewer');
+        expect(plan.notes[0]).toContain('@cockpit-witness');
         expect(plan.notes[0]).toContain('not spawning a second server')
+    });
+
+    test('a fleet occupant WITHOUT the authenticated proof → REFUSED; protocol identity is never adoption authority', () => {
+        // The composition this closes: the page a reuse-plan opens can REDEEM the incumbent's
+        // bearer, so an unauthenticated 401-signature match must not select the page's credential
+        // authority. No proof, failed proof, and wrong-viewer proof all refuse with the remediation.
+        for (const reuseProof of [
+            null,
+            {reusable: false, reason: 'no NEO_FLEET_BEARER pin in this environment — the launcher holds no credential to authenticate the incumbent with'},
+            {reusable: false, reason: "the existing Fleet is bound to viewer '@viewer-a' but this launch resolved '@viewer-b' — wrong-viewer process; refusing silent reuse"}
+        ]) {
+            const plan = planCockpitBoot({fleetPort: 8083, endpointStatus: 'fleet', reuseProof});
+
+            expect(plan.refuse, JSON.stringify(reuseProof)).toBe(true);
+            expect(plan.spawnFleet, JSON.stringify(reuseProof)).toBe(false);
+            expect(plan.spawnWebpack, 'no credential-redeeming page may open').toBe(false);
+            expect(plan.notes[0]).toContain('cannot verify');
+            expect(plan.notes[1]).toContain('credential authority');
+            reuseProof?.reason && expect(plan.notes[0]).toContain(reuseProof.reason)
+        }
     });
 
     test('a free endpoint → spawn the transport', () => {
@@ -192,6 +222,72 @@ test.describe('buildScripts/devCockpit — the live-by-default boot plan', () =>
         }
 
         await expect.poll(async () => (await probeFleetEndpoint(8083)).status, {timeout: 10000}).toBe('free')
+    });
+
+    test('⭐ real-ingress reuse falsifier: an armed incumbent bound to viewer/token A is NEVER adopted by launcher B — and the same-token+same-viewer control IS', async () => {
+        test.setTimeout(60000);
+
+        if ((await probeFleetEndpoint(8083)).status !== 'free') {
+            test.skip(true, 'the default fleet endpoint is occupied on this machine — the reuse falsifier needs to own it');
+            return
+        }
+
+        // The ARMED incumbent: viewer A, token A, handshake armed — the exact process whose bearer
+        // a wrongly-adopting launcher's page could redeem.
+        const tokenA    = generateLocalBearerToken(),
+              tokenB    = generateLocalBearerToken(),
+              incumbent = await startFleetBridgeServer(authenticatedOptions({
+                  port           : 8083,
+                  bearerToken    : tokenA,
+                  bearerHandshake: true
+              }));
+
+        const launchCockpit = env => new Promise(resolve => {
+            const child = spawn(process.execPath, [path.join(repoRoot, 'buildScripts/devCockpit.mjs')], {
+                cwd: repoRoot,
+                env: {
+                    ...process.env,
+                    // the webpack stub prints a marker so "no page opened" is directly observable
+                    NEO_COCKPIT_WEBPACK_CMD: JSON.stringify([process.execPath, '-e', 'console.log("WEBPACK_STUB_STARTED"); setInterval(() => {}, 1000)']),
+                    ...env
+                },
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            let output = '';
+
+            child.stdout.on('data', chunk => output += chunk);
+            child.stderr.on('data', chunk => output += chunk);
+            child.on('exit', code => resolve({code, output, child}));
+
+            // the positive control never exits on its own — give it time to prove the reuse plan,
+            // then tear it down; the refusal path exits(1) well inside this window
+            setTimeout(() => {
+                if (child.exitCode === null) {
+                    child.kill('SIGTERM')
+                }
+            }, 8000)
+        });
+
+        try {
+            // Falsifier: launcher B (different token, different identity claim) must refuse before
+            // any page exists — no webpack stub, exit 1, remediation named.
+            const refused = await launchCockpit({NEO_FLEET_BEARER: tokenB, NEO_AGENT_IDENTITY: '@viewer-b'});
+
+            expect(refused.code).toBe(1);
+            expect(refused.output).toContain('REFUSED');
+            expect(refused.output).toContain('cannot verify');
+            expect(refused.output).not.toContain('WEBPACK_STUB_STARTED');
+
+            // Positive control: same token + same viewer proves reuse through the authenticated
+            // probe, and only THEN does the page open.
+            const reused = await launchCockpit({NEO_FLEET_BEARER: tokenA, NEO_AGENT_IDENTITY: '@cockpit-witness'});
+
+            expect(reused.output).toContain('VERIFIED same token, same viewer');
+            expect(reused.output).toContain('WEBPACK_STUB_STARTED')
+        } finally {
+            await new Promise(resolve => incumbent.close(resolve))
+        }
     });
 
     test('the composed command opens the COCKPIT surface, not the dev-server root', () => {
