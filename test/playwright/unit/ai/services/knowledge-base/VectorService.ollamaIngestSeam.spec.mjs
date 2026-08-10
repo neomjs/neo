@@ -93,7 +93,7 @@ function makeChunks(count) {
 
 test.describe('VectorService KB ingest — the native Ollama provider seam', () => {
     let KB_VectorService, KB_Config, MC_Config, TextEmbeddingService;
-    let restoreAiConfig, originalBatchConfig, originalOllamaProvider;
+    let restoreKBConfig, restoreMCConfig, originalOllamaProvider;
 
     test.beforeAll(async () => {
         const SDK = await import('../../../../../../ai/services.mjs');
@@ -104,32 +104,31 @@ test.describe('VectorService KB ingest — the native Ollama provider seam', () 
         KB_VectorService     = (await import('../../../../../../ai/services/knowledge-base/VectorService.mjs')).default;
 
         originalOllamaProvider = TextEmbeddingService.ollamaProvider;
-        originalBatchConfig    = {
-            batchSize : KB_Config.data.batchSize,
-            batchDelay: KB_Config.data.batchDelay,
-            maxRetries: KB_Config.data.maxRetries
-        };
     });
 
     test.afterAll(() => {
         TextEmbeddingService.ollamaProvider = originalOllamaProvider;
-        Object.assign(KB_Config.data, originalBatchConfig);
     });
 
     test.beforeEach(() => {
-        Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 1});
-
         // The shipped snapshot primitive rather than a hand-rolled save/restore. It captures by
         // resolved value — the Provider's getOwnPropertyDescriptor trap misses leaves its get trap
         // resolves — and it throws if a leaf does not already resolve, which a hand-rolled capture
         // silently tolerates and then cannot undo.
-        restoreAiConfig = snapshotAiConfig(MC_Config, ['embeddingProvider']);
+        restoreMCConfig = snapshotAiConfig(MC_Config, ['embeddingProvider']);
+        restoreKBConfig = snapshotAiConfig(KB_Config, [
+            'data.batchSize',
+            'data.batchDelay',
+            'data.maxRetries'
+        ]);
 
+        Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 1});
         MC_Config.embeddingProvider = 'ollama';
     });
 
     test.afterEach(() => {
-        restoreAiConfig?.();
+        restoreKBConfig?.();
+        restoreMCConfig?.();
     });
 
     test('the collection double REFUSES what ChromaDB refuses — the instrument\'s own control', async () => {
