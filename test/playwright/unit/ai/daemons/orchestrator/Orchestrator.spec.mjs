@@ -1714,7 +1714,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             });
 
             expect(orchestrator.taskDefinitions.mlx.args).toContain('operator-configured-mlx-model');
-            expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
+            expect(orchestrator.taskDefinitions.mlx.args).not.toContain('google/gemma-4-26b-a4b');
         } finally {
             AiConfig.orchestrator.mlx = savedMlx;
         }
@@ -1734,7 +1734,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             AiConfig.orchestrator.lms = {enabled: true, model: 'qwen3-embedding-8b', port: '4242'};
             AiConfig.openAiCompatible = {
                 host          : 'http://127.0.0.1:4242',
-                model         : 'gemma4-31b',
+                model         : 'gemma4-26b',
                 embeddingModel: 'qwen3-8b'
             };
             AiConfig.orchestrator.providerReadiness = {attempts: 2, delayMs: 0, timeoutMs: 50, routineCacheTtlMs: 1000};
@@ -1752,7 +1752,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
             expect(orchestrator.taskDefinitions.lms.args).toEqual(['server', 'start', '--port', '4242']);
             expect(orchestrator.taskDefinitions.lms.pidFileName).toBe('lms.pid');
-            expect(orchestrator.taskDefinitions.lms.requiredModels).toEqual(['gemma4-31b', 'qwen3-8b']);
+            expect(orchestrator.taskDefinitions.lms.requiredModels).toEqual(['gemma4-26b', 'qwen3-8b']);
         } finally {
             AiConfig.orchestrator.lms = saved.lms;
             AiConfig.openAiCompatible = saved.openAiCompatible;

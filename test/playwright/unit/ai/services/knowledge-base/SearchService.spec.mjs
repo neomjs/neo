@@ -289,7 +289,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         SearchService.model = {
             generateContent: async (prompt, options) => {
                 capturedOptions = options;
-                throw new Error('[Ollama] ask_knowledge_base synthesis timed out after 30000ms (host=http://127.0.0.1:11434, model=gemma4:31b)');
+                throw new Error('[Ollama] ask_knowledge_base synthesis timed out after 30000ms (host=http://127.0.0.1:11434, model=gemma4:26b)');
             }
         };
 

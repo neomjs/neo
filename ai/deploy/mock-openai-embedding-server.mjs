@@ -5,7 +5,7 @@ const host       = process.env.NEO_TEST_EMBEDDING_HOST || '0.0.0.0';
 const port       = Number(process.env.NEO_TEST_EMBEDDING_PORT || 11434);
 const dimensions = Number(process.env.NEO_TEST_EMBEDDING_DIMENSIONS || 4096);
 const modelName  = process.env.NEO_TEST_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b';
-const chatModel  = process.env.NEO_TEST_CHAT_MODEL || process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it';
+const chatModel  = process.env.NEO_TEST_CHAT_MODEL || process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'google/gemma-4-26b-a4b';
 
 /**
  * @summary Reads a JSON request body.

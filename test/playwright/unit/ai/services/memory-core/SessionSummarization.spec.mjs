@@ -73,7 +73,18 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
         SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
         SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
-        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
+        // The MODEL is deliberately NOT overridden: it resolves from the SSOT leaf
+        // (`ai/configBase.mjs` -> `google/gemma-4-26b-a4b`), the deployment's agreed chat model.
+        //
+        // This line previously hardcoded `gemma-4-31b-it`. That is not a fixture value — it is a
+        // LOAD INSTRUCTION. LM Studio JIT-loads whatever model id a request names, so every local
+        // run of this suite pulled a 19.7 GB second chat model into the operator's RAM beside the
+        // 15.6 GB one already serving real traffic, and the 60-minute idle TTL kept it resident
+        // long after the run finished. The suite was choosing the deployment's model policy, and
+        // choosing against it — 26b was selected over 31b on measured performance grounds.
+        //
+        // Only `host` is overridden, because the leaf default points at the Ollama port and this
+        // spec asserts the OpenAI-compatible route specifically.
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';
         // Adjust batch limit to speed up test execution
         SDK.Memory_Config.data.summarizationBatchLimit = 5;

@@ -200,7 +200,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
-            /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*?'11435'/
+            /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-26b-a4b-bf16'[\s\S]*?'11435'/
         );
     });
 
@@ -297,7 +297,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             nodeBin      : '/test/node',
             ollamaEnabled: true,
             ollamaHost   : 'http://127.0.0.1:11434',
-            ollamaRoles  : [{model: 'gemma4:31b'}]
+            ollamaRoles  : [{model: 'gemma4:26b'}]
         }).ollama).toBeUndefined();
     });
 
@@ -318,7 +318,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
             const roles = [{
                 role         : 'chat',
                 providerRole : 'graphProvider',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             }, {
                 role         : 'embedding',

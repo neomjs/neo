@@ -77,7 +77,7 @@ test.describe('lmStudioEmbeddingInstances diagnostic (#13539)', () => {
     test('passes when exactly one matching embedding worker is loaded', () => {
         const analysis = analyzeEmbeddingInstances({
             data: [
-                {id: 'gemma-4-31b-it', type: 'vlm', state: 'loaded'},
+                {id: 'google/gemma-4-26b-a4b', type: 'vlm', state: 'loaded'},
                 {id: 'text-embedding-qwen3-embedding-8b', type: 'embeddings', state: 'loaded'},
                 {id: 'text-embedding-nomic-embed-text-v1.5', type: 'embeddings', state: 'not-loaded'}
             ]

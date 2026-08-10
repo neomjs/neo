@@ -108,10 +108,36 @@ class SearchService extends Base {
         // through to the provider's configured host, and `model` selects the per-task model name.
         const ask = aiConfig.askSynthesis;
 
+        // Each provider config is assembled by READING the four leaves `buildChatModel` consumes
+        // (`apiKey` / `host` / `model` / `keep_alive`), never by spreading the AiConfig node.
+        //
+        // `{...aiConfig.openAiCompatible}` here was measurably `{}`. An AiConfig node is a
+        // `Neo.state.Provider` proxy whose `get` trap walks the parent chain but whose `ownKeys`
+        // trap (`Provider#getTopLevelDataKeys`) enumerates LOCAL `#dataConfigs` only — and these
+        // leaves live on the Tier-1 root, so from the Knowledge Base child every named read is
+        // correct and every enumeration is empty. The spread silently dropped `host`, leaving the
+        // provider to fall back to its class default of `http://127.0.0.1:8000` — Chroma's port,
+        // not a chat endpoint. It went unnoticed because the ask path defaulted to `gemini`, which
+        // ignores this object entirely; pointing the default at a local provider is exactly what
+        // would have surfaced it, as a chat request POSTed at a vector database.
         this.model = buildChatModel({
-            modelProvider           : ask.provider,
-            openAiCompatibleConfig  : {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            ollamaConfig            : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            modelProvider         : ask.provider,
+            openAiCompatibleConfig: {
+                // The PROVIDER's own key, never `ask.apiKey`. `NEO_KB_ASK_API_KEY` is the dedicated
+                // GEMINI credential (passed below as `geminiApiKey`); forwarding it here would put a
+                // cloud key in an `Authorization` header aimed at a local LM Studio that never asked
+                // for one — a credential sent somewhere it has no business being, which is a leak
+                // whether or not the key is currently valid.
+                apiKey    : aiConfig.openAiCompatible.apiKey,
+                host      : ask.baseUrl || aiConfig.openAiCompatible.host,
+                model     : ask.model,
+                keep_alive: aiConfig.openAiCompatible.keep_alive
+            },
+            ollamaConfig            : {
+                host      : ask.baseUrl || aiConfig.ollama.host,
+                model     : ask.model,
+                keep_alive: aiConfig.ollama.keep_alive
+            },
             geminiApiKey            : ask.apiKey,
             geminiModelName         : ask.model,
             providerActivityRecorder: KBRecorderService,

@@ -16,7 +16,7 @@ class Librarian extends Agent {
         className: 'Neo.ai.agent.profile.Librarian',
         /**
          * Configurable model provider. Defaults to 'gemini' for reasoning speed
-         * but can be instantiated with 'ollama' (e.g. gemma-4-31b-it) to support
+         * but can be instantiated with 'ollama' (e.g. gemma4:26b) to support
          * swarms and offline sub-agent spawning.
          * @member {String|Neo.ai.provider.Base} modelProvider='gemini'
          */

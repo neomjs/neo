@@ -102,9 +102,42 @@ test.describe('ai/knowledge-base — askSynthesis config contract (canonical bas
         expect(src).toMatch(/askSynthesis\s*:\s*\{/);
     });
 
-    test('defaults to the fast remote gemini provider + the cheaper 2.5-flash model', () => {
-        expect(src).toMatch(/provider\s*:\s*leaf\('gemini',\s*'NEO_KB_ASK_PROVIDER'/);
-        expect(src).toMatch(/model\s*:\s*leaf\('gemini-2\.5-flash',\s*'NEO_KB_ASK_MODEL'/);
+    /**
+     * @summary The ask default is LOCAL, and no remote model id may be the default.
+     *
+     * This arm previously asserted the opposite — a remote `gemini` provider on `gemini-2.5-flash`,
+     * justified as the cheaper of two cloud models. Cheaper is not free: a cloud DEFAULT bills every
+     * `ask` by nobody's decision, it ran ~EUR 70/month, and the dedicated key it required was
+     * exposed by a peer. The block's own cost-safety machinery (runaway breaker, dedicated key,
+     * budget cap) all bounds a metered call rather than removing the meter.
+     *
+     * The second assertion is the one that matters long-term. Pinning `'openAiCompatible'` alone
+     * would still pass if someone left a remote model id in the `model` leaf, which is precisely how
+     * this drifts back — a provider flip is visible in review, a model-id string is not.
+     */
+    test('defaults to the LOCAL provider on the deployment chat model — never a metered remote', () => {
+        expect(src).toMatch(/provider\s*:\s*leaf\('openAiCompatible',\s*'NEO_KB_ASK_PROVIDER'/);
+        expect(src).toMatch(/model\s*:\s*leaf\('google\/gemma-4-26b-a4b',\s*'NEO_KB_ASK_MODEL'/);
+
+        // The ask model must be the SAME id the deployment already serves. A different one is not a
+        // preference — LM Studio JIT-loads whatever it is handed, so it means a second resident
+        // chat model (~20 GB) beside the one serving traffic.
+        const tier1 = fs.readFileSync(path.join(repoRoot, 'ai/configBase.mjs'), 'utf8');
+
+        expect(tier1, 'the Tier-1 chat leaf is the single source for this id')
+            .toMatch(/model\s*:\s*leaf\('google\/gemma-4-26b-a4b',\s*'NEO_OPENAI_COMPATIBLE_MODEL'/);
+    });
+
+    test('NO remote model id may sit in a default anywhere in the askSynthesis block', () => {
+        // The regression this blocks is a quiet edit of one string, not a redesign. Named remote
+        // families rather than a generic pattern, so the failure says WHICH vendor crept back in.
+        const askBlock = src.slice(src.indexOf('askSynthesis'), src.indexOf('askSynthesis') + 4000);
+
+        for (const remote of ['gemini-', 'gpt-4', 'gpt-5', 'claude-3', 'claude-4', 'claude-5']) {
+            expect(askBlock.includes(`leaf('${remote}`),
+                `a metered ${remote}* id is the DEFAULT again — remote synthesis must stay opt-in via env`
+            ).toBe(false)
+        }
     });
 
     test('apiKey is env-only — null default bound to NEO_KB_ASK_API_KEY, no inline literal (security)', () => {
