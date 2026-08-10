@@ -2528,6 +2528,31 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(entry.signals.turnPresence.fresh).toBe(true);
         });
 
+        test('fresh add_memory + fresh beacon → activity speaks the verdict, and the beacon OBSERVATION still reaches the row (verbose)', async () => {
+            // The coexistence case the band vocabulary needs: observation and verdict precedence
+            // are DIFFERENT concerns. An actively-working agent (fresh add_memory AND a fresh
+            // beacon) must carry the vouched horizons on its verbose row — coupling the beacon
+            // read to the rescue branch made them vanish exactly when the agent was most alive.
+            seedAgent('@neo-coexist');
+            seedActivity('@neo-coexist', {timestamp: iso(T0ms - 60 * 1000)});   // memory FRESH
+            seedBeacon('@neo-coexist', {
+                freshUntil: iso(T0ms + 7 * 60 * 1000),
+                expiresAt : iso(T0ms + 45 * 60 * 1000)
+            });
+
+            const {agents} = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+            const entry    = agents.find(a => a.identity === '@neo-coexist');
+
+            // the verdict: fresh activity speaks first — the rescue precedence is untouched
+            expect(entry.online).toBe(true);
+            expect(entry.reason).toContain('recent add_memory activity');
+
+            // the observation: the beacon rides the row with its vouched horizons verbatim
+            expect(entry.signals.turnPresence.fresh).toBe(true);
+            expect(entry.signals.turnPresence.freshUntil).toBe(iso(T0ms + 7 * 60 * 1000));
+            expect(entry.signals.turnPresence.expiresAt).toBe(iso(T0ms + 45 * 60 * 1000));
+        });
+
         test('stale add_memory + STALE beacon → offline (beacon non-gating, graceful, verbose)', async () => {
             seedAgent('@neo-stalebeacon');
             seedActivity('@neo-stalebeacon', {timestamp: iso(T0ms - 20 * 60 * 1000)}); // memory stale
