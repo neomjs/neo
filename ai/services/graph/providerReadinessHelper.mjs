@@ -16,14 +16,24 @@ import {
 import {
     withLmsEmbeddingInputSuffix
 } from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
+import {
+    observeUnqueuedProviderActivity
+} from '../shared/providerActivityLedger.mjs';
 
 let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
 
 const
     providerDiscoveryCache         = new Map(),
     providerDiscoveryForceInflight = new Map(),
+    ollamaWarmInflight             = new Map(),
     PROVIDER_DISCOVERY_FORCE       = 'force',
     PROVIDER_DISCOVERY_ROUTINE     = 'routine';
+
+/**
+ * @summary Stable code for a readiness caller whose Ollama warm wait ended before provider work.
+ * @type {String}
+ */
+export const OLLAMA_WARM_PROVIDER_PENDING_CODE = 'OLLAMA_WARM_PROVIDER_PENDING';
 
 /**
  * Default LM Studio CLI bin directory. `lms bootstrap` installs the CLI here; an interactive shell
@@ -765,12 +775,15 @@ export async function fetchOllamaRunningModels({host, timeoutMs, fetchFn = fetch
 }
 
 /**
- * @summary Warms one native Ollama model through the role-specific Ollama endpoint.
+ * @summary Warms one native Ollama model without abandoning dispatched provider work.
  *
  * Native Ollama is not an OpenAI-compatible provider behind a different selector:
  * chat/generation work is warmed through `/api/chat`, while vector work is warmed
  * through `/api/embed`. `keep_alive` flows from operator config so readiness
- * matches the same residency policy used by normal provider calls.
+ * matches the same residency policy used by normal provider calls. One in-flight
+ * warm is coalesced per exact provider/model shape. The caller deadline ends only
+ * the readiness wait: the underlying fetch is never aborted, remains handled, and
+ * is reused by later readiness cycles until it actually settles.
  *
  * @param {Object} options
  * @param {String} options.host Ollama host.
@@ -778,9 +791,12 @@ export async function fetchOllamaRunningModels({host, timeoutMs, fetchFn = fetch
  * @param {String} options.role Either `'chat'` or `'embedding'`.
  * @param {String|Number} [options.keepAlive] Ollama keep_alive value.
  * @param {Number} [options.contextLength] Native Ollama `options.num_ctx` warm-up override.
- * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Number} options.timeoutMs Caller wait deadline. Required; no module-level default.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
- * @returns {Promise<Object>}
+ * @param {Object|null} [options.providerActivityRecorder] Best-effort provider lifecycle sink.
+ * @param {String} [options.service='orchestrator'] Source-owned provider activity service.
+ * @param {Object} [options.log=logger] Logger seam.
+ * @returns {Promise<Object>} Completed warm result or explicit `{pending: true}` disposition.
  */
 export async function warmOllamaRoleModel({
     host,
@@ -789,7 +805,10 @@ export async function warmOllamaRoleModel({
     keepAlive,
     contextLength,
     timeoutMs,
-    fetchFn = fetch
+    fetchFn = fetch,
+    providerActivityRecorder = null,
+    service = 'orchestrator',
+    log = logger
 } = {}) {
     if (!host) {
         throw new TypeError('warmOllamaRoleModel: host is required');
@@ -797,11 +816,14 @@ export async function warmOllamaRoleModel({
     if (!model) {
         throw new TypeError('warmOllamaRoleModel: model is required');
     }
-    if (typeof timeoutMs !== 'number') {
-        throw new TypeError('warmOllamaRoleModel: timeoutMs is required');
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        throw new TypeError('warmOllamaRoleModel: timeoutMs must be a positive number');
     }
     if (role !== 'chat' && role !== 'embedding') {
         throw new TypeError("warmOllamaRoleModel: role must be 'chat' or 'embedding'");
+    }
+    if (keepAlive !== undefined && typeof keepAlive !== 'string' && !Number.isFinite(keepAlive)) {
+        throw new TypeError('warmOllamaRoleModel: keepAlive must be a string or finite number when provided');
     }
 
     const endpoint = role === 'embedding' ? '/api/embed' : '/api/chat';
@@ -819,44 +841,112 @@ export async function warmOllamaRoleModel({
         };
     }
 
-    const response = await fetchFn(new URL(endpoint, host).toString(), {
-        method : 'POST',
-        headers: {'content-type': 'application/json'},
-        body   : JSON.stringify(payload),
-        signal : AbortSignal.timeout(timeoutMs)
-    });
-
-    if (!response.ok) {
-        const text = typeof response.text === 'function' ? await response.text() : '';
-        throw new Error(`Ollama ${role} model warmup failed for '${model}': HTTP ${response.status}${text ? ` - ${text}` : ''}`);
-    }
-
-    let raw = null;
-
-    if (typeof response.text === 'function') {
-        const text = await response.text();
-
-        if (text.trim()) {
-            try {
-                raw = JSON.parse(text);
-            } catch (error) {
-                raw = null;
-            }
-        }
-    } else if (typeof response.json === 'function') {
-        try {
-            raw = await response.json();
-        } catch (error) {
-            raw = null;
-        }
-    }
-
-    return {
+    const operationKey = JSON.stringify([
+        new URL(endpoint, host).toString(),
         model,
         role,
-        endpoint,
-        evalSample: extractOllamaEvalSample(raw, {model, role})
-    };
+        Neo.isNumber(contextLength) ? contextLength : null,
+        keepAlive === undefined ? ['omitted'] : ['provided', keepAlive]
+    ]);
+    let providerPromise = ollamaWarmInflight.get(operationKey);
+
+    if (!providerPromise) {
+        providerPromise = observeUnqueuedProviderActivity({
+            recorder: providerActivityRecorder,
+            activity: {
+                model,
+                operationStage: 'unknown',
+                priority      : 'unknown',
+                provider      : 'ollama',
+                role,
+                service
+            },
+            task: async () => {
+                const response = await fetchFn(new URL(endpoint, host).toString(), {
+                    method : 'POST',
+                    headers: {'content-type': 'application/json'},
+                    body   : JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const text = typeof response.text === 'function' ? await response.text() : '';
+                    throw new Error(`Ollama ${role} model warmup failed for '${model}': HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+                }
+
+                let raw = null;
+
+                if (typeof response.text === 'function') {
+                    const text = await response.text();
+
+                    if (text.trim()) {
+                        try {
+                            raw = JSON.parse(text);
+                        } catch (error) {
+                            raw = null;
+                        }
+                    }
+                } else if (typeof response.json === 'function') {
+                    try {
+                        raw = await response.json();
+                    } catch (error) {
+                        raw = null;
+                    }
+                }
+
+                return {
+                    model,
+                    role,
+                    endpoint,
+                    evalSample: extractOllamaEvalSample(raw, {model, role})
+                };
+            }
+        });
+        ollamaWarmInflight.set(operationKey, providerPromise);
+        providerPromise.then(
+            () => {
+                if (ollamaWarmInflight.get(operationKey) === providerPromise) {
+                    ollamaWarmInflight.delete(operationKey);
+                }
+            },
+            () => {
+                if (ollamaWarmInflight.get(operationKey) === providerPromise) {
+                    ollamaWarmInflight.delete(operationKey);
+                }
+            }
+        );
+    }
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const timer = setTimeout(() => {
+            if (settled) return;
+
+            settled = true;
+            log.warn?.(`[ProviderReadinessHelper] Ollama ${role} model '${model}' warm is still in flight after ${timeoutMs}ms; retaining and coalescing provider work.`);
+            resolve({
+                code                   : OLLAMA_WARM_PROVIDER_PENDING_CODE,
+                model,
+                role,
+                endpoint,
+                pending                : true,
+                providerWorkDisposition: 'in-flight',
+                timeoutMs
+            });
+        }, timeoutMs);
+        const settle = (fn, value) => {
+            if (settled) return;
+
+            settled = true;
+            clearTimeout(timer);
+            fn(value);
+        };
+
+        providerPromise.then(
+            value => settle(resolve, value),
+            error => settle(reject, error)
+        );
+    });
 }
 
 /**
@@ -1663,6 +1753,7 @@ export async function ensureLmsModelsLoaded({
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one role cannot be warmed.
  * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe. May return model ids or `{id, contextLength}` entries.
  * @param {Function} [options.warmModel] Injectable warm-up function.
+ * @param {Object|null} [options.providerActivityRecorder] Best-effort native warm lifecycle sink.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -1677,6 +1768,7 @@ export async function ensureOllamaModelsReady({
     allowPartial = false,
     fetchModelIds = opts => fetchOllamaRunningModels(opts),
     warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
+    providerActivityRecorder = null,
     log           = logger,
     isAuthorityHeld = null
 } = {}) {
@@ -1792,10 +1884,10 @@ export async function ensureOllamaModelsReady({
     };
 
     const startedAt = Date.now();
-    let availableModels;
+    let availableModels, initialProbeAttempt;
 
     try {
-        ({availableModels} = await probeModels('initial /api/ps probe'));
+        ({availableModels, attempt: initialProbeAttempt} = await probeModels('initial /api/ps probe'));
     } catch (error) {
         if (!allowPartial) {
             throw error;
@@ -1818,6 +1910,7 @@ export async function ensureOllamaModelsReady({
             warmedModels             : [],
             attemptedModels          : [],
             failedModels             : [],
+            pendingModels            : [],
             error                    : {message: error.message},
             warning                  : `[provider/ollama] model residency probe failed: ${error.message}`,
             attempts,
@@ -1831,6 +1924,7 @@ export async function ensureOllamaModelsReady({
     const rolesToWarm                = roles.filter(role => initialMissing.includes(role.model) || initialContextModelIds.has(role.model));
     const warmedModels               = [];
     const failedModels               = [];
+    const pendingModels              = [];
     const attemptedModels            = [];
     const evalSamples                = [];
     const getEvalAttribution         = () => evalSamples.length ? buildOllamaEvalAttribution(evalSamples) : null;
@@ -1844,6 +1938,9 @@ export async function ensureOllamaModelsReady({
 
         try {
             const warmOptions = {host, keepAlive, timeoutMs};
+            if (providerActivityRecorder) {
+                warmOptions.providerActivityRecorder = providerActivityRecorder;
+            }
             if (Neo.isNumber(role.contextLength)) {
                 warmOptions.contextLength = role.contextLength;
             }
@@ -1853,6 +1950,16 @@ export async function ensureOllamaModelsReady({
             assertHeld();
 
             const warmResult = await warmModel(role, warmOptions);
+
+            if (warmResult?.pending) {
+                pendingModels.push({
+                    ...roleEnvelope,
+                    code                   : warmResult.code,
+                    providerWorkDisposition: warmResult.providerWorkDisposition,
+                    timeoutMs              : warmResult.timeoutMs
+                });
+                continue;
+            }
 
             if (warmResult?.evalSample) {
                 evalSamples.push(warmResult.evalSample);
@@ -1875,6 +1982,35 @@ export async function ensureOllamaModelsReady({
         }
     }
 
+    if (pendingModels.length > 0) {
+        const observedRequiredCount = getRequiredAvailable(availableModels).length;
+
+        return {
+            ready                    : false,
+            degraded                 : true,
+            provider                 : 'ollama',
+            host,
+            warmedModels,
+            attemptedModels,
+            failedModels,
+            pendingModels,
+            missingModels            : initialMissing,
+            insufficientContextModels: initialInsufficientContext,
+            requiredModels,
+            availableModels          : toIds(availableModels),
+            extraModels              : getExtraModels(availableModels),
+            loadedContexts           : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
+            observedCount            : availableModels.length,
+            observedRequiredCount,
+            requireParallelModels,
+            requiredResidentModels,
+            warning                  : `[provider/ollama] model warm still in flight: ${pendingModels.map(item => `${item.role}:${item.model}`).join(', ')}; provider work remains coalesced and will be re-observed on the next readiness cycle.`,
+            ollamaEvalAttribution    : getEvalAttribution(),
+            attempts                 : initialProbeAttempt,
+            elapsedMs                : Date.now() - startedAt
+        };
+    }
+
     let missingModels             = initialMissing;
     let insufficientContextModels = initialInsufficientContext;
 
@@ -1884,12 +2020,14 @@ export async function ensureOllamaModelsReady({
         insufficientContextModels = getInsufficientContext(availableModels);
 
         const failedModelIds        = new Set(failedModels.map(item => item.model));
+        const contextModelIds       = new Set(insufficientContextModels.map(item => item.model));
+        const activePendingModels   = pendingModels.filter(item => missingModels.includes(item.model) || contextModelIds.has(item.model));
         const serviceableMissing    = missingModels.filter(model => !failedModelIds.has(model));
         const serviceableContext    = insufficientContextModels.filter(item => !failedModelIds.has(item.model));
         const observedCount         = availableModels.length;
         const observedRequiredCount = getRequiredAvailable(availableModels).length;
         const capacityReady         = observedRequiredCount >= requiredResidentModels;
-        const ready                 = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0;
+        const ready                 = capacityReady && missingModels.length === 0 && insufficientContextModels.length === 0 && failedModels.length === 0 && activePendingModels.length === 0;
         const capacityOnlyGap       = missingModels.length === 0 && !capacityReady;
 
         const contextOnlyGap = missingModels.length === 0 && serviceableContext.length > 0;
@@ -1902,22 +2040,27 @@ export async function ensureOllamaModelsReady({
             return {
                 ready,
                 degraded,
-                provider             : 'ollama',
+                provider       : 'ollama',
                 host,
                 warmedModels,
                 attemptedModels,
                 failedModels,
+                pendingModels  : activePendingModels,
                 missingModels,
                 insufficientContextModels,
                 requiredModels,
-                availableModels      : toIds(availableModels),
-                extraModels          : getExtraModels(availableModels),
-                loadedContexts       : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
+                availableModels: toIds(availableModels),
+                extraModels    : getExtraModels(availableModels),
+                loadedContexts : Object.fromEntries(availableModels.map(item => [item.id, item.contextLength])),
                 observedCount,
                 observedRequiredCount,
                 requireParallelModels,
                 requiredResidentModels,
-                warning              : degraded ? (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})) : null,
+                warning        : degraded
+                    ? (activePendingModels.length
+                        ? `[provider/ollama] model warm still in flight: ${activePendingModels.map(item => `${item.role}:${item.model}`).join(', ')}; provider work remains coalesced and will be re-observed on the next readiness cycle.`
+                        : (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount})))
+                    : null,
                 ollamaEvalAttribution: getEvalAttribution(),
                 attempts             : attempt,
                 elapsedMs            : Date.now() - startedAt
@@ -1933,7 +2076,11 @@ export async function ensureOllamaModelsReady({
         ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
         : null;
     const observedRequiredCount = getRequiredAvailable(availableModels).length;
-    const warning               = contextWarning || getWarning({availableModels, missingModels, observedRequiredCount});
+    const contextModelIds       = new Set(insufficientContextModels.map(item => item.model));
+    const activePendingModels   = pendingModels.filter(item => missingModels.includes(item.model) || contextModelIds.has(item.model));
+    const warning               = activePendingModels.length
+        ? `[provider/ollama] model warm still in flight: ${activePendingModels.map(item => `${item.role}:${item.model}`).join(', ')}; provider work remains coalesced and will be re-observed on the next readiness cycle.`
+        : (contextWarning || getWarning({availableModels, missingModels, observedRequiredCount}));
     if (allowPartial) {
         return {
             ready                : false,
@@ -1943,6 +2090,7 @@ export async function ensureOllamaModelsReady({
             warmedModels,
             attemptedModels,
             failedModels,
+            pendingModels        : activePendingModels,
             missingModels,
             insufficientContextModels,
             requiredModels,

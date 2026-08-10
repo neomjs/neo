@@ -337,11 +337,13 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         AiConfig.graphProvider     = 'ollama';
         AiConfig.embeddingProvider = 'ollama';
 
-        const o = createMinimalOrchestrator();
-        expect(o.buildConfiguredTaskDefinitions({
+        const o          = createMinimalOrchestrator();
+        const ollamaTask = o.buildConfiguredTaskDefinitions({
             scriptDir: '/repo/ai/scripts',
             nodeBin  : '/node'
-        }).ollama).toMatchObject({
+        }).ollama;
+
+        expect(ollamaTask).toMatchObject({
             command       : 'ollama',
             args          : ['serve'],
             requiredModels: ['ollama-chat-from-config', 'ollama-embedding-from-config'],
@@ -352,6 +354,9 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
                 OLLAMA_MAX_LOADED_MODELS: '2'
             }
         });
+        expect(typeof ollamaTask.livenessProbe).toBe('function');
+        expect(typeof ollamaTask.postSpawn).toBe('function');
+        expect(ollamaTask.healthProbe).toBeUndefined();
 
         AiConfig.embeddingProvider = 'gemini';
         expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({

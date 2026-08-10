@@ -184,10 +184,6 @@ function applyConfiguredOllamaTask(tasks) {
         return;
     }
 
-    // Persisted across probe calls (the closure outlives this function): consecutive
-    // sustained inference-canary failures before the stuck-runner restart fires.
-    let consecutiveStuckFailures = 0;
-
     tasks.ollama = {
         label                  : 'ollama server',
         command                : 'ollama',
@@ -230,36 +226,6 @@ function applyConfiguredOllamaTask(tasks) {
             } catch {
                 return false;
             }
-        },
-        healthProbe            : async () => {
-            // Called by the supervisor for the RUNNING ollama child. A resident model can be stuck —
-            // grinding a pathological request at ~100%×N-cores while serving nothing (residency
-            // probes still pass). Only a real inference canary, failing SUSTAINED (N consecutive
-            // cooldown-gated probes), distinguishes stuck from busy and recycles the child; a single
-            // failure stays healthy so a legitimately-long request is never killed.
-            const stuckCfg  = AiConfig.orchestrator.providerReadiness.stuckRunner;
-            const chatModel = roles.find(role => role.role === 'chat')?.model;
-
-            if (!stuckCfg.enabled || !chatModel) {
-                return true;
-            }
-
-            const {classifyStuckRunner, probeOllamaServing} = await import('../../../services/graph/ollamaStuckRunnerLiveness.mjs');
-
-            const served = await probeOllamaServing({
-                host     : readinessConfig.host,
-                model    : chatModel,
-                timeoutMs: stuckCfg.canaryTimeoutMs
-            });
-            const verdict = classifyStuckRunner({
-                served,
-                consecutiveFailures: consecutiveStuckFailures,
-                threshold          : stuckCfg.consecutiveFailures
-            });
-
-            consecutiveStuckFailures = verdict.consecutiveFailures;
-
-            return verdict.alive;
         },
         postSpawn              : async () => {
             const {ensureOllamaModelsReady} = await import('../../../services/graph/providerReadinessHelper.mjs');

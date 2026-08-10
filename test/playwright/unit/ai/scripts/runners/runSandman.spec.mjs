@@ -237,9 +237,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const fetchFn = async (url, options) => {
             calls.push({
                 url,
-                method : options.method,
-                headers: options.headers,
-                body   : JSON.parse(options.body)
+                method   : options.method,
+                headers  : options.headers,
+                body     : JSON.parse(options.body),
+                hasSignal: Object.hasOwn(options, 'signal')
             });
             return {
                 ok  : true,
@@ -273,20 +274,22 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
 
         expect(calls).toEqual([{
-            url    : 'http://ollama.test/api/chat',
-            method : 'POST',
-            headers: {'content-type': 'application/json'},
-            body   : {
+            url      : 'http://ollama.test/api/chat',
+            method   : 'POST',
+            headers  : {'content-type': 'application/json'},
+            hasSignal: false,
+            body     : {
                 model     : 'gemma4:31b',
                 messages  : [{role: 'user', content: ''}],
                 stream    : false,
                 keep_alive: '-1'
             }
         }, {
-            url    : 'http://ollama.test/api/embed',
-            method : 'POST',
-            headers: {'content-type': 'application/json'},
-            body   : {
+            url      : 'http://ollama.test/api/embed',
+            method   : 'POST',
+            headers  : {'content-type': 'application/json'},
+            hasSignal: false,
+            body     : {
                 model     : 'qwen3-embedding',
                 input     : '',
                 keep_alive: '-1'
@@ -306,6 +309,74 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             promptEvalTokensPerSecond: 15,
             totalTokensPerSecond     : 15
         });
+    });
+
+    test('warmOllamaRoleModel coalesces provider work after the caller deadline (#16853)', async () => {
+        const activities = [];
+        const recorder   = {
+            beginProviderActivity(entry) { activities.push({type: 'begin', entry}); return 'warm-activity' },
+            startProviderActivity(id) { activities.push({type: 'start', id}) },
+            completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+        };
+        const fetchCalls = [];
+        let resolveFetch;
+        const fetchFn = (url, options) => {
+            fetchCalls.push({url, options});
+            return new Promise(resolve => resolveFetch = resolve);
+        };
+        const options = {
+            host                    : 'http://ollama-pending.test',
+            model                   : 'qwen3-embedding-pending',
+            role                    : 'embedding',
+            contextLength           : 32768,
+            keepAlive               : '-1',
+            timeoutMs               : 5,
+            fetchFn,
+            providerActivityRecorder: recorder,
+            log                     : {warn() {}}
+        };
+
+        const first  = await providerReadinessHelper.warmOllamaRoleModel(options);
+        const second = await providerReadinessHelper.warmOllamaRoleModel(options);
+
+        expect(first).toMatchObject({
+            code                   : providerReadinessHelper.OLLAMA_WARM_PROVIDER_PENDING_CODE,
+            pending                : true,
+            providerWorkDisposition: 'in-flight'
+        });
+        expect(second).toMatchObject({
+            code                   : providerReadinessHelper.OLLAMA_WARM_PROVIDER_PENDING_CODE,
+            pending                : true,
+            providerWorkDisposition: 'in-flight'
+        });
+        expect(fetchCalls).toHaveLength(1);
+        expect(fetchCalls[0].options).not.toHaveProperty('signal');
+        expect(activities.map(item => item.type)).toEqual(['begin', 'start']);
+
+        resolveFetch({ok: true, text: async () => ''});
+        await expect.poll(() => activities.filter(item => item.type === 'complete').length).toBe(1);
+        expect(activities.at(-1).outcome).toMatchObject({success: true});
+    });
+
+    test('warmOllamaRoleModel rejects ambiguous keep_alive values before provider dispatch (#16853)', async () => {
+        let   fetchCalls = 0;
+        const fetchFn    = async () => {
+            fetchCalls++;
+            return {ok: true, text: async () => ''};
+        };
+
+        for (const keepAlive of [null, true, {}, NaN, Infinity]) {
+            await expect(providerReadinessHelper.warmOllamaRoleModel({
+                host     : 'http://ollama.test',
+                model    : 'qwen3-embedding',
+                role     : 'embedding',
+                keepAlive,
+                timeoutMs: 25,
+                fetchFn
+            })).rejects.toThrow(/keepAlive must be a string or finite number/);
+        }
+
+        expect(fetchCalls).toBe(0);
     });
 
     test('warmOllamaRoleModel threads native num_ctx for chat and embedding warm-ups (#13865)', async () => {
@@ -1669,6 +1740,74 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             role           : 'embedding',
             tokensPerSecond: 15
         });
+    });
+
+    test('ensureOllamaModelsReady reports a timed-out warm as pending provider work (#16853)', async () => {
+        const activities = [];
+        const recorder   = {
+            beginProviderActivity(entry) { activities.push({type: 'begin', entry}); return 'readiness-warm' },
+            startProviderActivity(id) { activities.push({type: 'start', id}) },
+            completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+        };
+        let   fetchCalls = 0, modelProbeCalls = 0, resolveFetch;
+        const fetchFn    = () => {
+            fetchCalls++;
+            return new Promise(resolve => resolveFetch = resolve);
+        };
+
+        const result = await providerReadinessHelper.ensureOllamaModelsReady({
+            host : 'http://ollama-readiness-pending.test',
+            roles: [{
+                providerRole : 'embeddingProvider',
+                role         : 'embedding',
+                model        : 'qwen3-embedding-readiness-pending',
+                contextLength: 32768
+            }],
+            requireParallelModels: 1,
+            allowPartial         : true,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 5,
+            fetchModelIds        : async () => {
+                modelProbeCalls++;
+
+                return modelProbeCalls === 1 ? [] : [{
+                    id           : 'qwen3-embedding-readiness-pending',
+                    contextLength: 32768
+                }];
+            },
+            providerActivityRecorder: recorder,
+            warmModel               : (role, options) => providerReadinessHelper.warmOllamaRoleModel({
+                ...role,
+                ...options,
+                fetchFn,
+                log: {warn() {}}
+            }),
+            log: {info() {}, warn() {}}
+        });
+
+        expect(fetchCalls).toBe(1);
+        expect(modelProbeCalls).toBe(1);
+        expect(result).toMatchObject({
+            ready        : false,
+            degraded     : true,
+            failedModels : [],
+            pendingModels: [{
+                model                  : 'qwen3-embedding-readiness-pending',
+                role                   : 'embedding',
+                providerRole           : 'embeddingProvider',
+                code                   : providerReadinessHelper.OLLAMA_WARM_PROVIDER_PENDING_CODE,
+                providerWorkDisposition: 'in-flight',
+                timeoutMs              : 5
+            }]
+        });
+        expect(result.warning).toContain('warm still in flight');
+        expect(result.warning).not.toContain('ollama pull');
+        expect(activities.map(item => item.type)).toEqual(['begin', 'start']);
+
+        resolveFetch({ok: true, text: async () => ''});
+        await expect.poll(() => activities.filter(item => item.type === 'complete').length).toBe(1);
+        expect(activities.at(-1).outcome).toMatchObject({success: true});
     });
 
     test('ensureOllamaModelsReady degrades resident models loaded below configured context (#13865)', async () => {

@@ -13,11 +13,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import {execFile}     from 'child_process';
-import {promisify}    from 'util';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}      from '@playwright/test';
+import {execFile}          from 'child_process';
+import {getEventListeners} from 'node:events';
+import {promisify}         from 'util';
+import Neo                 from '../../../../../../src/Neo.mjs';
+import * as core           from '../../../../../../src/core/_export.mjs';
 import {
     clearAggregatedFrictions,
     getAggregatedFrictions
@@ -343,49 +344,161 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
 
     test.afterEach(() => {
         TextEmbeddingService.ollamaProvider = null;
+        clearAggregatedFrictions();
     });
 
-    test('Ollama receives the identical signal and restores the exact caller Error', async () => {
+    test('Ollama caller abort settles promptly while provider activity remains open until settlement (#16853)', async () => {
         const
             controller = new AbortController(),
-            reason     = new Error('stop native Ollama transport');
+            reason     = Object.freeze(new Error('stop waiting for native Ollama')),
+            activities = [];
 
-        let capturedSignal;
+        let capturedOptions, resolveProvider;
         TextEmbeddingService.ollamaProvider = {
             embed(input, options) {
-                capturedSignal = options.signal;
+                capturedOptions = options;
+                return new Promise(resolve => resolveProvider = resolve);
+            }
+        };
 
-                return new Promise((resolve, reject) => {
-                    options.signal.addEventListener('abort', () => {
-                        reject(Object.assign(new Error('provider wrapper'), {name: 'AbortError'}));
-                    }, {once: true});
-                });
+        const embeddingPromise = TextEmbeddingService.embedText('hello', 'ollama', {
+            signal                  : controller.signal,
+            operationLabel          : 'Ollama caller settlement probe',
+            operationStage          : 'embedding-canary',
+            service                 : 'memory-core',
+            providerActivityRecorder: {
+                beginProviderActivity(entry) { activities.push({type: 'begin', entry}); return 'activity-1' },
+                startProviderActivity(id) { activities.push({type: 'start', id}) },
+                completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+            }
+        });
+
+        await expect.poll(() => Boolean(capturedOptions)).toBe(true);
+        controller.abort(reason);
+        await expect(embeddingPromise).rejects.toBe(reason);
+
+        expect(capturedOptions).not.toHaveProperty('signal');
+        expect(activities.map(item => item.type)).toEqual(['begin', 'start']);
+
+        resolveProvider({embeddings: [[0.1, 0.2]]});
+        await expect.poll(() => activities.filter(item => item.type === 'complete').length).toBe(1);
+        expect(activities.at(-1).outcome).toMatchObject({success: true});
+    });
+
+    test('Ollama provider failure that settles before caller abort keeps provider identity (#16853)', async () => {
+        const
+            controller    = new AbortController(),
+            providerError = Object.assign(new Error('native provider failed first'), {
+                name: 'AbortError',
+                code: 'ABORT_ERR'
+            }),
+            callerReason  = new Error('later caller abort');
+
+        let rejectProvider;
+        TextEmbeddingService.ollamaProvider = {
+            embed() {
+                return new Promise((resolve, reject) => rejectProvider = reject);
             }
         };
 
         const embeddingPromise = TextEmbeddingService.embedText('hello', 'ollama', {
             signal        : controller.signal,
-            operationLabel: 'Ollama health probe'
+            operationLabel: 'provider-first race probe'
+        });
+
+        rejectProvider(providerError);
+        controller.abort(callerReason);
+
+        await expect(embeddingPromise).rejects.toBe(providerError);
+    });
+
+    test('Ollama batch caller abort keeps provider work observed and never forwards the signal (#16853)', async () => {
+        const
+            controller = new AbortController(),
+            reason     = Object.freeze(new Error('stop waiting for native Ollama batch')),
+            activities = [];
+
+        let capturedInput, capturedOptions, resolveProvider;
+        TextEmbeddingService.ollamaProvider = {
+            embed(input, options) {
+                capturedInput   = input;
+                capturedOptions = options;
+                return new Promise(resolve => resolveProvider = resolve);
+            }
+        };
+
+        const embeddingPromise = TextEmbeddingService.embedTexts(['one', 'two'], 'ollama', {
+            signal                  : controller.signal,
+            operationLabel          : 'Ollama batch caller settlement probe',
+            operationStage          : 'mc-wal-drain-embedding',
+            service                 : 'memory-core',
+            providerActivityRecorder: {
+                beginProviderActivity(entry) { activities.push({type: 'begin', entry}); return 'activity-batch' },
+                startProviderActivity(id) { activities.push({type: 'start', id}) },
+                completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+            }
+        });
+
+        await expect.poll(() => Boolean(capturedOptions)).toBe(true);
+        controller.abort(reason);
+        await expect(embeddingPromise).rejects.toBe(reason);
+
+        expect(capturedInput).toEqual(['one', 'two']);
+        expect(capturedOptions).not.toHaveProperty('signal');
+        expect(activities.map(item => item.type)).toEqual(['begin', 'start']);
+
+        resolveProvider({embeddings: [[0.1], [0.2]]});
+        await expect.poll(() => activities.filter(item => item.type === 'complete').length).toBe(1);
+        expect(activities.at(-1).outcome).toMatchObject({success: true});
+    });
+
+    test('late Ollama timeout after caller abort completes the provider record exactly once (#16853)', async () => {
+        const
+            controller = new AbortController(),
+            reason     = new Error('caller left before provider timeout'),
+            activities = [];
+
+        let rejectProvider;
+        TextEmbeddingService.ollamaProvider = {
+            embed() {
+                return new Promise((resolve, reject) => rejectProvider = reject);
+            }
+        };
+
+        const embeddingPromise = TextEmbeddingService.embedText('hello', 'ollama', {
+            signal                  : controller.signal,
+            operationLabel          : 'late provider timeout probe',
+            providerActivityRecorder: {
+                beginProviderActivity() { return 'activity-late-timeout' },
+                startProviderActivity() {},
+                completeProviderActivity(id, outcome) { activities.push({id, outcome}) }
+            }
         });
 
         controller.abort(reason);
+        await expect(embeddingPromise).rejects.toBe(reason);
 
-        let observed;
-        try {
-            await embeddingPromise;
-        } catch (error) {
-            observed = error;
-        }
+        const timeoutError = Object.assign(new Error('native provider timed out later'), {
+            code    : PROVIDER_TIMEOUT_CODE,
+            provider: 'Ollama'
+        });
 
-        expect(capturedSignal).toBe(controller.signal);
-        expect(observed).toBe(reason);
-        expect(observed.code).not.toBe(PROVIDER_TIMEOUT_CODE);
+        rejectProvider(timeoutError);
+
+        await expect.poll(() => activities.length).toBe(1);
+        expect(activities[0]).toMatchObject({
+            id     : 'activity-late-timeout',
+            outcome: {success: false}
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(activities).toHaveLength(1);
     });
 
     test('non-Error abort reasons become a bounded structural AbortError before provider work', async () => {
         const
             controller     = new AbortController(),
-            operationLabel = 'x'.repeat(160);
+            operationLabel = 'x'.repeat(160),
+            activities     = [];
 
         let providerCalls = 0;
         TextEmbeddingService.ollamaProvider = {
@@ -399,14 +512,19 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         let observed;
         try {
             await TextEmbeddingService.embedText('hello', 'ollama', {
-                signal: controller.signal,
-                operationLabel
+                signal                  : controller.signal,
+                operationLabel,
+                providerActivityRecorder: {
+                    beginProviderActivity(entry) { activities.push(entry); return 'must-not-start' }
+                }
             });
         } catch (error) {
             observed = error;
         }
 
         expect(providerCalls).toBe(0);
+        expect(activities).toEqual([]);
+        expect(getEventListeners(controller.signal, 'abort')).toEqual([]);
         expect(observed).toMatchObject({
             name          : 'AbortError',
             code          : 'ABORT_ERR',
