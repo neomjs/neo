@@ -167,6 +167,7 @@
         "engines.chroma.useUnitTestDatabase",
         "fleet",
         "fleet.bearer",
+        "fleet.bearerHandshake",
         "fleet.cockpitOrigins",
         "fleet.dataDir",
         "fleet.harnessBinaries",
