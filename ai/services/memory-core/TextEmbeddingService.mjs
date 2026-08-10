@@ -533,6 +533,14 @@ class TextEmbeddingService extends Base {
     #openAiCompatiblePostQueue       = [];
     #openAiCompatiblePostQueueActive = false;
 
+    // Native Ollama admission control. The openAiCompatible path has been serialized since
+    // `#openAiCompatiblePostQueue` existed; this path reached the provider through
+    // `observeUnqueuedProviderActivity` — which observes and does NOT admit — so its concurrency was
+    // emergent from caller count. Four callers meant four resident-model requests, which is the
+    // observed shape on a real plane rather than a hypothetical one.
+    #ollamaInFlightEmbeddings = 0;
+    #ollamaEmbeddingWaiters   = [];
+
     /**
      * @param {Object} config The configuration object.
      */
@@ -1246,6 +1254,65 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Admits one native Ollama embedding request, waiting when the declared cap is reached.
+     *
+     * The cap is read from the SSOT at the use site on every admission, not captured once, so an
+     * operator override takes effect on the next request rather than at the next process start.
+     *
+     * A cap below 1 admits nothing and would hang every caller forever. That fails LOUD instead:
+     * an indefinitely-held embedding request is precisely the state this admission control exists
+     * manufacturing one from a config typo would be the defect wearing the fix's clothes.
+     * @returns {Promise<void>}
+     * @private
+     */
+    #tryAcquireOllamaEmbeddingSlot() {
+        if (aiConfig.ollama.maxInFlightEmbeddings < 1) {
+            throw new Error(`TextEmbeddingService: ollama.maxInFlightEmbeddings is ${aiConfig.ollama.maxInFlightEmbeddings}; a cap below 1 admits no embedding request at all`);
+        }
+
+        if (this.#ollamaInFlightEmbeddings < aiConfig.ollama.maxInFlightEmbeddings) {
+            this.#ollamaInFlightEmbeddings++;
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Waits for a slot. Only reached when the cap actually binds.
+     *
+     * Split from the synchronous attempt above deliberately. An `await` before dispatch — even one
+     * that resolves immediately — hands control back to the caller, and a caller that aborts on the
+     * next line then cancels the request BEFORE the provider is reached. The provider-neutral cancellation
+     * contract asserts the signal arrives at the provider, and an unconditional await broke it: the
+     * request was never dispatched at all. Admission must be FREE when there is room, or it silently
+     * re-times every caller's cancellation.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #awaitOllamaEmbeddingSlot() {
+        // Re-check per iteration rather than trusting the value that queued us. A raised cap does
+        // NOT proactively wake anyone — nothing watches the config — but the next admission
+        // attempt, whether a fresh caller or a woken waiter, reads the current number.
+        while (!this.#tryAcquireOllamaEmbeddingSlot()) {
+            await new Promise(resolve => this.#ollamaEmbeddingWaiters.push(resolve));
+        }
+    }
+
+    /**
+     * @summary Releases one native Ollama embedding slot and wakes the longest-waiting caller.
+     *
+     * Called from a `finally`, so an aborted or thrown request returns its slot. A release that only
+     * ran on success would leak the cap down to zero after N failures and stall the path completely —
+     * turning an admission control into an outage, silently.
+     * @private
+     */
+    #releaseOllamaEmbeddingSlot() {
+        this.#ollamaInFlightEmbeddings--;
+        this.#ollamaEmbeddingWaiters.shift()?.()
+    }
+
+    /**
      * @summary Runs native Ollama embedding while separating caller abort from provider settlement.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
@@ -1263,8 +1330,26 @@ class TextEmbeddingService extends Base {
             requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs(),
             providerOutcome  = {state: 'pending'};
 
-        operation.phase = 'in-flight';
-        throwIfEmbeddingAborted(signal, operationLabel, operation);
+        // Admission before the provider call. The uncontended path takes the synchronous branch and
+        // does NOT await — see `#awaitOllamaEmbeddingSlot` for why an unconditional await silently
+        // re-times every caller's cancellation.
+        //
+        // Waiting for a slot is its own phase: without it, a request queued behind the cap is
+        // indistinguishable from one the provider is slow to answer.
+        if (!this.#tryAcquireOllamaEmbeddingSlot()) {
+            operation.phase = 'awaiting-admission';
+            await this.#awaitOllamaEmbeddingSlot();
+        }
+
+        try {
+            operation.phase = 'in-flight';
+            throwIfEmbeddingAborted(signal, operationLabel, operation);
+        } catch (error) {
+            // Already-aborted callers must return the slot they just took, or an abort storm walks
+            // the cap down to zero and stalls the path.
+            this.#releaseOllamaEmbeddingSlot();
+            throw error;
+        }
 
         const recordProviderFailure = error => {
             providerOutcome.state = 'rejected';
@@ -1302,6 +1387,16 @@ class TextEmbeddingService extends Base {
             }
         });
 
+        // Release when the PROVIDER settles, NOT when the caller does. #16853 deliberately lets a
+        // caller settle on abort while its provider request keeps running — so releasing on caller
+        // completion would free a slot whose request is still in flight, and an abort storm would put
+        // N concurrent requests through a cap of 1. Both handlers attached, so this derived promise
+        // cannot reject unhandled.
+        providerPromise.then(
+            () => this.#releaseOllamaEmbeddingSlot(),
+            () => this.#releaseOllamaEmbeddingSlot()
+        );
+
         return settleCallerWhileProviderContinues({
             providerPromise,
             signal,
@@ -1309,6 +1404,24 @@ class TextEmbeddingService extends Base {
             operation,
             providerOutcome
         });
+    }
+
+    /**
+     * @summary Reports native Ollama embedding admission: the declared cap and what is using it.
+     *
+     * A concurrency must be declared AND reported to be worth anything. A cap nothing can observe
+     * is only half the repair: an operator seeing sustained provider load still cannot tell whether
+     * this process is at its limit or nowhere near it, which is the disproportion the whole ticket
+     * is about. `waiting` is the load-bearing field — in-flight at the cap with a queue behind it is
+     * a saturated path, while in-flight at the cap with nothing waiting is simply a busy one.
+     * @returns {{cap: Number, inFlight: Number, waiting: Number}}
+     */
+    getOllamaEmbeddingAdmission() {
+        return {
+            cap     : aiConfig.ollama.maxInFlightEmbeddings,
+            inFlight: this.#ollamaInFlightEmbeddings,
+            waiting : this.#ollamaEmbeddingWaiters.length
+        }
     }
 
     /**

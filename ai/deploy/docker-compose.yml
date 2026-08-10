@@ -108,6 +108,7 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       # Embedding-batch recovery levers. `batchSize` is the DURABLE UNIT — a whole slice embeds in
       # one provider call and upserts only after it returns — so an operator whose corpus will not
@@ -247,6 +248,7 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
     # The recovery actuator writes a config overlay onto the deployment-state mount, which this
     # service reads read-only — the actuator's container writes, the target only reads, so a target
@@ -355,6 +357,7 @@ services:
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
+      - NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS=${NEO_OLLAMA_MAX_INFLIGHT_EMBEDDINGS:-}
       - NEO_OLLAMA_REQUIRE_PARALLEL_MODELS=${NEO_OLLAMA_REQUIRE_PARALLEL_MODELS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       # Embedding-batch recovery levers — required HERE as well as on kb-server, because `kbSync`
