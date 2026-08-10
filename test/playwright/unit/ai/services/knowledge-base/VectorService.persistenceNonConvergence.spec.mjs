@@ -15,7 +15,7 @@ setup({
     }
 });
 
-import {mkdtempSync, rmSync} from 'node:fs';
+import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import os                    from 'node:os';
 import path                  from 'node:path';
 import {test, expect}        from '@playwright/test';
@@ -82,8 +82,22 @@ function createCollection({persists}) {
         upsertAttempts,
         name: 'spy-knowledge-base',
 
-        async get({limit = 1000, offset = 0} = {}) {
-            return {ids: [...landed].slice(offset, offset + limit)}
+        async get({limit = 1000, offset = 0, include = []} = {}) {
+            const slice = [...landed].slice(offset, offset + limit);
+
+            return {
+                ids      : slice,
+                metadatas: include.includes('metadatas') ? slice.map(() => ({})) : [],
+                documents: include.includes('documents') ? slice.map(() => '')   : []
+            }
+        },
+
+        async delete({ids}) {
+            ids.forEach(id => landed.delete(id));
+        },
+
+        async count() {
+            return landed.size
         },
 
         async upsert({ids, embeddings, metadatas}) {
@@ -118,8 +132,29 @@ function makeChunks(count) {
     }));
 }
 
+/**
+ * @summary Writes the JSONL corpus `VectorService.embed()` reads, so the deployed entry point can be
+ * driven with its own loader and its own selector rather than a hand-supplied chunk array.
+ * @param {String} filePath Destination of the synthetic corpus.
+ * @param {Number} chunkCount How many chunks to write.
+ * @returns {void}
+ */
+function writeFixtureJsonl(filePath, chunkCount) {
+    const lines = Array.from({length: chunkCount}, (_, i) => JSON.stringify({
+        hash       : `chunk-${i}`,
+        type       : 'method',
+        name       : `method${i}`,
+        className  : '',
+        description: `synthetic chunk ${i}`,
+        content    : `body ${i}`
+    }));
+
+    writeFileSync(filePath, lines.join('\n'), 'utf8');
+}
+
 test.describe('VectorService — persistence failure is an unbounded re-embed loop', () => {
-    let KB_VectorService, KB_Config, MC_Config, TextEmbeddingService, KBRecorderService;
+    let KB_VectorService, KB_Config, MC_Config, TextEmbeddingService, KBRecorderService, KB_ChromaManager;
+    let originalGetCollection, corpusPath;
     let selectResumableChunks, ensureEmbeddingIdentitySchema, getEmbeddingIdentityWindow;
     let restoreKBConfig, restoreMCConfig, originalOllamaProvider, originalRecorderDb;
     let db, tempDir;
@@ -163,13 +198,18 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
         ({ensureEmbeddingIdentitySchema, getEmbeddingIdentityWindow} =
             await import('../../../../../../ai/services/shared/embeddingIdentityLedger.mjs'));
 
+        KB_ChromaManager = SDK.KB_ChromaManager;
+
         originalOllamaProvider = TextEmbeddingService.ollamaProvider;
         originalRecorderDb     = KBRecorderService.db;
+        originalGetCollection  = KB_ChromaManager.getKnowledgeBaseCollection.bind(KB_ChromaManager);
     });
 
     test.afterAll(() => {
-        TextEmbeddingService.ollamaProvider = originalOllamaProvider;
-        KBRecorderService.db                = originalRecorderDb;
+        TextEmbeddingService.ollamaProvider          = originalOllamaProvider;
+        KBRecorderService.db                         = originalRecorderDb;
+        KB_ChromaManager.getKnowledgeBaseCollection  = originalGetCollection;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
     });
 
     test.beforeEach(() => {
@@ -179,8 +219,9 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
         Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 1});
         MC_Config.embeddingProvider = 'ollama';
 
-        tempDir = mkdtempSync(path.join(os.tmpdir(), 'neo-kb-nonconvergence-'));
-        db      = new Database(path.join(tempDir, 'telemetry.sqlite'));
+        tempDir    = mkdtempSync(path.join(os.tmpdir(), 'neo-kb-nonconvergence-'));
+        corpusPath = path.join(tempDir, 'corpus.jsonl');
+        db         = new Database(path.join(tempDir, 'telemetry.sqlite'));
         db.pragma('journal_mode = WAL');
         ensureEmbeddingIdentitySchema(db);
 
@@ -197,6 +238,9 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
     });
 
     test.afterEach(() => {
+        KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
         KBRecorderService.db = originalRecorderDb;
 
         if (db?.open) {
@@ -291,5 +335,59 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
         expect(cleanWindow.submissions, 'the converging sweep submitted each text exactly once').toBe(3);
         expect(cleanWindow.ratio, 'and holds the ratio at exactly 1 — a legitimately busy run is NOT flagged')
             .toBe(1);
+    });
+
+    test('the DEPLOYED sweep entry point re-selects across successive embed() calls (#16780 AC-2)', async () => {
+        // The tests above drive the selection PRIMITIVES. This one drives `VectorService.embed()`, the
+        // entry point a deployment actually runs — and that distinction is load-bearing, because
+        // `embed()` carries its OWN inline selector rather than calling the shared helper. Binding only
+        // the helper would leave the deployed path unverified: the same selection rule exists twice in
+        // production, and a spec must say WHICH one it protects.
+        //
+        // Here `embed()` reads its own corpus off disk, reads existing ids off the collection, decides
+        // what to embed, and writes. Nothing in this test selects anything.
+        writeFixtureJsonl(corpusPath, 3);
+
+        const submissionsPerSweep = [];
+        let   sweepSubmissions    = 0;
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) {
+                const texts = Array.isArray(input) ? input : [input];
+                sweepSubmissions += texts.length;
+                return {embeddings: texts.map(() => new Array(384).fill(0.1))}
+            }
+        };
+
+        const runDeployedSweep = async collection => {
+            sweepSubmissions = 0;
+            KB_ChromaManager.getKnowledgeBaseCollection = async () => collection;
+            KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            await KB_VectorService.embed(corpusPath).then(() => null, () => null);
+            submissionsPerSweep.push(sweepSubmissions);
+        };
+
+        const failing = createCollection({persists: false});
+
+        await runDeployedSweep(failing);
+        await runDeployedSweep(failing);
+
+        expect(submissionsPerSweep, 'the deployed sweep paid the provider for the same corpus twice')
+            .toEqual([3, 3]);
+        expect(failing.landed.size, 'and stored nothing, so nothing bounds the next sweep either').toBe(0);
+
+        // Same entry point, same corpus, persistence restored. `embed()` now sees its own writes and
+        // selects nothing — the convergence its inline selector exists to produce.
+        submissionsPerSweep.length = 0;
+
+        const converging = createCollection({persists: true});
+
+        await runDeployedSweep(converging);
+        await runDeployedSweep(converging);
+
+        expect(submissionsPerSweep, 'the second deployed sweep had nothing left to select')
+            .toEqual([3, 0]);
+        expect(converging.landed.size, 'because the first one actually landed').toBe(3);
     });
 });
