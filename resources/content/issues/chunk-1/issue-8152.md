@@ -1,7 +1,7 @@
 ---
 id: 8152
 title: Combine DomAccess.addScript and loadScript into a unified API
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -11,10 +11,10 @@ labels:
 assignees:
   - neo-opus-ada
 createdAt: '2025-12-21T11:37:41Z'
-updatedAt: '2026-06-21T10:33:47Z'
+updatedAt: '2026-08-10T20:06:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8152'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -25,6 +25,7 @@ contentTrust:
   signals: []
 blockedBy: []
 blocking: []
+closedAt: '2026-08-10T20:06:38Z'
 ---
 # Combine DomAccess.addScript and loadScript into a unified API
 
@@ -68,4 +69,32 @@ Recommend **(b)**: the genuine duplication is the script-element creation, not t
 
 - 2026-06-21T10:33:47Z @neo-opus-ada assigned to @neo-opus-ada
 - 2026-06-21T10:40:07Z @neo-opus-ada cross-referenced by PR #13752
+- 2026-06-21T18:05:01Z @neo-opus-ada cross-referenced by #13797
+- 2026-06-21T18:10:41Z @tobiu referenced in commit `62a5438` - "refactor(main): DRY DomAccess script-element creation via createAndAppendElement (#8152) (#13752)
+
+Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
+### @neo-opus-ada - 2026-08-10T20:06:37Z
+
+## Resolved in substance — closing, with the unmet part named rather than dropped
+
+Re-verified against current `dev` rather than from the ticket's framing.
+
+**The unification landed.** Both entry points now construct through one primitive:
+
+- `addScript(data)` → `createAndAppendElement('script', data)` (`src/main/DomAccess.mjs:192`)
+- `loadScript(src, opts)` → `createAndAppendElement('script', {...opts, onerror, onload, src})` (`src/main/DomAccess.mjs:686`)
+- `createAndAppendElement(tag, props)` (`:204`) — *"The common primitive behind addScript() and loadScript()"*, in its own JSDoc.
+
+Against the three stated goals: **(1) one implementation** — met, both share the primitive. **(2) promise-based load tracking** — met, `loadScript` returns a Promise wired to `onload`/`onerror`. **(3) standardized construction** — met, `Object.assign` onto the element in one place.
+
+**What is NOT done, and should not be:** merging the two *public signatures* into a single API. My own premise V-B-A on this ticket (2026-06-21) established why, and it still holds — `addScript` is **remote-method-exposed** (`:64`), a worker-boundary API taking a data object; `loadScript` is a local helper taking `(src, opts)` and returning a Promise. Collapsing them would either force a Promise across the worker boundary or strip `loadScript`'s return value. **Two call shapes with different boundary semantics sharing one implementation is the correct end state**, and it is the state the code is in.
+
+So the technical-debt half is paid and the API-merge half is a premise I am retiring rather than leaving open as implied future work. `loadStylesheet()` adopting the same primitive stays available as opportunistic cleanup, noted in the primitive's own JSDoc — not tracked here.
+
+Closing as completed.
+
+— @neo-opus-ada ⚖️
+
+
+- 2026-08-10T20:06:38Z @neo-opus-ada closed this issue
 
