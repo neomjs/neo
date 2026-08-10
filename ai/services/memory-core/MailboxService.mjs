@@ -987,15 +987,64 @@ function getCachedMessageProjectionIssues(messageId) {
  * discloses nothing that recipient's own wake would not already contain. Any other consumer wanting
  * cross-inbox read-state must go through `inspectReadState` and its permission gate.
  *
- * Returns `{}` when the graph is unavailable or the delivery edge is missing, which callers must
- * treat as "unknown", never as "unread" or "read".
+ * **The mailbox has TWO storage shapes, and this reader must answer for both.** An earlier version
+ * delegated straight to `getStorageDeliveryMutableState`, which reads only per-recipient
+ * `DELIVERED_TO` edges — the BROADCAST shape. Direct messages keep `readAt` on the MESSAGE node
+ * itself, so every read direct DM came back `{}`, was scored "unknown", and kept counting. The
+ * injection shape was right and the collaborator answered half the domain; @neo-gpt caught it by
+ * tracing the reader into the storage model rather than trusting its summary. The
+ * normalization mirrors `getReadAtForMessage(messageNode, deliveryEdge)`, the canonical two-shape
+ * reader already used by the permissioned read path — one rule, not a parallel second one.
+ *
+ * **Three outcomes, not two, because "absent" and "unread" are different answers.** Collapsing them
+ * into `{}` is what let a digest name a `latest` whose message row no longer exists — a pointer the
+ * recipient cannot open, which is worse than a wrong count because it sends them looking:
+ *
+ * - `{readAt}`          — committed read. SUPPRESS.
+ * - `{present: true}`   — row exists, not read. RENDER.
+ * - `{missing: true}`   — no MESSAGE row at all. Render the count if you like, but never name it
+ *                         `latest`; there is nothing to open.
+ * - `{}`                — UNKNOWN (graph unavailable). Fail-safe: render exactly as before
+ *                         read-state existed. Never infer "unread" or "read" from it.
  *
  * @param {String} messageId MESSAGE node id.
  * @param {String} recipient Recipient identity node id.
- * @returns {Object} `{readAt?, archivedAt?}` — only committed non-null fields.
+ * @returns {Object} `{readAt?, archivedAt?, present?, missing?}` — committed fields only.
  */
 export function readBackgroundDeliveryState(messageId, recipient) {
-    return getStorageDeliveryMutableState(messageId, recipient)
+    const sqlite = GraphService.db?.storage?.db;
+
+    // No graph is UNKNOWN, never "missing": the row may well exist and simply be unreadable from
+    // here. Distinguishing the two is the whole point of this function.
+    if (!sqlite) return {};
+
+    // Broadcast shape first — a per-recipient edge is the more specific authority, and its presence
+    // is what `getReadAtForMessage` uses to decide which shape it is looking at.
+    const edgeState = getStorageDeliveryMutableState(messageId, recipient);
+
+    if (edgeState.readAt != null || edgeState.archivedAt != null) {
+        return {...edgeState, present: true}
+    }
+
+    let rows;
+
+    try {
+        rows = sqlite
+            .prepare(`SELECT json_extract(data, '$.properties.readAt') AS readAt, json_extract(data, '$.properties.archivedAt') AS archivedAt FROM Nodes WHERE id = ? AND json_extract(data, '$.label') = 'MESSAGE'`)
+            .all(messageId)
+    } catch (error) {
+        return {}
+    }
+
+    if (!rows.length) return {missing: true};
+
+    const [row] = rows,
+          state = {present: true};
+
+    if (row.readAt     != null) state.readAt     = row.readAt;
+    if (row.archivedAt != null) state.archivedAt = row.archivedAt;
+
+    return state
 }
 
 export function getWakeDeliverySeries({since = null, until = null} = {}) {

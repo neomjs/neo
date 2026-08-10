@@ -542,6 +542,47 @@ test.describe('CoalescingEngineService', () => {
         expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(2);
     });
 
+    /**
+     * @summary AC-6 — a digest never names a `latest` the recipient cannot open.
+     *
+     * The consumer half of the two-shape repair. `missing` is a POSITIVE finding from the resolver
+     * (no MESSAGE row exists), deliberately distinct from `{}` (graph unavailable). The distinction
+     * carries the whole behaviour: the event still COUNTS, because something really was queued and
+     * hiding it is the suppression failure mode this feature exists to avoid — but it must not
+     * become the pointer, because a `latest` is an invitation to open something, and naming an
+     * absent row sends the recipient hunting for a message that is not there.
+     *
+     * Injecting the resolver is correct HERE and only here: this arm is about what the coalescer
+     * does with an answer. That the real resolver produces that answer against real graph rows is
+     * proven separately in `MailboxService.spec.mjs`, because a hand-injected fixture is
+     * structurally incapable of falsifying the producer — which is exactly how the broadcast-only
+     * reader survived review the first time.
+     */
+    test('AC-6 — a MISSING message counts but can never be named latest', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: messageId => messageId === 'M-GONE' ? {missing: true} : {present: true}
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+
+        // M-GONE is the NEWEST, so recency alone would elect it — the disqualification has to be
+        // what keeps it out, not ordering luck.
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-REAL', subject: 'openable'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-GONE', subject: 'row deleted'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const digest = deliverCalls[0].eventData;
+
+        expect(digest.payload.breakdown.sent_to_me.count, 'a queued event still counts').toBe(2);
+        expect(digest.payload.breakdown.sent_to_me.latest.messageId,
+            'latest must fall back to the openable message').toBe('M-REAL')
+    });
+
     test('FAIL-SAFE — a resolver that THROWS renders the event rather than dropping it', async () => {
         CoalescingEngineService.configure({
             coalesceWindowSeconds : 30,

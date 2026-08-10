@@ -496,14 +496,16 @@ class CoalescingEngineService extends Base {
                 continue
             }
 
-            // Read-state reconciliation, `sent_to_me` only — the other buckets have no delivery edge
-            // and therefore no read-state to reconcile against.
+            // Read-state reconciliation, `sent_to_me` only — the other buckets carry no mailbox row
+            // and therefore have no read-state to reconcile against.
             //
             // FAIL-SAFE at every branch. No resolver, no messageId, a resolver that throws, or a
-            // resolver returning `{}` (graph unavailable / delivery edge missing) all mean UNKNOWN,
-            // and unknown renders the event exactly as before. Only a committed `readAt` suppresses
-            // one. Suppressing on uncertainty would turn a mislabelled count into a missing wake,
-            // and a missing wake is visible to nobody.
+            // resolver returning `{}` (graph unavailable) all mean UNKNOWN, and unknown renders the
+            // event exactly as before. Only a committed `readAt` suppresses one. Suppressing on
+            // uncertainty would turn a mislabelled count into a missing wake, and a missing wake is
+            // visible to nobody.
+            let unopenable = false;
+
             if (bucketKey === 'sent_to_me' && this.resolveDeliveryReadState) {
                 const messageId = evt.payload?.messageId;
 
@@ -519,6 +521,14 @@ class CoalescingEngineService extends Base {
                     if (state?.readAt) {
                         continue
                     }
+
+                    // `missing` is NOT `{}`. The resolver reports it only after establishing that no
+                    // MESSAGE row exists — a positive finding, not an absence of information. The
+                    // event still counts (something was queued, and hiding that is the suppression
+                    // failure mode), but it must never become `latest`: a `latest` is a pointer the
+                    // recipient is invited to open, and naming one that cannot be opened sends them
+                    // hunting for a message that is not there. That is AC-6.
+                    unopenable = state?.missing === true
                 }
             }
 
@@ -528,8 +538,9 @@ class CoalescingEngineService extends Base {
 
             const ts = resolveEventTimestamp(evt);
 
-            // Recency wins over position; a timestamp-less candidate keeps last-write-wins.
-            if (bucket.latest === null || ts === null || ts >= bucket.latestTs) {
+            // Recency wins over position; a timestamp-less candidate keeps last-write-wins. An
+            // unopenable event is disqualified from the pointer only — it has already been counted.
+            if (!unopenable && (bucket.latest === null || ts === null || ts >= bucket.latestTs)) {
                 bucket.latest   = evt.payload;
                 bucket.latestTs = ts ?? bucket.latestTs;
             }
