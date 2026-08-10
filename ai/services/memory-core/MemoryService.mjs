@@ -7,7 +7,6 @@ import SessionService      from './SessionService.mjs';
 import TurnPresenceService from './TurnPresenceService.mjs';
 import {withTimeout,
         WITH_TIMEOUT_CODE} from './helpers/withTimeout.mjs';
-import {runSelfDegradingSyncCall} from './helpers/selfDegradingSyncCall.mjs';
 
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
         PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
@@ -66,18 +65,17 @@ export const MEMORY_ACCEPTED_MESSAGE = 'Memory accepted and durably logged to th
 /**
  * Response-side latency budgets for the `addMemory` disclosure stages. The WAL append is the
  * never-fail durability anchor — but the RESPONSE must never be held hostage by the derived
- * disclosure work that follows it: on a contended plane (embed drain churning the same SQLite,
- * inflated mailbox), an unbounded mailbox query, presence write, or pending-WAL scan can push an
- * ACCEPTED save past the client's transport timeout — the caller then reads durable success as
- * `-32001` data loss, the exact misread the disclosure exists to prevent. Deliberately module
- * constants, not config leaves: they price a transport contract (client timeouts), not a
- * deployment choice.
+ * disclosure work that follows it: on a contended plane, an unbounded presence write or pending-WAL
+ * scan can push an ACCEPTED save past the client's transport timeout — the caller then reads durable
+ * success as `-32001` data loss, the exact misread the disclosure exists to prevent. Deliberately
+ * module constants, not config leaves: they price a transport contract (client timeouts), not a
+ * deployment choice. The aggregate budget includes bounded scheduling/logging overhead around the
+ * two awaited stages; synchronous mailbox SQLite work is omitted rather than priced retrospectively.
  * @type {Number}
  */
-const MAILBOX_DELTA_BUDGET_MS     = 250;
-const MAILBOX_DELTA_COOLDOWN_MS   = 60_000;
 const PRESENCE_TERMINAL_BUDGET_MS = 300;
 const VISIBILITY_READ_BUDGET_MS   = 400;
+const POST_WAL_RESPONSE_BUDGET_MS = 1_000;
 
 /**
  * Re-exported from `./helpers/withTimeout.mjs` (moved there so `SessionService` can share it without
@@ -425,12 +423,14 @@ class MemoryService extends Base {
      * @param {String} [options.model]   The model name (e.g. 'gemini-3.1-pro').
      * @param {Number} [options.amountToolCalls] The number of tool calls executed during the turn.
      * @param {Array|String} [options.toolsUsed] Descriptions or array of tools used.
-     * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string, mailbox: Object|null}>}
-     *     Memory-write confirmation plus a per-turn **mailbox delta signal** (`mailbox` block —
-     *     `{unreadCount, latestPreview}` when the caller has a bound AgentIdentity, `null`
-     *     otherwise). Piggybacks inbox awareness on the protocol's mandatory per-turn save,
-     *     bypassing the in-memory graph cache so cross-harness writes surface immediately —
-     *     see {@link buildMailboxDelta}.
+     * @returns {Promise<{id: String, sessionId: String, timestamp: String, message: String,
+     *     visibility: Object, mailbox: null, stageTimings: {walMs: Number, mailboxMs: null,
+     *     mailboxTerminal: 'omitted', mailboxReason: 'synchronous-query-outside-accepted-write-contract',
+     *     presenceMs: Number, presenceTerminal: 'completed'|'deferred'|'failed', visibilityMs: Number,
+     *     postWalMs: Number, postWalBudgetMs: Number}}>} Memory-write confirmation. `mailbox` is
+     *     deliberately `null`: its synchronous SQLite enrichment is outside the accepted-write
+     *     latency contract, and callers use `list_messages` for the authoritative mailbox read.
+     *     `stageTimings` names the omission and reports the bounded post-WAL disclosure stages.
      */
     async addMemory({prompt, response, thought, sessionId, agent, model, amountToolCalls, toolsUsed}) {
         // Stale-overlay guard (caught + actionable): the gitignored config.mjs is a MATERIALIZED
@@ -533,6 +533,7 @@ class MemoryService extends Base {
             );
 
             stageTimings.walMs = Date.now() - walStartedAt;
+            const postWalStartedAt = Date.now();
 
             this._scheduleMemoryGraphProjection({
                 memoryId,
@@ -561,25 +562,16 @@ class MemoryService extends Base {
             // `_projectMemoryToGraph` (with a null miniSummary); the scheduled `backfillMiniSummaries`
             // pass enriches it under the heavy lease. Model inference stays orchestrator-driven.
 
-            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
-            //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
-            //    so a degraded mailbox query never blocks a successful memory write.
-            // The delta is SYNCHRONOUS (better-sqlite3) — it blocks the event loop for its full
-            // duration and no race can bound it. The self-degrading guard prices it retrospectively:
-            // one over-budget run arms a cooldown, and the piggyback honestly disappears
-            // (`mailbox: null` + the reason in `stageTimings`) instead of taxing every mandatory
-            // save on a known-slow box.
-            const mailboxRun = runSelfDegradingSyncCall({
-                fn        : () => buildMailboxDelta(),
-                budgetMs  : MAILBOX_DELTA_BUDGET_MS,
-                cooldownMs: MAILBOX_DELTA_COOLDOWN_MS,
-                state     : this._mailboxDeltaGuard ??= {}
-            });
-            const mailbox = mailboxRun.value;
+            // 5. Mailbox enrichment is deliberately OUTSIDE this response. Its direct better-sqlite3
+            //    CTE is synchronous: no timeout can interrupt the first slow call after WAL acceptance,
+            //    and a retrospective cooldown cannot bound the request that paid it. Honest omission is
+            //    safer than making a durable save wait for a convenience signal. `list_messages` remains
+            //    the authoritative read and a future bounded/cached producer may restore enrichment.
+            const mailbox = null;
 
-            stageTimings.mailboxMs = mailboxRun.durationMs ?? null;
-            if (mailboxRun.skipped)       stageTimings.mailboxSkipped = mailboxRun.reason;
-            if (mailboxRun.cooldownArmed) stageTimings.mailboxCooldownArmed = true;
+            stageTimings.mailboxMs       = null;
+            stageTimings.mailboxTerminal = 'omitted';
+            stageTimings.mailboxReason   = 'synchronous-query-outside-accepted-write-contract';
 
             // 6. Completed-turn terminal proof: closes the active turn-presence interval when
             //    add_memory succeeds, but never makes add_memory the liveness primary or a failure
@@ -642,7 +634,9 @@ class MemoryService extends Base {
                     hint             : '`query_recent_turns` returns this write NOW. Embed reconciliation state could not be read within budget; poll `healthcheck` for `memoryWalDrain`.'
                 };
             });
-            stageTimings.visibilityMs = Date.now() - visibilityStartedAt;
+            stageTimings.visibilityMs    = Date.now() - visibilityStartedAt;
+            stageTimings.postWalMs       = Date.now() - postWalStartedAt;
+            stageTimings.postWalBudgetMs = POST_WAL_RESPONSE_BUDGET_MS;
 
             return {id: memoryId, sessionId, timestamp, message: MEMORY_ACCEPTED_MESSAGE, visibility, mailbox, stageTimings};
         } catch (error) {

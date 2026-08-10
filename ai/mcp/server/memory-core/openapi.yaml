@@ -3772,11 +3772,11 @@ components:
               description: Which read to use now, and what to do instead of retrying.
         mailbox:
           description: |
-            Per-turn A2A mailbox delta signal — unread-inbox awareness piggybacked on every
-            memory write. Bypasses the in-memory graph cache via a direct SQLite read, so
-            messages written by other harness processes surface immediately without requiring
-            an MCP server restart. `null` when the caller has no bound AgentIdentity
-            (single-tenant fallthrough). Shipped with #10174.
+            Deliberately `null` on the accepted-write response. The former per-turn A2A mailbox
+            enrichment used a synchronous SQLite query after WAL acceptance; that work cannot be
+            interrupted by an asynchronous timeout and therefore sat outside the response-latency
+            contract. Use `list_messages` for the authoritative mailbox read. The nullable object
+            shape remains reserved for a future bounded or cached producer.
           nullable: true
           type: object
           properties:
@@ -3804,6 +3804,55 @@ components:
                   type: string
                   format: date-time
                   example: "2026-04-22T13:33:41.675Z"
+        stageTimings:
+          type: object
+          description: >-
+            Measured write stages and closed dispositions for work performed after acceptance.
+            `walMs` is observational only: this contract does not put a deadline on the durable
+            WAL append. `postWalBudgetMs` bounds the asynchronous disclosure dependencies after
+            that append; mailbox enrichment is explicitly omitted rather than retrospectively
+            timed after synchronous work has already blocked the response.
+          properties:
+            walMs:
+              type: integer
+              minimum: 0
+              description: Observed duration of the mandatory write-ahead-log append.
+            mailboxMs:
+              type: integer
+              nullable: true
+              minimum: 0
+              description: Always `null` while mailbox enrichment is omitted from this response.
+            mailboxTerminal:
+              type: string
+              enum: [omitted]
+              description: Closed disposition proving mailbox absence was deliberate, not a measured empty inbox.
+            mailboxReason:
+              type: string
+              enum: [synchronous-query-outside-accepted-write-contract]
+              description: Machine-readable reason the mailbox stage did not run.
+            presenceMs:
+              type: integer
+              minimum: 0
+              description: Observed wait for the bounded completed-turn presence terminal.
+            presenceTerminal:
+              type: string
+              enum: [completed, deferred, failed]
+              description: >-
+                `completed` landed within budget; `deferred` is still observed after the local
+                wait expired; `failed` means the terminal rejected without rejecting the accepted save.
+            visibilityMs:
+              type: integer
+              minimum: 0
+              description: Observed wait for the bounded write-visibility disclosure.
+            postWalMs:
+              type: integer
+              minimum: 0
+              description: Observed response work after the WAL append and before return.
+            postWalBudgetMs:
+              type: integer
+              minimum: 0
+              description: Declared aggregate budget for post-WAL disclosure dependencies.
+              example: 1000
 
     MemoriesListResponse:
       type: object
