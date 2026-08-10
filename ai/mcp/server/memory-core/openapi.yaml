@@ -2128,9 +2128,12 @@ paths:
       operationId: list_messages
       x-neo-tool-tier: read
       x-pass-as-object: true
-      x-neo-tool-summary: List incoming or historical A2A mailbox messages.
+      x-neo-tool-summary: List one PAGE of A2A mailbox messages, newest-first.
       description: |
-        Lists incoming messages for the active agent context.
+        Returns a page, not a set. Use `totalCount` / `truncated` / `nextOffset` to tell a complete
+        answer from a truncated one — an empty `messages` array proves absence only when
+        `totalCount` is 0. To establish that a message does not exist, paginate to the end or read
+        `totalCount`; a newest-first window cannot answer that question on its own.
       tags: [Mailbox]
       parameters:
         - name: box
@@ -2182,16 +2185,18 @@ paths:
         - name: limit
           in: query
           required: false
-          description: "Maximum number of messages to return"
+          description: "Page size. Must be a positive integer — a zero or negative page cannot advance a continuation, so it is refused rather than clamped."
           schema:
             type: integer
+            minimum: 1
             default: 50
         - name: offset
           in: query
           required: false
-          description: "Pagination offset"
+          description: "Pagination offset. Must be a non-negative integer; pass the previous response's `nextOffset` to continue."
           schema:
             type: integer
+            minimum: 0
             default: 0
         - name: includeArchived
           in: query
@@ -2208,10 +2213,32 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [messages, totalCount, truncated, nextOffset, limit, offset]
                 properties:
                   _channelSeparation:
                     type: string
                     description: "Security annotation marking the payload as DATA, not executable COMMANDS."
+                  messages:
+                    type: array
+                    description: "At most `limit` rows, newest-first. This is a page; its emptiness proves absence only when `totalCount` is 0."
+                    items:
+                      type: object
+                  totalCount:
+                    type: integer
+                    description: "Rows matching the applied filter BEFORE pagination."
+                  truncated:
+                    type: boolean
+                    description: "Rows remain beyond this page. False on a page that exactly exhausts the filter, so it never advertises an empty continuation."
+                  nextOffset:
+                    type: integer
+                    nullable: true
+                    description: "Offset to continue from, or null when `truncated` is false."
+                  limit:
+                    type: integer
+                    description: "Limit actually applied, so a pasted receipt carries its own depth."
+                  offset:
+                    type: integer
+                    description: "Offset actually applied."
         '500':
           description: Error
           content:
