@@ -1,9 +1,9 @@
 #!/usr/bin/env node
+import * as acorn            from 'acorn';
 import {execSync, spawnSync} from 'child_process';
 import {readFileSync}        from 'fs';
 import path                  from 'path';
 import {fileURLToPath}       from 'url';
-import {codeMask}            from './check-aiconfig-test-mutation.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -39,47 +39,107 @@ export const ESCAPE_MARKER = 'atomic-write-ok';
  * cannot express because it owns both ends. Those carry the escape marker with their reason, which
  * is what turns "an explicit documented reason" from a promise into a checkable one.
  */
-const WRITE_CALLS  = '(?:writeFile|writeFileSync|outputFile|outputFileSync|outputJson|outputJsonSync|appendFile|appendFileSync)',
-      RENAME_CALLS = '(?:rename|renameSync)',
-      IDENTIFIER   = '[A-Za-z_$][\\w$]*';
-
-export const WRITE_TO_SCRATCH = new RegExp(`(?<![\\w$])${WRITE_CALLS}\\s*\\(\\s*(${IDENTIFIER})\\b`);
-export const RENAME_OF_NAME   = new RegExp(`(?<![\\w$])${RENAME_CALLS}\\s*\\(\\s*(${IDENTIFIER})\\s*,`);
+/**
+ * A call that CREATES or writes the scratch. Deliberately name-shaped rather than an allowlist of fs
+ * functions, because the first version of this guard used a fixed list and missed three real sites:
+ *
+ *   - `this._writeSynced(tempPath, record)` — a custom writer the list never had
+ *   - `fs.promises.open(tempPath, 'w')`     — the scratch is created by `open`, then written
+ *                                             through the returned HANDLE, so the name never
+ *                                             appears in a write call at all
+ *
+ * Matching the *shape of the name* covers all three and anything the next author invents.
+ */
+const CREATES_SCRATCH = /(?:^|[._])(?:write|output|append|open|create)/i,
+      RENAME_CALLEE   = /^(?:rename|renameSync)$/;
 
 /**
- * @summary Finds write-temp-then-rename pairs: a name written to, then renamed away.
+ * @summary Depth-first walk over an acorn AST.
+ * @param {Object} node
+ * @param {Function} visit
+ * @returns {void}
+ */
+function walk(node, visit) {
+    if (!node || typeof node !== 'object') return;
+
+    if (Array.isArray(node)) {
+        node.forEach(child => walk(child, visit));
+        return
+    }
+
+    if (typeof node.type === 'string') visit(node);
+
+    for (const key of Object.keys(node)) {
+        if (key === 'loc' || key === 'start' || key === 'end') continue;
+        walk(node[key], visit)
+    }
+}
+
+/**
+ * @summary The trailing identifier of a callee — `fs.promises.rename` -> `rename`.
+ * @param {Object} callee
+ * @returns {String}
+ */
+function calleeName(callee) {
+    if (!callee) return '';
+    if (callee.type === 'Identifier')       return callee.name;
+    if (callee.type === 'MemberExpression') return callee.property?.name ?? '';
+    return ''
+}
+
+/**
+ * @summary Finds write-temp-then-rename pairs: a name created or written, then renamed away.
  *
- * Both halves must sit in executable code — the mask is shared with the sibling AiConfig guard so a
- * pair quoted inside a string, a comment, or a template quasi is not a hit. That matters more than
- * it looks: `generateOpenCodeSeatConfig.mjs` EMITS this exact pair as generated plugin source, and a
- * scanner without the mask would flag the generator for the code it writes rather than the code it
- * runs.
+ * **Parsed, not scanned.** The first version matched line by line and therefore could not see a call
+ * whose arguments wrap across lines — ordinary formatting was a bypass. It also keyed the write half
+ * on a fixed list of fs functions, which missed a custom writer and two handle-based writes. Both
+ * misses shared one root: the detector's vocabulary was mistaken for the population, and a clean run
+ * meant "nothing I can see" rather than "nothing there".
+ *
+ * A parse also makes the string/comment exclusion structural rather than masked: a pair that only
+ * exists inside emitted plugin source (`generateOpenCodeSeatConfig` writes exactly this shape as
+ * generated text) is a string literal in the AST and is never a call.
  * @param {String} content
+ * @param {String} [file='<inline>'] For the parse-failure message.
  * @returns {Object[]} `[{line, name, text}]`, one per offending rename (1-based lines).
  */
-export function findWriteThenRenamePairs(content) {
+export function findWriteThenRenamePairs(content, file = '<inline>') {
+    let program;
+
+    try {
+        program = acorn.parse(content, {ecmaVersion: 'latest', sourceType: 'module', locations: true})
+    } catch (error) {
+        // Fail CLOSED. A file this guard cannot parse is a file it cannot clear.
+        throw new Error(`check-atomic-write-shape: ${file} did not parse: ${error.message}`)
+    }
+
     const lines   = content.split('\n'),
-          state   = {source: content},
-          written = new Map(),
-          hits    = [];
+          scratch = new Map(),
+          renames = [];
 
-    lines.forEach((line, index) => {
-        const mask = codeMask(line, state, index);
+    walk(program, node => {
+        if (node.type !== 'CallExpression') return;
 
-        const writeMatch = line.match(WRITE_TO_SCRATCH);
-        if (writeMatch && mask[writeMatch.index]) {
-            written.set(writeMatch[1], index + 1)
-        }
+        const name  = calleeName(node.callee),
+              first = node.arguments?.[0];
 
-        if (line.includes(ESCAPE_MARKER)) return;
+        if (first?.type !== 'Identifier') return;
 
-        const renameMatch = line.match(RENAME_OF_NAME);
-        if (renameMatch && mask[renameMatch.index] && written.has(renameMatch[1])) {
-            hits.push({line: index + 1, name: renameMatch[1], text: line.trim()})
+        if (RENAME_CALLEE.test(name)) {
+            renames.push({name: first.name, start: node.start, line: node.loc.start.line})
+        } else if (CREATES_SCRATCH.test(name)) {
+            const previous = scratch.get(first.name);
+            if (previous === undefined || node.start < previous) scratch.set(first.name, node.start)
         }
     });
 
-    return hits
+    return renames
+        .filter(({name, start}) => {
+            const createdAt = scratch.get(name);
+            return createdAt !== undefined && createdAt < start
+        })
+        .filter(({line}) => !lines[line - 1]?.includes(ESCAPE_MARKER))
+        .map(({name, line}) => ({line, name, text: lines[line - 1]?.trim() ?? ''}))
 }
 
 /**
@@ -139,7 +199,7 @@ function main() {
             continue
         }
 
-        findWriteThenRenamePairs(content).forEach(({line, name, text}) => {
+        findWriteThenRenamePairs(content, file).forEach(({line, name, text}) => {
             violations.push(`${file}:${line}: [${name}] ${text}`)
         });
     }

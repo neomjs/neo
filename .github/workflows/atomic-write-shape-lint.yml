@@ -8,14 +8,12 @@ on:
     paths:
       - 'ai/**/*.mjs'
       - 'buildScripts/util/check-atomic-write-shape.mjs'
-      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
       - '.github/workflows/atomic-write-shape-lint.yml'
   push:
     branches: [dev]
     paths:
       - 'ai/**/*.mjs'
       - 'buildScripts/util/check-atomic-write-shape.mjs'
-      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
       - '.github/workflows/atomic-write-shape-lint.yml'
 
 concurrency:
@@ -35,11 +33,9 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      # This guard imports the shared acorn-backed `codeMask` from the AiConfig test-mutation guard —
-      # hence that file in the path filters above, and hence the install. The mask is why a
-      # write-then-rename pair quoted inside GENERATED plugin source is not a hit: one module in this
-      # repo emits exactly this pair as a string, and a maskless scan would flag the generator for the
-      # code it writes rather than the code it runs.
+      # The guard parses with acorn rather than scanning lines: a call whose arguments wrap across
+      # lines is ordinary formatting, not a bypass, and a pair that exists only inside emitted plugin
+      # source is a string literal in the AST rather than a call. Hence the install.
       # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
       - name: Install dependencies (acorn — the shared codeMask tokenizer)
         run: npm ci --ignore-scripts

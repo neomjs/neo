@@ -241,7 +241,7 @@ export async function writeBackupReceipt({filePath, receipt, now = Date.now()}) 
     // naming and does not publish a matcher, so adopting it would leave every crash-leaked temp
     // permanently unreapable. Writer and reaper stay one unit until the primitive exports that
     // predicate — which would be new public API in service of a single caller.
-    await fs.promises.rename(tempPath, filePath);
+    await fs.promises.rename(tempPath, filePath); // atomic-write-ok: the scratch NAME is a contract with the stale-temp reaper below
 
     // Stale-temp sweep: age makes a temp eligible, but only a provably dead encoded owner makes it
     // removable. PID reuse / EPERM / malformed metadata intentionally leak in the safe direction.

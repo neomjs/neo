@@ -75,6 +75,48 @@ test.describe('check-atomic-write-shape guard', () => {
         ].join('\n'))).toEqual([])
     });
 
+    /*
+     * @neo-gpt's re-review found the first version blind in three ways at once, and all three shared
+     * one root: it matched line by line against a fixed list of fs write functions, so its vocabulary
+     * was mistaken for the population. A clean run meant "nothing I can see".
+     */
+    test('MULTILINE: ordinary formatting is not a bypass', () => {
+        expect(findWriteThenRenamePairs([
+            'await writeFile(tmpPath, body);',
+            'await fs.rename(',
+            '    tmpPath,',
+            '    filePath',
+            ');'
+        ].join('\n')).length, 'wrapped rename arguments must still be seen').toBe(1);
+
+        expect(findWriteThenRenamePairs([
+            'await fs.writeFile(',
+            '    tmpPath,',
+            '    body',
+            ');',
+            'await fs.rename(tmpPath, filePath);'
+        ].join('\n')).length, 'a wrapped WRITE must still register the scratch').toBe(1)
+    });
+
+    test('a CUSTOM writer counts — the scratch does not have to be written by an fs function', () => {
+        // `receiverState._replace` writes through `this._writeSynced(tempPath, record)`. A fixed
+        // fs-function list never had it, so a live pair sat outside the census.
+        expect(findWriteThenRenamePairs([
+            'await this._writeSynced(tempPath, record);',
+            'await fs.rename(tempPath, recordPath);'
+        ].join('\n')).length).toBe(1)
+    });
+
+    test('a HANDLE-based write counts — the scratch is created by open(), then written through the handle', () => {
+        // `buildReceiverManifest` and `offHostSyncStore` never pass the scratch NAME to a write call
+        // at all; it reaches `open()` and everything after goes through the returned handle.
+        expect(findWriteThenRenamePairs([
+            "const handle = await fs.open(stagingPath, 'wx', 0o600);",
+            'await handle.writeFile(body);',
+            'await fs.rename(stagingPath, targetPath);'
+        ].join('\n')).length).toBe(1)
+    });
+
     test('honors the escape marker on the rename line', () => {
         const source = [
             'await writeFile(tmpPath, body);',

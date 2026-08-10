@@ -226,7 +226,10 @@ export class WakeReceiverState {
         const tempPath   = `${recordPath}.${process.pid}.${crypto.randomUUID()}.tmp`;
 
         await this._writeSynced(tempPath, record);
-        await fs.rename(tempPath, recordPath);
+        // _syncDirectory() below deliberately tolerates EINVAL/ENOTSUP/EPERM. The shared primitive's
+        // fsync is STRICT by contract, so migrating would turn a tolerated platform degradation into a
+        // hard failure on exactly the platforms that cannot fsync a directory.
+        await fs.rename(tempPath, recordPath); // atomic-write-ok: strict primitive fsync vs this site's tolerated directory sync
         await fs.chmod(recordPath, 0o600);
         await this._syncDirectory();
     }
