@@ -954,6 +954,86 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         expect(JSON.stringify(tenantRepoSync)).not.toContain('must-not-cross-the-bridge');
     });
 
+    test('collectTenantRepoSyncSnapshot says whether a cadence is CAPPED, across all three states', async () => {
+        // The operator-facing row is where the ambiguity lives: `effectiveCadenceMs: 7200000` is either a
+        // 2h configuration or a streak that ran so far past the cap that the cap is all that remains.
+        // `backoffMultiplier` beside it hints, but only the flag settles it. Three repos in one
+        // projection so the discriminator is asserted against its own negative and its own no-answer.
+        const service = createService({
+            taskStateService: {
+                getTaskState() {
+                    return {
+                        running       : false,
+                        pid           : null,
+                        lastRunAt     : OBSERVED_AT - 1,
+                        lastSuccessAt : null,
+                        lastErrorAt   : null,
+                        lastExitCode  : 0,
+                        lastReason    : 'periodic-sweep:60000',
+                        lastCompletion: null
+                    };
+                }
+            },
+            tenantRepoSyncService: {
+                async resolveTenantReposConfig() {
+                    return {
+                        tenantRepos: [
+                            {tenantId: 'tenant-a', repoSlug: 'org/capped',   cloneUrl: 'https://git.example/a.git', cadenceMs: 60_000, configTier: 'yaml'},
+                            {tenantId: 'tenant-a', repoSlug: 'org/healthy',  cloneUrl: 'https://git.example/b.git', cadenceMs: 60_000, configTier: 'yaml'},
+                            {tenantId: 'tenant-a', repoSlug: 'org/disabled', cloneUrl: 'https://git.example/c.git', cadenceMs: 60_000, configTier: 'yaml', disabled: true}
+                        ]
+                    };
+                },
+                defaultRevisionsFilePath() {
+                    return '/state/revisions.json';
+                },
+                async readPersistedRevisions() {
+                    // 2^12 = 4096 against a 60s base is ~68 hours, far past the 2h configured cap.
+                    return {
+                        'tenant-a/org/capped': {
+                            lastIngestedRev    : null,
+                            lastRunAttemptAt   : OBSERVED_AT - 1_000,
+                            consecutiveFailures: 12,
+                            lastErrorCode      : 'KB_TENANT_REPO_SYNC_SYNC_FAILED'
+                        },
+                        'tenant-a/org/healthy': {
+                            lastIngestedRev    : 'abcdef1234567890',
+                            lastRunAttemptAt   : OBSERVED_AT - 1_000,
+                            consecutiveFailures: 0
+                        },
+                        'tenant-a/org/disabled': {
+                            lastIngestedRev    : 'fedcba0987654321',
+                            lastRunAttemptAt   : OBSERVED_AT - 1_000,
+                            consecutiveFailures: 0
+                        }
+                    };
+                }
+            },
+            tenantRepoSyncEnabledReader: () => true
+        });
+
+        const
+            tenantRepoSync = await service.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT}),
+            byMultiplier   = value => tenantRepoSync.repos.find(row => row.backoffMultiplier === value),
+            capped         = byMultiplier(4096),
+            healthy        = byMultiplier(1),
+            disabledRow    = tenantRepoSync.repos.find(row => row.disabled);
+
+        // Capped: the cadence IS the cap, and the row says so rather than leaving it to be inferred.
+        expect(capped.backoffCapped).toBe(true);
+        expect(capped.effectiveCadenceMs).toBe(2 * 60 * 60 * 1000);
+
+        // NEGATIVE CONTROL — without it, hard-coding `true` passes. A healthy repo's cadence is derived,
+        // and it must be reported below the cap rather than at it.
+        expect(healthy.backoffCapped).toBe(false);
+        expect(healthy.effectiveCadenceMs).toBeLessThan(2 * 60 * 60 * 1000);
+
+        // NO-ANSWER CONTROL — a disabled repo has no cadence, so "is the cap binding?" has no answer.
+        // `false` here would read as an observation that it is not.
+        expect(disabledRow.backoffCapped).toBeNull();
+        expect(disabledRow.effectiveCadenceMs).toBeNull();
+    });
+
     test('collectTenantRepoSyncSnapshot projects bounded embedding-recovery state without durable ids (#16692)', async () => {
         const
             episodeId     = '0123456789abcdef'.repeat(2),
