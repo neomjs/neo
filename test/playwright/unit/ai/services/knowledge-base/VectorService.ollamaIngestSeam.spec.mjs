@@ -37,17 +37,45 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * "nobody asked". These tests ask. They cannot prove a real model answers correctly — that needs a
  * plane — but they prove the code path binds vectors to ids correctly when it does.
  *
+ * **Scope corrected after review.** The malformed-response cases below are a CONTRACT defect, not a
+ * data-corruption one: ChromaDB refuses both mismatched and empty record sets before any API call,
+ * so a misbound set never reached a corpus. The guard moves the failure to the layer that can name
+ * it. The collection double models those refusals for exactly that reason — see its comment.
+ *
  * Serial: these mutate the shared embedding-provider selector and the `ollamaProvider` singleton.
  */
 test.describe.configure({mode: 'serial'});
 
+/**
+ * @summary A collection double that REFUSES what the real one refuses.
+ *
+ * The first version of this accepted any `{ids, embeddings}` pair, and that deleted an invariant
+ * rather than simulating one. ChromaDB 3.5.0 validates the record set BEFORE any API call — unequal
+ * field lengths throw `ChromaValueError: Unequal lengths for fields …`, and a zero-length list
+ * throws `Non-empty lists are required for …`. A permissive double removes both, and every
+ * assertion downstream of that removal becomes a property of the double instead of the system.
+ *
+ * That is how this spec originally "proved" misbound vectors reaching a corpus that cannot accept
+ * them. When a test replaces a boundary, model what the boundary REJECTS, not only what it records.
+ */
 function createSpyCollection() {
     const upserts = [];
 
     return {
         upserts,
         name: 'spy-knowledge-base',
-        async upsert({ids, embeddings}) {
+        async upsert({ids, embeddings, metadatas}) {
+            const lengths = [['ids', ids?.length], ['embeddings', embeddings?.length], ['metadatas', metadatas?.length]]
+                .filter(([, length]) => Number.isFinite(length));
+
+            if (lengths.some(([, length]) => length === 0)) {
+                throw new Error(`Non-empty lists are required for ${lengths.filter(([, l]) => l === 0).map(([f]) => f).join(', ')}`);
+            }
+
+            if (new Set(lengths.map(([, length]) => length)).size > 1) {
+                throw new Error(`Unequal lengths for fields ${lengths.map(([field]) => field).join(', ')}`);
+            }
+
             upserts.push({ids: [...ids], embeddings});
         }
     };
@@ -94,6 +122,25 @@ test.describe('VectorService KB ingest — the native Ollama provider seam', () 
         MC_Config.embeddingProvider = 'ollama';
     });
 
+    test('the collection double REFUSES what ChromaDB refuses — the instrument\'s own control', async () => {
+        // Pins the double's fidelity so a permissive one cannot be reintroduced. The first version of
+        // this spec accepted any {ids, embeddings} pair and thereby "proved" misbound vectors landing
+        // in a corpus that cannot accept them — the assertion was a property of the double.
+        //
+        // ChromaDB 3.5.0 validates the record set BEFORE any API call, so these two refusals are
+        // mandatory, not incidental. Verified against the installed client rather than assumed.
+        const spy = createSpyCollection();
+
+        const unequal = await spy.upsert({ids: ['a', 'b', 'c'], embeddings: [[0.1], [0.2]], metadatas: [{}, {}, {}]})
+            .then(() => null, error => error);
+        const empty = await spy.upsert({ids: ['a'], embeddings: [], metadatas: [{}]})
+            .then(() => null, error => error);
+
+        expect(unequal?.message, 'three ids against two vectors is refused, not stored').toContain('Unequal lengths');
+        expect(empty?.message, 'a zero-length vector list is refused too').toContain('Non-empty lists');
+        expect(spy.upserts, 'and neither reached the store').toEqual([]);
+    });
+
     test('rows LAND end to end through the ollama seam — the client requirement, in CI', async () => {
         // Asserts rows landing, not that a call was made. A spec that only counted dispatches would
         // pass against a path that upserts nothing, which is the exact shape of the two-month
@@ -117,12 +164,14 @@ test.describe('VectorService KB ingest — the native Ollama provider seam', () 
     });
 
     test('a SHORT ollama response is refused, not bound to ids by position', async () => {
-        // The positional-binding defect class, on the provider a deployment actually runs. openAiCompatible got
-        // a density guard; the ollama branch returns `result.embeddings || []` with no length check,
-        // so a response carrying two vectors for three inputs would upsert chunk-2's id with no
-        // vector — or chunk-1's vector under chunk-2's id — with no error anywhere.
+        // The ollama branch returned `result.embeddings` with no length check, so a response carrying
+        // two vectors for three inputs travelled to the collection as a mismatched record set.
         //
-        // A wrong row is worse than a failed batch: the batch retries, the row is believed.
+        // What this does NOT do, corrected after @neo-gpt probed the installed client: it does not
+        // reach the corpus. ChromaDB 3.5.0 refuses unequal field lengths before any API call, so the
+        // sweep already failed loud. The guard's value is WHERE the failure surfaces — local to the
+        // input count, naming both numbers — rather than three layers down as an opaque store error,
+        // and it protects callers that do not terminate at Chroma.
         const spy = createSpyCollection();
 
         TextEmbeddingService.ollamaProvider = {
@@ -147,9 +196,10 @@ test.describe('VectorService KB ingest — the native Ollama provider seam', () 
     });
 
     test('a MISSING embeddings field is refused rather than becoming an empty array', async () => {
-        // `result.embeddings || []` turns a malformed response into "zero vectors, no error". The
-        // caller then upserts N ids against an empty array, and the corpus stays empty while every
-        // surface reports a completed sweep — the two-month signature exactly.
+        // `result.embeddings || []` turned a malformed response into "zero vectors, no error" at THIS
+        // layer. The store refuses it too — a zero-length list throws `Non-empty lists are required`
+        // — so again the correction is diagnostic locality, not corruption prevention: an operator
+        // sees "no vectors for 2 inputs" instead of a store-level complaint about an empty field.
         const spy = createSpyCollection();
 
         TextEmbeddingService.ollamaProvider = {
