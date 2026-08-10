@@ -523,6 +523,31 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(coalesceWindow.maximum).toBe(300);
     });
 
+    test('memory-core add_memory output declares the bounded post-WAL dispositions (#16896)', () => {
+        const doc          = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+              response     = doc.components.schemas.MemoryResponse,
+              stageTimings = response.properties.stageTimings;
+
+        expect(response.properties.mailbox.nullable).toBe(true);
+        expect(response.properties.mailbox.description).toContain('Deliberately `null`');
+        expect(Object.keys(stageTimings.properties)).toEqual([
+            'walMs',
+            'mailboxMs',
+            'mailboxTerminal',
+            'mailboxReason',
+            'presenceMs',
+            'presenceTerminal',
+            'visibilityMs',
+            'postWalMs',
+            'postWalBudgetMs'
+        ]);
+        expect(stageTimings.properties.mailboxMs.nullable).toBe(true);
+        expect(stageTimings.properties.mailboxTerminal.enum).toEqual(['omitted']);
+        expect(stageTimings.properties.mailboxReason.enum).toEqual(['synchronous-query-outside-accepted-write-contract']);
+        expect(stageTimings.properties.presenceTerminal.enum).toEqual(['completed', 'deferred', 'failed']);
+        expect(stageTimings.properties.postWalBudgetMs.example).toBe(1_000);
+    });
+
     test('memory-core inspect_deployment output compiles for AJV clients (#16086)', () => {
         const
             doc       = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
