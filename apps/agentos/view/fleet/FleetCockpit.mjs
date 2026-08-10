@@ -2261,7 +2261,7 @@ class FleetCockpit extends Container {
 
             // invoked INSIDE the chain so a synchronous throw rejects the tracked promise rather
             // than escaping before the settle hook attaches — see the activity twin
-            const {rows} = await boundedRead(
+            const {capabilities, rows} = await boundedRead(
                 Promise.resolve().then(() => bridge.fleetRoster()),
                 me.livenessReadTimeout,
                 () => { me.gridReadInFlight-- }
@@ -2314,6 +2314,11 @@ class FleetCockpit extends Container {
 
             me.gridAdapterState = 'live';
             grid.adapterState   = 'live';
+            // the presence-CAPABILITY envelope rides every admitted snapshot onto the grid's chip:
+            // a degraded producer gets NAMED at roster level (every band correctly vanished — the
+            // "no one is online" operator falsifier), and a recovered producer clears it on the
+            // next poll. Absent/malformed envelopes plumb null — the chip claims nothing.
+            grid.presenceCapability = capabilities?.presence ?? null;
             me.getReference('catch-up')?.set({partitionOptions: me.buildCatchUpPartitionOptions()});
             me.getReference('memories')?.set({agentOptions: me.buildMemoriesAgentOptions()});
             me.clearDegradedReason('grid')

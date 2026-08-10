@@ -306,6 +306,35 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
         }
     });
 
+    test('the presence-capability envelope rides every admitted snapshot onto the grid chip config', async () => {
+        // the operator falsifier this plumbs for: the plane's who_is_online read failed, every
+        // card's band correctly vanished (absence of signal), and the unnamed absence read as
+        // "no one is online" — a verdict. The producer's degraded envelope was already on the
+        // wire; loadRoster previously dropped it at the destructure.
+        const degraded = {
+            source    : 'fleet:presenceState',
+            state     : 'degraded',
+            confidence: 'none',
+            capturedAt: '2026-08-10T21:45:00.000Z',
+            reason    : 'plane who_is_online read failed'
+        };
+
+        const {grid} = await routeLoadRoster({fleetRoster: async () => ({
+            capabilities: {presence: degraded},
+            rows        : [{id: 'a1', displayName: 'A1'}]
+        })});
+
+        expect(grid.presenceCapability).toEqual(degraded);
+
+        // a recovered producer (or an assembler omitting the envelope) plumbs null — the chip
+        // must claim nothing on the next poll
+        const {grid: recovered} = await routeLoadRoster({fleetRoster: async () => ({
+            rows: [{id: 'a1', displayName: 'A1'}]
+        })});
+
+        expect(recovered.presenceCapability).toBeNull()
+    });
+
     test('a resolved EMPTY first snapshot preserves the zero-call sample until a source is selected', async () => {
         const {cockpit, grid} = await routeLoadRoster({fleetRoster: async () => ({rows: []})});
 
