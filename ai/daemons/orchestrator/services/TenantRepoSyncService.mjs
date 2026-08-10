@@ -1855,6 +1855,14 @@ class TenantRepoSyncService extends Base {
 
                     notDueCount++;
                     writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} ${backoffSuppressed ? 'suppressed by backoff' : 'not yet due'} (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${failureCount}, backoffX=${dueState.backoffMultiplier}${backoffSuppressed ? `, lastErrorCode=${priorState?.lastErrorCode ?? 'none'}` : ''}).`);
+                    // `backoffCapped` was computed by `isRepoDue` and dropped here, so the one cadence
+                    // number an operator reads was ambiguous: an `effectiveCadenceMs` of 7200000 is
+                    // either a 2h configuration or a repo whose backoff has run so far past the cap that
+                    // the cap is all that remains of it. This is the only push site that publishes a
+                    // cadence, so it is the only one that needs the discriminator. The magnitude the cap
+                    // hides is deliberately NOT republished: `consecutiveFailures` is already on this
+                    // record and the multiplier is `2^failures`, so a consumer can derive it and falsify
+                    // the arithmetic rather than inherit a number it cannot check.
                     repoStates.push({
                         tenantId           : repo.tenantId,
                         repoSlug           : repo.repoSlug,
@@ -1864,6 +1872,7 @@ class TenantRepoSyncService extends Base {
                         checkpointStatus,
                         nextDueAt          : new Date(nextDueAtMs).toISOString(),
                         effectiveCadenceMs : dueState.effectiveCadenceMs,
+                        backoffCapped      : dueState.backoffCapped,
                         consecutiveFailures: failureCount,
                         // Carry the RETAINED cause forward. The failure path already persists these
                         // (see the per-repo catch below); this branch used to rebuild a record without

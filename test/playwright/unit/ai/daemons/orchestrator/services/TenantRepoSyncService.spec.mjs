@@ -5261,6 +5261,91 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             expect(repoState.nextDueAt).toBeTruthy()
         });
 
+        test('a CAPPED cadence says so, and reports the magnitude the cap hides', async () => {
+            // `effectiveCadenceMs` alone is ambiguous: 300000 is either a 5-minute configuration or a
+            // repo whose streak has run so far past the cap that the cap is all that is left of it.
+            // Those two states need different operator responses and read identically.
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {
+                    't1/org/wedged': {
+                        lastIngestedRev                      : null,
+                        lastRunAttemptAt                     : Date.now(),
+                        consecutiveFailures                  : 6,
+                        ingestContractVersion                : null,
+                        lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastCommittedMaterializationAttemptId: null,
+                        lastErrorCode                        : 'KB_TENANT_REPO_SYNC_SYNC_FAILED'
+                    }
+                }
+            });
+
+            // 2^6 = 64, so the uncapped cadence is ~64 minutes against the 5-minute cap below.
+            const result = await TenantRepoSyncService.runTask({
+                reason                       : 'periodic',
+                taskStateService,
+                tenantReposConfig            : {tenantRepos: [repoFor(mirrorRoot)]},
+                gitMirror                    : failingMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                backoffCapMs                 : 300_000,
+                seedBootstrap                : false
+            });
+
+            const [repoState] = result.details.repos;
+
+            expect(repoState.status).toBe('backoff-suppressed');
+            expect(repoState.backoffCapped).toBe(true);
+            expect(repoState.effectiveCadenceMs).toBe(300_000);
+            // The magnitude the cap hides stays derivable rather than republished: 2^6 = 64 against a
+            // 60s base is ~64 minutes, and `consecutiveFailures` is on the record to compute it from.
+            expect(repoState.consecutiveFailures).toBe(6);
+        });
+
+        test('POSITIVE CONTROL — an UNCAPPED repo reports backoffCapped false', async () => {
+            // Without this, the assertion above is satisfied by hard-coding `true` — a discriminator
+            // that never discriminates.
+            const taskStateService = createInMemoryTaskStateService();
+
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {
+                    't1/org/wedged': {
+                        lastIngestedRev                      : 'c'.repeat(40),
+                        lastRunAttemptAt                     : Date.now(),
+                        consecutiveFailures                  : 0,
+                        ingestContractVersion                : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastAttemptedIngestContractVersion   : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                        lastCommittedMaterializationAttemptId: null
+                    }
+                }
+            });
+
+            const result = await TenantRepoSyncService.runTask({
+                reason                       : 'periodic',
+                taskStateService,
+                tenantReposConfig            : {tenantRepos: [repoFor(mirrorRoot)]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : revisionsFile,
+                globalCadenceMs              : 60_000,
+                backoffCapMs                 : 7_200_000,
+                seedBootstrap                : false
+            });
+
+            const [repoState] = result.details.repos;
+
+            expect(repoState.status).toBe('not-due');
+            expect(repoState.backoffCapped).toBe(false);
+            // ...and the cadence it reports is the derived one, not the cap.
+            expect(repoState.effectiveCadenceMs).toBeLessThan(7_200_000);
+        });
+
         test('a healthy repo held back by cadence stays plain not-due and carries NO cause', async () => {
             // The positive control. Without it, the assertion above is satisfied by a change that
             // labels every held-back repo as suppressed and attaches a cause to all of them.
