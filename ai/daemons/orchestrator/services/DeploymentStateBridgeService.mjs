@@ -621,7 +621,7 @@ export class DeploymentStateBridgeService extends Base {
         // Query after every preceding async read and immediately before the synchronous diagnosis.
         // This is the safety boundary: a snapshot-start projection can claim idle even though a
         // request began while earlier services were still being observed.
-        if (serviceKey === 'local-model') {
+        if (this.isProviderResidencyServiceKey(serviceKey)) {
             providerActivity = await this.collectProviderActivity({observedAt: observationNow()});
         }
 
@@ -638,6 +638,7 @@ export class DeploymentStateBridgeService extends Base {
                 endpointProbe,
                 providerResidency,
                 providerActivity,
+                providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
                 churnBaseline     : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts,
                 // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
@@ -773,7 +774,7 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {Promise<Object|null>}
      */
     async collectProviderResidency({serviceKey, observedAt}) {
-        if (!AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey)) {
+        if (!this.isProviderResidencyServiceKey(serviceKey)) {
             return null;
         }
 
@@ -805,6 +806,17 @@ export class DeploymentStateBridgeService extends Base {
                 targetIdentity
             };
         }
+    }
+
+    /**
+     * @summary Resolves whether a Compose service participates in provider-residency observation.
+     * The same predicate gates residency and adjacent provider-activity collection so a configured
+     * service can never receive one half of the residual-load evidence pair without the other.
+     * @param {String} serviceKey Compose service key.
+     * @returns {Boolean}
+     */
+    isProviderResidencyServiceKey(serviceKey) {
+        return AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey);
     }
 
     /**

@@ -608,9 +608,9 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
         });
     });
 
-    test('composes one passive provider-work projection into the local-model diagnosis', async () => {
+    test('composes one passive provider-work projection into each configured model-service diagnosis', async () => {
         Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
-            allowedServices: ['local-model'],
+            allowedServices: ['model'],
             includeLogs    : false
         });
 
@@ -679,10 +679,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             limit     : 50,
             observedAt: OBSERVED_AT
         }]);
-        expect(residencyCalls).toEqual([expect.objectContaining({serviceKey: 'local-model', observedAt: OBSERVED_AT})]);
+        expect(residencyCalls).toEqual([expect.objectContaining({serviceKey: 'model', observedAt: OBSERVED_AT})]);
         expect(diagnoses).toHaveLength(1);
         expect(diagnoses[0]).toMatchObject({
-            serviceKey      : 'local-model',
+            serviceKey      : 'model',
             providerActivity: {
                 recordType   : 'deployment-provider-activity',
                 source       : 'provider-activity-ledger',
@@ -693,7 +693,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             },
             providerResidency: {
                 provider      : 'ollama',
-                targetIdentity: {kind: 'compose-service', id: 'local-model'}
+                targetIdentity: {kind: 'compose-service', id: 'model'}
             }
         });
         expect(snapshot.services[0].providerActivity).toEqual(diagnoses[0].providerActivity);
@@ -753,7 +753,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                     recentCompletions         : []
                 };
             },
-            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {nowFn: () => OBSERVED_AT}),
+            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
+                nowFn          : () => OBSERVED_AT,
+                ollamaHostReader: () => 'http://local-model:11434'
+            }),
             clock = {now: OBSERVED_AT - 30_000},
             service = createService({
                 runtimeAccessService,
@@ -856,7 +859,10 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                     recentCompletions         : []
                 };
             },
-            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {nowFn: () => OBSERVED_AT}),
+            diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
+                nowFn          : () => OBSERVED_AT,
+                ollamaHostReader: () => 'http://local-model:11434'
+            }),
             service = createService({
                 runtimeAccessService,
                 diagnosisService,

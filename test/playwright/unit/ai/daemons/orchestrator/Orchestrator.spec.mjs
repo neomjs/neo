@@ -803,6 +803,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             .toBeGreaterThan(0);
         expect(orchestrator.deploymentStateBridgeService.providerActivityLimit)
             .toBeGreaterThan(0);
+        expect(orchestrator.containerHealthDiagnosisService.ollamaHostReader())
+            .toBe(AiConfig.ollama.host);
         expect(typeof orchestrator.containerHealthControllerService.isEffectStillAdmitted)
             .toBe('function');
     });

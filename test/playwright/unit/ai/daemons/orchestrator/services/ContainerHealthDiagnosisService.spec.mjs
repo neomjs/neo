@@ -56,9 +56,15 @@ const OBSERVED_AT = 1710000000000;
 const repoRoot    = path.resolve(process.cwd());
 
 function createService(config = {}) {
+    const {
+        ollamaHost = 'http://local-model:11434',
+        ...diagnosisConfig
+    } = config;
+
     return Neo.create(ContainerHealthDiagnosisService, {
-        diagnosisConfig: config,
-        nowFn          : () => OBSERVED_AT
+        diagnosisConfig,
+        nowFn           : () => OBSERVED_AT,
+        ollamaHostReader: () => ollamaHost
     });
 }
 
@@ -149,6 +155,7 @@ function sustainedOllamaResidualInputs(overrides = {}) {
         runtimeContainerId: 'local-model-A',
         providerResidency : ollamaResidency(),
         providerActivity  : providerActivity(),
+        providerResidencyEligible: true,
         ...overrides
     };
 }
@@ -649,6 +656,77 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
                 ]
             }
         });
+    });
+
+    test('derives the residual-load target and port from configured provider identity', () => {
+        const service = createService({
+                  ollamaHost: 'http://model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
+                  ],
+                  runtimeContainerId: 'model-A',
+                  providerResidency : ollamaResidency({
+                      host          : 'http://model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        expect(decision.targetIdentity).toEqual({kind: 'compose-service', id: 'model'});
+    });
+
+    test('refuses a configured provider endpoint owned by a different Compose service', () => {
+        const service = createService({
+                  ollamaHost: 'http://local-model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
+                  ],
+                  runtimeContainerId: 'model-A',
+                  providerResidency : ollamaResidency({
+                      host          : 'http://local-model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBeNull();
+        expect(decision.facts).toContainEqual(expect.objectContaining({
+            type   : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            details: expect.objectContaining({reasonCode: 'provider-endpoint-target-mismatch'})
+        }));
+    });
+
+    test('publishes why a saturated service is outside the configured provider roster', () => {
+        const service = createService({
+                  ollamaHost: 'http://shadow-model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'shadow-model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'shadow-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'shadow-A'})
+                  ],
+                  runtimeContainerId: 'shadow-A',
+                  providerResidencyEligible: false,
+                  providerResidency : ollamaResidency({
+                      host          : 'http://shadow-model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'shadow-model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBeNull();
+        expect(decision.status).toBe('advisory');
+        expect(decision.facts).toContainEqual(expect.objectContaining({
+            type   : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            details: expect.objectContaining({reasonCode: 'provider-residency-service-not-configured'})
+        }));
     });
 
     for (const [name, overrides, reasonCode] of [

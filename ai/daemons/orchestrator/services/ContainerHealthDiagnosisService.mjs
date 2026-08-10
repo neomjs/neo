@@ -29,18 +29,25 @@ export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
 });
 
 /**
- * @summary Proves that native-Ollama residency came from the Compose service this diagnosis may
- * restart. External/loopback providers are valid configurations, but they cannot authorize a
- * lifecycle effect against `local-model` merely because the bridge is observing that service key.
- * @param {String|null} host Provider endpoint.
+ * @summary Proves that the configured native-Ollama endpoint is the Compose service this diagnosis
+ * may restart. The endpoint and eligible service roster remain AiConfig-owned; this helper only
+ * compares their injected/read-observed values. Ports are deliberately not pinned because
+ * `NEO_OLLAMA_HOST` owns that deployment choice.
+ * @param {String|null} configuredHost AiConfig-owned provider endpoint.
+ * @param {String|null} observedHost Provider endpoint carried by the residency observation.
+ * @param {String} serviceKey Candidate Compose service key.
  * @returns {Boolean}
  */
-function isLocalModelComposeOllamaHost(host) {
+function isConfiguredComposeOllamaHost({configuredHost, observedHost, serviceKey}) {
     try {
-        const endpoint = new URL(host);
+        const configuredEndpoint = new URL(configuredHost),
+              observedEndpoint   = new URL(observedHost);
 
-        return endpoint.protocol === 'http:' && endpoint.hostname === 'local-model' &&
-            endpoint.port === '11434' && endpoint.username === '' && endpoint.password === '';
+        return ['http:', 'https:'].includes(observedEndpoint.protocol) &&
+            configuredEndpoint.origin === observedEndpoint.origin &&
+            configuredEndpoint.username === '' && configuredEndpoint.password === '' &&
+            observedEndpoint.hostname === serviceKey &&
+            observedEndpoint.username === '' && observedEndpoint.password === '';
     } catch {
         return false;
     }
@@ -184,6 +191,15 @@ export class ContainerHealthDiagnosisService extends Base {
          */
         diagnosisConfig_: null,
         /**
+         * Reads the resolved native-Ollama endpoint at the diagnosis use site. The reader keeps
+         * AiConfig ownership in the Orchestrator entrypoint while allowing reactive overrides to
+         * remain visible after this service is constructed.
+         * @member {Function|null} ollamaHostReader_=null
+         * @protected
+         * @reactive
+         */
+        ollamaHostReader_: null,
+        /**
          * @member {Function|null} nowFn_=null
          * @protected
          * @reactive
@@ -267,6 +283,8 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object|null} [options.ollamaEvalAttribution=null] Native Ollama eval attribution.
      * @param {Object|null} [options.providerResidency=null] Active-provider residency observation.
      * @param {Object|null} [options.providerActivity=null] Bounded provider-work projection.
+     * @param {Boolean} [options.providerResidencyEligible=false] Whether the bridge's configured
+     *     provider-service roster selected this Compose service for observation.
      * @param {String|null} [options.runtimeContainerId=null] Inspect/stats proof identity.
      * @param {Number} [options.observedAt] Epoch milliseconds for the observation.
      * @returns {Object} Diagnosis decision with advisory facts and optional diagnosis event.
@@ -281,6 +299,7 @@ export class ContainerHealthDiagnosisService extends Base {
         ollamaEvalAttribution = null,
         providerResidency = null,
         providerActivity = null,
+        providerResidencyEligible = false,
         runtimeContainerId = null,
         churnBaseline = null,
         inspectReadFailed = false,
@@ -331,6 +350,7 @@ export class ContainerHealthDiagnosisService extends Base {
             statsSamples,
             providerActivity,
             providerResidency,
+            providerResidencyEligible,
             runtimeContainerId,
             observedAt,
             facts
@@ -840,20 +860,33 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object[]|null} options.statsSamples Docker samples spanning the candidate window.
      * @param {Object|null} options.providerActivity Provider-work projection.
      * @param {Object|null} options.providerResidency Passive residency observation.
+     * @param {Boolean} options.providerResidencyEligible Whether the configured provider-service
+     *     roster selected this Compose service.
      * @param {String|null} options.runtimeContainerId Inspect/stats proof identity.
      * @param {Number} options.observedAt Observation epoch ms.
      * @param {Object[]} options.facts Facts collected before this composition.
      * @returns {Object[]}
      */
-    collectOllamaResidualLoadFacts({serviceKey, inspect, statsSamples, providerActivity, providerResidency, runtimeContainerId, observedAt, facts}) {
+    collectOllamaResidualLoadFacts({
+        serviceKey,
+        inspect,
+        statsSamples,
+        providerActivity,
+        providerResidency,
+        providerResidencyEligible,
+        runtimeContainerId,
+        observedAt,
+        facts
+    }) {
         const cpuFact = facts.find(fact =>
             fact.type === CONTAINER_HEALTH_FACT_TYPES.resourceSaturation &&
             fact.details?.metric === 'cpu'
         );
 
-        if (serviceKey !== 'local-model' || !cpuFact) return [];
+        if (!cpuFact) return [];
 
         const
+            configuredHost  = this.ollamaHostReader?.(),
             targetIdentity  = this.readProviderTargetIdentity(providerResidency?.targetIdentity),
             availableModels = toSafeArray(providerResidency?.availableModels),
             roles           = [
@@ -892,8 +925,17 @@ export class ContainerHealthDiagnosisService extends Base {
                 details      : {...baseDetails, ...details, reasonCode}
             })];
 
+        if (providerResidencyEligible !== true) {
+            // Generic CPU saturation must not manufacture an Ollama advisory. A declined residual
+            // path becomes visible when upstream actually supplied provider evidence for a service
+            // the configured roster excludes.
+            if (!providerResidency && !providerActivity) return [];
+
+            return advisory('provider-residency-service-not-configured');
+        }
+        if (!providerResidency) return advisory('provider-residency-unavailable');
         if (providerResidency?.provider !== 'ollama') return advisory('provider-not-ollama');
-        if (!isLocalModelComposeOllamaHost(providerResidency.host)) {
+        if (!isConfiguredComposeOllamaHost({configuredHost, observedHost: providerResidency.host, serviceKey})) {
             return advisory('provider-endpoint-target-mismatch');
         }
         if (targetIdentity?.kind !== 'compose-service' || targetIdentity.id !== serviceKey) {

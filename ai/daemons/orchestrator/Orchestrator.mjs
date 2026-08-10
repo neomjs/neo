@@ -459,7 +459,11 @@ export class Orchestrator extends Base {
                 restartChurnSeverity : restartChurn.severity,
                 restartChurnThreshold: restartChurn.threshold,
                 restartChurnWindowMs : restartChurn.windowMs
-            }
+            },
+            // Preserve AiConfig as the source of truth while keeping this service free of a
+            // non-entrypoint config import. A reader rather than a snapshot keeps a reactive
+            // endpoint override visible at the diagnosis use site.
+            ollamaHostReader: () => AiConfig.ollama.host
         });
     }
 
