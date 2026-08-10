@@ -118,6 +118,18 @@ class CoalescingEngineService extends Base {
     defaultWindowSeconds = null
 
     /**
+     * @member {Function|null} resolveDeliveryReadState=null
+     * @protected
+     * @summary Entrypoint-injected `(messageId, recipient) => {readAt?}` background read-state reader.
+     *
+     * FAIL-SAFE, never fail-closed. When this is null — or throws — the digest renders exactly as it
+     * did before read-state existed. This is the whole swarm's wake path: a reconciliation bug that
+     * SUPPRESSES wakes is strictly worse than the mislabelled count it replaces, because a wrong
+     * number is visible in the wake and a missing wake is visible to nobody.
+     */
+    resolveDeliveryReadState = null
+
+    /**
      * @member {Number|null} refractoryMs=null
      * @protected
      * @summary Entrypoint-injected post-delivery refractory in milliseconds.
@@ -177,8 +189,12 @@ class CoalescingEngineService extends Base {
      * @param {Number} options.flushRefractorySeconds
      * @param {Number} options.flushHardCapSeconds
      */
-    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds} = {}) {
+    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds, resolveDeliveryReadState = null} = {}) {
         const values = {coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds};
+
+        if (resolveDeliveryReadState !== null && typeof resolveDeliveryReadState !== 'function') {
+            throw new Error("CoalescingEngineService.configure requires 'resolveDeliveryReadState' to be a function or null");
+        }
 
         for (const [name, value] of Object.entries(values)) {
             if (!Number.isFinite(value) || value < 0) {
@@ -189,7 +205,8 @@ class CoalescingEngineService extends Base {
             throw new Error("CoalescingEngineService.configure requires 'flushHardCapSeconds' greater than zero");
         }
 
-        this.defaultWindowSeconds = coalesceWindowSeconds;
+        this.defaultWindowSeconds      = coalesceWindowSeconds;
+        this.resolveDeliveryReadState = resolveDeliveryReadState;
         this.refractoryMs         = flushRefractorySeconds * 1000;
         this.hardCapMs            = flushHardCapSeconds * 1000;
     }
@@ -457,6 +474,32 @@ class CoalescingEngineService extends Base {
 
             if (!bucketKey) {
                 continue
+            }
+
+            // Read-state reconciliation, `sent_to_me` only — the other buckets have no delivery edge
+            // and therefore no read-state to reconcile against.
+            //
+            // FAIL-SAFE at every branch. No resolver, no messageId, a resolver that throws, or a
+            // resolver returning `{}` (graph unavailable / delivery edge missing) all mean UNKNOWN,
+            // and unknown renders the event exactly as before. Only a committed `readAt` suppresses
+            // one. Suppressing on uncertainty would turn a mislabelled count into a missing wake,
+            // and a missing wake is visible to nobody.
+            if (bucketKey === 'sent_to_me' && this.resolveDeliveryReadState) {
+                const messageId = evt.payload?.messageId;
+
+                if (messageId && subscription.agentIdentity) {
+                    let state = null;
+
+                    try {
+                        state = this.resolveDeliveryReadState(messageId, subscription.agentIdentity)
+                    } catch (error) {
+                        logger.warn?.(`[CoalescingEngine] read-state lookup failed for ${messageId}; rendering as unread: ${error.message}`)
+                    }
+
+                    if (state?.readAt) {
+                        continue
+                    }
+                }
             }
 
             const bucket = breakdown[bucketKey];

@@ -972,6 +972,32 @@ function getCachedMessageProjectionIssues(messageId) {
  * alone cannot mistake it for total delivery volume. `perRecipient` is sorted descending, so the
  * loudest inbox is the first row.
  */
+/**
+ * @summary Reads one delivery's durable read-state for a BACKGROUND caller, with no request context
+ * and no permission check.
+ *
+ * `MailboxService.inspectReadState` is the permissioned, operator-facing adapter and is **unusable
+ * here**: it resolves a bound agent identity through `RequestContextService` and enforces
+ * `CAN_READ_INBOX_OF`. The wake digest is assembled inside a background flush that has neither, so
+ * calling it would throw `unboundIdentityError` on every wake.
+ *
+ * **Why an unpermissioned reader is acceptable at this seam, stated rather than assumed.** The only
+ * sanctioned consumer is the coalescing engine, which reads the read-state of the *same recipient it
+ * is already building a digest for* — a recipient whose entire unread set it is about to render. It
+ * discloses nothing that recipient's own wake would not already contain. Any other consumer wanting
+ * cross-inbox read-state must go through `inspectReadState` and its permission gate.
+ *
+ * Returns `{}` when the graph is unavailable or the delivery edge is missing, which callers must
+ * treat as "unknown", never as "unread" or "read".
+ *
+ * @param {String} messageId MESSAGE node id.
+ * @param {String} recipient Recipient identity node id.
+ * @returns {Object} `{readAt?, archivedAt?}` — only committed non-null fields.
+ */
+export function readBackgroundDeliveryState(messageId, recipient) {
+    return getStorageDeliveryMutableState(messageId, recipient)
+}
+
 export function getWakeDeliverySeries({since = null, until = null} = {}) {
     const sqlite = GraphService.db?.storage?.db;
 

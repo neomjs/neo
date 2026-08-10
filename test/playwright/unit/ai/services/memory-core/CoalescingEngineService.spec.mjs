@@ -485,4 +485,95 @@ test.describe('CoalescingEngineService', () => {
         expect(b.sent_to_me.count).toBe(2);
         expect(b.sent_to_me.highestPriority).toBe('normal')
     });
+
+    // -----------------------------------------------------------------------------
+    // Read-state reconciliation
+    //
+    // The digest counted QUEUED EVENTS and never consulted read-state, so a message delivered, read
+    // and acted on hours ago still contributed to the count and could be named `latest`. These arms
+    // pin both the reconciliation and — more importantly — its FAIL-SAFE boundary: this is the whole
+    // swarm's wake path, and suppressing a wake on uncertainty is worse than the wrong count it
+    // replaces, because a wrong number is visible in the wake and a missing wake is visible to nobody.
+    // -----------------------------------------------------------------------------
+
+    test('an already-read message is excluded from the count and cannot be named latest', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds   : 30,
+            flushRefractorySeconds  : 120,
+            flushHardCapSeconds     : 300,
+            resolveDeliveryReadState: messageId => messageId === 'M-READ' ? {readAt: '2026-08-10T10:00:00.000Z'} : {}
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-READ',   subject: 'handled hours ago'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-UNREAD', subject: 'actually new'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const digest = deliverCalls[0].eventData;
+
+        expect(digest.payload.breakdown.sent_to_me.count).toBe(1);
+        expect(digest.payload.breakdown.sent_to_me.latest.messageId).toBe('M-UNREAD');
+    });
+
+    test('NON-VACUITY — the same two events both count when neither is read', async () => {
+        // Without this arm the assertion above passes against a resolver that suppresses everything.
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds   : 30,
+            flushRefractorySeconds  : 120,
+            flushHardCapSeconds     : 300,
+            resolveDeliveryReadState: () => ({})
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-READ'},   10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-UNREAD'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(2);
+    });
+
+    test('FAIL-SAFE — a resolver that THROWS renders the event rather than dropping it', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds   : 30,
+            flushRefractorySeconds  : 120,
+            flushHardCapSeconds     : 300,
+            resolveDeliveryReadState: () => { throw new Error('graph unavailable') }
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}, 10));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length).toBe(1);
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(1);
+    });
+
+    test('FAIL-SAFE — no resolver injected renders exactly as before read-state existed', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M2'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(2);
+    });
+
+    test('configure REFUSES a non-function resolver rather than silently ignoring it', () => {
+        expect(() => CoalescingEngineService.configure({
+            coalesceWindowSeconds   : 30,
+            flushRefractorySeconds  : 120,
+            flushHardCapSeconds     : 300,
+            resolveDeliveryReadState: 'not-a-function'
+        })).toThrow(/resolveDeliveryReadState/);
+    });
+
 });
