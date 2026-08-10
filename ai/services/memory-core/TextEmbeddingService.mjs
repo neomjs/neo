@@ -13,6 +13,7 @@ import {
     createProviderActivityLifecycle,
     observeUnqueuedProviderActivity
 }                           from '../shared/providerActivityLedger.mjs';
+import {createEmbeddingIdentityWindow}                                 from '../shared/embeddingIdentityWindow.mjs';
 import MemoryCoreRecorderService                                       from './MemoryCoreRecorderService.mjs';
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import {
@@ -529,6 +530,12 @@ class TextEmbeddingService extends Base {
          */
         openAiCompatibleLoadedModelsProbe: null
     }
+
+    // The re-embed ratio's identity half, recorded at the ONE point every embedding submission
+    // passes through regardless of provider or caller. Recording per-caller would answer "does this
+    // sweep repeat itself", which is not the question — a plane whose KB sync and WAL drain each
+    // converge can still be re-embedding the same content between them.
+    #embeddingIdentityWindow = createEmbeddingIdentityWindow();
 
     #openAiCompatiblePostQueue       = [];
     #openAiCompatiblePostQueueActive = false;
@@ -1246,6 +1253,21 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary The re-embed ratio over a bounded window: how much embedding work repeated content.
+     *
+     * Exposed for the metrics observer rather than as its own tool — the question "is this provider
+     * load explained by pending work?" needs this beside the drain receipt, not in a second place an
+     * operator has to know to look.
+     *
+     * Read it WITH `truncated` and `coverageStartedAt`. A `ratio` of null means nothing was observed,
+     * which is not the same fact as nothing repeated, and a truncated window is a partial answer.
+     * @returns {{coverageStartedAt: Number, distinct: Number, ratio: Number|null, submissions: Number, truncated: Boolean}}
+     */
+    getEmbeddingIdentityWindow() {
+        return this.#embeddingIdentityWindow.getWindow()
+    }
+
+    /**
      * @summary Runs native Ollama embedding while separating caller abort from provider settlement.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
@@ -1535,6 +1557,11 @@ class TextEmbeddingService extends Base {
      */
     async embedTexts(texts, explicitProvider, options = {}) {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
+
+        // Recorded on SUBMISSION, not on success. A sweep that re-submits the same content and fails
+        // every time is the exact non-convergence this ratio exists to surface, and counting only
+        // completions would hide the loop behind its own failures.
+        this.#embeddingIdentityWindow.recordSubmissions(texts);
 
         const defaultOperationLabel = explicitProvider === 'ollama'
                   ? 'TextEmbeddingService.embedTexts native Ollama embedding'
