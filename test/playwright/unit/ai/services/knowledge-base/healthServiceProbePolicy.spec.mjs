@@ -95,4 +95,41 @@ test.describe('knowledge-base embedding-probe policy is deployment-tunable', () 
         expect(source.match(/aiConfig\.healthcheck\.embeddingProbe\w+/g)?.length ?? 0)
             .toBeGreaterThanOrEqual(PROBE_LEAVES.length);
     });
+
+    test('each consumer parameter is bound to ITS OWN leaf, not merely to some leaf', () => {
+        // A reviewer's falsifier, and it is the reason this arm exists: the suite stayed green
+        // when the production `timeoutMs` read was mutated to `embeddingProbeCadenceMs`. Every
+        // arm above asserts the
+        // SHAPE of the reads - that they exist, are env-bound, are not hoisted - and none asserted
+        // WHICH leaf reaches WHICH parameter. A wiring swap is invisible to shape assertions, and it
+        // is the failure that ships a probe running on the wrong number while every gate is green.
+        const source = fs.readFileSync(healthServicePath, 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+
+        const BINDINGS = [
+            ['timeoutMs',       'embeddingProbeTimeoutMs'],
+            ['cadenceMs',       'embeddingProbeCadenceMs'],
+            ['healthyTtlMs',    'embeddingProbeHealthyTtlMs'],
+            ['failureTtlMs',    'embeddingProbeFailureTtlMs'],
+            ['failureTtlMaxMs', 'embeddingProbeFailureTtlMaxMs']
+        ];
+
+        for (const [param, leafKey] of BINDINGS) {
+            // The parameter must read its own leaf...
+            expect(source, `${param} must read aiConfig.healthcheck.${leafKey}`)
+                .toMatch(new RegExp(`\\b${param}\\s*=\\s*aiConfig\\.healthcheck\\.${leafKey}\\b`));
+
+            // ...and must not read any OTHER probe leaf. Without this half the assertion above
+            // passes on a file that reads the right leaf once and a wrong one elsewhere.
+            const wrong = BINDINGS
+                .filter(([, otherLeaf]) => otherLeaf !== leafKey)
+                .map(([, otherLeaf]) => otherLeaf);
+
+            for (const otherLeaf of wrong) {
+                expect(source, `${param} must NOT read aiConfig.healthcheck.${otherLeaf}`)
+                    .not.toMatch(new RegExp(`\\b${param}\\s*=\\s*aiConfig\\.healthcheck\\.${otherLeaf}\\b`));
+            }
+        }
+    });
 });
