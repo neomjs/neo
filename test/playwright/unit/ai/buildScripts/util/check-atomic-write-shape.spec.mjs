@@ -1,6 +1,7 @@
 import {test, expect}                            from '@playwright/test';
 import {spawnSync}                               from 'node:child_process';
-import {mkdirSync, rmSync, writeFileSync}        from 'node:fs';
+import {mkdtempSync, rmSync, writeFileSync}      from 'node:fs';
+import {tmpdir}                                  from 'node:os';
 import path                                      from 'node:path';
 import process                                   from 'node:process';
 import {fileURLToPath}                           from 'node:url';
@@ -127,18 +128,17 @@ test.describe('check-atomic-write-shape guard', () => {
     });
 
     test('CLI: a hand-rolled pair fails the build', () => {
-        const checker    = path.join(repoRoot, 'buildScripts/util/check-atomic-write-shape.mjs'),
-              fixtureDir = path.join(repoRoot, `ai/.tmp-atomic-shape-${process.pid}`);
+        const checker = path.join(repoRoot, 'buildScripts/util/check-atomic-write-shape.mjs'),
+              // OUTSIDE the scanned tree on purpose: a sibling spec scans all of `ai/`, and Playwright
+              // runs them in parallel, so a fixture planted there made the two race.
+              fixtureDir = mkdtempSync(path.join(tmpdir(), 'atomic-shape-'));
 
-        mkdirSync(fixtureDir, {recursive: true});
-
-        const fixture = path.join(fixtureDir, 'fixture.mjs'),
-              rel     = path.relative(repoRoot, fixture).split(path.sep).join('/');
+        const fixture = path.join(fixtureDir, 'fixture.mjs');
 
         try {
             writeFileSync(fixture, "await writeFile(tmpPath, body);\nawait rename(tmpPath, filePath);\n");
 
-            const result = spawnSync(process.execPath, [checker, rel], {cwd: repoRoot, encoding: 'utf-8'});
+            const result = spawnSync(process.execPath, [checker, fixture], {cwd: repoRoot, encoding: 'utf-8'});
 
             expect(result.status, 'a hand-rolled pair must fail the build').toBe(1);
             expect(result.stderr).toContain('write-temp-then-rename');

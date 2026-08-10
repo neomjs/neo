@@ -174,10 +174,13 @@ function main() {
         return result.stdout.trim().split('\n').filter(Boolean);
     }
 
-    const files = (argvFiles.length > 0 ? argvFiles : collectDefaultFiles())
-        .filter(file => file.endsWith('.mjs'))
-        .map(file => toRepoRelative(file, gitRoot))
-        .filter(file => file.startsWith('ai/'));
+    // The `ai/` bound applies to the DEFAULT sweep, not to explicitly named files. A caller that
+    // passes a path has already chosen the scope — lint-staged passes its matched set, and a spec
+    // needs to check a fixture without planting it inside the tree a sibling spec is scanning. An
+    // earlier version filtered both, which forced the fixture under `ai/` and made the two specs race.
+    const files = argvFiles.length > 0
+        ? argvFiles.filter(file => file.endsWith('.mjs')).map(file => toRepoRelative(file, gitRoot))
+        : collectDefaultFiles().filter(file => file.endsWith('.mjs')).map(file => toRepoRelative(file, gitRoot));
 
     if (files.length === 0) {
         console.log('check-atomic-write-shape: 0 ai .mjs files in scope, nothing to check.');
