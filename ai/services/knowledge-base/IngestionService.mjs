@@ -1079,6 +1079,22 @@ class IngestionService extends Base {
                 // Preserve a prior positive receipt so a crash or checkpoint-write
                 // failure after KB mutation can settle idempotently on the retry.
                 receipt = existing.materializationReceipt;
+            } else if (
+                summary.errors.length === 0
+                && normalized.pathsAfterPush.length === 0
+            ) {
+                // A source-observed empty manifest is a completed materialization, not an
+                // effect-shaped one. It still needs the ordinary digest-bound proof so the
+                // orchestrator can commit a complete checkpoint instead of reporting success
+                // while leaving revalidation armed. Prior positive receipts deliberately win
+                // above: replacing one here would break settle-once recovery after a checkpoint
+                // write failure.
+                receipt = {
+                    attemptId            : attempt.attemptId,
+                    ingestContractVersion: attempt.ingestContractVersion,
+                    envelopeDigest,
+                    recordedAt           : Date.now()
+                };
             }
         }
 

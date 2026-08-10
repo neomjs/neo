@@ -20,6 +20,8 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs-extra';
 import aiConfig       from '../../../../../../ai/mcp/server/knowledge-base/config.template.mjs';
+import {createTenantRepoMaterializationDigest}
+    from '../../../../../../ai/services/knowledge-base/helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 
 /**
  * Contract coverage for IngestionService.
@@ -770,13 +772,49 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         })).materializationReceipt).toBeNull();
     });
 
-    test('fresh zero-effect full attempts never manufacture a replay receipt (#16045)', async () => {
+    test('an authoritative empty manifest earns a current digest-bound receipt (#16577)', async () => {
+        const
+            attempt = {
+                attemptId            : 'c'.repeat(32),
+                ingestContractVersion: 2
+            },
+            envelope = {
+                tenantId        : 'tenant-a',
+                repoSlug        : 'repo-empty',
+                files           : [],
+                headRevision    : 'head-empty',
+                manifestSnapshot: {repoSlug: 'repo-empty', pathsAfterPush: []}
+            },
+            summary = await Service.ingestSourceFiles({
+                ...envelope,
+                materializationAttempt: attempt
+            }),
+            expectedDigest = createTenantRepoMaterializationDigest(envelope),
+            stored = await Service.getTenantManifest({
+                tenantId: 'tenant-a',
+                repoSlug: 'repo-empty'
+            });
+
+        expect(summary).toMatchObject({
+            ingested              : 0,
+            deleted               : 0,
+            errors                : [],
+            materializationReceipt: {
+                ...attempt,
+                envelopeDigest: expectedDigest,
+                recordedAt    : expect.any(Number)
+            }
+        });
+        expect(stored.materializationReceipt).toEqual(summary.materializationReceipt);
+    });
+
+    test('fresh zero-effect NON-EMPTY full attempts never manufacture a replay receipt (#16045)', async () => {
         const envelope = {
             tenantId        : 'tenant-a',
-            repoSlug        : 'repo-empty',
-            files           : [],
-            headRevision    : 'head-empty',
-            manifestSnapshot: {repoSlug: 'repo-empty', pathsAfterPush: []}
+            repoSlug        : 'repo-silent-drop',
+            files           : [{sourcePath: 'README.md', parsedChunks: []}],
+            headRevision    : 'head-silent-drop',
+            manifestSnapshot: {repoSlug: 'repo-silent-drop', pathsAfterPush: ['README.md']}
         };
 
         for (const attemptId of ['c'.repeat(32), 'd'.repeat(32)]) {
@@ -791,7 +829,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 
         expect((await Service.getTenantManifest({
             tenantId: 'tenant-a',
-            repoSlug: 'repo-empty'
+            repoSlug: 'repo-silent-drop'
         })).materializationReceipt).toBeNull();
     });
 

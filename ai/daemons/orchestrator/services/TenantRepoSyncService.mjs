@@ -470,10 +470,10 @@ function isMatchingMaterializationReceipt(receipt, expectedDigest) {
  * A manifest-bearing envelope represents bootstrap, non-linear fallback, manual full
  * replay, or legacy revalidation. It must reach ingestion before this check so an
  * empty manifest can reconcile and delete stale rows. A fresh attempt must prove a
- * safely-counted ingest/delete effect and persist its matching graph receipt. A
- * zero-effect retry may settle only an unacknowledged receipt left by a prior positive
- * attempt whose checkpoint commit failed. Incremental envelopes have no manifest and
- * may remain healthy zero-delta checkpoints.
+ * safely-counted ingest/delete effect or a source-observed empty manifest, and persist
+ * its matching graph receipt. A zero-effect retry may settle only an unacknowledged
+ * receipt left by a prior positive attempt whose checkpoint commit failed. Incremental
+ * envelopes have no manifest and may remain healthy zero-delta checkpoints.
  *
  * @param {Object} envelope Tenant-repo ingestion envelope.
  * @param {Object} summary Validated error-free ingestion summary.
@@ -540,30 +540,16 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
         )
     }
 
-    // **A repo with nothing to ingest is a SUCCESS, and it has to be, or it can never leave.** The
-    // producer mints a receipt only on positive effect, so `provesUncommittedRetry` needs a receipt
-    // that will never exist for this repo — the checkpoint never commits,
-    // `lastCommittedMaterializationAttemptId` is never recorded, and the escape below can therefore
-    // never engage on any later attempt either. Fixing only the first failure would leave every
-    // empty repo permanently backing off. Returning `null` here is what the `manifestSnapshot == null`
-    // arm at the top already does: no receipt to carry, and the caller commits.
-    // `!provesUncommittedRetry` is load-bearing, not defensive. A delete-only repo also declares no
-    // content, and on a retry after a checkpoint-write failure its effect is already applied — so
-    // `hasEffect` is false while a valid unacknowledged receipt is waiting to be settled exactly once.
-    // Returning early there would drop the receipt the caller records as
-    // `lastCommittedMaterializationAttemptId`, and the settle-once invariant would silently break.
-    // With the guard, that case falls through to `return receipt` and only a repo with nothing to
-    // settle takes this arm.
-    // ...and `!priorState?.lastCommittedMaterializationAttemptId` narrows this to the case the ticket
-    // names — a repo that has never committed an attempt. A repo that HAS committed one and later
-    // reports no content is a different question — a replay carrying a receipt whose attempt is already
-    // committed is refused today, and the settle-once invariant asserts that refusal — so this arm
-    // deliberately does not answer it. That residual is an open fork rather than a decision made here.
-    if (!hasEffect
-        && declaresNoContent
-        && !provesUncommittedRetry
-        && !priorState?.lastCommittedMaterializationAttemptId) {
-        return null
+    // **A repo with nothing to ingest is a SUCCESS, but success still needs durable proof.** Returning
+    // `null` here used to let the caller report `completed` while persisting no committed attempt id;
+    // checkpoint classification then remained FAILED and every later sweep replayed from a null base.
+    // The producer now emits the same digest-bound current-attempt receipt used for effect-bearing
+    // materializations, but only after it observes a zero-error authoritative empty manifest.
+    // Requiring BOTH facts here prevents a forged current receipt on a non-empty manifest from
+    // laundering a silent drop into success. A prior unacknowledged positive receipt has
+    // `provesCurrentAttempt === false`, so it still falls through to the settle-once path below.
+    if (!hasEffect && declaresNoContent && provesCurrentAttempt) {
+        return receipt
     }
 
     // Content arrived and every chunk was refused before the provider. Sharing the code below told the

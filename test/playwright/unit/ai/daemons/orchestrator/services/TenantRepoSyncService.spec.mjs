@@ -28,7 +28,9 @@ import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/
 import {classifyEmbeddingRecoveryState, isRepoDue}
                             from '../../../../../../../ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs';
 import {
+    classifyTenantRepoCheckpoint,
     normalizeTenantRepoCheckpointState,
+    requiresTenantRepoCheckpointRevalidation,
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
 import {TENANT_REPO_SYNC_ERROR_CODES}
@@ -167,6 +169,21 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                         && existing.envelopeDigest === envelopeDigest
                     ) {
                         summary.materializationReceipt = existing;
+                    } else if (
+                        payload.materializationAttempt
+                        && Array.isArray(summary.errors)
+                        && summary.errors.length === 0
+                        && Array.isArray(payload.manifestSnapshot.pathsAfterPush)
+                        && payload.manifestSnapshot.pathsAfterPush.length === 0
+                    ) {
+                        const receipt = {
+                            ...payload.materializationAttempt,
+                            envelopeDigest,
+                            recordedAt: Date.now()
+                        };
+
+                        materializationReceipts.set(key, receipt);
+                        summary.materializationReceipt = receipt;
                     } else if (!payload.materializationAttempt) {
                         materializationReceipts.delete(key);
                     }
@@ -1428,32 +1445,44 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // repo can never reach a checkpoint, on this attempt or any future one.
         const
             taskStateService = createInMemoryTaskStateService(),
-            repoSlug         = 'org/genuinely-empty';
+            repoSlug         = 'org/genuinely-empty',
+            envelopeCalls    = [],
+            ingestCalls      = [];
 
         await fs.writeJson(revisionsFile, {revisions: {}});
         await provisionMirrorDir({tenantId: 't1', repoSlug});
 
-        const result = await TenantRepoSyncService.runTask({
+        const options = {
             reason           : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [{
                 tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/empty.git'
             }]},
             gitMirror      : makeFakeGitMirror(),
-            envelopeBuilder: async args => ({
-                tenantId        : args.tenantId,
-                repoSlug        : args.repoSlug,
-                files           : [],
-                headRevision    : 'sha-empty-head',
-                manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: []}
-            }),
+            envelopeBuilder: async args => {
+                envelopeCalls.push(args);
+
+                return {
+                    tenantId    : args.tenantId,
+                    repoSlug    : args.repoSlug,
+                    files       : [],
+                    deleted     : [],
+                    headRevision: 'sha-empty-head',
+                    ...(args.lastIngestedRev ? {} : {
+                        manifestSnapshot: {repoSlug: args.repoSlug, pathsAfterPush: []}
+                    })
+                }
+            },
             knowledgeBaseIngestionService: makeFakeIngestionService({
+                captureCalls : ingestCalls,
                 summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
             }),
             onlyRepoSlugs    : [repoSlug],
-            fullReplay       : true,
+            fullReplay       : false,
             revisionsFilePath: revisionsFile
-        });
+        };
+
+        const result = await TenantRepoSyncService.runTask(options);
 
         expect(result.status).toBe('completed');
         expect(result.details.repos[0]).toMatchObject({
@@ -1464,8 +1493,23 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // The trap is broken only if the checkpoint DURABLY commits — a `completed` status that leaves
         // no committed attempt id would re-enter the same state on the next sweep.
         const persisted = await fs.readJson(revisionsFile);
+        const persistedRepo = persisted.revisions[`t1/${repoSlug}`];
 
-        expect(persisted.revisions[`t1/${repoSlug}`].lastIngestedRev).toBe('sha-empty-head');
+        expect(persistedRepo).toMatchObject({
+            lastIngestedRev                      : 'sha-empty-head',
+            lastCommittedMaterializationAttemptId: ingestCalls[0].payload.materializationAttempt.attemptId
+        });
+        expect(classifyTenantRepoCheckpoint(persistedRepo)).toBe('complete');
+        expect(requiresTenantRepoCheckpointRevalidation(persistedRepo)).toBe(false);
+
+        const second = await TenantRepoSyncService.runTask(options);
+
+        expect(second.status).toBe('completed');
+        expect(envelopeCalls).toHaveLength(2);
+        expect(envelopeCalls[1].lastIngestedRev).toBe('sha-empty-head');
+        expect(classifyTenantRepoCheckpoint(
+            (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`]
+        )).toBe('complete');
     });
 
     test('POSITIVE CONTROL — declared paths with NO effect and NO explanation still fails', async () => {
