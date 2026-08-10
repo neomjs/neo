@@ -2,8 +2,8 @@ import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import TextEmbeddingService, {
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig             from '../../mcp/server/memory-core/config.mjs';
-import Base                 from '../../../src/core/Base.mjs';
+import mcConfig from '../../mcp/server/memory-core/config.mjs';
+import Base     from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -645,7 +645,11 @@ class VectorService extends Base {
      *     `maxRetries * ceil(batchSize / batchEmbeddingChunkSize) * (1 + unloadRetryCount) *
      *     batchEmbeddingTimeoutMs`, which is 16h40m at stock leaves against a 30-minute `maxActiveHoldMs`.
      *     Per-chunk consultation caps the interval at one chunk's worst case.
-     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean}>}
+     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[]}>}
+     *     `failedBatches` carries `{batchIndex, chunkIds, reason}` for every batch that exhausted its retries
+     *     while other batches were succeeding. Such a batch is skipped rather than aborting the sweep, because
+     *     aborting strands every later batch permanently — see the rationale at the exhaustion branch. A sweep
+     *     in which NOTHING embedded still throws: that is a provider outage, not poisoned content.
      */
     async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
         if (chunksToProcess.length === 0) {
@@ -657,6 +661,7 @@ class VectorService extends Base {
 
         const {batchSize, batchDelay, maxRetries} = aiConfig;
         const guardrail                           = this.resolveEmbeddingGuardrail();
+        const failedBatches                       = [];
         let   embeddedCount                       = 0;
         let   skippedCount                        = 0;
         let   yielded                             = false;
@@ -707,8 +712,9 @@ class VectorService extends Base {
             const batchToEmbed = embeddable.map(input => input.chunk);
             const textsToEmbed = embeddable.map(input => input.text);
 
-            let retries = 0;
-            let success = false;
+            let retries   = 0;
+            let success   = false;
+            let lastError = null;
 
             while (retries < maxRetries && !success) {
                 try {
@@ -769,23 +775,62 @@ class VectorService extends Base {
                         break;
                     }
 
+                    lastError = err;
                     retries++;
                     console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
                     if (retries < maxRetries) {
                         await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
-                    } else {
-                        throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
                     }
                 }
             }
 
-            // The retry loop exits on success, on exhaustion (which throws), or on a yield — only the last
-            // one leaves the outer sweep to stop, so it is named explicitly rather than relying on the next
+            // Retry exhaustion, and the whole reason this branch is not a bare `throw`.
+            //
+            // Aborting the sweep here strands every LATER batch permanently, not temporarily: `embed()`
+            // rebuilds `chunksToProcess` by walking the corpus IN ORDER and keeping what the collection does
+            // not already hold, so succeeded batches drop out while the failed one stays first in line. A
+            // batch that fails deterministically — one rejected chunk, one payload past the guardrail — is
+            // therefore re-attempted, re-charged its full retry cost, and re-aborted at the identical index on
+            // every future sweep. Nothing after it is ever attempted again.
+            //
+            // The yield arm one block up was hardened against exactly this shape ("a holder that yields at the
+            // same chunk every time never advances"); this arm had no equivalent. Same loop, same hazard, one
+            // guarantee.
+            //
+            // What separates a poisoned batch from a dead provider is already in hand: whether ANY batch has
+            // embedded this sweep. Deriving it needs no config leaf and no threshold nobody could defend.
+            if (!success && !yielded) {
+                failedBatches.push({
+                    batchIndex: i / batchSize + 1,
+                    chunkIds  : batchToEmbed.map(chunk => chunk.id),
+                    reason    : lastError?.message || 'unknown embedding failure'
+                });
+
+                // Nothing has embedded at all: the provider is down, not the content poisoned. Stop, and stop
+                // by throwing — the caller records the failure from the throw, so continuing silently would
+                // turn a total outage into a success-shaped receipt with zero rows. Preserved verbatim because
+                // it is the correct behaviour for this case: walking the rest of the corpus would spend
+                // `remainingBatches * maxRetries * timeout` proving what the first batch already proved.
+                if (embeddedCount === 0) {
+                    throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
+                }
+
+                // At least one batch has landed, so continuing is worth attempting. This is a CONTINUATION
+                // POLICY, not a diagnosis: an earlier success does not prove the batch is at fault — a
+                // provider can die after embedding fine for an hour, and this branch cannot tell that from
+                // one poisoned payload. It only decides that the remaining work is worth trying rather than
+                // abandoning, and records what failed so the caller can decide what the hole means. Skip it and keep going;
+                // the remainder is recoverable work and the failure travels back in `failedBatches`.
+                logger.warn(`[VectorService] Batch ${i / batchSize + 1} failed after ${maxRetries} retries; skipping it and continuing (${embeddedCount} embedded so far). Reason: ${lastError?.message}`);
+            }
+
+            // The retry loop exits on success, on exhaustion (handled directly above), or on a yield — only the
+            // last one leaves the outer sweep to stop, so it is named explicitly rather than relying on the next
             // between-batch checkpoint observing a predicate that may already have flipped back.
             if (yielded) break;
         }
 
-        return {embedded: embeddedCount, skipped: skippedCount, yielded};
+        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches};
     }
 
     /**
@@ -897,6 +942,22 @@ class VectorService extends Base {
 
             if (embedResult.skipped > 0) {
                 throw new Error(`KB_EMBEDDING_INPUT_SIZE_EXCEEDED: shadow-swap refused to promote an incomplete corpus after skipping ${embedResult.skipped} over-budget embedding chunk(s).`);
+            }
+
+            // `embedChunks` is shared by BOTH stale strategies, and a hole means opposite things to
+            // them. On the incremental path a skipped batch is recoverable — the canonical collection
+            // keeps everything that did land and the next sweep re-selects the rest. Here the shadow is
+            // about to REPLACE a complete live corpus, so the same hole is permanent data loss with a
+            // success-shaped receipt: the live collection would be parked and an incomplete shadow
+            // promoted over it.
+            //
+            // Refusing here rather than teaching `embedChunks` about strategies is deliberate: the
+            // batch loop reports what happened, and the transaction boundary decides what that means
+            // for its own commit semantics. Complete-or-preserve stays the shadow's invariant, in the
+            // same shape the over-budget guard above already uses, and the throw precedes both renames
+            // so the live corpus is untouched.
+            if (embedResult.failedBatches?.length > 0) {
+                throw new Error(`KB_EMBEDDING_BATCH_FAILED: shadow-swap refused to promote an incomplete corpus after ${embedResult.failedBatches.length} batch(es) exhausted their retries.`);
             }
 
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
@@ -1248,10 +1309,16 @@ class VectorService extends Base {
 
         const embedResult = await this.embedChunks({collection, chunksToProcess});
 
-        const count   = await collection.count();
-        const message = `Embedding complete. Collection now contains ${count} items.`;
+        const count         = await collection.count();
+        const failedBatches = embedResult.failedBatches || [];
+        const message       = failedBatches.length > 0
+            ? `Embedding complete with ${failedBatches.length} skipped batch(es). Collection now contains ${count} items.`
+            : `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
-        return {message, embedded: embedResult.embedded, deleted: idsToDelete.length};
+
+        // Surfaced rather than swallowed: a skipped batch is recoverable work that did NOT land, and a caller
+        // that cannot see it reports a clean sync over a corpus with a hole in it.
+        return {message, embedded: embedResult.embedded, deleted: idsToDelete.length, failedBatches};
     }
 
     /**
