@@ -175,6 +175,13 @@ services:
       <<: [*plane-env, *provider-auth-env]
       NEO_TRANSPORT: streamable-http
       NEO_CHROMA_HOST: chroma
+      # Embedding-batch recovery levers. Declared HERE and not only in the base profile: this is a
+      # STANDALONE parity stack, not an overlay on docker-compose.yml, so nothing is inherited. A
+      # render of base+dev together resolves them from base and hides the gap — the composition
+      # that actually runs is this file plus the parity-CI overlay.
+      NEO_KB_EMBEDDING_BATCH_SIZE: ${NEO_KB_EMBEDDING_BATCH_SIZE:-}
+      NEO_KB_EMBEDDING_BATCH_DELAY_MS: ${NEO_KB_EMBEDDING_BATCH_DELAY_MS:-}
+      NEO_KB_EMBEDDING_MAX_RETRIES: ${NEO_KB_EMBEDDING_MAX_RETRIES:-}
       # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
       # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
       # GEMINI_API_KEY). Empty default -> the config-template default applies; with no key the
@@ -331,6 +338,12 @@ services:
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_ENABLED: "true"
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_COMPOSE_PROJECT: *plane-id
       NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: chroma,kb-server,mc-server
+      # Embedding-batch recovery levers — the orchestrator drives tenant-repo ingestion, so it reads
+      # the same three leaves kb-server does. Standalone profile: nothing is inherited from the base
+      # compose, so an operator tuning a parity plane needs them declared here.
+      NEO_KB_EMBEDDING_BATCH_SIZE: ${NEO_KB_EMBEDDING_BATCH_SIZE:-}
+      NEO_KB_EMBEDDING_BATCH_DELAY_MS: ${NEO_KB_EMBEDDING_BATCH_DELAY_MS:-}
+      NEO_KB_EMBEDDING_MAX_RETRIES: ${NEO_KB_EMBEDDING_MAX_RETRIES:-}
     volumes:
       - ../..:/app
       # The PLANE ROOT rides a project-scoped named volume, not the repo bind above. Docker applies

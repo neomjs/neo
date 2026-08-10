@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 54,
+            "remainingUniqueKeys": 57,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -85,6 +85,9 @@
                 "NEO_KB_ASK_PROVIDER",
                 "NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS",
                 "NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE",
+                "NEO_KB_EMBEDDING_BATCH_DELAY_MS",
+                "NEO_KB_EMBEDDING_BATCH_SIZE",
+                "NEO_KB_EMBEDDING_MAX_RETRIES",
                 "NEO_MEMORY_WAL_POLL_INTERVAL_MS",
                 "NEO_MESSAGE_WAL_POLL_INTERVAL_MS",
                 "NEO_MODEL_PROVIDER",

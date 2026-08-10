@@ -517,9 +517,19 @@ class ConfigBase extends ConfigProvider {
             modelName: leaf('gemini-3.5-flash'),
             /**
              * The number of chunks to process in a single batch when embedding.
+             *
+             * This is the **durable unit on the failure arm**: `VectorService.embedChunks` embeds a
+             * whole slice in one `TextEmbeddingService.embedTexts` call and upserts only after it
+             * returns, so a provider failure loses the entire slice. On a starved provider that makes
+             * it the size of the smallest bet the pipeline can win — which is why it carries an env
+             * override: an operator whose corpus will not start needs to shrink the bet until one
+             * batch lands, and a single landed batch is permanent.
+             *
+             * **Not universally atomic** — a cooperative heavy-maintenance yield persists the prefix it
+             * already paid for and records a resume marker. Failure loses the slice; a yield does not.
              * @type {number}
              */
-            batchSize: leaf(50),
+            batchSize: leaf(50, 'NEO_KB_EMBEDDING_BATCH_SIZE', 'positiveInt'),
             /**
              * Work-volume gate for MCP-callable `manage_knowledge_base sync`: when
              * the post-delta `chunksToProcess.length` exceeds this value AND the call originates
@@ -535,14 +545,33 @@ class ConfigBase extends ConfigProvider {
             mcpSyncMaxChunks: leaf(50),
             /**
              * Delay in milliseconds between batches to avoid rate limits.
+             *
+             * Overridable because it is coupled to `batchSize`: shrinking the durable unit multiplies
+             * how many times this delay is paid, so an operator recovering a stalled corpus needs both
+             * dials or the smaller batch turns a repair into an overnight run.
              * @type {number}
              */
-            batchDelay: leaf(10000),
+            batchDelay: leaf(10000, 'NEO_KB_EMBEDDING_BATCH_DELAY_MS', 'nonNegativeInt'),
             /**
-             * The maximum number of times to retry a failed embedding batch.
+             * The TOTAL number of attempts allowed for one embedding batch — not the number of
+             * retries on top of a first try.
+             *
+             * The name is legacy and the loop is the authority: `while (retries < maxRetries)` with
+             * `retries` starting at zero, so `5` buys five provider calls in total, not six. Stated
+             * explicitly because the JSDoc previously said "the maximum number of times to retry",
+             * which reads as one initial attempt plus N — an off-by-one an operator would only
+             * discover from a bill.
+             *
+             * That also fixes the domain: `1` is the meaningful floor (one attempt, no retry) and
+             * `0` is not a smaller setting but a broken one, since it skips the loop entirely and
+             * returns a clean zero-embedded result with no provider call at all.
+             *
+             * Overridable so an operator can bound what a doomed batch costs: against a provider that
+             * never answers, every attempt is paid at the full embedding timeout before the batch is
+             * given up on.
              * @type {number}
              */
-            maxRetries: leaf(5),
+            maxRetries: leaf(5, 'NEO_KB_EMBEDDING_MAX_RETRIES', 'positiveInt'),
             /**
              * The number of results to fetch from ChromaDB for a query.
              * @type {number}
