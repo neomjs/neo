@@ -24,11 +24,23 @@
  * listener that answers anything else is an INCOMPATIBLE occupant and the launcher refuses with a
  * named reason — never a silent second server, never a false reuse.
  *
+ * Protocol identity is COMPATIBILITY, never ADOPTION AUTHORITY: the unauthenticated probe proves
+ * "a fleet server", not "our fleet server". Because the cockpit page this launcher opens can
+ * REDEEM the incumbent's bearer (the armed handshake), adopting an unverified incumbent would let
+ * an unauthenticated port-probe hand the page another launch's credential and server-bound viewer.
+ * So reuse requires the established authenticated proof — `probeExistingFleetServer`, "same token,
+ * same viewer", driven by this environment's pinned `NEO_FLEET_BEARER` + resolved identity claim —
+ * and an incumbent this launcher cannot verify is REFUSED with the remediation named, before any
+ * page exists to redeem anything.
+ *
  * The launch contract (bearer half): this launcher IS the cockpit launch path — it generates the
  * one process-lifetime bearer in its own memory and hands it to the fleet child via env
  * (`NEO_FLEET_BEARER`, the in-memory channel), never via URL, log, or file. The browser side then
- * receives it through the worker-realm injector (`ViewportController.wireFleetBridge`) — the
- * Neural Link / Electron seam — so no secret ever persists anywhere restartable.
+ * redeems it itself over the armed handshake (`NEO_FLEET_BEARER_HANDSHAKE` →
+ * `GET /fleet/handshake`, exact-Origin-gated): the page fills its designed in-memory slot before
+ * app boot with no agent in the loop, so no secret ever persists anywhere restartable. The
+ * worker-realm injector (`ViewportController.wireFleetBridge`) stays the explicit-selection seam
+ * for Neural Link / tooling flows.
  *
  * Signals: SIGINT/SIGTERM forward to every child this launcher spawned; a webpack exit tears the
  * session down; a fleet-server exit logs loudly while the cockpit degrades to its honest
@@ -129,9 +141,13 @@ export function probeFleetEndpoint(port, timeoutMs = 1500) {
  * @param {Number} options.fleetPort The resolved fleet port.
  * @param {('free'|'fleet'|'incompatible')} [options.endpointStatus] The probe result (omitted when refused pre-probe).
  * @param {String} [options.endpointDetail=''] The probe detail line.
+ * @param {Object|null} [options.reuseProof=null] The AUTHENTICATED reuse verdict for a `fleet`
+ *     occupant (`probeExistingFleetServer` shape: `{reusable, reason, viewer?, pid?}`), or `null`
+ *     when no proof could be attempted. Protocol identity alone never authorizes reuse: the page
+ *     this plan opens can redeem the incumbent's bearer, so an unproven incumbent is refused.
  * @returns {{refuse: Boolean, spawnFleet: Boolean, spawnWebpack: Boolean, notes: String[]}}
  */
-export function planCockpitBoot({fleetPort, endpointStatus, endpointDetail = ''}) {
+export function planCockpitBoot({fleetPort, endpointStatus, endpointDetail = '', reuseProof = null}) {
     if (fleetPort !== FLEET_PORT_DEFAULT) {
         return {
             refuse      : true,
@@ -157,11 +173,23 @@ export function planCockpitBoot({fleetPort, endpointStatus, endpointDetail = ''}
     }
 
     if (endpointStatus === 'fleet') {
+        if (reuseProof?.reusable === true) {
+            return {
+                refuse      : false,
+                spawnFleet  : false,
+                spawnWebpack: true,
+                notes       : [`fleet transport already serving :${fleetPort} — VERIFIED same token, same viewer (${reuseProof.viewer}, pid ${reuseProof.pid}); reusing it; not spawning a second server`]
+            };
+        }
+
         return {
-            refuse      : false,
+            refuse      : true,
             spawnFleet  : false,
-            spawnWebpack: true,
-            notes       : [`fleet transport already serving :${fleetPort} (${endpointDetail}) — reusing it; not spawning a second server`]
+            spawnWebpack: false,
+            notes       : [
+                `REFUSED: :${fleetPort} is occupied by a fleet server this launcher cannot verify (${reuseProof?.reason || 'no authenticated reuse proof was possible'}).`,
+                `The cockpit page can redeem the transport's bearer, so an UNVERIFIED incumbent must never become its credential authority — stop that process to let this launcher own a fresh transport, or export the incumbent's exact NEO_FLEET_BEARER (with the matching identity) so the authenticated reuse probe can prove "same token, same viewer".`
+            ]
         };
     }
 
@@ -183,13 +211,50 @@ export function planCockpitBoot({fleetPort, endpointStatus, endpointDetail = ''}
 async function main() {
     const
         fleetPort = Number(process.env.NEO_FLEET_PORT) || FLEET_PORT_DEFAULT,
-        probe     = fleetPort === FLEET_PORT_DEFAULT ? await probeFleetEndpoint(fleetPort) : null,
-        plan      = planCockpitBoot({
+        probe     = fleetPort === FLEET_PORT_DEFAULT ? await probeFleetEndpoint(fleetPort) : null;
+
+    // A protocol-identity occupant needs the AUTHENTICATED reuse proof before it may become the
+    // page's credential authority. The proof can only be attempted when this environment pins the
+    // incumbent's bearer (`NEO_FLEET_BEARER`) — the coordinated-launch mode; without a pin the
+    // launcher HOLDS no credential to authenticate with, and the plan refuses fail-closed.
+    let reuseProof = null;
+
+    if (probe?.status === 'fleet') {
+        const {isLocalBearerToken} = await import('../ai/mcp/server/shared/helpers/localBearer.mjs');
+
+        if (isLocalBearerToken(process.env.NEO_FLEET_BEARER)) {
+            try {
+                // The identity claim rides the shared stdio resolver, whose chain needs the Neo
+                // namespace — bootstrap it here, on this rare branch only, exactly like the fleet
+                // entrypoints do (the happy paths stay import-light).
+                await import('../src/Neo.mjs');
+                await import('../src/core/_export.mjs');
+                await import('../src/manager/Instance.mjs');
+
+                const {probeExistingFleetServer, resolveFleetViewerClaim} = await import('../ai/services/fleet/fleetLaunchContract.mjs'),
+                      viewer                                              = await resolveFleetViewerClaim();
+
+                reuseProof = await probeExistingFleetServer({
+                    probeUrl           : `http://127.0.0.1:${fleetPort}/fleet/probe`,
+                    bearerToken        : process.env.NEO_FLEET_BEARER,
+                    agentIdentityNodeId: viewer.agentIdentityNodeId
+                })
+            } catch (error) {
+                reuseProof = {reusable: false, reason: `reuse-proof attempt failed (${error.message})`}
+            }
+        } else {
+            reuseProof = {reusable: false, reason: 'no NEO_FLEET_BEARER pin in this environment — the launcher holds no credential to authenticate the incumbent with'}
+        }
+    }
+
+    const
+        plan     = planCockpitBoot({
             fleetPort,
             endpointStatus: probe?.status,
-            endpointDetail: probe?.detail ?? ''
+            endpointDetail: probe?.detail ?? '',
+            reuseProof
         }),
-        children  = [];
+        children = [];
 
     plan.notes.forEach(note => console.log(`[cockpit] ${note}`));
 
@@ -216,8 +281,12 @@ async function main() {
             // a malformed override is ignored — the production default stands
         }
 
+        // NEO_FLEET_BEARER_HANDSHAKE: this launcher opens the page AND holds the bearer, so it is
+        // the one place arming the browser handshake is a coherent custody decision — the page the
+        // webpack child opens redeems the secret itself (apps/agentos/fleet/redeemFleetBearerHandshake.mjs),
+        // closing the launcher→page hand-off without an agent seam.
         const fleet = spawn(fleetCmd[0], fleetCmd.slice(1), {
-            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer},
+            env  : {...process.env, NEO_FLEET_BEARER: fleetBearer, NEO_FLEET_BEARER_HANDSHAKE: '1'},
             stdio: 'inherit'
         });
 

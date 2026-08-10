@@ -212,7 +212,7 @@ async function boot() {
         // SOURCE, the Neo-free site the spec exercises. An explicit resolver stays the override seam.
         resolveSeatArming       : FleetManager.wakeStateOptions.resolveSeatArming ?? null,
         wakeReceiverManifestPath: FleetManager.wakeStateOptions.wakeReceiverManifestPath ?? null,
-        readPresence                   : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
+        readPresence            : planeClient ? createPlaneWhoIsOnlineReader(planeClient) : null
     });
 
     // Wire the composed activitySource onto FleetControlBridge. The memory-core mailbox + graph
@@ -329,7 +329,10 @@ async function boot() {
             bearerToken,
             viewerContext : viewer,
             allowedOrigins: origins,
-            runInContext  : (context, fn) => RequestContextService.run(context, fn)
+            // The launcher's custody decision, resolved at the use site: `npm run cockpit` arms
+            // the browser bearer handshake in this child's env; a standalone boot defaults off.
+            bearerHandshake: AiConfig.fleet.bearerHandshake,
+            runInContext   : (context, fn) => RequestContextService.run(context, fn)
         });
 
         // AWAITED plane teardown before every exit: an un-awaited close races process death, which

@@ -313,6 +313,19 @@ class ConfigBase extends ConfigProvider {
                  */
                 bearer         : leaf('', 'NEO_FLEET_BEARER', 'string'),
                 /**
+                 * Arms the transport's browser bearer-handshake redemption (`GET /fleet/handshake`):
+                 * while armed, an exact-allowlisted cockpit ORIGIN may fetch the process bearer once
+                 * per page boot, which is how the one-command flow (`npm run cockpit`) hands the
+                 * secret to a plain browser page with no agent in the loop. Default OFF — a
+                 * standalone `npm run ai:fleet-server` exposes zero new surface; the cockpit
+                 * launcher arms it in the fleet child's env because arming is a custody decision
+                 * and custody lives with the launcher (`buildScripts/devCockpit.mjs`). While armed,
+                 * browser-caller authentication deliberately collapses to the exact-Origin policy —
+                 * the documented Option-B dev-mode widening, never the packaged product path.
+                 * @type {boolean}
+                 */
+                bearerHandshake: leaf(false, 'NEO_FLEET_BEARER_HANDSHAKE', 'boolean'),
+                /**
                  * Exact origins the Fleet Manager cockpit may call browser-facing Agent OS HTTP
                  * transports from. The legacy local Fleet bridge and the composed KB/MC/Fleet CORS
                  * boundary consume the same resolved array. CSV-typed: the env form is a

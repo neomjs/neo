@@ -55,6 +55,10 @@ import {isLocalBearerToken}      from '../../mcp/server/shared/helpers/localBear
  *     cockpit origins for the CORS policy.
  * @param {String[]} [opts.extraAllowedHosts=[]] Additional exact `Host` header values (the defaults
  *     always cover the bound host:port spellings).
+ * @param {Boolean}  [opts.bearerHandshake=false] Arms `GET /fleet/handshake`: an exact-allowlisted
+ *     browser Origin may redeem the process bearer, which is how the one-command cockpit hands the
+ *     secret to a plain page with no agent seam (see the `fleet.bearerHandshake` leaf for the
+ *     custody decision). Unarmed, the path stays inside the bearer-gated 404 surface.
  * @returns {Promise<http.Server>} resolves once the server is listening.
  * @throws {TypeError} When the bearer, viewer binding, or context runner is missing/invalid — the
  *     fail-closed startup contract of the ingress trust boundary.
@@ -68,7 +72,8 @@ export function startFleetBridgeServer({
     viewerContext     = null,
     runInContext      = null,
     allowedOrigins    = ['http://localhost:8080', 'http://127.0.0.1:8080'],
-    extraAllowedHosts = []
+    extraAllowedHosts = [],
+    bearerHandshake   = false
 } = {}) {
     if (!isLocalBearerToken(bearerToken)) {
         throw new TypeError('[fleet] startup refused: a canonical 32-byte unpadded-base64url bearerToken is required (fail-closed ingress)')
@@ -90,6 +95,7 @@ export function startFleetBridgeServer({
     const admit = createFleetIngressGuard({
         bearerToken,
         allowedOrigins,
+        bearerHandshake,
         resolveAllowedHosts() {
             const hosts = ['127.0.0.1', 'localhost', '[::1]']
                 .map(name => boundPort === null ? null : `${name}:${boundPort}`)
@@ -142,6 +148,16 @@ export function startFleetBridgeServer({
 
             res.writeHead(204, headers);
             return res.end()
+        }
+
+        // The armed browser bearer handshake (guard step 3.5): the ONE response that carries the
+        // secret — never cached, never keep-alive, logged as identity facts only (the redeeming
+        // origin; the bearer itself stays out of every log line this process emits).
+        if (decision.handshake) {
+            console.log(`[fleet] bearer handshake redeemed by origin ${req.headers.origin} at ${new Date().toISOString()}`);
+            res.setHeader('Connection', 'close');
+            res.setHeader('Cache-Control', 'no-store');
+            return respond(res, 200, {ok: true, result: {bearerToken}}, decision.corsOrigin)
         }
 
         // Exact-path match — a sibling path like /fleetx must fail closed, never reach dispatch.
