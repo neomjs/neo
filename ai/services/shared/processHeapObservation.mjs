@@ -70,8 +70,18 @@ export const HEAP_OBSERVATION_STATE = Object.freeze({observed: 'observed', unava
  * Divergence between the two is reported as `ambiguous` rather than resolved. The last-wins rule is
  * consistent across all five measurements above (concatenate `NODE_OPTIONS` then the command line and
  * take the last), but it is V8's rule, not ours, and `heapSizeLimitBytes` is already observed
- * independently — so a consumer that needs the effective ceiling has it, and this field declines to
- * restate a resolution it would have to keep in sync with a runtime it does not control.
+ * independently — so a consumer needing to know **which declaration V8 actually applied** can read that
+ * back from the observed limit, and this field declines to restate a resolution it would have to keep in
+ * sync with a runtime it does not control.
+ *
+ * **What `heapSizeLimitBytes` is not: the number the process dies at.** An earlier revision of this
+ * paragraph called it *the effective ceiling*, which reads as exactly that. It is old space **plus** the
+ * semi-space allowance described above, so it sits strictly above the declared `--max-old-space-size`,
+ * and the process aborts on old-space exhaustion — at the declaration, not at this limit. A saturation
+ * ratio taken against it understates pressure by the whole gap (768 MiB declared reports 816 MiB under a
+ * 1 GiB cgroup) and reproduces this record's originating cross-scope defect one scope in, wearing a
+ * V8-scoped name. `oldGenerationUsedBytes ÷ declaredCeilingBytes` is the ratio; this field is what V8
+ * *reports*, kept because the gap between the two is the evidence that the declaration took effect.
  * @type {Object}
  */
 export const CEILING_STATE = Object.freeze({

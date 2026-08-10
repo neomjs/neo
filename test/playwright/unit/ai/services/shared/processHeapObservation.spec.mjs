@@ -1,3 +1,6 @@
+import fs   from 'node:fs';
+import path from 'node:path';
+
 import {test, expect} from '@playwright/test';
 
 import {
@@ -229,6 +232,28 @@ test.describe('ai/services/shared/processHeapObservation — the declared ceilin
         expect(observation.ceilingState).toBe(CEILING_STATE.ambiguous);
         expect(observation.declaredCeilingBytes).toBeNull();
         expect(observation.heapSizeLimitBytes).toBe(816 * MEGABYTE);
+    });
+
+    test('the record says what `heapSizeLimitBytes` is NOT — and the retired wording cannot come back live', () => {
+        // A structural claim about the contract, never about behaviour. `heapSizeLimitBytes` is the one
+        // field on this record that reads like a ceiling and is not one: the process aborts at the
+        // declaration, and this limit sits above it by the semi-space allowance. An earlier revision
+        // pointed a consumer here as "the effective ceiling", which is the cross-scope defect this
+        // module exists to end, re-created one scope in under a V8-scoped name.
+        const source = fs.readFileSync(
+            path.join(path.resolve(process.cwd()), 'ai/services/shared/processHeapObservation.mjs'), 'utf8');
+
+        // The three facts a consumer needs in order not to reach for the wrong denominator.
+        expect(source).toContain('sits strictly above the declared');
+        expect(source).toContain('aborts on old-space exhaustion');
+        expect(source).toContain('oldGenerationUsedBytes ÷ declaredCeilingBytes');
+
+        // The retired phrasing survives EXACTLY ONCE, as its own retirement. A second occurrence is
+        // someone describing a field that way again, which is what must not return; asserting plain
+        // absence would forbid the record of the correction, and a correction nobody can read is how
+        // the wording came back the first time.
+        expect(source.match(/effective ceiling/g)).toHaveLength(1);
+        expect(source).toContain('An earlier revision of this');
     });
 });
 
