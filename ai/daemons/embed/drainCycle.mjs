@@ -458,12 +458,13 @@ export async function drainWalOnce({
     backoffBaseMs,
     retentionLimit,
     expectedDimension,
-    retryState = new Map(),
-    log        = () => {},
-    sleep      = ms => new Promise(resolve => setTimeout(resolve, ms)),
-    now        = Date.now
+    retryState   = new Map(),
+    log          = () => {},
+    onCycleStart = () => {},
+    sleep        = ms => new Promise(resolve => setTimeout(resolve, ms)),
+    now          = Date.now
 } = {}) {
-    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, metadataOnly: 0, unverifiable: 0, cooling: 0, prunedSegments: 0};
+    const summary = {pending: 0, embedded: 0, compensated: 0, failed: 0, selected: 0, metadataOnly: 0, unverifiable: 0, cooling: 0, prunedSegments: 0};
 
     // Full pending read (not limit-bounded): a newest-first limited read would let records
     // cooling down at the head permanently shadow older drainable ones. Scan cost is bounded —
@@ -485,6 +486,13 @@ export async function drainWalOnce({
 
         drainable.push(record);
     }
+
+    summary.selected = drainable.length;
+
+    // Publish the selection BEFORE the provider call. Everything below can block for the length of a
+    // provider round-trip, and until it returns the tracker has nothing to say — which makes a cycle
+    // that is legitimately working read as "no work" to any observer sampling mid-flight.
+    onCycleStart({pending: summary.pending, selected: drainable.length});
 
     if (drainable.length > 0) {
         const {succeeded, failed} = await embedBatch({collection, records: drainable, maxRetries, backoffBaseMs, sleep, log});
@@ -608,7 +616,7 @@ export function startDrainLoop({getCollection, getConfig, expectedDimension, log
 
         try {
             const collection = await getCollection();
-            const summary    = await drainWalOnce({dir, collection, batchSize, maxRetries, backoffBaseMs, retentionLimit, expectedDimension, retryState, log});
+            const summary    = await drainWalOnce({dir, collection, batchSize, maxRetries, backoffBaseMs, retentionLimit, expectedDimension, retryState, log, onCycleStart: disposition.recordCycleStart});
 
             // Idle cycles stay silent — at a multi-second poll interval, per-cycle no-op lines
             // would dominate the log without adding signal.
@@ -640,6 +648,19 @@ export function startDrainLoop({getCollection, getConfig, expectedDimension, log
          * @summary The drain receipt for this plane — see `createDrainDispositionTracker`.
          * @returns {Object}
          */
-        getDisposition: disposition.getDisposition
+        getDisposition: disposition.getDisposition,
+
+        /**
+         * @summary The work the currently-running cycle selected, before it completes.
+         * @returns {Object|null}
+         */
+        getInProgress: disposition.getInProgress,
+
+        /**
+         * @summary Completed cycles aggregated over a caller-supplied lookback.
+         * @param {Number} sinceTs Lower bound, epoch ms.
+         * @returns {Object}
+         */
+        getWindowSince: disposition.getWindowSince
     };
 }

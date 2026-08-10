@@ -2586,6 +2586,7 @@ components:
         - unfinishedCalls
         - recentSlowCalls
         - providerActivity
+        - walDrain
       properties:
         status:
           type: string
@@ -2727,6 +2728,127 @@ components:
                 description: Redacted recorder stage when the call failed, or null on success.
         providerActivity:
           $ref: '#/components/schemas/ProviderActivityResponse'
+        walDrain:
+          $ref: '#/components/schemas/WalDrainProjectionResponse'
+
+    WalDrainProjectionResponse:
+      type: object
+      description: >
+        This process's WAL drain receipt, reported beside `providerActivity` so one reading answers
+        "is this provider load explained by pending work?" without shell access or log parsing.
+        Provider load alone cannot distinguish a busy ingestion from a lane burning against an empty
+        backlog; the drain's own per-cycle counts are the denominator.
+
+        Two properties are deliberate. `counts` is null — never zero — when this process does not host
+        the drain, because zero pending against live provider load IS the anomaly, so a defaulted zero
+        would manufacture the alarm this projection exists to detect. And `window.truncated` reports
+        whether the aggregate may be read as the WHOLE lookback: the window is answered from an
+        in-memory ring, so a lookback reaching past `window.coverageStartedAt` — every process
+        restart does — or past a cycle the ring has evicted is a PARTIAL answer. Totals are a ratio
+        against `providerActivity` only when it is false.
+      required:
+        - status
+        - state
+        - drainedClean
+        - reason
+        - counts
+        - observedAt
+        - inProgress
+        - window
+      properties:
+        status:
+          type: string
+          enum: [ok, partial, unavailable]
+          description: >
+            `ok` when this process hosts the drain and its receipt was read; `partial` when the receipt
+            was unreadable; `unavailable` when the drain runs out of process.
+        state:
+          type: string
+          nullable: true
+          enum: [clean, dirty, inactive, unobserved]
+          description: >
+            Producer-declared cycle verdict; null when no receipt is available. Nullability is carried
+            by `nullable`, never by a `null` member inside the enum — a `type: string` whose enum also
+            admits null contradicts itself, and the Zod round-trip drops the type and leaves `nullable`
+            orphaned, which AJV then rejects.
+        drainedClean:
+          type: boolean
+          nullable: true
+          description: True only for `clean`; `inactive` and `unobserved` are not drained claims.
+        reason:
+          type: string
+          nullable: true
+          description: Why the state is not `clean`, or why no receipt is available.
+        counts:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+          description: >
+            The last cycle's own summary — pending, embedded, failed, cooling and the producer-declared
+            `outstanding` residue. Null whenever no receipt was read.
+        observedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the reported cycle completed.
+        inProgress:
+          type: object
+          nullable: true
+          description: >
+            The work the currently-running cycle selected, published BEFORE it completes. Null when no
+            cycle is running. Without this, a cycle waiting on the provider is invisible and live work
+            reads as no work — the exact interval this projection exists to interpret.
+          required: [pendingAtStart, selectedCount, startedAt]
+          properties:
+            pendingAtStart:
+              type: integer
+              nullable: true
+              description: Items pending when the cycle began.
+            selectedCount:
+              type: integer
+              nullable: true
+              description: Items this cycle admitted for embedding.
+            startedAt:
+              type: string
+              format: date-time
+              nullable: true
+        window:
+          type: object
+          nullable: true
+          description: >
+            Completed drain cycles aggregated over the SAME lookback as `providerActivity`. This is the
+            comparable denominator; the `counts` field above describes one latest cycle and is not.
+            Null when no observation is available.
+          required: [coverageStartedAt, cycles, oldestRetainedAt, totals, truncated]
+          properties:
+            coverageStartedAt:
+              type: string
+              format: date-time
+              description: >
+                Earliest instant this process could attest to. A lookback starting before it asks
+                about a period the tracker did not exist for; it is the denominator that makes
+                `truncated` actionable rather than merely alarming.
+            cycles:
+              type: integer
+              description: Completed cycles inside the lookback.
+            oldestRetainedAt:
+              type: string
+              format: date-time
+              nullable: true
+            totals:
+              type: object
+              additionalProperties:
+                type: integer
+              description: Summed pending, selected, embedded and failed across those cycles.
+            truncated:
+              type: boolean
+              description: >
+                True when the lookback is not fully covered, so the aggregate is partial — either it
+                starts before `coverageStartedAt` (any process restart) or it reaches a cycle the ring
+                has evicted. Coverage, not capacity: keying only off ring fullness saw the second case
+                and reported a fresh tracker's empty window as a COMPLETE "nothing happened". A partial
+                answer reported as a total is the same false zero as a defaulted one.
 
     ProviderActivityResponse:
       type: object

@@ -26,6 +26,7 @@ import {
 } from '../../../services.mjs';
 import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
 import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
+import MemoryCoreRecorderService from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {
     createMessageGraphProjectionProcessor,
     startMessageDrainLoop
@@ -347,6 +348,13 @@ class Server extends BaseServer {
                     expectedDimension: aiConfig.vectorDimension,
                     log              : drainLog
                 });
+                // Publish the drain receipt to the metrics projection. Registered ONLY on the branch that
+                // actually hosts the loop, so a process that does not drain reports `unavailable` rather
+                // than an empty backlog — zero pending against live provider load is the alarm condition,
+                // not a safe default.
+                MemoryCoreRecorderService.walDrainDispositionProvider = this.walDrainLoop.getDisposition;
+                MemoryCoreRecorderService.walDrainInProgressProvider   = this.walDrainLoop.getInProgress;
+                MemoryCoreRecorderService.walDrainWindowProvider       = this.walDrainLoop.getWindowSince;
                 // Release on process exit (the realistic single-process clean-shutdown path); a
                 // signal-kill leaves the lock for the next host to reclaim as stale.
                 process.on('exit', () => this.walDrainLock?.release());

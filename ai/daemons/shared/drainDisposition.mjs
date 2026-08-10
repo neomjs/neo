@@ -89,13 +89,92 @@
  * @param {Function} [options.now=Date.now] Injectable clock.
  * @returns {{recordCycle: Function, recordFailure: Function, getDisposition: Function}}
  */
-export function createDrainDispositionTracker({now = Date.now} = {}) {
-    let state  = 'unobserved',
-        reason = 'no-drain-cycle-completed-yet',
-        counts = null,
-        at     = null;
+export function createDrainDispositionTracker({historyLimit = 256, now = Date.now} = {}) {
+    // The earliest instant this tracker could attest to anything. A lookback reaching further back
+    // than this is asking about a period the tracker did not exist for, and the only honest answer
+    // is "partial" — a process restart makes that the DAILY case, not an edge one.
+    const coverageStartedAt = now();
+
+    // `evictedThrough` is the newest cycle timestamp the ring has dropped, null while nothing has
+    // been evicted — the second boundary a lookback can fail to clear.
+    let state          = 'unobserved',
+        reason         = 'no-drain-cycle-completed-yet',
+        counts         = null,
+        at             = null,
+        inProgress     = null,
+        evictedThrough = null,
+        lastFailureAt  = null;
+
+    // Completed cycles, oldest first. The receipt above is a LAST-VALUE LATCH and cannot answer a
+    // windowed question: an idle poll overwrites a work-bearing cycle that is still inside a
+    // consumer's lookback, so "latest says pending 0" and "no work happened in the window" are
+    // different propositions. A consumer aggregating provider activity over `sinceTs` needs the
+    // cycles that fall in the SAME window, which is what this retains.
+    const history = [];
 
     return {
+        /**
+         * @summary Publishes the work a cycle SELECTED, before it completes.
+         *
+         * Without this, a cycle that has selected items and is waiting on the provider is invisible:
+         * the tracker cannot speak until the provider call returns, so the exact interval a load
+         * observer most needs to interpret reads as "no work". In-progress is cleared by the
+         * completion or failure that follows it.
+         * @param {Object} [data]
+         * @param {Number} [data.selected] Items admitted into this cycle.
+         * @param {Number} [data.pending] Items pending when the cycle began.
+         */
+        recordCycleStart({pending, selected} = {}) {
+            inProgress = {
+                pendingAtStart: Number.isFinite(pending)  ? pending  : null,
+                selectedCount : Number.isFinite(selected) ? selected : null,
+                startedAt     : now()
+            }
+        },
+
+        /**
+         * @summary Aggregates the completed cycles inside a consumer's lookback.
+         *
+         * `truncated` is not decoration: the ring is bounded, so a lookback older than the oldest
+         * retained cycle is a PARTIAL answer, and a partial answer reported as a total is the same
+         * false-zero this module exists to prevent.
+         * @param {Number} sinceTs Lower bound, epoch ms.
+         * @returns {Object}
+         */
+        getWindowSince(sinceTs) {
+            const inWindow = history.filter(entry => entry.at >= sinceTs),
+                  totals   = {embedded: 0, failed: 0, pending: 0, selected: 0};
+
+            for (const {counts: c} of inWindow) {
+                totals.embedded += Number(c?.embedded)  || 0;
+                totals.failed   += Number(c?.failed)    || 0;
+                totals.pending  += Number(c?.pending)   || 0;
+                totals.selected += Number(c?.selected)  || 0
+            }
+
+            return {
+                coverageStartedAt,
+                cycles          : inWindow.length,
+                oldestRetainedAt: history.length ? history[0].at : null,
+                totals,
+                // Coverage, NOT capacity. A full ring is one way to lose the head of a lookback;
+                // never having observed it is the other, and keying only off `historyLimit` saw
+                // just the first — so a fresh tracker answered "nothing happened, completely" for
+                // a window it could not see at all.
+                truncated       : sinceTs < coverageStartedAt ||
+                                  (evictedThrough !== null && sinceTs <= evictedThrough) ||
+                                  (lastFailureAt  !== null && lastFailureAt >= sinceTs)
+            }
+        },
+
+        /**
+         * @summary The work the currently-running cycle selected, or null when none is running.
+         * @returns {Object|null}
+         */
+        getInProgress() {
+            return inProgress && {...inProgress}
+        },
+
         /**
          * @summary Records a completed cycle. Cleanliness is read from ONE producer-declared field,
          * `summary.outstanding`, never re-derived here from producer-specific counts.
@@ -111,8 +190,17 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
          * @param {Object} summary The loop's per-cycle summary; `outstanding` is the residue field.
          */
         recordCycle(summary = {}) {
-            counts = {...summary};
-            at     = now();
+            counts     = {...summary};
+            at         = now();
+            inProgress = null;
+
+            history.push({at, counts: {...summary}});
+
+            if (history.length > historyLimit) {
+                // Remember WHAT was dropped, not just that the ring is full: the dropped cycle's
+                // timestamp is the boundary a later lookback must be told it cannot cross.
+                evictedThrough = history.shift().at
+            }
 
             if (summary.inactive) {
                 state  = 'inactive';
@@ -142,10 +230,24 @@ export function createDrainDispositionTracker({now = Date.now} = {}) {
          * @param {Error|String} error
          */
         recordFailure(error) {
-            state  = 'unobserved';
-            reason = `drain-cycle-failed: ${error?.message ?? error ?? 'unknown'}`;
-            counts = null;
-            at     = now()
+            state      = 'unobserved';
+            reason     = `drain-cycle-failed: ${error?.message ?? error ?? 'unknown'}`;
+            counts     = null;
+            at         = now();
+            inProgress = null;
+
+            // The third way to lose coverage, and the one that survived two repairs. A cycle can
+            // START, reach the provider — durably, on the activity ledger — and then throw during
+            // post-add verification, pending re-read, marker append or prune; `startDrainLoop` routes
+            // every such throw here. It never becomes a completed history entry, so the window used
+            // to aggregate right past the hole and still report `truncated: false`: provider activity
+            // of 1 against window totals of 0, advertised as a complete denominator.
+            //
+            // Its counts are unknowable — that is what "failed" means — so it is deliberately NOT a
+            // history entry. Only the newest timestamp is kept: the question a lookback asks is
+            // "did any failure land at or after `sinceTs`", and the newest answers it for every
+            // `sinceTs` without an unbounded list.
+            lastFailureAt = at
         },
 
         /**
