@@ -119,7 +119,16 @@ export const PARITY_BASELINE = Object.freeze({
     'knowledge-base.manage_knowledge_base.viaMcp'       : 'PERMANENT. Not a gap: MCP dispatch forces true after Zod strips any caller value, and the services.mjs/CLI path correctly defaults to false (the documented long-running-work bypass). Declaring it would let a caller disable the work-volume gate through a public surface. Withdrawn from #16611.',
     'knowledge-base.manage_knowledge_base.staleStrategy': 'PERMANENT. One of its two values (delete-upfront) removes stale rows BEFORE embedding, so a failure between the two loses both; the operator surface already exists as NEO_KB_STALE_STRATEGY. Declaring it would only add remote selection of the destructive branch. Dispositioned on #16611.',
     'knowledge-base.query_documents.includeMetadata'    : 'PERMANENT. An internal RAG-synthesis hydration flag with exactly one caller (SearchService), not a caller-facing capability — the surface that needs metadata is ask_knowledge_base, which sets it. Nothing is unreachable. Dispositioned on #16611.',
-    'memory-core.get_context_frontier.depth'            : 'TRANSITIONAL. Measured DEAD by AST: zero occurrences in getContextFrontier body, destructured and never read. Declaring it would advertise a knob that silently does nothing; the disposition on #16611 is to DELETE the parameter, which removes this row with it.',
+    // PERMANENT — and the row's own history is the warning. It previously read TRANSITIONAL, claiming
+    // `depth` was measured dead and should be DELETED. That measurement was taken on the wrong method:
+    // there are two `getContextFrontier`s. The one bound to this operation (`MemoryService`) takes no
+    // parameters at all and calls `GraphService.getContextFrontier()` forwarding nothing; the live
+    // `depth` read belongs to `GraphService`, whose only caller passes a literal
+    // (`GoldenPathSynthesizer` → `{depth: 1}`). So the parameter is neither dead nor reachable through
+    // MCP, and deleting it would break an internal traversal knob that is genuinely in use. Declaring
+    // it would advertise a knob the bound method cannot forward. A shared method name is not a shared
+    // method — measure the one the operation actually binds.
+    'memory-core.get_context_frontier.depth'            : 'PERMANENT. Not reachable through this operation and not dead. The bound method (MemoryService.getContextFrontier) declares no parameters and forwards none; `depth` is an internal graph-traversal knob on the same-named GraphService method, whose sole caller supplies a literal. Declaring it would advertise a knob the bound method cannot pass through; deleting it would remove one that is in use internally. Dispositioned on #16611.',
 
     // ── First findings from the ToolService dispatch join (the 142-operation object-dispatch path) ──
     // PERMANENT — both are the `now` class: an injected test seam with a working default, where the
@@ -150,7 +159,7 @@ export const PARITY_BASELINE = Object.freeze({
     // behaviour change, not a lint fix.
     'memory-core.get_all_summaries.category': 'Declared with a "Filter by category" description that listSummaries never reads, while the capability exists on querySummaries. Owned by #16611 as an added ledger row; the fix is to wire the filter or remove the declaration, both behaviour changes rather than lint edits.',
 
-    'memory-core.get_session_memories.memorySharing': 'Tenant-isolation policy override, unreachable on this operation while declared on two siblings. Real capability gap; disposition under #16611 because declaring it changes which memories an agent can read.'
+    'memory-core.get_session_memories.memorySharing': 'PERMANENT. Deliberately internal: an agent-settable value is a self-service read-scope selector, not a filter. `policy === "team"` sets `tenantScope = null`, dropping the `userId` predicate so the query returns every maintainer\'s records for the session. Harmless on the shipped `team` default — which is exactly why the default is not the case that decides it: a deployment configuring per-org isolation sets `defaultPolicy = "private"`, and there a declared parameter lets a caller re-select `team` and read past the isolation the operator asked for. The risk is concentrated on the one deployment shape that opted in. The siblings that DO declare it (`query_raw_memories`, `query_summaries`) are therefore NOT precedent to follow here — they are over-exposed on a private-default plane, which is a contract-breaking change plus a security disposition and so is not repaired from a lint row.'
 });
 
 /**
