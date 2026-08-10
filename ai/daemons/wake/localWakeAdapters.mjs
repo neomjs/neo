@@ -61,7 +61,12 @@ export function formatLocalWakeDigest(envelope = {}) {
         const latest         = latestMessage.subject
             ? `"${latestMessage.subject}"${latestMessage.from ? ` from ${latestMessage.from}` : ''}${prioritySuffix}`
             : latestMessage.messageId || 'mailbox event';
-        lines.push(`- ${breakdown.sent_to_me.count} new messages (latest: ${latest})`);
+        // COUNTS QUEUED EVENTS, and says so. Nothing on this path consults read-state - grep this
+        // file and `wakeDigestBuilder.mjs` for readAt/unread and both return zero. A message
+        // delivered, read and acted on hours ago still contributes its queued event here, so
+        // "new messages" named a number this code cannot produce. Renaming is the honest half of
+        // the repair; reconciling against the unread set is the other half and is not this change.
+        lines.push(`- ${breakdown.sent_to_me.count} message events (latest: ${latest})`);
     }
     if (breakdown.task_state_changed?.count > 0) {
         const latest = breakdown.task_state_changed.latest || {};
