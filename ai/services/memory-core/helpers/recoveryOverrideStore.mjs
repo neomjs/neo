@@ -193,7 +193,7 @@ export async function writeKnobOverride({
     // the only check that binds the effect, and it must run after the scratch exists and immediately
     // before the commit. Adopting the primitive would silently delete that fencing point and turn a
     // displaced holder's refusal into a published instruction. The hand-rolled pair stays.
-    await fsModule.rename(tempPath, overridePath);
+    await fsModule.rename(tempPath, overridePath); // atomic-write-ok: assertHeld() must fence between write and rename
 
     return {applied: true, path: overridePath, violations: []}
 }

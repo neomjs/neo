@@ -61,6 +61,13 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : ['test/**/*.mjs']
     },
+    'atomic-write-shape-lint.yml': {
+        // The shared acorn `codeMask` lives in the AiConfig test-mutation guard, so a change THERE
+        // can change this lint's verdict — it is a scan surface, not just a neighbour.
+        scriptRel: 'buildScripts/util/check-atomic-write-shape.mjs',
+        source   : 'declared',
+        surface  : ['ai/**/*.mjs', 'buildScripts/util/check-aiconfig-test-mutation.mjs']
+    },
     'config-template-ssot-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',

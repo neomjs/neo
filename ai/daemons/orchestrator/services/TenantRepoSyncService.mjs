@@ -2873,7 +2873,7 @@ class TenantRepoSyncService extends Base {
             // DELIBERATELY NOT the shared write-temp-then-rename primitive: the ownership fence above
             // must sit between the scratch write and this rename, exactly as the comment block says.
             // The primitive collapses both into one call, leaving the fence nowhere to stand.
-            await fsModule.rename(tmpPath, filePath);
+            await fsModule.rename(tmpPath, filePath); // atomic-write-ok: assertOwnership() must fence between write and rename
 
             return {committed: true}
         } catch (e) {

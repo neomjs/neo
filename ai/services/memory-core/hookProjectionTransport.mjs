@@ -118,7 +118,7 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
             // above states: the deadline assertion has to land between the flush and the rename,
             // because the rename IS the mutation. A primitive that owns both ends removes the one
             // instant this bound exists to hold.
-            fs.renameSync(temp, file);
+            fs.renameSync(temp, file); // atomic-write-ok: assertDeadline() must fence between flush and rename
 
             return {file}
         } catch (error) {

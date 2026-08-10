@@ -141,7 +141,7 @@ export function createProviderActivityStatusWriter({dbPath, recorder, now = Date
                             // effect, and it must sit BETWEEN the scratch write and the rename. The
                             // primitive collapses those into one call, which would delete the fence
                             // and let a holder that has already lost the guard publish its merge.
-                            await fs.promises.rename(temp, file);
+                            await fs.promises.rename(temp, file); // atomic-write-ok: guard-ownership re-verify must fence between write and rename
                         } finally {
                             await fs.promises.unlink(temp).catch(() => {});
                         }

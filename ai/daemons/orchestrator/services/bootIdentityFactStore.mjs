@@ -1,6 +1,7 @@
-import {mkdir, readFile, rename, stat, unlink, writeFile} from 'fs/promises';
-import path                                               from 'path';
-import {BOOT_FRESHNESS_CLASS}                             from './bootIdentityFreshness.mjs';
+import {mkdir, readFile, stat} from 'fs/promises';
+import {writeFileAtomic}       from '../../../services/shared/atomicFileWrite.mjs';
+import path                    from 'path';
+import {BOOT_FRESHNESS_CLASS}  from './bootIdentityFreshness.mjs';
 
 /**
  * @module ai/daemons/orchestrator/services/bootIdentityFactStore
@@ -61,7 +62,6 @@ const
 
 // Per-process monotonic write counter — disambiguates two writes within the same millisecond so the
 // unique-temp name never collides even under a tight write loop in one process.
-let writeSeq = 0;
 
 export {BOOT_IDENTITY_FACT_VERSION, DEFAULT_MAX_FACT_AGE_MS, MAX_FACT_BYTES};
 
@@ -135,21 +135,12 @@ export async function writeBootIdentityFact(fact, {dir, nowFn = Date.now} = {}) 
 
     await mkdir(dir, {recursive: true});
 
-    const
-        filePath = getBootIdentityFactFilePath(dir),
-        // Unique per-write temp: pid + timestamp + monotonic seq → no two concurrent writers (overlapping
-        // polls / a restart racing a poll) ever share a temp path, so a rename never unlinks a temp another
-        // writer is mid-write to. Matches deploymentStateBridgeStore's atomic-snapshot precedent.
-        tmpPath  = `${filePath}.${process.pid}.${nowFn()}.${++writeSeq}.tmp`;
+    const filePath = getBootIdentityFactFilePath(dir);
 
-    try {
-        await writeFile(tmpPath, serialized, 'utf8');
-        await rename(tmpPath, filePath);
-    } catch (error) {
-        // Best-effort cleanup so a failed write never orphans its own temp; the original error still throws.
-        await unlink(tmpPath).catch(() => {});
-        throw error;
-    }
+    // The pid+timestamp+seq temp naming this used to build by hand — so no two concurrent writers
+    // (overlapping polls, a restart racing a poll) share a scratch — is the primitive's contract now,
+    // along with the cleanup that used to sit in the catch.
+    await writeFileAtomic(filePath, serialized);
 
     return filePath;
 }

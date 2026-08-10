@@ -1,0 +1,48 @@
+name: Atomic Write Shape Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-atomic-write-shape.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/atomic-write-shape-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-atomic-write-shape.mjs'
+      - 'buildScripts/util/check-aiconfig-test-mutation.mjs'
+      - '.github/workflows/atomic-write-shape-lint.yml'
+
+concurrency:
+  group: atomic-write-shape-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # This guard imports the shared acorn-backed `codeMask` from the AiConfig test-mutation guard —
+      # hence that file in the path filters above, and hence the install. The mask is why a
+      # write-then-rename pair quoted inside GENERATED plugin source is not a hit: one module in this
+      # repo emits exactly this pair as a string, and a maskless scan would flag the generator for the
+      # code it writes rather than the code it runs.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      - name: Install dependencies (acorn — the shared codeMask tokenizer)
+        run: npm ci --ignore-scripts
+
+      - name: Ban hand-rolled write-temp-then-rename pairs
+        run: node ./buildScripts/util/check-atomic-write-shape.mjs

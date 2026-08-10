@@ -132,7 +132,7 @@ export const NeoWakeEnvelope = async (ctx) => {
         const tmpPath = `${envelopePath}.${process.pid}.tmp`;
         await fs.writeFile(tmpPath, JSON.stringify(envelope, null, 2) + '\n', {mode: 0o600});
         await fs.chmod(tmpPath, 0o600);
-        await fs.rename(tmpPath, envelopePath);
+        await fs.rename(tmpPath, envelopePath); // atomic-write-ok: PLANT executed outside this repo; a relative import cannot resolve
         await fs.chmod(envelopePath, 0o600);
 
         await log('info', `wake envelope written for session ${sessionId} (port ${port})`);
