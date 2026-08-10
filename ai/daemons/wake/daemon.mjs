@@ -35,6 +35,7 @@ import memoryCoreConfig                          from '../../mcp/server/memory-c
 import {assertConfigFresh}                       from '../../scripts/setup/initServerConfigs.mjs';
 import {buildWakeDigest, getHighestWakePriority} from './wakeDigestBuilder.mjs';
 import {withOutboxLock}                          from './outboxLock.mjs';
+import {DAEMON_EXIT_CRASH, DAEMON_EXIT_OK}       from '../shared/daemonExit.mjs';
 import nodeCrypto                                from 'node:crypto';
 
 import fs                               from 'fs-extra';
@@ -496,9 +497,13 @@ async function enforceSingleton() {
         }
     }
 
-    // Cleanup on exit
-    let   cleanedUp = false;
-    const cleanup   = () => {
+    // Cleanup on exit. `releasePidFile` is separated from `cleanup` deliberately: the `exit` listener
+    // must RELEASE without exiting. It previously ran the whole of `cleanup`, whose bare
+    // `process.exit()` could re-enter during a non-zero exit and reset the code to 0 — the same class
+    // of bug as the crash path below. This mirrors the orchestrator, which already registers
+    // release-only on `exit`.
+    let   cleanedUp      = false;
+    const releasePidFile = () => {
         if (cleanedUp) return;
         cleanedUp = true;
         try {
@@ -509,15 +514,20 @@ async function enforceSingleton() {
                 }
             }
         } catch (e) {}
-        process.exit();
+    };
+    const cleanup = (exitCode = DAEMON_EXIT_OK) => {
+        releasePidFile();
+        process.exit(exitCode);
     };
 
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
-    process.on('exit', cleanup);
+    // Each registration passes its code EXPLICITLY. `process.on('SIGINT', cleanup)` would invoke the
+    // listener with the SIGNAL NAME, handing `'SIGINT'` to `process.exit`.
+    process.on('SIGINT',  () => cleanup(DAEMON_EXIT_OK));
+    process.on('SIGTERM', () => cleanup(DAEMON_EXIT_OK));
+    process.on('exit', releasePidFile);
     process.on('uncaughtException', (err) => {
         writeLog('ERROR', `[Wake Daemon] Uncaught exception: ${err && err.stack ? err.stack : err}`);
-        cleanup(); // Calls process.exit() automatically
+        cleanup(DAEMON_EXIT_CRASH);
     });
 }
 
