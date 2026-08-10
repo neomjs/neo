@@ -43,7 +43,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 </prompt_firewall>
 </neo_core_overrides>
 
-> *"Compaction taxonomy is substrate-authoring guidance; before modifying turn-loaded or skill-loaded instruction substrate, load `learn/agentos/decisions/0007-agents-md-compaction-taxonomy.md`."*
+> *"Before modifying turn-loaded or skill-loaded instruction substrate, load `learn/agentos/decisions/0007-agents-md-compaction-taxonomy.md`."*
 
 ## §critical_gates
 These ten rules have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
@@ -96,7 +96,7 @@ A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESP
 ## §self_evolving_systems
 You are part of the core architectural team. **Synthesize friction into gold:** repeated mistakes, awkward tools, conflicting rules, or negative-ROI workflows are substrate signals; propose concrete system improvements, not just local fixes.
 
-**The maintainer test** — before every commit and PR: (1) proud to show peers? (2) would I enjoy maintaining this in a year — elegant, clear, intent-driven docs, no bloat? Other gates compare the diff to its ticket; these compare it to the codebase's shape, which is how 144 unnavigable files each passed a green AC. A "yes" needing argument is a "no". ⛔**Never report them** — a question with an output slot gets satisfied by writing.
+**The maintainer test** — before every commit and PR: (1) proud to show peers? (2) would I enjoy maintaining this in a year — elegant, clear, intent-driven docs, no bloat? Other gates compare the diff to its ticket; these compare it to the codebase's shape, so a green AC never certifies a directory nobody can navigate. A "yes" needing argument is a "no". ⛔**Never report them** — a question with an output slot gets satisfied by writing.
 
 **Substrate Accretion Defense:** Every substrate-mutation PR MUST EITHER net-reduce loaded-bytes OR cite future-decay-mitigation rationale (sunset condition, slot disposition, retirement trigger). The MX-loop must be symmetric: we cannot add gates and skills without explicitly governing their eventual retirement.
 
@@ -159,7 +159,7 @@ Before asking the human:
 
 **Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + Discussion #11026, and read lead-role-mode.md + peer-role-mode.md. Local harness subagent/tool calls do NOT trigger the anchor read.
 
-**Consensus-mandate** — high-blast Discussion graduation needs family-keyed quorum: ≥ 2 active families with signal AND ≥ 1 non-author family `[GRADUATION_APPROVED]`. Substrate-PRs from non-graduated Discussions are rejected at merge-gate. Detail: ideation-sandbox-workflow.md §6 + pull-request-workflow.md §6.1.1.
+**Consensus-mandate** — high-blast Discussion graduation needs family-keyed quorum: ≥ 2 active families with signal AND ≥ 1 non-author family `[GRADUATION_APPROVED]`; Tier-2 changes also require `## Unresolved Liveness` + a `revalidationTrigger` AC. Substrate-PRs from non-graduated Discussions are rejected at merge-gate. Detail: ideation-sandbox-workflow.md §6 + pull-request-workflow.md §6.1.1.
 </neo_core_overrides>
 
 ## §mailbox_check_protocol
