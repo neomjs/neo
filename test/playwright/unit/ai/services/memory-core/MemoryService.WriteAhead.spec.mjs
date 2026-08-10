@@ -15,6 +15,7 @@ setup({
 
 import {test, expect}                                from '@playwright/test';
 import Neo                                           from '../../../../../../src/Neo.mjs';
+import logger                                        from '../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import RequestContextService                         from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 import {appendWalEmbedMarker, readPendingWalRecords} from '../../../../../../ai/services/memory-core/helpers/memoryWalStore.mjs';
 import {drainMemoryWal}                              from './util.mjs';
@@ -49,7 +50,7 @@ let MEMORY_ACCEPTED_MESSAGE;
 test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
     test.describe.configure({mode: 'serial'});
 
-    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, StorageRouter,
+    let MemoryService, GraphService, LifecycleService, TextEmbeddingService, TurnPresenceService, StorageRouter,
         originalGetMemoryCollection, originalEmbedText, memStore, collectionMode, collectionTouches,
         testPlaneId, testWalDir;
 
@@ -63,6 +64,7 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
             await import('../../../../../../ai/services/memory-core/MemoryService.mjs'));
         LifecycleService     = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService = (await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        TurnPresenceService  = (await import('../../../../../../ai/services/memory-core/TurnPresenceService.mjs')).default;
         StorageRouter        = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
 
         // Controllable content-store fake: 'ok' embeds into an in-memory map, 'throw' fails the
@@ -279,6 +281,20 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(result.id).toBeTruthy();
         expect(result.message).toBe(MEMORY_ACCEPTED_MESSAGE);
 
+        // The response-side budget disclosure: every accepted save self-reports where its
+        // response time went, so a slow save is its own diagnosis record instead of a bare
+        // transport timeout. `presenceTerminal` is CLOSED over completed | deferred | failed.
+        expect(result.stageTimings).toBeTruthy();
+        expect(typeof result.stageTimings.walMs).toBe('number');
+        expect(result.mailbox).toBeNull();
+        expect(result.stageTimings.mailboxMs).toBeNull();
+        expect(result.stageTimings.mailboxTerminal).toBe('omitted');
+        expect(result.stageTimings.mailboxReason).toBe('synchronous-query-outside-accepted-write-contract');
+        expect(typeof result.stageTimings.visibilityMs).toBe('number');
+        expect(typeof result.stageTimings.postWalMs).toBe('number');
+        expect(result.stageTimings.postWalBudgetMs).toBe(1_000);
+        expect(['completed', 'deferred', 'failed']).toContain(result.stageTimings.presenceTerminal);
+
         // Strongest form of never-fail: addMemory performed ZERO collection resolutions —
         // the embed daemon is the only consumer of the content store on the memory write side.
         expect(collectionTouches).toBe(touchesBefore);
@@ -288,6 +304,97 @@ test.describe('Neo.ai.services.memory-core.MemoryService.writeAhead', () => {
         expect(pending[0].metadata.prompt).toBe('embed-down prompt');
 
         collectionMode = 'ok';
+    });
+
+    test('AC4: hung post-WAL disclosures return within one budget and never execute the synchronous mailbox CTE', async () => {
+        const originalPresence   = TurnPresenceService.recordTurnPresence;
+        const originalVisibility = MemoryService.describeWriteVisibility;
+        const sqlite             = GraphService.db.storage.db;
+        const originalPrepare    = sqlite.prepare;
+        let mailboxQueryAttempts = 0;
+
+        // This is a production-path tripwire, not a source-string assertion. Restoring
+        // `buildMailboxDelta()` to addMemory reaches this exact better-sqlite3 producer and makes
+        // the test red even though that helper catches its own query error and returns `null`.
+        sqlite.prepare = function(sql, ...args) {
+            if (/\bWITH\s+unread_messages\s+AS\b/i.test(String(sql))) {
+                mailboxQueryAttempts++;
+                throw new Error('synchronous mailbox query reached the accepted-write response');
+            }
+
+            return originalPrepare.call(this, sql, ...args);
+        };
+        TurnPresenceService.recordTurnPresence = () => new Promise(() => {});
+        MemoryService.describeWriteVisibility  = () => new Promise(() => {});
+
+        const startedAt = Date.now();
+
+        try {
+            const result  = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'bounded response prompt',
+                thought : 'bounded response thought',
+                response: 'bounded response result'
+            }));
+            const elapsed = Date.now() - startedAt;
+
+            expect(result.id).toBeTruthy();
+            expect(result.mailbox).toBeNull();
+            expect(result.stageTimings.mailboxMs).toBeNull();
+            expect(result.stageTimings.mailboxTerminal).toBe('omitted');
+            expect(result.stageTimings.mailboxReason).toBe('synchronous-query-outside-accepted-write-contract');
+            expect(result.stageTimings.presenceTerminal).toBe('deferred');
+            expect(result.visibility).toMatchObject({
+                recencyQueryable : true,
+                semanticQueryable: null,
+                state            : 'embed-state-unavailable',
+                pendingDrainDepth: null,
+                thisWritePending : null
+            });
+            expect(result.stageTimings.postWalBudgetMs).toBe(1_000);
+            expect(result.stageTimings.postWalMs).toBeLessThanOrEqual(result.stageTimings.postWalBudgetMs);
+            expect(elapsed).toBeLessThan(1_500);
+            expect(mailboxQueryAttempts).toBe(0);
+        } finally {
+            sqlite.prepare                           = originalPrepare;
+            TurnPresenceService.recordTurnPresence = originalPresence;
+            MemoryService.describeWriteVisibility  = originalVisibility;
+        }
+    });
+
+    test('AC4: a presence rejection after the local deadline is handled exactly once', async () => {
+        const originalPresence = TurnPresenceService.recordTurnPresence;
+        const originalWarn     = logger.warn;
+        const warnings         = [];
+        const unhandled        = [];
+        let rejectPresence;
+
+        TurnPresenceService.recordTurnPresence = () => new Promise((resolve, reject) => {
+            rejectPresence = reject;
+        });
+        logger.warn = (...args) => warnings.push(args.map(String).join(' '));
+
+        const onUnhandled = error => unhandled.push(error);
+        process.on('unhandledRejection', onUnhandled);
+
+        try {
+            const result = await asTenant(() => MemoryService.addMemory({
+                prompt  : 'late presence prompt',
+                thought : 'late presence thought',
+                response: 'late presence result'
+            }));
+
+            expect(result.stageTimings.presenceTerminal).toBe('deferred');
+
+            rejectPresence(new Error('late presence rejection (spec)'));
+            await new Promise(resolve => setImmediate(() => setImmediate(resolve)));
+
+            expect(unhandled).toEqual([]);
+            expect(warnings.filter(line => line.includes('Late turn-presence terminal failed'))).toHaveLength(1);
+        } finally {
+            process.removeListener('unhandledRejection', onUnhandled);
+            TurnPresenceService.recordTurnPresence = originalPresence;
+            logger.warn                             = originalWarn;
+        }
     });
 
     test('AC2: a HUNG content store cannot stall the save — nothing on the write path awaits it', async () => {
