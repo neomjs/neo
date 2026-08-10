@@ -497,11 +497,9 @@ async function enforceSingleton() {
         }
     }
 
-    // Cleanup on exit. `releasePidFile` is separated from `cleanup` deliberately: the `exit` listener
-    // must RELEASE without exiting. It previously ran the whole of `cleanup`, whose bare
-    // `process.exit()` could re-enter during a non-zero exit and reset the code to 0 — the same class
-    // of bug as the crash path below. This mirrors the orchestrator, which already registers
-    // release-only on `exit`.
+    // Cleanup on exit. `releasePidFile` is separated from `cleanup` deliberately: an `exit` listener
+    // must RELEASE without exiting, because `cleanup` now takes an exit code. See the measured
+    // bare-retains / explicit-overrides asymmetry in `../shared/daemonExit.mjs`.
     let   cleanedUp      = false;
     const releasePidFile = () => {
         if (cleanedUp) return;

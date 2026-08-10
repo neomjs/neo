@@ -38,7 +38,21 @@
  * its code explicitly — `() => cleanup(DAEMON_EXIT_OK)` — and that wrapping is load-bearing, not a
  * style choice.
  *
- * @see https://github.com/neomjs/neo/issues/16882 — the ticket
+ * **Why an `exit` listener must RELEASE and never exit — the asymmetry, measured.** This is stated
+ * here once so the four daemons do not each re-derive it, and because an earlier version of those
+ * comments asserted the opposite and was wrong:
+ *
+ * ```js
+ * process.on('exit', () => { process.exit();  }); process.exit(1);  // → exits 1  (status RETAINED)
+ * process.on('exit', () => { process.exit(0); }); process.exit(1);  // → exits 0  (status OVERRIDDEN)
+ * ```
+ *
+ * A **bare** `process.exit()` inside an `exit` listener keeps the already-selected status, so wiring
+ * that predates an explicit code was safe. An **explicit** `process.exit(0)` overrides it. Passing a
+ * code is exactly what this contract requires, so `process.on('exit', cleanup)` becomes unsafe *the
+ * moment `cleanup` takes one* — it would reset every crash exit to success. The contrast is the
+ * point: knowing only "bare is safe" is what leads someone to wire `cleanup(DAEMON_EXIT_OK)` onto
+ * `exit` and reintroduce the defect. Register a release-only function there instead.
  */
 
 /**
