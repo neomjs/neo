@@ -17,10 +17,35 @@ import {appendHealEvent, readHealLedger} from '../../../../../../../ai/services/
 import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
+import {snapshotAiConfig} from '../../../services/memory-core/util.mjs';
 
 const OBSERVED_AT = 1710000000000;
-let originalDeploymentStateBridgeConfig,
-    originalRuntimeAccessConfig;
+
+/**
+ * Every `orchestrator.deploymentStateBridge` leaf this suite writes, named explicitly.
+ *
+ * `snapshotAiConfig` captures by RESOLVED value, so each leaf has to be listed — the cost of that is
+ * this list, and the benefit is that a leaf nobody names is a leaf nobody silently fails to restore.
+ * `snapshotPath` and `maxSnapshotBytes` are here because the edge-trigger spec writes them; before
+ * they were listed, that write escaped the suite entirely.
+ */
+const BRIDGE_CONFIG_PATHS = [
+    'orchestrator.deploymentStateBridge.allowedServices',
+    'orchestrator.deploymentStateBridge.includeLogs',
+    'orchestrator.deploymentStateBridge.logTail',
+    'orchestrator.deploymentStateBridge.logMaxBytes',
+    'orchestrator.deploymentStateBridge.statsSampleWindow',
+    'orchestrator.deploymentStateBridge.providerResidencyServiceKeys',
+    'orchestrator.deploymentStateBridge.recoveryRunLimit',
+    'orchestrator.deploymentStateBridge.selfHealRecentEventLimit',
+    'orchestrator.deploymentStateBridge.snapshotPath',
+    'orchestrator.deploymentStateBridge.maxSnapshotBytes'
+];
+
+const RUNTIME_ACCESS_CONFIG_PATHS = ['orchestrator.deploymentRuntimeAccess.allowedServices'];
+
+let restoreBridgeConfig,
+    restoreRuntimeAccessConfig;
 
 function statsSample({cpuPercent = 0, memoryPercent = 0} = {}) {
     const systemDelta = 1_000_000_000,
@@ -82,9 +107,15 @@ function createService({
 }
 
 test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
+    // `Neo.clone` of an AiConfig node captures NOTHING: the Provider resolves leaves through its
+    // `get` trap while `Object.keys` lists none of them, so the clone is an empty object and the
+    // paired `Object.assign(node, original)` restores nothing at all. The hand-rolled pair here read
+    // as careful hygiene and was a no-op — every key set below leaked into every later spec sharing
+    // the worker, which is how a snapshot path set by one test reached an unrelated MCP smoke
+    // assertion. Captured by resolved value instead, naming each leaf explicitly.
     test.beforeEach(() => {
-        originalDeploymentStateBridgeConfig = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
-        originalRuntimeAccessConfig         = Neo.clone(AiConfig.orchestrator.deploymentRuntimeAccess, true, true);
+        restoreBridgeConfig        = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+        restoreRuntimeAccessConfig = snapshotAiConfig(AiConfig, RUNTIME_ACCESS_CONFIG_PATHS);
 
         Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
             allowedServices             : [],
@@ -102,8 +133,8 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
     });
 
     test.afterEach(() => {
-        Object.assign(AiConfig.orchestrator.deploymentStateBridge, originalDeploymentStateBridgeConfig);
-        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, originalRuntimeAccessConfig);
+        restoreBridgeConfig?.();
+        restoreRuntimeAccessConfig?.();
     });
 
     test('collects bounded read-observe state and diagnosis for allowlisted services', async () => {
@@ -754,7 +785,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 };
             },
             diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
-                nowFn          : () => OBSERVED_AT,
+                nowFn           : () => OBSERVED_AT,
                 ollamaHostReader: () => 'http://local-model:11434'
             }),
             clock = {now: OBSERVED_AT - 30_000},
@@ -860,7 +891,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
                 };
             },
             diagnosisService = Neo.create(ContainerHealthDiagnosisService, {
-                nowFn          : () => OBSERVED_AT,
+                nowFn           : () => OBSERVED_AT,
                 ollamaHostReader: () => 'http://local-model:11434'
             }),
             service = createService({
@@ -2131,12 +2162,14 @@ test.describe('restart churn reaches the deployment record', () => {
 });
 
 test.describe('DeploymentStateBridgeService — the classification projection is load-independent (#16596)', () => {
-    let savedBridgeConfig,
-        savedRuntimeConfig;
+    let restoreSavedBridgeConfig,
+        restoreSavedRuntimeConfig;
 
+    // Same decorative-restore defect as the suite above: a `Neo.clone` of an AiConfig node yields an
+    // empty object, so the paired `Object.assign` restored nothing.
     test.beforeEach(() => {
-        savedBridgeConfig  = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
-        savedRuntimeConfig = Neo.clone(AiConfig.orchestrator.deploymentRuntimeAccess, true, true);
+        restoreSavedBridgeConfig  = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+        restoreSavedRuntimeConfig = snapshotAiConfig(AiConfig, RUNTIME_ACCESS_CONFIG_PATHS);
 
         Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
             allowedServices  : ['chroma', 'kb-server'],
@@ -2146,8 +2179,8 @@ test.describe('DeploymentStateBridgeService — the classification projection is
     });
 
     test.afterEach(() => {
-        Object.assign(AiConfig.orchestrator.deploymentStateBridge, savedBridgeConfig);
-        Object.assign(AiConfig.orchestrator.deploymentRuntimeAccess, savedRuntimeConfig);
+        restoreSavedBridgeConfig?.();
+        restoreSavedRuntimeConfig?.();
     });
 
     function healthyRuntime() {
@@ -2363,7 +2396,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
         // REAL fact produced in both. If the envelope varies and the diagnosis does not, the field
         // provably does not feed the decision — and the handoff witness proves the stronger claim
         // that `diagnose()` is never even offered it.
-        const previous = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);
+        const restorePrevious = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
 
         Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
             allowedServices  : ['mc-server'],
@@ -2419,7 +2452,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — heap obs
             asNode    = await collect(['node', '--max-old-space-size=768', 'server.mjs']);
             asNonNode = await collect(['python3', 'server.py'])
         } finally {
-            Object.assign(AiConfig.orchestrator.deploymentStateBridge, previous)
+            restorePrevious()
         }
 
         // Non-vacuity: the two runs genuinely differ on the field under test, so equality below is
