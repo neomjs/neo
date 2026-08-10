@@ -2,8 +2,10 @@ import {test, expect}      from '@playwright/test';
 import {deriveSpineBanner} from '../../../../../../../apps/agentos/view/fleet/spineBanner.mjs';
 
 /**
- * The full derivation matrix for the cockpit's per-SPINE honesty line: `sample` (cold — the
- * spine is unreachable) beats `stale` (reachable but degraded) beats `live`; ONLY the fully
+ * The full derivation matrix for the cockpit's per-SPINE honesty line: a sample GRID (cold — the
+ * roster itself is seed data) beats daemon faults beats `stale` on either surface (reachable but
+ * degraded) beats a sample STREAM under a live roster (feed pending — the surface partition: a
+ * verdict may only speak for the surface that produced it) beats `live`; ONLY the fully
  * live spine hides the banner (nominal earns zero pixels). The slot-sync consumer is witnessed
  * directly in fleetCockpit.spec.mjs against a recording banner slot — including the owner-truth
  * immobility boundary (once live, failure exits preserve live; the transition is the dedicated
@@ -106,13 +108,17 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         });
     });
 
-    test('the full 3×3 matrix: cold beats degraded beats live; only live+live hides', () => {
+    test('the full 3×3 matrix: only a sample GRID is cold; stale beats a pending stream; only live+live hides', () => {
+        // The surface partition: the cold family makes roster+server claims, so only a sample GRID
+        // may enter it. A sample STREAM under a live grid is the stream's own degraded verdict; a
+        // stale grid outranks it (last-known roster data is the operator-actionable fact).
         for (const gridAdapterState of STATES) {
             for (const streamAdapterState of STATES) {
-                const result   = deriveSpineBanner({grid: {state: gridAdapterState}, stream: {state: streamAdapterState}}),
-                      anyCold  = gridAdapterState === 'sample' || streamAdapterState === 'sample',
-                      anyStale = gridAdapterState === 'stale'  || streamAdapterState === 'stale',
-                      expected = anyCold ? 'cold' : anyStale ? 'degraded' : 'live';
+                const result     = deriveSpineBanner({grid: {state: gridAdapterState}, stream: {state: streamAdapterState}}),
+                      gridCold   = gridAdapterState === 'sample',
+                      anyStale   = gridAdapterState === 'stale' || streamAdapterState === 'stale',
+                      streamCold = streamAdapterState === 'sample',
+                      expected   = gridCold ? 'cold' : anyStale ? 'degraded' : streamCold ? 'degraded' : 'live';
 
                 expect(result.kind, `${gridAdapterState}×${streamAdapterState}`).toBe(expected);
                 expect(result.hidden, `${gridAdapterState}×${streamAdapterState}`).toBe(expected === 'live')
@@ -130,25 +136,57 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
         expect(text).toContain('npm run ai:fleet-server')
     });
 
-    test('cold WITH a retained reason names it — and never tells the operator to start a running server', () => {
-        // The shipping lie this closes: `devFleetServer` wires no `activitySource`, so a LIVE server
-        // answers `fleetActivity` with `not-wired` forever. The stream keeps its seed — so `sample`
-        // is honest about the DATA — but the cold copy read that as a claim about the SERVER and told
-        // the operator to start a process that had just answered. One token was carrying two facts:
-        // "we never reached it" and "it answered: my source is unconfigured". The retained reason is
-        // what separates them, so the line names what the producer actually said.
-        // the cause travels WITH the surface that produced it: the roster is healthy and has nothing
-        // to say about the activity feed's silence
-        const {text, kind} = deriveSpineBanner({
+    test('⭐ a pending stream under a LIVE grid speaks for the STREAM — never a roster or server claim', () => {
+        // The lie class, third instance closed: the first fix (retained reasons) stopped "start a
+        // running server"; the copy still said "showing the static roster" over a roster that was
+        // provably LIVE — and the REASONLESS variant shipped the full "Fleet server offline" lie,
+        // observed live 2026-08-10 over a wire-fed 9-agent roster with real presence bands while
+        // the stream honestly held its seed. The partition makes the misclaim unrepresentable:
+        // only a sample GRID reaches the cold family; the stream's verdict names the stream, and
+        // states the roster fact that falsified the old copy.
+        const reasoned = deriveSpineBanner({
             grid  : {state: 'live'},
             stream: {state: 'sample', reason: 'fleet activity source not wired'}
         });
 
-        expect(kind).toBe('cold');
-        expect(text).toContain('fleet activity source not wired');
-        expect(text).toContain('the static roster');
-        expect(text).not.toContain('Fleet server offline');
-        expect(text).not.toContain('npm run ai:fleet-server')
+        expect(reasoned.kind).toBe('degraded');
+        expect(reasoned.text).toContain('Activity feed pending');
+        expect(reasoned.text).toContain('roster is live');
+        expect(reasoned.text).toContain('fleet activity source not wired');
+        expect(reasoned.text).not.toContain('static roster');
+        expect(reasoned.text).not.toContain('Fleet server offline');
+        expect(reasoned.text).not.toContain('npm run ai:fleet-server');
+
+        // The reasonless variant — tonight's exact live rendering — must carry the same honesty
+        // without a cause to lean on.
+        const bare = deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}});
+
+        expect(bare.kind).toBe('degraded');
+        expect(bare.text).toBe('Activity feed pending — roster is live')
+    });
+
+    test('⭐ ranking around the pending stream: a dead daemon outranks it; a stale grid outranks it', () => {
+        // Diagnosis over symptom (a dead daemon is usually why a feed never went live), and the
+        // stale ROSTER is the operator-actionable fact when both are degraded — the stream-pending
+        // line only ever renders over a roster that is provably live.
+        const daemonWins = deriveSpineBanner({
+            grid  : {state: 'live'},
+            stream: {state: 'sample'},
+            daemon: {state: 'stopped', reason: 'orchestrator exited'}
+        });
+
+        expect(daemonWins.text).toContain('orchestrator exited');
+        expect(daemonWins.text).not.toContain('Activity feed pending');
+
+        const staleWins = deriveSpineBanner({
+            grid  : {state: 'stale', reason: 'poll timed out'},
+            stream: {state: 'sample'}
+        });
+
+        expect(staleWins.text).toContain('last-known data');
+        expect(staleWins.text).toContain('poll timed out');
+        expect(staleWins.text).not.toContain('Activity feed pending');
+        expect(staleWins.text).not.toContain('static roster')
     });
 
     test('cold falls back to the generic copy for silence — the only state that implies an offline server', () => {
@@ -253,11 +291,12 @@ test.describe('fleet/spineBanner — the per-spine honesty derivation', () => {
             expect(text).not.toContain('another fleet server holds')
         });
 
-        test('the fact never reaches non-cold branches: stale, daemon and live verdicts ignore it', () => {
+        test('the fact never reaches non-cold branches: stale, daemon, stream-pending and live verdicts ignore it', () => {
             const transport = {mode: 'foreign-listener', phase: 'settled', up: false};
 
             expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'stale'}, transport}).text).toContain('last-known');
             expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, daemon: {state: 'stopped'}, transport}).text).toContain('Agent OS stopped');
+            expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'sample'}, transport}).text).toBe('Activity feed pending — roster is live');
             expect(deriveSpineBanner({grid: {state: 'live'}, stream: {state: 'live'}, transport})).toEqual({hidden: true, kind: 'live', text: ''})
         })
     })

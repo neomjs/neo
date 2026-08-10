@@ -5,10 +5,20 @@
  * last-known data instead of failing silent. Render-only over existing truth — this module
  * produces no probes.
  *
- * Precedence: `sample` (unreachable — cold) beats `daemon` (a Brain daemon down) beats `stale`
- * (reachable but degraded) beats `live`. A fully live spine renders NOTHING — nominal earns zero
- * pixels, the same exception-based discipline the cards follow. Per-AGENT truth (wake/throttle
- * telltales) is a different surface.
+ * Precedence: a `sample` GRID (the roster itself is seed data — cold) beats `daemon` (a Brain
+ * daemon down) beats `stale` on either surface (reachable but degraded) beats a `sample` STREAM
+ * under a live roster (the feed is pending; the roster is provably live) beats `live`. A fully
+ * live spine renders NOTHING — nominal earns zero pixels, the same exception-based discipline the
+ * cards follow. Per-AGENT truth (wake/throttle telltales) is a different surface.
+ *
+ * **A verdict may only speak for the surface that produced it.** The cold family's copy
+ * makes ROSTER claims ("showing the static roster") and SERVER claims ("Fleet server offline"),
+ * so only a sample GRID may enter it: with the roster live on screen, a sample activity stream
+ * rendering that copy was the module's own documented lie class in its third instance — observed
+ * live over a wire-fed 9-agent roster with real presence bands. The stream's own verdict names
+ * the stream, states the roster fact that falsifies the old copy, and ranks BELOW the daemon line
+ * (a dead daemon is usually why a feed never went live — same diagnosis-over-symptom rule as
+ * `stale`).
  *
  * ## Why daemon health joins a line that used to speak only for the transport
  *
@@ -129,7 +139,11 @@ export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
     const surfaces = [grid, stream],
           states   = surfaces.map(surface => surface?.state);
 
-    if (states.includes('sample')) {
+    // Only a sample GRID enters the cold family: its copy asserts roster + server facts, and a
+    // sample sibling stream has no standing to make either claim over a live roster.
+    // Both-sample keeps the exact pre-partition behavior — the reason scan still covers both
+    // surfaces, so a stream-retained cause surfaces when the grid learned none.
+    if (grid?.state === 'sample') {
         const reason = reasonFor(surfaces, 'sample');
 
         return {
@@ -181,6 +195,22 @@ export function deriveSpineBanner({daemon, grid, stream, transport = null}) {
             text  : reason
                 ? `Fleet feed degraded — showing last-known data · ${reason}`
                 : 'Fleet feed degraded — showing last-known data'
+        }
+    }
+
+    // The stream's own verdict: reachable here only with a LIVE grid (sample/stale grids returned
+    // above), so "roster is live" is true by construction — the fact that falsifies the old cold
+    // copy this case used to render. A pending feed is not an incident: `degraded` skin, and the
+    // transport fact is deliberately not consulted (it belongs to the cold family alone).
+    if (stream?.state === 'sample') {
+        const reason = reasonFor([stream], 'sample');
+
+        return {
+            hidden: false,
+            kind  : 'degraded',
+            text  : reason
+                ? `Activity feed pending — roster is live · ${reason}`
+                : 'Activity feed pending — roster is live'
         }
     }
 
