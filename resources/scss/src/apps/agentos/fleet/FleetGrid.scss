@@ -25,6 +25,17 @@
         color: var(--fm-ink-dim);
     }
 
+    /* the presence-capability chip: names an axis degradation (every band vanished honestly) so
+       absence stops reading as a verdict. Amber-adjacent via the idle token — informational, below
+       the wedged alarm register; renders only while the producer is degraded. */
+    .fm-fleet-presence-cap {
+        border       : 1px solid var(--fm-state-idle);
+        border-radius: 9px;
+        color        : var(--fm-ink-dim);
+        padding      : 1px 8px;
+        white-space  : nowrap;
+    }
+
     .fm-fleet-cards {
         /* the scroll-OWNING region: the derived roster (10+ residents) overflows the zone height
            at cockpit splits; only the cards scroll, the summary header stays pinned above
