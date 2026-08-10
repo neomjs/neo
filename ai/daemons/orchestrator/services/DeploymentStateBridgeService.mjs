@@ -2181,7 +2181,10 @@ function summarizeTenantRepoState({
             : 'unavailable',
         disabled              = isTenantRepoDisabled(repo),
         dueState              = disabled
-            ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
+            // `backoffCapped: null` rather than `false`, matching the nulled cadence fields beside it: a
+            // disabled repo has no cadence, so "is the cap binding?" has no answer. `false` would read as
+            // an observation that it is not.
+            ? {due: false, effectiveCadenceMs: null, jitterMs: null, backoffMultiplier: null, backoffCapped: null, lastRunAttemptAt: normalizedCheckpoint?.lastRunAttemptAt || 0}
             : isRepoDue({repo, persistedRepoState: normalizedCheckpoint, now: observedAt, globalCadenceMs, jitterRatio, backoffCapMs}),
         nextDueAtMs           = dueState.recoveryBypass
             ? observedAt
@@ -2231,6 +2234,13 @@ function summarizeTenantRepoState({
         effectiveCadenceMs                : dueState.effectiveCadenceMs,
         jitterMs                          : dueState.jitterMs,
         backoffMultiplier                 : dueState.backoffMultiplier,
+        // This row is the OPERATOR-facing projection, and it is the surface the ambiguity lives on:
+        // `effectiveCadenceMs: 7200000` is either a 2h configuration or a streak that has run so far
+        // past the cap that the cap is all that remains of it. `backoffMultiplier` beside it hints at
+        // the second, but only the cap flag settles it — a multiplier of 4096 with a cadence AT the cap
+        // and a multiplier of 1 with a cadence below it are the two readings, and nothing here
+        // distinguished them. `null` while disabled, per the synthesized state above.
+        backoffCapped                     : dueState.backoffCapped ?? null,
         lastOutcome
     };
 }
