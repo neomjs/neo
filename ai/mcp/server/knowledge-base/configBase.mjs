@@ -384,6 +384,59 @@ class ConfigBase extends ConfigProvider {
                 maxTotalDelayMs: leaf(5000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_TOTAL_DELAY_MS', 'number')
             },
             /**
+             * @summary The Knowledge Base embedding-probe policy. Deployment-tunable, because the
+             * hardware it runs on is not.
+             *
+             * These five values previously lived as a frozen literal in `HealthService.mjs` and were
+             * byte-identical to Memory Core's leaf defaults — the same policy, one side configurable
+             * and one side not. On CPU-only hardware the 30-second deadline sits below the observed
+             * completion time of a single embed, so the probe fails permanently while the embedder is
+             * working, and no deployment could reach the number.
+             *
+             * `timeoutMs` is a CONSUMER deadline, not a provider bound. Exceeding it does not stop the
+             * provider — it stops this process waiting — so a value below typical completion converts a
+             * slow embedder into a service that reports itself broken.
+             *
+             * Mirrors `memory-core`'s `healthcheck.embeddingWriteCanary*` set; the vocabulary differs
+             * (KB probes, MC runs a write canary) but the policy is the same shape and the defaults are
+             * deliberately unchanged, so this introduces configurability and no behaviour change.
+             * @type {Object}
+             */
+            healthcheck: {
+                /**
+                 * Consumer-side deadline for one embedding probe attempt. Sized against the SLOWEST
+                 * embed the deployment expects, not the typical one — a probe that clips its own
+                 * provider reports a false negative and cannot distinguish that from a real outage.
+                 * @type {number}
+                 */
+                embeddingProbeTimeoutMs: leaf(30000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_TIMEOUT_MS', 'number'),
+                /**
+                 * The probe producer's attempt period. A liveness check NEVER triggers a probe run —
+                 * `healthcheck` is a cheap read of the gate's current truth — so a container probe
+                 * interval is free to differ from this cadence. `<= 0` disables the producer.
+                 * @type {number}
+                 */
+                embeddingProbeCadenceMs: leaf(60000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_CADENCE_MS', 'number'),
+                /**
+                 * Staleness floor for the last healthy result: how long a success stays authoritative
+                 * before the gate re-probes.
+                 * @type {number}
+                 */
+                embeddingProbeHealthyTtlMs: leaf(60000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_HEALTHY_TTL_MS', 'number'),
+                /**
+                 * First backoff step after a failed probe. Failures are NOT cached like successes —
+                 * a failing probe re-runs on its backoff schedule rather than serving a stale failure.
+                 * @type {number}
+                 */
+                embeddingProbeFailureTtlMs: leaf(30000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MS', 'number'),
+                /**
+                 * Backoff ceiling. Binds at first gate creation, so raising it does not shorten a
+                 * backoff already in flight.
+                 * @type {number}
+                 */
+                embeddingProbeFailureTtlMaxMs: leaf(600000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_FAILURE_TTL_MAX_MS', 'number')
+            },
+            /**
              * When `true` (default), the SourceRegistry auto-registers Neo's
              * 10 curated default Source classes. Cloud deployments that ingest only tenant content
              * can set `false` to skip Neo's curated sources entirely.

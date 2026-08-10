@@ -11,14 +11,11 @@ import logger                     from '../../mcp/server/knowledge-base/logger.m
 import RuntimeFreshnessService    from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
 import KBRecorderService          from './KBRecorderService.mjs';
 
+// The embedding-probe policy is NOT frozen here. It was, with five literals byte-identical to
+// Memory Core's leaf defaults, which made the same policy configurable on one side of the plane and
+// unreachable on the other. Every value now resolves from `aiConfig.healthcheck` AT THE USE SITE so a
+// deployment change takes effect on the next arm rather than at the next image build.
 const
-    embeddingProbePolicy = Object.freeze({
-        cadenceMs      : 60 * 1000,
-        timeoutMs      : 30 * 1000,
-        healthyTtlMs   : 60 * 1000,
-        failureTtlMs   : 30 * 1000,
-        failureTtlMaxMs: 10 * 60 * 1000
-    }),
     serviceDir              = path.dirname(fileURLToPath(import.meta.url)),
     configPath              = path.resolve(serviceDir, '../../config.mjs'),
     openApiPath             = path.resolve(serviceDir, '../../mcp/server/knowledge-base/openapi.yaml'),
@@ -63,7 +60,7 @@ export async function buildKnowledgeBaseEmbeddingProbeBlock({
     embedText,
     input     = 'neo-kb-healthcheck-embedding-canary',
     now       = Date.now,
-    timeoutMs = embeddingProbePolicy.timeoutMs
+    timeoutMs = aiConfig.healthcheck.embeddingProbeTimeoutMs
 } = {}) {
     const probe = embedText || (async (text, explicitProvider, options) => {
         const {default: TextEmbeddingService} = await import('../memory-core/TextEmbeddingService.mjs');
@@ -400,7 +397,7 @@ class HealthService extends Base {
         if (!producer) {
             return {
                 status: 'unavailable',
-                reason: `producer not started — no embedding observation exists (configured deadline ${embeddingProbePolicy.timeoutMs}ms)`
+                reason: `producer not started — no embedding observation exists (configured deadline ${aiConfig.healthcheck.embeddingProbeTimeoutMs}ms)`
             };
         }
 
@@ -471,11 +468,11 @@ class HealthService extends Base {
      */
     startEmbeddingProbe(options = {}) {
         const {
-            cadenceMs       = embeddingProbePolicy.cadenceMs,
-            timeoutMs       = embeddingProbePolicy.timeoutMs,
-            healthyTtlMs    = embeddingProbePolicy.healthyTtlMs,
-            failureTtlMs    = embeddingProbePolicy.failureTtlMs,
-            failureTtlMaxMs = embeddingProbePolicy.failureTtlMaxMs,
+            cadenceMs       = aiConfig.healthcheck.embeddingProbeCadenceMs,
+            timeoutMs       = aiConfig.healthcheck.embeddingProbeTimeoutMs,
+            healthyTtlMs    = aiConfig.healthcheck.embeddingProbeHealthyTtlMs,
+            failureTtlMs    = aiConfig.healthcheck.embeddingProbeFailureTtlMs,
+            failureTtlMaxMs = aiConfig.healthcheck.embeddingProbeFailureTtlMaxMs,
             runProbe,
             keyFor,
             scheduler,
