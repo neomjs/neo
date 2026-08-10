@@ -104,6 +104,35 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
     });
 
+    test('ZERO chunks issues ZERO provider submissions — the attribution control (#16780 AC-1)', async () => {
+        // This is a control, not a repair: `embedChunks` already returns early on an empty input.
+        // Pinning it is the point. A deployment was observed holding ~4 cores of inference against an EMPTY
+        // corpus, and the only way that observation becomes attributable is if "Neo submits nothing
+        // when there is nothing to embed" is a guaranteed property rather than a current one.
+        //
+        // With this pinned, sustained provider load beside zero pending work cannot be our
+        // submissions — it is a stranded or wedged runner, which is a different ticket and a
+        // different fix. Without it, an operator cannot rule us out and every such incident starts
+        // by re-deriving whether the loop is looping.
+        //
+        // Asserted at the PROVIDER boundary rather than on the return value: a function can report
+        // `embedded: 0` while still having called out, and it is the call that burns the core.
+        const spy = createSpyCollection();
+
+        let providerCalls = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            providerCalls++;
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const result = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: []});
+
+        expect(providerCalls, 'nothing to embed must reach the provider zero times').toBe(0);
+        expect(spy.upsertedIds, 'and nothing may be written').toEqual([]);
+        expect(result).toEqual({embedded: 0, skipped: 0, yielded: false});
+    });
+
     test('a poisoned batch is skipped and every LATER batch still embeds', async () => {
         const spy    = createSpyCollection();
         const chunks = makeChunks(150); // 3 batches at batchSize 50
