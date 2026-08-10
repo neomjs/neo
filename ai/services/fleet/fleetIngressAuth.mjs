@@ -18,7 +18,10 @@ import {isLocalBearerToken, matchesLocalBearerToken} from '../../mcp/server/shar
  * unpadded base64url; length-mismatched values fail closed before the equal-length compare).
  * CORS preflights (`OPTIONS`) cannot carry an `Authorization` header, so they are admitted on
  * Host + Origin alone — a preflight grants nothing: no body is read, no method dispatches, and the
- * echoed headers only permit the real request to present its bearer.
+ * echoed headers only permit the real request to present its bearer. When the launcher arms the
+ * browser bearer handshake (`bearerHandshake`), `GET /fleet/handshake` is additionally admitted on
+ * Host + a present-and-allowlisted Origin — the single deliberate pre-bearer admission, documented
+ * as the Option-B dev-mode custody widening on the `fleet.bearerHandshake` config leaf.
  *
  * The guard returns a decision object; applying it (status codes, headers, socket teardown) stays
  * the transport's job. Pure data-plane module by design — no Neo import, no config read, no state.
@@ -35,11 +38,19 @@ import {isLocalBearerToken, matchesLocalBearerToken} from '../../mcp/server/shar
  * @param {Function} options.resolveAllowedHosts Returns the iterable of exact `Host` header values
  *     admitted right now. A thunk because the bound port is only known after `listen` (ephemeral
  *     port 0 in tests); resolving late keeps the guard honest instead of freezing a guess.
- * @returns {Function} `admit(req)` → `{admitted: true, corsOrigin: String|null}` or
+ * @param {Boolean}  [options.bearerHandshake=false] Arms the browser bearer-handshake admission:
+ *     `GET /fleet/handshake` is then admitted on Host + a PRESENT-and-allowlisted Origin — stricter
+ *     than preflight, which tolerates an absent Origin. The handshake exists to hand the bearer to
+ *     a browser page, so a caller that states no browser origin has no business on the path; the
+ *     boot probe and every non-browser caller keep using the bearer-gated routes. Unarmed
+ *     (default), the path has no special admission and falls through to the bearer check —
+ *     byte-identical to the pre-handshake surface.
+ * @returns {Function} `admit(req)` → `{admitted: true, corsOrigin: String|null}` (plus
+ *     `handshake: true` on an armed handshake admission) or
  *     `{admitted: false, status: Number, error: String, corsOrigin: String|null}`.
  * @throws {TypeError} When the bearer is not canonical or the origin/host inputs are malformed.
  */
-export function createFleetIngressGuard({bearerToken, allowedOrigins, resolveAllowedHosts} = {}) {
+export function createFleetIngressGuard({bearerToken, allowedOrigins, resolveAllowedHosts, bearerHandshake = false} = {}) {
     if (!isLocalBearerToken(bearerToken)) {
         throw new TypeError('[fleetIngressAuth] a canonical 32-byte unpadded-base64url bearerToken is required')
     }
@@ -82,6 +93,18 @@ export function createFleetIngressGuard({bearerToken, allowedOrigins, resolveAll
         // header echo permitting the real request to present the bearer.
         if (req.method === 'OPTIONS') {
             return {admitted: true, preflight: true, corsOrigin}
+        }
+
+        // 3.5 Armed bearer handshake — the one admission that runs BEFORE the bearer check,
+        // because it exists to bootstrap it. Stricter than preflight: the Origin must be PRESENT
+        // and allowlisted (a browser cannot forge its Origin; a caller stating none is not the
+        // browser page this path serves). Unarmed, the path falls through to step 4 and refuses
+        // 401 like any other bearer-less request — the default surface is unchanged.
+        if (bearerHandshake && req.method === 'GET' &&
+            new URL(req.url, 'http://127.0.0.1').pathname === '/fleet/handshake') {
+            return corsOrigin === null
+                ? {admitted: false, status: 403, error: 'fleet: handshake requires an allowlisted browser origin', corsOrigin: null}
+                : {admitted: true, handshake: true, corsOrigin}
         }
 
         // 4. Bearer — constant-time via the shared localBearer primitives; malformed and

@@ -7,6 +7,12 @@
             "runtimeArgs": ["webpack", "serve", "-c", "./buildScripts/webpack/webpack.server.config.mjs"],
             "port": 8080,
             "autoPort": true
+        },
+        {
+            "name": "cockpit",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "cockpit"],
+            "port": 8080
         }
     ]
 }
