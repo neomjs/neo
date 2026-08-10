@@ -427,7 +427,16 @@ class IngestionService extends Base {
                     // hardest: the better-classified the failure, the emptier the receipt.
                     code   : classifyEmbedFailureCode(error.code),
                     message: error.message,
-                    details: {repoSlug}
+                    // `residencyDisposition` is the difference between "re-check the model identifier"
+                    // and "something took the model's slot" — opposite remediations behind one code.
+                    // This receipt is where an operator actually reads the failure, so a discriminator
+                    // that stops short of it is not an instrument, only an intention. Spread
+                    // conditionally: unobserved must stay absent rather than arrive as a null field
+                    // that reads like a measured one.
+                    details: {
+                        repoSlug,
+                        ...(error.residencyDisposition && {residencyDisposition: error.residencyDisposition})
+                    }
                 }));
                 this.updateIngestionProgress({
                     embeddedChunks: summary.embeddingsGenerated,
