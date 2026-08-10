@@ -35,6 +35,7 @@ import Orchestrator, {rotateLogFileIfNewDay}                             from '.
 import {acquireAuthorityLease, AUTHORITY_LEASE_TTL_MS}                   from './authorityLease.mjs';
 import {assertAuthorityProfile, isTaskOwnedByProfile}                    from './taskAuthority.mjs';
 import {assertConfigFresh}                                               from '../../scripts/setup/initServerConfigs.mjs';
+import {DAEMON_EXIT_CRASH, DAEMON_EXIT_OK}                               from '../shared/daemonExit.mjs';
 import Tier1ConfigBase, {PLANE_MEMBER_PATHS as TIER1_PLANE_MEMBER_PATHS} from '../../configBase.mjs';
 import {
     assertPlaneCoherence,
@@ -190,19 +191,36 @@ export async function enforceSingleton({pidFile = pidFilePath()} = {}) {
     fs.writeFileSync(pidFile, process.pid.toString(), 'utf8');
 }
 
+/**
+ * @summary Installs the shutdown handlers, and makes a crash exit non-zero.
+ *
+ * `cleanup` used to call a bare `process.exit()` — exit code **0** — from every caller including the
+ * `uncaughtException` arm, so a crash was reported to the container runtime as SUCCESS. A restart
+ * policy brings the daemon back either way, which is why this survived: the loss is not availability
+ * but attribution. An external plane showed `restartCount: 12` with `exitCode: 0` and `error: null`,
+ * next to a self-heal ledger with zero events, because nothing keyed on a non-zero exit ever fired.
+ *
+ * Every registration below passes its code EXPLICITLY, and that is load-bearing rather than stylistic:
+ * `process.on('SIGINT', cleanup)` invokes the listener with the **signal name**, so a positional
+ * `cleanup(code = 0)` would receive `'SIGTERM'` and hand a string to `process.exit`. Wrapping each
+ * registration is what keeps the signal path at 0 while the crash path reports failure.
+ *
+ * A signal-initiated stop exits **0** deliberately — an operator stopping the daemon is success, and
+ * flattening both paths to non-zero would make every graceful shutdown look like a crash.
+ */
 function setupCleanupHandlers() {
-    const cleanup = () => {
+    const cleanup = (exitCode = DAEMON_EXIT_OK) => {
         Orchestrator.stop();
         removePidFile();
-        process.exit();
+        process.exit(exitCode);
     };
 
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
+    process.on('SIGINT',  () => cleanup(DAEMON_EXIT_OK));
+    process.on('SIGTERM', () => cleanup(DAEMON_EXIT_OK));
     process.on('exit', removePidFile);
     process.on('uncaughtException', err => {
         writeLog('ERROR', `[Orchestrator] Uncaught exception: ${err && err.stack ? err.stack : err}`);
-        cleanup();
+        cleanup(DAEMON_EXIT_CRASH);
     });
 }
 
