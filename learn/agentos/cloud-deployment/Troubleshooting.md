@@ -279,8 +279,12 @@ node ./ai/scripts/maintenance/syncTenantRepos.mjs --full --repo-slug <slug>
 `--full` is rejected without an explicit repo selector. It does not delete the stored checkpoint:
 a failed or fresh zero-effect replay preserves it, while an error-free replay with a positive
 ingest/delete effect advances it to the current head and writes the current success-contract
-marker. A zero-effect retry can advance only when it settles the matching unacknowledged receipt
-from an interrupted post-ingest checkpoint commit before repeating Knowledge Base mutation.
+marker. A zero-effect retry can advance when it settles the matching unacknowledged receipt
+from an interrupted post-ingest checkpoint commit before repeating Knowledge Base mutation, and
+also when the manifest authoritatively declares no content and the matching receipt's attempt is
+already committed — repeating `--full` on an unchanged, legitimately-empty repo therefore succeeds
+every time instead of failing from the second run onward. On a manifest that declares content, a
+zero-effect replay still cannot advance the checkpoint.
 
 The CLI and the daemon's periodic sweep serialize through a cross-process lease next to the
 revisions manifest. Exit code `4` (reason `KB_TENANT_REPO_SYNC_LEASE_HELD`) means another sync is
