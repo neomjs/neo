@@ -51,8 +51,14 @@ const
  */
 async function createFakeBin(plainLines, peelLine = '') {
     const
-        bin       = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-deploy-pin-')),
-        dockerLog = path.join(bin, 'docker-invocations.log');
+        bin         = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-deploy-pin-')),
+        composeFile = path.join(bin, 'docker-compose.yml'),
+        dockerLog   = path.join(bin, 'docker-invocations.log');
+
+    // The deployment pipeline now owns a durable project `.env` carrier. Keeping composition in
+    // the fixture root makes that carrier per-test instead of adopting the operator's real
+    // `ai/deploy/.env` or contending on one host-global deploy lock across parallel workers.
+    await fs.writeFile(composeFile, 'services: {}\n');
 
     await fs.writeFile(path.join(bin, 'git'), [
         '#!/usr/bin/env bash',
@@ -94,7 +100,7 @@ async function createFakeBin(plainLines, peelLine = '') {
 
     await fs.writeFile(dockerLog, '');
 
-    return {bin, dockerLog, plainLines, peelLine}
+    return {bin, composeFile, dockerLog, plainLines, peelLine}
 }
 
 /**
@@ -135,9 +141,10 @@ function preflightEnv(fake, declareInitialization, projectName) {
         NEO_BACKUP_PATH        : path.join(fake.bin, 'preflight-backups'),
         // Revision tests need a valid explicit composition so the mandatory caller-owned boundary does
         // not stop them before their actual subject. The fake Docker never starts this base file.
-        NEO_DEPLOY_COMPOSE_FILE: composePath,
-        NEO_DEPLOY_INITIALIZE  : declareInitialization ? '1' : '0',
-        NEO_DEPLOY_PROJECT_NAME: projectName
+        NEO_DEPLOY_COMPOSE_FILE              : fake.composeFile,
+        NEO_DEPLOY_INITIALIZE                : declareInitialization ? '1' : '0',
+        NEO_DEPLOY_PROJECT_NAME              : projectName,
+        NEO_HOST_DEPLOYMENT_PRESCRIPTION_ROOT: path.join(fake.bin, 'deployment-prescriptions')
     }
 }
 
@@ -335,8 +342,8 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
     test('every SCRIPT_DIR-relative path in the script actually RESOLVES', async () => {
         // Both instances of one bug shipped here: `$SCRIPT_DIR` is `ai/examples/cloud-deployment`, so
         // `../..` is ALREADY `ai/`, and two lines re-added `ai/` on top of it. The old `COMPOSE_FILE`
-        // default was removed because composition is caller-owned; the maintenance preflight remains
-        // the script's sole sibling-path reference.
+        // default was removed because composition is caller-owned; the prescription materializer and
+        // maintenance preflight are the script's two sibling-path references.
         //
         // So this asserts resolution directly rather than trusting the next author to count `../`.
         const source    = await fs.readFile(scriptPath, 'utf8'),
@@ -344,9 +351,12 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
               refs      = [...source.matchAll(/\$SCRIPT_DIR\/([A-Za-z0-9/._-]+)/g)].map(match => match[1]),
               unique    = [...new Set(refs)];
 
-        // Positive control: pin the one intended script-relative dependency so removal or accidental
+        // Positive control: pin the intended script-relative dependencies so removal or accidental
         // reintroduction of an implicit Compose path changes this contract loudly.
-        expect(unique).toEqual(['../../scripts/maintenance/redeployPreflight.mjs']);
+        expect(unique).toEqual([
+            '../../scripts/maintenance/materializeDeploymentPrescriptions.mjs',
+            '../../scripts/maintenance/redeployPreflight.mjs'
+        ]);
 
         for (const ref of unique) {
             const resolved = path.resolve(scriptRel, ref);
@@ -405,7 +415,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
         const fake   = await createFakeBin(''),
               result = runPipelineWithProbe(fake, FULL_SHA, {peelTo: FULL_SHA});
 
-        expect(result.code).toBe(0);
+        expect(result.code, result.output).toBe(0);
         expect(result.output).toContain(FULL_SHA);
         // The host checkout must be reported as explicitly NOT the deployed revision.
         expect(result.output).toContain('host-checkout:');
@@ -473,7 +483,7 @@ test.describe('deploy-pipeline.sh revision pinning (#15792)', () => {
             fake   = await createFakeBin(`${FULL_SHA}\trefs/heads/dev`),
             result = runPipeline(fake, 'dev');
 
-        expect(result.code).toBe(0);
+        expect(result.code, result.output).toBe(0);
 
         // Compose maps this one value to both Docker args. Keeping NEO_REF in the outgoing
         // environment would preserve the conflicting second input at the boundary.
