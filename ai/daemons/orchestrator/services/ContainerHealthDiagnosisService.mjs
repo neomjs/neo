@@ -1396,11 +1396,19 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
 /**
  * @summary Decides which numerator this service's memory saturation may legitimately use.
  *
- * **A service's scope is read from the observation envelope, not from a roster.** Each stats sample
- * carries the heap envelope captured at the same instant, and that envelope already answers "is this
- * a Node process" — the bridge refuses to publish an observation for anything whose `Config.Cmd` is
- * not Node and says so with `not-node`. Re-deriving that here would put a second definition of "a
- * Node service" in the codebase, and the two would drift.
+ * **Identity and measurement are separate axes, and only one of them is the envelope's.**
+ *
+ * - **Identity** — whether this service may use the container ratio at all — comes from the live
+ *   `nodeCommand` read, never from the envelope. An envelope's `not-node` was a *refusal* gate, not a
+ *   positive classification, so consuming it as identity let an unreadable inspect manufacture an
+ *   authoritative container-scoped fact. Detail and both falsifiers in the `container` bullet below.
+ * - **Measurement** — the V8 numbers themselves — comes from the envelope on each stats sample,
+ *   captured at the same instant as the container reading it is paired with.
+ *
+ * An earlier revision of this docblock said scope was *"read from the observation envelope, not from
+ * a roster"*, on the reasoning that re-deriving Node-ness here would create a second definition that
+ * could drift. That premise was retired when identity moved to the live read: there is no second definition, because
+ * identity has exactly one source — `nodeCommand` — and the envelope never carried it.
  *
  * Three outcomes, and the third is the point of the slice:
  *
@@ -1421,10 +1429,16 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
  *   2. Envelopes ride on **retained** samples; `nodeCommand` is read live per collection. A window held
  *      from earlier collections can therefore carry an all-`not-node` set while the current
  *      `nodeCommand` reads `true`, letting a stale classification silently outvote a live one.
- * - **`heap`** — a Node service with at least one usable V8 reading in the window. Old-generation
- *   usage over the declared ceiling.
- * - **`unavailable`** — a Node service with no usable reading: channel disabled, stale, skewed,
- *   identity-mismatched, an undeclared ceiling, or simply not deployed yet. **No fact is emitted.**
+ * - **`heap`** — a Node service with a usable V8 reading on **every** sample in the window
+ *   (`usable.length === samples.length`). Old-generation usage over the declared ceiling.
+ *
+ *   **Full coverage or nothing**, and the partial case is the reason: a window with one usable
+ *   reading and one hole is not a weaker heap signal, it is a *different* window than the one the
+ *   count floor was calibrated against. Admitting it would let a single sample clear a floor meant
+ *   for the full set.
+ * - **`unavailable`** — a Node service **without** full coverage: no usable reading at all, or some
+ *   but not all — channel disabled, stale, skewed, identity-mismatched, an undeclared ceiling, or
+ *   simply not deployed yet. **No fact is emitted.**
  *   Falling back to the container ratio here would reinstate exactly the cross-scope pair this slice
  *   removes, and would do it silently on the path where the heap channel is broken — which is the
  *   moment the number is least trustworthy and most likely to be believed.
