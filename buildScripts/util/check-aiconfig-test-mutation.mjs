@@ -70,6 +70,46 @@ export const DB_PATH_MUTATION = new RegExp(
 );
 
 /*
+ * The RESTORE-CAPTURE rule — deliberately NOT called "Class B", which this file already spends on
+ * config-VARYING leaves (retry / transport) that it holds out of scope. This is a third, orthogonal
+ * axis: Class-A asks WHICH LEAF a test writes, this asks WHETHER THE UNDO CAN WORK AT ALL.
+ *
+ * `Neo.clone` of an `AiConfig` node captures the leaf's
+ * UNRESOLVED default, not the value the provider resolves — so a save/restore pair built on it writes
+ * the default back over the resolved value and reports success. The write is not lost loudly; it is
+ * replaced quietly, which is why five call sites of careful-looking hygiene restored nothing at all
+ * and a worker stayed polluted for its entire life.
+ *
+ * The four-cell measurement that fixed the target — one direct leaf write, restored four ways:
+ *
+ *   spread `{...node}`  + `Object.assign`        -> restored
+ *   spread `{...node}`  + `restoreConfigObject`  -> restored
+ *   `Neo.clone(node)`   + `Object.assign`        -> NOT restored
+ *   `Neo.clone(node)`   + `restoreConfigObject`  -> NOT restored
+ *
+ * The restore idiom is innocent in both columns; the capture is the broken half. An earlier reading of
+ * this defect blamed the restore (`Object.assign` "cannot undo a leaf write") and a still earlier one
+ * blamed a zero-key clone. Both are retracted: the clone carries the key — it carries the WRONG VALUE.
+ * The pattern therefore anchors on the capture and stays indifferent to whatever restores from it.
+ *
+ * `snapshotAiConfig` is the by-construction answer and already the majority idiom; its contract exists
+ * precisely because it captures by RESOLVED value. This guard points at it rather than restating it.
+ *
+ * Deliberately NOT guarded — measured, not assumed: whole-SUBTREE replacement
+ * (`AiConfig.orchestrator.mlx = {...}`) restores correctly, on a node with 3 keys and on one with 16,
+ * and a bounded env re-resolution still reaches the replacement. The leaf binding is registry-keyed by
+ * dotted path, so swapping the node object does not remove it. Forbidding that shape would fail six
+ * working call sites, and a gate whose false positives dominate gets disabled rather than obeyed.
+ *
+ * Root shape and the false-positive posture are inherited from Class-A above: an unrelated `*Config`
+ * local passed to `Neo.clone` trips this and costs one escape marker plus a stated reason. Current
+ * measured cost of that trade across the whole test tree: zero occurrences, so zero false positives.
+ */
+export const CLONE_CAPTURE = new RegExp(
+    `(?<![\\w$])Neo\\.clone\\s*\\(\\s*${CONFIG_ROOT}(?![\\w$])`
+);
+
+/*
  * Files whose Class-A mutation is load-bearing — NOT a grandfathering queue. Every entry whose write
  * duplicated isolation the harness already provides by construction has been removed; what survives
  * is here because by-construction isolation provably cannot serve it, and each entry states why. A new entry needs that same justification, not a migration promise: an unexplained
@@ -250,6 +290,66 @@ export function findDbPathMutations(content) {
     return hits
 }
 
+const CLONE_CAPTURE_GLOBAL = new RegExp(CLONE_CAPTURE.source, 'g');
+
+/**
+ * @summary Scans file content for `Neo.clone` restore-captures of an `AiConfig` node.
+ *
+ * Shares Class-A's code mask and escape marker, so a clone written inside a string literal, a comment
+ * or a template quasi is not a hit — the same ground truth, not a second hand-rolled scan.
+ * @param {String} content
+ * @returns {Object[]} `[{line, text}]` — one entry per offending line (1-based line numbers).
+ */
+export function findCloneCaptures(content) {
+    const lines = content.split('\n'),
+          state = {source: content},
+          hits  = [];
+
+    lines.forEach((line, index) => {
+        if (line.includes(ESCAPE_MARKER)) {
+            return
+        }
+
+        const mask = codeMask(line, state, index);
+
+        for (const match of line.matchAll(CLONE_CAPTURE_GLOBAL)) {
+            // The match starts at `Neo`; flag only when that token is real code.
+            if (mask[match.index]) {
+                hits.push({line: index + 1, text: line.trim()});
+                break
+            }
+        }
+    });
+
+    return hits
+}
+
+/**
+ * @summary Scans one file's content for both rules, applying the allowlist to Class-A only.
+ *
+ * The allowlist is scoped to Class-A and stays that way. Every entry justifies a DB-PATH mutation
+ * specifically — a logger repointing `data.logPath`, a guard spec flipping its own selectors off —
+ * and not one of those reasons says anything about capture fidelity. Letting a narrow, stated
+ * exemption suppress an unrelated rule is how an allowlist becomes a blanket bypass, which is the
+ * failure this file's own header warns about.
+ *
+ * Exported with an injectable allowlist because that scoping is a real behaviour and the alternative
+ * ways to test it are all worse: asserting it through the CLI against a genuinely allowlisted file
+ * passes whether or not the scoping holds (no such file contains a restore-capture), and the honest
+ * version of that test would have to mutate a tracked spec mid-run.
+ * @param {String} file Repo-relative POSIX path.
+ * @param {String} content
+ * @param {Object} [options]
+ * @param {Set<String>} [options.allowlist=ALLOWLIST]
+ * @returns {{dbPathHits: Object[], cloneHits: Object[]}}
+ */
+export function scanFileContent(file, content, {allowlist = ALLOWLIST} = {}) {
+    return {
+        dbPathHits: allowlist.has(file) ? [] : findDbPathMutations(content),
+        cloneHits : findCloneCaptures(content)
+    }
+}
+
 /**
  * @summary Normalizes an input path (absolute from lint-staged, or relative) to a repo-relative POSIX path.
  * @param {String} file
@@ -300,12 +400,10 @@ function main() {
         process.exit(0);
     }
 
-    const violations = [];
-    for (const file of files) {
-        if (ALLOWLIST.has(file)) {
-            continue
-        }
+    const violations      = [],
+          cloneViolations = [];
 
+    for (const file of files) {
         let content;
         try {
             content = readFileSync(path.resolve(gitRoot, file), 'utf-8');
@@ -314,7 +412,21 @@ function main() {
             continue
         }
 
-        findDbPathMutations(content).forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        const {dbPathHits, cloneHits} = scanFileContent(file, content);
+
+        dbPathHits.forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        cloneHits.forEach(({line, text}) => cloneViolations.push(`${file}:${line}: ${text}`));
+    }
+
+    if (cloneViolations.length > 0) {
+        console.error(`\x1b[31mcheck-aiconfig-test-mutation: ${cloneViolations.length} ineffective AiConfig restore capture(s) in tests:\x1b[0m`);
+        if (!quiet) {
+            cloneViolations.forEach(v => console.error('  ' + v));
+            console.error('\n`Neo.clone` of an AiConfig node captures the leaf DEFAULT, not the value the provider resolves,');
+            console.error('so restoring from it writes the default back over the resolved value and reports success. Capture');
+            console.error('by resolved value with `snapshotAiConfig(aiConfig, paths)` instead — or, only if genuinely');
+            console.error(`unavoidable, add an "${ESCAPE_MARKER}: <reason>" marker on the line.`);
+        }
     }
 
     if (violations.length > 0) {
@@ -325,6 +437,12 @@ function main() {
             console.error('#12335 orphan incident; ADR-0019 §4 B4). Isolate by construction (UNIT_TEST_MODE resolves the');
             console.error(`test DB), or — only if genuinely unavoidable — add an "${ESCAPE_MARKER}: <reason>" marker on the line.`);
         }
+    }
+
+    // ONE exit decision covering both classes. Reporting Class-B and then falling through to the
+    // success line would print violations and exit 0 — a gate that describes a problem instead of
+    // failing on it, which is the exact shape this lint exists to prevent elsewhere.
+    if (violations.length > 0 || cloneViolations.length > 0) {
         process.exit(1);
     }
 
