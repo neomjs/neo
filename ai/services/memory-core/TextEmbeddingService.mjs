@@ -225,6 +225,25 @@ function getEmbeddingModel(provider) {
 }
 
 /**
+ * @summary Records one admitted batch at the recorder that owns its current process.
+ *
+ * This is best-effort observability: a recorder failure must not change provider behavior. Calling
+ * it only at the final provider branch excludes invalid and pre-aborted requests from the ratio.
+ * @param {Object|null} recorder Process-local telemetry recorder.
+ * @param {String[]} texts Batch inputs admitted to provider work.
+ * @returns {void}
+ */
+function recordEmbeddingSubmissions(recorder, texts) {
+    if (typeof recorder?.recordEmbeddingSubmissions !== 'function') return;
+
+    try {
+        recorder.recordEmbeddingSubmissions({texts, submittedAt: Date.now()});
+    } catch (error) {
+        logger.warn('[TextEmbeddingService] Failed to record embedding identities:', error.message);
+    }
+}
+
+/**
  * @summary Restores an Error-valued caller abort reason or creates the bounded structural fallback.
  * @param {AbortSignal} signal Aborted upstream signal.
  * @param {String} operationLabel Bounded operation label.
@@ -1253,10 +1272,11 @@ class TextEmbeddingService extends Base {
      * @param {Object} operation Mutable local-phase observability record.
      * @param {Object|null} providerActivityRecorder Best-effort telemetry sink.
      * @param {Object} providerActivity Bounded provider activity descriptor.
+     * @param {String[]|null} [identityTexts=null] Batch identities to record after provider validation.
      * @returns {Promise<Object>}
      * @private
      */
-    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity) {
+    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity, identityTexts = null) {
         const
             provider         = this.#getOllamaProvider(),
             dispatchModel    = provider.embeddingModel || provider.modelName || 'unknown',
@@ -1265,6 +1285,10 @@ class TextEmbeddingService extends Base {
 
         operation.phase = 'in-flight';
         throwIfEmbeddingAborted(signal, operationLabel, operation);
+
+        if (identityTexts !== null) {
+            recordEmbeddingSubmissions(providerActivityRecorder, identityTexts);
+        }
 
         const recordProviderFailure = error => {
             providerOutcome.state = 'rejected';
@@ -1370,7 +1394,11 @@ class TextEmbeddingService extends Base {
                 throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data})
             }
 
-            const chunk  = texts.slice(offset, offset + chunkSize),
+            const chunk = texts.slice(offset, offset + chunkSize);
+
+            recordEmbeddingSubmissions(providerActivityRecorder, chunk);
+
+            const
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
                       unloadRetriesLeft: unloadRetryCount,
                       requestTimeoutMs,
@@ -1579,7 +1607,8 @@ class TextEmbeddingService extends Base {
                     signal,
                     operation,
                     providerActivityRecorder,
-                    providerActivity
+                    providerActivity,
+                    texts
                 );
                 // Length is the ONLY thing binding a native-ollama vector to its input: the response
                 // is a parallel array with no per-item index, so length is the only thing binding a
@@ -1618,7 +1647,10 @@ class TextEmbeddingService extends Base {
                 const requestModel  = aiConfig.embeddingModel;
                 const dispatchModel = endpointModel || 'unknown';
                 const requests      = texts.map(text => ({model: requestModel, content: {parts: [{text}]}}));
-                const result        = await observeUnqueuedProviderActivity({
+
+                recordEmbeddingSubmissions(providerActivityRecorder, texts);
+
+                const result = await observeUnqueuedProviderActivity({
                     recorder: providerActivityRecorder,
                     activity: {
                         ...providerActivity,
