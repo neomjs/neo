@@ -1449,7 +1449,18 @@ export const MEMORY_SATURATION_SCOPES = Object.freeze({
  *     for the `container` scope**: only an explicit `false` licenses the container ratio. `true` and
  *     `null` both route to `heap`/`unavailable`, because "not Node" and "could not tell" must not
  *     collapse into one answer — that collapse is the defect this parameter exists to prevent.
- * @returns {Object} `{scope, percents}` — `percents` is populated only for the `heap` scope.
+ * @returns {Object} `{scope, percents, timestamps, unavailableReason}` — all four keys on every
+ *     branch, never a scope-dependent shape, so a consumer reads `scope` to know which fields carry
+ *     meaning instead of testing for a key's presence. `percents` and `timestamps` are populated only
+ *     for `heap`; `unavailableReason` only for `unavailable`.
+ *
+ *     **`timestamps` is not a convenience copy of the sample times**, and that is why it has to be
+ *     returned rather than re-derived. These are the SUBJECT's own `observedAt` stamps; the caller
+ *     measures the heap window from them precisely because the poll clock and the reporter's clock
+ *     tick independently. Substituting `samples[].observedAtMs` here looks equivalent and is the
+ *     observer's-clock defect described above. `unavailableReason` is consumer-visible output, not an
+ *     internal diagnostic: it is published verbatim in the `heap-observation-unavailable` fact, where
+ *     it is the field that names which repair is owed.
  */
 function resolveMemorySaturationScope({samples, nodeCommand}) {
     const
