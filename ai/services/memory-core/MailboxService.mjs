@@ -2799,8 +2799,14 @@ class MailboxService extends Base {
      *   key blocked at the callTool choke-point, whereas this parameter is a read-path filter
      *   with no authorship semantics.
      * @param {String[]} [args.taggedConcepts] Filter by specific tagged concepts (requires all)
-     * @param {Number} [args.limit=50] Maximum number of messages to return
-     * @param {Number} [args.offset=0] Pagination offset
+     * @param {Number} [args.limit=50] Page size. Must be a positive integer — rejected, never
+     *   clamped, because a zero or negative page cannot advance the continuation this method
+     *   advertises, and a silently-substituted page size hides the caller's bug behind a receipt
+     *   that looks correct.
+     * @param {Number} [args.offset=0] Pagination offset. Must be a non-negative integer; pass the
+     *   previous response's `nextOffset` to continue.
+     * @throws {Error} When `limit` is not a positive integer or `offset` is not a non-negative
+     *   integer.
      * @param {Boolean} [args.includeArchived=false] Surface archived messages. Default excludes
      *   any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR on the
      *   per-recipient DELIVERED_TO edge for broadcasts) — archived ≠ deleted; the message persists
@@ -2835,10 +2841,23 @@ class MailboxService extends Base {
 
         const db           = GraphService.requireDb('MailboxService.listMessages');
         const numericLimit = Number(limit),
-            numericOffset   = Number(offset || 0),
-            repairScanLimit = Number.isFinite(numericLimit)
-                ? Math.max(MESSAGE_GRAPH_REPAIR_LIMIT, numericLimit + (Number.isFinite(numericOffset) ? numericOffset : 0))
-                : MESSAGE_GRAPH_REPAIR_LIMIT;
+            numericOffset   = Number(offset || 0);
+
+        // Rejected rather than clamped, because the continuation this method now advertises is a
+        // PROMISE OF PROGRESS. A `limit` of 0 slices an empty page while rows remain, so the
+        // response would claim `truncated` and hand back the offset just read — a caller looping to
+        // the end never terminates. Silently substituting a sane page size would hide the caller's
+        // bug behind a receipt that looks correct, which is the failure mode this whole change
+        // exists to remove. No sound caller is affected: every production call site passes a
+        // positive integer.
+        if (!Number.isInteger(numericLimit) || numericLimit < 1) {
+            throw new Error(`MailboxService.listMessages: limit must be a positive integer, received ${JSON.stringify(limit)}`);
+        }
+        if (!Number.isInteger(numericOffset) || numericOffset < 0) {
+            throw new Error(`MailboxService.listMessages: offset must be a non-negative integer, received ${JSON.stringify(offset)}`);
+        }
+
+        const repairScanLimit = Math.max(MESSAGE_GRAPH_REPAIR_LIMIT, numericLimit + numericOffset);
 
         await this.repairMessageGraphIntegrity({target, box, limit: repairScanLimit});
 
@@ -3000,11 +3019,13 @@ class MailboxService extends Base {
         // `length === limit` tell, and a full page looks like a complete listing.
         const
             totalCount    = messages.length,
-            appliedOffset = Number.isFinite(numericOffset) ? numericOffset : 0,
-            appliedLimit  = Number.isFinite(numericLimit)  ? numericLimit  : totalCount;
+            appliedOffset = numericOffset,
+            appliedLimit  = numericLimit;
 
-        // Pagination
-        messages = messages.slice(offset, offset + limit);
+        // Pagination — sliced with the SAME normalized values the response reports. Slicing on the
+        // raw arguments while reporting the normalized ones lets a receipt describe a page that was
+        // never served, which is the defect one layer up from the one this method fixes.
+        messages = messages.slice(appliedOffset, appliedOffset + appliedLimit);
         await this.attachRelatedPullRequestStates(messages);
 
         // `truncated` states whether rows remain BEYOND this page, which is deliberately not the

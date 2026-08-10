@@ -150,4 +150,51 @@ test.describe('MailboxService.listMessages — a page must declare its own compl
         expect(page.truncated).toBe(false);
         expect(page.nextOffset).toBeNull();
     });
+
+    // The continuation is a PROMISE OF PROGRESS, and the schema accepted inputs that could not keep
+    // it. Advertising `truncated: true` with a `nextOffset` that does not exceed the offset just
+    // read turns a caller's paginate-to-the-end loop into a non-terminating one — strictly worse
+    // than the missing flag this change exists to fix, because a caller now trusts it.
+    //
+    // Found in review by @neo-gpt. The first version of this repair shipped the loop.
+    for (const [name, bounds, expected] of [
+        ['a zero limit',       {limit: 0},      /limit must be a positive integer/],
+        ['a negative limit',   {limit: -5},     /limit must be a positive integer/],
+        ['a fractional limit', {limit: 2.5},    /limit must be a positive integer/],
+        ['a negative offset',  {offset: -10},   /offset must be a non-negative integer/]
+    ]) {
+        test(`${name} is REFUSED rather than served a non-advancing continuation`, async () => {
+            // `limit: 0` was the live one: it sliced an empty page while rows remained, so the
+            // response claimed `truncated` and returned `nextOffset: 0` — the offset just read.
+            await expect(asRecipient(() => MailboxService.listMessages({box: 'inbox', ...bounds})))
+                .rejects.toThrow(expected);
+        });
+    }
+
+    test('following nextOffset TERMINATES and visits every row exactly once', async () => {
+        // The invariant as a property rather than as a spot check: walk the whole mailbox by the
+        // continuation the service advertises. A non-advancing `nextOffset` hangs here instead of
+        // passing quietly, and the visit-count assertions catch a cursor that skips or repeats.
+        const seen  = [];
+        let   page  = await asRecipient(() => MailboxService.listMessages({box: 'inbox', limit: 7}));
+        let   walks = 0;
+
+        while (true) {
+            expect(++walks, 'the walk must terminate — a stalled cursor would spin here').toBeLessThan(SEEDED + 5);
+            seen.push(...page.messages.map(message => message.subject));
+
+            if (!page.truncated) {
+                expect(page.nextOffset).toBeNull();
+                break;
+            }
+
+            expect(page.nextOffset, `a truncated page must advance past offset ${page.offset}`)
+                .toBeGreaterThan(page.offset);
+
+            page = await asRecipient(() => MailboxService.listMessages({box: 'inbox', limit: 7, offset: page.nextOffset}));
+        }
+
+        expect(seen, 'every seeded row reached, none repeated').toHaveLength(SEEDED);
+        expect(new Set(seen).size, 'and each exactly once').toBe(SEEDED);
+    });
 });

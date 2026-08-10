@@ -2185,16 +2185,18 @@ paths:
         - name: limit
           in: query
           required: false
-          description: "Maximum number of messages to return"
+          description: "Page size. Must be a positive integer — a zero or negative page cannot advance a continuation, so it is refused rather than clamped."
           schema:
             type: integer
+            minimum: 1
             default: 50
         - name: offset
           in: query
           required: false
-          description: "Pagination offset"
+          description: "Pagination offset. Must be a non-negative integer; pass the previous response's `nextOffset` to continue."
           schema:
             type: integer
+            minimum: 0
             default: 0
         - name: includeArchived
           in: query
