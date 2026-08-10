@@ -1849,6 +1849,44 @@ test.describe('cpu saturation names its subject', () => {
         expect(cpuFact(decision).authoritative).toBe(false);
     });
 
+    test('AC-4 — a failed endpoint probe cannot promote a non-authoritative CPU fact', () => {
+        const decision = createService().diagnose({
+            serviceKey   : 'orchestrator',
+            nodeCommand  : true,
+            inspect      : runningInspect(),
+            statsSamples : sustainedCpu(),
+            endpointProbe: {
+                ok     : false,
+                message: 'timeout',
+                name   : 'healthcheck'
+            }
+        });
+
+        expect(cpuFact(decision).authoritative).toBe(false);
+        expect(decision.facts.filter(fact => fact.authoritative)).toHaveLength(0);
+        expect(decision.status).toBe('advisory');
+        expect(decision.actionClass ?? null).toBeNull();
+    });
+
+    test('AC-4 POSITIVE CONTROL — a failed endpoint probe still corroborates authoritative container CPU', () => {
+        const decision = createService().diagnose({
+            serviceKey   : 'chroma',
+            nodeCommand  : false,
+            inspect      : runningInspect(),
+            statsSamples : sustainedCpu(),
+            endpointProbe: {
+                ok     : false,
+                message: 'timeout',
+                name   : 'healthcheck'
+            }
+        });
+
+        expect(cpuFact(decision).authoritative).toBe(true);
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.throttleShed);
+        expect(decision.diagnosis.details.classificationReason).toBe('resource-exhaustion');
+    });
+
     test('AC-5 — the two subject rules are CO-LOCATED, not merely consistent', () => {
         // The layout defect this ticket exists to close: the memory path grew a subject check and CPU
         // kept the container ratio four lines away with nothing between them saying so. A guard on the

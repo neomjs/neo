@@ -990,16 +990,16 @@ export class ContainerHealthDiagnosisService extends Base {
     }
 
     /**
-     * Checks whether a primary fact set crosses the configured multi-fact threshold.
+     * Checks whether an authoritative primary fact crosses a configured corroboration path.
      * @param {Object[]} primaryFacts Primary candidate facts.
      * @param {Object[]} allFacts All collected facts.
      * @returns {Boolean}
      */
     hasAuthoritativeEvidence(primaryFacts, allFacts) {
-        if (primaryFacts.length === 0) return false;
+        if (!primaryFacts.some(fact => fact.authoritative)) return false;
 
         return this.countAuthoritativeFacts(allFacts) >= this.configValues.minAuthoritativeFacts ||
-            (primaryFacts.length > 0 && allFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.endpointProbeFailed));
+            allFacts.some(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.endpointProbeFailed);
     }
 
     /**
