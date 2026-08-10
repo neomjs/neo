@@ -196,6 +196,23 @@ export function knobLeafPaths(knob) {
 }
 
 /**
+ * @summary The leaf→environment bindings a knob delivers through, resolved from the registry.
+ *
+ * **This exists so a consumer never has to take an env key from a record it was handed.** The renderer
+ * downstream accepts any uppercase identifier, so a record carrying its own `env` field would let a
+ * forged prescription for one knob write an arbitrary numeric config key. The binding is registry
+ * property, and this accessor is the only sanctioned way to learn it — same reason
+ * {@link knobRequiredContext} exists: adding or rebinding a leaf must not require editing the caller.
+ * @param {String} knob
+ * @returns {Array<{path: String, env: String}>} Empty for an unknown knob — gate on {@link isKnownKnob}.
+ */
+export function knobEnvBindings(knob) {
+    return isKnownKnob(knob)
+        ? RECOVERY_KNOBS[knob].leaves.map(leaf => ({path: leaf.path, env: leaf.env}))
+        : []
+}
+
+/**
  * @summary The leaf paths a caller must resolve and pass as `context` before a knob can be validated.
  *
  * These are leaves the knob does not change but is bounded by. Exposed so the actuator can resolve
