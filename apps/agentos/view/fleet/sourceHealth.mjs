@@ -176,31 +176,39 @@ export function mapFleetSessionHealth(lifecycle, sources) {
  * @summary Resolve one roster row's display state as ONE atomic honesty contract shared by the
  * AgentCard and the HealthBar, so the card grain and the glance tally can never diverge.
  *
- * The vocabulary distinguishes participation truth from session truth:
- * - **Wired runtime** → the row's `state` IS session truth (observed/inferred) and renders as-is.
- * - **Not-wired + `state: 'off'`** → a first-party participation fact (operator-benched, e.g.
- *   identityRoots `operator_benched`) — renders `off` (`benched / offline`), never softened.
- * - **Not-wired + any other state** → participation-active with NO session observation (the
- *   derived sample path) — renders `unobserved`: no liveness is claimed and no benched verdict
- *   is claimed. Rendering it `off` would be a false participation claim; rendering it `ok`
- *   would fabricate session liveness. `unobserved` is the honest third answer.
+ * The vocabulary distinguishes participation truth from session truth, under one invariant:
+ * **supervision vocabulary renders only where supervision exists (a wired runtime)** — the
+ * operator-ratified default-state contract; un-managed is the NORMAL topology on FM-as-client
+ * deployments and must never read as a supervision verdict or carry attention weight.
+ * - **Wired runtime** → the row's `state` IS session truth (observed/inferred) and renders as-is —
+ *   including `off` (`benched / offline`): a process Fleet manages and knows to be stopped.
+ * - **Not-wired + `state: 'off'`** (and unknown / guest / missing rows, which are equally outside
+ *   any supervision contract) → `external`: the seat runs in its own harness; Fleet manages
+ *   nothing here, so no benched/offline verdict exists to claim. The previous mapping rendered
+ *   these `off` — the falsified copy ("offline" about agents visibly merging PRs) this partition
+ *   retires.
+ * - **Not-wired + any other canonical state** → participation-active with NO session observation
+ *   (the derived sample path) — renders `unobserved`: no liveness is claimed and no benched
+ *   verdict is claimed. Rendering it `off` would be a false participation claim; rendering it
+ *   `ok` would fabricate session liveness.
  * @param {Object} data
  * @param {String|null} [data.state] The row's raw state field.
  * @param {Object|null} [data.sources] The row's source facts (normalized here; malformed fails closed).
- * @returns {String} `ok` · `idle` · `wedged` · `limited` · `off` · `unobserved`
+ * @returns {String} `ok` · `idle` · `wedged` · `limited` · `off` · `unobserved` · `external`
  */
 export function resolveFleetDisplayState({state, sources} = {}) {
     if (normalizeFleetSources(sources).runtime.state === 'wired') {
         return state ?? 'off'
     }
 
-    // unknown / guest / missing rows are not participation-active: they fold to `off`, matching
-    // the grid's benched tier — `unobserved` belongs only to canonical states.
-    if (!CARD_STATES.includes(state)) {
-        return 'off'
+    // unknown / guest / missing rows sit outside any supervision contract exactly like an
+    // explicit un-managed `off` — both resolve `external` (the grid's raw-state tail tiering is
+    // unaffected: it reads `agent.state`, never this display value).
+    if (!CARD_STATES.includes(state) || state === 'off') {
+        return 'external'
     }
 
-    return state === 'off' ? 'off' : 'unobserved'
+    return 'unobserved'
 }
 
 /**

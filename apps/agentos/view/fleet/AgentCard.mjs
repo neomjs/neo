@@ -38,8 +38,9 @@ import {describeTelltale}                        from './telltale.mjs';
  *   lifecycle **actions** right-aligned;
  * - **work-row** — the current lane, two-line clamped with head+tail middle elision so two lanes
  *   sharing a prefix still distinguish by their preserved tail (the narrow-density falsifier);
- * - **strip** — ONE honest source word-line ("all sources nominal" / "REP not nominal"), retiring
- *   the three 9px markers; full facts stay reachable via the drill (detail), never hover-only.
+ * - **strip** — the exception-only source word-line: nominal renders NOTHING (zero-pixel doctrine);
+ *   an abnormal source renders its full-word NAME ("Runtime not nominal"), retiring the three 9px
+ *   markers; full facts stay reachable via the drill (detail), never hover-only.
  *
  * **Width modes are card-owned** (SCSS `@container`): narrow (<320px) scales the avatar to 32px,
  * hides the engine tag, and grows the inline lifecycle verbs to a 44px touch target — they stay
@@ -441,6 +442,9 @@ class AgentCard extends Container {
         // the source strip: ONE honest word-line, a PURE role=status — no ▸/disclosure affordance on a
         // non-interactive node (the card-name drill → detail IS the disclosure route). The level cls
         // colours the ::before dot; summary.text is a controlled literal from summarizeFleetSources.
+        // EXCEPTION-ONLY: nominal earns zero pixels (the cockpit's own doctrine, operator-falsified
+        // when this line rendered "all sources nominal" permanently) — the strip exists exactly when
+        // a source is abnormal and NAMES it; full facts stay reachable via the drill.
         // Rendered as an inert `text` node, NEVER `html`: that literal is safe only because the
         // summariser composes it from a frozen label map over a hardcoded key order, so `html` would
         // make safety a property the summariser must preserve forever rather than one the card cannot
@@ -450,8 +454,9 @@ class AgentCard extends Container {
         const strip = me.getReference('source-strip');
 
         strip.set({
-            cls : ['fm-card-strip', `fm-strip-${summary.level}`],
-            text: summary.text
+            cls   : ['fm-card-strip', `fm-strip-${summary.level}`],
+            hidden: summary.level === 'ok',
+            text  : summary.level === 'ok' ? '' : summary.text
         });
         strip.changeVdomRootKey('aria-label', summary.ariaLabel);
 

@@ -3,12 +3,22 @@ import HealthSwatch from './HealthSwatch.mjs';
 import {resolveFleetDisplayState} from './sourceHealth.mjs';
 
 /**
- * Canonical category order for the health summary — the six session-state buckets in the SSOT
- * legend order (working · idle · wedged · rate-limited · unobserved · benched/offline). One
- * vocabulary shared with {@link HealthSwatch} / {@link StateDot} on the agent-health axis.
+ * Canonical category order for the health summary — the seven session-state buckets in the SSOT
+ * legend order (working · idle · wedged · rate-limited · unobserved · external · benched/offline).
+ * One vocabulary shared with {@link HealthSwatch} / {@link StateDot} on the agent-health axis.
  * @type {String[]}
  */
-const HEALTH_ORDER = ['ok', 'idle', 'wedged', 'limited', 'unobserved', 'off'];
+const HEALTH_ORDER = ['ok', 'idle', 'wedged', 'limited', 'unobserved', 'external', 'off'];
+
+/**
+ * The display states that carry ATTENTION weight — the ones an operator should act on. Everything
+ * else is calm: `external` seats are the normal FM-as-client topology, `unobserved` claims nothing,
+ * and `ok`/`idle` are nominal. The bar derives its aggregate nominal/attention class from these, so
+ * a fleet of un-managed seats with nominal sources reads GREEN — the operator-ratified
+ * default-state contract (a header that is always yellow trains the operator to ignore it).
+ * @type {String[]}
+ */
+const ATTENTION_STATES = Object.freeze(['wedged', 'limited']);
 
 /**
  * @summary Pure fleet → per-category counts — the scale-to-a-glance tally.
@@ -23,17 +33,31 @@ const HEALTH_ORDER = ['ok', 'idle', 'wedged', 'limited', 'unobserved', 'off'];
  */
 export function healthCounts(agents) {
     const list   = Array.isArray(agents) ? agents : [],
-          counts = {ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, off: 0};
+          counts = {ok: 0, idle: 0, wedged: 0, limited: 0, unobserved: 0, external: 0, off: 0};
 
     list.forEach(agent => {
-        // canonical state → its own bucket; anything else (guest/unknown/absent) → off, never a 7th key
+        // canonical display state → its own bucket; a non-bucket value (transitional
+        // starting/stopping never reaches the tally, but fail closed anyway) → external, matching
+        // the resolver's own outside-supervision fold — never an invented benched verdict
         const resolved = resolveFleetDisplayState({state: agent?.state, sources: agent?.sources}),
-              key      = Object.hasOwn(counts, resolved) ? resolved : 'off';
+              key      = Object.hasOwn(counts, resolved) ? resolved : 'external';
 
         counts[key] += 1
     });
 
     return counts
+}
+
+/**
+ * @summary Pure counts → aggregate attention verdict: `true` when any attention-weighted bucket is
+ * non-zero. `external`/`unobserved`/`off` deliberately carry no weight — un-managed seats are the
+ * normal topology, and a managed-stopped seat is a fact, not an alarm. Exported for the header's
+ * nominal/attention class and unit-provable in isolation.
+ * @param {Object} counts The {@link #healthCounts} result.
+ * @returns {Boolean}
+ */
+export function hasAttention(counts) {
+    return ATTENTION_STATES.some(state => (counts?.[state] ?? 0) > 0)
 }
 
 /**
@@ -182,14 +206,21 @@ class HealthBar extends Container {
 
     /**
      * @summary Push the current per-category counts onto the stable swatch instances — in place, so
-     * the transition animates rather than the bar rebuilding.
+     * the transition animates rather than the bar rebuilding — and reflect the aggregate verdict as
+     * the nominal/attention class pair the skin colours (calm green when nothing needs an operator,
+     * attention only for states one should act on).
      */
     applyCounts() {
-        const counts = healthCounts(this.store?.items ?? []);
+        let me     = this,
+            counts = healthCounts(me.store?.items ?? []),
+            alert  = hasAttention(counts);
 
-        this.items.forEach(swatch => {
+        me.items.forEach(swatch => {
             swatch.count = counts[swatch.state] ?? 0
-        })
+        });
+
+        me.toggleCls('fm-health-attention', alert);
+        me.toggleCls('fm-health-nominal', !alert)
     }
 }
 
