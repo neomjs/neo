@@ -785,7 +785,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(result).toEqual([[1, 0], [1, 1], [2, 0], [2, 1], [3, 0]]);
     });
 
-    test('the residency preflight is a POINT CHECK licensing N requests — eviction after it is invisible (#14154)', async () => {
+    test('the residency preflight is a POINT CHECK licensing N requests — eviction after it is invisible (#16852)', async () => {
         serverBehavior = 'resident-then-evicted';
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 1;
         aiConfig.openAiCompatible.unloadRetryCount        = 1;
@@ -828,7 +828,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount, 'chunk 1 succeeded, chunk 2 + its retry both 404').toBe(3);
     });
 
-    test('a model that was NEVER resident keeps the configuration-fault code (#14154)', async () => {
+    test('a model that was NEVER resident keeps the configuration-fault code (#16852)', async () => {
         serverBehavior = 'fail-all-404';
 
         // Preflight finds nothing loaded, so the operation never observes residency. This is the
