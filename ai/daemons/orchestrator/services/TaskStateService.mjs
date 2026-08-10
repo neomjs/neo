@@ -18,7 +18,14 @@ export function createInitialTaskState(taskDefinitions) {
             lastReason            : null,
             lastCompletion        : null,
             failureStreakStartedAt: null,
-            interruptedAt         : null
+            // The sibling of `failureStreakStartedAt`, for the opposite condition: a task that keeps
+            // being DEFERRED rather than keeps failing. Durable because the question it answers — how
+            // long has this task been unable to run — outlives the process that measured it, and the
+            // in-memory streak map it shadows resets on every restart. A starvation that spans a daemon
+            // restart reported a fresh streak, which is how an 8.5-hour priority-0 starvation stayed
+            // invisible while every sweep read healthy.
+            deferralStreakStartedAt: null,
+            interruptedAt          : null
         };
         return state;
     }, {});
@@ -49,6 +56,32 @@ export function createInitialTaskState(taskDefinitions) {
 export function openFailureStreak(state, timestamp) {
     state.lastErrorAt             = timestamp;
     state.failureStreakStartedAt ??= timestamp;
+}
+
+/**
+ * @summary Opens a task's deferral streak once, at the first deferral after it last ran.
+ *
+ * The deliberate mirror of {@link openFailureStreak}, for the condition that lane never covers: a task
+ * that is repeatedly **deferred** rather than repeatedly failing. A deferred task records no failure, so
+ * `failureStreakStartedAt` stays null and every sweep reads healthy while the task never runs — which is
+ * the shape of an 8.5-hour priority-0 starvation nobody saw.
+ *
+ * **`??=` is the whole contract, for the same reason it is in the failure sibling.** The streak marks
+ * when the task last became unable to run and must not move while it stays that way. A field that
+ * advanced with each deferral would make the elapsed window reset on every poll, so a starvation
+ * threshold measured from it could never be crossed — an alarm that is structurally unreachable is
+ * worse than none, because the absence of it reads as evidence of health.
+ *
+ * Closed by {@link TaskStateService#markStarted}: a task that starts is, by definition, no longer
+ * deferred. That is the single close point, and it already exists as the universal "this task is running
+ * now" writer — so no second opinion about what ends a streak can drift in.
+ *
+ * @param {Object} state A single task's state envelope, mutated in place.
+ * @param {String} timestamp ISO timestamp of the deferral.
+ * @returns {void}
+ */
+export function openDeferralStreak(state, timestamp) {
+    state.deferralStreakStartedAt ??= timestamp;
 }
 
 /**
@@ -229,6 +262,12 @@ export class TaskStateService extends Base {
         state.running    = true;
         state.lastRunAt  = Date.now();
         state.lastReason = reason;
+        // A task that starts is no longer deferred, so this is where the streak closes — and it closes
+        // here rather than anywhere else because this is already the universal "this task is running now"
+        // writer. Clearing it at the deferral site instead would need every future deferral path to
+        // remember to, which is the second-opinion drift `openFailureStreak`'s docblock records paying
+        // for once already.
+        state.deferralStreakStartedAt = null;
         this.writeState();
     }
 
@@ -304,6 +343,32 @@ export class TaskStateService extends Base {
         state.lastExitCode = null;
         state.lastCompletion = lastCompletion;
         this.writeState();
+    }
+
+    /**
+     * @summary Records that a task was DEFERRED, opening its durable deferral streak.
+     *
+     * Separate from {@link TaskStateService#markSkipped} because a skip and a deferral are different
+     * facts: a skip can mean *nothing to do* — a repo already current, an empty queue — and a task that
+     * is idle for lack of work is not starved. Hanging the streak off every skip would make an idle lane
+     * indistinguishable from a blocked one, which is the conflation this measurement exists to end.
+     *
+     * Writes only the streak. The deferral's own reporting stays with the recorder that owns it; this is
+     * the durable half, so the answer survives the process that observed it.
+     *
+     * @param {String} taskName
+     * @param {String} [deferredAt=new Date().toISOString()] ISO timestamp of THIS deferral.
+     * @returns {String|null} The streak start after the write — the first deferral's timestamp, not this one.
+     */
+    markDeferred(taskName, deferredAt = new Date().toISOString()) {
+        const state = this.taskState[taskName];
+
+        if (!state) return null;
+
+        openDeferralStreak(state, deferredAt);
+        this.writeState();
+
+        return state.deferralStreakStartedAt;
     }
 
     /**
