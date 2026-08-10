@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 49,
+            "remainingUniqueKeys": 54,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",
@@ -68,7 +68,6 @@
             ],
             "optionalOverrides": [
                 "NEO_AUTH_ALLOWED_CLIENT_IDS",
-                "NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS",
                 "NEO_AUTH_ALLOWED_USERS",
                 "NEO_AUTH_GITHUB_API_BASE_URL",
                 "NEO_AUTH_GITLAB_API_BASE_URL",
@@ -78,6 +77,7 @@
                 "NEO_AUTH_PAT_VALIDATION_TIMEOUT_MS",
                 "NEO_AUTH_PORT",
                 "NEO_AUTH_REALM",
+                "NEO_DEPLOYMENT_STATE_BRIDGE_DIRECT_PROBE_URLS",
                 "NEO_EMBEDDING_PROVIDER",
                 "NEO_KB_ASK_BASE_URL",
                 "NEO_KB_ASK_MAX_RPM",
@@ -88,13 +88,18 @@
                 "NEO_MEMORY_WAL_POLL_INTERVAL_MS",
                 "NEO_MESSAGE_WAL_POLL_INTERVAL_MS",
                 "NEO_MODEL_PROVIDER",
+                "NEO_OAUTH_CLIENT_ID",
+                "NEO_OLLAMA_EMBEDDING_MODEL",
+                "NEO_OLLAMA_EMBEDDING_TIMEOUT_MS",
+                "NEO_OLLAMA_HOST",
                 "NEO_OLLAMA_KEEP_ALIVE",
+                "NEO_OLLAMA_MODEL",
+                "NEO_OLLAMA_REQUIRE_PARALLEL_MODELS",
                 "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
                 "NEO_OPENAI_COMPATIBLE_HOST",
                 "NEO_OPENAI_COMPATIBLE_KEEP_ALIVE",
                 "NEO_OPENAI_COMPATIBLE_MODEL",
-                "NEO_SUPERVISED_TASK_HEAP_MB",
-                "NEO_OAUTH_CLIENT_ID"
+                "NEO_SUPERVISED_TASK_HEAP_MB"
             ],
             "secrets": [
                 "NEO_KB_ASK_API_KEY",
