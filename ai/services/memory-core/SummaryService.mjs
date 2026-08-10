@@ -1,5 +1,6 @@
 import aiConfig                                                 from '../../mcp/server/memory-core/config.mjs';
 import {isCollectionQuarantined}                                from './helpers/quarantineStore.mjs';
+import {resolveSharingPolicy}                                   from './helpers/resolveSharingPolicy.mjs';
 import Base                                                     from '../../../src/core/Base.mjs';
 import StorageRouter                                            from './managers/StorageRouter.mjs';
 import logger                                                   from '../../mcp/server/memory-core/logger.mjs';
@@ -398,7 +399,11 @@ class SummaryService extends Base {
             // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
+            // Narrow-only: see resolveSharingPolicy — a public `memorySharing` must not widen scope.
+            const {policy} = resolveSharingPolicy({
+                configuredDefault: aiConfig.memorySharing.defaultPolicy,
+                requested        : memorySharing
+            });
 
             // 'private' restricts to the caller's own records via a DB-where. 'team' and 'legacy' are
             // additive (caller-owned + 'shared' + untagged commons): the team commons is currently
