@@ -22,6 +22,10 @@ import {
     createProviderActivityStatusWriter,
     resolveProviderActivityStatusFile
 } from '../../../../../../ai/services/shared/providerActivityStatusStore.mjs';
+import {
+    ensureEmbeddingIdentitySchema,
+    recordEmbeddingSubmissions
+} from '../../../../../../ai/services/shared/embeddingIdentityLedger.mjs';
 
 test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
     test.describe.configure({mode: 'serial'});
@@ -84,6 +88,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
     test.beforeEach(() => {
         MemoryCoreRecorderService.db.exec('DELETE FROM mc_tool_call_log;');
         MemoryCoreRecorderService.db.exec('DELETE FROM provider_activity_log;');
+        MemoryCoreRecorderService.db.exec('DELETE FROM embedding_identity_log;');
+        MemoryCoreRecorderService.db.exec('DELETE FROM embedding_identity_state;');
+        ensureEmbeddingIdentitySchema(MemoryCoreRecorderService.db, {
+            now: () => Date.now() - 3_600_000
+        });
     });
 
     test.afterAll(async () => {
@@ -370,7 +379,8 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             // The denominator. `providerActivity` alone cannot distinguish a busy ingestion from a
             // lane burning against an empty backlog, and this key set is the declared surface — so
             // the addition is recorded here rather than the pin loosened.
-            'walDrain'
+            'walDrain',
+            'reembedRatio'
         ]);
         expect(metrics.providerActivity).toMatchObject({
             status         : 'ok',
@@ -596,6 +606,11 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                     aggregates       : [],
                     inFlight         : [],
                     recentCompletions: []
+                },
+                reembedRatio: {
+                    status          : 'disabled',
+                    ratio           : null,
+                    oldestRetainedAt: null
                 }
             });
         } finally {
@@ -657,7 +672,8 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 }
 
                 return originalDb.prepare(sql);
-            }
+            },
+            transaction: originalDb.transaction.bind(originalDb)
         };
 
         MemoryCoreRecorderService.db = proxyDb;
@@ -676,6 +692,44 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;
+        }
+    });
+
+    test('independently downgrades the identity projection when its writer status is partial', () => {
+        const
+            originalDb     = MemoryCoreRecorderService.db,
+            kbFile         = resolveProviderActivityStatusFile(testDbPath, 'knowledge-base'),
+            originalStatus = fs.readFileSync(kbFile, 'utf8'),
+            proxyDb        = {
+                exec: originalDb.exec.bind(originalDb),
+                prepare(sql) {
+                    if (String(sql).includes('FROM provider_activity_log')) {
+                        throw new Error('provider projection unavailable');
+                    }
+
+                    return originalDb.prepare(sql);
+                },
+                transaction: originalDb.transaction.bind(originalDb)
+            },
+            partialStatus = {
+                ...JSON.parse(originalStatus),
+                lastFailureAt: Date.now()
+            };
+
+        fs.writeFileSync(kbFile, JSON.stringify(partialStatus));
+        MemoryCoreRecorderService.db = proxyDb;
+
+        try {
+            const metrics = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(metrics.providerActivity.status).toBe('partial');
+            expect(metrics.reembedRatio).toMatchObject({
+                status: 'partial',
+                reason: 'embedding-identity-writer-partial'
+            });
+        } finally {
+            MemoryCoreRecorderService.db = originalDb;
+            fs.writeFileSync(kbFile, originalStatus);
         }
     });
 
@@ -719,7 +773,8 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             exec() {
                 throw new Error('observer attempted schema DDL');
             },
-            prepare: originalDb.prepare.bind(originalDb)
+            prepare    : originalDb.prepare.bind(originalDb),
+            transaction: originalDb.transaction.bind(originalDb)
         };
 
         MemoryCoreRecorderService.db = proxyDb;
@@ -868,6 +923,62 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 .toBe(new Date(coverageStartedAt).toISOString());
         });
 
+        test('the metrics surface reads Knowledge Base identities from shared SQLite', () => {
+            // Compose runs KB and MC in separate processes. Writing through the shared producer
+            // seam proves the MC observer reads identities produced by KB's process.
+            const submittedAt = Date.now() - 1000;
+
+            recordEmbeddingSubmissions(MemoryCoreRecorderService.db, {
+                source: 'knowledge-base',
+                submittedAt,
+                texts : ['alpha', 'beta', 'alpha', 'beta']
+            });
+
+            const {reembedRatio} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(reembedRatio.status).toBe('ok');
+            expect(reembedRatio.ratio, 'four KB submissions for two distinct inputs').toBe(2);
+            expect(reembedRatio.submissions).toBe(4);
+            expect(reembedRatio.distinct).toBe(2);
+            expect(reembedRatio.oldestRetainedAt).toBe(new Date(submittedAt).toISOString());
+            expect(typeof reembedRatio.coverageStartedAt, 'epoch ms must not reach the wire raw').toBe('string');
+        });
+
+        test('old repeats outside sinceMs do not contaminate the current ratio', () => {
+            const now = Date.now();
+
+            recordEmbeddingSubmissions(MemoryCoreRecorderService.db, {
+                source     : 'knowledge-base',
+                submittedAt: now - 120_000,
+                texts      : ['old repeat', 'old repeat']
+            });
+            MemoryCoreRecorderService.recordEmbeddingSubmissions({
+                submittedAt: now - 1000,
+                texts      : ['current unique']
+            });
+
+            const {reembedRatio} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(reembedRatio).toMatchObject({
+                status     : 'ok',
+                distinct   : 1,
+                ratio      : 1,
+                submissions: 1,
+                truncated  : false
+            });
+        });
+
+        test('an observed but empty lookback reports null, never a no-repeat value', () => {
+
+            const {reembedRatio} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
+
+            expect(reembedRatio.status).toBe('ok');
+            expect(reembedRatio.ratio, 'no observed batch is not the same fact as no repetition').toBeNull();
+            expect(reembedRatio.submissions).toBe(0);
+            expect(reembedRatio.oldestRetainedAt).toBeNull();
+            expect(reembedRatio.reason).toBeNull();
+        });
+
         test('EVERY status arm carries the required walDrain field (@neo-gpt contract break)', () => {
             // The field is declared required on the response, but the telemetry-disabled and
             // db-unavailable arms returned early without it. OpenAPI and parity checks validate the
@@ -885,6 +996,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 expect(unavailable.walDrain.counts, 'still null, never zero').toBeNull();
                 expect(unavailable.walDrain.window).toBeNull();
                 expect(unavailable.walDrain.inProgress).toBeNull();
+                expect(unavailable.reembedRatio.oldestRetainedAt).toBeNull();
             } finally {
                 MemoryCoreRecorderService.db = originalDb;
             }

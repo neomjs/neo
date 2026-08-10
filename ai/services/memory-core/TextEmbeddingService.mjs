@@ -13,7 +13,6 @@ import {
     createProviderActivityLifecycle,
     observeUnqueuedProviderActivity
 }                           from '../shared/providerActivityLedger.mjs';
-import {createEmbeddingIdentityWindow}                                 from '../shared/embeddingIdentityWindow.mjs';
 import MemoryCoreRecorderService                                       from './MemoryCoreRecorderService.mjs';
 import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
 import {
@@ -223,6 +222,25 @@ function getEmbeddingModel(provider) {
     if (provider === 'gemini') return aiConfig.embeddingModel;
 
     return 'unknown';
+}
+
+/**
+ * @summary Records one admitted batch at the recorder that owns its current process.
+ *
+ * This is best-effort observability: a recorder failure must not change provider behavior. Calling
+ * it only at the final provider branch excludes invalid and pre-aborted requests from the ratio.
+ * @param {Object|null} recorder Process-local telemetry recorder.
+ * @param {String[]} texts Batch inputs admitted to provider work.
+ * @returns {void}
+ */
+function recordEmbeddingSubmissions(recorder, texts) {
+    if (typeof recorder?.recordEmbeddingSubmissions !== 'function') return;
+
+    try {
+        recorder.recordEmbeddingSubmissions({texts, submittedAt: Date.now()});
+    } catch (error) {
+        logger.warn('[TextEmbeddingService] Failed to record embedding identities:', error.message);
+    }
 }
 
 /**
@@ -530,12 +548,6 @@ class TextEmbeddingService extends Base {
          */
         openAiCompatibleLoadedModelsProbe: null
     }
-
-    // The re-embed ratio's identity half, recorded at the ONE point every embedding submission
-    // passes through regardless of provider or caller. Recording per-caller would answer "does this
-    // sweep repeat itself", which is not the question — a plane whose KB sync and WAL drain each
-    // converge can still be re-embedding the same content between them.
-    #embeddingIdentityWindow = createEmbeddingIdentityWindow();
 
     #openAiCompatiblePostQueue       = [];
     #openAiCompatiblePostQueueActive = false;
@@ -1253,21 +1265,6 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary The re-embed ratio over a bounded window: how much embedding work repeated content.
-     *
-     * Exposed for the metrics observer rather than as its own tool — the question "is this provider
-     * load explained by pending work?" needs this beside the drain receipt, not in a second place an
-     * operator has to know to look.
-     *
-     * Read it WITH `truncated` and `coverageStartedAt`. A `ratio` of null means nothing was observed,
-     * which is not the same fact as nothing repeated, and a truncated window is a partial answer.
-     * @returns {{coverageStartedAt: Number, distinct: Number, ratio: Number|null, submissions: Number, truncated: Boolean}}
-     */
-    getEmbeddingIdentityWindow() {
-        return this.#embeddingIdentityWindow.getWindow()
-    }
-
-    /**
      * @summary Runs native Ollama embedding while separating caller abort from provider settlement.
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
@@ -1275,10 +1272,11 @@ class TextEmbeddingService extends Base {
      * @param {Object} operation Mutable local-phase observability record.
      * @param {Object|null} providerActivityRecorder Best-effort telemetry sink.
      * @param {Object} providerActivity Bounded provider activity descriptor.
+     * @param {String[]|null} [identityTexts=null] Batch identities to record after provider validation.
      * @returns {Promise<Object>}
      * @private
      */
-    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity) {
+    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity, identityTexts = null) {
         const
             provider         = this.#getOllamaProvider(),
             dispatchModel    = provider.embeddingModel || provider.modelName || 'unknown',
@@ -1287,6 +1285,10 @@ class TextEmbeddingService extends Base {
 
         operation.phase = 'in-flight';
         throwIfEmbeddingAborted(signal, operationLabel, operation);
+
+        if (identityTexts !== null) {
+            recordEmbeddingSubmissions(providerActivityRecorder, identityTexts);
+        }
 
         const recordProviderFailure = error => {
             providerOutcome.state = 'rejected';
@@ -1392,7 +1394,11 @@ class TextEmbeddingService extends Base {
                 throw createEmbeddingBatchYieldError({completedChunkCount, totalChunkCount, chunkSize, data})
             }
 
-            const chunk  = texts.slice(offset, offset + chunkSize),
+            const chunk = texts.slice(offset, offset + chunkSize);
+
+            recordEmbeddingSubmissions(providerActivityRecorder, chunk);
+
+            const
                   result = await this.#enqueueOpenAiCompatiblePost(chunk, {
                       unloadRetriesLeft: unloadRetryCount,
                       requestTimeoutMs,
@@ -1558,11 +1564,6 @@ class TextEmbeddingService extends Base {
     async embedTexts(texts, explicitProvider, options = {}) {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
-        // Recorded on SUBMISSION, not on success. A sweep that re-submits the same content and fails
-        // every time is the exact non-convergence this ratio exists to surface, and counting only
-        // completions would hide the loop behind its own failures.
-        this.#embeddingIdentityWindow.recordSubmissions(texts);
-
         const defaultOperationLabel = explicitProvider === 'ollama'
                   ? 'TextEmbeddingService.embedTexts native Ollama embedding'
                   : `TextEmbeddingService.embedTexts ${explicitProvider} embedding`,
@@ -1606,7 +1607,8 @@ class TextEmbeddingService extends Base {
                     signal,
                     operation,
                     providerActivityRecorder,
-                    providerActivity
+                    providerActivity,
+                    texts
                 );
                 return result.embeddings || [];
             } else if (explicitProvider === 'gemini') {
@@ -1623,7 +1625,10 @@ class TextEmbeddingService extends Base {
                 const requestModel  = aiConfig.embeddingModel;
                 const dispatchModel = endpointModel || 'unknown';
                 const requests      = texts.map(text => ({model: requestModel, content: {parts: [{text}]}}));
-                const result        = await observeUnqueuedProviderActivity({
+
+                recordEmbeddingSubmissions(providerActivityRecorder, texts);
+
+                const result = await observeUnqueuedProviderActivity({
                     recorder: providerActivityRecorder,
                     activity: {
                         ...providerActivity,

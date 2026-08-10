@@ -28,7 +28,7 @@ test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
     });
 
     test.beforeEach(() => {
-        KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs; DELETE FROM provider_activity_log;');
+        KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs; DELETE FROM provider_activity_log; DELETE FROM embedding_identity_log;');
     });
 
     test.afterAll(() => {
@@ -44,11 +44,35 @@ test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
             SELECT name
               FROM sqlite_master
              WHERE type = 'table'
-               AND name IN ('kb_query_log', 'kb_query_faqs', 'provider_activity_log')
+               AND name IN ('embedding_identity_log', 'kb_query_log', 'kb_query_faqs', 'provider_activity_log')
         `).all();
 
-        expect(tables.map(row => row.name).sort()).toEqual(['kb_query_faqs', 'kb_query_log', 'provider_activity_log']);
+        expect(tables.map(row => row.name).sort()).toEqual([
+            'embedding_identity_log',
+            'kb_query_faqs',
+            'kb_query_log',
+            'provider_activity_log'
+        ]);
         expect(KBRecorderService.db.pragma('busy_timeout', {simple: true})).toBe(50);
+    });
+
+    test('writes batch identities with recorder-owned Knowledge Base attribution', () => {
+        KBRecorderService.recordEmbeddingSubmissions({
+            submittedAt: 1234,
+            texts      : ['alpha', 'beta']
+        });
+
+        const rows = KBRecorderService.db.prepare(`
+            SELECT source, submitted_at, fingerprint
+              FROM embedding_identity_log
+             ORDER BY fingerprint
+        `).all();
+
+        expect(rows).toHaveLength(2);
+        expect(rows.every(row => row.source === 'knowledge-base')).toBe(true);
+        expect(rows.every(row => row.submitted_at === 1234)).toBe(true);
+        expect(JSON.stringify(rows)).not.toContain('alpha');
+        expect(JSON.stringify(rows)).not.toContain('beta');
     });
 
     test('writes bounded Knowledge Base provider activity into the shared ledger shape', () => {

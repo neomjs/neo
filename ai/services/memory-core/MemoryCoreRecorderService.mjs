@@ -6,6 +6,11 @@ import config                from '../../mcp/server/memory-core/config.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {
+    ensureEmbeddingIdentitySchema,
+    getEmbeddingIdentityWindow,
+    recordEmbeddingSubmissions as persistEmbeddingSubmissions
+}                            from '../shared/embeddingIdentityLedger.mjs';
+import {
     beginProviderActivity,
     completeProviderActivity,
     ensureProviderActivitySchema,
@@ -34,6 +39,30 @@ const SENSITIVE_PAYLOAD_KEYS = new Set([
  * @type {Number}
  */
 export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS;
+
+/**
+ * @summary Builds an explicit empty re-embed-ratio state.
+ *
+ * `ratio` stays null on every arm — never 1. One is the value of a CONVERGING run, so defaulting it
+ * would tell an operator "no repetition" for a process that has not looked, which is the same false
+ * zero the drain receipt above refuses. Every field the response declares is present on every arm,
+ * because a required field omitted on a status branch is a wire break a schema check cannot see.
+ * @param {'disabled'|'unavailable'|'partial'} status Availability state.
+ * @param {String} reason Why no observation is available.
+ * @returns {Object}
+ */
+function emptyReembedRatio(status, reason) {
+    return {
+        status,
+        reason,
+        coverageStartedAt: null,
+        distinct         : null,
+        oldestRetainedAt : null,
+        ratio            : null,
+        submissions      : null,
+        truncated        : null
+    }
+}
 
 /**
  * @summary Builds the no-observation WAL-drain shape, in full.
@@ -250,6 +279,7 @@ class MemoryCoreRecorderService extends Base {
         }
 
         ensureProviderActivitySchema(this.db);
+        ensureEmbeddingIdentitySchema(this.db);
     }
 
     /**
@@ -511,6 +541,32 @@ class MemoryCoreRecorderService extends Base {
     }
 
     /**
+     * @summary Persists identities for batch embedding work admitted by Memory Core.
+     *
+     * The recorder owns the low-cardinality source stamp. Text is reduced to fingerprints by the
+     * shared ledger and telemetry failure remains behavior-neutral for the embedding call.
+     * @param {Object} options Batch identity options.
+     * @param {String[]} [options.texts=[]] Admitted batch inputs.
+     * @param {Number} [options.submittedAt=Date.now()] Admission instant.
+     * @returns {void}
+     */
+    recordEmbeddingSubmissions({texts = [], submittedAt = Date.now()} = {}) {
+        if (!config.toolTelemetry.enabled || !this.db) return;
+
+        try {
+            persistEmbeddingSubmissions(this.db, {
+                source: 'memory-core',
+                submittedAt,
+                texts
+            });
+            this.providerActivityStatusWriter?.publishSuccess(Date.now());
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[MemoryCoreRecorderService] Failed to persist embedding identity telemetry:', error.message);
+        }
+    }
+
+    /**
      * @summary Awaits queued atomic provider-status publication for deterministic tests and shutdowns.
      * @returns {Promise<void>}
      */
@@ -552,7 +608,8 @@ class MemoryCoreRecorderService extends Base {
                 unfinishedCalls : [],
                 recentSlowCalls : [],
                 providerActivity: emptyProviderActivity('disabled'),
-                walDrain        : emptyWalDrain('disabled', 'tool-telemetry-disabled')
+                walDrain        : emptyWalDrain('disabled', 'tool-telemetry-disabled'),
+                reembedRatio    : emptyReembedRatio('disabled', 'tool-telemetry-disabled')
             };
         }
 
@@ -568,7 +625,8 @@ class MemoryCoreRecorderService extends Base {
                 unfinishedCalls : [],
                 recentSlowCalls : [],
                 providerActivity: emptyProviderActivity('unavailable'),
-                walDrain        : emptyWalDrain('unavailable', 'tool-telemetry-unavailable')
+                walDrain        : emptyWalDrain('unavailable', 'tool-telemetry-unavailable'),
+                reembedRatio    : emptyReembedRatio('unavailable', 'tool-telemetry-unavailable')
             };
         }
 
@@ -635,7 +693,8 @@ class MemoryCoreRecorderService extends Base {
             providerActivity = emptyProviderActivity('partial');
         }
 
-        const walDrain = this.getWalDrainProjection({sinceTs, now});
+        const walDrain     = this.getWalDrainProjection({sinceTs, now});
+        let   reembedRatio = this.getReembedRatioProjection({sinceTs});
 
         const sidecarStatus = inspectProviderActivityStatus({
             dbPath: config.storagePaths.graph,
@@ -644,8 +703,18 @@ class MemoryCoreRecorderService extends Base {
 
         if (sidecarStatus === 'unavailable') {
             providerActivity = emptyProviderActivity('unavailable');
-        } else if (sidecarStatus === 'partial' && providerActivity.status === 'ok') {
-            providerActivity.status = 'partial';
+            reembedRatio = emptyReembedRatio('unavailable', 'embedding-identity-writer-unavailable');
+        } else if (sidecarStatus === 'partial') {
+            if (providerActivity.status === 'ok') {
+                providerActivity.status = 'partial';
+            }
+            if (reembedRatio.status === 'ok') {
+                reembedRatio = {
+                    ...reembedRatio,
+                    status: 'partial',
+                    reason: 'embedding-identity-writer-partial'
+                };
+            }
         }
 
         return {
@@ -680,7 +749,8 @@ class MemoryCoreRecorderService extends Base {
                 failureStage: row.failure_stage ?? null
             })),
             providerActivity,
-            walDrain
+            walDrain,
+            reembedRatio
         };
     }
 
@@ -766,6 +836,45 @@ class MemoryCoreRecorderService extends Base {
                 truncated        : window.truncated === true
             } : null
         };
+    }
+
+    /**
+     * @summary The re-embed ratio, or an explicit reason there is none.
+     *
+     * Fails closed exactly like the drain projection: missing shared coverage reports an explicit
+     * degraded state, never a ratio of 1. One can describe a no-repeat window, so defaulting it would
+     * report "no repetition" for a plane that never looked.
+     *
+     * The ratio is a denominator for a judgement, never the judgement. Read it with `truncated` and
+     * `coverageStartedAt`: a bounded window that evicted, or one younger than the caller's interest,
+     * is a partial answer. A value above 1 is normal for a corpus with honestly duplicated content.
+     * @param {Object} options Projection options.
+     * @param {Number} options.sinceTs Inclusive lookback boundary shared with provider activity.
+     * @returns {Object}
+     */
+    getReembedRatioProjection({sinceTs} = {}) {
+        try {
+            const window = getEmbeddingIdentityWindow(this.db, {sinceTs});
+
+            return {
+                status           : 'ok',
+                reason           : null,
+                coverageStartedAt: Number.isFinite(window.coverageStartedAt)
+                    ? new Date(window.coverageStartedAt).toISOString()
+                    : null,
+                distinct        : window.distinct,
+                oldestRetainedAt: Number.isFinite(window.oldestRetainedAt)
+                    ? new Date(window.oldestRetainedAt).toISOString()
+                    : null,
+                ratio      : window.ratio,
+                submissions: window.submissions,
+                truncated  : window.truncated === true
+            }
+        } catch (error) {
+            logger.warn('[MemoryCoreRecorderService] Failed to read the re-embed ratio:', error.message);
+
+            return emptyReembedRatio('partial', `reembed-ratio-unreadable: ${error.message}`);
+        }
     }
 }
 
