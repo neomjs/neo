@@ -499,8 +499,17 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
             && receipt.attemptId !== priorState?.lastCommittedMaterializationAttemptId;
 
     // These two arms are OPPOSITE findings and they used to share one code and one message. The
-    // message described the second arm, so an operator hitting the first was told the reverse of
-    // what happened — observed live with `ingested=50, embeddings=50, errors=0` and no receipt.
+    // message described the second arm, so an operator hitting the first would be told the reverse of
+    // what happened.
+    //
+    // **Asymmetric warrant, stated because it governs how much this is worth trusting.** The
+    // zero-effect arm below is the observed one — `ingested=0` with no committed proof is what the
+    // live `ingested=50, embeddings=50, errors=0`-with-no-receipt report reduces to once you notice
+    // the receipt was ABSENT rather than mismatched. The effect-bearing arm above is
+    // defence-in-depth: no known producer path delivers effect-plus-unmatched-proof, because
+    // `persistManifestSnapshot` mints a matching receipt on positive effect and reuses a prior one
+    // only on a digest match. It is refused here because a fail-closed guard must refuse it, not
+    // because it has been seen.
     //
     // They are separate CODES rather than one code plus a discriminating field because the durable
     // per-repo state persists `lastErrorCode` alone; there is no `lastErrorDetails` in `ai/`, so a

@@ -1258,7 +1258,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     // The two demand opposite responses, which is why a shared code is not a cosmetic problem:
     // UNPROVEN means the data is in and the proof is missing, so DO NOT re-ingest; EMPTY means
     // nothing arrived and the embed stage is where to look.
-    test('an effect WITHOUT proof is a distinct code from an empty materialization', async () => {
+    test('INVARIANT BREACH — effect with unmatched proof is refused under its OWN code, not the empty one', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),
             repoSlug         = 'org/effect-without-receipt';
@@ -1288,10 +1288,19 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             // reachable steady state, and a fixture asserting it would be testing a shape production
             // cannot produce.
             //
-            // The reachable shape is a receipt that EXISTS and does not prove this envelope: a
-            // digest mismatch, which is one of the documented reasons production skips receipt
-            // creation. `validReceipt` is false, so `provesCurrentAttempt` is false while the ingest
-            // really happened.
+            // **So this double is an explicit INVARIANT-BREACH INJECTION, not a reachable
+            // production shape, and it must be read that way.** It hands the guard a receipt that
+            // exists and does not match this envelope's digest — a state no known producer path
+            // delivers, because `persistManifestSnapshot` mints a matching receipt on positive effect
+            // and reuses a prior one only when its digest already matches.
+            //
+            // An earlier revision of this comment called it "the reachable shape … one of the
+            // documented reasons production skips receipt creation." That was wrong: those reasons
+            // leave the receipt NULL, never mismatched, and @neo-gpt-emmy's exact-head read of the
+            // producer contract closed the route. The test therefore proves the GUARD refuses an
+            // invariant breach; it does not prove the breach occurs. Replace this double with the real
+            // producer and the mismatch disappears — which is the honest statement of its scope, and
+            // the reason a green here cannot be cited as evidence of a live failure mode.
             knowledgeBaseIngestionService: {
                 async getTenantManifest({tenantId, repoSlug}) {
                     return {tenantId, repoSlug, materializationReceipt: null}

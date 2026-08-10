@@ -21,8 +21,16 @@ export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC
 export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION';
 // The OTHER half of what `EMPTY_MATERIALIZATION` used to carry, and the opposite instruction.
 // A full materialization DID take effect — rows were ingested or deleted — but no receipt proves
-// this attempt, so the ingest is real and its proof is missing. Observed live with
-// `ingested=50, embeddings=50, errors=0` and no receipt.
+// this attempt, so the ingest is real and its proof is missing.
+//
+// **This arm is defence-in-depth, not a reproduction of a known incident, and the distinction is
+// load-bearing.** `persistManifestSnapshot` mints a fresh matching receipt for any valid
+// positive-effect attempt and reuses a prior one only when its digest already matches, so no current
+// producer path is known to deliver effect-plus-unmatched-proof. It is a genuine logical case of this
+// guard's own predicate and a state the guard must refuse if it ever arises — which is a different
+// and weaker warrant than "we have seen this". An earlier revision of this comment cited the live
+// `ingested=50, embeddings=50, errors=0` observation here; that incident had **no receipt at all**
+// rather than a mismatched one, so it belongs to the `EMPTY_MATERIALIZATION` side of the split.
 //
 // It is a separate CODE rather than a field on the existing one because the per-repo durable state
 // persists `lastErrorCode` and nothing else — there is no `lastErrorDetails` anywhere in `ai/`, so a
