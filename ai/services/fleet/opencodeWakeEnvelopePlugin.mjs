@@ -124,10 +124,15 @@ export const NeoWakeEnvelope = async (ctx) => {
         // Atomic private write: the secret-bearing tmp is born 0600, explicitly tightened in
         // case a stale tmp already exists, then renamed without ever exposing a permissive window.
         // The final chmod remains defense-in-depth for a pre-existing permissive destination.
+        // DELIBERATELY NOT the shared write-temp-then-rename primitive, and this one is not a
+        // semantic objection — it is a LOCATION one. This file is a PLANT: it is copied to
+        // `~/.config/opencode/plugins/` on the seat machine and executes OUTSIDE this repo, so a
+        // relative import of anything in `ai/` would fail to resolve at load time and take the whole
+        // wake-envelope route down. The hand-rolled pair is the price of being self-contained.
         const tmpPath = `${envelopePath}.${process.pid}.tmp`;
         await fs.writeFile(tmpPath, JSON.stringify(envelope, null, 2) + '\n', {mode: 0o600});
         await fs.chmod(tmpPath, 0o600);
-        await fs.rename(tmpPath, envelopePath);
+        await fs.rename(tmpPath, envelopePath); // atomic-write-ok: PLANT executed outside this repo; a relative import cannot resolve
         await fs.chmod(envelopePath, 0o600);
 
         await log('info', `wake envelope written for session ${sessionId} (port ${port})`);

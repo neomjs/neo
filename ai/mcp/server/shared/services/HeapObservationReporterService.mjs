@@ -4,6 +4,7 @@ import Base     from '../../../../../src/core/Base.mjs';
 import AiConfig from '../../../../config.mjs';
 
 import {collectProcessHeapObservation} from '../../../../services/shared/processHeapObservation.mjs';
+import {writeFileAtomicSync}           from '../../../../services/shared/atomicFileWrite.mjs';
 
 /**
  * @summary Publishes this process's own heap/non-heap observation on a cadence, so a sibling process
@@ -89,14 +90,8 @@ class HeapObservationReporterService extends Base {
      * @returns {Boolean} Whether the record reached disk.
      */
     writeOnce({serviceKey, dir, writeLog}) {
-        let staging = null;
-
         try {
-            const target = this.observationPath(serviceKey, dir);
-
-            staging = `${target}.${process.pid}.tmp`;
-
-            fs.outputJsonSync(staging, {
+            const record = {
                 schemaVersion: 1,
                 recordType   : 'process-heap-observation',
                 serviceKey,
@@ -105,18 +100,19 @@ class HeapObservationReporterService extends Base {
                 provenance : 'self-reported',
                 pid        : process.pid,
                 observation: collectProcessHeapObservation()
-            });
+            };
 
-            fs.renameSync(staging, target);
+            // Was a `${target}.${pid}.tmp` scratch: unique per process, but this reporter is called
+            // per service key within one process, so two keys racing shared the scratch.
+            writeFileAtomicSync(this.observationPath(serviceKey, dir), JSON.stringify(record, null, 2) + '\n');
 
             return true
         } catch (error) {
             // WARN, not ERROR: the channel degrading is a loss of visibility, and the reader's
             // staleness bound already reports that loss honestly as absence rather than as health.
             safely(() => writeLog?.('WARN', `[HeapObservationReporter] observation write FAILED for ${serviceKey}: ${error.message}. The heap/non-heap split is unobservable until this succeeds.`));
-            // Best effort, and its failure is silent by design: the only thing left to report a failed
-            // cleanup with is the logger that may itself be the reason we are here.
-            staging && safely(() => fs.removeSync(staging));
+            // The scratch cleanup that used to live here is now the primitive's `finally`, which runs
+            // on the failure path too — so there is no leaked sibling left for this block to remove.
 
             return false
         }

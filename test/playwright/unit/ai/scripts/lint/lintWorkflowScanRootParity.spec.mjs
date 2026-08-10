@@ -61,6 +61,11 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : ['test/**/*.mjs']
     },
+    'atomic-write-shape-lint.yml': {
+        scriptRel: 'buildScripts/util/check-atomic-write-shape.mjs',
+        source   : 'declared',
+        surface  : ['ai/**/*.mjs']
+    },
     'config-template-ssot-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',

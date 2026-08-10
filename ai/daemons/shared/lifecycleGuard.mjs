@@ -81,6 +81,10 @@ export async function enterLifecycleGuard({leasePath, fsModule, guardStaleAfterM
               ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
 
         try {
+            // NOT an atomic file write, despite sharing the `rename` verb with one. This renames a
+            // staging DIRECTORY onto the guard path, and the rename FAILING is the mutual exclusion:
+            // a loser gets ENOTEMPTY/EEXIST and retries. The shared write-temp-then-rename primitive
+            // writes a file and treats a failed rename as an error, so it cannot express this at all.
             await fsModule.mkdir(stagingPath);
             await fsModule.writeFile(path.join(stagingPath, ownerFileName), '', 'utf8');
             await fsModule.rename(stagingPath, guardPath);
@@ -196,6 +200,8 @@ export function enterLifecycleGuardSync({leasePath, fsModule, guardStaleAfterMs 
               ownerFileName = `${GUARD_OWNER_FILE_PREFIX}${token}`;
 
         try {
+            // Sync twin of the directory-rename mutex above — same reason it is not the shared
+            // atomic-write primitive: the rename target is a directory and its failure is the lock.
             fsModule.mkdirSync(stagingPath);
             fsModule.writeFileSync(path.join(stagingPath, ownerFileName), '', 'utf8');
             fsModule.renameSync(stagingPath, guardPath);

@@ -457,7 +457,11 @@ export async function writeValidatedManifest({manifest, targetPath}) {
         // re-implementing its rules here and letting the two drift.
         await loadWakeReceiverManifest(stagingPath);
 
-        await fs.rename(stagingPath, targetPath)
+        // DELIBERATELY NOT the shared write-temp-then-rename primitive. The validation directly above
+        // reads the STAGED file and must run between the write and the rename — that ordering is what
+        // stops an unusable manifest from ever becoming the live one. The primitive collapses the two
+        // into a single call, leaving nowhere for the check to stand.
+        await fs.rename(stagingPath, targetPath) // atomic-write-ok: the receiver validates the STAGED file between write and rename
     } catch (error) {
         await handle?.close().catch(() => {});
         await fs.rm(stagingPath, {force: true});

@@ -40,9 +40,10 @@
  * @see ai/scripts/lifecycle/checkSunsetted.mjs    — companion predicate
  * @see test/playwright/unit/ai/scripts/wakeSafetyGate.spec.mjs
  */
-import fs from 'fs/promises';
-import path from 'path';
+import fs                from 'fs/promises';
+import path              from 'path';
 import { fileURLToPath } from 'url';
+import {writeFileAtomic} from '../../services/shared/atomicFileWrite.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -82,12 +83,12 @@ const DEFAULT_TRIPPED = {
  */
 export async function readGateState() {
     try {
-        const raw = await fs.readFile(gateFilePath(), 'utf8');
+        const raw    = await fs.readFile(gateFilePath(), 'utf8');
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== 'object' || typeof parsed.state !== 'string') {
             return {
                 ...DEFAULT_TRIPPED,
-                reason: 'Gate file present but malformed; treating as tripped.',
+                reason   : 'Gate file present but malformed; treating as tripped.',
                 trippedBy: 'malformed-state-file'
             };
         }
@@ -101,7 +102,7 @@ export async function readGateState() {
         if (err.code === 'ENOENT') return {...DEFAULT_TRIPPED};
         return {
             ...DEFAULT_TRIPPED,
-            reason: `Gate file read error: ${err.message}; treating as tripped.`,
+            reason   : `Gate file read error: ${err.message}; treating as tripped.`,
             trippedBy: 'read-error'
         };
     }
@@ -122,9 +123,7 @@ export async function writeGateState(payload) {
         trippedAt: payload.state === 'enabled' ? null : new Date().toISOString(),
         trippedBy: payload.trippedBy ?? null
     };
-    const tmpPath = `${filePath}.tmp-${process.pid}`;
-    await fs.writeFile(tmpPath, JSON.stringify(body, null, 2) + '\n', 'utf8');
-    await fs.rename(tmpPath, filePath);
+    await writeFileAtomic(filePath, JSON.stringify(body, null, 2) + '\n');
 }
 
 /**
@@ -163,11 +162,11 @@ export async function isGateOpen() {
 //   enable   — write enabled state. No reason required (cleared on enable).
 async function main() {
     const argv = process.argv.slice(2);
-    const cmd = argv[0];
+    const cmd  = argv[0];
 
     const flag = name => {
         const prefix = `--${name}=`;
-        const arg = argv.find(a => a.startsWith(prefix));
+        const arg    = argv.find(a => a.startsWith(prefix));
         return arg ? arg.slice(prefix.length) : null;
     };
 
@@ -186,7 +185,7 @@ async function main() {
         process.exit(0);
     }
     if (cmd === 'trip' || cmd === 'disable') {
-        const reason = flag('reason') ?? '';
+        const reason    = flag('reason') ?? '';
         const trippedBy = flag('by') ?? 'cli';
         await writeGateState({state: cmd === 'trip' ? 'tripped' : 'disabled', reason, trippedBy});
         process.exit(0);

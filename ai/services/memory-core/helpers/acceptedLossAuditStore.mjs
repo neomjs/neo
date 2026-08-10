@@ -1,4 +1,5 @@
 import {appendFile, mkdir, readFile, rename, stat, writeFile} from 'fs/promises';
+import {writeFileAtomic}                                      from '../../shared/atomicFileWrite.mjs';
 import path                                                   from 'path';
 
 /**
@@ -149,11 +150,10 @@ export async function writeAutoAcceptedLossState(state, {dir} = {}) {
 
     await mkdir(dir, {recursive: true});
 
-    const filePath = getAcceptedLossStateFilePath(dir),
-          tmpPath  = `${filePath}.tmp`;
+    const filePath = getAcceptedLossStateFilePath(dir);
 
-    await writeFile(tmpPath, JSON.stringify(state, null, 2) + '\n', 'utf8');
-    await rename(tmpPath, filePath);
+    // Was a fixed `${filePath}.tmp`: two audit writers in one process raced the same scratch.
+    await writeFileAtomic(filePath, JSON.stringify(state, null, 2) + '\n');
 
     return filePath;
 }
@@ -203,11 +203,9 @@ export async function pruneAutoAcceptedLossAudit({dir, maxEvents = MAX_AUTO_ACCE
     }
 
     const retained = events.slice(events.length - maxEvents),
-          filePath = getAcceptedLossAuditFilePath(dir),
-          tmpPath  = `${filePath}.tmp`;
+          filePath = getAcceptedLossAuditFilePath(dir);
 
-    await writeFile(tmpPath, retained.map(entry => JSON.stringify(entry)).join('\n') + '\n', 'utf8');
-    await rename(tmpPath, filePath);
+    await writeFileAtomic(filePath, retained.map(entry => JSON.stringify(entry)).join('\n') + '\n');
 
     return {pruned: events.length - retained.length, retained: retained.length};
 }

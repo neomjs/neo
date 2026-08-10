@@ -1,6 +1,7 @@
-import crypto from 'node:crypto';
-import fs     from 'node:fs';
-import path   from 'node:path';
+import crypto                from 'node:crypto';
+import fs                    from 'node:fs';
+import path                  from 'node:path';
+import {writeFileAtomicSync} from '../shared/atomicFileWrite.mjs';
 import {
     InitializeResultSchema,
     SUPPORTED_PROTOCOL_VERSIONS
@@ -432,21 +433,9 @@ class FleetTenantService extends Base {
      * @protected
      */
     publishAtomically(file, contents) {
-        const dir     = path.dirname(file),
-              tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
-
-        fs.mkdirSync(dir, {recursive: true});
-
-        try {
-            fs.writeFileSync(tmpFile, contents, {mode: 0o600});
-            fs.renameSync(tmpFile, file)
-        } catch (error) {
-            if (fs.existsSync(tmpFile)) {
-                fs.unlinkSync(tmpFile)
-            }
-
-            throw error
-        }
+        // This site was already correct — pid+UUID scratch, 0o600, cleanup on throw. It is one of the
+        // two exemplars the owned primitive was modelled on; the call replaces the copy, not the care.
+        writeFileAtomicSync(file, contents)
     }
 
     /**

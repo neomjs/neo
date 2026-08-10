@@ -1,9 +1,10 @@
-import crypto          from 'crypto';
-import fs              from 'fs';
-import path            from 'path';
-import aiConfig        from '../../config.mjs';
-import Base            from '../../../src/core/Base.mjs';
-import {HARNESS_TYPES} from './harnessTypes.mjs';
+import crypto                from 'crypto';
+import fs                    from 'fs';
+import path                  from 'path';
+import aiConfig              from '../../config.mjs';
+import Base                  from '../../../src/core/Base.mjs';
+import {HARNESS_TYPES}       from './harnessTypes.mjs';
+import {writeFileAtomicSync} from '../shared/atomicFileWrite.mjs';
 import {
     normalizeMcpOverrides,
     normalizeMcpTarget,
@@ -62,18 +63,10 @@ export function resolveFleetCredentialKey({
             const legacyHex = raw.toString('ascii');
 
             if (raw.length === 64 && /^[0-9a-fA-F]{64}$/.test(legacyHex)) {
-                const
-                    key      = Buffer.from(legacyHex, 'hex'),
-                    tempFile = `${keyFile}.${process.pid}.${crypto.randomUUID()}.tmp`;
+                const key = Buffer.from(legacyHex, 'hex');
 
-                try {
-                    fs.writeFileSync(tempFile, key, {flag: 'wx', mode: 0o600});
-                    fs.renameSync(tempFile, keyFile)
-                } finally {
-                    try {
-                        fs.unlinkSync(tempFile)
-                    } catch {}
-                }
+                // Binary payload: `encoding: null` so the key is written as bytes, not re-encoded.
+                writeFileAtomicSync(keyFile, key, {encoding: null});
 
                 return key
             }
@@ -743,20 +736,10 @@ class FleetRegistryService extends Base {
      */
     writeRegistry(agents=this.agents) {
         this.ensureDataDir();
-        const
-            file    = this.registryPath(),
-            tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`,
-            payload = {agents: Object.fromEntries(agents)};
 
-        try {
-            fs.writeFileSync(tmpFile, JSON.stringify(payload, null, 2), 'utf8');
-            fs.renameSync(tmpFile, file)
-        } catch (error) {
-            if (fs.existsSync(tmpFile)) {
-                fs.unlinkSync(tmpFile)
-            }
-            throw error
-        }
+        const payload = {agents: Object.fromEntries(agents)};
+
+        writeFileAtomicSync(this.registryPath(), JSON.stringify(payload, null, 2))
     }
 
     /**
@@ -809,19 +792,8 @@ class FleetRegistryService extends Base {
      */
     writeCredentials(map) {
         this.ensureDataDir();
-        const
-            file    = this.credentialsPath(),
-            tmpFile = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
 
-        try {
-            fs.writeFileSync(tmpFile, this.encrypt(JSON.stringify(map)), {mode: 0o600});
-            fs.renameSync(tmpFile, file)
-        } catch (error) {
-            if (fs.existsSync(tmpFile)) {
-                fs.unlinkSync(tmpFile)
-            }
-            throw error
-        }
+        writeFileAtomicSync(this.credentialsPath(), this.encrypt(JSON.stringify(map)))
     }
 
     // ---- crypto (AES-256-GCM) ----------------------------------------------

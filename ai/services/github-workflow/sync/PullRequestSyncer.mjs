@@ -1,6 +1,7 @@
 import aiConfig                                                                   from '../../../mcp/server/github-workflow/config.mjs';
 import Base                                                                       from '../../../../src/core/Base.mjs';
 import crypto                                                                     from 'crypto';
+import {writeFileAtomic}                                                          from '../../shared/atomicFileWrite.mjs';
 import {existsSync}                                                               from 'fs';
 import fs                                                                         from 'fs/promises';
 import logger                                                                     from '../../../mcp/server/github-workflow/logger.mjs';
@@ -819,12 +820,7 @@ class PullRequestSyncer extends Base {
                 // is not "durable"; only a file on disk is.
                 //
                 // Temp + atomic rename so a torn write cannot masquerade as the canonical artifact.
-                await fs.mkdir(path.dirname(targetPath), {recursive: true});
-
-                const tempPath = `${targetPath}.${process.pid}.tmp`;
-
-                await fs.writeFile(tempPath, content, 'utf-8');
-                await fs.rename(tempPath, targetPath);
+                await writeFileAtomic(targetPath, content);
 
                 // Only now remove the stale copies — and never the one just written, which may BE
                 // one of them when the canonical location is a copy's own address.

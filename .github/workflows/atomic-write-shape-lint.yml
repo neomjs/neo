@@ -1,0 +1,44 @@
+name: Atomic Write Shape Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-atomic-write-shape.mjs'
+      - '.github/workflows/atomic-write-shape-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-atomic-write-shape.mjs'
+      - '.github/workflows/atomic-write-shape-lint.yml'
+
+concurrency:
+  group: atomic-write-shape-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # The guard parses with acorn rather than scanning lines: a call whose arguments wrap across
+      # lines is ordinary formatting, not a bypass, and a pair that exists only inside emitted plugin
+      # source is a string literal in the AST rather than a call. Hence the install.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      - name: Install dependencies (acorn — the shared codeMask tokenizer)
+        run: npm ci --ignore-scripts
+
+      - name: Ban hand-rolled write-temp-then-rename pairs
+        run: node ./buildScripts/util/check-atomic-write-shape.mjs

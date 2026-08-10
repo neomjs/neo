@@ -188,7 +188,12 @@ export async function writeKnobOverride({
         throw error;
     }
 
-    await fsModule.rename(tempPath, overridePath);
+    // DELIBERATELY NOT the shared `writeFileAtomic` primitive. It collapses write-then-rename into one
+    // call, and this site's correctness depends on what happens BETWEEN them: `assertHeld()` above is
+    // the only check that binds the effect, and it must run after the scratch exists and immediately
+    // before the commit. Adopting the primitive would silently delete that fencing point and turn a
+    // displaced holder's refusal into a published instruction. The hand-rolled pair stays.
+    await fsModule.rename(tempPath, overridePath); // atomic-write-ok: assertHeld() must fence between write and rename
 
     return {applied: true, path: overridePath, violations: []}
 }

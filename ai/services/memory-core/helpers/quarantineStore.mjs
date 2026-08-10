@@ -1,4 +1,5 @@
 import {mkdir, readFile, rename, stat, writeFile} from 'fs/promises';
+import {writeFileAtomic}                          from '../../shared/atomicFileWrite.mjs';
 import path                                       from 'path';
 
 /**
@@ -76,11 +77,9 @@ async function readFenceMap(dir) {
 async function writeFenceMap(dir, fences) {
     await mkdir(dir, {recursive: true});
 
-    const filePath = getQuarantineFilePath(dir),
-          tmpPath  = `${filePath}.${process.pid}.tmp`;
+    const filePath = getQuarantineFilePath(dir);
 
-    await writeFile(tmpPath, JSON.stringify(fences), 'utf8');
-    await rename(tmpPath, filePath); // atomic publish
+    await writeFileAtomic(filePath, JSON.stringify(fences));
     fenceCache.delete(filePath);     // force a re-stat on the next read
 }
 

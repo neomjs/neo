@@ -1,5 +1,6 @@
-import fs   from 'fs/promises';
-import path from 'path';
+import fs                from 'fs/promises';
+import path              from 'path';
+import {writeFileAtomic} from '../../shared/atomicFileWrite.mjs';
 
 const ACTIVE_REM_CALL_FILE = 'active-rem-call.json';
 
@@ -235,13 +236,11 @@ export async function writeActiveRemCallState(state, {dir} = {}) {
         throw new TypeError('writeActiveRemCallState: dir is required');
     }
 
-    await fs.mkdir(dir, {recursive: true});
+    const filePath = getActiveRemCallStateFilePath(dir);
 
-    const filePath = getActiveRemCallStateFilePath(dir),
-          tmpPath  = `${filePath}.tmp`;
-
-    await fs.writeFile(tmpPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-    await fs.rename(tmpPath, filePath);
+    // Was a fixed `${filePath}.tmp`: two REM runs in one process raced the same scratch, and a throw
+    // between write and rename stranded it beside the state file. The primitive owns both.
+    await writeFileAtomic(filePath, `${JSON.stringify(state, null, 2)}\n`);
 
     return filePath;
 }

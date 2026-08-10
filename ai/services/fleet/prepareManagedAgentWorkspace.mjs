@@ -1,5 +1,6 @@
 import {constants as fsConstants}                  from 'node:fs';
 import fs                                          from 'node:fs/promises';
+import {writeFileAtomic}                           from '../shared/atomicFileWrite.mjs';
 import path                                        from 'node:path';
 import crypto                                      from 'node:crypto';
 import {fileURLToPath}                             from 'node:url';
@@ -1633,16 +1634,10 @@ async function removeTransportReceipt({receiptPath, fileSystem, instanceHome}) {
 
 /** @private */
 async function publishTextAtomically({filePath, content, fileSystem}) {
-    const tmpPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
-
-    try {
-        await fileSystem.writeFile(tmpPath, content, {encoding: 'utf8', mode: 0o600});
-        await fileSystem.rename(tmpPath, filePath);
-        await fileSystem.chmod(filePath, 0o600)
-    } catch (error) {
-        await fileSystem.unlink(tmpPath).catch(() => {});
-        throw error
-    }
+    // Scratch naming and cleanup-on-failure are the primitive's now; the `unlink(tmpPath)` that used
+    // to live in the catch referenced a binding this no longer declares.
+    await writeFileAtomic(filePath, content, {fsModule: fileSystem, mode: 0o600});
+    await fileSystem.chmod(filePath, 0o600)
 }
 
 /** @private */
