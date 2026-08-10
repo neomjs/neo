@@ -895,6 +895,42 @@ test.describe('applyLifecycle — authority is rechecked AFTER target resolution
         expect(calls.some(call => /\/restart/.test(call.path))).toBe(true);
     });
 
+    test('live demand admitted during target resolution vetoes the restart at the last boundary', async () => {
+        let admitted = true;
+
+        const {service, calls} = createService(),
+              inner            = service.dockerRequestFn;
+
+        service.dockerRequestFn = async request => {
+            const result = await inner(request);
+
+            if (request.path.startsWith('/containers/json')) admitted = false;
+
+            return result;
+        };
+
+        await expect(service.applyLifecycle({
+            serviceKey           : 'mc-server',
+            operation            : 'restart',
+            isEffectStillAdmitted: () => admitted,
+            expectedContainerId  : 'container-abc'
+        })).rejects.toMatchObject({reason: 'runtime-effect-not-admitted'});
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
+    });
+
+    test('a recreated container is never restarted from the predecessor incarnation diagnosis', async () => {
+        const {service, calls} = createService({containers: [makeContainer({Id: 'container-B'})]});
+
+        await expect(service.applyLifecycle({
+            serviceKey         : 'mc-server',
+            operation          : 'restart',
+            expectedContainerId: 'container-A'
+        })).rejects.toMatchObject({reason: 'runtime-target-incarnation-changed'});
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
+    });
+
     test('a caller with no oracle is unaffected — byte-identical to before', async () => {
         const {service, calls} = createService();
 

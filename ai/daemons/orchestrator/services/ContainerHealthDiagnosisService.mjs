@@ -13,6 +13,7 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
     evalContention            : 'ollama-eval-contention',
     heapObservationUnavailable: 'heap-observation-unavailable',
     memorySaturation          : 'memory-saturation',
+    ollamaResidualLoad        : 'ollama-residual-load',
     providerResidency         : 'provider-residency-degraded',
     resourceSaturation        : 'resource-saturation',
     restartChurn              : 'restart-churn',
@@ -26,6 +27,31 @@ export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
     throttleShed: 'throttle-shed',
     warmProvider: 'warm-provider'
 });
+
+/**
+ * @summary Proves that the configured native-Ollama endpoint is the Compose service this diagnosis
+ * may restart. The endpoint and eligible service roster remain AiConfig-owned; this helper only
+ * compares their injected/read-observed values. Ports are deliberately not pinned because
+ * `NEO_OLLAMA_HOST` owns that deployment choice.
+ * @param {String|null} configuredHost AiConfig-owned provider endpoint.
+ * @param {String|null} observedHost Provider endpoint carried by the residency observation.
+ * @param {String} serviceKey Candidate Compose service key.
+ * @returns {Boolean}
+ */
+function isConfiguredComposeOllamaHost({configuredHost, observedHost, serviceKey}) {
+    try {
+        const configuredEndpoint = new URL(configuredHost),
+              observedEndpoint   = new URL(observedHost);
+
+        return ['http:', 'https:'].includes(observedEndpoint.protocol) &&
+            configuredEndpoint.origin === observedEndpoint.origin &&
+            configuredEndpoint.username === '' && configuredEndpoint.password === '' &&
+            observedEndpoint.hostname === serviceKey &&
+            observedEndpoint.username === '' && observedEndpoint.password === '';
+    } catch {
+        return false;
+    }
+}
 
 /**
  * @summary The two service classes a heal decision can be reasoned about.
@@ -165,6 +191,15 @@ export class ContainerHealthDiagnosisService extends Base {
          */
         diagnosisConfig_: null,
         /**
+         * Reads the resolved native-Ollama endpoint at the diagnosis use site. The reader keeps
+         * AiConfig ownership in the Orchestrator entrypoint while allowing reactive overrides to
+         * remain visible after this service is constructed.
+         * @member {Function|null} ollamaHostReader_=null
+         * @protected
+         * @reactive
+         */
+        ollamaHostReader_: null,
+        /**
          * @member {Function|null} nowFn_=null
          * @protected
          * @reactive
@@ -247,6 +282,10 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object|null} [options.configCheck=null] Config correctness result.
      * @param {Object|null} [options.ollamaEvalAttribution=null] Native Ollama eval attribution.
      * @param {Object|null} [options.providerResidency=null] Active-provider residency observation.
+     * @param {Object|null} [options.providerActivity=null] Bounded provider-work projection.
+     * @param {Boolean} [options.providerResidencyEligible=false] Whether the bridge's configured
+     *     provider-service roster selected this Compose service for observation.
+     * @param {String|null} [options.runtimeContainerId=null] Inspect/stats proof identity.
      * @param {Number} [options.observedAt] Epoch milliseconds for the observation.
      * @returns {Object} Diagnosis decision with advisory facts and optional diagnosis event.
      */
@@ -259,6 +298,9 @@ export class ContainerHealthDiagnosisService extends Base {
         configCheck = null,
         ollamaEvalAttribution = null,
         providerResidency = null,
+        providerActivity = null,
+        providerResidencyEligible = false,
+        runtimeContainerId = null,
         churnBaseline = null,
         inspectReadFailed = false,
         plannedRestarts = 0,
@@ -301,6 +343,18 @@ export class ContainerHealthDiagnosisService extends Base {
             ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
             ...this.collectProviderResidencyFacts({serviceKey, providerResidency, observedAt})
         ];
+
+        facts.push(...this.collectOllamaResidualLoadFacts({
+            serviceKey,
+            inspect,
+            statsSamples,
+            providerActivity,
+            providerResidency,
+            providerResidencyEligible,
+            runtimeContainerId,
+            observedAt,
+            facts
+        }));
 
         // A SUCCESSFUL probe produces no fact — `collectEndpointProbeFacts` only emits on `ok === false`
         // — so the one observation that directly contradicts a restart would otherwise never reach the
@@ -770,6 +824,8 @@ export class ContainerHealthDiagnosisService extends Base {
             details      : {
                 provider                 : typeof providerResidency.provider === 'string' ? providerResidency.provider : null,
                 host                     : typeof providerResidency.host === 'string' ? providerResidency.host : null,
+                model                    : typeof providerResidency.model === 'string' ? providerResidency.model : null,
+                embeddingModel           : typeof providerResidency.embeddingModel === 'string' ? providerResidency.embeddingModel : null,
                 message                  : typeof providerResidency.message === 'string' ? providerResidency.message : null,
                 reasonCode,
                 ready                    : typeof providerResidency.ready === 'boolean' ? providerResidency.ready : null,
@@ -790,11 +846,228 @@ export class ContainerHealthDiagnosisService extends Base {
     }
 
     /**
+     * @summary Folds passive container CPU, Ollama residency, and bounded provider demand into one
+     * residual-load fact without dispatching provider work.
+     *
+     * The CPU observation is container-scoped; `/api/ps` contributes only resident model identity.
+     * Consequently any accounted native-Ollama activity vetoes recovery — this layer cannot prove
+     * which resident runner owns the container CPU. Missing, stale, truncated, contradictory, or
+     * cold-start evidence emits an advisory fact and can never license a restart.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Compose service key.
+     * @param {Object|null} options.inspect Docker inspect payload.
+     * @param {Object[]|null} options.statsSamples Docker samples spanning the candidate window.
+     * @param {Object|null} options.providerActivity Provider-work projection.
+     * @param {Object|null} options.providerResidency Passive residency observation.
+     * @param {Boolean} options.providerResidencyEligible Whether the configured provider-service
+     *     roster selected this Compose service.
+     * @param {String|null} options.runtimeContainerId Inspect/stats proof identity.
+     * @param {Number} options.observedAt Observation epoch ms.
+     * @param {Object[]} options.facts Facts collected before this composition.
+     * @returns {Object[]}
+     */
+    collectOllamaResidualLoadFacts({
+        serviceKey,
+        inspect,
+        statsSamples,
+        providerActivity,
+        providerResidency,
+        providerResidencyEligible,
+        runtimeContainerId,
+        observedAt,
+        facts
+    }) {
+        const cpuFact = facts.find(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.resourceSaturation &&
+            fact.details?.metric === 'cpu'
+        );
+
+        if (!cpuFact) return [];
+
+        const
+            configuredHost  = this.ollamaHostReader?.(),
+            targetIdentity  = this.readProviderTargetIdentity(providerResidency?.targetIdentity),
+            availableModels = toSafeArray(providerResidency?.availableModels),
+            roles           = [
+                {role: 'chat', model: typeof providerResidency?.model === 'string' ? providerResidency.model : null},
+                {role: 'embedding', model: typeof providerResidency?.embeddingModel === 'string' ? providerResidency.embeddingModel : null}
+            ].filter(role => role.model),
+            residentRoles = roles.map(role => ({
+                ...role,
+                resident: availableModels.includes(role.model)
+            })),
+            startedAt = Date.parse(inspect?.State?.StartedAt ?? ''),
+            containerAgeMs = Number.isFinite(startedAt) ? observedAt - startedAt : null,
+            baseDetails = {
+                observationSource         : 'deployment-runtime+provider-activity-ledger+ollama-api-ps',
+                subjectIdentity           : {kind: 'compose-service', id: serviceKey},
+                targetIdentity,
+                runtimeContainerId        : typeof runtimeContainerId === 'string' ? runtimeContainerId : null,
+                provider                  : typeof providerResidency?.provider === 'string' ? providerResidency.provider : null,
+                roles                     : residentRoles,
+                availableModels,
+                providerActivityObservedAt: Number.isFinite(providerActivity?.observedAt)
+                    ? providerActivity.observedAt
+                    : null,
+                providerActivitySinceMs: Number.isFinite(providerActivity?.sinceMs)
+                    ? providerActivity.sinceMs
+                    : null,
+                containerAgeMs,
+                cpuFactId: cpuFact.id
+            },
+            advisory = (reasonCode, details = {}) => [this.createFact({
+                type         : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+                serviceKey,
+                observedAt,
+                severity     : 'warning',
+                authoritative: false,
+                details      : {...baseDetails, ...details, reasonCode}
+            })];
+
+        if (providerResidencyEligible !== true) {
+            // Generic CPU saturation must not manufacture an Ollama advisory. A declined residual
+            // path becomes visible when upstream actually supplied provider evidence for a service
+            // the configured roster excludes.
+            if (!providerResidency && !providerActivity) return [];
+
+            return advisory('provider-residency-service-not-configured');
+        }
+        if (!providerResidency) return advisory('provider-residency-unavailable');
+        if (providerResidency?.provider !== 'ollama') return advisory('provider-not-ollama');
+        if (!isConfiguredComposeOllamaHost({configuredHost, observedHost: providerResidency.host, serviceKey})) {
+            return advisory('provider-endpoint-target-mismatch');
+        }
+        if (targetIdentity?.kind !== 'compose-service' || targetIdentity.id !== serviceKey) {
+            return advisory('subject-identity-mismatch');
+        }
+        const samples = normalizeStatsSamples({stats: null, statsSamples});
+        if (typeof runtimeContainerId !== 'string' || samples.length === 0 ||
+            samples.some(sample => sample.containerId !== runtimeContainerId)
+        ) {
+            return advisory('stats-incarnation-unbounded');
+        }
+        if (containerAgeMs === null || containerAgeMs < this.configValues.sampleWindowMs) {
+            return advisory(containerAgeMs === null ? 'container-age-unknown' : 'container-cold-start');
+        }
+        if (providerResidency?.ready !== true || residentRoles.length === 0 || !residentRoles.some(role => role.resident)) {
+            return advisory('resident-model-evidence-unavailable');
+        }
+        if (providerActivity?.status !== 'ok') return advisory('provider-activity-unavailable');
+
+        const projectionAgeMs = Number.isFinite(providerActivity.observedAt)
+            ? observedAt - providerActivity.observedAt
+            : null;
+
+        if (projectionAgeMs === null || projectionAgeMs < 0 || projectionAgeMs > this.configValues.sampleWindowMs) {
+            return advisory('provider-activity-stale', {projectionAgeMs});
+        }
+        if (!Number.isFinite(providerActivity.sinceMs) || providerActivity.sinceMs < this.configValues.sampleWindowMs) {
+            return advisory('provider-activity-lookback-too-short');
+        }
+        if (!Number.isInteger(providerActivity.totalInFlight) || providerActivity.totalInFlight < 0 ||
+            !Array.isArray(providerActivity.inFlight) ||
+            typeof providerActivity.inFlightTruncated !== 'boolean' ||
+            providerActivity.inFlightTruncated ||
+            providerActivity.totalInFlight !== providerActivity.inFlight.length
+        ) {
+            return advisory('provider-activity-in-flight-unbounded');
+        }
+
+        const liveOllama = providerActivity.inFlight.filter(activity => activity?.provider === 'ollama');
+        if (liveOllama.length > 0) {
+            return advisory('provider-demand-in-flight', {
+                inFlight: liveOllama.map(activity => ({
+                    activityId    : typeof activity.activityId === 'string' ? activity.activityId : null,
+                    service       : typeof activity.service === 'string' ? activity.service : null,
+                    operationStage: typeof activity.operationStage === 'string' ? activity.operationStage : null,
+                    role          : typeof activity.role === 'string' ? activity.role : null,
+                    model         : typeof activity.model === 'string' ? activity.model : null,
+                    elapsedMs     : Number.isFinite(activity.elapsedMs) ? activity.elapsedMs : null
+                }))
+            });
+        }
+
+        const
+            recentCompletions = providerActivity.recentCompletions,
+            recentCount       = providerActivity.totalRecentCompletions,
+            recentTruncated   = providerActivity.recentCompletionsTruncated,
+            oldestReturnedAt  = Array.isArray(recentCompletions) && recentCompletions.length > 0
+                ? Date.parse(recentCompletions.at(-1)?.completedAt ?? '')
+                : NaN,
+            hiddenRowsPredateCpuWindow = recentTruncated === true &&
+                Number.isInteger(recentCount) && recentCount > recentCompletions?.length &&
+                Number.isFinite(oldestReturnedAt) &&
+                observedAt - oldestReturnedAt > this.configValues.sampleWindowMs,
+            recentProjectionBounded = recentTruncated === false
+                ? recentCount === recentCompletions?.length
+                : hiddenRowsPredateCpuWindow;
+
+        if (!Number.isInteger(recentCount) || recentCount < 0 ||
+            !Array.isArray(recentCompletions) ||
+            typeof recentTruncated !== 'boolean' ||
+            !recentProjectionBounded
+        ) {
+            return advisory('provider-activity-recent-unbounded');
+        }
+
+        const recentOllama = recentCompletions.filter(activity => {
+            if (activity?.provider !== 'ollama') return false;
+            const completedAt = Date.parse(activity.completedAt ?? '');
+
+            return Number.isFinite(completedAt) && observedAt - completedAt >= 0 &&
+                observedAt - completedAt <= this.configValues.sampleWindowMs;
+        });
+
+        if (recentOllama.length > 0) {
+            return advisory('provider-demand-recently-settled', {
+                recentCompletions: recentOllama.map(activity => ({
+                    activityId : typeof activity.activityId === 'string' ? activity.activityId : null,
+                    role       : typeof activity.role === 'string' ? activity.role : null,
+                    model      : typeof activity.model === 'string' ? activity.model : null,
+                    completedAt: activity.completedAt
+                }))
+            });
+        }
+
+        return [this.createFact({
+            type         : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            serviceKey,
+            observedAt,
+            severity     : 'critical',
+            authoritative: true,
+            details      : {
+                ...baseDetails,
+                reasonCode   : 'sustained-unexplained-ollama-load',
+                projectionAgeMs,
+                totalInFlight: providerActivity.totalInFlight
+            }
+        })];
+    }
+
+    /**
      * Classifies facts into the recovery diagnosis contract.
      * @param {Object} options
      * @returns {Object|null}
      */
     classifyFacts({facts, serviceAnswering = false}) {
+        const ollamaResidualFacts = facts.filter(fact =>
+            fact.type === CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad &&
+            fact.authoritative === true &&
+            fact.details?.reasonCode === 'sustained-unexplained-ollama-load'
+        );
+
+        if (ollamaResidualFacts.length > 0) {
+            return {
+                recoveryClass : 'exhaustion',
+                actionClass   : CONTAINER_HEALTH_ACTION_CLASSES.restart,
+                confidence    : 0.95,
+                evidenceFacts : this.selectEvidenceFacts(facts, ollamaResidualFacts),
+                reason        : 'ollama-residual-load-restart',
+                targetIdentity: ollamaResidualFacts[0].details.targetIdentity
+            };
+        }
+
         const providerRoleResidencyFacts = facts.filter(fact => this.isProviderRoleResidencyRecoverable(fact));
         if (providerRoleResidencyFacts.length > 0) {
             return {

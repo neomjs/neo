@@ -56,9 +56,15 @@ const OBSERVED_AT = 1710000000000;
 const repoRoot    = path.resolve(process.cwd());
 
 function createService(config = {}) {
+    const {
+        ollamaHost = 'http://local-model:11434',
+        ...diagnosisConfig
+    } = config;
+
     return Neo.create(ContainerHealthDiagnosisService, {
-        diagnosisConfig: config,
-        nowFn          : () => OBSERVED_AT
+        diagnosisConfig,
+        nowFn           : () => OBSERVED_AT,
+        ollamaHostReader: () => ollamaHost
     });
 }
 
@@ -78,13 +84,14 @@ function runningInspect(overrides = {}) {
  * window nothing observed — which is precisely the defect these fixtures used to encode, so it is a
  * required argument in spirit even though it defaults for the single-sample cases.
  */
-function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs} = {}) {
+function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs, containerId = null} = {}) {
     const systemDelta = 1_000_000_000,
           cpuDelta    = (cpuPercent / 100) * systemDelta / 4,
           memoryLimit = 1000;
 
     return {
         ...(Number.isFinite(observedAtMs) ? {observedAtMs} : {}),
+        containerId,
         cpu_stats: {
             online_cpus     : 4,
             system_cpu_usage: systemDelta,
@@ -101,6 +108,55 @@ function statsSample({cpuPercent = 0, memoryPercent = 0, observedAtMs} = {}) {
             usage: memoryLimit * memoryPercent / 100,
             limit: memoryLimit
         }
+    };
+}
+
+function ollamaResidency(overrides = {}) {
+    return {
+        provider       : 'ollama',
+        host           : 'http://local-model:11434',
+        model          : 'gemma4:26b',
+        embeddingModel : 'qwen3-embedding:latest',
+        ready          : true,
+        requiredModels : ['gemma4:26b', 'qwen3-embedding:latest'],
+        availableModels: ['gemma4:26b', 'qwen3-embedding:latest'],
+        missingModels  : [],
+        targetIdentity : {kind: 'compose-service', id: 'local-model'},
+        ...overrides
+    };
+}
+
+function providerActivity(overrides = {}) {
+    return {
+        status                    : 'ok',
+        observedAt                : OBSERVED_AT,
+        sinceMs                   : 24 * 60 * 60 * 1000,
+        totalInFlight             : 0,
+        totalRecentCompletions    : 0,
+        inFlightTruncated         : false,
+        recentCompletionsTruncated: false,
+        inFlight                  : [],
+        recentCompletions         : [],
+        ...overrides
+    };
+}
+
+function sustainedOllamaResidualInputs(overrides = {}) {
+    return {
+        serviceKey : 'local-model',
+        nodeCommand: false,
+        inspect    : runningInspect({
+            StartedAt: new Date(OBSERVED_AT - 120_000).toISOString()
+        }),
+        statsSamples: [
+            statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'local-model-A'}),
+            statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'local-model-A'})
+        ],
+        runtimeContainerId: 'local-model-A',
+        providerResidency : ollamaResidency(),
+        providerActivity  : providerActivity(),
+        providerResidencyEligible: true,
+        ...overrides
     };
 }
 
@@ -570,6 +626,241 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
             CONTAINER_HEALTH_FACT_TYPES.evalContention,
             CONTAINER_HEALTH_FACT_TYPES.resourceSaturation
         ]);
+    });
+
+    test('restarts only sustained unexplained local-model CPU with passive resident role evidence', () => {
+        const service  = createService(),
+              decision = service.diagnose(sustainedOllamaResidualInputs());
+
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        expect(decision.targetIdentity).toEqual({kind: 'compose-service', id: 'local-model'});
+        expect(decision.diagnosis).toMatchObject({
+            recoveryClass: 'exhaustion',
+            details      : {
+                classificationReason: 'ollama-residual-load-restart'
+            }
+        });
+        expect(decision.diagnosis.evidenceFacts.map(fact => fact.type)).toEqual([
+            CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            CONTAINER_HEALTH_FACT_TYPES.resourceSaturation
+        ]);
+        expect(decision.diagnosis.evidenceFacts[0]).toMatchObject({
+            authoritative: true,
+            details      : {
+                reasonCode     : 'sustained-unexplained-ollama-load',
+                subjectIdentity: {kind: 'compose-service', id: 'local-model'},
+                roles          : [
+                    {role: 'chat', model: 'gemma4:26b', resident: true},
+                    {role: 'embedding', model: 'qwen3-embedding:latest', resident: true}
+                ]
+            }
+        });
+    });
+
+    test('derives the residual-load target and port from configured provider identity', () => {
+        const service = createService({
+                  ollamaHost: 'http://model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
+                  ],
+                  runtimeContainerId: 'model-A',
+                  providerResidency : ollamaResidency({
+                      host          : 'http://model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+        expect(decision.targetIdentity).toEqual({kind: 'compose-service', id: 'model'});
+    });
+
+    test('refuses a configured provider endpoint owned by a different Compose service', () => {
+        const service = createService({
+                  ollamaHost: 'http://local-model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
+                  ],
+                  runtimeContainerId: 'model-A',
+                  providerResidency : ollamaResidency({
+                      host          : 'http://local-model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBeNull();
+        expect(decision.facts).toContainEqual(expect.objectContaining({
+            type   : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            details: expect.objectContaining({reasonCode: 'provider-endpoint-target-mismatch'})
+        }));
+    });
+
+    test('publishes why a saturated service is outside the configured provider roster', () => {
+        const service = createService({
+                  ollamaHost: 'http://shadow-model:12000'
+              }),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  serviceKey: 'shadow-model',
+                  statsSamples: [
+                      statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'shadow-A'}),
+                      statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'shadow-A'})
+                  ],
+                  runtimeContainerId: 'shadow-A',
+                  providerResidencyEligible: false,
+                  providerResidency : ollamaResidency({
+                      host          : 'http://shadow-model:12000',
+                      targetIdentity: {kind: 'compose-service', id: 'shadow-model'}
+                  })
+              }));
+
+        expect(decision.actionClass).toBeNull();
+        expect(decision.status).toBe('advisory');
+        expect(decision.facts).toContainEqual(expect.objectContaining({
+            type   : CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad,
+            details: expect.objectContaining({reasonCode: 'provider-residency-service-not-configured'})
+        }));
+    });
+
+    for (const [name, overrides, reasonCode] of [
+        ['live native-Ollama demand', {
+            providerActivity: providerActivity({
+                totalInFlight: 1,
+                inFlight     : [{
+                    activityId    : 'active-embedding',
+                    service       : 'knowledge-base',
+                    operationStage: 'kb-tenant-ingestion-embedding',
+                    role          : 'embedding',
+                    provider      : 'ollama',
+                    model         : 'qwen3-embedding:latest',
+                    elapsedMs     : 180_000
+                }]
+            })
+        }, 'provider-demand-in-flight'],
+        ['partial recorder telemetry', {
+            providerActivity: providerActivity({status: 'partial'})
+        }, 'provider-activity-unavailable'],
+        ['stale recorder telemetry', {
+            providerActivity: providerActivity({observedAt: OBSERVED_AT - 30_001})
+        }, 'provider-activity-stale'],
+        ['identity-mismatched residency', {
+            providerResidency: ollamaResidency({targetIdentity: {kind: 'compose-service', id: 'other-model'}})
+        }, 'subject-identity-mismatch'],
+        ['external Ollama provider endpoint', {
+            providerResidency: ollamaResidency({host: 'http://external-provider:11434'})
+        }, 'provider-endpoint-target-mismatch'],
+        ['cross-incarnation CPU samples', {
+            statsSamples: [
+                statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'local-model-A'}),
+                statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'local-model-B'})
+            ],
+            runtimeContainerId: 'local-model-B'
+        }, 'stats-incarnation-unbounded'],
+        ['cold-start model service', {
+            inspect: runningInspect({StartedAt: new Date(OBSERVED_AT - 10_000).toISOString()})
+        }, 'container-cold-start'],
+        ['recently settled native-Ollama demand', {
+            providerActivity: providerActivity({
+                totalRecentCompletions: 1,
+                recentCompletions     : [{
+                    activityId : 'just-finished',
+                    provider   : 'ollama',
+                    role       : 'embedding',
+                    model      : 'qwen3-embedding:latest',
+                    completedAt: new Date(OBSERVED_AT - 1_000).toISOString()
+                }]
+            })
+        }, 'provider-demand-recently-settled'],
+        ['truncated live-demand projection', {
+            providerActivity: providerActivity({
+                totalInFlight    : 51,
+                inFlightTruncated: true
+            })
+        }, 'provider-activity-in-flight-unbounded'],
+        ['mismatched live-demand count', {
+            providerActivity: providerActivity({totalInFlight: 1})
+        }, 'provider-activity-in-flight-unbounded'],
+        ['mismatched recent-demand count', {
+            providerActivity: providerActivity({totalRecentCompletions: 1})
+        }, 'provider-activity-recent-unbounded']
+    ]) {
+        test(`does not restart sustained CPU with ${name}`, () => {
+            const service  = createService(),
+                  decision = service.diagnose(sustainedOllamaResidualInputs(overrides));
+
+            expect(decision.actionClass).toBeNull();
+            expect(decision.diagnosis).toBeNull();
+            expect(decision.status).toBe('advisory');
+            expect(decision.facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad)).toMatchObject({
+                authoritative: false,
+                details      : {reasonCode}
+            });
+        });
+    }
+
+    test('accepts truncated completion history only when every hidden row predates the CPU window', () => {
+        const oldCompletions = Array.from({length: 50}, (_, index) => ({
+            activityId : `old-${index}`,
+            provider   : 'gemini',
+            completedAt: new Date(OBSERVED_AT - 30_001 - index).toISOString()
+        }));
+
+        const service  = createService(),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  providerActivity: providerActivity({
+                      totalRecentCompletions    : 51,
+                      recentCompletionsTruncated: true,
+                      recentCompletions         : oldCompletions
+                  })
+              }));
+
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.restart);
+    });
+
+    test('refuses truncated completion history tied at the inclusive CPU cutoff', () => {
+        const tiedCompletions = Array.from({length: 50}, (_, index) => ({
+            activityId : `tied-${index}`,
+            provider   : 'gemini',
+            completedAt: new Date(OBSERVED_AT - 30_000).toISOString()
+        }));
+
+        const service  = createService(),
+              decision = service.diagnose(sustainedOllamaResidualInputs({
+                  providerActivity: providerActivity({
+                      totalRecentCompletions    : 51,
+                      recentCompletionsTruncated: true,
+                      recentCompletions         : tiedCompletions
+                  })
+              }));
+
+        expect(decision.actionClass).toBeNull();
+        expect(decision.facts.find(fact => fact.type === CONTAINER_HEALTH_FACT_TYPES.ollamaResidualLoad))
+            .toMatchObject({details: {reasonCode: 'provider-activity-recent-unbounded'}});
+    });
+
+    test('keeps one high-CPU sample and an idle resident model non-actionable', () => {
+        const service   = createService(),
+              oneSample = service.diagnose(sustainedOllamaResidualInputs({
+                  statsSamples: [statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT})]
+              })),
+              idle = service.diagnose(sustainedOllamaResidualInputs({
+                  statsSamples: [
+                      statsSample({cpuPercent: 0, observedAtMs: OBSERVED_AT - 30_000}),
+                      statsSample({cpuPercent: 0, observedAtMs: OBSERVED_AT})
+                  ]
+              }));
+
+        expect(oneSample.actionClass).toBeNull();
+        expect(oneSample.diagnosis).toBeNull();
+        expect(idle.actionClass).toBeNull();
+        expect(idle.diagnosis).toBeNull();
     });
 
     test('routes missing provider role models to warm-provider before config-drift escalation', () => {

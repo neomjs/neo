@@ -224,6 +224,33 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         }]);
     });
 
+    test('residual Ollama recovery carries live admission and container incarnation to runtime access', async () => {
+        let admitted = true;
+
+        const {controller, runtimeCalls} = createStack({
+                  controllerConfig: {isEffectStillAdmitted: () => admitted}
+              }),
+              decision = decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.restart, {
+                  serviceKey   : 'local-model',
+                  recoveryClass: 'exhaustion'
+              });
+
+        decision.diagnosis.details.classificationReason = 'ollama-residual-load-restart';
+        decision.diagnosis.evidenceFacts = [{
+            type   : 'ollama-residual-load',
+            details: {runtimeContainerId: 'local-model-A'}
+        }];
+
+        await controller.consume({decision});
+
+        expect(runtimeCalls).toHaveLength(1);
+        expect(runtimeCalls[0].expectedContainerId).toBe('local-model-A');
+        expect(typeof runtimeCalls[0].isEffectStillAdmitted).toBe('function');
+
+        admitted = false;
+        expect(runtimeCalls[0].isEffectStillAdmitted()).toBe(false);
+    });
+
     test('SAFETY — an ANSWERING service is not restarted even with a SECOND authoritative fact', async () => {
         // Euclid's exact-head falsifier. `hasAuthoritativeEvidence`'s first arm admits ANY two
         // authoritative facts, so `container-unhealthy` + a sustained `memory-saturation` reached

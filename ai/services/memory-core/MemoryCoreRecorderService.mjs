@@ -96,11 +96,14 @@ function emptyWalDrain(status, reason) {
 function emptyProviderActivity(status) {
     return {
         status,
-        totalActivities  : 0,
-        totalInFlight    : 0,
-        aggregates       : [],
-        inFlight         : [],
-        recentCompletions: []
+        totalActivities           : 0,
+        totalInFlight             : 0,
+        totalRecentCompletions    : 0,
+        inFlightTruncated         : false,
+        recentCompletionsTruncated: false,
+        aggregates                : [],
+        inFlight                  : [],
+        recentCompletions         : []
     };
 }
 

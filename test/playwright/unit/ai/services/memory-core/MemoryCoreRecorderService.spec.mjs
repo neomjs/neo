@@ -683,12 +683,15 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
             expect(metrics.status).toBe('ok');
             expect(metrics.providerActivity).toEqual({
-                status           : 'partial',
-                totalActivities  : 0,
-                totalInFlight    : 0,
-                aggregates       : [],
-                inFlight         : [],
-                recentCompletions: []
+                status                    : 'partial',
+                totalActivities           : 0,
+                totalInFlight             : 0,
+                totalRecentCompletions    : 0,
+                inFlightTruncated         : false,
+                recentCompletionsTruncated: false,
+                aggregates                : [],
+                inFlight                  : [],
+                recentCompletions         : []
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;
@@ -755,12 +758,15 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
         try {
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5}).providerActivity).toEqual({
-                status           : 'unavailable',
-                totalActivities  : 0,
-                totalInFlight    : 0,
-                aggregates       : [],
-                inFlight         : [],
-                recentCompletions: []
+                status                    : 'unavailable',
+                totalActivities           : 0,
+                totalInFlight             : 0,
+                totalRecentCompletions    : 0,
+                inFlightTruncated         : false,
+                recentCompletionsTruncated: false,
+                aggregates                : [],
+                inFlight                  : [],
+                recentCompletions         : []
             });
         } finally {
             fs.renameSync(withheldFile, kbFile);

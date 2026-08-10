@@ -261,9 +261,11 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {Function|null} [options.isAuthorityHeld=null] Current-authority oracle, re-asked AFTER
      * target resolution and immediately before the mutating call. Optional: a caller that omits it
      * keeps today's behaviour exactly.
+     * @param {Function|null} [options.isEffectStillAdmitted=null] Live effect-admission oracle.
+     * @param {String|null} [options.expectedContainerId=null] Diagnosed container incarnation.
      * @returns {Promise<Object>} Lifecycle result plus structured proof metadata.
      */
-    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes, isAuthorityHeld = null} = {}) {
+    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
@@ -287,6 +289,25 @@ export class DeploymentRuntimeAccessService extends Base {
                 reason : 'runtime-authority-lost',
                 message: `Authority moved while resolving '${serviceKey}'; refusing the lifecycle write. `
                     + 'A displaced holder must not mutate a plane another holder now owns.',
+                details: {serviceKey, operation}
+            });
+        }
+
+        if (typeof expectedContainerId === 'string' && target.containerId !== expectedContainerId) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-target-incarnation-changed',
+                message: `Container '${serviceKey}' changed from '${expectedContainerId}' to '${target.containerId}' before lifecycle write; refusing stale recovery.`,
+                details: {serviceKey, operation, expectedContainerId, actualContainerId: target.containerId}
+            });
+        }
+
+        // Last-owned dynamic safety predicate. It intentionally follows target resolution and the
+        // incarnation check, leaving no await before the Docker mutation. For residual provider load,
+        // a request admitted during controller/actuator preparation therefore vetoes the restart.
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-effect-not-admitted',
+                message: `Lifecycle write for '${serviceKey}' is no longer admitted by live evidence.`,
                 details: {serviceKey, operation}
             });
         }

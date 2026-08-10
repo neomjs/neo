@@ -197,6 +197,38 @@ test.describe('providerActivityLedger', () => {
         expect(() => lifecycle.onSettled({completedAt: 30, success: true})).not.toThrow();
     });
 
+    test('retains unresolved provider work outside the recent-completion lookback', () => {
+        const oldInFlightId = beginProviderActivity(db, {
+            service         : 'knowledge-base',
+            operationStage  : 'kb-tenant-ingestion-embedding',
+            role            : 'embedding',
+            provider        : 'ollama',
+            model           : 'qwen3-embedding:latest',
+            priority        : 'batch',
+            enqueuedAt      : 100,
+            startedAt       : 100,
+            queueDisposition: 'not-applicable'
+        });
+
+        const metrics = getProviderActivityMetrics(db, {
+            sinceTs: 10_000,
+            limit  : 10,
+            now    : 20_000
+        });
+
+        expect(metrics.totalActivities).toBe(0);
+        expect(metrics.totalInFlight).toBe(1);
+        expect(metrics.inFlightTruncated).toBe(false);
+        expect(metrics.totalRecentCompletions).toBe(0);
+        expect(metrics.recentCompletionsTruncated).toBe(false);
+        expect(metrics.inFlight).toEqual([expect.objectContaining({
+            activityId: oldInFlightId,
+            provider  : 'ollama',
+            role      : 'embedding',
+            elapsedMs : 19_900
+        })]);
+    });
+
     test('deduplicates retry attribution and degrades a multi-model activity to unknown', () => {
         const refinements = [];
         const lifecycle   = createProviderActivityLifecycle({
