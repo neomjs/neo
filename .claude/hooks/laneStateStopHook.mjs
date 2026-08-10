@@ -66,6 +66,7 @@ import {buildDeferenceStopHookDirective,
         classifyPromptingContext,
         decideDeferenceStopHookAction,
         decideStopHookAction,
+        decideUnbackedActionStopHookAction,
         evaluateCleanTerminalAcceptance,
         isOperatorInLoop,
         LANE_STATE_SCHEMA_HINT,
@@ -644,6 +645,55 @@ const HARNESS_MARKER_PATTERNS = Object.freeze([
  * @returns {String}
  * @protected
  */
+/**
+ * @summary Counts `tool_use` blocks in assistant records since the last genuine user record.
+ *
+ * This is the correlation half of the unbacked-action detector: the text can say an action is
+ * underway, and only the transcript can say whether anything ran. Boundary is the last non-`isMeta`
+ * `user` record — the same "this turn" boundary the human-filtered walk uses — so a claim is judged
+ * against the work of the turn that made it, never against an earlier turn's tool calls.
+ *
+ * Returns `0` for an unreadable or empty transcript. That is deliberate and it is the SAFE direction
+ * only because the caller carves operator dialogue: a zero makes the detector *able* to fire, and a
+ * turn that genuinely ran tools will have them in the transcript. A parse failure that silently
+ * returned a positive count would disable the check invisibly, which is the failure mode that makes a
+ * hook unfalsifiable later.
+ * @param {String} [jsonl='']
+ * @returns {Number}
+ * @protected
+ */
+export function countToolCallsSinceLatestUserRecord(jsonl = '') {
+    const lines    = jsonl.split('\n');
+    let   boundary = -1;
+
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        if (record.isMeta === true) continue;
+        if (record.type === 'user') { boundary = i; break }
+    }
+
+    let count = 0;
+    for (let i = boundary + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        let record;
+        try { record = JSON.parse(line); } catch { continue; }
+
+        const content = record.message?.content;
+        if (!Array.isArray(content)) continue;
+
+        count += content.filter(block => block?.type === 'tool_use').length;
+    }
+
+    return count
+}
+
 export function extractLatestHumanUserTextFromJsonl(jsonl = '') {
     const lines = jsonl.split('\n');
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -835,6 +885,33 @@ async function main() {
         }
 
         auditLog(`WOULD-BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}, midChainOperator=${midChainOperator}, autonomousHandoff=${autonomousHandoff}, handoffReason=${handoffReason || 'none'}, handoffWindowMs=${handoffWindowMs ?? 'none'}): ${reason}`);
+        process.exit(0);
+    }
+
+    // The announcing twin of the mirror above: an action asserted as underway at turn-terminal with no
+    // tool call behind it. Placed here so the two registers share one policy leaf and one ordering —
+    // the interrogative slip is cheaper to detect, so it keeps first refusal.
+    const unbackedDecision = decideUnbackedActionStopHookAction(finalText, {
+        toolCallCount         : countToolCallsSinceLatestUserRecord(transcriptJsonl),
+        operatorInLoop,
+        enforcing             : ENFORCING,
+        deferenceMirrorEnabled: DEFERENCE_MIRROR
+    });
+    if (unbackedDecision) {
+        const reason   = `unbacked imminent-action claim "${unbackedDecision.claim}" at turn-terminal`,
+              session  = input.session_id || '?',
+              identity = process.env.NEO_AGENT_IDENTITY || '?';
+
+        if (unbackedDecision.action === 'block') {
+            auditLog(`BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}): ${reason}`);
+            process.stdout.write(JSON.stringify({
+                decision: 'block',
+                reason  : unbackedDecision.reason
+            }), () => process.exit(0));
+            return;
+        }
+
+        auditLog(`WOULD-BLOCK (session=${session}, identity=${identity}, operatorInLoop=${operatorInLoop}): ${reason}`);
         process.exit(0);
     }
 

@@ -6,7 +6,8 @@
  *
  * @module Neo.ai.scripts.lifecycle.stopHookDecision
  */
-import {buildDeferenceReminder, detectDeferencePhrase} from './deferencePhraseMatch.mjs';
+import {buildDeferenceReminder, detectDeferencePhrase}          from './deferencePhraseMatch.mjs';
+import {buildUnbackedActionReminder, detectUnbackedActionClaim} from './unbackedActionClaim.mjs';
 
 /**
  * Compact runtime hint for the fenced JSON block consumed by `parseLaneState`. Prose `lane-state:`
@@ -381,6 +382,47 @@ export function decideDeferenceStopHookAction(text = '', {
         action: enforcing ? 'block' : 'would-block',
         reason: buildDeferenceStopHookDirective(phrase),
         phrase
+    };
+}
+
+/**
+ * @summary Shared unbacked-imminent-action Stop-hook decision — the declarative twin of the
+ * deference mirror above.
+ *
+ * The deference mirror catches the INTERROGATIVE register (asking permission). This catches the
+ * announcing register with the same root: asserting an action is underway at turn-terminal and then
+ * ending without taking it. Same policy leaf, same enforcing/mirror mapping, same operator-dialogue
+ * carve — so the two registers cannot drift apart in an adapter.
+ *
+ * `toolCallCount` is what makes this a correlation rather than a phrase list, and it has no default
+ * on purpose: an adapter that cannot supply the turn's tool-call count must not silently degrade to
+ * matching wording, which would fire on every turn that narrates its work correctly.
+ * @param {String} text Assistant final-turn text.
+ * @param {Object} options
+ * @param {Number} options.toolCallCount Tool calls made in THIS turn.
+ * @param {Boolean} [options.enforcing=false]
+ * @param {Boolean} [options.operatorInLoop=false] Operator dialogue is carved: a terminal claim in a
+ * conversational turn is an answer, not an autonomous slip.
+ * @param {Boolean} [options.deferenceMirrorEnabled=true] Shares the `stopHook.deferenceMirror` leaf —
+ * one register-correction policy, not two knobs to skew.
+ * @returns {{action: ('block'|'would-block'), reason: String, claim: String}|null}
+ */
+export function decideUnbackedActionStopHookAction(text = '', {
+    toolCallCount,
+    enforcing              = false,
+    operatorInLoop         = false,
+    deferenceMirrorEnabled = true
+} = {}) {
+    if (!deferenceMirrorEnabled || operatorInLoop) return null;
+
+    const detected = detectUnbackedActionClaim(text, {toolCallCount});
+
+    if (!detected) return null;
+
+    return {
+        action: enforcing ? 'block' : 'would-block',
+        claim : detected.claim,
+        reason: buildUnbackedActionReminder(detected.claim)
     };
 }
 
