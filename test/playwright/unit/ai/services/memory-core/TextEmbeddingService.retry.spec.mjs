@@ -843,6 +843,27 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(error.residencyDisposition, 'never observed resident ⇒ configuration fault, not capacity').toBe('never-resident');
     });
 
+    test('a preflight that never RAN leaves the disposition absent — unknown is not never (#16852)', async () => {
+        // The third state, and the one a boolean erased. An openAiCompatible endpoint that is not
+        // LM Studio skips the residency preflight entirely, so nothing is ever observed. Reporting
+        // that as `never-resident` would mint a positive configuration-fault claim out of a check
+        // that did not run — sending an operator to re-check an identifier nobody ever tested.
+        //
+        // The probe must be nulled EXPLICITLY: `beforeEach` installs a default that reports the model
+        // loaded, so omitting this would silently test the resident path instead. Written the lazy way
+        // first, and it returned `evicted-mid-batch` — the absent condition has to be established, not
+        // assumed, or the test quietly measures the opposite of its name.
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = null;
+        serverBehavior                                         = 'fail-all-404';
+
+        const error = await TextEmbeddingService.embedTexts(['a'], 'openAiCompatible')
+            .then(() => null, observed => observed);
+
+        expect(error, 'the batch still fails loudly — only the CLASSIFICATION is withheld').toBeTruthy();
+        expect(error.residencyDisposition,
+            'an absence of observation is not an observation of absence').toBeUndefined();
+    });
+
     test('a SPARSE provider response is refused rather than silently re-based to position 0 (#16826)', async () => {
         serverBehavior = 'sparse-batch';
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 5;

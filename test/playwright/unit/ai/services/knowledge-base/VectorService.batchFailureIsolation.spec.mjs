@@ -298,4 +298,50 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(result.embedded).toBe(50);
         expect(result.failedBatches).toHaveLength(0);
     });
+
+    test('a total outage carries the provider classification past this hop (#16852)', async () => {
+        // The total-outage arm mints a FRESH Error, one hop before the receipt an operator reads.
+        // Minting it bare discarded everything the provider had worked out about why — the better the
+        // diagnosis upstream, the more this hop threw away. A discriminator that dies here is an
+        // intention, not an instrument.
+        const spy    = createSpyCollection(),
+              chunks = makeChunks(50);
+
+        TextEmbeddingService.embedTexts = async () => {
+            const err = new Error('embedding model not resident');
+
+            err.code                   = 'EMBEDDING_MODEL_NOT_RESIDENT';
+            err.residencyDisposition   = 'evicted-mid-batch';
+
+            throw err
+        };
+
+        const thrown = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks})
+            .then(() => null, error => error);
+
+        expect(thrown, 'nothing embedded ⇒ the sweep aborts by throwing').toBeTruthy();
+        expect(thrown.residencyDisposition,
+            'the classification must survive the re-throw, or no operator ever sees it').toBe('evicted-mid-batch');
+        expect(thrown.cause?.code, 'the original failure stays reachable, not just its message')
+            .toBe('EMBEDDING_MODEL_NOT_RESIDENT');
+    });
+
+    test('an UNCLASSIFIED outage does not acquire a classification in transit (#16852)', async () => {
+        // The negative control. Carrying the field forward must never mean inventing one: a failure
+        // with no residency observation has to arrive unclassified, or the discriminator becomes
+        // noise that always says something.
+        const spy    = createSpyCollection(),
+              chunks = makeChunks(50);
+
+        TextEmbeddingService.embedTexts = async () => {
+            throw new Error('provider socket closed')
+        };
+
+        const thrown = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks})
+            .then(() => null, error => error);
+
+        expect(thrown).toBeTruthy();
+        expect(thrown.residencyDisposition,
+            'absent upstream must stay absent downstream').toBeUndefined();
+    });
 });

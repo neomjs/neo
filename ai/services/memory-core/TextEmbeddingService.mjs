@@ -1016,10 +1016,17 @@ class TextEmbeddingService extends Base {
                 // retries exhausted means the model existed and something took its slot, which is a
                 // capacity question. Never observed resident stays a configuration fault. Only the
                 // exhausted case is marked — a Shape-C with retries left may still succeed.
-                if (!(unloadRetriesLeft > 0)) {
-                    err.residencyDisposition = operation.residentAtPreflight
-                        ? EMBEDDING_RESIDENCY_EVICTED_MID_BATCH
-                        : EMBEDDING_RESIDENCY_NEVER_RESIDENT
+                // Strictly `true`, never merely truthy. The preflight is SKIPPED entirely for an
+                // openAiCompatible endpoint that is not LM Studio (`#getOpenAiCompatibleEmbeddingRuntime`
+                // returns before recording anything), so the flag is then `undefined` — an absence of
+                // observation, not an observation of absence. A ternary read it as `never-resident`
+                // and minted a positive configuration-fault claim from a check that never ran, which
+                // is the hidden default this ticket's own Avoided Traps forbids.
+                //
+                // `never-resident` is therefore minted ONLY where it is observed: the preflight
+                // rejection above. Unobserved leaves the field absent, and absent is readable.
+                if (!(unloadRetriesLeft > 0) && operation.residentAtPreflight === true) {
+                    err.residencyDisposition = EMBEDDING_RESIDENCY_EVICTED_MID_BATCH
                 }
             }
 
