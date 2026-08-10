@@ -1,6 +1,7 @@
 import fs                            from 'fs';
 import path                          from 'path';
 import { Memory_Config as AiConfig } from '../../services.mjs';
+import {writeFileAtomic}             from '../shared/atomicFileWrite.mjs';
 import Base                          from '../../../src/core/Base.mjs';
 import Json                          from '../../../src/util/Json.mjs';
 import logger                        from '../../mcp/server/memory-core/logger.mjs';
@@ -488,7 +489,6 @@ ${contextText}
 
             // Write to sandman_handoff.md
             const handoffFile = AiConfig.handoffFilePath;
-            const tmpFile     = `${handoffFile}.tmp`;
 
             let handoffContent = '';
             try {
@@ -500,9 +500,7 @@ ${contextText}
             const {content, changed} = this.mergeConflictAlerts(handoffContent, conflicts, sessionId);
 
             if (changed) {
-                await fs.promises.mkdir(path.dirname(handoffFile), {recursive: true});
-                await fs.promises.writeFile(tmpFile, content, 'utf8');
-                await fs.promises.rename(tmpFile, handoffFile);
+                await writeFileAtomic(handoffFile, content);
                 logger.info(`[TopologyInferenceEngine] Registered new topological conflicts to sandman_handoff.md for session ${sessionId}.`);
             }
 

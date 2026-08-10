@@ -1,7 +1,8 @@
-import crypto from 'crypto';
-import fs     from 'fs-extra';
-import os     from 'node:os';
-import path   from 'path';
+import crypto                                 from 'crypto';
+import fs                                     from 'fs-extra';
+import os                                     from 'node:os';
+import path                                   from 'path';
+import {writeFileAtomic, writeFileAtomicSync} from '../../../services/shared/atomicFileWrite.mjs';
 import {
     enterLifecycleGuard,
     enterLifecycleGuardSync,
@@ -574,22 +575,10 @@ export function renewHeavyMaintenanceLeaseSync({
             expiresAt: new Date(nowMs + staleAfterMs).toISOString()
         };
 
-        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
-        try {
-            fsModule.writeFileSync(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
-            const fd = fsModule.openSync(tmpPath, 'r+');
-            try {
-                fsModule.fsyncSync(fd);
-            } finally {
-                fsModule.closeSync(fd);
-            }
-            fsModule.renameSync(tmpPath, leasePath);
-        } catch (e) {
-            try {
-                fsModule.removeSync(tmpPath);
-            } catch (cleanupError) {}
-            throw e;
-        }
+        // `fsync: true` is load-bearing, not decoration: a lease that survives a crash as a stale
+        // renewal is how two holders end up believing they own the same lease. The scratch was
+        // `${leasePath}.renew-tmp-${pid}` — unique per process but not per renewal attempt.
+        writeFileAtomicSync(leasePath, JSON.stringify(renewed, null, 2), {fsModule, fsync: true});
 
         return {status: 'renewed', renewed: true, lease: renewed};
     } finally {
@@ -843,20 +832,9 @@ export async function renewHeavyMaintenanceLease({
             expiresAt: new Date(nowMs + staleAfterMs).toISOString()
         };
 
-        const tmpPath = `${leasePath}.renew-tmp-${process.pid}`;
-        try {
-            await fsModule.writeFile(tmpPath, JSON.stringify(renewed, null, 2), 'utf8');
-            const fd = await fsModule.open(tmpPath, 'r+');
-            try {
-                await fsModule.fsync(fd);
-            } finally {
-                await fsModule.close(fd);
-            }
-            await fsModule.rename(tmpPath, leasePath);
-        } catch (e) {
-            await fsModule.remove(tmpPath).catch(() => {});
-            throw e;
-        }
+        // Async twin of the sync renewal: same durability requirement, same reason. The injected
+        // fsModule here is fd-style (`open` -> fd, `fsync(fd)`), which the primitive's flush handles.
+        await writeFileAtomic(leasePath, JSON.stringify(renewed, null, 2), {fsModule, fsync: true});
 
         return {status: 'renewed', renewed: true, lease: renewed};
     } finally {

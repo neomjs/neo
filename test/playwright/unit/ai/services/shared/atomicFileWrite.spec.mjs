@@ -259,6 +259,52 @@ test.describe('fsync contract — strict, ordered, and mutation-sensitive', () =
         );
     });
 
+    test('FD-STYLE seam: an fs module whose open resolves a NUMBER flushes via fsModule.fsync', async () => {
+        const target = path.join(workDir, 'fd-style.txt'),
+              synced = [];
+
+        // The shape the lease-renewal callers inject: open -> fd number, fsync(fd), close(fd).
+        // The real handle is retained so `close` can release it — returning only `.fd` and dropping
+        // the handle leaks it to GC, which Node now treats as an error.
+        const handles = new Map();
+
+        const fdSeam = {
+            ...fsPromises,
+            open : async (file, flags) => {
+                const handle = await fsPromises.open(file, flags);
+                handles.set(handle.fd, handle);
+                return handle.fd
+            },
+            fsync: async fd => { synced.push(fd) },
+            close: async fd => { await handles.get(fd)?.close(); handles.delete(fd) }
+        };
+
+        await writeFileAtomic(target, 'fd-flushed', {fsModule: fdSeam, fsync: true});
+
+        expect(fs.readFileSync(target, 'utf8')).toBe('fd-flushed');
+        expect(synced.length, 'file flush + directory flush both routed through fsModule.fsync').toBe(2)
+    });
+
+    test('FD-STYLE seam WITHOUT fsync refuses rather than reporting durability', async () => {
+        const handles = new Map();
+
+        const noFsyncSeam = {
+            ...fsPromises,
+            open : async (file, flags) => {
+                const handle = await fsPromises.open(file, flags);
+                handles.set(handle.fd, handle);
+                return handle.fd
+            },
+            close: async fd => { await handles.get(fd)?.close(); handles.delete(fd) }
+        };
+
+        delete noFsyncSeam.fsync;
+
+        await expect(writeFileAtomic(path.join(workDir, 'fd-no-fsync.txt'), 'x', {
+            fsModule: noFsyncSeam, fsync: true
+        })).rejects.toThrow(/exposes no "fsync"/);
+    });
+
     test('SYNC surface: a seam without openSync/fsyncSync refuses instead of silently skipping', () => {
         const {openSync, fsyncSync, ...withoutFlushSeam} = fs;
 

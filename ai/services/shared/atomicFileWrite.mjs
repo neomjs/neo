@@ -150,13 +150,29 @@ async function fsyncPath(target, fsModule) {
         throw new Error(`atomicFileWrite: fsync was requested but this fs module exposes no "open"; refusing to report "${target}" as durable.`)
     }
 
-    let handle = null;
+    let opened = null;
 
     try {
-        handle = await fsModule.open(target, 'r');
-        await handle.sync()
+        opened = await fsModule.open(target, 'r');
+
+        // Two shapes reach here and both are legitimate. `fs/promises.open` resolves a FileHandle
+        // carrying `.sync()`/`.close()`. Promisified/fd-style modules — which the lease-renewal
+        // callers inject for testability — resolve a NUMBER, and flush via `fsModule.fsync(fd)`.
+        // Supporting only the FileHandle shape would crash those callers on the flush path, which is
+        // the opposite of what a durability option is for.
+        if (typeof opened?.sync === 'function') {
+            await opened.sync()
+        } else if (typeof fsModule.fsync === 'function') {
+            await fsModule.fsync(opened)
+        } else {
+            throw new Error(`atomicFileWrite: fsync was requested but this fs module's "open" returned no FileHandle and it exposes no "fsync"; refusing to report "${target}" as durable.`)
+        }
     } finally {
-        await handle?.close().catch(() => {})
+        if (typeof opened?.close === 'function') {
+            await opened.close().catch(() => {})
+        } else if (opened !== null && typeof fsModule.close === 'function') {
+            await Promise.resolve(fsModule.close(opened)).catch(() => {})
+        }
     }
 }
 
