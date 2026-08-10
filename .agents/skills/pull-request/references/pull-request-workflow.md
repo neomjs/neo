@@ -120,13 +120,15 @@ declares it; `agent-preflight` verifies the supplied subjects without inference.
 
 ## 4. Pull Request Creation
 
+**Pre-open AC re-anchor:** re-read the LIVE ticket. Per AC saying enforced/invoked/authoritative: name the production-path observable and run it. A test injecting state proves the unit, not the AC.
+
 You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch.
 
 If the PR changes `ai/mcp/server/<name>/config.template.mjs`, read `.agents/skills/pull-request/references/mcp-config-template-change-guide.md` before finalizing the PR body.
 
-**Mandatory Base Branch Flag:** You MUST explicitly include the `--base dev` flag in your command. Never rely on the `gh` default behavior or assume the target without verifying, as it may inadvertently target `main` (e.g., due to local caching or CLI behavior) and result in massive, thousands-of-commits diff bloat.
+**Mandatory `--base dev`:** always pass it explicitly. The `gh` default can target `main` (local caching, CLI behavior), producing a thousands-of-commits diff.
 
-**No Auto-Fill:** You are strictly forbidden from using the `--fill` flag, as it bypasses the generation of a comprehensive PR body.
+**No `--fill`:** forbidden — it bypasses the comprehensive PR body.
 
 ```bash
 gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehensive markdown body explaining architectural impact, edge cases, and explicitly stating Resolves #TICKET_ID" --base dev
