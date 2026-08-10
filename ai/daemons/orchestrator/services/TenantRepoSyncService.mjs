@@ -43,6 +43,7 @@ import {
 } from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
+    KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST,
@@ -497,11 +498,41 @@ function assertFullMaterializationEffect(envelope, summary, priorState, material
             && receipt.attemptId !== materializationAttempt?.attemptId
             && receipt.attemptId !== priorState?.lastCommittedMaterializationAttemptId;
 
-    if ((hasEffect && !provesCurrentAttempt) || (!hasEffect && !provesUncommittedRetry)) {
+    // These two arms are OPPOSITE findings and they used to share one code and one message. The
+    // message described the second arm, so an operator hitting the first was told the reverse of
+    // what happened — observed live with `ingested=50, embeddings=50, errors=0` and no receipt.
+    //
+    // They are separate CODES rather than one code plus a discriminating field because the durable
+    // per-repo state persists `lastErrorCode` alone; there is no `lastErrorDetails` in `ai/`, so a
+    // field would be dropped at the persistence boundary and reach nobody. `details` is still
+    // populated for a log reader, but the code is what has to carry the distinction.
+    if (hasEffect && !provesCurrentAttempt) {
+        throw new TenantRepoSyncError(
+            KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
+            'Tenant-repo full materialization took effect but no receipt proves this attempt.',
+            {
+                phase               : 'full-materialization',
+                // Counts and booleans only — no paths, filenames, or repo content, matching the
+                // credential discipline already applied to ingestion error messages.
+                ingested            : summary.ingested,
+                deleted             : summary.deleted,
+                receiptPresent      : Boolean(receipt),
+                receiptMatchesDigest: validReceipt
+            }
+        )
+    }
+
+    if (!hasEffect && !provesUncommittedRetry) {
         throw new TenantRepoSyncError(
             KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
             'Tenant-repo full materialization produced no durable positive-effect proof.',
-            {phase: 'full-materialization'}
+            {
+                phase               : 'full-materialization',
+                ingested            : summary.ingested,
+                deleted             : summary.deleted,
+                receiptPresent      : Boolean(receipt),
+                receiptMatchesDigest: validReceipt
+            }
         )
     }
 
@@ -1059,7 +1090,8 @@ class TenantRepoSyncService extends Base {
      * | Code | Surface | Trigger |
      * |---|---|---|
      * | `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | underlying clone/fetch/envelope/ingest failure (wraps the original error) |
-     * | `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | full materialization lacks a fresh positive effect or matching unacknowledged retry receipt |
+     * | `KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION` | per-repo `lastErrorCode` | full materialization produced NO positive effect and no matching unacknowledged retry receipt — nothing arrived; look at the embed stage |
+     * | `KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN` | per-repo `lastErrorCode` | full materialization DID take effect, but no receipt proves this attempt — the rows landed and the proof is missing, so do NOT re-ingest |
      * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
      * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle settles the unacknowledged graph receipt idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |

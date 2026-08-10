@@ -1251,6 +1251,88 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         });
     });
 
+    // The arm above is zero-effect and keeps the original code. This is its OPPOSITE, and the two
+    // used to be indistinguishable: one code, one message, and the message described the zero-effect
+    // case — so an operator whose rows had actually landed was told the reverse of what happened.
+    //
+    // The two demand opposite responses, which is why a shared code is not a cosmetic problem:
+    // UNPROVEN means the data is in and the proof is missing, so DO NOT re-ingest; EMPTY means
+    // nothing arrived and the embed stage is where to look.
+    test('an effect WITHOUT proof is a distinct code from an empty materialization', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/effect-without-receipt';
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/effect.git'
+            }]},
+            gitMirror      : makeFakeGitMirror(),
+            envelopeBuilder: async args => ({
+                tenantId        : args.tenantId,
+                repoSlug        : args.repoSlug,
+                files           : [{sourcePath: 'README.md', repoSlug: args.repoSlug, content: 'source'}],
+                headRevision    : 'sha-effect-no-receipt',
+                manifestSnapshot: {
+                    repoSlug      : args.repoSlug,
+                    pathsAfterPush: ['README.md']
+                }
+            }),
+            // Deliberately NOT `makeFakeIngestionService`: that fake mints a receipt whenever an
+            // attempt is present and the effect is non-zero, which is faithful to production —
+            // `persistManifestSnapshot` does the same. So effect-with-no-receipt-at-all is not a
+            // reachable steady state, and a fixture asserting it would be testing a shape production
+            // cannot produce.
+            //
+            // The reachable shape is a receipt that EXISTS and does not prove this envelope: a
+            // digest mismatch, which is one of the documented reasons production skips receipt
+            // creation. `validReceipt` is false, so `provesCurrentAttempt` is false while the ingest
+            // really happened.
+            knowledgeBaseIngestionService: {
+                async getTenantManifest({tenantId, repoSlug}) {
+                    return {tenantId, repoSlug, materializationReceipt: null}
+                },
+                async ingestSourceFiles(payload) {
+                    return {
+                        ingested              : 50,
+                        deleted               : 0,
+                        embeddingsGenerated   : 50,
+                        errors                : [],
+                        tenantId              : payload.tenantId,
+                        durationMs            : 1,
+                        materializationReceipt: {
+                            ...payload.materializationAttempt,
+                            envelopeDigest: 'sha256:deliberately-not-this-envelopes-digest',
+                            recordedAt    : Date.now()
+                        }
+                    }
+                }
+            },
+            onlyRepoSlugs    : [repoSlug],
+            revisionsFilePath: revisionsFile,
+            seedBootstrap    : false
+        });
+
+        expect(result).toMatchObject({
+            status : 'failed',
+            details: {
+                completedCount: 0,
+                failedCount   : 1,
+                repos         : [{
+                    lastErrorCode: 'KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN'
+                }]
+            }
+        });
+
+        // The negative half, and it is the one that would rot silently: if a future edit collapsed the
+        // branch back to one code, THIS assertion fails while the arm above still passes.
+        expect(result.details.repos[0].lastErrorCode).not.toBe('KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION');
+    });
+
     test('full delete-only reconciliation remains a successful checkpoint effect (#16045)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),

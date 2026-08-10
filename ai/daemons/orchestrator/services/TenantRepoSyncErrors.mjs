@@ -19,6 +19,20 @@ export const KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND       = 'KB_TENANT_REPO_SYNC_T
 export const KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED = 'KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED';
 export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT';
 export const KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION = 'KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION';
+// The OTHER half of what `EMPTY_MATERIALIZATION` used to carry, and the opposite instruction.
+// A full materialization DID take effect — rows were ingested or deleted — but no receipt proves
+// this attempt, so the ingest is real and its proof is missing. Observed live with
+// `ingested=50, embeddings=50, errors=0` and no receipt.
+//
+// It is a separate CODE rather than a field on the existing one because the per-repo durable state
+// persists `lastErrorCode` and nothing else — there is no `lastErrorDetails` anywhere in `ai/`, so a
+// discriminator carried in `details` would be dropped at the persistence boundary and never reach the
+// operator it exists for. A code is the only channel that survives.
+//
+// The distinction is not cosmetic: this arm means DO NOT re-ingest — the data landed and re-running
+// risks duplicating it — while `EMPTY_MATERIALIZATION` means nothing arrived and the embed stage is
+// where to look. One code for both told an operator the opposite of what happened half the time.
+export const KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN = 'KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN';
 // Non-failure defer reason: another process holds the cross-process tenant-repo-sync
 // lease. Surfaced as a `skipped` reasonCode (never thrown) so the periodic lane and
 // the manual CLI can branch on it without treating operator ownership as an error.
@@ -52,6 +66,7 @@ export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     KB_TENANT_REPO_SYNC_EMPTY_MATERIALIZATION,
+    KB_TENANT_REPO_SYNC_MATERIALIZATION_UNPROVEN,
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_LEASE_LOST,
     KB_TENANT_REPO_SYNC_STARVED
