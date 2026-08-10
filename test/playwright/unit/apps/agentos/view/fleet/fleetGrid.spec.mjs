@@ -134,6 +134,12 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
             sources: {repoStatus: {source: 'fleet:fleetStatus', state: 'missing', confidence: 'none'}}
         }]})).toBe(true);
 
+        // REJECTED evidence (a present fact the contract refused — malformed, cross-axis,
+        // contradictory) carries weight too: validation failure must never read as a green surface
+        expect(deriveAttention({counts: {...zero, unobserved: 1}, rows: [{
+            sources: {runtime: {source: 'fleet:listAgents', state: 'wired', confidence: 'observed'}}
+        }]})).toBe(true);
+
         // the plumbed non-roster facts each trip the fold on their own
         expect(deriveAttention({counts: {...zero, external: 9}, rows: unmanagedRows, daemonFault: true})).toBe(true);
         expect(deriveAttention({counts: {...zero, external: 9}, rows: unmanagedRows, presenceDegraded: true})).toBe(true);

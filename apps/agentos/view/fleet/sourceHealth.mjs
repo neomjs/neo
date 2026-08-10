@@ -2,8 +2,10 @@ import {FLEET_COCKPIT_SOURCES} from '../../config/cockpitSources.mjs';
 
 /**
  * @summary Closed source-health contract shared by the Fleet cockpit's store-backed cards and
- * serializable dock blueprints. It preserves the DTO's roster / repo / runtime provenance while
- * failing malformed or contradictory input to `not-wired` + `none` — never to healthy fact.
+ * serializable dock blueprints. It preserves the DTO's roster / repo / runtime provenance under a
+ * three-way honesty split: GENUINE absence (absent key or declared `not-wired`) is calm; a present
+ * fact the contract REJECTS (malformed, cross-axis, contradictory) is `invalid` — operator-visible
+ * and attention-bearing, never a healthy fact and never silently absent.
  */
 
 export const FLEET_SOURCE_KEYS = Object.freeze(['roster', 'repoStatus', 'runtime']);
@@ -18,16 +20,26 @@ const
 
 /**
  * @summary Normalize one `fleetCockpitStatus` row-source fact onto the closed render vocabulary.
- * `missing` and `not-wired` cannot carry confidence; `wired` is usable only with `observed` or
- * `inferred`. When supplied, `expectedSource` closes the fact over its DTO-owned producer. Unknown,
- * inherited, malformed, cross-axis, and contradictory values fail closed.
- * @param {*} value Source-health input; malformed values fail closed.
+ * `missing`, `not-wired`, and `invalid` cannot carry confidence; `wired` is usable only with
+ * `observed` or `inferred`. When supplied, `expectedSource` closes the fact over its DTO-owned
+ * producer. Absent input fails closed to the calm `not-wired`; unknown, inherited-shaped,
+ * malformed, cross-axis, and contradictory PRESENT values read `invalid` — rejected evidence is
+ * never conflated with absence.
+ * @param {*} value Source-health input.
  * @param {String|null} expectedSource Canonical producer literal for this source axis.
- * @returns {{source: String|null, state: String, confidence: String}}
+ * @returns {{source: String|null, state: String, confidence: String, reason: String|null}}
  */
 export function normalizeSourceFact(value, expectedSource = null) {
-    if (!isPlainObject(value)) {
+    // GENUINE absence: no fact was supplied at all (the absent-key path). Only this shape may be
+    // calm — an ABSENT producer is not the same fact as a REJECTED answer, and conflating them
+    // would let validation failure normalize into a green surface.
+    if (value === null || value === undefined) {
         return {source: null, state: 'not-wired', confidence: 'none', reason: null}
+    }
+
+    // PRESENT but not a plain own-key object: rejected evidence, not absence.
+    if (!isPlainObject(value)) {
+        return {source: null, state: 'invalid', confidence: 'none', reason: 'malformed source fact'}
     }
 
     const
@@ -44,8 +56,10 @@ export function normalizeSourceFact(value, expectedSource = null) {
             ? value.reason.trim()
             : null;
 
+    // A PRESENT fact naming no producer — or the wrong one — is rejected evidence: `invalid`,
+    // never `not-wired`. The retained reason survives; the rejection itself is the fallback cause.
     if (!source || expectedSource && source !== expectedSource) {
-        return {source, state: 'not-wired', confidence: 'none', reason}
+        return {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed producer validation'}
     }
 
     if (state === 'missing') {
@@ -56,7 +70,14 @@ export function normalizeSourceFact(value, expectedSource = null) {
         return {source, state: 'wired', confidence, reason}
     }
 
-    return {source, state: 'not-wired', confidence: 'none', reason}
+    // The producer explicitly declares expected absence — the ONE present shape allowed to be calm.
+    if (state === 'not-wired') {
+        return {source, state: 'not-wired', confidence: 'none', reason}
+    }
+
+    // Everything else is a present fact this contract cannot read (unknown state, cross-axis
+    // value, contradictory confidence): rejected evidence, operator-visible.
+    return {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
 }
 
 /**
@@ -130,10 +151,13 @@ export function summarizeFleetSources(value) {
  */
 export function summarizeAnsweredAbnormal(value) {
     const
-        sources  = normalizeFleetSources(value),
-        labels   = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
-        order    = ['runtime', 'repoStatus', 'roster'],
-        abnormal = order.filter(key => sources[key].state === 'missing');
+        sources = normalizeFleetSources(value),
+        labels  = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
+        order   = ['runtime', 'repoStatus', 'roster'],
+        // missing = a producer ANSWERED that something is gone; invalid = a present answer this
+        // contract REJECTED. Both are operator-visible truth; only genuine absence (`not-wired`,
+        // whether declared or absent-key) stays silent.
+        abnormal = order.filter(key => sources[key].state === 'missing' || sources[key].state === 'invalid');
 
     if (abnormal.length === 0) {
         return {level: 'ok', text: '', ariaLabel: 'Source health: nothing answered abnormal.'}
@@ -184,9 +208,10 @@ export function mapFleetSessionHealth(lifecycle, sources) {
         downgradeRuntime  = () => ({
             sources: {
                 ...normalizedSources,
-                // the downgrade keeps the producer's retained cause — a fact failing closed keeps
-                // the reason that explains why (the same rule normalizeSourceFact follows)
-                runtime: {source: runtime.source, state: 'not-wired', confidence: 'none', reason: runtime.reason}
+                // a lifecycle/source CONTRADICTION is rejected evidence, not absence — `invalid`
+                // keeps it operator-visible and attention-bearing; the producer's retained cause
+                // survives, with the contradiction named as the fallback
+                runtime: {source: runtime.source, state: 'invalid', confidence: 'none', reason: runtime.reason ?? 'lifecycle and runtime facts contradict'}
             },
             state: 'off'
         });

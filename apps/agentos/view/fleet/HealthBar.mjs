@@ -86,7 +86,9 @@ export function deriveAttention({counts, rows = [], daemonFault = false, presenc
     return (Array.isArray(rows) ? rows : []).some(row => {
         const sources = normalizeFleetSources(row?.sources);
 
-        return FLEET_SOURCE_KEYS.some(key => sources[key].state === 'missing')
+        // missing (a producer answered something is gone) and invalid (a present answer the
+        // contract rejected) both carry weight; only genuine absence stays calm
+        return FLEET_SOURCE_KEYS.some(key => sources[key].state === 'missing' || sources[key].state === 'invalid')
     })
 }
 
