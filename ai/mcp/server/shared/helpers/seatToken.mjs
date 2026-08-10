@@ -1,6 +1,7 @@
-import fs           from 'fs';
-import path         from 'path';
-import {createHash} from 'crypto';
+import fs                    from 'fs';
+import path                  from 'path';
+import {createHash}          from 'crypto';
+import {writeFileAtomicSync} from '../../../../services/shared/atomicFileWrite.mjs';
 import {
     generateLocalBearerToken,
     isLocalBearerToken
@@ -152,9 +153,8 @@ export function readSeatTokenRegistry(filePath) {
  * @returns {void}
  */
 export function writeSeatTokenRegistry(filePath, registry) {
-    const tmpPath = `${filePath}.tmp-${process.pid}`;
-
-    fs.mkdirSync(path.dirname(filePath), {recursive: true});
-    fs.writeFileSync(tmpPath, JSON.stringify(registry, null, 4) + '\n', 'utf8');
-    fs.renameSync(tmpPath, filePath)
+    // The former scratch name was `${filePath}.tmp-${process.pid}` — unique across processes but NOT
+    // across concurrent writers inside one, which is exactly the shape this registry sees. The
+    // primitive's pid+UUID scratch closes that, and adds the cleanup this never had.
+    writeFileAtomicSync(filePath, JSON.stringify(registry, null, 4) + '\n')
 }

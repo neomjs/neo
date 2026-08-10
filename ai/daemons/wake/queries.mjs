@@ -1,5 +1,6 @@
 import fs                              from 'fs-extra';
 import Database                        from 'better-sqlite3';
+import {writeFileAtomicSync}           from '../../services/shared/atomicFileWrite.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../graph/storage/constants.mjs';
 // Only the WAKE_SUBSCRIPTION reads below use this. The HARNESS_PRESENCE query later in this file
 // carries the same COALESCE idiom for a DIFFERENT entity and must not be folded into it.
@@ -82,9 +83,9 @@ function getMaxLogId(db) {
  * @returns {void}
  */
 export function writeLastSyncId(stateFile, lastSyncId) {
-    const tmpFile = `${stateFile}.tmp`;
-    fs.writeFileSync(tmpFile, lastSyncId.toString(), 'utf8');
-    fs.renameSync(tmpFile, stateFile);
+    // Was a fixed `${stateFile}.tmp` with no cleanup: two daemons sharing a state file raced the same
+    // scratch, and a throw between write and rename stranded it next to the cursor permanently.
+    writeFileAtomicSync(stateFile, lastSyncId.toString())
 }
 
 export function getActiveShapeCSubscriptions(db) {
