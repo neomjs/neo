@@ -2587,6 +2587,7 @@ components:
         - recentSlowCalls
         - providerActivity
         - walDrain
+        - reembedRatio
       properties:
         status:
           type: string
@@ -2730,6 +2731,59 @@ components:
           $ref: '#/components/schemas/ProviderActivityResponse'
         walDrain:
           $ref: '#/components/schemas/WalDrainProjectionResponse'
+        reembedRatio:
+          $ref: '#/components/schemas/ReembedRatioResponse'
+
+    ReembedRatioResponse:
+      type: object
+      description: >
+        Observational identity counts for admitted batch-embedding submissions within the response
+        `sinceMs`. Use this projection with workload evidence; repeated content can legitimately make
+        `ratio` exceed 1, so this field alone does not diagnose a loop or prove convergence.
+      required:
+        - status
+        - reason
+        - coverageStartedAt
+        - oldestRetainedAt
+        - distinct
+        - ratio
+        - submissions
+        - truncated
+      properties:
+        status:
+          type: string
+          enum: [ok, disabled, unavailable, partial]
+          description: Availability and completeness of the shared observation for the response `sinceMs`.
+        reason:
+          type: string
+          nullable: true
+          description: Why the observation is unavailable or partial; null when status is ok.
+        coverageStartedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Earliest instant the shared ledger can attest; null when no observation is available.
+        oldestRetainedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Earliest retained batch-submission timestamp, or null when the ledger has no retained rows.
+        distinct:
+          type: integer
+          nullable: true
+          description: Distinct content fingerprints submitted within the response `sinceMs`.
+        ratio:
+          type: number
+          nullable: true
+          description: Observational `submissions / distinct` within `sinceMs`; null when no batch submissions were observed, and values above 1 may be legitimate.
+        submissions:
+          type: integer
+          nullable: true
+          description: Admitted batch-embedding input submissions within the response `sinceMs`.
+        truncated:
+          type: boolean
+          nullable: true
+          description: True when instrumentation coverage or retention cannot fully attest the response `sinceMs`; null when no observation is available.
 
     WalDrainProjectionResponse:
       type: object

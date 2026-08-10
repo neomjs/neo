@@ -6,6 +6,10 @@ import ConceptService from '../ConceptService.mjs';
 import config         from '../../mcp/server/knowledge-base/config.mjs';
 import logger         from '../../mcp/server/knowledge-base/logger.mjs';
 import {
+    ensureEmbeddingIdentitySchema,
+    recordEmbeddingSubmissions as persistEmbeddingSubmissions
+}                     from '../shared/embeddingIdentityLedger.mjs';
+import {
     beginProviderActivity,
     completeProviderActivity,
     ensureProviderActivitySchema,
@@ -149,6 +153,7 @@ class KBRecorderService extends Base {
             `);
 
             ensureProviderActivitySchema(this.db);
+            ensureEmbeddingIdentitySchema(this.db);
             await this.providerActivityStatusWriter.publishSuccess(Date.now());
 
             logger.info('[KBRecorderService] Connected to Memory Core kb_query_log / kb_query_faqs.');
@@ -422,6 +427,32 @@ class KBRecorderService extends Base {
         } catch (error) {
             this.providerActivityStatusWriter?.publishFailure(Date.now());
             logger.warn('[KBRecorderService] Failed to persist provider completion telemetry:', error.message);
+        }
+    }
+
+    /**
+     * @summary Persists identities for batch embedding work admitted by Knowledge Base.
+     *
+     * The recorder owns the low-cardinality source stamp. Text is reduced to fingerprints by the
+     * shared ledger and telemetry failure remains behavior-neutral for the embedding call.
+     * @param {Object} options Batch identity options.
+     * @param {String[]} [options.texts=[]] Admitted batch inputs.
+     * @param {Number} [options.submittedAt=Date.now()] Admission instant.
+     * @returns {void}
+     */
+    recordEmbeddingSubmissions({texts = [], submittedAt = Date.now()} = {}) {
+        if (!this.db) return;
+
+        try {
+            persistEmbeddingSubmissions(this.db, {
+                source: 'knowledge-base',
+                submittedAt,
+                texts
+            });
+            this.providerActivityStatusWriter?.publishSuccess(Date.now());
+        } catch (error) {
+            this.providerActivityStatusWriter?.publishFailure(Date.now());
+            logger.warn('[KBRecorderService] Failed to persist embedding identity telemetry:', error.message);
         }
     }
 

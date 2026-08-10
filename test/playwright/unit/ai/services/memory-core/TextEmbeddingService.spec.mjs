@@ -137,6 +137,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
 
     test('embedTexts dispatches batch to native Ollama provider when explicitProvider=ollama', async () => {
         const captured   = [];
+        const identities = [];
         const fakeOllama = {
             async embed(input, options) {
                 captured.push({input, options});
@@ -152,7 +153,14 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         };
         TextEmbeddingService.ollamaProvider = fakeOllama;
 
-        const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'ollama');
+        const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'ollama', {
+            providerActivityRecorder: {
+                beginProviderActivity() { return 'batch-activity' },
+                completeProviderActivity() {},
+                recordEmbeddingSubmissions(entry) { identities.push(entry) },
+                startProviderActivity() {}
+            }
+        });
 
         expect(result).toEqual([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]);
         expect(captured).toEqual([{
@@ -163,6 +171,10 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
                 timeoutMs     : aiConfig.ollama.embeddingTimeoutMs,
                 truncate      : false
             }
+        }]);
+        expect(identities).toEqual([{
+            submittedAt: expect.any(Number),
+            texts      : ['a', 'b', 'c']
         }]);
     });
 
@@ -303,6 +315,23 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             .rejects.toThrow(/ollama\.embeddingTimeoutMs must be a positive number/);
     });
 
+    test('invalid native Ollama batch configuration records no admitted identities', async () => {
+        const identities = [];
+
+        aiConfig.ollama.embeddingTimeoutMs = 0;
+        TextEmbeddingService.ollamaProvider = {
+            async embed() { return {embeddings: [[0.1]], raw: {}}; }
+        };
+
+        await expect(TextEmbeddingService.embedTexts(['never admitted'], 'ollama', {
+            providerActivityRecorder: {
+                recordEmbeddingSubmissions(entry) { identities.push(entry) }
+            }
+        })).rejects.toThrow(/ollama\.embeddingTimeoutMs must be a positive number/);
+
+        expect(identities).toEqual([]);
+    });
+
     test('embedText with explicitProvider=ollama returns empty when provider returns no embeddings', async () => {
         TextEmbeddingService.ollamaProvider = {
             async embed() { return {embeddings: [], raw: {}}; }
@@ -346,10 +375,43 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         );
     });
 
-    test('embedTexts throws explicitly for unsupported provider (no silent Gemini fallthrough)', async () => {
-        await expect(TextEmbeddingService.embedTexts(['a', 'b'], 'mystery-provider')).rejects.toThrow(
+    test('embedTexts rejects an unsupported provider without recording provider work', async () => {
+        const identities = [];
+
+        await expect(TextEmbeddingService.embedTexts(['a', 'b'], 'mystery-provider', {
+            providerActivityRecorder: {
+                recordEmbeddingSubmissions(entry) { identities.push(entry) }
+            }
+        })).rejects.toThrow(
             /unsupported embedding provider 'mystery-provider'.*Expected one of.*gemini.*openAiCompatible.*ollama/
         );
+        expect(identities).toEqual([]);
+    });
+
+    test('a pre-aborted batch records no identities and makes no provider call', async () => {
+        const
+            controller = new AbortController(),
+            identities = [],
+            reason     = new Error('batch cancelled before admission');
+        let providerCalls = 0;
+
+        controller.abort(reason);
+        TextEmbeddingService.ollamaProvider = {
+            async embed() {
+                providerCalls++;
+                return {embeddings: [[0.1, 0.2]]}
+            }
+        };
+
+        await expect(TextEmbeddingService.embedTexts(['never submit'], 'ollama', {
+            providerActivityRecorder: {
+                recordEmbeddingSubmissions(entry) { identities.push(entry) }
+            },
+            signal: controller.signal
+        })).rejects.toBe(reason);
+
+        expect(providerCalls).toBe(0);
+        expect(identities).toEqual([]);
     });
 });
 
