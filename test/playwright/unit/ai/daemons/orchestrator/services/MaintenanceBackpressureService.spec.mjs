@@ -243,6 +243,81 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect([...deferralLogKeys]).toEqual(['kbSync:summary:r3']);
     });
 
+    test('PRODUCTION SEAM — a real deferral reaches taskStateService.markDeferred and prefers its durable value', () => {
+        // **The binding, not the helper.** `TaskStateService`'s own specs convict the durable field; they
+        // cannot prove that anything in production ever writes it. This drives the CLASS method — the one
+        // `acquireLeaseAndExecute` actually calls — so a wiring regression that leaves `taskStateService`
+        // unpassed fails here rather than shipping a field nobody populates.
+        //
+        // The durable value must also WIN over the in-memory streak map, which is the whole point: the map
+        // resets on restart, and a threshold measured from a resetting value can never be crossed. The two
+        // are given deliberately different timestamps so a fallback-order regression is visible rather
+        // than masked by them agreeing.
+        const
+            deferredCalls        = [],
+            outcomeCalls         = [],
+            durableSince         = '2026-08-10T09:00:00.000Z',
+            staleInMemorySince   = '2026-08-10T15:00:00.000Z',
+            deferralStreakStarts = new Map([['kbSync', staleInMemorySince]]),
+            service              = buildService({
+                deferralStreakStarts,
+                healthService: {
+                    recordTaskOutcome(taskName, status, payload) {
+                        outcomeCalls.push({taskName, status, payload});
+                    }
+                },
+                taskStateService: {
+                    markDeferred(taskName, deferredAt) {
+                        deferredCalls.push({taskName, deferredAt});
+                        return durableSince;
+                    }
+                }
+            });
+
+        service.recordDeferral({
+            taskName        : 'kbSync',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'periodic-sync:1800000',
+            blockingTaskName: 'summary'
+        });
+
+        // The production writer reached the durable sink at all — the binding this test exists for.
+        expect(deferredCalls).toHaveLength(1);
+        expect(deferredCalls[0].taskName).toBe('kbSync');
+        expect(deferredCalls[0].deferredAt).toEqual(expect.any(String));
+
+        // ...and the published streak is the DURABLE one, not the stale in-memory entry.
+        expect(outcomeCalls[0].payload.deferredSince).toBe(durableSince);
+        expect(outcomeCalls[0].payload.deferredSince).not.toBe(staleInMemorySince);
+    });
+
+    test('PRODUCTION SEAM control — with NO task-state sink the in-memory streak is still reported', () => {
+        // Non-vacuity for the arm above. Without this, a regression that ignored the durable value
+        // entirely — or one that dropped `deferredSince` altogether — could pass by never being exercised
+        // against the fallback path direct pure-function callers still rely on.
+        const
+            outcomeCalls         = [],
+            inMemorySince        = '2026-08-10T15:00:00.000Z',
+            deferralStreakStarts = new Map([['kbSync', inMemorySince]]),
+            service              = buildService({
+                deferralStreakStarts,
+                healthService: {
+                    recordTaskOutcome(taskName, status, payload) {
+                        outcomeCalls.push({taskName, status, payload});
+                    }
+                }
+            });
+
+        service.recordDeferral({
+            taskName        : 'kbSync',
+            reasonCode      : 'heavy-maintenance-backpressure',
+            reasonText      : 'periodic-sync:1800000',
+            blockingTaskName: 'summary'
+        });
+
+        expect(outcomeCalls[0].payload.deferredSince).toBe(inMemorySince);
+    });
+
     test('recordDeferral (intra-process heavy backpressure) dedupes + emits skipped outcome', () => {
         const deferralLogKeys = new Set();
         const logCalls        = [];
