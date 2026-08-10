@@ -44,7 +44,18 @@ test.describe('Memory Core Offline Summarization', () => {
     // The per-test `localModelActive` guard below stays as a defensive fallback for local-dev
     // without gemma4 running, but the CI-side skip is the early exit that prevents `beforeAll`
     // from probing a nonexistent endpoint.
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: heavy SLM (gemma4) — bucket A (#10903)');
+    // OPT-IN, and the inversion is the point. This read `!!process.env.NEO_TEST_SKIP_CI` — skip in
+    // CI, RUN everywhere else — which protects the machine with nothing to lose and exposes the one
+    // with the real models loaded. These tests drive a REAL model server at `127.0.0.1:1234`, so on
+    // an operator's box every routine `npm run test-unit` was live inference against their LM Studio.
+    //
+    // The same shape as guarding on a missing API key: the condition that means "unsafe to run here"
+    // was wired as the condition to skip, so the guard fired precisely where running was harmless.
+    //
+    // Default OFF everywhere, including locally. Set `NEO_TEST_LIVE_MODELS=true` to run against a
+    // model server you have deliberately provisioned.
+    test.skip(!process.env.NEO_TEST_LIVE_MODELS,
+        'live-model spec — set NEO_TEST_LIVE_MODELS=true to run against a real model server');
 
     let SDK, TextEmbeddingService, dummySessionId, originalEmbedText, originalEmbedTexts, originalSessionModel, restoreAiConfig;
     let localModelActive = false;

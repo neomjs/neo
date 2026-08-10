@@ -623,7 +623,12 @@ test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
     });
 
     test('Ollama.generate() can verify native format against a live env-configured daemon (#13855)', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: live Ollama daemon is an operator-local dependency');
+        // OPT-IN. The previous guard skipped in CI and RAN everywhere else — but its own message
+        // names the reason it must not: a live Ollama daemon is an OPERATOR-LOCAL dependency, so
+        // "everywhere else" is exactly the operator's machine. Default OFF; set
+        // `NEO_TEST_LIVE_MODELS=true` to run against a daemon you deliberately provisioned.
+        test.skip(!process.env.NEO_TEST_LIVE_MODELS,
+            'live-model spec — set NEO_TEST_LIVE_MODELS=true to run against a real Ollama daemon');
         test.skip(process.env.NEO_RUN_LIVE_OLLAMA_TESTS !== '1', 'Skipping live Ollama test; set NEO_RUN_LIVE_OLLAMA_TESTS=1 to run');
 
         const host      = process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434';
