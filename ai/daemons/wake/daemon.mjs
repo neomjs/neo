@@ -31,6 +31,7 @@ import Neo                                       from '../../../src/Neo.mjs';
 import * as core                                 from '../../../src/core/_export.mjs';
 import InstanceManager                           from '../../../src/manager/Instance.mjs';
 import AiConfig                                  from '../../config.mjs';
+import {writeFileAtomicSync}                     from '../../services/shared/atomicFileWrite.mjs';
 import memoryCoreConfig                          from '../../mcp/server/memory-core/config.mjs';
 import {assertConfigFresh}                       from '../../scripts/setup/initServerConfigs.mjs';
 import {buildWakeDigest, getHighestWakePriority} from './wakeDigestBuilder.mjs';
@@ -353,15 +354,13 @@ function loadTerminalDeliveryFailures() {
  * @private
  */
 function persistTerminalDeliveryFailures() {
-    const tmpPath = `${DELIVERY_FAILURE_STATE_FILE}.${process.pid}.tmp`;
-
     try {
-        fs.writeFileSync(tmpPath, JSON.stringify(terminalDeliveryFailures, null, 2) + '\n', {mode: 0o600});
-        fs.chmodSync(tmpPath, 0o600);
-        fs.renameSync(tmpPath, DELIVERY_FAILURE_STATE_FILE);
+        // The former scratch was `${file}.${pid}.tmp` — unique per process but not per call, and the
+        // explicit chmod after write existed because the mode was applied to a file the umask had
+        // already touched. The primitive creates at 0o600 with `wx` and cleans up its own scratch.
+        writeFileAtomicSync(DELIVERY_FAILURE_STATE_FILE, JSON.stringify(terminalDeliveryFailures, null, 2) + '\n');
         terminalDeliveryFailuresNeedRepair = false;
     } catch (error) {
-        try { fs.removeSync(tmpPath); } catch {}
         writeLog('ERROR', `[Wake Daemon] Could not persist terminal delivery-failure receipts (${error.message}).`);
     }
 }
