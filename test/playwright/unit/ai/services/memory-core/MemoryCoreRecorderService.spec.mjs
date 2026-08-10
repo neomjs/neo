@@ -370,10 +370,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             // The denominator. `providerActivity` alone cannot distinguish a busy ingestion from a
             // lane burning against an empty backlog, and this key set is the declared surface — so
             // the addition is recorded here rather than the pin loosened.
-            'walDrain',
-            // The identity half. `walDrain` says how much work was PENDING; this says how much of
-            // the work done was REPEATED. Neither alone separates a converging sweep from a loop.
-            'reembedRatio'
+            'walDrain'
         ]);
         expect(metrics.providerActivity).toMatchObject({
             status         : 'ok',
@@ -869,39 +866,6 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
             expect(walDrain.window.coverageStartedAt, 'epoch ms must not reach the wire raw')
                 .toBe(new Date(coverageStartedAt).toISOString());
-        });
-
-        test('the re-embed ratio reaches the metrics surface, or says why it cannot', () => {
-            // The AC this closes: an instrument an operator cannot read is not an instrument. A
-            // service method is not the metrics observer, so the ratio is injected the same way the
-            // drain projection is — TextEmbeddingService owns the window and already imports this
-            // recorder, so the recorder reaching back would be a cycle.
-            MemoryCoreRecorderService.reembedRatioProvider = () => ({
-                coverageStartedAt: Date.now() - 60_000,
-                distinct         : 4,
-                ratio            : 2,
-                submissions      : 8,
-                truncated        : false
-            });
-
-            const {reembedRatio} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
-
-            expect(reembedRatio.status).toBe('ok');
-            expect(reembedRatio.ratio, 'eight submissions for four distinct inputs').toBe(2);
-            expect(typeof reembedRatio.coverageStartedAt, 'epoch ms must not reach the wire raw').toBe('string');
-        });
-
-        test('a process that does not host the window reports UNAVAILABLE, never a ratio of 1', () => {
-            // The false-zero guard at the surface. One is the value of a CONVERGING run, so a
-            // defaulted 1 would tell an operator "no repetition" for a process that never looked —
-            // and every process that does not embed would report a healthy corpus.
-            MemoryCoreRecorderService.reembedRatioProvider = null;
-
-            const {reembedRatio} = MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5});
-
-            expect(reembedRatio.status).toBe('unavailable');
-            expect(reembedRatio.ratio, 'not hosting the window is not the same fact as not repeating').toBeNull();
-            expect(reembedRatio.reason).toContain('not-hosted');
         });
 
         test('EVERY status arm carries the required walDrain field (@neo-gpt contract break)', () => {

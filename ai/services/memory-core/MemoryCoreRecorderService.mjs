@@ -46,29 +46,6 @@ export const TOOL_TELEMETRY_BUSY_TIMEOUT_MS = PROVIDER_ACTIVITY_BUSY_TIMEOUT_MS;
  * @param {String} reason Why no observation is available.
  * @returns {Object}
  */
-/**
- * @summary Builds an explicit empty re-embed-ratio state.
- *
- * `ratio` stays null on every arm — never 1. One is the value of a CONVERGING run, so defaulting it
- * would tell an operator "no repetition" for a process that has not looked, which is the same false
- * zero the drain receipt above refuses. Every field the response declares is present on every arm,
- * because a required field omitted on a status branch is a wire break a schema check cannot see.
- * @param {'disabled'|'unavailable'|'partial'} status Availability state.
- * @param {String} reason Why no observation is available.
- * @returns {Object}
- */
-function emptyReembedRatio(status, reason) {
-    return {
-        status,
-        reason,
-        coverageStartedAt: null,
-        distinct         : null,
-        ratio            : null,
-        submissions      : null,
-        truncated        : null
-    }
-}
-
 function emptyWalDrain(status, reason) {
     return {
         status,
@@ -161,17 +138,7 @@ class MemoryCoreRecorderService extends Base {
          * aggregate it sits beside. Without it the pairing is a last-value latch against a window.
          * @protected
          */
-        walDrainWindowProvider: null,
-        /**
-         * @member {Function|null} reembedRatioProvider=null
-         * @summary Reads the re-embed ratio over a bounded window.
-         *
-         * Injected rather than imported: `TextEmbeddingService` owns the window and already imports
-         * this recorder, so reaching back for it directly would be a cycle. Same reason the drain
-         * providers above are injected rather than read.
-         * @protected
-         */
-        reembedRatioProvider: null
+        walDrainWindowProvider: null
     }
 
     /**
@@ -585,8 +552,7 @@ class MemoryCoreRecorderService extends Base {
                 unfinishedCalls : [],
                 recentSlowCalls : [],
                 providerActivity: emptyProviderActivity('disabled'),
-                walDrain        : emptyWalDrain('disabled', 'tool-telemetry-disabled'),
-                reembedRatio    : emptyReembedRatio('disabled', 'tool-telemetry-disabled')
+                walDrain        : emptyWalDrain('disabled', 'tool-telemetry-disabled')
             };
         }
 
@@ -602,8 +568,7 @@ class MemoryCoreRecorderService extends Base {
                 unfinishedCalls : [],
                 recentSlowCalls : [],
                 providerActivity: emptyProviderActivity('unavailable'),
-                walDrain        : emptyWalDrain('unavailable', 'tool-telemetry-unavailable'),
-                reembedRatio    : emptyReembedRatio('unavailable', 'tool-telemetry-unavailable')
+                walDrain        : emptyWalDrain('unavailable', 'tool-telemetry-unavailable')
             };
         }
 
@@ -670,8 +635,7 @@ class MemoryCoreRecorderService extends Base {
             providerActivity = emptyProviderActivity('partial');
         }
 
-        const walDrain     = this.getWalDrainProjection({sinceTs, now});
-        const reembedRatio = this.getReembedRatioProjection();
+        const walDrain = this.getWalDrainProjection({sinceTs, now});
 
         const sidecarStatus = inspectProviderActivityStatus({
             dbPath: config.storagePaths.graph,
@@ -716,8 +680,7 @@ class MemoryCoreRecorderService extends Base {
                 failureStage: row.failure_stage ?? null
             })),
             providerActivity,
-            walDrain,
-            reembedRatio
+            walDrain
         };
     }
 
@@ -803,47 +766,6 @@ class MemoryCoreRecorderService extends Base {
                 truncated        : window.truncated === true
             } : null
         };
-    }
-
-    /**
-     * @summary The re-embed ratio, or an explicit reason there is none.
-     *
-     * Fails closed exactly like the drain projection: a process that does not host the embedding
-     * window reports `unavailable`, never a ratio of 1. One is the value of a CONVERGING run, so
-     * defaulting it would report "no repetition" for a process that never looked — and the ratio's
-     * whole purpose is to separate a converging sweep from a loop.
-     *
-     * The ratio is a denominator for a judgement, never the judgement. Read it with `truncated` and
-     * `coverageStartedAt`: a bounded window that evicted, or one younger than the caller's interest,
-     * is a partial answer. A value above 1 is normal for a corpus with honestly duplicated content.
-     * @returns {Object}
-     */
-    getReembedRatioProjection() {
-        const provider = this.reembedRatioProvider;
-
-        if (typeof provider !== 'function') {
-            return emptyReembedRatio('unavailable', 'embedding-window-not-hosted-in-this-process');
-        }
-
-        let window;
-
-        try {
-            window = provider();
-        } catch (error) {
-            logger.warn('[MemoryCoreRecorderService] Failed to read the re-embed ratio:', error.message);
-
-            return emptyReembedRatio('partial', `reembed-ratio-unreadable: ${error.message}`);
-        }
-
-        return {
-            status           : 'ok',
-            reason           : null,
-            coverageStartedAt: Number.isFinite(window?.coverageStartedAt) ? new Date(window.coverageStartedAt).toISOString() : null,
-            distinct         : window?.distinct ?? null,
-            ratio            : window?.ratio ?? null,
-            submissions      : window?.submissions ?? null,
-            truncated        : window?.truncated === true
-        }
     }
 }
 

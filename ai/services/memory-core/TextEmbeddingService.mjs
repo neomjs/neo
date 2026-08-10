@@ -546,12 +546,6 @@ class TextEmbeddingService extends Base {
     construct(config) {
         super.construct(config);
 
-        // Register the window with the metrics recorder rather than having the recorder import this
-        // service: the dependency already runs THIS way, so reaching back would be a cycle. Same
-        // injection the WAL drain projection uses, and the reason an unread instrument is not an
-        // instrument — the ratio has to reach the surface an operator actually reads.
-        MemoryCoreRecorderService.reembedRatioProvider = () => this.getEmbeddingIdentityWindow();
-
         if (shouldInitializeGeminiEmbeddingClient()) {
             const apiKey = aiConfig.geminiApiKey;
             if (!apiKey) {

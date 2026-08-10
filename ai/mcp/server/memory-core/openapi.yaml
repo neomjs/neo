@@ -2587,7 +2587,6 @@ components:
         - recentSlowCalls
         - providerActivity
         - walDrain
-        - reembedRatio
       properties:
         status:
           type: string
@@ -2731,66 +2730,6 @@ components:
           $ref: '#/components/schemas/ProviderActivityResponse'
         walDrain:
           $ref: '#/components/schemas/WalDrainProjectionResponse'
-        reembedRatio:
-          $ref: '#/components/schemas/ReembedRatioResponse'
-
-    ReembedRatioResponse:
-      type: object
-      description: >
-        How much embedding work was spent re-embedding content already embedded, over a bounded
-        window. `walDrain` answers how much work was PENDING; this answers how much of the work done
-        was REPEATED, and neither alone separates a converging sweep from a loop.
-
-        `ratio` is `submissions / distinct`, so a clean run holds at exactly 1. It is null — never 1 —
-        when nothing was observed, because "has not looked" and "found no repetition" are different
-        facts and 1 is the value of the second.
-
-        A ratio above 1 is NOT by itself a defect. Real corpora duplicate content honestly, so an
-        alarm keyed on `ratio > 1` fires on correct work and gets disabled. It is anomalous only while
-        pending work fails to fall, which is a judgement this field deliberately does not make.
-      required:
-        - status
-        - reason
-        - coverageStartedAt
-        - distinct
-        - ratio
-        - submissions
-        - truncated
-      properties:
-        status:
-          type: string
-          enum: [ok, disabled, unavailable, partial]
-          description: Whether this process hosts the embedding window at all.
-        reason:
-          type: string
-          nullable: true
-          description: Why no observation is available; null when status is ok.
-        coverageStartedAt:
-          type: string
-          format: date-time
-          nullable: true
-          description: >
-            Earliest instant this window could attest. A lookback starting before it asks about a
-            period the window did not exist for.
-        distinct:
-          type: integer
-          nullable: true
-          description: Distinct content fingerprints inside the window.
-        ratio:
-          type: number
-          nullable: true
-          description: >
-            `submissions / distinct`. Exactly 1 for a converging run; null when nothing was observed.
-        submissions:
-          type: integer
-          nullable: true
-          description: Embedding submissions retained in the window.
-        truncated:
-          type: boolean
-          nullable: true
-          description: >
-            True when the window evicted earlier submissions, so the ratio is computed over a partial
-            record. A partial answer reported as a total is the same false zero a defaulted one is.
 
     WalDrainProjectionResponse:
       type: object
