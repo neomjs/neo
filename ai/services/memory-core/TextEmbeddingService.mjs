@@ -1581,7 +1581,27 @@ class TextEmbeddingService extends Base {
                     providerActivityRecorder,
                     providerActivity
                 );
-                return result.embeddings || [];
+                // Length is the ONLY thing binding a native-ollama vector to its input: the response
+                // is a parallel array with no per-item index, so a short response silently shifts
+                // every later vector onto its neighbour's id — input 1's vector stored under input
+                // 0's id, and the last id upserted with nothing. No length mismatch reaches the
+                // caller, no error is raised, and the rows are permanently wrong.
+                //
+                // A wrong row is worse than a failed batch: the batch retries, the row is believed.
+                // `|| []` was the same defect one degree further — a malformed response became "zero
+                // vectors, no error", so a sweep could report progress while the corpus stayed empty.
+                //
+                // `texts.length` is derived from what was SENT, never from what came back, so a short
+                // response cannot define its own correctness. This is the openAiCompatible density
+                // guard's twin; that path got it and this one did not, on the provider a deployment
+                // is more likely to run.
+                const ollamaEmbeddings = result.embeddings;
+
+                if (!Array.isArray(ollamaEmbeddings) || ollamaEmbeddings.length !== texts.length) {
+                    throw new Error(`ollama embedding response returned ${Array.isArray(ollamaEmbeddings) ? ollamaEmbeddings.length : 'no'} vector(s) for ${texts.length} input(s); refusing to bind vectors to inputs by position`);
+                }
+
+                return ollamaEmbeddings;
             } else if (explicitProvider === 'gemini') {
                 const geminiKey = aiConfig.geminiApiKey;
                 if (!geminiKey) {
