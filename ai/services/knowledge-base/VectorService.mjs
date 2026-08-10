@@ -812,7 +812,21 @@ class VectorService extends Base {
                 // it is the correct behaviour for this case: walking the rest of the corpus would spend
                 // `remainingBatches * maxRetries * timeout` proving what the first batch already proved.
                 if (embeddedCount === 0) {
-                    throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
+                    const abort = new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
+
+                    // A fresh Error here used to discard everything the provider had already worked out
+                    // about WHY, one hop before the receipt an operator reads. The message survived and
+                    // the classification did not, so a diagnosed outage arrived anonymous — the better
+                    // the diagnosis upstream, the more this hop threw away.
+                    abort.cause = lastError;
+
+                    // Carried only when observed. Absent stays absent: an unclassified failure must not
+                    // acquire a classification by passing through here.
+                    if (lastError?.residencyDisposition) {
+                        abort.residencyDisposition = lastError.residencyDisposition;
+                    }
+
+                    throw abort;
                 }
 
                 // At least one batch has landed, so continuing is worth attempting. This is a CONTINUATION

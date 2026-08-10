@@ -34,6 +34,30 @@ const EMBEDDING_OPERATION_LABEL_MAX_LENGTH         = 120;
 export const EMBEDDING_MODEL_NOT_RESIDENT_CODE = 'EMBEDDING_MODEL_NOT_RESIDENT';
 
 /**
+ * @summary Disposition for a model that WAS resident at preflight and is gone by the time the batch
+ * reaches a later chunk. Carried BESIDE the code, never instead of it.
+ *
+ * Distinct from {@link EMBEDDING_MODEL_NOT_RESIDENT_CODE} because the two demand OPPOSITE responses and
+ * were previously indistinguishable. *Never resident* is a deployment or configuration fault — the wrong
+ * identifier, an unloaded model, a mis-pointed host — and no amount of retrying fixes it. *Evicted
+ * mid-batch* means the configuration was correct and a co-resident model took the slot, which is a
+ * capacity and co-residency question. Reporting both as "not resident" sends an operator to re-check a
+ * configuration that was already right.
+ *
+ * The distinction is free: residency is already observed at preflight, so this only requires remembering
+ * that it was, rather than probing again per chunk — which at stock leaves would add ~13,000 `lms` CLI
+ * spawns to a full corpus sync.
+ * @type {String}
+ */
+export const EMBEDDING_RESIDENCY_EVICTED_MID_BATCH = 'evicted-mid-batch';
+
+/**
+ * @summary Disposition for a model that was never observed resident for this operation.
+ * @type {String}
+ */
+export const EMBEDDING_RESIDENCY_NEVER_RESIDENT = 'never-resident';
+
+/**
  * @summary Carries a known model-residency cause separately from its diagnostic message.
  *
  * Model-load messages include configured model identifiers, observed resident ids and provider
@@ -821,14 +845,28 @@ class TextEmbeddingService extends Base {
         const loadedModel = loadedModels.find(item => item.id === model);
 
         if (!loadedModel) {
-            const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none';
-            throw markEmbeddingModelNotResidentError(
-                new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
-            );
+            const observedIds = loadedModels.map(item => item.id).filter(Boolean).slice(0, 5).join(', ') || 'none',
+                  error       = markEmbeddingModelNotResidentError(
+                      new Error(`TextEmbeddingService: LM Studio embedding model '${model}' is not resident under its configured identifier; observed=${observedIds}`)
+                  );
+
+            // The preflight rejection is the OTHER origin of "not resident", and it carries the same
+            // disposition field so a consumer never has to infer the cause from which throw site it
+            // came out of. Absent here, only the post-request path would be classified and this one
+            // would read as unclassified rather than as the configuration fault it plainly is.
+            error.residencyDisposition = EMBEDDING_RESIDENCY_NEVER_RESIDENT;
+
+            throw error
         }
         if (!Neo.isNumber(loadedModel.contextLength)) {
             throw new Error(`TextEmbeddingService: LM Studio embedding model '${model}' has unknown loaded context; configured>=${configuredContextLength}`);
         }
+
+        // Record that residency was OBSERVED here, so a later 404 can be told apart from one raised by
+        // a model that was never loaded. This preflight runs once per embedTexts call while the batch
+        // below issues one request per chunk — the check is a point observation, not an invariant over
+        // the requests it licenses, and a co-resident chat model can evict this one inside that window.
+        operation.residentAtPreflight = true;
 
         return {configuredContextLength, loadedModel, model};
     }
@@ -1040,7 +1078,29 @@ class TextEmbeddingService extends Base {
             )) || err.message.includes('HTTP 404');                         // Shape C — model not resident
 
             if (isModelLoadError) {
-                markEmbeddingModelNotResidentError(err)
+                markEmbeddingModelNotResidentError(err);
+
+                // ADDITIVE, deliberately. `code` keeps its spelling because two downstream readers own
+                // it — `embeddingProbe`'s `model-not-resident` and the KB's durable
+                // `KB_VECTOR_EMBED_MODEL_NOT_RESIDENT` — and re-coding here would drop an evicted
+                // failure out of both classifications rather than refining it.
+                //
+                // The disposition rides alongside: residency observed at preflight and gone by the time
+                // retries exhausted means the model existed and something took its slot, which is a
+                // capacity question. Never observed resident stays a configuration fault. Only the
+                // exhausted case is marked — a Shape-C with retries left may still succeed.
+                // Strictly `true`, never merely truthy. The preflight is SKIPPED entirely for an
+                // openAiCompatible endpoint that is not LM Studio (`#getOpenAiCompatibleEmbeddingRuntime`
+                // returns before recording anything), so the flag is then `undefined` — an absence of
+                // observation, not an observation of absence. A ternary read it as `never-resident`
+                // and minted a positive configuration-fault claim from a check that never ran, which
+                // is the hidden default this ticket's own Avoided Traps forbids.
+                //
+                // `never-resident` is therefore minted ONLY where it is observed: the preflight
+                // rejection above. Unobserved leaves the field absent, and absent is readable.
+                if (!(unloadRetriesLeft > 0) && operation.residentAtPreflight === true) {
+                    err.residencyDisposition = EMBEDDING_RESIDENCY_EVICTED_MID_BATCH
+                }
             }
 
             if (unloadRetriesLeft > 0 && isModelLoadError) {
