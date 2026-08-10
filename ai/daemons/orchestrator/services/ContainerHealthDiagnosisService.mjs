@@ -1398,12 +1398,43 @@ export function calculateDockerMemoryPercent(stats) {
  * @summary The saturation-SUBJECT rule, stated once for both metrics because they disagreed silently.
  *
  * A container ratio answers *"how busy is this container?"*. A fact keyed to a `serviceKey` asserts
- * *"this service is saturated."* Those are different subjects whenever a container runs more than one
- * process — and a Node service that forks a scheduled job is exactly that.
+ * *"this service is saturated."* Those are different subjects whenever a container runs work that is
+ * not the service's own — and a Node service that forks a scheduled job is exactly that.
  *
  * **The rule, identical for both metrics:** the container ratio is a legitimate numerator for a claim
- * about the service **only when the container has no other processes to aggregate**, which is what
- * `nodeCommand === false` establishes. For anything else the number is real and its subject is wrong.
+ * about the service **only when every process in the container belongs to the service's own
+ * workload**. For anything else the number is real and its subject is wrong.
+ *
+ * **`nodeCommand === false` is the gate, and it is a PROXY for that rule rather than proof of it.**
+ * `isNodeCommand` is a regex over `Config.Cmd`, so it establishes that the command carries no `node`
+ * token and nothing whatsoever about how many processes run. Its own docblock says as much — the
+ * command is *"a proxy for runtime … and then it holds silently and wrongly"*. **An earlier revision
+ * of this block claimed `nodeCommand === false` establishes that the container "has no other processes
+ * to aggregate"; that is false and is retired here.** Three observations, and the third is why this
+ * was a truth-fold rather than a withdrawal of authority:
+ *
+ * - **A non-Node container can be multi-process at rest.** `chroma` runs `["run", "/config.yaml"]` and
+ *   hosts `dumb-init` **plus** `chroma`. The shim sits at 0.0 %, so it falsifies the premise without
+ *   demonstrating misattribution — the cheap proof, not the costly case.
+ * - **The proxy can hold only where it is irrelevant.** The containerized model service is
+ *   single-process while idle and spawns a CPU-dominating runner under load — four cores' worth,
+ *   sustained, with no client sockets left open. It satisfies the premise exactly when no CPU fact can
+ *   fire, and violates it exactly when one can.
+ * - **That case is still legitimately `container`-scoped, for a reason this gate does not encode.** The
+ *   runner executes the requests the server accepted, so the aggregate *is* the service working. The
+ *   scheduled-job case above is a **foreign** workload sharing a container. Same shape, different
+ *   class: treating them alike would withdraw a defensible signal, and it would read as rigor.
+ *
+ * **Latent, with no live instance:** `commandText` reads `Config.Cmd` and never `Config.Entrypoint`, so
+ * a Node service whose `node` token sits in the entrypoint would read `false` — gaining container
+ * authority and losing heap observation in one step. Every service on the canonical plane was checked;
+ * all four Node services carry the token in `Config.Cmd`. Recorded because the layout invites one.
+ *
+ * **Retirement trigger:** runner/process-aware evidence for the containerized model service replaces
+ * the proxy with an observation of the thing the rule actually needs. When that lands, this proxy
+ * paragraph and its three bullets go with it.
+ * @see https://github.com/neomjs/neo/issues/16830 — the evidence lane that retires the proxy
+ * @see https://github.com/neomjs/neo/issues/16877 — this fold
  *
  * **Where they deliberately differ, and why — this is the part that must stay written down together:**
  *
