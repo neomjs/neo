@@ -14,8 +14,15 @@ import {load as yamlLoad} from 'js-yaml';
  * refused, which reads as "the dependency is down" rather than "the host was never configurable".
  *
  * That is not hypothetical: `NEO_OLLAMA_HOST` was declared as a leaf, consumed by a complete
- * provider and a readiness branch, and passed to no service. Any plane selecting the ollama
- * provider sent every embed to its own container and never wrote a row.
+ * provider and a readiness branch, and passed to no service in this profile. Any plane selecting
+ * the ollama provider through the canonical profile sent every embed to its own container.
+ *
+ * **This is a floor, and a weak one on purpose.** It asks only whether a name is overridable
+ * *somewhere* in the profile, which cannot distinguish "every consuming service receives it" from
+ * "one service does". It also says nothing about the bound *value*. The per-service contract — the
+ * `(service, leaf)` coordinates and their operator-overridable shape — is a different and stronger
+ * assertion and lives in `OllamaProviderEnvCoordinates.spec.mjs`. Read a green here as "the leaf is
+ * not entirely unreachable", never as "the deployment is wired correctly".
  *
  * **This guard is deliberately narrow.** The broader rule — *every declared leaf must reach
  * Compose* — is **false by design** and was measured to be false before this spec was written:

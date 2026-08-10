@@ -90,18 +90,24 @@ services:
       - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
-      # The ollama provider is a first-class `NEO_EMBEDDING_PROVIDER` choice and the code backs it
-      # fully (ai/provider/Ollama.mjs, the native embed path, the readiness branch keyed on
-      # /api/embed). Only KEEP_ALIVE used to reach the containers, so `ollama.host` fell back to its
-      # leaf default `http://127.0.0.1:11434` — which inside these containers is the container
-      # itself. Every native embed hit nothing, on every deployment, permanently. The model service
-      # sits on this network as `local-model:11434` and no config path could name it.
+      # Native ollama is a first-class `NEO_EMBEDDING_PROVIDER` choice and the code backs it fully
+      # (ai/provider/Ollama.mjs, the native embed path, the readiness branch keyed on /api/embed),
+      # but THIS profile passed only KEEP_ALIVE. `ollama.host` then fell back to its leaf default
+      # `http://127.0.0.1:11434`, which inside this container IS this container, so ingestion
+      # embedded into nothing. A hand-written or out-of-band Compose could always supply the
+      # variable — what was missing is that the canonical profile made every operator re-derive it,
+      # while `local-model:11434` sits one name away on this network.
+      #
+      # kb-server reads host / model / embeddingModel / keep_alive through TextEmbeddingService and
+      # the dispatch seam, and EMBEDDING_TIMEOUT_MS because ingestion is the process that waits on a
+      # CPU-only provider. REQUIRE_PARALLEL_MODELS is deliberately NOT here: its only reader is
+      # called from the orchestrator. Coordinates are enforced per service by
+      # test/playwright/unit/ai/deploy/OllamaProviderEnvCoordinates.spec.mjs.
       - NEO_OLLAMA_HOST=${NEO_OLLAMA_HOST:-}
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
-      - NEO_OLLAMA_REQUIRE_PARALLEL_MODELS=${NEO_OLLAMA_REQUIRE_PARALLEL_MODELS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
       # Ask-synthesis pass-throughs (ask_knowledge_base -> SearchService.ask): the synthesis
       # provider + its DEDICATED budget-cappable key (NEO_KB_ASK_API_KEY, never the shared
@@ -223,18 +229,16 @@ services:
       - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
-      # The ollama provider is a first-class `NEO_EMBEDDING_PROVIDER` choice and the code backs it
-      # fully (ai/provider/Ollama.mjs, the native embed path, the readiness branch keyed on
-      # /api/embed). Only KEEP_ALIVE used to reach the containers, so `ollama.host` fell back to its
-      # leaf default `http://127.0.0.1:11434` — which inside these containers is the container
-      # itself. Every native embed hit nothing, on every deployment, permanently. The model service
-      # sits on this network as `local-model:11434` and no config path could name it.
+      # Native ollama pass-through for mc-server. Memory embedding and the graph extractors run in
+      # this process: TextEmbeddingService dials host and embeddingModel, the dispatch seam carries
+      # model and keep_alive for Dream-pipeline calls, and EMBEDDING_TIMEOUT_MS bounds the request
+      # the WAL drain waits on. REQUIRE_PARALLEL_MODELS is deliberately absent — see the kb-server
+      # block above for the rationale and the guard that enforces these coordinates.
       - NEO_OLLAMA_HOST=${NEO_OLLAMA_HOST:-}
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_MODEL=${NEO_OLLAMA_EMBEDDING_MODEL:-}
       - NEO_OLLAMA_EMBEDDING_TIMEOUT_MS=${NEO_OLLAMA_EMBEDDING_TIMEOUT_MS:-}
-      - NEO_OLLAMA_REQUIRE_PARALLEL_MODELS=${NEO_OLLAMA_REQUIRE_PARALLEL_MODELS:-}
       - NEO_OPENAI_COMPATIBLE_KEEP_ALIVE=${NEO_OPENAI_COMPATIBLE_KEEP_ALIVE:-}
     # The recovery actuator writes a config overlay onto the deployment-state mount, which this
     # service reads read-only — the actuator's container writes, the target only reads, so a target
@@ -332,12 +336,12 @@ services:
       - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
       - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
-      # The ollama provider is a first-class `NEO_EMBEDDING_PROVIDER` choice and the code backs it
-      # fully (ai/provider/Ollama.mjs, the native embed path, the readiness branch keyed on
-      # /api/embed). Only KEEP_ALIVE used to reach the containers, so `ollama.host` fell back to its
-      # leaf default `http://127.0.0.1:11434` — which inside these containers is the container
-      # itself. Every native embed hit nothing, on every deployment, permanently. The model service
-      # sits on this network as `local-model:11434` and no config path could name it.
+      # Native ollama pass-through for the orchestrator. This is the supervising process: it renders
+      # the ollama serve environment, probes readiness against host/model/embeddingModel, and repairs
+      # role-set residency. REQUIRE_PARALLEL_MODELS lives HERE and only here — buildOllamaReadiness-
+      # Config is its sole reader and every caller of that is orchestrator-side (the configured serve
+      # task, DreamService, the recovery actuator). EMBEDDING_TIMEOUT_MS is present because Dream and
+      # the tenant repo sync embed through the same TextEmbeddingService the other services use.
       - NEO_OLLAMA_HOST=${NEO_OLLAMA_HOST:-}
       - NEO_OLLAMA_KEEP_ALIVE=${NEO_OLLAMA_KEEP_ALIVE:-}
       - NEO_OLLAMA_MODEL=${NEO_OLLAMA_MODEL:-}
