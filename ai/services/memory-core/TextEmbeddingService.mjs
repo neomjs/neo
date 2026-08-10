@@ -1582,19 +1582,21 @@ class TextEmbeddingService extends Base {
                     providerActivity
                 );
                 // Length is the ONLY thing binding a native-ollama vector to its input: the response
-                // is a parallel array with no per-item index, so a short response silently shifts
-                // every later vector onto its neighbour's id — input 1's vector stored under input
-                // 0's id, and the last id upserted with nothing. No length mismatch reaches the
-                // caller, no error is raised, and the rows are permanently wrong.
+                // is a parallel array with no per-item index, so length is the only thing binding a
+                // vector to its input: a short response would carry input 1's vector at position 0.
                 //
-                // A wrong row is worse than a failed batch: the batch retries, the row is believed.
-                // `|| []` was the same defect one degree further — a malformed response became "zero
-                // vectors, no error", so a sweep could report progress while the corpus stayed empty.
+                // This is CONTRACT hardening, not corruption prevention, and the distinction was
+                // established by probe rather than argument. The vector store refuses a mismatched
+                // record set before any API call — ChromaDB 3.5.0 throws on unequal field lengths and
+                // on a zero-length list — so a misbound set does not reach a corpus and the sweep
+                // already fails. What this adds is WHERE: the failure is named here, against the
+                // input count, quoting both numbers, instead of arriving as a store-level complaint
+                // about field lengths three layers from the cause. It also covers callers that never
+                // terminate at a store.
                 //
                 // `texts.length` is derived from what was SENT, never from what came back, so a short
                 // response cannot define its own correctness. This is the openAiCompatible density
-                // guard's twin; that path got it and this one did not, on the provider a deployment
-                // is more likely to run.
+                // guard's twin; that path got it and this one did not.
                 const ollamaEmbeddings = result.embeddings;
 
                 if (!Array.isArray(ollamaEmbeddings) || ollamaEmbeddings.length !== texts.length) {
