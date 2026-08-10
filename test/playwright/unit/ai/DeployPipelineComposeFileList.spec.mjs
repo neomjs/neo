@@ -2,6 +2,7 @@ import {test, expect}  from '@playwright/test';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {execFile}      from 'node:child_process';
+import {randomUUID}    from 'node:crypto';
 import {promisify}     from 'node:util';
 import {fileURLToPath} from 'url';
 
@@ -37,24 +38,58 @@ const execFileAsync = promisify(execFile),
  * @param {Boolean} [config.omitComposeFile]  Leave the variable UNSET rather than setting it.
  * @param {Boolean} [config.failIfGitCalled]  Install a recording `git` stub that fails if the pipeline
  * reaches revision resolution. Used only for missing-composition cases, which must stop first.
+ * @param {Boolean} [config.failMaterialize]  Fail the prescription materializer before Docker.
+ * @param {Boolean} [config.failDockerUp]     Fail the health-gated `docker compose up` call.
+ * @param {Boolean} [config.holdDeployLock]   Present an existing atomic deploy claim.
+ * @param {String}  [config.deploymentRunId]  UUID returned by the recording Node runtime.
  * @param {String}  [config.revision]         Selector for `NEO_REF`; defaults to this checkout's `HEAD`.
- * @returns {Promise<Object>} `{code, stdout, calls, dockerCalls, gitCalls, composeArgs, preflightCallIndex, firstDockerIndex}`
+ * @returns {Promise<Object>} Ordered call evidence and derived prescription paths.
  */
-async function runPipeline({composeFileValue, omitComposeFile, failIfGitCalled, revision}) {
-    const workDir = await fs.mkdtemp(path.join(repoRoot, 'test/playwright/test-results/compose-list-')),
-          binDir  = path.join(workDir, 'bin'),
-          logPath = path.join(workDir, 'calls.log');
+async function runPipeline({
+    composeFileValue,
+    omitComposeFile,
+    failIfGitCalled,
+    failMaterialize,
+    failDockerUp,
+    holdDeployLock,
+    deploymentRunId,
+    revision
+}) {
+    const workDir          = await fs.mkdtemp(path.join(repoRoot, 'test/playwright/test-results/compose-list-')),
+          binDir           = path.join(workDir, 'bin'),
+          logPath          = path.join(workDir, 'calls.log'),
+          prescriptionRoot = path.join(workDir, 'deployment-prescriptions'),
+          runId            = deploymentRunId || randomUUID();
 
     await fs.ensureDir(binDir);
     await fs.writeFile(logPath, '');
 
-    // Recording stubs. `exit 0` so the script proceeds past them and we observe every call it makes.
-    for (const name of ['docker', 'node']) {
-        const stubPath = path.join(binDir, name);
-
-        await fs.writeFile(stubPath, `#!/usr/bin/env bash\nprintf '${name} %s\\n' "$*" >> "$CALL_LOG"\nexit 0\n`);
-        await fs.chmod(stubPath, 0o755)
+    if (holdDeployLock) {
+        await fs.ensureDir(path.join(prescriptionRoot, 'deploy.lock'))
     }
+
+    // Recording stubs. Their opt-in failures prove that a failed phase cannot leak into a later one.
+    const dockerStubPath = path.join(binDir, 'docker'),
+          nodeStubPath   = path.join(binDir, 'node');
+
+    await fs.writeFile(
+        dockerStubPath,
+        '#!/usr/bin/env bash\n' +
+        'printf \'docker %s\\n\' "$*" >> "$CALL_LOG"\n' +
+        'if [ "${FAIL_DOCKER_UP:-0}" = "1" ] && [[ " $* " == *" up "* ]]; then exit 92; fi\n' +
+        'exit 0\n'
+    );
+    await fs.chmod(dockerStubPath, 0o755);
+
+    await fs.writeFile(
+        nodeStubPath,
+        '#!/usr/bin/env bash\n' +
+        'printf \'node %s\\n\' "$*" >> "$CALL_LOG"\n' +
+        'if [[ "$*" == *"randomUUID"* ]]; then printf \'%s\' "$STUB_DEPLOYMENT_RUN_ID"; exit 0; fi\n' +
+        'if [ "${FAIL_MATERIALIZE:-0}" = "1" ] && [[ " $* " == *"materializeDeploymentPrescriptions.mjs materialize "* ]]; then exit 91; fi\n' +
+        'exit 0\n'
+    );
+    await fs.chmod(nodeStubPath, 0o755);
 
     if (failIfGitCalled) {
         const gitStubPath = path.join(binDir, 'git');
@@ -73,12 +108,16 @@ async function runPipeline({composeFileValue, omitComposeFile, failIfGitCalled, 
     // reaches bash as genuinely unset, which is the distinction under test.
     const childEnv = {
         ...process.env,
-        PATH                   : `${binDir}:${process.env.PATH}`,
-        CALL_LOG               : logPath,
-        NEO_REPO_URL           : repoRoot,
-        NEO_REF                : selector,
-        NEO_DEPLOY_PROJECT_NAME: 'compose-list-spec',
-        NEO_DEPLOY_COMPOSE_FILE: composeFileValue ?? ''
+        PATH                                 : `${binDir}:${process.env.PATH}`,
+        CALL_LOG                             : logPath,
+        FAIL_DOCKER_UP                       : failDockerUp ? '1' : '0',
+        FAIL_MATERIALIZE                     : failMaterialize ? '1' : '0',
+        STUB_DEPLOYMENT_RUN_ID               : runId,
+        NEO_REPO_URL                         : repoRoot,
+        NEO_REF                              : selector,
+        NEO_DEPLOY_PROJECT_NAME              : 'compose-list-spec',
+        NEO_DEPLOY_COMPOSE_FILE              : composeFileValue ?? '',
+        NEO_HOST_DEPLOYMENT_PRESCRIPTION_ROOT: prescriptionRoot
     };
 
     if (omitComposeFile) {
@@ -94,10 +133,15 @@ async function runPipeline({composeFileValue, omitComposeFile, failIfGitCalled, 
         stdout = (error.stdout || '') + (error.stderr || '')
     }
 
-    const calls       = (await fs.readFile(logPath, 'utf8')).split('\n').filter(Boolean),
-          dockerCalls = calls.filter(line => line.startsWith('docker ')),
-          gitCalls    = calls.filter(line => line.startsWith('git ')),
-          firstUp     = dockerCalls.find(line => line.includes(' up ')) || '';
+    const calls                = (await fs.readFile(logPath, 'utf8')).split('\n').filter(Boolean),
+          dockerCalls          = calls.filter(line => line.startsWith('docker ')),
+          gitCalls             = calls.filter(line => line.startsWith('git ')),
+          firstUp              = dockerCalls.find(line => line.includes(' up ')) || '',
+          preflightCallIndex   = calls.findIndex(line => line.startsWith('node ') && line.includes('redeployPreflight')),
+          materializeCallIndex = calls.findIndex(line => line.startsWith('node ') && line.includes('materializeDeploymentPrescriptions.mjs materialize ')),
+          firstDockerIndex     = calls.findIndex(line => line.startsWith('docker ')),
+          receiptCallIndex     = calls.findIndex(line => line.startsWith('node ') && line.includes('materializeDeploymentPrescriptions.mjs receipt ')),
+          deployLockExists     = await fs.pathExists(path.join(prescriptionRoot, 'deploy.lock'));
 
     await fs.remove(workDir);
 
@@ -109,9 +153,14 @@ async function runPipeline({composeFileValue, omitComposeFile, failIfGitCalled, 
         calls,
         dockerCalls,
         gitCalls,
-        composeArgs       : firstUp,
-        preflightCallIndex: calls.findIndex(line => line.startsWith('node ') && line.includes('redeployPreflight')),
-        firstDockerIndex  : calls.findIndex(line => line.startsWith('docker '))
+        composeArgs    : firstUp,
+        prescriptionRoot,
+        deploymentRunId: runId,
+        preflightCallIndex,
+        materializeCallIndex,
+        firstDockerIndex,
+        receiptCallIndex,
+        deployLockExists
     }
 }
 
@@ -203,7 +252,7 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
         expect(oneFile.stdout).toContain('(1 file(s)')
     });
 
-    test('the preflight runs BEFORE any Docker call — asserted on recorded POSITION', async () => {
+    test('preflight, prescription materialization, Docker health gate, and receipt run in delivery order', async () => {
         // The earlier version of this test only checked that both the preflight message and some Docker
         // call appeared, which is true for ANY ordering and so proved nothing about the guarantee it
         // claimed. The property is positional: the survivability gate must precede every container
@@ -211,8 +260,89 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
         const result = await runPipeline({composeFileValue: '/tmp/a.yml:/tmp/b.yml'});
 
         expect(result.preflightCallIndex).toBeGreaterThan(-1);
+        expect(result.materializeCallIndex).toBeGreaterThan(-1);
         expect(result.firstDockerIndex).toBeGreaterThan(-1);
-        expect(result.preflightCallIndex).toBeLessThan(result.firstDockerIndex)
+        expect(result.receiptCallIndex).toBeGreaterThan(-1);
+        expect(result.preflightCallIndex).toBeLessThan(result.materializeCallIndex);
+        expect(result.materializeCallIndex).toBeLessThan(result.firstDockerIndex);
+        expect(result.firstDockerIndex).toBeLessThan(result.receiptCallIndex);
+        expect(result.deployLockExists).toBe(false);
+
+        const materializeCall = result.calls[result.materializeCallIndex],
+              receiptCall     = result.calls[result.receiptCallIndex],
+              runRoot         = path.join(
+                  result.prescriptionRoot,
+                  'runs',
+                  result.deploymentRunId
+              ),
+              uuidCalls       = result.calls.filter(line => line.startsWith('node ') && line.includes('randomUUID'));
+
+        expect(materializeCall).toContain(`--ledger ${result.prescriptionRoot}/prescriptions.jsonl`);
+        expect(materializeCall).toContain(`--env ${result.prescriptionRoot}/active.env`);
+        expect(materializeCall).toContain(`--state ${runRoot}/materialized-state.json`);
+        expect(materializeCall).toContain('--project-env /tmp/.env');
+        expect(materializeCall).toContain('--compose-project compose-list-spec');
+        expect(materializeCall).toContain(`--run-id ${result.deploymentRunId}`);
+        expect(materializeCall).toContain('--adopt-existing-env');
+        expect(receiptCall).toContain(`--state ${runRoot}/materialized-state.json`);
+        expect(receiptCall).toContain(`--receipt ${runRoot}/delivery-receipt.json`);
+        expect(receiptCall).toContain(`--run-id ${result.deploymentRunId}`);
+        expect(materializeCall).not.toContain('--receipt');
+        expect(uuidCalls).toHaveLength(1);
+        expect(result.calls.indexOf(uuidCalls[0])).toBeGreaterThan(result.preflightCallIndex);
+        expect(result.calls.indexOf(uuidCalls[0])).toBeLessThan(result.materializeCallIndex);
+
+        // The script runs from `repoRoot`, while the first composition lives in `/tmp`. An explicit
+        // env-file operand is therefore the production contract that makes the materialized carrier
+        // authoritative rather than depending on Compose's cwd/project-directory discovery.
+        for (const dockerCall of result.dockerCalls) {
+            expect(dockerCall).toContain(`compose --env-file ${result.prescriptionRoot}/active.env`)
+        }
+    });
+
+    test('an existing deploy claim refuses a concurrent materialization transaction', async () => {
+        const result = await runPipeline({
+            composeFileValue: '/tmp/a.yml:/tmp/b.yml',
+            holdDeployLock  : true
+        });
+
+        expect(result.code).not.toBe(0);
+        expect(result.preflightCallIndex).toBeGreaterThan(-1);
+        expect(result.materializeCallIndex).toBe(-1);
+        expect(result.dockerCalls).toEqual([]);
+        expect(result.receiptCallIndex).toBe(-1);
+        expect(result.deployLockExists).toBe(true);
+        expect(result.stdout).toContain('deployment lock exists');
+        expect(result.stdout).toContain('No prescription was materialized')
+    });
+
+    test('a materialization refusal stops before every Docker lifecycle call', async () => {
+        const result = await runPipeline({
+            composeFileValue: '/tmp/a.yml:/tmp/b.yml',
+            failMaterialize : true
+        });
+
+        expect(result.code).not.toBe(0);
+        expect(result.preflightCallIndex).toBeGreaterThan(-1);
+        expect(result.materializeCallIndex).toBeGreaterThan(result.preflightCallIndex);
+        expect(result.dockerCalls).toEqual([]);
+        expect(result.receiptCallIndex).toBe(-1);
+        expect(result.deployLockExists).toBe(false)
+    });
+
+    test('a failed Docker health gate cannot emit a delivery receipt', async () => {
+        const result = await runPipeline({
+            composeFileValue: '/tmp/a.yml:/tmp/b.yml',
+            failDockerUp    : true
+        });
+
+        expect(result.code).not.toBe(0);
+        expect(result.materializeCallIndex).toBeGreaterThan(result.preflightCallIndex);
+        expect(result.firstDockerIndex).toBeGreaterThan(result.materializeCallIndex);
+        expect(result.receiptCallIndex).toBe(-1);
+        expect(result.deployLockExists).toBe(false);
+        expect(result.dockerCalls).toHaveLength(1);
+        expect(result.dockerCalls[0]).toContain(' up ')
     });
 
     test('the health gate and project pinning are unchanged, and `down` is never issued', async () => {
@@ -220,6 +350,7 @@ test.describe('deploy-pipeline.sh — ordered Compose-file set', () => {
 
         expect(result.composeArgs).toContain('up -d --build --wait');
         expect(result.composeArgs).toContain('-p compose-list-spec');
+        expect(result.composeArgs).toContain(`--env-file ${result.prescriptionRoot}/active.env`);
         expect(result.dockerCalls.some(line => line.includes(' down '))).toBe(false)
     });
 

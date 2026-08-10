@@ -97,6 +97,19 @@ export const RECOVERY_KNOBS = Object.freeze({
                 max     : CONTAINER_MEMORY_CEILING_MAX_BYTES
             })
         ]),
+        /**
+         * Delivery reconciliation is not actuation admission. The actuator must only propose a
+         * strict raise, but after that raise has landed an ordinary redeploy sees equality and must
+         * keep delivering the same desired state. This predicate lets the host materializer
+         * distinguish that idempotent equality from a now-lower, dangerous stale prescription
+         * without weakening `raise-not-lower` for any producer or actuator caller.
+         * @param {Object} values
+         * @param {Object} context
+         * @returns {Boolean}
+         */
+        matchesCurrentDeployment: (values, context = {}) =>
+            values['deploy.chroma.memoryCeilingBytes'] ===
+            context['runtime.chroma.liveMemoryLimitBytes'],
         invariants: Object.freeze([
             Object.freeze({
                 id    : 'raise-not-lower',
@@ -193,6 +206,23 @@ export function isKnownKnob(knob) {
  */
 export function knobLeafPaths(knob) {
     return isKnownKnob(knob) ? RECOVERY_KNOBS[knob].leaves.map(leaf => leaf.path) : []
+}
+
+/**
+ * @summary The leaf→environment bindings a knob delivers through, resolved from the registry.
+ *
+ * **This exists so a consumer never has to take an env key from a record it was handed.** The renderer
+ * downstream accepts any uppercase identifier, so a record carrying its own `env` field would let a
+ * forged prescription for one knob write an arbitrary numeric config key. The binding is registry
+ * property, and this accessor is the only sanctioned way to learn it — same reason
+ * {@link knobRequiredContext} exists: adding or rebinding a leaf must not require editing the caller.
+ * @param {String} knob
+ * @returns {Array<{path: String, env: String}>} Empty for an unknown knob — gate on {@link isKnownKnob}.
+ */
+export function knobEnvBindings(knob) {
+    return isKnownKnob(knob)
+        ? RECOVERY_KNOBS[knob].leaves.map(leaf => ({path: leaf.path, env: leaf.env}))
+        : []
 }
 
 /**

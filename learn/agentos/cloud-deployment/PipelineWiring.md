@@ -18,12 +18,13 @@ Hook Wiring is about ingesting what a tenant *writes*. This guide is about shipp
 A downstream deploy job runs on the deployment host (or a runner with Docker access to it) and performs a fixed sequence:
 
 1. **Check out** the pinned Agent OS revision — a release tag, not an arbitrary commit (see *Release-gating*).
-2. **Build** the images — `docker compose -f ai/deploy/docker-compose.yml [--profile …] build`.
-3. **Redeploy** — recreate the containers against the *existing* persistence volumes (see *Redeploy-safe persistence*).
-4. **Gate on health** — block until the deployed MCP healthchecks pass; fail the job if they do not.
-5. **Report** — surface the healthcheck result so a failed deploy is visible.
+2. **Preflight** the deployment for redeploy-survivability before Docker can mutate the plane.
+3. **Materialize** any host-held deployment prescriptions into the Compose environment (see *Delivering deployment prescriptions*).
+4. **Build and redeploy** — recreate the containers against the *existing* persistence volumes (see *Redeploy-safe persistence*).
+5. **Gate on health** — block until the deployed MCP healthchecks pass; fail the job if they do not.
+6. **Report** — surface the healthcheck result and, after success, bind delivered prescriptions to the deployed revision.
 
-[`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) is a runnable reference for steps 2–5. A CI job (GitHub Actions, GitLab CI, Jenkins, …) calls it; the script is CI-system-neutral so the wiring is not locked to one vendor.
+[`ai/examples/cloud-deployment/deploy-pipeline.sh`](../../../ai/examples/cloud-deployment/deploy-pipeline.sh) is a runnable reference for steps 2–6. A CI job (GitHub Actions, GitLab CI, Jenkins, …) calls it; the script is CI-system-neutral so the wiring is not locked to one vendor.
 
 ## Release-gating
 
@@ -139,6 +140,18 @@ treating the narrower guarantee as the broader one is how an operator discovers
 the gap during a recovery rather than before one.
 
 **Verification:** the redeploy-survival check is [Day-0 Tutorial Milestone 7](./Day0Tutorial.md) — a `docker compose down && docker compose up --build` cycle, then confirm the Memory Core store, Sandman handoff, orchestrator task/revision state, and backup bundles are intact. Run that check once when the pipeline is first wired; subsequent redeploys rely on the named-volume + project-name + bind-mount contract above.
+
+## Delivering deployment prescriptions
+
+Some recovery knobs only take effect when Compose creates a container. A diagnosis can identify that such a knob is relevant, but it does **not** choose a value or authorize a deployment change. The first producer is an explicit trusted host/operator action; the pipeline's narrower job is to validate and deliver that prescription without letting an append-only file become configuration authority.
+
+The reference script keeps this state outside the checkout under `NEO_HOST_DEPLOYMENT_PRESCRIPTION_ROOT`, which defaults to `${HOME}/.neo-ai/deployment-prescriptions`. `prescriptions.jsonl` is the append sink, while `active.env` is the persistent carrier Compose consumes. The deployment project's `.env` points to that carrier. Adopting an existing regular `.env` is explicit: unrelated variables, comments, and other operator-owned content are preserved before the project path is replaced by the carrier symlink. This keeps a later checkout or redeploy from silently reverting the delivered values.
+
+Materialization runs after the redeploy-survivability preflight and before `docker compose up`. Every candidate is revalidated against the current recovery-knob registry **and fresh runtime context from the exact Compose target**; a formerly valid raise cannot become a lowering instruction after the live ceiling moves. Equality is treated separately as an already-applied desired state, so the first successful raise does not brick later redeploys; the actuator's strict raise-only admission remains unchanged. An invalid or conflicted active prescription, a missing/ambiguous target, or an unreadable live bound aborts before Docker mutates the plane instead of falling back to a stale carrier. With no active prescription, deployment-owned entries are removed and Compose retains its declared defaults.
+
+The reference pipeline pins `active.env` explicitly on every Compose call and refuses when a deployment-owned key is already exported in the runner environment: exported values outrank env files, so accepting one would let the receipt describe a value Compose did not consume. One atomic host deploy lock covers materialization through the health gate. Each run also gets a UUID-bound state manifest and receipt path, so even an out-of-band materialization cannot make deployment A receipt deployment B's snapshot.
+
+Only after `docker compose up --wait` has passed its health gate does the pipeline atomically write that run's delivery receipt. The receipt binds the deployment-run UUID, `deployedRevision`, the materialized carrier digest, and the active prescription IDs. It proves which prescription set the successful deployment path delivered; it does **not** claim that a runtime observer independently read back each resulting process value.
 
 ## The health gate
 
