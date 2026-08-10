@@ -221,6 +221,66 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         expect(JSON.parse(fs.readFileSync(stateFile, 'utf8')).mockTask.failureStreakStartedAt).toBe(opened);
     });
 
+    test('deferralStreakStartedAt opens at the first deferral and never slides (#16561)', async () => {
+        // The mirror of the failure-streak contract, for the condition that lane never covers: a task
+        // repeatedly DEFERRED records no failure, so `failureStreakStartedAt` stays null and every sweep
+        // reads healthy while the task never runs.
+        const {service, stateFile} = createTestService();
+
+        const opened = service.markDeferred('mockTask');
+        expect(opened).toBeTruthy();
+
+        await new Promise(resolve => setTimeout(resolve, 5));
+
+        const later = new Date().toISOString();
+        expect(later).not.toBe(opened);   // the control: time DID advance between the two deferrals
+
+        expect(service.markDeferred('mockTask', later)).toBe(opened);
+        expect(service.getTaskState('mockTask').deferralStreakStartedAt).toBe(opened);
+
+        // Durable, because the question outlives the process that measured it.
+        expect(JSON.parse(fs.readFileSync(stateFile, 'utf8')).mockTask.deferralStreakStartedAt).toBe(opened);
+    });
+
+    test('the deferral streak SURVIVES a restart — which is the whole reason it is durable (#16561)', () => {
+        // An in-memory streak map resets when the daemon restarts, so a starvation spanning a restart
+        // reported a FRESH streak — and a threshold measured from a value that resets can never be
+        // crossed. This is the property that makes the measurement worth having.
+        const {service, stateFile} = createTestService();
+        const opened               = service.markDeferred('mockTask');
+
+        const reborn = Neo.create(TaskStateService, {
+            stateFile,
+            taskDefinitions: {mockTask: {name: 'mockTask', scriptPath: '/mock/script.mjs'}},
+            writeLogFn     : () => {}
+        });
+
+        reborn.configure({
+            stateFile,
+            taskDefinitions: {mockTask: {name: 'mockTask', scriptPath: '/mock/script.mjs'}},
+            writeLogFn     : () => {}
+        });
+
+        expect(reborn.readState().mockTask.deferralStreakStartedAt).toBe(opened);
+    });
+
+    test('NEGATIVE DIRECTION — a task that RUNS reports no deferral streak (#16561)', () => {
+        // The other half of the both-directions requirement. Without it, an implementation that never
+        // clears the streak passes the assertions above and reports every task as starved forever — an
+        // always-alarm is as useless as no alarm, and harder to notice because it looks like coverage.
+        const {service} = createTestService();
+
+        service.markDeferred('mockTask');
+        expect(service.getTaskState('mockTask').deferralStreakStartedAt).toBeTruthy();
+
+        service.markStarted('mockTask', 'periodic');
+        expect(service.getTaskState('mockTask').deferralStreakStartedAt).toBeNull();
+
+        // ...and a deferral AFTER a run opens a fresh streak rather than resurrecting the old one.
+        const reopened = service.markDeferred('mockTask');
+        expect(reopened).toBeTruthy();
+    });
+
     test('a success closes the streak and clears the interruption marker (#16348)', () => {
         const {service} = createTestService();
 

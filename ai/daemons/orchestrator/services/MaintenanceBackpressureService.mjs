@@ -232,6 +232,7 @@ export function clearDeferralLogState({deferralLogKeys, deferralStreakStarts, ta
  * @param {Object} [options.taskDefinitions={}] Task-definition map for label resolution.
  * @param {Function} [options.writeLog=()=>{}] Logger function `(level, message) => void`.
  * @param {Object|null} [options.healthService=null] Optional `recordTaskOutcome(name, status, payload)` sink.
+ * @param {Object|null} [options.taskStateService=null] Optional `markDeferred(name, deferredAt)` sink owning the DURABLE streak. Absent means in-memory only, which resets on restart.
  * @returns {void}
  */
 export function recordDeferral({
@@ -244,7 +245,8 @@ export function recordDeferral({
     holdingLease     = null,
     taskDefinitions  = {},
     writeLog         = () => {},
-    healthService    = null
+    healthService    = null,
+    taskStateService = null
 }) {
     const isLeaseHeld = reasonCode === 'heavy-maintenance-lease-held';
     const holderOwner = holdingLease?.owner || 'unknown';
@@ -293,9 +295,16 @@ export function recordDeferral({
         deferredAt: new Date().toISOString()
     };
 
-    // Absent map (direct pure-function callers that pass no streak state) reports no streak rather
-    // than a falsely-fresh one — an unmeasured streak must not read as a just-started one.
-    const deferredSince = deferralStreakStarts?.get(taskName);
+    // **The durable streak wins over the in-memory one, and that ordering is the point.** The map lives on
+    // this instance, so it resets on every daemon restart — a starvation that spans a restart reported a
+    // FRESH streak, and a threshold measured from a value that resets can never be crossed. The persisted
+    // envelope answers "how long has this task been unable to run" across the process that observed it.
+    //
+    // Absent both (direct pure-function callers that pass neither) reports no streak rather than a
+    // falsely-fresh one — an unmeasured streak must not read as a just-started one.
+    const durableSince  = taskStateService?.markDeferred?.(taskName, outcomePayload.deferredAt),
+          deferredSince = durableSince || deferralStreakStarts?.get(taskName);
+
     if (deferredSince) {
         outcomePayload.deferredSince = deferredSince;
     }
@@ -575,7 +584,8 @@ export class MaintenanceBackpressureService extends Base {
             holdingLease,
             taskDefinitions     : this.taskDefinitions,
             writeLog            : this.writeLog,
-            healthService       : this.healthService
+            healthService       : this.healthService,
+            taskStateService    : this.taskStateService
         });
     }
 
