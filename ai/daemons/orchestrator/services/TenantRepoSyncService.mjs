@@ -13,6 +13,7 @@ import {
     describeCorpusOutstanding
 }                                from '../../../services/knowledge-base/helpers/corpusOutstanding.mjs';
 import {createBoundedRetryGate}   from '../../../services/shared/boundedRetryGate.mjs';
+import {writeFileAtomic}          from '../../../services/shared/atomicFileWrite.mjs';
 import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.mjs';
 // The filter below and the codes it admits are one contract. Importing the pattern from the module
 // that PRODUCES bounded codes keeps a re-declared copy from drifting into a pair that separately
@@ -2716,19 +2717,17 @@ class TenantRepoSyncService extends Base {
             return true
         }
 
-        const tmpPath = `${filePath}.tmp-${process.pid}`;
-
         try {
-            await fsModule.ensureDir(path.dirname(filePath));
-            await fsModule.writeFile(tmpPath, JSON.stringify(attempts, null, 2) + '\n');
-            await fsModule.rename(tmpPath, filePath);
+            // Was `${filePath}.tmp-${pid}` — unique per process, but this sidecar is written per repo
+            // inside one sweep, so two repos raced the same scratch.
+            await writeFileAtomic(filePath, JSON.stringify(attempts, null, 2) + '\n', {fsModule});
             return true
         } catch (e) {
             // Best-effort by contract: a sidecar write failure must not fail a repo whose actual
             // sync is fine. The cost is exactly one unrecorded attempt — the same price the
             // write-behind behaviour paid on every crash — so failing the run here would be
-            // strictly worse than the defect this record exists to fix.
-            await fsModule.remove(tmpPath).catch(() => {});
+            // strictly worse than the defect this record exists to fix. Scratch cleanup is the
+            // primitive's `finally` now, so nothing is left here to remove.
             return false
         }
     }
@@ -2871,6 +2870,9 @@ class TenantRepoSyncService extends Base {
                 return {committed: false, reason: 'ownership-lost'}
             }
 
+            // DELIBERATELY NOT the shared write-temp-then-rename primitive: the ownership fence above
+            // must sit between the scratch write and this rename, exactly as the comment block says.
+            // The primitive collapses both into one call, leaving the fence nowhere to stand.
             await fsModule.rename(tmpPath, filePath);
 
             return {committed: true}

@@ -114,6 +114,10 @@ export function makeAtomicProjectionTransport({fs, runtimeRoot, uniqueSuffix} = 
             // instant it exists to hold.
             assertDeadline?.();
 
+            // DELIBERATELY NOT the shared write-temp-then-rename primitive, for the reason the block
+            // above states: the deadline assertion has to land between the flush and the rename,
+            // because the rename IS the mutation. A primitive that owns both ends removes the one
+            // instant this bound exists to hold.
             fs.renameSync(temp, file);
 
             return {file}

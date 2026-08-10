@@ -5,6 +5,7 @@ import Base                                 from '../../../../src/core/Base.mjs'
 import AiConfig                             from '../../../config.mjs';
 import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
 import {runHealthcheck}                     from '../../../scripts/diagnostics/mcpHealthcheck.mjs';
+import {writeFileAtomicSync}                from '../../../services/shared/atomicFileWrite.mjs';
 
 /**
  * The message `runHealthcheck` produces when the server ANSWERED and reported a status outside the
@@ -634,12 +635,12 @@ export class DeploymentStateBridgeService extends Base {
                 inspect,
                 stats,
                 statsSamples,
-                runtimeContainerId: sampleContainerId,
+                runtimeContainerId       : sampleContainerId,
                 endpointProbe,
                 providerResidency,
                 providerActivity,
                 providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
-                churnBaseline     : churnBaseline?.unreadable ? undefined : churnBaseline,
+                churnBaseline            : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts,
                 // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
                 // attribution, never as "not a heap death". A disabled channel is not evidence.
@@ -1059,21 +1060,19 @@ export class DeploymentStateBridgeService extends Base {
      * @returns {void}
      */
     writeChurnBaseline(serviceKey, baseline) {
-        const target  = this.churnBaselinePath(serviceKey),
-              staging = `${target}.${process.pid}.tmp`;
-
         try {
             // Write-then-rename: a direct write torn by a crash leaves a half-written baseline, which
             // the reader above must then treat as unjudgeable — turning a crash into a silently
             // reset counter. `rename` within a directory is atomic, so a reader sees the old
-            // baseline or the new one, never a fragment.
-            fs.outputJsonSync(staging, baseline);
-            fs.renameSync(staging, target)
+            // baseline or the new one, never a fragment. The former `${target}.${pid}.tmp` scratch was
+            // unique per process, but baselines are written per service key inside one.
+            writeFileAtomicSync(this.churnBaselinePath(serviceKey), JSON.stringify(baseline, null, 2) + '\n')
         } catch (error) {
             // ERROR, not WARN: a baseline that stops advancing means churn stops accumulating, and
             // the signal dies without the record ever going unhealthy.
             this.writeLog?.('ERROR', `[DeploymentStateBridge] churn baseline write FAILED for ${serviceKey}: ${error.message}. Churn detection is degraded until this succeeds.`);
-            fs.removeSync(staging)
+            // The scratch cleanup that used to live here is the primitive's `finally`, which runs on
+            // the failure path — there is no leaked sibling left for this block to remove.
         }
     }
 
