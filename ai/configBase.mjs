@@ -662,8 +662,13 @@ class ConfigBase extends ConfigProvider {
                 // How many native Ollama embedding requests this process may hold against the
                 // provider at once. The openAiCompatible path has been serialized since its post
                 // queue existed; this path had NO admission control at all, so its concurrency was
-                // emergent from how many callers happened to exist — the difference between one
-                // stuck request and four cores of them.
+                // emergent from how many callers happened to exist.
+                //
+                // Scoped honestly: in-flight concurrency here was already near one per process,
+                // because a whole batch goes out as a SINGLE /api/embed call with an array input.
+                // So this bounds the multi-process and multi-caller case rather than a runaway
+                // fan-out, and it does not by itself explain a saturated runner — a single request
+                // can peg a container's whole CPU allowance on its own.
                 //
                 // Default 1 matches the openAiCompatible path's long-standing effective behaviour,
                 // so declaring the number changes no deployment's shape; it only makes the number

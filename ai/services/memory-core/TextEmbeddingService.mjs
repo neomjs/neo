@@ -1294,7 +1294,26 @@ class TextEmbeddingService extends Base {
         // Re-check per iteration rather than trusting the value that queued us. A raised cap does
         // NOT proactively wake anyone — nothing watches the config — but the next admission
         // attempt, whether a fresh caller or a woken waiter, reads the current number.
-        while (!this.#tryAcquireOllamaEmbeddingSlot()) {
+        while (true) {
+            let admitted;
+
+            try {
+                admitted = this.#tryAcquireOllamaEmbeddingSlot();
+            } catch (error) {
+                // A cap lowered below 1 while callers are queued throws from INSIDE this loop, and by
+                // then this waiter has already been shifted off the queue by the release that woke
+                // it. Propagating bare would consume that wakeup: this caller holds no slot and is no
+                // longer waiting, so everyone behind it stalls until some unrelated release happens.
+                //
+                // Hand the wake on before rethrowing. The throw still reaches this caller loudly —
+                // which is the point, an invalid cap must not be absorbed — but it stops taking the
+                // rest of the queue down with it.
+                this.#ollamaEmbeddingWaiters.shift()?.();
+                throw error;
+            }
+
+            if (admitted) return;
+
             await new Promise(resolve => this.#ollamaEmbeddingWaiters.push(resolve));
         }
     }
@@ -1387,7 +1406,7 @@ class TextEmbeddingService extends Base {
             }
         });
 
-        // Release when the PROVIDER settles, NOT when the caller does. #16853 deliberately lets a
+        // Release when the PROVIDER settles, NOT when the caller does. This path deliberately lets a
         // caller settle on abort while its provider request keeps running — so releasing on caller
         // completion would free a slot whose request is still in flight, and an abort storm would put
         // N concurrent requests through a cap of 1. Both handlers attached, so this derived promise

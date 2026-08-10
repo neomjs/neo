@@ -44,7 +44,7 @@
         "census": {
             "profile": "ai/deploy/docker-compose.yml",
             "baselineUniqueKeys": 45,
-            "remainingUniqueKeys": 57,
+            "remainingUniqueKeys": 58,
             "requiredDeploymentInputs": [
                 "NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE",
                 "NEO_AUTH_MODE",

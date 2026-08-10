@@ -248,6 +248,47 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         await Promise.all([first, second]);
     });
 
+    test('a cap lowered below 1 while callers are QUEUED does not strand the queue (#16780 AC-5)', async () => {
+        // @neo-opus-grace's pre-review finding. The waiter woken by a release has already been
+        // shifted off the queue; if the re-check then throws on an invalid cap and propagates bare,
+        // that wakeup is consumed — this caller holds no slot and is no longer waiting, so everyone
+        // behind it stalls until some unrelated release happens.
+        //
+        // The throw must still reach its own caller loudly. It must not take the queue with it.
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const harness = makeBlockingOllama();
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama'),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama').then(() => 'ok', error => error),
+              third  = TextEmbeddingService.embedTexts(['c'], 'ollama').then(() => 'ok', error => error);
+
+        await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
+        expect(TextEmbeddingService.getOllamaEmbeddingAdmission().waiting, 'two are queued').toBe(2);
+
+        // Invalidate the cap, then release so a waiter wakes into the throwing re-check.
+        aiConfig.ollama.maxInFlightEmbeddings = 0;
+        harness.releaseAll();
+
+        const secondResult = await second;
+
+        expect(secondResult, 'the woken waiter learns loudly').toBeTruthy();
+        expect(secondResult.message).toContain('admits no embedding request');
+
+        // The load-bearing half: the caller BEHIND it must also settle rather than hang forever.
+        const thirdResult = await Promise.race([
+            third,
+            new Promise(resolve => setTimeout(() => resolve('STRANDED'), 300))
+        ]);
+
+        expect(thirdResult, 'the wake was handed on, not consumed').not.toBe('STRANDED');
+
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+        harness.releaseAll();
+        await first.catch(() => {});
+    });
+
     test('a FAILING embed returns its slot — N failures must not stall the path (#16780 AC-5)', async () => {
         // The leak that would turn admission control into an outage: release only on success, and the
         // cap walks down to zero after `cap` failures while every surface reports a healthy service
