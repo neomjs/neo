@@ -47,7 +47,7 @@ test.describe('ai/daemons/wake/wakeDigestBuilder', () => {
         });
 
         expect(digest).toContain('latest: "the fresh 11:21 message" from @bob');
-        expect(digest).toContain('3 new messages')
+        expect(digest).toContain('3 message events')
     });
 
     test('equal sentAt timestamps keep the last-enqueued message (no same-instant drift)', () => {

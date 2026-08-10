@@ -35,7 +35,7 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
             '[WAKE][priority:high] 2 events for @neo-gpt:'
         );
         expect(formatLocalWakeDigest(record('test').envelope)).toContain(
-            '1 new messages (latest: "review" from @neo-opus-vega)'
+            '1 message events (latest: "review" from @neo-opus-vega)'
         );
     });
 
@@ -48,7 +48,7 @@ test.describe.serial('ai/daemons/wake/localWakeAdapters', () => {
 
         expect(probedDigest).toContain('[session-context: 45K tokens, gate at 250K]');
         // The line sits directly under the [WAKE] header, ahead of the breakdown bullets
-        expect(probedDigest.indexOf('[session-context:')).toBeLessThan(probedDigest.indexOf('1 new messages'));
+        expect(probedDigest.indexOf('[session-context:')).toBeLessThan(probedDigest.indexOf('1 message events'));
 
         // Absent probe data → no field → no line (an unprobed wake stays noise-free)
         expect(formatLocalWakeDigest(record('test').envelope)).not.toContain('session-context');

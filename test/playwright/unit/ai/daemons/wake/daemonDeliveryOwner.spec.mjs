@@ -245,7 +245,7 @@ test.describe('Wake Daemon — atomic delivery owner (mounted composition witnes
         const unionRequest = successBodies.find(r => r.body.includes('MERGED-INTO-RETRY-MSG'));
         expect(unionRequest, 'the merged message must be delivered — zero loss').toBeTruthy();
         expect(unionRequest.body, 'ONE union digest carrying both messages').toMatch(/2 events for @owner-test-retry-union/);
-        expect(unionRequest.body).toMatch(/2 new messages/);
+        expect(unionRequest.body).toMatch(/2 message events/);
         expect(successBodies, 'exactly one delivery — never a separate second block').toHaveLength(1);
 
         const log           = readLog();
