@@ -112,6 +112,56 @@ test.describe('Fleet cockpit FleetGrid + HealthBar — Store-backed density-rank
         expect(rankFleet(roster(Array(20).fill('idle')), {foldThreshold: 12}).folded).toBe(true)
     });
 
+    test('the presence-capability chip NAMES a degraded producer — and only a degraded one', () => {
+        const store = makeStore(roster(['ok', 'idle'])),
+              grid  = Neo.create(FleetGrid, {appName, foldThreshold: 12, store}),
+              chip  = () => grid.getReference('fleet-presence-cap');
+
+        // no envelope (the boot default): the chip claims nothing
+        expect(chip().hidden).toBe(true);
+
+        // a DEGRADED producer renders the named degradation with its retained reason — the
+        // roster-level answer to bands vanishing honestly ("no one is online" was a misread of
+        // unnamed absence, the live operator falsifier)
+        grid.presenceCapability = {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: 'plane who_is_online read failed'};
+        expect(chip().hidden).toBe(false);
+        expect(chip().text).toBe('presence unobservable · plane who_is_online read failed');
+        expect(chip().vdom['aria-label']).toBe('Presence: unobservable. plane who_is_online read failed.');
+        expect(chip().vdom.role).toBe('status');
+
+        // a reasonless degradation still names itself
+        grid.presenceCapability = {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: null};
+        expect(chip().hidden).toBe(false);
+        expect(chip().text).toBe('presence unobservable');
+
+        // wired (bands speak for themselves) and not-wired (expected-absent axis — never another
+        // permanent line) both render NOTHING; recovery clears the previous claim
+        for (const state of ['wired', 'not-wired']) {
+            grid.presenceCapability = {source: 'fleet:presenceState', state, confidence: 'observed'};
+            expect(chip().hidden, state).toBe(true);
+            expect(chip().text, state).toBe('')
+        }
+
+        // null (assembler omitted the envelope) clears too
+        grid.presenceCapability = {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: 'x'};
+        grid.presenceCapability = null;
+        expect(chip().hidden).toBe(true);
+
+        grid.destroy();
+
+        // the create-time path: an envelope supplied at construction renders once the reference
+        // tree exists (the reactive path skips pre-construction)
+        const eager = Neo.create(FleetGrid, {
+            appName, foldThreshold: 12, store: makeStore(roster(['ok'])),
+            presenceCapability: {source: 'fleet:presenceState', state: 'degraded', confidence: 'none', reason: 'boot-time read failed'}
+        });
+
+        expect(eager.getReference('fleet-presence-cap').hidden).toBe(false);
+        expect(eager.getReference('fleet-presence-cap').text).toBe('presence unobservable · boot-time read failed');
+
+        eager.destroy()
+    });
+
     test('a11y: named landmark region owning a role=list card container (#14619)', () => {
         const grid = Neo.create(FleetGrid, {appName, store: makeStore(roster(['ok', 'idle']))});
 

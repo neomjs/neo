@@ -112,6 +112,19 @@ class FleetGrid extends Container {
          */
         adapterState_: 'live',
         /**
+         * The roster's presence-CAPABILITY envelope (the assembler DTO's `capabilities.presence`:
+         * `{source, state, confidence, capturedAt, reason}`), plumbed by the cockpit's roster load.
+         * Owns the header chip that NAMES an axis degradation: when the producer answered
+         * `degraded`, every card's band correctly vanishes (absence of signal, never a verdict) —
+         * but unnamed absence reads as "no one is online" to a human, the live operator falsifier.
+         * `wired` and `not-wired` render NOTHING (bands speak for themselves; an expected-absent
+         * axis must not become another permanent line), and recovery clears the chip on the next
+         * plumbed snapshot.
+         * @member {Object|null} presenceCapability_=null
+         * @reactive
+         */
+        presenceCapability_: null,
+        /**
          * An OPTIONAL Up/Down efficiency shortcut that jumps focus between the DRILL Buttons only (the
          * gate-1 scale disposition) — a fast inter-agent jump for large rosters WITHOUT an outer roving
          * tab stop or a hidden interaction mode. Every control (drill / toggle / restart) stays in ordinary
@@ -141,6 +154,19 @@ class FleetGrid extends Container {
             items: [
                 {module: Component, cls: ['fm-fleet-title'], reference: 'fleet-title', flex: 'none', text: 'Fleet · 0 agents'},
                 {module: Component, cls: ['fm-fleet-stale'], reference: 'fleet-stale', flex: 'none', text: ''},
+                {
+                    // the presence-capability chip: NAMES the axis degradation so absent bands stop
+                    // reading as a verdict ("no one is online" — the operator falsifier this
+                    // answers). Renders ONLY for a degraded producer; wired stays absent (bands
+                    // speak) and not-wired stays absent (an expected-absent axis must not become
+                    // another permanent line). role=status: it is the roster's presence live-region.
+                    module   : Component,
+                    cls      : ['fm-fleet-presence-cap'],
+                    flex     : 'none',
+                    hidden   : true,
+                    reference: 'fleet-presence-cap',
+                    role     : 'status'
+                },
                 {ntype: 'component', flex: 1},
                 {module: HealthBar, reference: 'fleet-health', flex: 'none'}
             ]
@@ -176,6 +202,10 @@ class FleetGrid extends Container {
 
         // the health bar tallies from the SAME bound store (its own reactive record seam, no array copy)
         me.getReference('fleet-health').store = me.store;
+        // a create-time capability envelope lands after the reference tree exists — explicitly,
+        // because isConstructed stays false until the whole onConstructed chain completes, so the
+        // reactive hook cannot fire here (the HealthBar applyCounts pattern)
+        me.presenceCapability && me.applyPresenceCapability(me.presenceCapability);
         me.refreshGrid()
     }
 
@@ -198,6 +228,37 @@ class FleetGrid extends Container {
             me.getReference('fleet-health').store = value;
             me.refreshGrid()
         }
+    }
+
+    /**
+     * Triggered after the presenceCapability config changed — routes to the applier once the
+     * reference tree exists (the create-time envelope is applied explicitly from onConstructed,
+     * where isConstructed is still false by design).
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetPresenceCapability(value, oldValue) {
+        this.isConstructed && this.applyPresenceCapability(value)
+    }
+
+    /**
+     * @summary Render the presence-capability envelope onto the header chip: a DEGRADED producer
+     * gets named (with its own retained reason when one exists), every other envelope clears the
+     * chip. The a11y label mirrors the visible words (no colour-only or hover-only channel).
+     * Idempotent — a polling cockpit re-plumbing the same envelope re-renders the same chip.
+     * @param {Object|null} value
+     * @protected
+     */
+    applyPresenceCapability(value) {
+        const
+            degraded = value?.state === 'degraded',
+            reason   = degraded && typeof value.reason === 'string' && value.reason.trim(),
+            text     = degraded ? `presence unobservable${reason ? ` · ${reason}` : ''}` : '',
+            chip     = this.getReference('fleet-presence-cap');
+
+        chip.set({hidden: !degraded, text});
+        chip.changeVdomRootKey('aria-label', degraded ? `Presence: unobservable.${reason ? ` ${reason}.` : ''}` : null)
     }
 
     /**
