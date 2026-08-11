@@ -56,6 +56,40 @@ const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
  * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
  * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
  */
+/**
+ * @summary Canonicalises a model id so an untagged name matches its `:latest` form, and NOTHING else.
+ *
+ * Ollama canonicalises stored models to `name:tag` and reports an untagged pull as `name:latest`.
+ * Our config carries the untagged name — `NEO_OLLAMA_EMBEDDING_MODEL=qwen3-embedding` is valid
+ * Ollama and what every deployment uses — so an exact string comparison reports a **resident** model
+ * as missing, permanently: warming it produces the same `:latest` id that already failed to match.
+ *
+ * That false negative is not cosmetic. It reaches an actuator — `missingModels` becomes
+ * `missing-required-model`, which `ContainerHealthDiagnosisService` classes as recoverable and
+ * answers with `warmProvider`. The requirement can never be satisfied, so the warm has no exit.
+ *
+ * **Only `:latest` is folded.** `qwen3-embedding:8b` and `qwen3-embedding:4b` are different models
+ * with different vector dimensions; collapsing all tags would let a plane silently embed against the
+ * wrong model and corrupt a corpus, which is far worse than the loop this fixes. An explicit tag
+ * therefore still requires that exact tag.
+ *
+ * @param {*} id Model identifier.
+ * @returns {String} The id with a trailing `:latest` removed; unchanged otherwise.
+ */
+export function canonicalModelId(id) {
+    return typeof id === 'string' ? id.replace(/:latest$/, '') : ''
+}
+
+/**
+ * @summary True when two model ids name the same model, treating `x` and `x:latest` as one.
+ * @param {*} a
+ * @param {*} b
+ * @returns {Boolean}
+ */
+export function isSameModelId(a, b) {
+    return canonicalModelId(a) === canonicalModelId(b) && canonicalModelId(a) !== ''
+}
+
 export function lmsExecOptions(extra = {}) {
     // Merge the caller's env (if any) over process.env, then derive + augment PATH from THAT merged env,
     // so a caller-supplied `extra.env` (and its own PATH) is preserved rather than clobbered.
@@ -1334,7 +1368,8 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
-    const getMissing          = available => requiredModels.filter(model => !available.includes(model));
+    const getMissing = available => requiredModels.filter(model =>
+        !(Array.isArray(available) ? available : []).some(candidate => isSameModelId(candidate, model)));
     const completeReadyResult = async result => {
         if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
             return result;
@@ -1819,8 +1854,12 @@ export async function ensureOllamaModelsReady({
     }).filter(Boolean)).values()];
     const toIds                = available => available.map(item => item.id);
     const getRequiredAvailable = available => available.filter(item => requiredModelSet.has(item.id));
-    const getExtraModels       = available => toIds(available.filter(item => !requiredModelSet.has(item.id)));
-    const contextRequirements  = roles.reduce((map, role) => {
+    // Same canonicalisation as `getMissing`, or a resident `x:latest` is reported as EXTRA while `x`
+    // is reported as MISSING — the same model, in both lists, in one payload. That self-contradiction
+    // is what made the residency report unreadable on a live plane.
+    const getExtraModels = available => toIds(available.filter(item =>
+        ![...requiredModelSet].some(required => isSameModelId(required, item.id))));
+    const contextRequirements = roles.reduce((map, role) => {
         if (!role.model || !Neo.isNumber(role.contextLength)) {
             return map;
         }
@@ -1838,7 +1877,8 @@ export async function ensureOllamaModelsReady({
         providerRole: role.providerRole,
         ...(Neo.isNumber(role.contextLength) ? {contextLength: role.contextLength} : {})
     });
-    const getMissing             = available => requiredModels.filter(model => !toIds(available).includes(model));
+    const getMissing = available => requiredModels.filter(model =>
+        !toIds(available).some(candidate => isSameModelId(candidate, model)));
     const getInsufficientContext = available => available
         .filter(item => contextRequirements.has(item.id) && (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(item.id)))
         .map(item => ({
