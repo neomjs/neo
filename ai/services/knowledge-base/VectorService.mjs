@@ -3,6 +3,10 @@ import TextEmbeddingService, {
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
+import {
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE
+}               from '../../provider/createTimeoutError.mjs';
 import Base     from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
@@ -650,6 +654,9 @@ class VectorService extends Base {
      *     while other batches were succeeding. Such a batch is skipped rather than aborting the sweep, because
      *     aborting strands every later batch permanently — see the rationale at the exhaustion branch. A sweep
      *     in which NOTHING embedded still throws: that is a provider outage, not poisoned content.
+     * @throws {Error} The original provider error when a provider-phase attempt returns a timeout-class code.
+     *     The whole sweep ends after that one offer so the outer scheduler owns the later attempt; already-landed
+     *     chunks remain the durable resume boundary.
      */
     async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
         if (chunksToProcess.length === 0) {
@@ -785,6 +792,28 @@ class VectorService extends Base {
 
                         logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
+                    }
+
+                    // A provider timeout is evidence that OUR wait ended, not that the provider work did.
+                    // The affected plane returned one abandoned request after 66 minutes against a 30-minute
+                    // client budget. Re-offering batch 7 — or merely continuing with batch 8 — can therefore
+                    // queue new work behind a still-running predecessor. End the whole sweep after the first
+                    // provider-phase timeout; the outer tenant-sync scheduler owns the later retry and the
+                    // already-persisted prefix remains the next sweep's resume boundary.
+                    //
+                    // The phase guard is load-bearing. This catch also covers `collection.upsert()`: a write
+                    // error carrying a foreign timeout-shaped code must retry the write with the cached vectors,
+                    // never be misclassified as provider work that might still be running.
+                    const providerTimedOut = embeddings === null && (
+                        err?.code === PROVIDER_TIMEOUT_CODE ||
+                        err?.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
+                        err?.code === 'ETIMEDOUT' ||
+                        err?.code === 'ESOCKETTIMEDOUT'
+                    );
+
+                    if (providerTimedOut) {
+                        console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Ending this embedding sweep after one timeout-class provider attempt; pending chunks remain for a later scheduler cycle.`, err.message);
+                        throw err
                     }
 
                     lastError = err;
