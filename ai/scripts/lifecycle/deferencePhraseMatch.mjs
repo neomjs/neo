@@ -81,7 +81,10 @@ const CLAUSE_TERMINAL_PHRASES = new Set(['if you want it']);
  * @private
  */
 function isClauseTerminal(text, endIndex) {
-    const rest = text.slice(endIndex).replace(/^[*_~]+/, '').replace(/^[ \t]+/, '');
+    // No emphasis handling here: `stripInlineEmphasis` already removed delimiters from the searchable
+    // text, so this sees grammar only. An earlier revision stripped emphasis in BOTH places, which made
+    // each strip individually unfalsifiable — a mutation removing one left every arm green.
+    const rest = text.slice(endIndex).replace(/^[ \t]+/, '');
 
     if (rest === '') {
         return true;
@@ -92,11 +95,8 @@ function isClauseTerminal(text, endIndex) {
         return true;
     }
 
-    // Soft wrap: fold it away and judge what actually follows, emphasis skipped again because a
-    // wrapped line can resume with its own emphasis run.
-    const folded = rest.replace(/^\r?\n[ \t]*/, '').replace(/^[*_~]+/, '');
-
-    return /^[.,:;!?)\]}"'’”]/.test(folded)
+    // Soft wrap folds to whitespace; judge what actually follows the wrap.
+    return /^[.,:;!?)\]}"'’”]/.test(rest.replace(/^\r?\n[ \t]*/, ''))
 }
 
 /**
@@ -127,6 +127,28 @@ function stripQuotedMentions(text) {
     return text
         .replace(/"[^"\n]*"/g, ' ')
         .replace(/(^|[^a-zA-Z0-9_])'[^'\n]*'(?=$|[^a-zA-Z0-9_])/g, '$1 ');
+}
+
+/**
+ * @summary Removes Markdown emphasis DELIMITERS so layout cannot hide a phrase from the matcher.
+ *
+ * This runs before matching, not after, because the boundary class in `matchDeferencePhrase` is
+ * `[^a-z0-9_]` — which counts `_` as a WORD character. So `__if you want it__` never produced a match
+ * at all, and any downstream normalization was unreachable. The gate rejected the phrase upstream of
+ * the guard meant to judge it.
+ *
+ * Deliberately delimiter-scoped rather than a blanket `[*_~] -> ' '`. An emphasis opener is preceded by
+ * start-of-text, whitespace or an opening bracket and followed by non-whitespace; a closer is the
+ * mirror. An underscore INSIDE an identifier (`your_call`, `wal_checkpoint`) matches neither, so it
+ * survives — blanket removal would rewrite `your_call` into `your call` and invent a match out of an
+ * identifier.
+ * @param {String} text Assistant final-turn text with code spans already removed.
+ * @returns {String}
+ */
+function stripInlineEmphasis(text) {
+    return text
+        .replace(/(^|[\s(["'])([*_~]{1,3})(?=\S)/g, '$1')
+        .replace(/(\S)([*_~]{1,3})(?=$|[\s.,:;!?)\]"'])/g, '$1');
 }
 
 /**
@@ -223,7 +245,7 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         return null;
     }
 
-    const searchableText = stripQuotedMentions(stripMarkdownCode(text));
+    const searchableText = stripInlineEmphasis(stripQuotedMentions(stripMarkdownCode(text)));
 
     return phrases.find(phrase => {
         const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),

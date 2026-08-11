@@ -197,6 +197,28 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         // neither the punctuation test nor the paragraph-break test, so only the first strip can save it.
         expect(matchDeferencePhrase('I would still probe that host **if you want it**')).toBe('if you want it');
 
+        // UNDERSCORE emphasis is the case that survived the first two repairs, and it failed one level
+        // EARLIER than they did: the matcher's boundary class is `[^a-z0-9_]`, which counts `_` as a WORD
+        // character, so the phrase never matched and no amount of terminal normalization could see it.
+        // Same root — layout read as grammar — one stage upstream.
+        expect(matchDeferencePhrase('I would still probe that host __if you want it__: now.')).toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host _if you want it_.')).toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host ~~if you want it~~.')).toBe('if you want it');
+    });
+
+    test('emphasis stripping must not rewrite IDENTIFIERS into phrases', () => {
+        // The regression my own fix could introduce, so it is pinned rather than trusted. A blanket
+        // `[*_~] -> ' '` would turn `your_call` into `your call` and MANUFACTURE a match out of an
+        // identifier — inventing deference where there is only code. Emphasis removal is therefore
+        // delimiter-scoped: an opener needs whitespace/bracket before it, a closer needs
+        // whitespace/punctuation after it, and an intra-word underscore matches neither.
+        expect(matchDeferencePhrase('The your_call handler routes through the shared seam.')).toBeNull();
+        expect(matchDeferencePhrase('Set wal_autocheckpoint before the your_move guard runs.')).toBeNull();
+        // …and the genuine phrase still fires in the same sentence shape, so the guard above is not
+        // silently suppressing real matches.
+        expect(matchDeferencePhrase('The your_call handler is fine. Your call on the branch cut.'))
+            .toBe('your call');
+
         // (2) A SOFT WRAP is whitespace, not a clause end. Hard-wrapped prose splits the predicate
         // across a newline, and treating that newline as terminal resurrects the false positive above.
         expect(matchDeferencePhrase('Set maxQueue to zero if you want it\nto reject excess work.')).toBeFalsy();
