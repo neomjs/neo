@@ -26,6 +26,10 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 ];
 
 const
+    POST_MERGE_VALIDATION_HEADING = '## Post-Merge Validation',
+    // An unchecked task box, or an explicit residual marker. Checked boxes owe nothing.
+    LIVE_OBLIGATION_PATTERN       = /^\s*[-*]\s*\[ \]|NOT_YET_MEASURED|^\s*Residual:/m,
+    RESIDUAL_OWNER_PATTERN        = /\bResidual-Owner:?\s+#(\d+)/i,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
@@ -213,6 +217,44 @@ export function validateChangeClass({
  * @param {Boolean} [options.draft=false]
  * @returns {Object}
  */
+/**
+ * @summary Returns the body of the `## Post-Merge Validation` section, or `''` when absent.
+ *
+ * The anchor check above proves the heading string appears SOMEWHERE; it says nothing about what
+ * follows it. This reads the section itself — heading to the next `##` heading, or to end-of-body when
+ * it is last.
+ * @param {String} body
+ * @returns {String}
+ * @private
+ */
+function postMergeValidationSection(body = '') {
+    const start = body.indexOf(POST_MERGE_VALIDATION_HEADING);
+
+    if (start === -1) return '';
+
+    const
+        after = body.slice(start + POST_MERGE_VALIDATION_HEADING.length),
+        next  = after.search(/^##\s/m);
+
+    return next === -1 ? after : after.slice(0, next)
+}
+
+/**
+ * @summary Reports whether a Post-Merge Validation section still owes work.
+ *
+ * A live obligation is an unchecked task box, or an explicit residual marker. A section of checked
+ * boxes, or one that says the work is done, owes nothing — which is why presence of the section is
+ * never itself the trigger.
+ * @param {String} section
+ * @returns {String|null} The first live obligation, for the failure message, or `null`.
+ * @private
+ */
+function firstLiveObligation(section = '') {
+    const line = section.split('\n').find(entry => LIVE_OBLIGATION_PATTERN.test(entry));
+
+    return line ? line.trim() : null
+}
+
 export function validatePrBody(body, {draft = false} = {}) {
     const
         missingVisible         = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
@@ -229,6 +271,27 @@ export function validatePrBody(body, {draft = false} = {}) {
         missingVisible.push(draft
             ? 'Draft PR bodies without `Resolves #N` require `Refs #N` or `Related: #N`'
             : '`Resolves #N` is required')
+    }
+
+    // Deferred work must name a home that SURVIVES the merge. Parking it on the close target is the
+    // one destination guaranteed to be unreachable the moment it becomes actionable — measured across
+    // four merged PRs whose close targets shut within a second of the merge, three of them keeping no
+    // record at all. `Residual-Owner` names ownership that ALREADY exists; it is never a licence to
+    // mint a ticket, which is why the message below prescribes finishing or dropping first.
+    const obligation = firstLiveObligation(postMergeValidationSection(body));
+
+    if (obligation) {
+        const
+            resolvesMatch = body.match(RESOLVES_PATTERN),
+            ownerMatch    = body.match(RESIDUAL_OWNER_PATTERN),
+            closeTarget   = resolvesMatch ? resolvesMatch[0].match(/\d+/)[0] : null,
+            owner         = ownerMatch ? ownerMatch[1] : null;
+
+        if (!owner) {
+            missingVisible.push(`\`## Post-Merge Validation\` still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
+        } else if (owner === closeTarget) {
+            missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
+        }
     }
 
     return {
