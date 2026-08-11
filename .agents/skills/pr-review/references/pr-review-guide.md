@@ -272,25 +272,9 @@ Formal reviews assume green current-head CI. Verify before `manage_pr_review`; i
 
 ### 7.7 Anti-Patterns
 
-| Anti-pattern | Why it fails the Depth Floor |
-|---|---|
-| Unexplained score (evaluative deduction or descriptive characterization missing) | Cosmetic; §3.1 violated |
-| Pre-ticked "All checks pass" placeholder in Required Actions | Null-state dressed as action; §5 Zero-Issue PR Semantics violated |
-| Fully affirming review with no challenges or documented search | §7.1 Minimum-One-Challenge violated |
-| Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
-| Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
-| Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
-| Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
-| Claiming execution from a static diff/author prose, ignoring an obvious non-CI receipt gap, or running a test without a named falsifier | §7.5 Test-Evidence & Location Audit violated; CI owns routine execution, authors own existing non-CI coverage, and reviewer tests target concrete concerns |
-| Approving a PR with failing CI or security checks (like CodeQL) | §7.6 CI / Security Checks Audit violated; fundamentally unsafe code |
-| PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see `#9999` sabotage chain) |
-| Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
-| PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
-| Substantive review comment posted without atomic `manage_pr_review` | Cross-family gate sits outside the fail-closed budget (item 7 violated). Direct `gh pr review` / UI = bypass-with-telemetry only: meter + disclose `[review-budget-bypass] reason: ...`; never an equivalent fallback. |
-| PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
-| Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; "fix-these-N" normalized as merge-path when Drop+Supersede was substrate-correct (Velocity-Preservation Bias) |
-| Approving multi-loaded agent-memory substrate by FILE-COMPLETENESS only, skipping the RUNTIME-LOAD-EFFECT audit | Loading-runtime-effect substitution — §7.8 + PR `#11244`; companion `/turn-memory-pre-flight`. |
-| PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`, `pr-review-guide.md`, `pull-request-workflow.md`, `AGENTS.md`) instead of conditionally loaded `references/` payload | **Progressive Disclosure violation** — Map (always-loaded) vs World Atlas (conditional reference) split bypassed; bloats per-turn token budget. Default disposition for new rules is `compress-to-trigger` per `pull-request-workflow.md §1.1`. Proactive companion: `/create-skill`. Required Action: reshape to Map (trigger line) → Atlas (rule body in `references/`) split, or cite per-turn frequency + irreversibility justifying `keep` slot |
+<!-- trigger: a review smells wrong and you want the named failure -> read ../audits/review-anti-patterns.md -->
+
+The catalogue moved to the Atlas; every row still points back at the § in this Map that owns the rule.
 
 ## 7.8 Audit Spec: Loading-Runtime-Effect Substitution
 <!-- trigger: PR modifies turn-memory-pre-flight IN-SCOPE substrate -> read ../audits/loading-runtime-effect.md -->
