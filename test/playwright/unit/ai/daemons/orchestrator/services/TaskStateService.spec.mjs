@@ -242,6 +242,41 @@ test.describe('Neo.ai.daemons.services.TaskStateService', () => {
         expect(JSON.parse(fs.readFileSync(stateFile, 'utf8')).mockTask.deferralStreakStartedAt).toBe(opened);
     });
 
+    test('markDeferred persists the first anchor once and skips unchanged whole-state rewrites (#16904)', () => {
+        const {service}          = createTestService();
+        const originalWriteState = service.writeState.bind(service);
+        let   writeCount         = 0;
+
+        service.writeState = () => {
+            writeCount += 1;
+            return originalWriteState()
+        };
+
+        const opened = service.markDeferred('mockTask', '2026-08-11T13:40:00.000Z');
+
+        expect(opened).toBe('2026-08-11T13:40:00.000Z');
+        expect(writeCount).toBe(1);
+
+        expect(service.markDeferred('mockTask', '2026-08-11T13:41:00.000Z')).toBe(opened);
+        expect(writeCount).toBe(1);
+    });
+
+    test('markDeferred retries first-anchor persistence after a fail-soft write rejection (#16904)', () => {
+        const {service}  = createTestService();
+        let   writeCount = 0;
+
+        service.writeState = () => {
+            writeCount += 1;
+            return false
+        };
+
+        expect(service.markDeferred('mockTask', '2026-08-11T13:40:00.000Z')).toBeNull();
+        expect(service.getTaskState('mockTask').deferralStreakStartedAt).toBeNull();
+
+        expect(service.markDeferred('mockTask', '2026-08-11T13:41:00.000Z')).toBeNull();
+        expect(writeCount, 'a failed first write must not turn later deferrals into no-op rewrites').toBe(2);
+    });
+
     test('the deferral streak SURVIVES a restart — which is the whole reason it is durable (#16561)', () => {
         // An in-memory streak map resets when the daemon restarts, so a starvation spanning a restart
         // reported a FRESH streak — and a threshold measured from a value that resets can never be

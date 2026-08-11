@@ -224,13 +224,15 @@ export class TaskStateService extends Base {
 
     /**
      * Persists the current task-state envelope.
-     * @returns {void}
+     * @returns {Boolean} True when the envelope was written; false after the existing fail-soft log.
      */
     writeState() {
         try {
             fs.writeFileSync(this.stateFile, JSON.stringify(this.taskState, null, 2), 'utf8');
+            return true
         } catch (e) {
             this.writeLog('ERROR', `[TaskStateService] Failed to write state file: ${e.message}`);
+            return false
         }
     }
 
@@ -353,8 +355,9 @@ export class TaskStateService extends Base {
      * is idle for lack of work is not starved. Hanging the streak off every skip would make an idle lane
      * indistinguishable from a blocked one, which is the conflation this measurement exists to end.
      *
-     * Writes only the streak. The deferral's own reporting stays with the recorder that owns it; this is
-     * the durable half, so the answer survives the process that observed it.
+     * Writes only when this call opens the streak. The deferral's own reporting stays with the recorder
+     * that owns it; this is the durable half, so the answer survives the process that observed it. Once
+     * the streak is durable, later deferrals return the same anchor without rewriting the whole envelope.
      *
      * @param {String} taskName
      * @param {String} [deferredAt=new Date().toISOString()] ISO timestamp of THIS deferral.
@@ -365,8 +368,21 @@ export class TaskStateService extends Base {
 
         if (!state) return null;
 
+        const opensStreak = state.deferralStreakStartedAt === null || state.deferralStreakStartedAt === undefined;
+
+        if (!opensStreak) {
+            return state.deferralStreakStartedAt
+        }
+
         openDeferralStreak(state, deferredAt);
-        this.writeState();
+
+        if (!this.writeState()) {
+            // `writeState()` is deliberately fail-soft for existing callers. This writer still needs
+            // a durable receipt before it can cache/publish the anchor: otherwise one failed first
+            // write makes every later poll look unchanged and suppresses persistence forever.
+            state.deferralStreakStartedAt = null;
+            return null
+        }
 
         return state.deferralStreakStartedAt;
     }
