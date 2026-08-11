@@ -363,12 +363,7 @@ class ConnectionService extends Base {
                 settled = true;
                 clearTimeout(handshakeTimeout);
 
-                this.bridgeSocket = ws;
-
-                // A live connection is proof the previous failure no longer describes reality.
-                // Leaving it set reports `{connected: true, spawnFailure: 'ENOENT'}` — a payload that
-                // is internally contradictory and sends an operator hunting a resolved problem.
-                this.lastSpawnFailure = null;
+                this.markBridgeConnected(ws);
                 resolve();
             };
 
@@ -507,6 +502,27 @@ class ConnectionService extends Base {
      * Returns the current status.
      * @returns {Object}
      */
+    /**
+     * @summary Commits the connected-Bridge state transition: the live socket, and the retirement of
+     * any prior spawn failure.
+     *
+     * A named method rather than two inline assignments because the retirement is the half that is
+     * hard to witness — the failure-to-recovery path needs a CONNECTED state, and a spec that only
+     * starts another spawn clears at attempt-start instead and passes with this deleted. Driving the
+     * same method production drives is what makes the recovery assertion able to fail.
+     *
+     * @param {Object} ws The live Bridge WebSocket.
+     * @returns {void}
+     */
+    markBridgeConnected(ws) {
+        this.bridgeSocket = ws;
+
+        // A live connection is proof the previous failure no longer describes reality. Leaving it set
+        // reports `{connected: true, spawnFailure: 'ENOENT'}` — internally contradictory, and it sends
+        // an operator hunting a problem that is already resolved.
+        this.lastSpawnFailure = null
+    }
+
     getStatus() {
         const
             sessions = [],

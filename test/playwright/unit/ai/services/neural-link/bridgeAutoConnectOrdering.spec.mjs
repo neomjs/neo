@@ -248,6 +248,30 @@ test.describe('ai/services/neural-link — Bridge auto-connect ordering (#16429)
         }
     });
 
+    test('#16429 REACHING connected retires a prior failure — the recovery half, not the attempt half', () => {
+        // @neo-gpt archived the exact head, deleted only the success-path clear, and the previous
+        // spec still passed 8/8: it started another spawn, which clears at ATTEMPT START, so it never
+        // reached a connected state and could not fail. This drives the connected transition itself.
+        //
+        // The payload this prevents is `{connected: true, spawnFailure: 'ENOENT'}` — a resolved
+        // problem still reported, which is worse than silence because it is actionable and wrong.
+        const originalSocket = ConnectionService.bridgeSocket;
+
+        ConnectionService.lastSpawnFailure = 'ENOENT';
+
+        try {
+            ConnectionService.markBridgeConnected({fake: 'socket'});
+
+            const status = ConnectionService.getStatus();
+
+            expect(status.bridgeConnected, 'the transition must record the live socket').toBe(true);
+            expect(status.lastSpawnFailure, 'reaching connected must retire the prior failure').toBeNull();
+        } finally {
+            ConnectionService.bridgeSocket      = originalSocket;
+            ConnectionService.lastSpawnFailure  = null
+        }
+    });
+
     test('#16429 the harness and the disabled leaf still win over a resolved cwd', () => {
         // Ordering is the new behaviour; these two are the pre-existing contracts it must not break.
         // Unit specs importing this singleton (via HealthService) must never reach a live Bridge.
