@@ -716,9 +716,21 @@ class VectorService extends Base {
             let success   = false;
             let lastError = null;
 
+            // Held ACROSS retries, and that is the point: the provider call and the upsert share one
+            // `try`, so a PERSISTENCE failure used to send the retry back through the provider and buy
+            // the identical vectors again. Same texts, same model, same result — the second purchase
+            // cannot differ, it can only be charged.
+            //
+            // The yield arm below already refuses to discard paid work ("Persist what the yield already
+            // paid for"). This is the same principle on the ordinary failure path, which never had it:
+            // a batch that embeds fine but cannot write kept re-embedding on every attempt, and on
+            // every later sweep, producing continuous provider load against a collection that never
+            // grows — indistinguishable from progress from the outside.
+            let embeddings = null;
+
             while (retries < maxRetries && !success) {
                 try {
-                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
+                    embeddings ??= await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
                         operationLabel          : 'knowledge base tenant ingestion embedding',
                         operationStage          : 'kb-tenant-ingestion-embedding',
                         providerActivityRecorder: KBRecorderService,
