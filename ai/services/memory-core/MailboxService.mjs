@@ -99,18 +99,16 @@ function parseRelatedPullRequestNumber(ticket = '') {
  * @param {Object} db Graph database facade.
  * @param {String} messageId Message node id.
  * @param {Object} [messageNode] Message graph node.
+ * @param {Object[]} [sourceEdges] Pre-resolved outbound edges for the message.
  * @returns {String[]}
  */
-function getRelatedTicketsForMessage(db, messageId, messageNode) {
+function getRelatedTicketsForMessage(db, messageId, messageNode, sourceEdges = db.edges.getByIndex('source', messageId)) {
     const relatedTickets = Array.isArray(messageNode?.properties?.relatedTickets)
         ? [...messageNode.properties.relatedTickets]
         : [];
 
-    for (const edge of db.edges.items) {
-        if (
-            getRecordField(edge, 'source') === messageId &&
-            getRecordField(edge, 'type') === 'REFERENCES_TICKET'
-        ) {
+    for (const edge of sourceEdges) {
+        if (getRecordField(edge, 'type') === 'REFERENCES_TICKET') {
             relatedTickets.push(getRecordField(edge, 'target'));
         }
     }
@@ -2956,63 +2954,93 @@ class MailboxService extends Base {
             }
         }
 
-        let messages = [];
+        const candidateMessageIds = new Set();
 
-        for (const edge of db.edges.items) {
-            const edgeType = getRecordField(edge, 'type'),
-                edgeSource = getRecordField(edge, 'source'),
-                edgeTarget = getRecordField(edge, 'target');
-
-            let isMatch      = false,
-                targetNode   = null,
-                senderNode   = null,
-                deliveryEdge = null;
-
-            if (edgeType === 'DELIVERED_TO') {
-                targetNode = edgeTarget;
-                if ((box === 'inbox' || box === 'all') && sameMailboxIdentity(targetNode, target)) {
-                    isMatch = true;
-                    deliveryEdge = edge;
-                }
-            } else if (edgeType === 'SENT_TO') {
-                targetNode = edgeTarget;
-                if (box === 'inbox' || box === 'all') {
-                    if (sameMailboxIdentity(targetNode, target)) {
-                        isMatch = true;
-                    } else if (targetNode === 'AGENT:*') {
-                        // Load the full message vicinity before deciding whether this is a
-                        // per-recipient broadcast or a legacy shared-read broadcast.
-                        db.getAdjacentNodes(edgeSource, 'outbound');
-                        deliveryEdge = getBroadcastDeliveryEdge(edgeSource, target);
-                        if (deliveryEdge || !hasBroadcastDeliveryEdges(edgeSource)) {
-                            isMatch = true;
-                        }
-                    }
-                }
-            } else if (edgeType === 'SENT_BY') {
-                senderNode = edgeTarget;
-                if ((box === 'outbox' || box === 'all') && sameMailboxIdentity(senderNode, target)) {
-                    isMatch = true;
+        // The graph Store already maintains exact `target` and `source` secondary indexes. Route
+        // discovery must consume those indexes rather than enumerate the whole cached edge graph:
+        // `limit` bounds the response page, not the amount of unrelated graph work we may perform.
+        // Legacy identity spellings remain complete because the same bounded variant set used for
+        // vicinity hydration drives the target-index union.
+        const collectCandidates = (targetValue, acceptedTypes) => {
+            for (const edge of db.edges.getByIndex('target', targetValue)) {
+                if (acceptedTypes.has(getRecordField(edge, 'type'))) {
+                    candidateMessageIds.add(getRecordField(edge, 'source'));
                 }
             }
+        };
 
-            if (isMatch) {
-                // Determine message node id depending on which edge we matched
-                const messageNodeId = edgeSource;
-                // Avoid duplicates if 'all' is chosen
-                if (messages.find(m => m.messageId === messageNodeId)) continue;
+        if (box === 'inbox' || box === 'all') {
+            const inboxEdgeTypes = new Set(['SENT_TO', 'DELIVERED_TO']);
+            for (const targetVariant of targetStorageVariants) {
+                collectCandidates(targetVariant, inboxEdgeTypes);
+            }
+            collectCandidates('AGENT:*', new Set(['SENT_TO']));
+        }
+        if (box === 'outbox' || box === 'all') {
+            const outboxEdgeTypes = new Set(['SENT_BY']);
+            for (const targetVariant of targetStorageVariants) {
+                collectCandidates(targetVariant, outboxEdgeTypes);
+            }
+        }
 
-                // Lazy-reload this message's outbound vicinity — loads SENT_BY,
-                // PART_OF_THREAD, TAGGED_CONCEPT, etc. edges authored by the message.
-                // Without this, the inner `sourceEdge` iteration (below) sees only
-                // edges present in the process's cache at query entry, which is empty
-                // for peer-process writes.
-                db.getAdjacentNodes(messageNodeId, 'outbound');
+        let messages = [];
 
-                const messageNode = db.nodes.get(messageNodeId);
-                if (messageNode && messageNode.label === 'MESSAGE') {
-                    deliveryEdge = deliveryEdge || getBroadcastDeliveryEdge(messageNodeId, target);
+        for (const messageNodeId of candidateMessageIds) {
+            // Lazy-reload this message's outbound vicinity — loads SENT_BY, SENT_TO,
+            // DELIVERED_TO, PART_OF_THREAD, TAGGED_CONCEPT, and REFERENCES_TICKET once. The
+            // source index then projects only this message's degree instead of re-walking E edges
+            // for every matched message.
+            db.getAdjacentNodes(messageNodeId, 'outbound');
 
+            const messageNode = db.nodes.get(messageNodeId);
+            if (messageNode && messageNode.label === 'MESSAGE') {
+                const sourceEdges = db.edges.getByIndex('source', messageNodeId);
+
+                let sentByNodeId          = null;
+                let sentToNodeId          = null;
+                let foundThreadId         = null;
+                let deliveryEdge          = null;
+                let hasDeliveryEdges      = false;
+                let isDirectRecipient     = false;
+                let isBroadcastRecipient  = false;
+                let messageTaggedConcepts = [];
+
+                for (const sourceEdge of sourceEdges) {
+                    const
+                        sourceEdgeType   = getRecordField(sourceEdge, 'type'),
+                        sourceEdgeTarget = getRecordField(sourceEdge, 'target');
+
+                    if (sourceEdgeType === 'SENT_BY') sentByNodeId = sourceEdgeTarget;
+                    if (sourceEdgeType === 'SENT_TO') {
+                        sentToNodeId = sourceEdgeTarget;
+                        if (sameMailboxIdentity(sourceEdgeTarget, target)) isDirectRecipient = true;
+                        if (sourceEdgeTarget === 'AGENT:*') isBroadcastRecipient = true;
+                    }
+                    if (sourceEdgeType === 'DELIVERED_TO') {
+                        hasDeliveryEdges = true;
+                        if (!deliveryEdge && sameMailboxIdentity(sourceEdgeTarget, target)) deliveryEdge = sourceEdge;
+                    }
+                    if (sourceEdgeType === 'PART_OF_THREAD') foundThreadId = sourceEdgeTarget;
+                    if (sourceEdgeType === 'TAGGED_CONCEPT') messageTaggedConcepts.push(sourceEdgeTarget);
+                }
+
+                // Preserve the historical damaged-projection fallback: if a DELIVERED_TO edge
+                // survives while SENT_TO is absent beyond the bounded repair window, the old
+                // outer-edge match surfaced that recipient rather than manufacturing `to: null`.
+                if (!sentToNodeId && deliveryEdge) {
+                    sentToNodeId = getRecordField(deliveryEdge, 'target');
+                }
+
+                const
+                    isInboxMatch  = isDirectRecipient || Boolean(deliveryEdge) || (isBroadcastRecipient && !hasDeliveryEdges),
+                    isOutboxMatch = sameMailboxIdentity(sentByNodeId, target),
+                    isMatch       = box === 'all'
+                        ? isInboxMatch || isOutboxMatch
+                        : box === 'inbox'
+                            ? isInboxMatch
+                            : isOutboxMatch;
+
+                if (isMatch) {
                     const readAt   = getReadAtForMessage(messageNode, deliveryEdge);
                     const isUnread = !readAt;
                     if (status === 'unread' && !isUnread) continue;
@@ -3025,22 +3053,6 @@ class MailboxService extends Base {
                     // remains coherent.
                     const archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
                     if (!includeArchived && archivedAt) continue;
-
-                    let sentByNodeId          = senderNode;
-                    let sentToNodeId          = targetNode;
-                    let foundThreadId         = null;
-                    let messageTaggedConcepts = [];
-
-                    for (const sourceEdge of db.edges.items) {
-                        if (getRecordField(sourceEdge, 'source') === messageNode.id) {
-                            const sourceEdgeType = getRecordField(sourceEdge, 'type');
-
-                            if (sourceEdgeType === 'SENT_BY') sentByNodeId = getRecordField(sourceEdge, 'target');
-                            if (sourceEdgeType === 'SENT_TO') sentToNodeId = getRecordField(sourceEdge, 'target');
-                            if (sourceEdgeType === 'PART_OF_THREAD') foundThreadId = getRecordField(sourceEdge, 'target');
-                            if (sourceEdgeType === 'TAGGED_CONCEPT') messageTaggedConcepts.push(getRecordField(sourceEdge, 'target'));
-                        }
-                    }
 
                     if (normalizedFromIdentity && !sameMailboxIdentity(sentByNodeId, normalizedFromIdentity)) continue;
                     if (threadId && foundThreadId !== threadId) continue;
@@ -3073,7 +3085,7 @@ class MailboxService extends Base {
                     // above for the `threadId` filter. Project it so callers can group a thread
                     // without re-walking edges — consumers that only filtered by it never saw it.
                     if (foundThreadId) summary.partOfThread = foundThreadId;
-                    const relatedTickets = getRelatedTicketsForMessage(db, messageNode.id, messageNode);
+                    const relatedTickets = getRelatedTicketsForMessage(db, messageNode.id, messageNode, sourceEdges);
                     if (relatedTickets.length > 0) {
                         summary.relatedTickets = relatedTickets;
                     }
