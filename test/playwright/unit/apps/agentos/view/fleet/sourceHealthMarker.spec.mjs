@@ -30,21 +30,28 @@ test.describe('Fleet source-health honesty (#14643)', () => {
                 const
                     health        = {source: 'fleet:runtimeStatus', state, confidence},
                     normalized    = normalizeSourceFact(health),
-                    expectedState = state === 'wired' && confidence !== 'none'
-                        ? 'wired'
-                        : state === 'missing'
-                            ? 'missing'
-                            : 'not-wired',
+                    // impossible pairs are PRESENT contradictory facts → rejected evidence
+                    // (`invalid`), never silently accepted: wired needs a usable confidence;
+                    // missing/not-wired cannot CARRY one — only their explicit `none` pairing is
+                    // the declared shape
+                    expectedState = state === 'wired'
+                        ? (confidence !== 'none' ? 'wired' : 'invalid')
+                        : confidence === 'none'
+                            ? state
+                            : 'invalid',
                     expectedConfidence   = expectedState === 'wired' ? confidence : 'none',
+                    expectedReason       = expectedState === 'invalid' ? 'source fact failed contract validation' : null,
                     expectedTreatment    = expectedState === 'wired'
                         ? expectedConfidence.toUpperCase()
                         : expectedState === 'missing'
                             ? 'MISSING'
-                            : 'NOT WIRED',
+                            : expectedState === 'invalid'
+                                ? 'INVALID'
+                                : 'NOT WIRED',
                     view                 = sourceMarkerView('runtime', health),
                     marker               = Neo.create(SourceHealthMarker, {appName, sourceKey: 'runtime', health});
 
-                expect(normalized).toEqual({source: 'fleet:runtimeStatus', state: expectedState, confidence: expectedConfidence});
+                expect(normalized).toEqual({source: 'fleet:runtimeStatus', state: expectedState, confidence: expectedConfidence, reason: expectedReason});
                 expect(view).toMatchObject({
                     stateClass     : `fm-source-${expectedState}`,
                     confidenceClass: `fm-confidence-${expectedConfidence}`,
@@ -61,20 +68,32 @@ test.describe('Fleet source-health honesty (#14643)', () => {
         }
     });
 
-    test('malformed, unknown, inherited, and prototype-shaped inputs fail closed', () => {
-        for (const value of [null, undefined, [], 'wired', {}, {state: 'unknown', confidence: 'observed'}, Object.create({state: 'wired', confidence: 'observed'})]) {
-            expect(normalizeSourceFact(value)).toEqual({source: null, state: 'not-wired', confidence: 'none'})
+    test('rejected evidence reads `invalid` — only GENUINE absence fails closed to the calm `not-wired`', () => {
+        // absence: no fact was supplied at all — the one calm shape
+        for (const value of [null, undefined]) {
+            expect(normalizeSourceFact(value)).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null})
         }
 
+        // present but malformed (non-plain / prototype-shaped): rejected evidence, operator-visible —
+        // an invalid answer must never normalize into the same green surface as no producer
+        for (const value of [[], 'wired', Object.create({state: 'wired', confidence: 'observed'})]) {
+            expect(normalizeSourceFact(value)).toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'malformed source fact'})
+        }
+
+        // present plain objects failing producer validation (no/blank/non-string source)
+        expect(normalizeSourceFact({})).toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'source fact failed producer validation'});
+        expect(normalizeSourceFact({state: 'unknown', confidence: 'observed'})).toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'source fact failed producer validation'});
+
+        // inherited keys are refused as ABSENT (own-key discipline): the axis reads not-wired
         const polluted = Object.create({runtime: {state: 'wired', confidence: 'observed'}});
-        expect(normalizeFleetSources(polluted).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none'});
+        expect(normalizeFleetSources(polluted).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null});
 
         for (const source of [undefined, '', '   ', 42]) {
             expect(normalizeSourceFact({source, state: 'wired', confidence: 'observed'}))
-                .toEqual({source: null, state: 'not-wired', confidence: 'none'})
+                .toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'source fact failed producer validation'})
 
             expect(normalizeSourceFact({source, state: 'missing', confidence: 'none'}))
-                .toEqual({source: null, state: 'not-wired', confidence: 'none'})
+                .toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'source fact failed producer validation'})
         }
     });
 
@@ -120,30 +139,35 @@ test.describe('Fleet source-health honesty (#14643)', () => {
             }),
             runtime = {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}};
 
-        expect(normalizeSourceFact(inheritedFact)).toEqual({source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'});
-        expect(normalizeFleetSources(inheritedSources).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none'});
+        // a fact whose state/confidence live only on the prototype chain is a PRESENT answer this
+        // contract rejects — invalid, never silently calm
+        expect(normalizeSourceFact(inheritedFact)).toEqual({source: 'fleet:runtimeStatus', state: 'invalid', confidence: 'none', reason: 'source fact failed contract validation'});
+        // an inherited AXIS key is refused as absent (own-key discipline) — genuinely calm
+        expect(normalizeFleetSources(inheritedSources).runtime).toEqual({source: null, state: 'not-wired', confidence: 'none', reason: null});
         expect(mapFleetSessionState(inheritedLifecycle, runtime)).toBe('off');
+        // a cross-axis producer literal is rejected evidence: invalid, operator-visible
         expect(mapFleetSessionHealth(
             {source: 'fleet:listAgents', state: 'running', confidence: 'observed'},
             {runtime: {source: 'fleet:listAgents', state: 'wired', confidence: 'observed'}}
-        )).toMatchObject({state: 'off', sources: {runtime: {state: 'not-wired', confidence: 'none'}}})
+        )).toMatchObject({state: 'off', sources: {runtime: {state: 'invalid', confidence: 'none'}}})
     });
 
     test('lifecycle/source contradictions downgrade runtime provenance atomically', () => {
         const sources = {runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'}};
 
+        // a contradiction is rejected evidence — the downgrade names it and stays operator-visible
         expect(mapFleetSessionHealth(null, sources)).toEqual({
             sources: {
-                roster    : {source: null, state: 'not-wired', confidence: 'none'},
-                repoStatus: {source: null, state: 'not-wired', confidence: 'none'},
-                runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+                roster    : {source: null, state: 'not-wired', confidence: 'none', reason: null},
+                repoStatus: {source: null, state: 'not-wired', confidence: 'none', reason: null},
+                runtime   : {source: 'fleet:runtimeStatus', state: 'invalid', confidence: 'none', reason: 'lifecycle and runtime facts contradict'}
             },
             state: 'off'
         });
         expect(mapFleetSessionHealth(
             {source: 'fleet:runtimeStatus', state: 'running', confidence: 'inferred'},
             sources
-        )).toMatchObject({state: 'off', sources: {runtime: {state: 'not-wired', confidence: 'none'}}});
+        )).toMatchObject({state: 'off', sources: {runtime: {state: 'invalid', confidence: 'none'}}});
         expect(mapFleetSessionHealth(
             {source: 'fleet:runtimeStatus', state: 'stopped', confidence: 'observed'},
             sources

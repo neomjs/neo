@@ -79,10 +79,11 @@ function reasonFor(surfaces, state) {
 /**
  * Brain daemon states that warrant the banner. `running` is nominal and earns zero pixels; an absent
  * or unrecognised state is UNKNOWN and also stays quiet — see the module note on daemon silence.
- * Mirrors `harness/appLifecycle.mjs`'s `BRAIN_STATES` minus the nominal one.
+ * Mirrors `harness/appLifecycle.mjs`'s `BRAIN_STATES` minus the nominal one. Exported so the
+ * header's aggregate attention fold reads the SAME fault set — one authority, two consumers.
  * @type {String[]}
  */
-const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
+export const DAEMON_FAULT_STATES = Object.freeze(['degraded', 'stopped']);
 
 /**
  * @summary Picks the cold-case fallback line for SILENCE, from the topology that owns the truth.

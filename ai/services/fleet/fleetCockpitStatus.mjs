@@ -214,36 +214,48 @@ export function createFleetCockpitStatus({agents = [], fleetStatus = [], runtime
                         lastSeenAt: null,
                         reason    : 'presence producer not wired'
                     },
+                // Every fact owns its bounded `reason` at THIS producer boundary — the consumer
+                // renders name+reason for answered-abnormal facts, and a reason invented anywhere
+                // downstream would be a fixture-truth (the review-caught defect this closes).
+                // Wired facts pass the underlying row's own cause through (null when it carries
+                // none); an ABSENT per-agent row states which truth is missing; not-wired axes
+                // carry the axis-level explanation. All bounded via `boundReason`.
                 sources: {
                     roster: {
                         source    : FLEET_COCKPIT_SOURCES.roster,
                         state     : 'wired',
-                        confidence: 'observed'
+                        confidence: 'observed',
+                        reason    : null
                     },
                     repoStatus: {
                         source    : FLEET_COCKPIT_SOURCES.repoStatus,
                         state     : repoStatus ? 'wired' : 'missing',
-                        confidence: repoStatus ? 'observed' : 'none'
+                        confidence: repoStatus ? 'observed' : 'none',
+                        reason    : repoStatus ? boundReason(repoStatus.reason) : 'no repository status answered for this agent'
                     },
                     runtime: {
                         source    : FLEET_COCKPIT_SOURCES.runtime,
                         state     : runtime ? 'wired' : 'not-wired',
-                        confidence: runtime ? (runtime.confidence ?? 'observed') : 'none'
+                        confidence: runtime ? (runtime.confidence ?? 'observed') : 'none',
+                        reason    : runtime ? boundReason(runtime.reason) : 'runtime process status is pending the Fleet runtime-status wire method'
                     },
                     wake: {
                         source    : FLEET_COCKPIT_SOURCES.wake,
                         state     : wake ? 'wired' : 'not-wired',
-                        confidence: wake ? (wake.confidence ?? 'none') : 'none'
+                        confidence: wake ? (wake.confidence ?? 'none') : 'none',
+                        reason    : wake ? boundReason(wake.reason) : 'wake-state producer not wired'
                     },
                     throttle: {
                         source    : FLEET_COCKPIT_SOURCES.throttle,
                         state     : throttle ? 'wired' : 'not-wired',
-                        confidence: throttle ? (throttle.confidence ?? 'none') : 'none'
+                        confidence: throttle ? (throttle.confidence ?? 'none') : 'none',
+                        reason    : throttle ? boundReason(throttle.reason) : 'throttle-state producer not wired'
                     },
                     presence: {
                         source    : FLEET_COCKPIT_SOURCES.presence,
                         state     : presence ? 'wired' : 'not-wired',
-                        confidence: presence ? (presence.confidence ?? 'none') : 'none'
+                        confidence: presence ? (presence.confidence ?? 'none') : 'none',
+                        reason    : presence ? boundReason(presence.reason) : 'presence producer not wired'
                     }
                 }
             }
@@ -291,6 +303,16 @@ export function createNotWiredCapability(source, reason) {
         confidence: 'none',
         reason
     }
+}
+
+/**
+ * @summary Bound a producer-supplied cause to a serializable trimmed string, or `null` — the DTO
+ * owns every reason it emits, and an unbounded upstream string must not ride the wire unchecked.
+ * @param {*} value
+ * @returns {String|null}
+ */
+export function boundReason(value) {
+    return typeof value === 'string' && value.trim() ? value.trim().slice(0, 200) : null
 }
 
 function sanitizePayload(value) {

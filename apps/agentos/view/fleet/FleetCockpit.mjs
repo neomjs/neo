@@ -1,30 +1,30 @@
-import ActivityStream              from './ActivityStream.mjs';
-import AddAgentForm                from './AddAgentForm.mjs';
-import AgentDetail                 from './AgentDetail.mjs';
-import Button                      from '../../../../src/button/Base.mjs';
-import CatchUpPane                 from './CatchUpPane.mjs';
-import Component                   from '../../../../src/component/Base.mjs';
-import Container                   from '../../../../src/container/Base.mjs';
-import DockLayoutAdapter           from '../../../../src/dashboard/DockLayoutAdapter.mjs';
-import DockMotionSignal            from '../../../../src/dashboard/DockMotionSignal.mjs';
-import DockPerspectiveStore        from '../../../../src/dashboard/DockPerspectiveStore.mjs';
-import DockPreviewProducer         from '../../../../src/dashboard/DockPreviewProducer.mjs';
-import DockProjectionReconciler    from '../../../../src/dashboard/DockProjectionReconciler.mjs';
-import DockService                 from '../../../../src/ai/client/DockService.mjs';
-import DockZoneModel               from '../../../../src/dashboard/DockZoneModel.mjs';
-import FleetCockpitController      from './FleetCockpitController.mjs';
-import FleetGrid                   from './FleetGrid.mjs';
-import FleetRoster                 from '../../store/FleetRoster.mjs';
-import MemoriesPane                from './MemoriesPane.mjs';
-import OperatorMailbox             from './OperatorMailbox.mjs';
-import WakeRoutePane               from './WakeRoutePane.mjs';
-import StateProvider               from '../../../../src/state/Provider.mjs';
-import cockpitDockDocument         from './cockpitDockDocument.mjs';
-import cockpitPresetCollection     from './cockpitPresets.mjs';
-import {createDockTearOutHandlers} from '../../../../src/dashboard/DockTearOut.mjs';
-import {deriveSpineBanner}         from './spineBanner.mjs';
-import {mapFleetSessionHealth}     from './sourceHealth.mjs';
-import {previewToOperation}        from '../../../../src/dashboard/dockPreviewContract.mjs';
+import ActivityStream                           from './ActivityStream.mjs';
+import AddAgentForm                             from './AddAgentForm.mjs';
+import AgentDetail                              from './AgentDetail.mjs';
+import Button                                   from '../../../../src/button/Base.mjs';
+import CatchUpPane                              from './CatchUpPane.mjs';
+import Component                                from '../../../../src/component/Base.mjs';
+import Container                                from '../../../../src/container/Base.mjs';
+import DockLayoutAdapter                        from '../../../../src/dashboard/DockLayoutAdapter.mjs';
+import DockMotionSignal                         from '../../../../src/dashboard/DockMotionSignal.mjs';
+import DockPerspectiveStore                     from '../../../../src/dashboard/DockPerspectiveStore.mjs';
+import DockPreviewProducer                      from '../../../../src/dashboard/DockPreviewProducer.mjs';
+import DockProjectionReconciler                 from '../../../../src/dashboard/DockProjectionReconciler.mjs';
+import DockService                              from '../../../../src/ai/client/DockService.mjs';
+import DockZoneModel                            from '../../../../src/dashboard/DockZoneModel.mjs';
+import FleetCockpitController                   from './FleetCockpitController.mjs';
+import FleetGrid                                from './FleetGrid.mjs';
+import FleetRoster                              from '../../store/FleetRoster.mjs';
+import MemoriesPane                             from './MemoriesPane.mjs';
+import OperatorMailbox                          from './OperatorMailbox.mjs';
+import WakeRoutePane                            from './WakeRoutePane.mjs';
+import StateProvider                            from '../../../../src/state/Provider.mjs';
+import cockpitDockDocument                      from './cockpitDockDocument.mjs';
+import cockpitPresetCollection                  from './cockpitPresets.mjs';
+import {createDockTearOutHandlers}              from '../../../../src/dashboard/DockTearOut.mjs';
+import {DAEMON_FAULT_STATES, deriveSpineBanner} from './spineBanner.mjs';
+import {mapFleetSessionHealth}                  from './sourceHealth.mjs';
+import {previewToOperation}                     from '../../../../src/dashboard/dockPreviewContract.mjs';
 import '../../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the dock projection emits for tab zones
 
 /**
@@ -2842,6 +2842,11 @@ class FleetCockpit extends Container {
         me.daemonDegradedReason = state !== 'running' && response.cause
             ? (response.cause.detail || response.cause.source || null)
             : null;
+
+        // the header's aggregate fold reads the SAME fault set the banner renders from — one
+        // lifecycle authority, plumbed as a boolean; the grid derives nothing about daemons
+        const grid = me.getReference('fleet-grid');
+        grid && (grid.daemonFault = DAEMON_FAULT_STATES.includes(state));
 
         me.syncSpineBanner()
     }

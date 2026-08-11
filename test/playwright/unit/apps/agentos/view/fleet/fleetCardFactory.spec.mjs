@@ -58,8 +58,11 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         expect(card.blueprint.record.avatarUrl).toBe('https://github.com/neo-opus-vega.png?size=80')
         expect(card.blueprint.record.sources.runtime).toEqual({
             confidence: 'none',
-            source    : 'fleet:runtimeStatus',
-            state     : 'not-wired'
+            // the DTO owns the reason at the producer boundary — the axis-level explanation for a
+            // not-wired runtime rides every row fact (the review-caught fixture-truth gap closed)
+            reason: 'runtime process status is pending the Fleet runtime-status wire method',
+            source: 'fleet:runtimeStatus',
+            state : 'not-wired'
         })
 
         // serializable end-to-end — a captured perspective can restore a real card from the blueprint
@@ -125,15 +128,17 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         const card      = toAgentCardDescriptor({id: 'vega', lifecycle, sources})
 
         expect(card.blueprint.record.state).toBe('ok')
-        expect(card.blueprint.record.sources.runtime).toEqual({source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed'})
+        expect(card.blueprint.record.sources.runtime).toEqual({source: 'fleet:runtimeStatus', state: 'wired', confidence: 'observed', reason: null})
 
         const placeholder = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'running'}})
         expect(placeholder.blueprint.record.state).toBe('off')
 
+        // an ABSENT lifecycle beside a wired runtime fact is a contradiction — rejected evidence
+        // reads `invalid` (operator-visible), never a silently calm not-wired
         const contradictory = toAgentCardDescriptor({id: 'vega', sources})
         expect(contradictory.blueprint.record).toMatchObject({
             state  : 'off',
-            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'invalid', confidence: 'none', reason: 'lifecycle and runtime facts contradict'}}
         })
     })
 

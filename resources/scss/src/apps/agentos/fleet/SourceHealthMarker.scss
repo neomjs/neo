@@ -45,4 +45,17 @@
     &.fm-source-not-wired::before {
         background: linear-gradient(135deg, transparent 42%, var(--fm-source-mark) 43%, var(--fm-source-mark) 57%, transparent 58%);
     }
+
+    /* rejected evidence (a present answer the contract refused): wedged-toned cross — visually
+       distinct from missing's dashed outline and not-wired's neutral slash, because an invalid
+       answer is operator-actionable where absence is not */
+    &.fm-source-invalid {
+        --fm-source-mark: var(--fm-state-wedged);
+    }
+
+    &.fm-source-invalid::before {
+        background:
+            linear-gradient(45deg,  transparent 42%, var(--fm-source-mark) 43%, var(--fm-source-mark) 57%, transparent 58%),
+            linear-gradient(135deg, transparent 42%, var(--fm-source-mark) 43%, var(--fm-source-mark) 57%, transparent 58%);
+    }
 }

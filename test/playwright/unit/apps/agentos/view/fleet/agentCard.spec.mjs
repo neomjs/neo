@@ -165,24 +165,31 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
               stripId  = strip.id,
               stateDot = card.down({ntype: 'fm-state-dot'});
 
-        // all sources wired + observed → the honest nominal summary; the dot pulses live
-        expect(strip.text).toBe('all sources nominal');
-        expect(strip.cls).toContain('fm-strip-ok');
+        // all sources wired + observed → nominal earns ZERO pixels (the exception-only strip: the
+        // permanent "all sources nominal" line carried no operator meaning — the operator verdict
+        // this partition ships); the dot pulses live
+        expect(strip.hidden).toBe(true);
+        expect(strip.text).toBe('');
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(true);
 
-        // repo missing + runtime not-wired: the summary NAMES the abnormal source (action-owning runtime
-        // first) with a +1 overflow, the dot resolves unobserved (participation-active, session
-        // unobserved — never a benched verdict), the control cluster disables — in place
+        // repo ANSWERED-missing with a retained cause + runtime not-wired: only the answered
+        // abnormality renders (name + reason — the rendered-exception bar), while the not-wired
+        // runtime is expected absence — zero pixels on the strip exactly as it carries zero
+        // attention weight (ONE interpretation). The dot resolves unobserved (participation-
+        // active, session unobserved — never a benched verdict), the control cluster disables —
+        // in place.
         applySet(card, {sources: {
             roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
-            repoStatus: {source: 'fleet:fleetStatus',   state: 'missing',   confidence: 'none'},
-            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'missing',   confidence: 'none', reason: 'no repository status answered for this agent'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none', reason: 'runtime probe refused'}
         }});
 
         expect(card.id).toBe(beforeId);
         expect(card.down({reference: 'source-strip'}).id).toBe(stripId);   // same instance, updated in place
-        expect(strip.text).toBe('Runtime not nominal +1');   // pure status: full word, no ▸ affordance, never the RUN/REP/ROS acronym wall
+        expect(strip.hidden).toBe(false);   // an ANSWERED abnormality is the exception the strip exists for
+        expect(strip.text).toBe('Repository not nominal · no repository status answered for this agent');
+        expect(strip.vdom['aria-label']).toBe('Source health: Repository not nominal. Repository: no repository status answered for this agent.');
         expect(strip.cls).toContain('fm-strip-bad');
         expect(stateDot.state).toBe('unobserved');
         expect(stateDot.live).toBe(false);
@@ -194,13 +201,14 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         // control-status line (which is reserved for the control round-trip: pending / timeout / rejected)
         expect(card.down({reference: 'control-status'}).hidden).toBe(true);
 
-        // all wired again (runtime merely INFERRED): the summary recovers to nominal and the controls
-        // re-enable, but the dot does NOT pulse — an inferred runtime is ok, not a live observation
+        // all wired again (runtime merely INFERRED): the strip recovers to zero pixels and the
+        // controls re-enable, but the dot does NOT pulse — an inferred runtime is ok, not a live
+        // observation
         applySet(card, {sources: {
             ...observedSources,
             runtime: {source: 'fleet:runtimeStatus', state: 'wired', confidence: 'inferred'}
         }});
-        expect(strip.text).toBe('all sources nominal');
+        expect(strip.hidden).toBe(true);
         expect(stateDot.state).toBe('ok');
         expect(stateDot.live).toBe(false);
         expect(card.down({reference: 'control-toggle'}).disabled).toBe(false);
@@ -490,10 +498,24 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         card.destroy()
     });
 
-    test('state-honesty: an explicit operator-benched `off` row keeps `benched / offline` even without a wired runtime (#15625)', () => {
-        // Gemini's seat is the fixture: `state: 'off'` is a first-party participation fact
-        // (identityRoots operator_benched), so the off verdict survives the missing runtime source
+    test('state-honesty: an un-wired `off` row renders `external harness` — supervision vocabulary only where supervision exists', () => {
+        // REVERSES the prior state-honesty mapping deliberately, under the newer operator
+        // ratification (the default-state contract): without a wired runtime there is no
+        // supervision contract, so "benched / offline" was a fact about FLEET presented as a
+        // verdict about the agent — falsified live against seats visibly working in their own
+        // harnesses. The participation fact still renders; its vocabulary is now neutral and
+        // carries no attention weight.
         const card = createCard({agentId: 'gemini', state: 'off', sources: {}});
+
+        expect(card.down({ntype: 'fm-state-dot'}).state).toBe('external');
+        expect(card.down({reference: 'card-state'}).text).toBe('external harness');
+
+        card.destroy()
+    });
+
+    test('state-honesty: a wired-and-stopped seat KEEPS `benched / offline` — the supervision verdict survives where supervision exists', () => {
+        // the partition's other half: Fleet manages this seat (wired runtime) and knows it stopped
+        const card = createCard({agentId: 'vega', state: 'off'});
 
         expect(card.down({ntype: 'fm-state-dot'}).state).toBe('off');
         expect(card.down({reference: 'card-state'}).text).toBe('benched / offline');
@@ -637,15 +659,11 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             strip = () => card.down({reference: 'source-strip'});
 
         // the role must reach the DOM through the vdom ROOT — a role that only lived in memory would
-        // announce nothing, and this strip is the card's source live-region
+        // announce nothing, and this strip is the card's source live-region. Nominal renders ZERO
+        // pixels (the exception-only contract), so the node exists hidden with no text to announce.
         expect(strip().vdom.role).toBe('status');
-        expect(strip().vdom['aria-label']).toBe('Source health: all sources nominal.');
-
-        // the word is an INERT text node, never innerHTML. `html` here would make safety a property
-        // summarizeFleetSources must preserve forever (it composes from a frozen label map today, so
-        // there is no live exploit) rather than one the card cannot get wrong. A text node holds even
-        // if a later edit folds a source REASON into the summary — the same contract the lane keeps.
-        expect(strip().text).toBe('all sources nominal');
+        expect(strip().hidden).toBe(true);
+        expect(strip().text).toBe('');
         expect(strip().html ?? null).toBeNull();
         expect(strip().vdom.html ?? null).toBeNull();
 
@@ -655,18 +673,20 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
         expect(strip().ntype).toBe('component');
         expect(strip().handler ?? null).toBeNull();
 
-        // WCAG 1.4.1: `fm-strip-<level>` colours only the ::before dot, so the WORD itself must change
-        // with the level — otherwise colour would be the sole carrier of the health fact
-        const nominalText = strip().text;
-
+        // the exception path is where the word renders — an INERT text node, never innerHTML.
+        // `html` would make safety a property the summariser must preserve forever (it composes
+        // from a frozen label map + a producer-bounded reason today, so there is no live exploit)
+        // rather than one the card cannot get wrong. The fixture is an ANSWERED abnormality — the
+        // only class that renders under the one-interpretation rule.
         applySet(card, {sources: {
-            roster    : {source: 'fleet:listAgents',    state: 'wired',     confidence: 'observed'},
-            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',     confidence: 'observed'},
-            runtime   : {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}
+            roster    : {source: 'fleet:listAgents',    state: 'wired',   confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',   confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'missing', confidence: 'none'}
         }});
 
+        expect(strip().hidden).toBe(false);
         expect(strip().cls).toContain('fm-strip-bad');
-        expect(strip().text).not.toBe(nominalText);
+        expect(strip().vdom['aria-label']).toBe('Source health: Runtime not nominal.');
         expect(strip().text).toBe('Runtime not nominal');
         // the sink stays closed ACROSS an update, not merely at construct time
         expect(strip().html ?? null).toBeNull();
@@ -685,13 +705,28 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             runtime   : {source: hostile,             state: 'wired', confidence: 'observed'}
         }});
 
-        // the hostile producer fails the runtime row closed → BOTH rendered strings are pinned to the
-        // summariser's own frozen literals, and those exact matches ARE the containment proof. No
-        // `not.toContain(hostile)` alongside them: an assertion that cannot independently fail is not a
-        // witness. The aria-label is pinned separately because it is built by its own labels join.
-        expect(strip().text).toBe('Runtime not nominal');
-        expect(strip().vdom['aria-label']).toBe('Source health: Runtime not nominal.');
+        // the hostile producer literal fails producer validation → the fact reads `invalid` and
+        // RENDERS as an answered abnormality — and the containment is that the rendered words are
+        // the summariser's frozen literals: the hostile SOURCE string appears nowhere (only the
+        // validation fallback rides the line). The exact match IS the witness.
+        expect(strip().hidden).toBe(false);
+        expect(strip().text).toBe('Runtime not nominal · source fact failed producer validation');
         expect(strip().html ?? null).toBeNull();
+
+        // the REASON is the one adapter-authored string that now rides a rendered line — pin its
+        // containment: a hostile reason on an ANSWERED abnormality renders as an inert text node
+        // (the vdom `html` sinks stay null), so escaping is never a property the summariser must
+        // remember to preserve.
+        applySet(card, {sources: {
+            roster    : {source: 'fleet:listAgents',    state: 'wired',   confidence: 'observed'},
+            repoStatus: {source: 'fleet:fleetStatus',   state: 'wired',   confidence: 'observed'},
+            runtime   : {source: 'fleet:runtimeStatus', state: 'missing', confidence: 'none', reason: hostile}
+        }});
+
+        expect(strip().hidden).toBe(false);
+        expect(strip().text).toBe(`Runtime not nominal · ${hostile}`);
+        expect(strip().html ?? null).toBeNull();
+        expect(strip().vdom.html ?? null).toBeNull();
 
         card.destroy()
     });

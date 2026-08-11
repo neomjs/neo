@@ -4,6 +4,26 @@
 .fm-health-bar {
     gap: 12px;
 
+    /* The aggregate verdict dot: ONE glanceable header signal ahead of the counts — green when no
+       state needs an operator (the default-state contract: a fleet of un-managed seats is CALM),
+       attention-toned only when an actionable bucket is non-zero. Colors ride the existing state
+       tokens — zero new hues; the counts beside it remain the accessible non-colour carrier. */
+    &::before {
+        border-radius: 50%;
+        content      : '';
+        flex         : none;
+        height       : 8px;
+        width        : 8px;
+    }
+
+    &.fm-health-nominal::before {
+        background: var(--fm-state-ok);
+    }
+
+    &.fm-health-attention::before {
+        background: var(--fm-state-wedged);
+    }
+
     @media (prefers-reduced-motion: no-preference) {
         &.fm-animate-counts .fm-sw-count {
             transition: color var(--motion-base) var(--ease-out-soft), opacity var(--motion-base) var(--ease-out-soft);

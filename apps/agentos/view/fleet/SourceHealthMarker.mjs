@@ -28,7 +28,9 @@ export function sourceMarkerView(sourceKey, health) {
             ? normalized.confidence.toUpperCase()
             : normalized.state === 'missing'
                 ? 'MISSING'
-                : 'NOT WIRED';
+                : normalized.state === 'invalid'
+                    ? 'INVALID'
+                    : 'NOT WIRED';
 
     return {
         ...normalized,
