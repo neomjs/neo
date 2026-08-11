@@ -118,6 +118,18 @@ class CoalescingEngineService extends Base {
     defaultWindowSeconds = null
 
     /**
+     * @member {Function|null} resolveDeliveryReadState=null
+     * @protected
+     * @summary Entrypoint-injected `(messageId, recipient) => {readAt?}` background read-state reader.
+     *
+     * FAIL-SAFE, never fail-closed. When this is null — or throws — the digest renders exactly as it
+     * did before read-state existed. This is the whole swarm's wake path: a reconciliation bug that
+     * SUPPRESSES wakes is strictly worse than the mislabelled count it replaces, because a wrong
+     * number is visible in the wake and a missing wake is visible to nobody.
+     */
+    resolveDeliveryReadState = null
+
+    /**
      * @member {Number|null} refractoryMs=null
      * @protected
      * @summary Entrypoint-injected post-delivery refractory in milliseconds.
@@ -172,13 +184,37 @@ class CoalescingEngineService extends Base {
      * The service deliberately does not import `AiConfig`: the Memory Core entrypoint is the
      * composition root, preventing hidden defaults from drifting across deployment topology.
      *
-     * @param {Object} options
-     * @param {Number} options.coalesceWindowSeconds
-     * @param {Number} options.flushRefractorySeconds
-     * @param {Number} options.flushHardCapSeconds
+     * **Why the collaborator takes its OWN parameter instead of riding in `dispatchConfig`.** The
+     * first argument is an `AiConfig` node — a `Neo.state.Provider` proxy, not a plain object — and
+     * the caller must be able to hand it over **by reference**. Adding one more key to that bag reads
+     * as harmless and forces the caller to build `{...wakeDispatch, extra}`, which is the one
+     * operation the proxy cannot survive: the `get` trap resolves `override-else-inherit` up the
+     * parent chain, but the `ownKeys` trap (`Provider#getTopLevelDataKeys`) enumerates **local
+     * `#dataConfigs` only**. These leaves are declared on the Tier-1 root (`ai/configBase.mjs`), so
+     * for the Memory Core child provider `{...wakeDispatch}` is measurably `{}` while every named
+     * read still returns its number. The spread does not warn, throw, or degrade — it silently
+     * substitutes an empty object, and the first symptom is a validation error naming a leaf the
+     * caller can plainly see is set.
+     *
+     * Destructuring below is safe for exactly the same reason it is dangerous above: naming the keys
+     * goes through the `get` trap. **Never add a rest element (`...rest`) to that pattern** — rest,
+     * like spread, is `ownKeys`, and would reintroduce this failure from the other side.
+     *
+     * @param {Object} dispatchConfig The `AiConfig` wake-dispatch node. Passed by reference; never materialized.
+     * @param {Number} dispatchConfig.coalesceWindowSeconds
+     * @param {Number} dispatchConfig.flushRefractorySeconds
+     * @param {Number} dispatchConfig.flushHardCapSeconds
+     * @param {Object}          [collaborators]                          Wiring, not configuration.
+     * @param {Function|null}   [collaborators.resolveDeliveryReadState] `(messageId, recipient) => {readAt?}`
      */
-    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds} = {}) {
+    configure({coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds} = {},
+        {resolveDeliveryReadState = null} = {}
+    ) {
         const values = {coalesceWindowSeconds, flushRefractorySeconds, flushHardCapSeconds};
+
+        if (resolveDeliveryReadState !== null && typeof resolveDeliveryReadState !== 'function') {
+            throw new Error("CoalescingEngineService.configure requires 'resolveDeliveryReadState' to be a function or null");
+        }
 
         for (const [name, value] of Object.entries(values)) {
             if (!Number.isFinite(value) || value < 0) {
@@ -189,9 +225,10 @@ class CoalescingEngineService extends Base {
             throw new Error("CoalescingEngineService.configure requires 'flushHardCapSeconds' greater than zero");
         }
 
-        this.defaultWindowSeconds = coalesceWindowSeconds;
-        this.refractoryMs         = flushRefractorySeconds * 1000;
-        this.hardCapMs            = flushHardCapSeconds * 1000;
+        this.defaultWindowSeconds     = coalesceWindowSeconds;
+        this.refractoryMs             = flushRefractorySeconds * 1000;
+        this.hardCapMs                = flushHardCapSeconds * 1000;
+        this.resolveDeliveryReadState = resolveDeliveryReadState;
     }
 
     /**
@@ -459,14 +496,51 @@ class CoalescingEngineService extends Base {
                 continue
             }
 
+            // Read-state reconciliation, `sent_to_me` only — the other buckets carry no mailbox row
+            // and therefore have no read-state to reconcile against.
+            //
+            // FAIL-SAFE at every branch. No resolver, no messageId, a resolver that throws, or a
+            // resolver returning `{}` (graph unavailable) all mean UNKNOWN, and unknown renders the
+            // event exactly as before. Only a committed `readAt` suppresses one. Suppressing on
+            // uncertainty would turn a mislabelled count into a missing wake, and a missing wake is
+            // visible to nobody.
+            let unopenable = false;
+
+            if (bucketKey === 'sent_to_me' && this.resolveDeliveryReadState) {
+                const messageId = evt.payload?.messageId;
+
+                if (messageId && subscription.agentIdentity) {
+                    let state = null;
+
+                    try {
+                        state = this.resolveDeliveryReadState(messageId, subscription.agentIdentity)
+                    } catch (error) {
+                        logger.warn?.(`[CoalescingEngine] read-state lookup failed for ${messageId}; rendering as unread: ${error.message}`)
+                    }
+
+                    if (state?.readAt) {
+                        continue
+                    }
+
+                    // `missing` is NOT `{}`. The resolver reports it only after establishing that no
+                    // MESSAGE row exists — a positive finding, not an absence of information. The
+                    // event still counts (something was queued, and hiding that is the suppression
+                    // failure mode), but it must never become `latest`: a `latest` is a pointer the
+                    // recipient is invited to open, and naming one that cannot be opened sends them
+                    // hunting for a message that is not there. That is AC-6.
+                    unopenable = state?.missing === true
+                }
+            }
+
             const bucket = breakdown[bucketKey];
 
             bucket.count++;
 
             const ts = resolveEventTimestamp(evt);
 
-            // Recency wins over position; a timestamp-less candidate keeps last-write-wins.
-            if (bucket.latest === null || ts === null || ts >= bucket.latestTs) {
+            // Recency wins over position; a timestamp-less candidate keeps last-write-wins. An
+            // unopenable event is disqualified from the pointer only — it has already been counted.
+            if (!unopenable && (bucket.latest === null || ts === null || ts >= bucket.latestTs)) {
                 bucket.latest   = evt.payload;
                 bucket.latestTs = ts ?? bucket.latestTs;
             }

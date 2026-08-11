@@ -26,6 +26,7 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, callMemoryCoreTool, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
+    let readBackgroundDeliveryState;
     let messageWalDir, getWakeDeliverySeries;
 
     test.beforeAll(async () => {
@@ -36,6 +37,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         getWakeDeliverySeries = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).getWakeDeliverySeries;
+        readBackgroundDeliveryState = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).readBackgroundDeliveryState;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
@@ -423,6 +425,67 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(outputs[1].mailboxReadState).toEqual(outputs[0].mailboxReadState);
         await expect(MailboxService.inspectReadState({messageId, recipient: '@bob'}))
             .rejects.toThrow(/no agent identity context bound/);
+    });
+
+    /**
+     * @summary The background wake resolver, driven against REAL graph rows — both storage shapes.
+     *
+     * **Why these arms exist.** The coalescer's own spec hand-injects `{readAt}`, which exercises the
+     * consumer branch and is structurally incapable of falsifying the PRODUCER. Under that fixture a
+     * resolver reading only broadcast `DELIVERED_TO` edges looked correct, while every READ DIRECT DM
+     * came back `{}`, scored "unknown", and kept counting. @neo-gpt found it by tracing the reader
+     * into the storage model instead of trusting its summary.
+     *
+     * The mailbox has two shapes and one rule: a per-recipient `DELIVERED_TO` edge carries broadcast
+     * read-state, the MESSAGE node carries direct read-state. `seedReadStateCarrier` builds exactly
+     * that, so these arms fail against a reader that knows only one half.
+     *
+     * The tri-state matters as much as the two shapes. `{}` meant BOTH "graph unavailable" and "row
+     * absent", and collapsing them is what let a digest name a `latest` the recipient cannot open.
+     */
+    test('#16918: the background resolver reads DIRECT read-state off the MESSAGE node, not just the edge', () => {
+        const messageId = 'MESSAGE:bg-direct-read';
+
+        // Direct DM: readAt lives on the node and there is NO DELIVERED_TO edge at all.
+        seedReadStateCarrier({messageId, recipient: '@bob', broadcast: false, readAt: '2026-08-10T10:00:00.000Z'});
+
+        const state = readBackgroundDeliveryState(messageId, '@bob');
+
+        expect(state.readAt, 'a read direct DM must report its committed readAt').toBe('2026-08-10T10:00:00.000Z');
+        expect(state.present, 'and it must report the row as present').toBe(true);
+        expect(state.missing).toBeUndefined()
+    });
+
+    test('#16918: NON-VACUITY — an UNREAD direct DM is present-without-readAt, not read', () => {
+        // Without this the arm above passes against a resolver that reports every direct row as read.
+        const messageId = 'MESSAGE:bg-direct-unread';
+
+        seedReadStateCarrier({messageId, recipient: '@bob', broadcast: false, readAt: null});
+
+        const state = readBackgroundDeliveryState(messageId, '@bob');
+
+        expect(state.readAt, 'an unread row must not fabricate a readAt').toBeUndefined();
+        expect(state.present, 'but it exists and is openable').toBe(true);
+        expect(state.missing).toBeUndefined()
+    });
+
+    test('#16918: broadcast read-state still resolves off the per-recipient DELIVERED_TO edge', () => {
+        // The half that already worked, pinned so the direct-shape repair cannot regress it.
+        const messageId = 'MESSAGE:bg-broadcast-read';
+
+        seedReadStateCarrier({messageId, recipient: '@bob', broadcast: true, readAt: '2026-08-10T11:00:00.000Z'});
+
+        expect(readBackgroundDeliveryState(messageId, '@bob').readAt).toBe('2026-08-10T11:00:00.000Z')
+    });
+
+    test('#16918: an ABSENT message row reports `missing`, which is not the same answer as unread', () => {
+        // AC-6. Nothing is seeded — the row genuinely does not exist. Reporting `{}` here is what let
+        // the digest advertise a `latest` pointing at a message the recipient could never open.
+        const state = readBackgroundDeliveryState('MESSAGE:bg-never-existed', '@bob');
+
+        expect(state.missing, 'an absent row must be positively reported as missing').toBe(true);
+        expect(state.present).toBeUndefined();
+        expect(state.readAt).toBeUndefined()
     });
 
     test('addMessage stamps the normalized canonical user_id, keeping @-form only as the sender label (#13578)', async () => {

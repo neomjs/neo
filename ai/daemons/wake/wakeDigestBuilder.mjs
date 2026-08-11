@@ -124,7 +124,11 @@ export function buildWakeDigest(identity, {messages = [], tasks = [], permission
         const latest         = latestByEventTime(messages, 'sentAt'),
               latestPriority = normalizeWakePriority(latest.priority),
               prioritySuffix = latestPriority === digestPriority ? '' : `, latest priority: ${latestPriority}`;
-        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
+        // COUNTS QUEUED EVENTS. This function's own signature says so: the parameter object is
+        // `events`, and `messages` is its message-class event array. Same rename as the sibling
+        // seam in `localWakeAdapters.mjs` - both must move together or the two renderers disagree
+        // about what the same number means.
+        breakdown += `\n- ${messages.length} message events (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
     }
     if (tasks.length > 0) {
         const latest = latestByEventTime(tasks, 'lastModifiedAt');
