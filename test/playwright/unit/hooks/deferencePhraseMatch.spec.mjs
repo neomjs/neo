@@ -180,6 +180,34 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('Shrink the batch if you want it to complete on CPU-only hardware.')).toBeFalsy();
     });
 
+    test('clause position is GRAMMAR, never Markdown layout', () => {
+        // Both arms are precision defects a reviewer replayed against the first clause-terminal repair,
+        // and they share one root: layout characters were read as grammar.
+
+        // (1) Inline emphasis must be TRANSPARENT. Agents bold the phrase they are deferring with, so
+        // this is the specimen's most likely written form — and reading `*` as a following word made the
+        // guard MISS it. A false negative on the shape the entry exists to catch is worse than the false
+        // positive that motivated the guard in the first place.
+        expect(matchDeferencePhrase('The one thing I would still act on immediately **if you want it**: run ollama ps.'))
+            .toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host *if you want it*.')).toBe('if you want it');
+        // The arm that ISOLATES the pre-scan emphasis strip. The two arms above are also satisfied by the
+        // post-soft-wrap strip, so removing the first one leaves them green — a partially vacuous test I
+        // only found by mutating each half separately. Emphasis running straight into END-OF-TEXT reaches
+        // neither the punctuation test nor the paragraph-break test, so only the first strip can save it.
+        expect(matchDeferencePhrase('I would still probe that host **if you want it**')).toBe('if you want it');
+
+        // (2) A SOFT WRAP is whitespace, not a clause end. Hard-wrapped prose splits the predicate
+        // across a newline, and treating that newline as terminal resurrects the false positive above.
+        expect(matchDeferencePhrase('Set maxQueue to zero if you want it\nto reject excess work.')).toBeFalsy();
+        expect(matchDeferencePhrase('Shrink the batch if you want it\n    to complete on CPU-only hardware.')).toBeFalsy();
+
+        // (3) …but a BLANK line is a paragraph break, which genuinely does end the clause. Without this
+        // arm, folding newlines away would swallow the terminal case at the end of a paragraph.
+        expect(matchDeferencePhrase('I would still probe that host if you want it\n\nNext lane: #16982.'))
+            .toBe('if you want it');
+    });
+
     test('the two noisy variants are GONE, not merely untested (#16966)', () => {
         // A dropped phrase has to be absent from the list, not just absent from the arms above —
         // otherwise a later edit re-adds the false-positive surface and every test still passes.

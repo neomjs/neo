@@ -58,20 +58,45 @@ export const DEFERENCE_PHRASES = [
 const CLAUSE_TERMINAL_PHRASES = new Set(['if you want it']);
 
 /**
- * @summary Reports whether a match ends its clause, allowing trailing whitespace and closers.
+ * @summary Reports whether a match ends its clause, reading grammar rather than Markdown layout.
  *
  * Clause-terminal means end-of-text, sentence punctuation, or a delimiter that hands off to the named
- * action (`:` in the originating specimen). A following word means the phrase governs that word rather
+ * action (`:` in the originating specimen). A following WORD means the phrase governs that word rather
  * than gating the agent's own action.
+ *
+ * Two layout artefacts must not be mistaken for grammar, and the first version of this guard mistook
+ * both:
+ *
+ * - **Inline emphasis is transparent.** Agents bold the phrase they are apologising with, so
+ *   `**if you want it**:` is the specimen's most likely written form. Treating `*` as a following word
+ *   made the guard MISS it — a false negative on exactly the shape the entry exists to catch, which is
+ *   worse than the false positive that motivated the guard.
+ * - **A soft wrap is whitespace, not a clause end.** Hard-wrapped prose splits
+ *   `if you want it / to reject excess work` across a newline, and reading that newline as terminal
+ *   resurrects the false positive. A BLANK line is different: a paragraph break really does end the
+ *   clause, so it stays terminal.
  * @param {String} text
  * @param {Number} endIndex Index one past the matched phrase.
  * @returns {Boolean}
  * @private
  */
 function isClauseTerminal(text, endIndex) {
-    const rest = text.slice(endIndex).replace(/^[ \t]+/, '');
+    const rest = text.slice(endIndex).replace(/^[*_~]+/, '').replace(/^[ \t]+/, '');
 
-    return rest === '' || /^[.,:;!?)\]}\n\r"'`’”]/.test(rest)
+    if (rest === '') {
+        return true;
+    }
+
+    // Paragraph break: the clause is over regardless of what follows it.
+    if (/^\r?\n[ \t]*\r?\n/.test(rest)) {
+        return true;
+    }
+
+    // Soft wrap: fold it away and judge what actually follows, emphasis skipped again because a
+    // wrapped line can resume with its own emphasis run.
+    const folded = rest.replace(/^\r?\n[ \t]*/, '').replace(/^[*_~]+/, '');
+
+    return /^[.,:;!?)\]}"'’”]/.test(folded)
 }
 
 /**
