@@ -3018,7 +3018,7 @@ class MailboxService extends Base {
                     }
                     if (sourceEdgeType === 'DELIVERED_TO') {
                         hasDeliveryEdges = true;
-                        if (sameMailboxIdentity(sourceEdgeTarget, target)) deliveryEdge = sourceEdge;
+                        if (!deliveryEdge && sameMailboxIdentity(sourceEdgeTarget, target)) deliveryEdge = sourceEdge;
                     }
                     if (sourceEdgeType === 'PART_OF_THREAD') foundThreadId = sourceEdgeTarget;
                     if (sourceEdgeType === 'TAGGED_CONCEPT') messageTaggedConcepts.push(sourceEdgeTarget);

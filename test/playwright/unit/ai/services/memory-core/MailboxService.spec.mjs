@@ -2777,6 +2777,39 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
+    test('#16960 indexed broadcast projection preserves first-match legacy receipt precedence', async () => {
+        GraphService.upsertNode({id: 'bob', type: 'AgentIdentity', name: 'Legacy Bob', properties: {accountType: 'agent'}});
+
+        let messageId;
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            messageId = (await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: 'duplicate legacy delivery',
+                body   : 'receipt precedence'
+            })).messageId;
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await MailboxService.markRead({messageId});
+        });
+
+        const canonicalReceipt = GraphService.db.edges.getByIndex('source', messageId)
+            .find(edge => edge.type === 'DELIVERED_TO' && edge.target === '@bob');
+        expect(canonicalReceipt.properties.readAt).toBeTruthy();
+
+        // Historical stores can contain an equivalent bare-id receipt beside the canonical one.
+        // The former `getBroadcastDeliveryEdge(...).find(...)` contract selected the first match;
+        // indexed projection must not silently let the later null receipt erase that read state.
+        GraphService.linkNodes(messageId, 'bob', 'DELIVERED_TO', 1, {readAt: null});
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            const result  = await MailboxService.listMessages({status: 'read'});
+            const message = result.messages.find(candidate => candidate.messageId === messageId);
+
+            expect(message?.readAt).toBe(canonicalReceipt.properties.readAt);
+        });
+    });
+
     test('listMessages pagination (limit/offset) boundary', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
