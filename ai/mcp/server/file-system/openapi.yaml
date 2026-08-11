@@ -212,7 +212,14 @@ paths:
     post:
       summary: Executes a single Playwright spec.
       operationId: run_playwright_test
-      description: Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
+      description: |
+        Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
+
+        EXECUTION IS NOT JAILED. The path argument is validated against the project root; the spec
+        that runs is arbitrary JavaScript, so what it reads and writes is bounded by this server's
+        host process, not by that root. Combined with write_file this reaches outside the project
+        root without either call violating a guard. Do not pass this tool input you would not grant
+        the host process.
       tags: [Execution]
       x-pass-as-object: true
       requestBody:
