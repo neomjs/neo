@@ -164,6 +164,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     const allowedKeys = [
         'operationLabel',
         'operationStage',
+        'onProviderTimeout',
         'providerActivityRecorder',
         'service',
         'shouldYield',
@@ -187,6 +188,9 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     if (options.operationStage !== undefined && typeof options.operationStage !== 'string') {
         throw new TypeError('TextEmbeddingService: options.operationStage must be a string');
     }
+    if (options.onProviderTimeout !== undefined && typeof options.onProviderTimeout !== 'function') {
+        throw new TypeError('TextEmbeddingService: options.onProviderTimeout must be a function');
+    }
     if (options.service !== undefined && typeof options.service !== 'string') {
         throw new TypeError('TextEmbeddingService: options.service must be a string');
     }
@@ -202,6 +206,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     return {
         operationLabel          : requestedLabel.substring(0, EMBEDDING_OPERATION_LABEL_MAX_LENGTH),
         operationStage          : options.operationStage || 'unknown',
+        onProviderTimeout       : options.onProviderTimeout,
         providerActivityRecorder: options.providerActivityRecorder === undefined
             ? MemoryCoreRecorderService
             : options.providerActivityRecorder,
@@ -1419,6 +1424,7 @@ class TextEmbeddingService extends Base {
      * @param {String|String[]} inputData Text input to embed.
      * @param {String} operationLabel Safe diagnostic label for timeout errors.
      * @param {AbortSignal|undefined} signal Upstream cancellation signal.
+     * @param {Function|undefined} onProviderTimeout Synchronous provider-timeout circuit hook.
      * @param {Object} operation Mutable local-phase observability record.
      * @param {Object|null} providerActivityRecorder Best-effort telemetry sink.
      * @param {Object} providerActivity Bounded provider activity descriptor.
@@ -1426,7 +1432,7 @@ class TextEmbeddingService extends Base {
      * @returns {Promise<Object>}
      * @private
      */
-    async #embedOllama(inputData, operationLabel, signal, operation, providerActivityRecorder, providerActivity, identityTexts = null) {
+    async #embedOllama(inputData, operationLabel, signal, onProviderTimeout, operation, providerActivityRecorder, providerActivity, identityTexts = null) {
         const
             provider         = this.#getOllamaProvider(),
             dispatchModel    = provider.embeddingModel || provider.modelName || 'unknown',
@@ -1541,7 +1547,26 @@ class TextEmbeddingService extends Base {
         // cannot reject unhandled.
         providerPromise.then(
             () => this.#releaseOllamaEmbeddingSlot(),
-            () => this.#releaseOllamaEmbeddingSlot()
+            error => {
+                try {
+                    // Open a caller-owned sweep circuit BEFORE releasing the provider slot. Abort
+                    // listeners synchronously remove never-dispatched waiters from the admission
+                    // queue; releasing first would let the next repository acquire the slot behind
+                    // work whose provider-side settlement is not known to imply compute idleness.
+                    if (error?.code === PROVIDER_TIMEOUT_CODE) {
+                        onProviderTimeout?.(error);
+                    }
+                } catch (hookError) {
+                    // The hook is an advisory circuit signal, never a replacement for the source
+                    // provider error. Preserve A's timeout identity even if a caller supplied a
+                    // broken hook, and keep the log bounded to structural error identity.
+                    logger.warn('[TextEmbeddingService] Native Ollama provider-timeout hook failed.', {
+                        errorName: hookError?.name || 'Error'
+                    });
+                } finally {
+                    this.#releaseOllamaEmbeddingSlot();
+                }
+            }
         );
 
         return settleCallerWhileProviderContinues({
@@ -1657,6 +1682,7 @@ class TextEmbeddingService extends Base {
      * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
      * @param {String} [options.operationLabel] Bounded diagnostic label.
      * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
+     * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @param {String} [options.service='unknown'] Stable service owner.
      * @param {Object|null} [options.providerActivityRecorder] Best-effort telemetry sink.
      * @returns {Promise<number[]>}
@@ -1670,6 +1696,7 @@ class TextEmbeddingService extends Base {
               {
                   operationLabel,
                   operationStage,
+                  onProviderTimeout,
                   providerActivityRecorder,
                   service,
                   signal
@@ -1712,6 +1739,7 @@ class TextEmbeddingService extends Base {
                     text,
                     operationLabel,
                     signal,
+                    onProviderTimeout,
                     operation,
                     providerActivityRecorder,
                     providerActivity
@@ -1772,6 +1800,7 @@ class TextEmbeddingService extends Base {
      * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
      * @param {String} [options.operationLabel] Bounded diagnostic label.
      * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
+     * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @param {String} [options.service='unknown'] Stable service owner.
      * @param {Object|null} [options.providerActivityRecorder] Best-effort telemetry sink.
      * @param {Function} [options.shouldYield] Cooperative heavy-maintenance-lease yield predicate,
@@ -1789,6 +1818,7 @@ class TextEmbeddingService extends Base {
               {
                   operationLabel,
                   operationStage,
+                  onProviderTimeout,
                   providerActivityRecorder,
                   service,
                   shouldYield,
@@ -1824,6 +1854,7 @@ class TextEmbeddingService extends Base {
                     texts,
                     operationLabel,
                     signal,
+                    onProviderTimeout,
                     operation,
                     providerActivityRecorder,
                     providerActivity,

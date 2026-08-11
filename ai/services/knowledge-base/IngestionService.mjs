@@ -186,9 +186,12 @@ class IngestionService extends Base {
      *                                        MCP-safe. Explicit `false` (the `ai:ingest-tenant`
      *                                        bulk CLI path) bypasses the gate as an opt-in to
      *                                        long-running bulk work.
+     * @param {Object} [controls={}] Internal non-MCP execution controls.
+     * @param {AbortSignal} [controls.signal] Shared tenant-sweep provider circuit signal.
+     * @param {Function} [controls.onProviderTimeout] Synchronous native-provider timeout hook.
      * @returns {Promise<{ingested: Number, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
      */
-    async ingestSourceFiles(payload = {}) {
+    async ingestSourceFiles(payload = {}, controls = {}) {
         const startedAt = Date.now();
         const summary   = this.createSummary({startedAt});
 
@@ -248,6 +251,8 @@ class IngestionService extends Base {
                 this.updateIngestionProgress({phase: 'embedding'});
                 await this.embedChunkGroups({
                     chunks: embeddableChunks,
+                    onProviderTimeout: controls.onProviderTimeout,
+                    signal           : controls.signal,
                     tenantContext,
                     summary,
                     viaMcp: payload.viaMcp !== false
@@ -286,6 +291,21 @@ class IngestionService extends Base {
             this.finishIngestionProgress({summary, status: 'failed'});
             return summary;
         }
+    }
+
+    /**
+     * @summary Internal tenant-sync entry that preserves execution controls outside the OpenAPI wrapper.
+     *
+     * The canonical SDK proxy intentionally forwards one validated OpenAPI argument to
+     * `ingestSourceFiles`. Tenant sync needs a second, process-local control envelope, so it calls
+     * this unwrapped method rather than smuggling non-contract fields into the public payload.
+     *
+     * @param {Object} payload Canonical ingestion payload.
+     * @param {Object} controls Internal provider-circuit controls.
+     * @returns {Promise<Object>} The canonical ingestion summary.
+     */
+    async ingestSourceFilesForTenantSync(payload = {}, controls = {}) {
+        return this.ingestSourceFiles(payload, controls)
     }
 
     /**
@@ -358,13 +378,15 @@ class IngestionService extends Base {
     /**
      * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed().
      * @param {Object}  options
+     * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
+     * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @param {Boolean} [options.viaMcp=true] Forwarded to `VectorService.embed`; `true` keeps
      *                                        the MCP work-volume gate, `false` (bulk CLI)
      *                                        bypasses it.
      * @returns {Promise<void>}
      * @protected
      */
-    async embedChunkGroups({chunks, tenantContext, summary, viaMcp = true}) {
+    async embedChunkGroups({chunks, tenantContext, summary, viaMcp = true, signal, onProviderTimeout}) {
         const groups = new Map();
 
         for (const chunk of chunks) {
@@ -381,6 +403,8 @@ class IngestionService extends Base {
             try {
                 const result = await this.vectorService.embed(tempFile, {
                     deleteStale  : false,
+                    onProviderTimeout,
+                    signal,
                     tenantContext: {...tenantContext, repoSlug},
                     viaMcp
                 });

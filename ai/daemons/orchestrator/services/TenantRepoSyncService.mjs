@@ -21,6 +21,7 @@ import {buildEmbeddingProbeBlock} from '../../../services/shared/embeddingProbe.
 import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     classifyEmbedDisposition,
     isEmbedFailureCode
 }                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
@@ -407,6 +408,17 @@ function classifyIngestionOutcome(summary) {
     }
 
     return {outcome: 'complete', summary, deferredCodes: []}
+}
+
+/**
+ * @summary Creates the bounded reason used to stop never-dispatched repository embeds in one sweep.
+ * @returns {Error} Internal circuit-open error safe for the KB failure classifier.
+ */
+function createProviderTimeoutCircuitError() {
+    const error = new Error('Tenant-repo embedding deferred because an earlier native provider request timed out in this sweep.');
+
+    error.code = KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN;
+    return error
 }
 
 /**
@@ -1504,6 +1516,18 @@ class TenantRepoSyncService extends Base {
 
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
+        const ingestSourceFilesForTenantSync = typeof ingestionService.ingestSourceFilesForTenantSync === 'function'
+            ? (payload, controls) => ingestionService.ingestSourceFilesForTenantSync(payload, controls)
+            : (payload, controls) => ingestionService.ingestSourceFiles(payload, controls);
+        const providerTimeoutCircuit = new AbortController();
+        const providerCircuitControls = {
+            signal           : providerTimeoutCircuit.signal,
+            onProviderTimeout: () => {
+                if (!providerTimeoutCircuit.signal.aborted) {
+                    providerTimeoutCircuit.abort(createProviderTimeoutCircuitError());
+                }
+            }
+        };
         const persistedRevisions    = await this.readPersistedRevisions({
             filePath: resolvedRevisionsPath,
             strict  : true
@@ -2090,11 +2114,11 @@ class TenantRepoSyncService extends Base {
                             errors                : [],
                             materializationReceipt: retryReceipt
                         }
-                        : await ingestionService.ingestSourceFiles({
+                        : await ingestSourceFilesForTenantSync({
                             ...envelope,
                             ...(materializationAttempt ? {materializationAttempt} : {}),
                             viaMcp: false // operator-bulk path
-                        });
+                        }, providerCircuitControls);
 
                 // Emitted before BOTH guards on this path, which is what makes it useful:
                 // `classifyIngestionOutcome` throws on a rejected error-bearing summary, and

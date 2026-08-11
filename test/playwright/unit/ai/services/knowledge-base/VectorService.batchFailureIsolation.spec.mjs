@@ -22,6 +22,8 @@ import {
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
     PROVIDER_TIMEOUT_CODE
 } from '../../../../../../ai/provider/createTimeoutError.mjs';
+import {KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN}
+    from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 
 /**
  * Batch-failure isolation for `VectorService.embedChunks`.
@@ -359,6 +361,39 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         } finally {
             globalThis.setTimeout = originalSetTimeout;
         }
+    });
+
+    test('#16995: circuit-open is provider-phase terminal and preserves the exact controls', async () => {
+        Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 5});
+
+        const
+            spy               = createSpyCollection(),
+            controller        = new AbortController(),
+            onProviderTimeout = () => {},
+            circuitError      = Object.assign(new Error('tenant provider circuit open'), {
+                code: KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN
+            });
+        let providerCalls = 0,
+            observedOptions;
+
+        TextEmbeddingService.embedTexts = async (texts, provider, options) => {
+            providerCalls++;
+            observedOptions = options;
+            throw circuitError
+        };
+
+        const thrown = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: makeChunks(2),
+            signal          : controller.signal,
+            onProviderTimeout
+        }).then(() => null, error => error);
+
+        expect(thrown, 'the never-dispatched repository keeps its bounded circuit reason').toBe(circuitError);
+        expect(providerCalls, 'an open circuit is not retried five times as provider work').toBe(1);
+        expect(observedOptions.signal).toBe(controller.signal);
+        expect(observedOptions.onProviderTimeout).toBe(onProviderTimeout);
+        expect(spy.upsertedIds).toEqual([]);
     });
 
     test('CALLER BOUNDARY: shadow-swap REFUSES to promote when a batch failed', async () => {
