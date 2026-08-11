@@ -9,6 +9,7 @@ import {
     emitConsumerFriction
 }                             from '../memory-core/helpers/consumerFrictionHelper.mjs';
 import ChromaManager                                                   from './ChromaManager.mjs';
+import {PROVIDER_TIMEOUT_CODE}                                         from '../../provider/createTimeoutError.mjs';
 import crypto                                                          from 'crypto';
 import fs                                                              from 'fs-extra';
 import logger                                                          from '../../mcp/server/knowledge-base/logger.mjs';
@@ -789,9 +790,27 @@ class VectorService extends Base {
 
                     lastError = err;
                     retries++;
-                    console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
+
+                    // A backoff must be at least as long as the work it just abandoned.
+                    //
+                    // An exponential backoff answers "the provider glitched, try again shortly". A
+                    // TIMEOUT answers something else: we stopped waiting for work that may still be
+                    // running. Measured on a live plane — an embed returned 200 after 1h6m23s and then
+                    // hit `write: broken pipe`, having run to completion for an hour with nobody
+                    // attached. With one parallel slot, retrying that in 2 seconds is not a retry, it
+                    // is a second concurrent attempt that queues behind its own orphan.
+                    //
+                    // Classified on the ERROR, never on elapsed wall-clock: a provider that fails fast
+                    // under load would otherwise be mistaken for a timeout and slowed to a crawl. The
+                    // error carries the exact budget it consumed, so the wait is that budget rather
+                    // than a second guess at it.
+                    const timedOut  = err?.code === PROVIDER_TIMEOUT_CODE && Number.isFinite(err.timeoutMs),
+                          backoffMs = timedOut ? err.timeoutMs : 2 ** retries * 1000;
+
+                    console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries}) after ${backoffMs}ms (${timedOut ? 'timeout-class: waiting out the budget the abandoned attempt may still be consuming' : 'transient-class: exponential'})...`, err.message);
+
                     if (retries < maxRetries) {
-                        await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
+                        await new Promise(res => setTimeout(res, backoffMs));
                     }
                 }
             }

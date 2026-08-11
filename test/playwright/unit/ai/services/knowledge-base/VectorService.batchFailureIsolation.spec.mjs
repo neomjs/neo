@@ -252,6 +252,63 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(spy.calls.upsert).toBe(3);
     });
 
+    /**
+     * @summary A backoff must be at least as long as the work it just abandoned.
+     *
+     * Measured on a live plane: an embedding batch times out at 1,800,000ms and the retry fires two
+     * seconds later. A client timeout stops US waiting; it does not reliably stop the provider — the
+     * model container logged `200 | 1h6m23s` followed by `write: broken pipe`, an embed that ran to
+     * completion for an hour with nobody attached. With one parallel slot, a 2-second retry is not a
+     * retry: it is a second concurrent attempt queued behind its own orphan.
+     */
+    test('#16973: a TIMEOUT-class failure waits out the budget it abandoned, not 2^n seconds', async () => {
+        const waits           = [];
+        const originalTimeout = globalThis.setTimeout;
+
+        globalThis.setTimeout = (fn, ms) => { waits.push(ms); return originalTimeout(fn, 0) };
+
+        try {
+            Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
+
+            const timeoutError = Object.assign(new Error('[Ollama] embed timed out after 1800000ms'), {
+                code: 'PROVIDER_TIMEOUT', timeoutMs: 1800000
+            });
+
+            TextEmbeddingService.embedTexts = async () => { throw timeoutError };
+
+            await KB_VectorService.embedChunks({collection: createSpyCollection(), chunksToProcess: makeChunks(1)}).catch(() => null);
+
+            expect(waits.filter(ms => ms === 1800000).length,
+                'each retry waits the budget the abandoned attempt may still be consuming').toBeGreaterThan(0);
+            expect(waits.some(ms => ms === 2000 || ms === 4000),
+                'the exponential ladder must NOT be used for a timeout').toBe(false);
+        } finally {
+            globalThis.setTimeout = originalTimeout;
+        }
+    });
+
+    test('#16973 NON-VACUITY: a NON-timeout failure keeps the fast exponential ladder', async () => {
+        // Without this, "always wait the budget" would pass the arm above while turning a refused
+        // chunk into a 30-minute stall — trading this defect for a slower one.
+        const waits           = [];
+        const originalTimeout = globalThis.setTimeout;
+
+        globalThis.setTimeout = (fn, ms) => { waits.push(ms); return originalTimeout(fn, 0) };
+
+        try {
+            Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
+
+            TextEmbeddingService.embedTexts = async () => { throw new Error('malformed chunk payload') };
+
+            await KB_VectorService.embedChunks({collection: createSpyCollection(), chunksToProcess: makeChunks(1)}).catch(() => null);
+
+            expect(waits.some(ms => ms === 2000), 'transient errors still back off in seconds').toBe(true);
+            expect(waits.some(ms => ms >= 1800000), 'a non-timeout must never wait a provider budget').toBe(false);
+        } finally {
+            globalThis.setTimeout = originalTimeout;
+        }
+    });
+
     test('CALLER BOUNDARY: shadow-swap REFUSES to promote when a batch failed', async () => {
         // The defect this guards, found by @neo-gpt against the real seam: `embedChunks` is shared by
         // BOTH stale strategies, and a hole means opposite things to them. Incrementally a skipped batch
