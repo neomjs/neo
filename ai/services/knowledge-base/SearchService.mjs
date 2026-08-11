@@ -8,6 +8,7 @@ import logger                                                                   
 import path                                                                          from 'path';
 import QueryService                                                                  from './QueryService.mjs';
 import {assembleAskContext}                                                          from './helpers/askContextBudget.mjs';
+import InteractiveBatchQueue                                                         from '../../provider/InteractiveBatchQueue.mjs';
 import {checkAskRateLimit}                                                           from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment}                                             from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves}                                                from './helpers/askSynthesisGuard.mjs';
@@ -65,6 +66,36 @@ export function buildAskProviderConfigs(config) {
             keep_alive: config.ollama.keep_alive
         }
     }
+}
+
+/**
+ * @summary Builds the ask path's OWN admission queue, sized by the `askSynthesis.maxParallel` leaf.
+ *
+ * Ask needs its own queue instance rather than a raised capacity on the shared one: capacity belongs
+ * to the consumer that has its own serving endpoint, and raising it on the process-wide queue would
+ * hand concurrency to every other local chat consumer in the process as a side effect.
+ *
+ * The capacity is READ HERE, at the use site. It is never threaded into `buildChatModel` as a value,
+ * and `buildChatModel` must not read `AiConfig` itself — Neo/AiConfig imports belong only in
+ * thread-entrypoints and the provider layer is not one. Per ADR 0019 B5 + C1 (ticket-ref-ok: the ADR
+ * clauses are the authority for this shape; without naming them, "pass maxParallel through" reads
+ * like the simpler option instead of a zero-tolerance violation). So the config-derived object is
+ * constructed on this side and injected; an injected collaborator is not a threaded config value,
+ * which is what keeps this inside B5.
+ *
+ * Exported as a pure function for the same reason as {@link buildAskProviderConfigs}: the capacity
+ * wiring is then assertable without booting a service or reaching into a private member.
+ *
+ * @param {Object} config The Knowledge Base AiConfig node.
+ * @returns {InteractiveBatchQueue} A queue owned by the ask path.
+ */
+export function buildAskRequestQueue(config) {
+    // Read with NO fallback, for the reason measured on the budget leaves: the generated `config.mjs`
+    // is a thin singleton extending the tracked base and declaring no data, so a leaf added there
+    // reaches every overlay and cannot resolve absent. A `|| 1` here would be dead code that could
+    // only mask a real config break — and masking it as "serialized" is the quiet failure, since a
+    // deployment that meant to run parallel asks would silently keep serializing them.
+    return new InteractiveBatchQueue({capacity: config.askSynthesis.maxParallel})
 }
 
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
@@ -178,6 +209,12 @@ class SearchService extends Base {
             modelProvider         : ask.provider,
             openAiCompatibleConfig,
             ollamaConfig,
+            // Ask owns its admission queue so its parallelism is configurable without handing
+            // concurrency to any other consumer. No contention changes hands: the two
+            // `buildChatModel` callers are this one and memory-core's `SessionService`, which runs in
+            // a DIFFERENT process — so the "process-wide" shared queue never serialized them against
+            // each other, and ask is the only chat consumer in this process.
+            chatRequestQueue        : buildAskRequestQueue(aiConfig),
             geminiApiKey            : ask.apiKey,
             geminiModelName         : ask.model,
             providerActivityRecorder: KBRecorderService,

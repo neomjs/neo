@@ -502,6 +502,7 @@
         "askSynthesis.contextBudgetChars",
         "askSynthesis.contextMaxCharsPerDocument",
         "askSynthesis.maxCallsPerMinute",
+        "askSynthesis.maxParallel",
         "askSynthesis.model",
         "askSynthesis.provider",
         "askSynthesis.reasoningEffort",

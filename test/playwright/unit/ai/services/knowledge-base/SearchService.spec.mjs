@@ -595,4 +595,28 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(aiConfig.askSynthesis.contextMaxCharsPerDocument)
             .toBeLessThan(aiConfig.askSynthesis.contextBudgetChars)
     });
+
+    test('ask owns an admission queue sized by maxParallel, defaulting to serialized', async () => {
+        const {buildAskRequestQueue} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs');
+
+        expect(buildAskRequestQueue({askSynthesis: {maxParallel: 3}}).capacity,
+            'the operator-set parallelism reaches the queue').toBe(3);
+
+        // NON-VACUITY: a second, different value — otherwise the arm would pass against a hardcoded
+        // constant and prove nothing about the leaf being read at all.
+        expect(buildAskRequestQueue({askSynthesis: {maxParallel: 1}}).capacity,
+            'the serialized default is read, not assumed').toBe(1);
+
+        // A missing leaf lands on the QUEUE PRIMITIVE's own documented default of 1, not on a second
+        // fallback inside this builder — which is the distinction worth pinning. It cannot happen in
+        // production anyway, since the declared default inherits to every overlay; the arm exists so
+        // that a future `|| N` added here would fail rather than pass silently.
+        expect(buildAskRequestQueue({askSynthesis: {}}).capacity,
+            'no builder-local fallback — the primitive default applies').toBe(1);
+
+        // An UNUSABLE capacity is refused at construction rather than clamped, so an operator typo
+        // fails loudly instead of quietly serializing a deployment that asked for parallelism.
+        expect(() => buildAskRequestQueue({askSynthesis: {maxParallel: 0}}))
+            .toThrow(/capacity must be an integer >= 1/)
+    });
 });
