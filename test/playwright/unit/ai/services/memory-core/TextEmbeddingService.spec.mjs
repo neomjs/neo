@@ -412,28 +412,29 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const first  = TextEmbeddingService.embedTexts(['a'], 'ollama', {providerActivityRecorder: recorder}),
               second = TextEmbeddingService.embedTexts(['b'], 'ollama', {providerActivityRecorder: recorder});
 
-        await waitForCondition(
-            () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 1,
-            'the second caller to queue behind the cap'
-        );
-
-        // The row is OPEN while waiting — begun, not yet started. An instrument that only writes on
-        // completion cannot show a caller currently stuck at admission, which is the live symptom.
-        const begun = activities.filter(item => item.type === 'begin');
-
-        expect(begun.length, 'both callers opened a row before admission').toBe(2);
-        expect(begun.every(entry => entry.queueDisposition === 'neo-queued'),
-            'admission is a real queue and must be recorded as one').toBe(true);
-        expect(activities.filter(item => item.type === 'start').length,
-            'the blocked caller must NOT be marked started while it waits').toBe(1);
-
-        // `harness.started` is PENDING releases, and `releaseAll()` resets it to 0 — so the queued
-        // caller dispatching takes it back to 1, never to 2. Read the getter, do not infer it.
-        // DRAIN IN `finally`. The assertions above already ran; if any assertion below throws before
-        // the release, the held slot and parked waiter survive into the next spec and stall it —
-        // the failure then surfaces in an unrelated file, which is precisely how this suite's
-        // order-dependent pollution is manufactured. A test may fail; it may not poison.
+        // THE BOUNDARY OPENS HERE — immediately after the calls that create the contention, and
+        // BEFORE the first `await` that can time out. Twice now I moved it and left something above
+        // it: first three assertions, then the `waitForCondition` itself, which throws on timeout.
+        // Anything above this line that can throw strands the held slot and the parked waiter, and
+        // the failure then surfaces in an unrelated spec. A test may fail; it may not poison.
         try {
+            await waitForCondition(
+                () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 1,
+                'the second caller to queue behind the cap'
+            );
+
+            // The row is OPEN while waiting — begun, not yet started. An instrument that only writes
+            // on completion cannot show a caller currently stuck at admission, the live symptom.
+            const begun = activities.filter(item => item.type === 'begin');
+
+            expect(begun.length, 'both callers opened a row before admission').toBe(2);
+            expect(begun.every(entry => entry.queueDisposition === 'neo-queued'),
+                'admission is a real queue and must be recorded as one').toBe(true);
+            expect(activities.filter(item => item.type === 'start').length,
+                'the blocked caller must NOT be marked started while it waits').toBe(1);
+
+            // `harness.started` is PENDING releases, and `releaseAll()` resets it to 0 — so the
+            // queued caller dispatching takes it back to 1, never to 2. Read the getter.
             harness.releaseAll();
             await waitForCondition(() => harness.started === 1, 'the queued caller to dispatch');
             harness.releaseAll();
@@ -539,7 +540,14 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             ).toBe('queue')
         } finally {
             harness.releaseAll();
-            await Promise.allSettled([first, second])
+            await Promise.allSettled([first, second]);
+
+            // PROVE THE DRAIN. This arm aborts a caller mid-queue, which is precisely the shape that
+            // can strand a waiter or a slot; asserting it here keeps the cost inside this test
+            // instead of surfacing as a stall in an unrelated spec three files later.
+            expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
+                'an aborted queued caller must leave no residue'
+            ).toEqual({cap: 1, inFlight: 0, waiting: 0})
         }
     });
 

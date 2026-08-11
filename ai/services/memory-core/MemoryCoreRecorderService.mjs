@@ -96,6 +96,12 @@ function emptyWalDrain(status, reason) {
 function emptyProviderActivity(status) {
     return {
         status,
+        // PRESENT ON EVERY ARM, and empty rather than absent. A consumer reading `nativeAdmission`
+        // on the `ok` arm and finding the key missing on `disabled`/`unavailable`/`partial` has to
+        // distinguish "no queue" from "the field does not exist here" — and the natural JS reading
+        // of `undefined` is zero demand, which is exactly the reassuring answer a degraded read must
+        // not give. `{}` says "this projection has nothing to report", which is the truth.
+        nativeAdmission           : {},
         totalActivities           : 0,
         totalInFlight             : 0,
         totalRecentCompletions    : 0,
@@ -694,7 +700,10 @@ class MemoryCoreRecorderService extends Base {
                 // Knowledge Base and must not import a Memory Core config; and it must never
                 // fabricate a cap, because `0` reads as "admission is closed" — the most alarming
                 // value — when the truth would only be that provenance was unavailable.
-                nativeAdmissionCaps: {ollama: config.ollama.maxInFlightEmbeddings}
+                // Keyed by SERVICE::provider, and this reader declares a cap for its OWN service only.
+                // Another process's rows report `cap: null` rather than borrowing this ceiling — the
+                // Knowledge Base runs its own limiter and this reader has no authority over it.
+                nativeAdmissionCaps: {'memory-core::ollama': config.ollama.maxInFlightEmbeddings}
             });
         } catch (error) {
             logger.warn('[MemoryCoreRecorderService] Failed to read provider activity telemetry:', error.message);

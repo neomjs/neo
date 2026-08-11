@@ -424,22 +424,35 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
     // process-local getter could not have answered this anyway — the observer is a different OS
     // process from the producer.
     //
-    // `cap` is INJECTED by the caller, which reads the config leaf at its own use site. This module
-    // must not import AiConfig, and a fabricated `0` would read as "admission is closed" — the most
-    // alarming possible value — when the truth is only that provenance is unavailable. `null` means
-    // unknown and says so.
+    // A LIMITER IS PER PROCESS, SO THE PROJECTION MUST BE PER SERVICE. This table is shared: the
+    // Knowledge Base and Memory Core are separate OS processes, each with its OWN static
+    // `TextEmbeddingService` limiter. Grouping by provider alone sums them, so two well-behaved
+    // processes at cap 4 project as `{cap: 4, executing: 8}` — a cap violation that never happened.
+    // A fabricated alarm is worse than no instrument: it sends an operator to fix a limiter that is
+    // working. @neo-gpt found this by reasoning about the deployment topology, not the row shape.
+    //
+    // Keyed `service::provider`, and the caller supplies caps under the same key, so a cap can only
+    // ever label the demand of the process that declared it.
+    //
+    // `cap` is INJECTED by the caller, which reads the config leaf at its own use site — this module
+    // must not import AiConfig. A caller supplies a cap for ITS OWN service only, so any other
+    // service's rows report `cap: null`: unknown, honestly. A fabricated `0` would read as
+    // "admission is closed", the most alarming possible value, when the truth is only that this
+    // reader has no authority over that process's ceiling.
     const nativeAdmission = {};
 
     for (const row of db.prepare(`
-        SELECT provider,
+        SELECT service, provider,
                SUM(CASE WHEN started_at IS NULL THEN 1 ELSE 0 END) AS waiting,
                SUM(CASE WHEN started_at IS NOT NULL THEN 1 ELSE 0 END) AS executing
           FROM provider_activity_log
          WHERE completed_at IS NULL AND queue_disposition = 'neo-queued'
-         GROUP BY provider
+         GROUP BY service, provider
     `).all()) {
-        nativeAdmission[row.provider] = {
-            cap      : nativeAdmissionCaps?.[row.provider] ?? null,
+        nativeAdmission[`${row.service}::${row.provider}`] = {
+            service  : row.service,
+            provider : row.provider,
+            cap      : nativeAdmissionCaps?.[`${row.service}::${row.provider}`] ?? null,
             executing: row.executing || 0,
             waiting  : row.waiting   || 0
         }
@@ -448,8 +461,15 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
     // A cap that was declared but has no live demand must still be reported. Omitting it makes a
     // configured-but-idle queue indistinguishable from one that does not exist, and "no rows" is
     // exactly what a wedged plane looks like from the wrong angle.
-    for (const [provider, cap] of Object.entries(nativeAdmissionCaps || {})) {
-        nativeAdmission[provider] ??= {cap, executing: 0, waiting: 0}
+    for (const [key, cap] of Object.entries(nativeAdmissionCaps || {})) {
+        const [service, provider] = key.split('::');
+
+        // A malformed key is SKIPPED, not emitted with `provider: undefined`. A garbage row in a
+        // public projection is worse than a missing one: a consumer cannot tell it from a real
+        // provider it has never heard of, and the field is declared required-and-typed.
+        if (!service || !provider) continue;
+
+        nativeAdmission[key] ??= {service, provider, cap, executing: 0, waiting: 0}
     }
 
     return {

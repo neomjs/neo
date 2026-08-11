@@ -278,10 +278,11 @@ test.describe('providerActivityLedger', () => {
 
         const {nativeAdmission} = getProviderActivityMetrics(db, {
             sinceTs            : 0, limit: 50, now: 2000,
-            nativeAdmissionCaps: {ollama: 1}
+            nativeAdmissionCaps: {'memory-core::ollama': 1}
         });
 
-        expect(nativeAdmission.ollama).toEqual({cap: 1, executing: 1, waiting: 1});
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 1, executing: 1, waiting: 1});
         expect(waitingId, 'both rows exist').toBeTruthy()
     });
 
@@ -296,8 +297,9 @@ test.describe('providerActivityLedger', () => {
 
         const {nativeAdmission} = getProviderActivityMetrics(db, {sinceTs: 0, limit: 50, now: 2000});
 
-        expect(nativeAdmission.ollama.cap).toBeNull();
-        expect(nativeAdmission.ollama.waiting, 'demand is still counted without a cap').toBe(1)
+        expect(nativeAdmission['memory-core::ollama'].cap).toBeNull();
+        expect(nativeAdmission['memory-core::ollama'].waiting,
+            'demand is still counted without a cap').toBe(1)
     });
 
     test('#16880: a declared cap with ZERO demand is still reported', () => {
@@ -305,10 +307,11 @@ test.describe('providerActivityLedger', () => {
         // exist — and "no rows at all" is what a wedged plane looks like from the wrong angle.
         const {nativeAdmission} = getProviderActivityMetrics(db, {
             sinceTs            : 0, limit: 50, now: 2000,
-            nativeAdmissionCaps: {ollama: 4}
+            nativeAdmissionCaps: {'memory-core::ollama': 4}
         });
 
-        expect(nativeAdmission.ollama).toEqual({cap: 4, executing: 0, waiting: 0})
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 4, executing: 0, waiting: 0})
     });
 
     test('#16880 NON-VACUITY: a COMPLETED row is neither waiting nor executing', () => {
@@ -325,9 +328,52 @@ test.describe('providerActivityLedger', () => {
 
         const {nativeAdmission} = getProviderActivityMetrics(db, {
             sinceTs            : 0, limit: 50, now: 2000,
-            nativeAdmissionCaps: {ollama: 2}
+            nativeAdmissionCaps: {'memory-core::ollama': 2}
         });
 
-        expect(nativeAdmission.ollama).toEqual({cap: 2, executing: 0, waiting: 0})
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 2, executing: 0, waiting: 0})
+    });
+
+    /**
+     * @summary THE finding: two processes at their own caps must not project as one cap violation.
+     *
+     * @neo-gpt constructed this from the deployment topology rather than the row shape. The Knowledge
+     * Base and Memory Core are separate OS processes sharing this table, each with its OWN static
+     * limiter. Grouping by provider alone sums them, so two perfectly-behaved processes at cap 4
+     * project as `{cap: 4, executing: 8}` — an alarm for a violation that never happened, which
+     * sends an operator to fix a limiter that is working.
+     *
+     * My previous arms could not see it: every one used a single service, so the aggregation error
+     * was unreachable. Same shape as the permissive double a review earlier — the fixture could not
+     * express the condition it needed to falsify.
+     */
+    test('#16880: two SERVICES at their own caps never project as one shared violation', () => {
+        for (const service of ['memory-core', 'knowledge-base']) {
+            for (const n of [1, 2, 3, 4]) {
+                const id = beginProviderActivity(db, {
+                    service, provider: 'ollama', role: 'embedding',
+                    enqueuedAt: 1000 + n, queueDisposition: 'neo-queued'
+                });
+
+                startProviderActivity(db, id, 1100 + n)
+            }
+        }
+
+        const {nativeAdmission} = getProviderActivityMetrics(db, {
+            sinceTs: 0, limit: 50, now: 2000,
+            // The Memory Core reader declares a cap for ITS OWN service only. It has no authority
+            // over the Knowledge Base's limiter, and borrowing this ceiling to label those rows
+            // would be a guess presented as a measurement.
+            nativeAdmissionCaps: {'memory-core::ollama': 4}
+        });
+
+        expect(nativeAdmission['memory-core::ollama'],
+            'each process is measured against its own ceiling'
+        ).toEqual({service: 'memory-core', provider: 'ollama', cap: 4, executing: 4, waiting: 0});
+
+        expect(nativeAdmission['knowledge-base::ollama'],
+            "another process's demand is visible, but its cap is unknown to this reader"
+        ).toEqual({service: 'knowledge-base', provider: 'ollama', cap: null, executing: 4, waiting: 0})
     });
 });

@@ -2935,6 +2935,7 @@ components:
       type: object
       required:
         - status
+        - nativeAdmission
         - totalActivities
         - totalInFlight
         - aggregates
@@ -2954,10 +2955,21 @@ components:
             the two demand opposite responses, and only the second is fixed by raising a cap.
             A provider with a declared cap is reported even at zero demand, so a configured-but-idle
             queue stays distinguishable from one that does not exist.
+            Keys are `service::provider`: each process runs its OWN limiter, so aggregating by
+            provider alone sums two well-behaved processes into an apparent cap violation.
+            REQUIRED on every response arm — an empty object on a disabled, unavailable, or partial
+            read, never an absent key, because `undefined` reads as zero demand and that is the one
+            reassuring answer a degraded projection must not give.
           additionalProperties:
             type: object
-            required: [cap, executing, waiting]
+            required: [service, provider, cap, executing, waiting]
             properties:
+              service:
+                type: string
+                description: The PROCESS that owns the limiter these figures are measured against.
+              provider:
+                type: string
+                description: Provider the admitted work targets.
               cap:
                 type: [integer, "null"]
                 minimum: 0
