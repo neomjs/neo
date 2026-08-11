@@ -523,6 +523,55 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             'an un-displaced endpoint keeps its own credential').toBe('sk-remote')
     });
 
+    test('an over-budget ask DELIVERS the truncation notice on the RETURNED ANSWER', async () => {
+        // The acceptance criterion requires the notice on the RETURNED ANSWER TEXT, and
+        // every arm written before this one asserted the helper's internal `notice` instead. An exact-head
+        // positive-control search found many real `SearchService.ask()` specs and ZERO references to
+        // `assembled.truncated` or the emitted note — so deleting the append in `ask()` left the whole
+        // suite green. I tested the notice's CONSTRUCTION and called it the AC's DELIVERY.
+        //
+        // This arm is production-shaped: real hydration through a real oversized file, the bound at its
+        // declared default, and the assertion on what a CALLER receives.
+        const bigFile = path.join(path.dirname(tmpFilePath), 'oversized-source.mjs'),
+              // Comfortably past the 12000-char per-document cap, so truncation is certain rather than
+              // tuned to the exact boundary — a boundary-hugging fixture would flip on a default change.
+              bigBody = 'X'.repeat(20000);
+
+        await fs.writeFile(bigFile, bigBody, 'utf-8');
+
+        const bigRelative = path.relative(aiConfig.neoRootDir, bigFile);
+
+        QueryService.queryDocuments = async () => ({
+            topResult: bigRelative,
+            results  : [{source: bigRelative, score: '1234'}]
+        });
+
+        SearchService.model = {
+            generateContent: async () => ({response: {text: () => 'mocked-answer'}})
+        };
+
+        const result = await SearchService.ask({query: 'oversized fixture query', type: 'src'});
+
+        expect(result.answer).toContain('mocked-answer');
+        expect(result.answer, 'the caller is TOLD the context was cut').toContain('Context note:');
+        expect(result.answer).toContain('were shortened');
+
+        // NON-VACUITY / control: an UNDER-budget ask must carry no notice at all. Without this, an
+        // implementation that appended the note unconditionally would satisfy every assertion above
+        // while making the notice meaningless.
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{source: tmpFileRelativeToRoot, score: '999'}]
+        });
+
+        const small = await SearchService.ask({query: 'small fixture query', type: 'src'});
+
+        expect(small.answer).toBe('mocked-answer');
+        expect(small.answer, 'an in-budget ask is unchanged').not.toContain('Context note:');
+
+        await fs.remove(bigFile).catch(() => {});
+    });
+
     test('the DECLARED ask context budget reaches a consumer — the bound is not silently disabled', async () => {
         // @neo-opus-ada's review asked the deciding question: does a newly added leaf resolve to
         // `undefined` on an overlay that predates it, or does the declared default apply? If the

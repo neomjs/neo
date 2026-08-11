@@ -309,11 +309,19 @@ class ConfigBase extends ConfigProvider {
                  * token budget needs the selected model's tokenizer and would silently mis-bound the
                  * moment the ask model changes — and the ask model is expected to change.
                  *
-                 * `0` disables the bound. An overlay predating this leaf resolves it absent, which is
-                 * read as `0` at the use site — the same reasoning as `reasoningEffort` above: a config
-                 * gap must keep answering with today's behaviour, never acquire a silent truncation the
-                 * operator did not configure. Deliberately NOT in `askSynthesisGuard`'s required-leaf
-                 * set, for that same reason.
+                 * `0` disables the bound, and that is the ONLY way it is disabled — an operator setting
+                 * it deliberately. An overlay predating this leaf still resolves the declared default:
+                 * the generated `config.mjs` is a thin singleton extending this base and declaring no
+                 * data of its own, so a leaf added here reaches every overlay. Measured rather than
+                 * assumed — a three-week-old overlay containing zero occurrences of `askSynthesis`
+                 * answers ask requests today.
+                 *
+                 * That is why the use site reads this leaf with NO fallback: a `|| 0` there could never
+                 * fire for the stale-overlay case it was written for, and could only disable the bound
+                 * if something else went wrong. Deliberately NOT in `askSynthesisGuard`'s required-leaf
+                 * set: a genuinely missing `askSynthesis` block is caught loudly upstream in
+                 * `SearchService.construct`, which degrades to references with the migration remedy
+                 * named, so a second gate here would add nothing but a worse message.
                  * @type {number}
                  */
                 contextBudgetChars: leaf(48000, 'NEO_KB_ASK_CONTEXT_BUDGET_CHARS', 'number'),
@@ -326,8 +334,9 @@ class ConfigBase extends ConfigProvider {
                  * document's contribution keeps the context representative of the retrieval, which is
                  * the property a citation-bearing answer depends on.
                  *
-                 * `0` disables the per-document cap while leaving the total budget in force. Absent in
-                 * an older overlay reads as `0`, per the leaf above.
+                 * `0` disables the per-document cap while leaving the total budget in force, and — as
+                 * with the leaf above — that is an operator's deliberate act rather than something a
+                 * stale overlay can cause.
                  * @type {number}
                  */
                 contextMaxCharsPerDocument: leaf(12000, 'NEO_KB_ASK_CONTEXT_MAX_CHARS_PER_DOC', 'number')
