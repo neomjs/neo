@@ -159,8 +159,8 @@ export function buildOllamaEvalAttribution(samples, {stuckThresholdTokensPerSeco
     const grouped = new Map();
 
     for (const sample of normalized) {
-        const key = `${sample.role || 'unknown'}:${sample.model || 'unknown'}`;
-        let entry = grouped.get(key);
+        const key   = `${sample.role || 'unknown'}:${sample.model || 'unknown'}`;
+        let   entry = grouped.get(key);
 
         if (!entry) {
             entry = {
@@ -385,7 +385,7 @@ class OllamaProvider extends Base {
         const operationLabel   = options.operationLabel || 'Ollama chat completion';
 
         try {
-            const parsedUrl = new URL(`${this.host}/api/chat`);
+            const parsedUrl  = new URL(`${this.host}/api/chat`);
             const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
 
             let resolveFunc, rejectFunc;
@@ -585,22 +585,61 @@ class OllamaProvider extends Base {
     }
 
     /**
-     * Streams text completion.
+     * @summary Streams text completion.
+     *
+     * The timeout is an IDLE timer, re-armed on every chunk — not a total deadline. That distinction
+     * is the whole design: a stream's legitimate lifetime is unbounded, so a flat deadline would kill
+     * healthy long generations, while a stalled provider that stops sending is exactly the condition
+     * a consumer cannot detect on its own. `generate()`'s socket-level `timeout` has the same
+     * inactivity semantics; this reproduces them over `fetch`, which has no idle option of its own.
      *
      * @param {String|Array} input
      * @param {Object} [options]
+     * @param {Number} [options.timeoutMs] Idle timeout between chunks. Defaults to 1 hour, matching
+     *     `generate()`, so existing callers keep their prior effective behaviour.
+     * @param {AbortSignal} [options.signal] Upstream cancellation signal; when it aborts, the
+     *     in-flight request is destroyed (parity with `generate()` and OpenAiCompatible).
+     * @param {String} [options.operationLabel] Safe diagnostic label surfaced in the timeout error.
      * @returns {AsyncGenerator<String>} Yields text chunks.
      */
     async *stream(input, options = {}) {
-        const payload = this.preparePayload(input, options, true);
+        const payload        = this.preparePayload(input, options, true),
+              rawTimeoutMs   = Number(options.timeoutMs),
+              idleTimeoutMs  = Number.isFinite(rawTimeoutMs) && rawTimeoutMs > 0 ? rawTimeoutMs : 60 * 60 * 1000,
+              operationLabel = options.operationLabel || 'Ollama chat stream',
+              controller     = new AbortController();
+
+        let idleTimer  = null,
+            reader     = null,
+            readerDone = false,
+            timedOut   = false;
+
+        const armIdleTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                timedOut = true;
+                controller.abort()
+            }, idleTimeoutMs);
+            // Never hold the process open on this timer alone.
+            idleTimer.unref?.()
+        };
+
+        // An already-aborted upstream signal must not start the request at all.
+        const abortFromUpstream = () => controller.abort();
+
+        options.signal?.addEventListener('abort', abortFromUpstream, {once: true});
+        if (options.signal?.aborted) controller.abort();
 
         try {
+            armIdleTimer();
+
             const response = await fetch(`${this.host}/api/chat`, {
                 method : 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body  : JSON.stringify(payload),
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -608,12 +647,23 @@ class OllamaProvider extends Base {
                 throw new Error(`Ollama API error: ${response.status} - ${text}`);
             }
 
-            const reader  = response.body.getReader();
+            reader = response.body.getReader();
+
             const decoder = new TextDecoder('utf-8');
 
             while (true) {
                 const {done, value} = await reader.read();
-                if (done) break;
+
+                if (done) {
+                    // Natural end: the transport is already finished, so `finally` must NOT cancel or
+                    // abort. Without this flag the cleanup below cannot tell a completed stream from
+                    // an abandoned one.
+                    readerDone = true;
+                    break
+                }
+
+                // Progress re-arms the deadline: the timer measures SILENCE, not duration.
+                armIdleTimer();
 
                 const chunkText = decoder.decode(value, {stream: true});
 
@@ -632,8 +682,46 @@ class OllamaProvider extends Base {
                 }
             }
         } catch (error) {
+            // Distinguish OUR deadline from the caller's cancellation. Both surface as an
+            // AbortError from `fetch`, and reporting a stalled provider as "cancelled" would send
+            // the next reader looking for a caller that never asked to stop.
+            if (timedOut) {
+                throw createTimeoutError({
+                    provider : 'Ollama',
+                    operationLabel,
+                    timeoutMs: idleTimeoutMs,
+                    host     : this.host,
+                    modelName: this.modelName
+                })
+            }
+
             // Re-throw to let the caller handle it or gracefully degrade
             throw error;
+        } finally {
+            clearTimeout(idleTimer);
+            options.signal?.removeEventListener('abort', abortFromUpstream);
+
+            // **A consumer that simply stops iterating is an ordinary terminal, and it was the leak.**
+            // `break` out of a `for await`, an early `return`, or a throw in the loop body resumes this
+            // generator at its `yield` with a return completion — so this block runs while the HTTP
+            // request is still live and nobody is reading it. Clearing the idle timer alone therefore
+            // removed the only bound the request had left: measured against a real server as
+            // `{requestClosed: false, connections: 1}`, which is the same unbounded-request class the
+            // timer exists to prevent, reached by a path that never touches the timer.
+            //
+            // Cancelling the reader releases the body; aborting the controller closes the socket. Both
+            // are gated on `readerDone` so natural completion stays untouched — there the transport has
+            // already finished, and aborting it would turn a clean stream into a cancelled one.
+            if (reader && !readerDone) {
+                try {
+                    await reader.cancel()
+                } catch (error) {
+                    // The reader is discarded either way. A failing cancel must not replace the
+                    // caller's own error — or their clean early return — with one about cleanup.
+                }
+            }
+
+            !readerDone && !controller.signal.aborted && controller.abort()
         }
     }
 }
