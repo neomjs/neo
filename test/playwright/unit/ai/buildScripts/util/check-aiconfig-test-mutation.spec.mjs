@@ -1,8 +1,10 @@
-import {test, expect}                                  from '@playwright/test';
-import {existsSync}                                    from 'node:fs';
-import path                                            from 'node:path';
-import {fileURLToPath}                                 from 'node:url';
-import {findDbPathMutations, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
+import {test, expect}                                                                      from '@playwright/test';
+import {spawnSync}                                                                         from 'node:child_process';
+import {existsSync, mkdirSync, rmSync, writeFileSync}                                      from 'node:fs';
+import path                                                                                from 'node:path';
+import process                                                                             from 'node:process';
+import {fileURLToPath}                                                                     from 'node:url';
+import {findDbPathMutations, findCloneCaptures, scanFileContent, ALLOWLIST, ESCAPE_MARKER} from '../../../../../../buildScripts/util/check-aiconfig-test-mutation.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
@@ -132,6 +134,210 @@ test.describe('check-aiconfig-test-mutation guard', () => {
 
     test('honors the inline escape marker on a genuinely unavoidable line', () => {
         expect(findDbPathMutations(`aiConfig.storagePaths.graph = p; // ${ESCAPE_MARKER}: legacy shim, migrates in #12435`)).toEqual([])
+    });
+
+    /*
+     * The RESTORE-CAPTURE rule. Orthogonal to Class-A: Class-A asks which LEAF a test writes, this
+     * asks whether the UNDO can work at all.
+     *
+     * The target was chosen by measurement, not by shape-reasoning. One direct leaf write on a live
+     * `AiConfig` node, restored four ways:
+     *
+     *   spread `{...node}` + `Object.assign`       -> restored
+     *   spread `{...node}` + `restoreConfigObject` -> restored
+     *   `Neo.clone(node)`  + `Object.assign`       -> NOT restored
+     *   `Neo.clone(node)`  + `restoreConfigObject` -> NOT restored
+     *
+     * The restore idiom is innocent in both columns, so the pattern anchors on the CAPTURE and stays
+     * indifferent to whatever restores from it. Two earlier readings of this defect — "a zero-key
+     * clone" and "`Object.assign` cannot undo a leaf write" — are both retracted; the clone carries
+     * the key and carries the WRONG VALUE (the unresolved default).
+     */
+    test('RESTORE-CAPTURE: flags a Neo.clone of a config node, at any path depth', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(aiConfig);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone( AiConfig.data );').map(h => h.line)).toEqual([1])
+    });
+
+    test('RESTORE-CAPTURE: flags an ALIASED config root — renaming the binding is not an escape hatch', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(mailboxAiConfig.storagePaths);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(Memory_Config.data);').map(h => h.line)).toEqual([1])
+    });
+
+    /*
+     * @neo-gpt's falsifiers at e9b158d6bf. The first grammar required the config root IMMEDIATELY
+     * after `Neo.clone(` and matched line by line, so a member-qualified root and ordinary wrapped
+     * formatting both walked through. `SDK.Memory_Config` is a REAL access shape in this tree — the
+     * Class-A suite above pins it — so this was production-shaped, not hypothetical.
+     *
+     * The consequence worth remembering: the zero-population scan reported under that grammar could
+     * only ever mean "none of the shapes I can express", never "none present".
+     */
+    test('RESTORE-CAPTURE: a MEMBER-QUALIFIED config root is still a config root', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(SDK.Memory_Config.data);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(context.AiConfig.data);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(this.mailboxAiConfig.storagePaths);').map(h => h.line)).toEqual([1])
+    });
+
+    test('RESTORE-CAPTURE: MULTILINE arguments are formatting, not an escape hatch', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(\n    AiConfig.data\n);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(\n    SDK.Memory_Config.data,\n    true\n);').map(h => h.line)).toEqual([1])
+    });
+
+    test('RESTORE-CAPTURE: the widened grammar keeps the string/comment negatives', () => {
+        // The widened pattern spans newlines, so the mask has to keep holding across them too. A
+        // TEMPLATE literal is the real multiline-string case — a single-quoted string cannot span
+        // lines at all, and an earlier draft of this control used one: invalid JS, which the mask
+        // correctly failed CLOSED on, so the fixture proved nothing about strings.
+        expect(findCloneCaptures([
+            'const doc = `Neo.clone(',
+            '    SDK.Memory_Config.data)`;'
+        ].join('\n'))).toEqual([]);
+
+        expect(findCloneCaptures([
+            '/*',
+            ' * Neo.clone(',
+            ' *     AiConfig.data)',
+            ' */'
+        ].join('\n'))).toEqual([])
+    });
+
+    /*
+     * @neo-gpt's second falsifier, and the sharper of the two: the widened whole-file scan I wrote to
+     * close his FIRST finding introduced a silent bypass of the gate.
+     *
+     * `[...line]` iterates code POINTS. Acorn's token offsets, `line.length` and the line-start table
+     * all count UTF-16 code UNITS. One astral character — an emoji in a comment is enough — made the
+     * code-only projection SHORTER than its source and shifted every offset after it, so `/*<emoji>*\/`
+     * before a capture blanked the `N` of executable `Neo`, and an astral comment line mapped the NEXT
+     * line's hit onto itself where an unrelated escape marker suppressed it.
+     *
+     * His diagnosis of why it survived my own controls is the durable part: "existing tests use
+     * BMP-only coordinates and cannot convict it." A suite that never leaves the BMP cannot see a
+     * code-unit/code-point split, however many cells it has.
+     */
+    test('UNICODE: an astral character in a comment does not blank the capture that follows it', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        expect(findCloneCaptures(`/*${emoji}*/Neo.clone(AiConfig.data);`).map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures(`/*${emoji}*/const saved = Neo.clone(\n    SDK.Memory_Config.data);`).map(h => h.line)).toEqual([1])
+    });
+
+    test('UNICODE: an astral line does not shift a later hit onto an unrelated escape marker', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        // @neo-gpt's EXACT repro shape. An earlier draft of this control prefixed the capture with
+        // `const saved = `, which shifted the offsets just enough that the broken version still
+        // landed on line 2 — the test passed against the bug it was written to catch.
+        expect(findCloneCaptures([
+            `// ${emoji} ${ESCAPE_MARKER}: an UNRELATED exemption on its own line`,
+            'Neo.clone(AiConfig.data);'
+        ].join('\n')).map(h => h.line), 'the capture is on line 2 and nothing exempts it').toEqual([2])
+    });
+
+    test('UNICODE: astral characters do not weaken the string negative or a genuine marker', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        expect(findCloneCaptures(`const doc = '${emoji} Neo.clone(AiConfig.data)';`)).toEqual([]);
+        expect(findCloneCaptures(`const saved = Neo.clone(AiConfig.data); // ${emoji} ${ESCAPE_MARKER}: real reason`)).toEqual([])
+    });
+
+    test('RESTORE-CAPTURE: does NOT flag a clone of a non-config value', () => {
+        expect(findCloneCaptures('const copy = Neo.clone(plainThing);')).toEqual([]);
+        expect(findCloneCaptures('const copy = Neo.clone(record, true, true);')).toEqual([])
+    });
+
+    test('RESTORE-CAPTURE: does NOT flag `aiConfigDefaults` — the trailing boundary matches Class-A', () => {
+        expect(findCloneCaptures('const copy = Neo.clone(aiConfigDefaults);')).toEqual([])
+    });
+
+    test('RESTORE-CAPTURE: does NOT flag the sanctioned resolved-value primitive', () => {
+        expect(findCloneCaptures('const saved = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);')).toEqual([])
+    });
+
+    test('RESTORE-CAPTURE: string + comment context is not code', () => {
+        expect(findCloneCaptures("const doc = 'Neo.clone(AiConfig.orchestrator.mlx)';")).toEqual([]);
+        expect(findCloneCaptures('// Neo.clone(AiConfig.orchestrator.lms) was the old idiom')).toEqual([]);
+        expect(findCloneCaptures('/* Neo.clone(AiConfig.data) */')).toEqual([])
+    });
+
+    test('RESTORE-CAPTURE: honors the inline escape marker', () => {
+        expect(findCloneCaptures(`const saved = Neo.clone(AiConfig.data); // ${ESCAPE_MARKER}: asserting the clone's own behaviour`)).toEqual([])
+    });
+
+    /*
+     * CLI-level, because both properties below live in `main()` and neither is observable from the
+     * exported predicates. Fixtures are written under `test/` — the checker only scans paths that
+     * start with it — with a non-`.spec.mjs` name so the runner never collects them.
+     */
+    test('the allowlist exempts Class-A ONLY — a listed file is still scanned for restore-captures', () => {
+        const file    = 'test/playwright/unit/whatever.spec.mjs',
+              content = [
+                  'const saved = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);',
+                  'aiConfig.storagePaths.graph = testPath;'
+              ].join('\n');
+
+        // Not listed: both rules fire.
+        const unlisted = scanFileContent(file, content, {allowlist: new Set()});
+        expect(unlisted.dbPathHits.map(h => h.line)).toEqual([2]);
+        expect(unlisted.cloneHits.map(h => h.line)).toEqual([1]);
+
+        // Listed: the stated Class-A exemption applies and NOTHING else does. An allowlist entry buys
+        // the exemption it argued for, not a blanket bypass on a rule its rationale never mentions.
+        const listed = scanFileContent(file, content, {allowlist: new Set([file])});
+        expect(listed.dbPathHits).toEqual([]);
+        expect(listed.cloneHits.map(h => h.line)).toEqual([1])
+    });
+
+    test('CLI: a NAMESPACED and a MULTILINE capture each fail the build end-to-end', () => {
+        const checker    = path.join(repoRoot, 'buildScripts/util/check-aiconfig-test-mutation.mjs'),
+              fixtureDir = path.join(repoRoot, `test/.tmp-clone-grammar-${process.pid}`);
+
+        mkdirSync(fixtureDir, {recursive: true});
+
+        try {
+            for (const [label, body] of [
+                ['namespaced', 'const saved = Neo.clone(SDK.Memory_Config.data);\n'],
+                ['multiline',  'const saved = Neo.clone(\n    AiConfig.data\n);\n']
+            ]) {
+                const fixture = path.join(fixtureDir, `${label}.mjs`),
+                      rel     = path.relative(repoRoot, fixture).split(path.sep).join('/');
+
+                writeFileSync(fixture, body);
+
+                const result = spawnSync(process.execPath, [checker, rel], {cwd: repoRoot, encoding: 'utf-8'});
+
+                expect(result.status, `${label} capture must fail the build`).toBe(1);
+                expect(result.stderr).toContain('restore capture');
+                expect(result.stdout).not.toContain('0 new violations')
+            }
+        } finally {
+            rmSync(fixtureDir, {recursive: true, force: true})
+        }
+    });
+
+    test('CLI: a restore-capture alone fails the build (a gate must fail, not merely describe)', () => {
+        const checkerPath = path.join(repoRoot, 'buildScripts/util/check-aiconfig-test-mutation.mjs'),
+              fixtureDir  = path.join(repoRoot, `test/.tmp-restore-capture-${process.pid}`);
+
+        mkdirSync(fixtureDir, {recursive: true});
+
+        const fixture    = path.join(fixtureDir, 'fixture.mjs'),
+              relFixture = path.relative(repoRoot, fixture).split(path.sep).join('/');
+
+        try {
+            // Clone-capture ONLY — no Class-A DB-path leaf anywhere in this fixture, so the exit code
+            // can only come from the new rule.
+            writeFileSync(fixture, 'const saved = Neo.clone(AiConfig.orchestrator.deploymentStateBridge, true, true);\n');
+
+            const result = spawnSync(process.execPath, [checkerPath, relFixture], {cwd: repoRoot, encoding: 'utf-8'});
+
+            expect(result.status, 'a restore-capture-only violation must fail the build').toBe(1);
+            expect(result.stderr).toContain('restore capture');
+            expect(result.stdout).not.toContain('0 new violations')
+        } finally {
+            rmSync(fixtureDir, {recursive: true, force: true});
+        }
     });
 
     test('every allowlist entry names a file that still exists (a stale entry is a silent licence)', () => {
