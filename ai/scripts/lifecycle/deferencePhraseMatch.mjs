@@ -29,8 +29,75 @@ export const DEFERENCE_PHRASES = [
     "unless you'd rather",
     'or steer me elsewhere',
     'your call',
-    'your move'
+    'your move',
+    // The subtlest form, and the one that survives a self-audit: the agent NAMES the highest-value
+    // action, then attaches a permission gate that does not exist. It reads as deferential courtesy
+    // and functions as a stop - the work is identified, credited, and not done. Operator-caught
+    // 2026-08-11 on a live client incident, where the named action was the cheapest unrun probe of a
+    // seven-week outage.
+    //
+    // ONE entry, not three. `if you want me` was dropped as redundant - the neighbouring `want me to`
+    // already matches its dominant form, and a test asserting truthiness could not tell the two apart.
+    // `if you would like` was dropped as noise: it reserves ordinary English ("keep the fixture local
+    // if you would like deterministic isolation") for no shape the survivors miss. Both were dropped
+    // after a reviewer EXECUTED those sentences against this matcher rather than arguing about them.
+    'if you want it'
 ];
+
+/**
+ * Phrases whose gate-forming reading depends on clause POSITION, not presence.
+ *
+ * `if you want it` closes a permission gate when it ends the clause - *"the one thing I would still
+ * act on immediately if you want it: `ollama ps`"* - and is ordinary English the moment the pronoun
+ * carries a predicate - *"set maxQueue to zero if you want it to reject excess work"*. Presence alone
+ * cannot separate those, and this matcher is consumed by an ENFORCING Stop hook, so a false positive
+ * blocks correct work. The neighbours above need no such test: their object is always the agent
+ * (`me`) or the lane itself, so they cannot attach to a third party's predicate.
+ * @type {Set<String>}
+ */
+const CLAUSE_TERMINAL_PHRASES = new Set(['if you want it']);
+
+/**
+ * @summary Reports whether a match ends its clause, reading grammar rather than Markdown layout.
+ *
+ * Clause-terminal means end-of-text, sentence punctuation, or a delimiter that hands off to the named
+ * action (`:` in the originating specimen). A following WORD means the phrase governs that word rather
+ * than gating the agent's own action.
+ *
+ * Two layout artefacts must not be mistaken for grammar, and the first version of this guard mistook
+ * both:
+ *
+ * - **Inline emphasis is transparent.** Agents bold the phrase they are apologising with, so
+ *   `**if you want it**:` is the specimen's most likely written form. Treating `*` as a following word
+ *   made the guard MISS it — a false negative on exactly the shape the entry exists to catch, which is
+ *   worse than the false positive that motivated the guard.
+ * - **A soft wrap is whitespace, not a clause end.** Hard-wrapped prose splits
+ *   `if you want it / to reject excess work` across a newline, and reading that newline as terminal
+ *   resurrects the false positive. A BLANK line is different: a paragraph break really does end the
+ *   clause, so it stays terminal.
+ * @param {String} text
+ * @param {Number} endIndex Index one past the matched phrase.
+ * @returns {Boolean}
+ * @private
+ */
+function isClauseTerminal(text, endIndex) {
+    // No emphasis handling here: `stripInlineEmphasis` already removed delimiters from the searchable
+    // text, so this sees grammar only. An earlier revision stripped emphasis in BOTH places, which made
+    // each strip individually unfalsifiable — a mutation removing one left every arm green.
+    const rest = text.slice(endIndex).replace(/^[ \t]+/, '');
+
+    if (rest === '') {
+        return true;
+    }
+
+    // Paragraph break: the clause is over regardless of what follows it.
+    if (/^\r?\n[ \t]*\r?\n/.test(rest)) {
+        return true;
+    }
+
+    // Soft wrap folds to whitespace; judge what actually follows the wrap.
+    return /^[.,:;!?)\]}"'’”]/.test(rest.replace(/^\r?\n[ \t]*/, ''))
+}
 
 /**
  * The peer-identity reminder injected when a deference phrase matches on an autonomous turn-end.
@@ -60,6 +127,28 @@ function stripQuotedMentions(text) {
     return text
         .replace(/"[^"\n]*"/g, ' ')
         .replace(/(^|[^a-zA-Z0-9_])'[^'\n]*'(?=$|[^a-zA-Z0-9_])/g, '$1 ');
+}
+
+/**
+ * @summary Removes Markdown emphasis DELIMITERS so layout cannot hide a phrase from the matcher.
+ *
+ * This runs before matching, not after, because the boundary class in `matchDeferencePhrase` is
+ * `[^a-z0-9_]` — which counts `_` as a WORD character. So `__if you want it__` never produced a match
+ * at all, and any downstream normalization was unreachable. The gate rejected the phrase upstream of
+ * the guard meant to judge it.
+ *
+ * Deliberately delimiter-scoped rather than a blanket `[*_~] -> ' '`. An emphasis opener is preceded by
+ * start-of-text, whitespace or an opening bracket and followed by non-whitespace; a closer is the
+ * mirror. An underscore INSIDE an identifier (`your_call`, `wal_checkpoint`) matches neither, so it
+ * survives — blanket removal would rewrite `your_call` into `your call` and invent a match out of an
+ * identifier.
+ * @param {String} text Assistant final-turn text with code spans already removed.
+ * @returns {String}
+ */
+function stripInlineEmphasis(text) {
+    return text
+        .replace(/(^|[\s(["'])([*_~]{1,3})(?=\S)/g, '$1')
+        .replace(/(\S)([*_~]{1,3})(?=$|[\s.,:;!?)\]"'])/g, '$1');
 }
 
 /**
@@ -156,7 +245,7 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         return null;
     }
 
-    const searchableText = stripQuotedMentions(stripMarkdownCode(text));
+    const searchableText = stripInlineEmphasis(stripQuotedMentions(stripMarkdownCode(text)));
 
     return phrases.find(phrase => {
         const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'),
@@ -164,7 +253,16 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         let match;
 
         while ((match = matcher.exec(searchableText)) !== null) {
-            const startIndex = match.index + match[1].length;
+            const
+                startIndex = match.index + match[1].length,
+                // `match[0]` carries the leading boundary character in `match[1]`; the phrase itself
+                // ends that many characters later. Computed rather than using `phrase.length`, because
+                // the matcher collapses whitespace runs and the matched text can be longer.
+                endIndex   = startIndex + match[0].length - match[1].length;
+
+            if (CLAUSE_TERMINAL_PHRASES.has(phrase) && !isClauseTerminal(searchableText, endIndex)) {
+                continue;
+            }
 
             if (!isReportedMentionContext(searchableText, startIndex) &&
                 !isAttributiveCitationContext(phrase, searchableText, startIndex)) {
