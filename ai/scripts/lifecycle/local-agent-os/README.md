@@ -60,8 +60,30 @@ silent. Declare a role explicitly if you need that entrypoint directly.
 
 ## Start the container plane
 
-Run from the repository root after provisioning `.env` and the mode-0600
-`.neo-ai-secrets/mcp-auth-token`.
+Run from **any** current repository root after provisioning `.env`, plus the
+mode-0600 auth token at the machine-level path
+`~/.neo-ai/secrets/mcp-auth-token` (override with `NEO_MCP_AUTH_TOKEN_FILE`).
+
+**The token lives outside every checkout on purpose.** It used to be read from
+`<checkout>/.neo-ai-secrets/mcp-auth-token`, so provisioning it once made exactly
+one clone able to run the rebuild — and pinned the whole local plane to whatever
+branch that clone sat on. Measured cost: a plane running 103 commits behind `dev`
+while the fixes sat merged.
+
+**Its value must be the token the plane already bootstrapped**, not a fresh one:
+it is both `NEO_AUTH_PROVIDER_BOOTSTRAP_PAT_FILE` and
+`NEO_MCP_HEALTHCHECK_TOKEN_FILE`, so a newly generated secret breaks auth rather
+than provisioning it. Migrating an existing machine is one move:
+
+```sh
+mkdir -p ~/.neo-ai/secrets
+mv <the-provisioned-checkout>/.neo-ai-secrets/mcp-auth-token ~/.neo-ai/secrets/
+chmod 600 ~/.neo-ai/secrets/mcp-auth-token
+```
+
+A missing file makes Compose refuse to start, which is deliberate — loud at the
+one moment someone can act, rather than a silent fallback that restores the
+single-clone dependency.
 
 **Resolve the channel to a commit first.** Compose maps one operator pin to both
 internal Docker arguments, and the source stage refuses a mutable ref (#16635) —

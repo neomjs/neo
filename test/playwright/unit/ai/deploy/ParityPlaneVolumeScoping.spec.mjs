@@ -439,7 +439,12 @@ test.describe('data-plane profile election — base and integration-fixture disp
         expect(overlaySource).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
         expect(overlaySource).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
         expect(overlaySource).toContain('NEO_MCP_HEALTHCHECK_TOKEN_FILE: /run/secrets/mcp-auth-token');
-        expect(overlaySource).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        // Checkout-INDEPENDENT: a relative `file:` resolves inside whichever checkout renders the
+        // overlay, which made the sanctioned rebuild runnable from exactly one clone. Asserting the
+        // interpolated form is what makes a revert to the relative path redden here.
+        expect(overlaySource).toContain('file: ${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}');
+        expect(overlaySource, 'the checkout-relative secret path must not return')
+            .not.toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
         expect(overlaySource).not.toContain('environment: GH_TOKEN');
         expect(overlaySource).toContain(
             'NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:1234}'
