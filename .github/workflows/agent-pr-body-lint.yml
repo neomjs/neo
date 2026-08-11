@@ -20,6 +20,14 @@ jobs:
       - name: Checkout repository
         if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
         uses: actions/checkout@v6
+        with:
+          # The stacked-ticket gate walks `<base>..HEAD`, so a shallow single-branch
+          # clone leaves it with no base ref to diff against.
+          fetch-depth: 0
+
+      - name: Fetch base branch
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        run: git fetch --no-tags origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}" || true
 
       - name: Setup Node.js
         if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
@@ -40,12 +48,13 @@ jobs:
           # attacker-controlled text and `${{ }}` inside `run:` would splice it into the script.
           PR_BODY : ${{ github.event.pull_request.body }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
           if [ "$PR_DRAFT" = "true" ]; then
-            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-draft
+            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF" --pr-draft
           else
-            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md"
+            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-base "origin/$BASE_REF"
           fi
 
       - name: Validate PR Body
