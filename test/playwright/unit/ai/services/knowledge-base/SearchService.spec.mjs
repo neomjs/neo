@@ -596,6 +596,22 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             .toBeLessThan(aiConfig.askSynthesis.contextBudgetChars)
     });
 
+    test('the CONSTRUCTED service published the queue it handed over — the production edge', async () => {
+        // Third round on one defect, and the shape is the lesson: each previous fix asserted the
+        // newly-extracted pure function while the unwitnessed edge moved UP to its caller.
+        //   round 1: asserted buildAskRequestQueue().capacity  -> removing the injection stayed green
+        //   round 2: asserted buildAskChatModelOptions()       -> removing the CALL from construct stayed green
+        // Both proved a builder. Neither proved THIS SERVICE composed anything.
+        //
+        // `askRequestQueue` is published off the SAME options object handed to `buildChatModel`, so it
+        // is a receipt of what actually travelled rather than a second construction. Bypass the call in
+        // `construct` and this is `null` — which no rebuilt-in-the-spec assertion can detect.
+        expect(SearchService.askRequestQueue, 'construct composed and handed over a queue').toBeTruthy();
+        expect(SearchService.askRequestQueue.capacity,
+            'and its capacity came from the config leaf, not a literal')
+            .toBe(aiConfig.askSynthesis.maxParallel);
+    });
+
     test('the queue is actually HANDED to buildChatModel — not merely constructible', async () => {
         // The arm below asserts `buildAskRequestQueue(...).capacity`, which proves the
         // helper builds a queue and says NOTHING about asks using it. Deleting the injection from the

@@ -192,6 +192,14 @@ class SearchService extends Base {
      * @protected
      */
     askCallTimestamps = []
+    /**
+     * The admission queue this service handed to `buildChatModel`, published as a receipt of the
+     * composition. Read off the same options object the provider layer received — a spec that rebuilds
+     * a queue proves the builder, never that THIS service composed one.
+     * @member {InteractiveBatchQueue|null} askRequestQueue=null
+     * @protected
+     */
+    askRequestQueue = null
 
     /**
      * Builds the synthesis model via the configured provider (`gemini` / `openAiCompatible` / `ollama`)
@@ -241,9 +249,17 @@ class SearchService extends Base {
         // not a chat endpoint. It went unnoticed because the ask path defaulted to `gemini`, which
         // ignores this object entirely; pointing the default at a local provider is exactly what
         // would have surfaced it, as a chat request POSTed at a vector database.
-        const {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig);
+        const
+            {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig),
+            chatModelOptions                       = buildAskChatModelOptions(aiConfig, {openAiCompatibleConfig, ollamaConfig});
 
-        this.model = buildChatModel(buildAskChatModelOptions(aiConfig, {openAiCompatibleConfig, ollamaConfig}));
+        this.model = buildChatModel(chatModelOptions);
+        // Published from the SAME options object the provider layer received, so it is a receipt of
+        // what was composed rather than a second construction. A spec asserting a rebuilt queue proves
+        // the builder; this proves THIS SERVICE handed one over. Two review rounds were lost to that
+        // distinction — each fix asserted the newly-extracted pure function while the unwitnessed edge
+        // moved up to its caller, so the receipt has to come off the value that actually travelled.
+        this.askRequestQueue = chatModelOptions.chatRequestQueue
     }
 
     /**
