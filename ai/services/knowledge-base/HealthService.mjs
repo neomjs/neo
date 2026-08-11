@@ -357,6 +357,17 @@ class HealthService extends Base {
 
         if (probe.status === 'healthy') {
             features.embedding = true;
+
+            // A slow-but-running loop is REPORTED without degrading. Returning `healthy` and dropping
+            // the signal here would trade a false `stale` for silence, which is the other half of the
+            // same defect: the reason this was mistaken for a dead loop is that nothing said "slow".
+            if (probe.slow) {
+                details = [
+                    ...details.filter(detail => !detail.startsWith('Knowledge Base embedding probe')),
+                    `Knowledge Base embedding probe slow: ${probe.slow}`
+                ];
+            }
+
             return {...payload, features, details};
         }
 
@@ -415,9 +426,35 @@ class HealthService extends Base {
                   age        = producer.clock() - snapshot.cached.checkedAt;
 
             if (age > staleAfter) {
+                // An ACTIVE flight is the loop running, so it cannot also be evidence the loop is
+                // gone — and this guard aged the cache without ever asking. Slowness is reported as
+                // slowness; a loop with NOTHING in flight still reports stale, because a dead loop is
+                // a real condition and this must not become the way to hide it.
+                // Bounded by the flight's own age: a flight that never settles would otherwise
+                // suppress this guard forever, trading a false `stale` for a permanent false
+                // `healthy`. Past its issued budget the attempt's own deadline failed to fire.
+                const attempt    = producer.activeAttempt,
+                      inFlightMs = attempt ? Math.max(0, producer.clock() - attempt.startedAt) : null;
+
+                if (snapshot.inFlight && attempt && inFlightMs <= attempt.timeoutMs) {
+                    return {
+                        status: 'healthy',
+                        slow  : `an attempt has been in flight ${Math.round(inFlightMs / 1000)}s (issued budget ${attempt.timeoutMs}ms, last healthy vector ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                    };
+                }
+
+                if (snapshot.inFlight) {
+                    return {
+                        status: 'stale',
+                        reason: attempt
+                            ? `has an attempt STUCK in flight ${Math.round(inFlightMs / 1000)}s, past the ${attempt.timeoutMs}ms budget it was ISSUED under — the deadline did not fire`
+                            : 'has an active flight whose issued basis is unobservable — treating as stuck'
+                    };
+                }
+
                 return {
                     status: 'stale',
-                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms)`
+                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms, no attempt in flight)`
                 };
             }
 
@@ -503,7 +540,13 @@ class HealthService extends Base {
             producer = this.#embeddingProbeProducer = {
                 epoch: 0,
                 gate : createBoundedRetryGate({
+                    // Captures the attempt's ISSUED basis. `producer.timeoutMs` is mutable and every
+                    // re-arm overwrites it while this gate and any in-flight attempt are preserved, so
+                    // judging a live flight against the CURRENT config compares it to a deadline it
+                    // was never issued under.
                     run: async context => {
+                        producer.activeAttempt = {startedAt: producer.clock(), timeoutMs: producer.timeoutMs};
+
                         try {
                             return await producer.runProbe(context);
                         } catch {
@@ -513,6 +556,8 @@ class HealthService extends Base {
                                 errorClassification: 'probe-could-not-run',
                                 errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
                             };
+                        } finally {
+                            producer.activeAttempt = null;
                         }
                     },
                     failureTtlMs,
@@ -524,12 +569,26 @@ class HealthService extends Base {
                 clock        : clock ?? Date.now,
                 keyFor       : keyFor ?? (() => `${aiConfig.embeddingProvider}:${aiConfig.vectorDimension}`),
                 runProbe     : runProbe ?? (() => buildKnowledgeBaseEmbeddingProbeBlock({timeoutMs: producer.timeoutMs})),
+                // The in-flight attempt's own basis: `{startedAt, timeoutMs}` as issued. Null between
+                // attempts. Never read from the mutable arm fields — see the `run` wrapper above.
+                activeAttempt: null,
                 disabled     : false,
                 stopped      : false,
                 timer        : null
             };
         } else {
-            if (clock)    producer.clock    = clock;
+            if (clock) {
+                // Carry the in-flight attempt's ELAPSED time across the swap; `startedAt` is only
+                // meaningful in the clock that produced it.
+                if (producer.activeAttempt) {
+                    const elapsedMs = Math.max(0, producer.clock() - producer.activeAttempt.startedAt);
+
+                    producer.activeAttempt.startedAt = clock() - elapsedMs;
+                }
+
+                producer.clock = clock;
+            }
+
             if (keyFor)   producer.keyFor   = keyFor;
             if (runProbe) producer.runProbe = runProbe;
 
