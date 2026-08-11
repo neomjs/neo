@@ -25,6 +25,7 @@
  * 2. **Drain phase** (skippable): runs `LazyEdgeDrainer.drainQueue` to retry any queued
  *    provenance edges (`MENTIONED_IN`/`DISCUSSED_IN`/`REFERENCED_BY`) whose
  *    endpoints may now exist in the graph after the ingest phase.
+ * @plane in-plane
  */
 import 'dotenv/config';
 import {

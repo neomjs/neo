@@ -27,6 +27,7 @@
  * Read-only by construction: resolves and prints; never assigns to any config path. Env faithfulness:
  * the leaf machinery owns env overrides, so a caller-exported `UNIT_TEST_MODE` resolves exactly as
  * it would in the harness; `--unit` merely sets it for you.
+ * @plane in-plane
  */
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';

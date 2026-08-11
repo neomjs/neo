@@ -6,6 +6,7 @@
  * quoting logic local to Neo instead of adding a broad subprocess dependency.
  *
  * @see ai/scripts/lifecycle/resumeHarness.mjs
+ * @plane in-plane
  */
 
 /**

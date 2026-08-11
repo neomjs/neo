@@ -1,3 +1,6 @@
+/**
+ * @plane host
+ */
 import {Command}                             from 'commander';
 import {execFile}                            from 'node:child_process';
 import {once}                                from 'node:events';

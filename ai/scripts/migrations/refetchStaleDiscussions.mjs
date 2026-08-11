@@ -13,6 +13,7 @@
  *
  * @see ai/scripts/migrations/refetchStalePulls.mjs
  * @see ai/services/github-workflow/SyncService.mjs
+ * @plane in-plane
  */
 import {GH_SyncService} from '../../services.host.mjs';
 

@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 import '../../../src/Neo.mjs';
 import * as core        from '../../../src/core/_export.mjs';
 import KBRecorderService from '../../mcp/server/knowledge-base/services/KBRecorderService.mjs';

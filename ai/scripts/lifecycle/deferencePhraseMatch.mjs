@@ -8,6 +8,7 @@
  *
  * Consumed by Stop hooks on autonomous turn-ends only. A deference phrase in live operator dialogue
  * can be a legitimate Tier-4 operator ask; the same phrase on an autonomous turn is the slip.
+ * @plane in-plane
  */
 
 /**

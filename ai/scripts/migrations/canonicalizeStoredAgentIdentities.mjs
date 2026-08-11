@@ -18,6 +18,7 @@
  * one SQLite transaction. Quiesce graph writers and back up the database before
  * applying; restart all graph caches afterward. Read-side storage variants may
  * retire only after the applied migration reports a clean census.
+ * @plane in-plane
  */
 
 import path from 'node:path';

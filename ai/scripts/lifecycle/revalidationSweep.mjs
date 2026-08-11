@@ -22,6 +22,7 @@
  * @see ai/graph/identityRoots.mjs                        — participationStatus source-of-truth
  * @see .agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §6.5 — invocation discipline
  * @see .agents/skills/ideation-sandbox/audits/consensus-mandate.md §quorum-rule — Tier-2 rule background
+ * @plane host
  */
 
 import { execFileSync }              from 'child_process';

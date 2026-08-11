@@ -21,6 +21,7 @@
  * live config shapes into these two durations, and `checkDetectionRetentionSla.mjs` reads the config
  * SSOT and fails CI on a breach. Keep this module free of config shape and of process exits — that
  * separation is why its verdict stays unit-testable against explicit inputs.
+ * @plane in-plane
  */
 
 /**

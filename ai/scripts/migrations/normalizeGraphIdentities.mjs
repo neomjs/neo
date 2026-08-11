@@ -43,6 +43,7 @@
  *     *alias* `AgentIdentity` nodes + re-points their edges; it does not touch memory-row RLS scope.
  *
  * @see learn/agentos/tooling/MemoryCoreMcpAuth.md §Identity Normalization Migration
+ * @plane in-plane
  */
 
 import path from 'node:path';

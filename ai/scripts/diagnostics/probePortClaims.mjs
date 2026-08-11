@@ -34,6 +34,7 @@
  *
  * @see ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs  sibling probe; `lsof -F` idiom
  * @see ai/scripts/migrations/bootstrapWorktree.mjs        symlinkDataDir dryRun — axes 1-3
+ * @plane host
  */
 
 import {execFileSync} from 'child_process';

@@ -39,6 +39,7 @@
  *
  * No Neo import, no Docker call, no filesystem read: every refusal branch is reachable from a plain
  * object, so the gate is unit-testable without a container or a plane.
+ * @plane in-plane
  */
 
 /**

@@ -6,6 +6,7 @@
  * report, send the A2A digest — while this module is the pure projection it delegates to: walk a Playwright json
  * report into actionable failure pointers, and format the red digest. Keeping it free of the memory-core service
  * imports is what lets the digest logic unit-test in isolation (no GraphService / LifecycleService boot).
+ * @plane in-plane
  */
 
 /**

@@ -17,6 +17,7 @@
  * to rerun with escalated permissions or replace a symlink with a local path.
  *
  * @see https://github.com/neomjs/neo/issues/10714
+ * @plane in-plane
  */
 import crypto          from 'node:crypto';
 import fs              from 'node:fs';

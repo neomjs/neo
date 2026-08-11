@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Neo namespace bootstrap (entry-point invariant) - tenant-side KB push client.
 // Mirrors ai/scripts/maintenance/ingestTenant.mjs so this CLI can use Neo's MCP client
 // wrapper from a tenant checkout or CI job.

@@ -22,6 +22,7 @@
  *
  * @see learn/agentos/decisions/0011-substrate-numbering-convention.md (amendment in progress)
  * @see feedback_agents_md_24kib_hard_cap (review discipline anchor)
+ * @plane host
  */
 import {execFileSync}    from 'node:child_process';
 import path              from 'node:path';

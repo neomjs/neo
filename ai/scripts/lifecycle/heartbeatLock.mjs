@@ -15,6 +15,7 @@
  *   node ai/scripts/lifecycle/heartbeatLock.mjs -- npx playwright test test/playwright/unit/foo.spec.mjs
  *
  * @see ai/daemons/SwarmHeartbeatService.mjs
+ * @plane host
  */
 import {spawn} from 'child_process';
 import fs      from 'fs-extra';

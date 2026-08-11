@@ -76,6 +76,7 @@
  * parent process does not change the rendered service either. A `docker compose config` render shows
  * it staying `container-plane` while an interpolated control such as `NEO_DEPLOY_HOSTNAME` picks up
  * its override normally — so the render, not the export, is the boundary that settles both questions.
+ * @plane in-plane
  */
 
 /**

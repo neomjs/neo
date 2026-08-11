@@ -57,6 +57,7 @@
  * Production `.mjs` under `ai/`, `src/`, `apps/`, `buildScripts/`. Specs and tests are excluded: a
  * test asserting backoff arithmetic is not a production retry site, and including them would make
  * the registry churn with every fixture.
+ * @plane in-plane
  */
 import fs              from 'fs';
 import path            from 'path';

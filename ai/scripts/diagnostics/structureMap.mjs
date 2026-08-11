@@ -11,12 +11,15 @@
  * The generator is intentionally read-only and timestamp-free so its JSON output can be
  * committed or diffed by follow-on architecture linting. It defaults to `ai/`, but accepts a
  * configurable root for tests, migrations, or future architecture programs.
+ * @plane in-plane
  */
 import {Command}       from 'commander';
 import fs              from 'node:fs';
 import path            from 'node:path';
 import process         from 'node:process';
 import {fileURLToPath} from 'node:url';
+
+import {readDeclaredPlane, stripComments} from '../lint/scriptSource.mjs';
 
 const DEFAULT_ROOT = 'ai';
 
@@ -55,7 +58,8 @@ export function createProgram() {
         .description('Emit deterministic JSON describing an Agent OS folder structure.')
         .option('-r, --root <path>', 'Root directory to inspect.', DEFAULT_ROOT)
         .option('--files', 'Include sorted file names per folder.')
-        .option('--loc', 'Include code LOC per file, excluding blank lines and common comment forms.');
+        .option('--loc', 'Include code LOC per file, excluding blank lines and common comment forms.')
+        .option('--plane', 'Include each script\'s declared execution plane, plus a per-folder tally.');
 }
 
 /**
@@ -74,93 +78,19 @@ export function parseArgs(argv=process.argv.slice(2)) {
 }
 
 /**
- * Strips simple block and line comments from one source line for deterministic LOC accounting.
- * This is intentionally lexical, not language-semantic; it is good enough for cohesion budgets
- * without pretending to be a parser for every file type under `ai/`.
- * @param {string} line
- * @param {{jsBlock: boolean, htmlBlock: boolean}} state
- * @param {string} ext
- * @returns {string}
- */
-function stripCommentText(line, state, ext) {
-    let index  = 0,
-        output = '';
-
-    while (index < line.length) {
-        if (state.jsBlock) {
-            const end = line.indexOf('*/', index);
-
-            if (end === -1) {
-                return output;
-            }
-
-            state.jsBlock = false;
-            index         = end + 2;
-            continue;
-        }
-
-        if (state.htmlBlock) {
-            const end = line.indexOf('-->', index);
-
-            if (end === -1) {
-                return output;
-            }
-
-            state.htmlBlock = false;
-            index           = end + 3;
-            continue;
-        }
-
-        const jsStart        = line.indexOf('/*', index),
-              htmlStart      = line.indexOf('<!--', index),
-              slash          = line.indexOf('//', index),
-              hashIndex      = ['.yaml', '.yml', '.sh'].includes(ext) ? line.indexOf('#', index) : -1,
-              hash           = hashIndex !== -1 && line.slice(hashIndex, hashIndex + 2) !== '#!' ? hashIndex : -1,
-              commentIndexes = [jsStart, htmlStart, slash, hash]
-                  .filter(value => value !== -1)
-                  .sort((a, b) => a - b),
-              nextComment    = commentIndexes[0];
-
-        if (nextComment == null) {
-            output += line.slice(index);
-            break;
-        }
-
-        output += line.slice(index, nextComment);
-
-        if (nextComment === jsStart) {
-            state.jsBlock = true;
-            index         = nextComment + 2;
-            continue;
-        }
-
-        if (nextComment === htmlStart) {
-            state.htmlBlock = true;
-            index           = nextComment + 4;
-            continue;
-        }
-
-        break;
-    }
-
-    return output;
-}
-
-/**
  * Counts non-empty, non-comment source lines.
+ *
+ * The comment model itself lives in `ai/scripts/lint/scriptSource.mjs`, shared with the plane
+ * classifier so this map and `lint-script-plane` cannot drift on what counts as a comment.
  * @param {string} content
  * @param {string} [filePath]
  * @returns {number}
  */
 export function countCodeLoc(content, filePath='') {
-    const state = {jsBlock: false, htmlBlock: false},
-          ext   = path.extname(filePath).toLowerCase();
-
-    return content.split(/\r?\n/).reduce((count, line) => {
-        const code = stripCommentText(line, state, ext).trim();
-
-        return code ? count + 1 : count;
-    }, 0);
+    return stripComments(content, filePath)
+        .split('\n')
+        .filter(line => line.trim())
+        .length;
 }
 
 /**
@@ -170,24 +100,60 @@ export function countCodeLoc(content, filePath='') {
  * @param {{includeFiles: boolean, includeLoc: boolean}} options
  * @returns {(Array<string>|Array<Object>|undefined)}
  */
-function buildFileList(folderPath, files, {includeFiles, includeLoc}) {
-    if (!includeFiles && !includeLoc) {
+function buildFileList(folderPath, files, {includeFiles, includeLoc, includePlane, cwd}) {
+    if (!includeFiles && !includeLoc && !includePlane) {
         return undefined;
     }
 
     return files.map(file => {
-        if (!includeLoc) {
+        if (!includeLoc && !includePlane) {
             return file.name;
         }
 
-        const filePath = path.join(folderPath, file.name),
-              content  = fs.readFileSync(filePath, 'utf8');
+        const filePath   = path.join(folderPath, file.name),
+              content    = fs.readFileSync(filePath, 'utf8'),
+              descriptor = {name: file.name};
 
-        return {
-            name   : file.name,
-            codeLoc: countCodeLoc(content, filePath)
-        };
+        if (includeLoc) {
+            descriptor.codeLoc = countCodeLoc(content, filePath);
+        }
+
+        if (includePlane && file.name.endsWith('.mjs')) {
+            // The DECLARED plane is what the map publishes — the reader wants the author's answer to
+            // "can I run this?", not the detector's partial view. `lint-script-plane` is what keeps
+            // the two honest, so the map never has to hedge.
+            descriptor.plane = readDeclaredPlane(content, filePath).plane;
+        }
+
+        return descriptor;
     });
+}
+
+/**
+ * Tallies declared planes across one folder's scripts.
+ *
+ * This is the line that answers the ticket's actual complaint. A folder reporting both a `host` and
+ * an `in-plane` count is a MIXED folder — the verb-named taxonomy said nothing about that, and
+ * finding it previously meant opening every file in the directory.
+ * @param {(Array<string>|Array<Object>|undefined)} fileList
+ * @returns {(Object|undefined)}
+ */
+function tallyPlanes(fileList) {
+    if (!Array.isArray(fileList)) {
+        return undefined;
+    }
+
+    const tally = {};
+
+    fileList.forEach(entry => {
+        const plane = entry?.plane;
+
+        if (plane) {
+            tally[plane] = (tally[plane] || 0) + 1;
+        }
+    });
+
+    return Object.keys(tally).length > 0 ? tally : undefined;
 }
 
 /**
@@ -203,7 +169,8 @@ export function buildStructureMap({
     root         = DEFAULT_ROOT,
     cwd          = process.cwd(),
     includeFiles = false,
-    includeLoc   = false
+    includeLoc   = false,
+    includePlane = false
 } = {}) {
     const rootPath = path.resolve(cwd, root),
           stat     = fs.statSync(rootPath);
@@ -225,10 +192,16 @@ export function buildStructureMap({
             fileCount: files.length
         };
 
-        const fileList = buildFileList(folderPath, files, {includeFiles, includeLoc});
+        const fileList = buildFileList(folderPath, files, {includeFiles, includeLoc, includePlane, cwd});
 
         if (fileList) {
             folder.files = fileList;
+        }
+
+        const planes = includePlane ? tallyPlanes(fileList) : undefined;
+
+        if (planes) {
+            folder.planes = planes;
         }
 
         folders.push(folder);
@@ -262,7 +235,8 @@ function writeStructureMap(options, {
         root        : options.root,
         cwd,
         includeFiles: options.files,
-        includeLoc  : options.loc
+        includeLoc  : options.loc,
+        includePlane: options.plane
     });
 
     stdout.write(`${JSON.stringify(map, null, 2)}\n`);

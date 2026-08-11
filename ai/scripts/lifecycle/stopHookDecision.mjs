@@ -5,6 +5,7 @@
  * decision semantics so Claude and Codex cannot drift on the valid-terminal / loop-guard gate.
  *
  * @module Neo.ai.scripts.lifecycle.stopHookDecision
+ * @plane in-plane
  */
 import {buildDeferenceReminder, detectDeferencePhrase} from './deferencePhraseMatch.mjs';
 

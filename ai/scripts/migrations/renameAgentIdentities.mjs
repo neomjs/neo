@@ -29,6 +29,7 @@
  * Idempotent: re-running after `--apply` is safe. If both old and new graph nodes
  * exist, the old node is merged into the new node and the old `createdAt` is
  * preserved on the canonical node.
+ * @plane in-plane
  */
 
 import path            from 'node:path';

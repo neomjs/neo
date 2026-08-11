@@ -33,6 +33,7 @@
  * There is no `--fix`. The correct substitution depends on which hemisphere a line is about —
  * "engine" for runtime-facing text, "Neo.mjs" for text about knowledge of the project — and a flag
  * that guessed would launder one category error into another.
+ * @plane in-plane
  */
 
 import fs              from 'node:fs';

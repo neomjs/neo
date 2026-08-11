@@ -18,6 +18,7 @@
  *
  * @see ai/services/github-workflow/sync/IssueSyncer.mjs (migrateArchiveBuckets)
  * @see ai/services/github-workflow/SyncService.mjs (facade)
+ * @plane in-plane
  */
 import {GH_SyncService} from '../../services.host.mjs';
 

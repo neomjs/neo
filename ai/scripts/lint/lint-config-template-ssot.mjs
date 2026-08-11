@@ -38,6 +38,7 @@
  * longer matches a live violation fails the lint, keeping the burndown honest.
  *
  * @see learn/agentos/decisions  The AiConfig reactive Provider SSOT decision record.
+ * @plane in-plane
  */
 import fs                             from 'node:fs';
 import path                           from 'node:path';

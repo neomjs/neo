@@ -72,6 +72,7 @@
  * artifacts, different join and different failure mode; the coverage is complementary rather than
  * overlapping, which is why both exist. Shared AST helpers are imported from that module so the two
  * cannot drift into disagreeing about what a parameter is.
+ * @plane in-plane
  */
 
 import fs              from 'node:fs';

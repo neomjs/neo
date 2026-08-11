@@ -18,6 +18,7 @@
  *   schema's own validation, and this module never fabricates one;
  * - aggregation reports COVERAGE (`sampleCount`, `gapCount`, window bounds) so a sparse or
  *   interrupted run reads as exactly that, never as a clean day.
+ * @plane in-plane
  */
 
 /**

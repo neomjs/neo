@@ -43,6 +43,7 @@
  * fabricated zero argues for the *cheaper* posture, which is precisely the wrong way for a guard to
  * fail. This module also scans with `node:fs` rather than shelling out, so there is no `find` dialect to
  * be wrong about.
+ * @plane in-plane
  */
 
 import fs   from 'node:fs/promises';

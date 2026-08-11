@@ -75,6 +75,7 @@
         "ai:lint-mcp-test-locations"           : "node ./ai/scripts/lint/lint-mcp-test-locations.mjs",
         "ai:lint-openapi-service-parity"       : "node ./ai/scripts/lint/lint-openapi-service-parity.mjs",
         "ai:lint-retry-bounds"                 : "node ./ai/scripts/lint/lint-retry-bounds.mjs",
+        "ai:lint-script-plane"                 : "node ./ai/scripts/lint/lint-script-plane.mjs",
         "ai:lint-skill-manifest"               : "node ./ai/scripts/lint/lint-skill-manifest.mjs",
         "ai:lint-tree-json"                    : "node ./ai/scripts/lint/lint-tree-json.mjs",
         "ai:skill-size-report"                 : "node ./ai/scripts/lint/lint-skill-manifest.mjs --report-sizes",

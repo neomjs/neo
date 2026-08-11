@@ -15,6 +15,7 @@
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs --skip-generic-cleanup
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs --db <path> # override SQLite path
  *   node ai/scripts/migrations/migrateWakeSubscriptions.mjs --help      # print usage
+ * @plane in-plane
  */
 
 import {program}       from 'commander';

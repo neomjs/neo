@@ -12,6 +12,7 @@
  * invalid projection returns an empty render and the existing bare Stop policy stays untouched.
  * Fail-open therefore applies to the independent hook policy; it never licenses malformed, foreign,
  * stale, or degraded facts to render as current rows.
+ * @plane in-plane
  */
 
 import fs from 'node:fs';

@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Neo namespace bootstrap (entry-point invariant) — community-activity shadow probe CLI.
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required before loading a Neo singleton service.

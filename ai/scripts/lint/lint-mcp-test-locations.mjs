@@ -6,6 +6,7 @@
  * The legacy `test/playwright/mcp/` tree is deprecated and may contain only
  * explicitly grandfathered files until they are migrated. This lint makes that
  * convention mechanical so new tests cannot silently land in the old tree.
+ * @plane in-plane
  */
 import fs              from 'node:fs';
 import path            from 'node:path';

@@ -63,6 +63,7 @@
  * No flags: census the current checkout, print the markdown report to stdout. `--fail-on-defects`
  * exits 1 when the defect set (classes 2, 2M, 3) is non-empty — the mechanical-checkability proof
  * for the lint follow-up. Generated reports are derived data: regenerable, never committed.
+ * @plane host
  */
 import {execFileSync}                 from 'node:child_process';
 import fs                             from 'node:fs';

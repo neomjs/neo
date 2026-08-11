@@ -41,6 +41,7 @@
  * `0` — the invariant holds. Anything else is a breach, including an input the guard could not
  * resolve: an unresolvable window is reported as a failure, never assumed benign. The output names
  * the required ceiling so the message carries the remedy rather than only the symptom.
+ * @plane in-plane
  */
 
 import {pathToFileURL} from 'url';

@@ -31,6 +31,7 @@
  *
  * Pure and dependency-free: samples arrive as arguments, so the whole contract is testable without a
  * container, a socket, or a clock.
+ * @plane in-plane
  */
 
 /**

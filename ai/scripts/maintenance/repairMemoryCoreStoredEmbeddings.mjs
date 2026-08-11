@@ -19,6 +19,7 @@
  * explicit authorization); this module is the pure extraction logic, unit-tested against mocked Chroma.
  *
  * @module Neo.ai.scripts.maintenance.repairMemoryCoreStoredEmbeddings
+ * @plane in-plane
  */
 
 import {bytesToTokens}              from '../../services/memory-core/helpers/consumerFrictionHelper.mjs';

@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+
+/**
+ * @plane host
+ */
 import fs              from 'fs-extra';
 import os              from 'node:os';
 import path            from 'path';

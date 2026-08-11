@@ -1,3 +1,6 @@
+/**
+ * @plane host
+ */
 import {program}       from 'commander';
 import {ChromaClient}  from 'chromadb';
 import {execFile}      from 'child_process';

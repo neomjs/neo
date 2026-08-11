@@ -9,6 +9,7 @@
  * so this guard keeps it true BY CONSTRUCTION: check mode fails CI on any drift; `--fix` rewrites the
  * declared numbers to the current fixed point (replacing digits changes the byte count, so the fix
  * iterates until declared === actual — bounded, converges because the digit-width stabilizes).
+ * @plane in-plane
  */
 
 import fs              from 'fs';

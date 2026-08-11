@@ -20,6 +20,7 @@
  * The six seed judgments recorded at ticket creation — the premise falsifier the spec reproduces:
  * fleet tooling = direct/future · agent-cloud + docking + MCP runtime + grid/store = direct/now ·
  * team-facing workflow server + dream/nightshift + skill machinery = enabling.
+ * @plane in-plane
  */
 
 export const SUBSYSTEMS = {

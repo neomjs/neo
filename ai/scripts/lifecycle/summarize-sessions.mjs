@@ -10,6 +10,7 @@
  * removed as an obsolete boot/healthcheck-timeout safeguard.
  *
  * @see ai/services/memory-core/SessionService.summarizeSessions
+ * @plane in-plane
  */
 // Neo namespace bootstrap (entry-point invariant) — this script is an orchestrator
 // spawn-child entry point (`spawn(node, [summarize-sessions.mjs])`). Each spawned

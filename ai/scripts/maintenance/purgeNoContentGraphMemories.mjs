@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Bootstrap Neo namespace BEFORE importing Memory Core services; runtime config evaluates
 // through the Neo singleton namespace during service setup.
 import Neo             from '../../../src/Neo.mjs';

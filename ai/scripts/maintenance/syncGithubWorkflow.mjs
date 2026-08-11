@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // ---------------------------------------------------------------------------------------------
 // DELIBERATE, TEMPORARY SDK-BOUNDARY EXCEPTION — retirement is enforced mechanically, see below.
 //

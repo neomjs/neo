@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 import Neo           from '../../../src/Neo.mjs';
 import AiConfig      from '../../config.mjs';
 import * as core     from '../../../src/core/_export.mjs';

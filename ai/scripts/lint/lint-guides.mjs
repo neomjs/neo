@@ -34,6 +34,7 @@
  *
  * @see .agents/skills/guide-authoring/references/guide-authoring-bar.md (the discipline half)
  * @see learn/agentos/decisions/0008-skill-anatomy-and-authoring-contract.md
+ * @plane in-plane
  */
 import {readFileSync, readdirSync, existsSync} from 'node:fs';
 import path                                    from 'node:path';

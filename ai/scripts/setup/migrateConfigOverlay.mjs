@@ -23,6 +23,7 @@
  *
  * Scope: the ROOT overlay pair (`ai/configBase.mjs` ← `ai/config.mjs`) by default, or one
  * explicit per-server pair via `--config-root <server-dir>`.
+ * @plane in-plane
  */
 import fs                             from 'fs';
 import path                           from 'path';

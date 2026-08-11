@@ -56,6 +56,7 @@
  * @see ai/scripts/lifecycle/resumeHarness.mjs       — sunset-mode action dispatcher
  * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs   — idle-out-mode action dispatcher
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — wake-recovery failure-mode background
+ * @plane in-plane
  */
 import Neo from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';

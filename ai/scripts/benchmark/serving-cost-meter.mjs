@@ -1,3 +1,6 @@
+/**
+ * @plane host
+ */
 import {Command}          from 'commander';
 import {execFile}         from 'node:child_process';
 import {mkdir, writeFile} from 'node:fs/promises';

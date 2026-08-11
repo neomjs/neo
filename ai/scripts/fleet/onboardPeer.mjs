@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+
+/**
+ * @plane host
+ */
 import * as acorn                  from 'acorn';
 import {execFileSync}              from 'node:child_process';
 import path                        from 'node:path';

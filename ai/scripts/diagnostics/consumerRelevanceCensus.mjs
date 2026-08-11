@@ -42,6 +42,7 @@
  * UTC instants when two seats must measure the identical corpus). The report header always names
  * the window measured. Generated reports land under `resources/data/reports/`, which is
  * gitignored — derived data is regenerable, never committed.
+ * @plane host
  */
 import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';

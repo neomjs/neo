@@ -10,6 +10,7 @@
  *
  * @see ai/daemons/temporal-summary/TemporalSummaryAggregationService.mjs — the aggregation cycle this drives.
  * @see ai/daemons/orchestrator/taskDefinitions.mjs — the supervised-child task definition that spawns this.
+ * @plane in-plane
  */
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate `globalThis.Neo` so the

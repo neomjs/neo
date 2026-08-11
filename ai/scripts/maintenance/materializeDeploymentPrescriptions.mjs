@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+
+/**
+ * @plane host
+ */
 import {execFile}               from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
 import * as fs                  from 'node:fs/promises';

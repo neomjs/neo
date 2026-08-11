@@ -17,6 +17,7 @@
  * @see ai/scripts/diagnostics/detectTruncatedTimelines.mjs
  * @see ai/services/github-workflow/SyncService.mjs
  * @see https://github.com/neomjs/neo/issues/10090
+ * @plane in-plane
  */
 import {GH_SyncService} from '../../services.host.mjs';
 

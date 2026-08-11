@@ -74,6 +74,7 @@
  * This guard exists because the engine is a session-scoped fact stored in identity-scoped records.
  * When the era layer makes engine facts span-carrying and single-sourced, these three places
  * collapse into one and this lint should be RETIRED with them rather than kept for its own sake.
+ * @plane in-plane
  */
 
 import fs                 from 'node:fs';

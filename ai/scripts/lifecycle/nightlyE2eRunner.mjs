@@ -15,6 +15,7 @@
  *
  * Out of scope (per the ticket): CI integration (the outside-CI discipline stands), fixing the reds (the digest
  * points; owners fix), and unit/integration suites (CI owns those).
+ * @plane host
  */
 import {spawnSync}                                         from 'node:child_process';
 import path                                                from 'node:path';

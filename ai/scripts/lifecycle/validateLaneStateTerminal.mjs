@@ -10,6 +10,7 @@
  * (that is the separate, deferred external-enforcement layer).
  *
  * @module Neo.ai.scripts.lifecycle.validateLaneStateTerminal
+ * @plane in-plane
  */
 
 const PR_REF_RE = /\b(?:PR|pull request)\s*#?(\d+)\b/i;

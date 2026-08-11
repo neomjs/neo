@@ -27,6 +27,7 @@
  *
  * @see ai/services/github-workflow/sync/IssueSyncer.mjs
  * @see ai/services/github-workflow/queries/issueQueries.mjs
+ * @plane in-plane
  */
 import fs              from 'fs/promises';
 import path            from 'path';

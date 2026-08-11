@@ -59,6 +59,7 @@
  * `learn/agentos/tooling/PilotPlaneRunbook.md` carries the provenance — which rule is adopted, which
  * converging proposal is not yet adopted, and permalinks to both. It lives there rather than here so a
  * reader gets one citation that is maintained, instead of decaying references scattered through code.
+ * @plane in-plane
  */
 
 import {UNKNOWN_PLANE_ID, isOpaquePlaneId}     from '../../planeConfig.mjs';

@@ -14,6 +14,7 @@
  *  - a block with broken JSON → it THROWS (a present-but-malformed emission is a distinct failure from absent).
  *
  * @module Neo.ai.scripts.lifecycle.parseLaneState
+ * @plane in-plane
  */
 
 /**

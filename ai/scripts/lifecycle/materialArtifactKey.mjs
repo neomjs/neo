@@ -24,6 +24,7 @@
  *
  * Pure + total throughout: injected strings in, plain objects out, never throws (turn-end hook
  * path), no imports beyond the standard library.
+ * @plane in-plane
  */
 
 /**

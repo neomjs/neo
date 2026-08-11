@@ -9,6 +9,7 @@
  *
  * @see ai/scripts/benchmark/gemma4-rem-benchmark.mjs — primary consumer
  * @see test/playwright/unit/ai/scripts/benchmark/stats.spec.mjs — unit tests
+ * @plane in-plane
  */
 
 /**

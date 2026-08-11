@@ -18,6 +18,7 @@
  * @example
  *   node ai/scripts/lifecycle/sweepExpiredTasks.mjs
  *   # → {"success":true,"sweptCount":3}
+ * @plane in-plane
  */
 // IMPORTANT: `Neo` MUST be imported BEFORE any module that uses `Neo.gatekeep()` /
 // `Neo.setupClass()` at module-load time (e.g. `src/core/Compare.mjs`, transitively

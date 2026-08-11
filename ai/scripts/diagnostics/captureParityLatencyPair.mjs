@@ -14,6 +14,7 @@
  * and host load is recorded. The timed loop only starts/stops already-created runtimes. No build,
  * create, volume reset, or page-cache operation occurs inside a sample. Cleanup removes only the
  * uniquely named Compose project and temp plane this actor created, after every sample is captured.
+ * @plane host
  */
 
 import {execFile}                        from 'node:child_process';

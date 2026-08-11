@@ -12,6 +12,7 @@
  * Consumed three ways: lint-staged (pre-commit, vocabulary globs), the CI lint job, and the unit
  * spec `test/playwright/unit/apps/agentos/config/fleetVocabularyParity.spec.mjs` — which also
  * red-proves the comparator against an induced drift, so the mechanism itself is witnessed.
+ * @plane in-plane
  */
 
 import * as authorityCockpit from '../../services/fleet/fleetCockpitStatus.mjs';

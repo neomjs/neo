@@ -37,6 +37,7 @@
  * The population is `lint-staged` only. The `ai/scripts/lint/lint-*.mjs` family has its own
  * coverage question and is a separate lane; it is named in the registry's `$schema.outOfScope` so
  * the boundary is recorded rather than implied.
+ * @plane in-plane
  */
 
 import fs        from 'fs';

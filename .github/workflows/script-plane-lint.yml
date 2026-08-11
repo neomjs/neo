@@ -1,0 +1,32 @@
+name: Script Plane Lint
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/scripts/**'
+      - '.github/workflows/script-plane-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/scripts/**'
+      - '.github/workflows/script-plane-lint.yml'
+
+concurrency:
+  group: script-plane-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Lint script execution planes (every script declares where it runs, and the declaration is checked)
+        run: node ai/scripts/lint/lint-script-plane.mjs

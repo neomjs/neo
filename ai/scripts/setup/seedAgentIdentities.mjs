@@ -42,6 +42,7 @@
  * stamp only for entries the registry does not describe.
  *
  * Usage: node ai/scripts/setup/seedAgentIdentities.mjs
+ * @plane in-plane
  */
 
 import path            from 'node:path';

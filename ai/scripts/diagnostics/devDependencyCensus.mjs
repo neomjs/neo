@@ -43,6 +43,7 @@
  *   node ai/scripts/diagnostics/devDependencyCensus.mjs [--out <path>] [--json <path>]
  *
  * No flags: print the markdown report to stdout. Derived data is regenerable, never committed.
+ * @plane host
  */
 import {execFileSync}                 from 'node:child_process';
 import fs                             from 'node:fs';

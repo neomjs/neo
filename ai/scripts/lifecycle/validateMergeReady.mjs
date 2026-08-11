@@ -11,6 +11,7 @@
  * that a PR is strict-merge-ready, so a stale reviewer contract is not reported as a green surface.
  *
  * @module Neo.ai.scripts.lifecycle.validateMergeReady
+ * @plane in-plane
  */
 
 /**

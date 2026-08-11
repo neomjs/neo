@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Neo namespace bootstrap (entry-point invariant) — hosted community batch push client.
 import 'dotenv/config';
 import {Command}                from 'commander';

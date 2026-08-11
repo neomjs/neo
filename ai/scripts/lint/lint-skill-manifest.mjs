@@ -5,6 +5,7 @@
  * `SKILL.md` frontmatter stays runtime-canonical. The manifest mirrors that
  * data for CI and governance checks; this script enforces one-way consistency
  * plus local substrate-budget and harness-symlink invariants.
+ * @plane host
  */
 import fs                                                            from 'fs/promises';
 import {existsSync, lstatSync, readFileSync, readlinkSync, statSync} from 'fs';

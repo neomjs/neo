@@ -13,6 +13,7 @@
  *
  * @see ai/scripts/lifecycle/inflightLock.mjs (sibling per-identity primitive)
  * @see ai/scripts/lifecycle/resumeHarness.mjs (consumer)
+ * @plane host
  */
 import fs   from 'fs/promises';
 import path from 'path';

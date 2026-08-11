@@ -10,6 +10,7 @@
  * @see ai/scripts/lifecycle/checkSunsetted.mjs (caller; supplies originSessionId)
  * @see ai/daemons/SwarmHeartbeatService.mjs
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
+ * @plane host
  */
 import Neo                                                from '../../../src/Neo.mjs';
 import * as core                                          from '../../../src/core/_export.mjs';

@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 import Neo                 from '../../../src/Neo.mjs';
 import * as core           from '../../../src/core/_export.mjs';
 import MC_Config           from '../../mcp/server/memory-core/config.mjs';

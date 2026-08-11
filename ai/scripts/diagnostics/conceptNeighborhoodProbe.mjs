@@ -11,6 +11,7 @@
  * writes by contract; the readonly connection makes that mechanical. Sample = the locked plan
  * from the ticket: the Discussion's specimen concept + the two known alias clusters + N curated
  * (verifiedAt set) + N auto (verifiedAt null) drawn live.
+ * @plane in-plane
  */
 
 import Neo             from '../../../src/Neo.mjs';

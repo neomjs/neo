@@ -30,6 +30,7 @@
  * type-error reads as a bug in the guard rather than as the policy breach it is. Resolving it to an
  * explicit breach reason turns a stack trace into an actionable sentence, and keeps the throw path
  * meaning what it should — a shape the guard never expected.
+ * @plane in-plane
  */
 
 /**

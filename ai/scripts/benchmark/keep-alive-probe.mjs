@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 import {Command} from 'commander';
 import Neo from '../../../src/Neo.mjs';
 import '../../../src/core/_export.mjs';

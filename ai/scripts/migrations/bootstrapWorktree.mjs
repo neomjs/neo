@@ -119,6 +119,7 @@
  * @see AGENTS_STARTUP.md
  * @see .gitignore
  * @see {@link materializeServerConfigTemplate}
+ * @plane host
  */
 import {execFile}      from 'child_process';
 import fs              from 'fs/promises';

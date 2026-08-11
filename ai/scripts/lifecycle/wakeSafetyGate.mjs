@@ -39,6 +39,7 @@
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — gate consumer (direct fresh-session-spawn)
  * @see ai/scripts/lifecycle/checkSunsetted.mjs    — companion predicate
  * @see test/playwright/unit/ai/scripts/wakeSafetyGate.spec.mjs
+ * @plane in-plane
  */
 import fs                from 'fs/promises';
 import path              from 'path';

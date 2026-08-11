@@ -11,6 +11,7 @@
  *
  * The composition ADR is located by CONTENT (the seam-table marker), not by filename/number, so
  * renumbering or renaming never silently disables the guard.
+ * @plane in-plane
  */
 
 import fs              from 'fs';

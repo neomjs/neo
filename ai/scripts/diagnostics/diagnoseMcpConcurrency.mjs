@@ -35,6 +35,7 @@
  * @see ai/graph/Database.mjs                                 vicinityLoadedNodes mark-without-load
  * @see ai/graph/storage/SQLite.mjs                           WAL pragma (storage layer is concurrency-safe)
  * @see learn/agentos/decisions/0001-cross-process-cache-coherence.md
+ * @plane host
  */
 import {execSync}                     from 'child_process';
 import fs                             from 'fs';

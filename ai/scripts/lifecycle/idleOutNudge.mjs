@@ -52,6 +52,7 @@
  * @see ai/scripts/lifecycle/swarmWakeCooldown.mjs  — sibling for swarm-wide all-idle case
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs
+ * @plane in-plane
  */
 import Neo                                                       from '../../../src/Neo.mjs';
 import * as core                                                 from '../../../src/core/_export.mjs';

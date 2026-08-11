@@ -42,6 +42,7 @@
  * filesystem. The CLI wrapper supplies a real `fs`-backed probe.
  *
  * Usage: `node ai/scripts/lint/lint-tree-json.mjs` (no arguments; validates the whole file).
+ * @plane in-plane
  */
 import fs               from 'node:fs';
 import path             from 'node:path';

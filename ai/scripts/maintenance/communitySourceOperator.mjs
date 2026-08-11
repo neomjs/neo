@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Neo namespace bootstrap (entry-point invariant) — co-located community source control plane.
 import 'dotenv/config';
 import {Command}             from 'commander';

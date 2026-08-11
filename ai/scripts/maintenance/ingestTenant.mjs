@@ -1,3 +1,6 @@
+/**
+ * @plane in-plane
+ */
 // Neo namespace bootstrap (entry-point invariant) — KB data-plane CLI.
 // `InstanceManager` binds Neo.find/findFirst/get aliases + consumes pre-singleton
 // `Neo.idMap`; required for any consumer of the Neo singleton API.

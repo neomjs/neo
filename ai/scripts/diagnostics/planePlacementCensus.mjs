@@ -1,3 +1,6 @@
+/**
+ * @plane host
+ */
 import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
 import readline        from 'node:readline';
