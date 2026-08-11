@@ -200,7 +200,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/configBase.mjs'), 'utf8');
 
         expect(templateSource).toMatch(
-            /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-26b-a4b-bf16'[\s\S]*?'11435'/
+            /mlx:\s*\{[\s\S]*?leaf\(false[\s\S]*?'mlx-community\/gemma-4-26b-a4b-it-bf16'[\s\S]*?'11435'/
         );
     });
 

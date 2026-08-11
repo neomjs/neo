@@ -1824,7 +1824,12 @@ class ConfigBase extends ConfigProvider {
                     // every runtime. A different id here does not merely disagree on paper: MLX and
                     // LM Studio JIT-load whatever they are handed, so a second dense 31b would sit
                     // resident (~20 GB) beside the 26b already serving traffic.
-                    model: leaf('mlx-community/gemma-4-26b-a4b-bf16', 'NEO_ORCHESTRATOR_MLX_MODEL', 'string'),
+                    // `-it` is load-bearing: the INSTRUCTION-TUNED weights, carried over from the
+                    // `gemma-4-31b-it-bf16` this replaces. Verified against the mlx-community
+                    // registry, where `gemma-4-26b-a4b-bf16` (no `-it`) ALSO exists — so dropping
+                    // the suffix swaps the BASE model into a chat/graph-parsing role with no 404 to
+                    // notice it, just quietly worse output.
+                    model: leaf('mlx-community/gemma-4-26b-a4b-it-bf16', 'NEO_ORCHESTRATOR_MLX_MODEL', 'string'),
                     port : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
                 },
                 /**
