@@ -1,4 +1,5 @@
 import fs                       from 'fs/promises';
+import {orphanSafeBudget}       from '../shared/orphanSafeBudget.mjs';
 import fsExtra                  from 'fs-extra';
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
@@ -211,12 +212,24 @@ export {createEmbeddingProbeTimeoutError};
  *     errorClassification: String|undefined, errorCode: String|undefined}>}
  */
 export async function buildEmbeddingWriteCanaryBlock({
-    cfg       = aiConfig,
-    embedText = null,
-    input     = 'neo-healthcheck-embedding-write-canary',
-    now       = Date.now,
-    timeoutMs = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
+    callerDeadlineMs = aiConfig.healthcheck.callerDeadlineMs,
+    cfg              = aiConfig,
+    embedText        = null,
+    input            = 'neo-healthcheck-embedding-write-canary',
+    now              = Date.now,
+    timeoutMs        = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs
 } = {}) {
+    // The provider does not cancel on client disconnect (ollama/ollama#11889), so a budget larger (ticket-ref-ok: upstream provider behaviour, not a Neo tracking ref — the mechanism this guard exists for)
+    // than the caller's deadline dispatches work we can never recall — and on a single-slot provider
+    // each orphan pins the slot. Bounded HERE because dispatch is the last moment a lever exists.
+    const {budgetMs, clamped, reason} = orphanSafeBudget({configuredMs: timeoutMs, callerDeadlineMs});
+
+    if (clamped) {
+        console.warn(`[HealthService] embedding write canary: ${reason}`);
+    }
+
+    timeoutMs = budgetMs;
+
     const probe = embedText || (async (text, explicitProvider, options) => {
         const {default: TextEmbeddingService} = await import('./TextEmbeddingService.mjs');
         return TextEmbeddingService.embedText(text, explicitProvider, options);

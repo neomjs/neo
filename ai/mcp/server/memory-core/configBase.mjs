@@ -385,6 +385,14 @@ class ConfigBase extends ConfigProvider {
                  * @type {number}
                  */
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
+                /*
+                 * How long the caller of this healthcheck will actually wait — the container
+                 * healthcheck `timeout`. The provider does not cancel on client disconnect
+                 * (ollama/ollama#11889), so any budget beyond this dispatches work nobody is (ticket-ref-ok: upstream provider behaviour, not a Neo tracking ref — the mechanism this guard exists for)
+                 * waiting for and, on a single-slot provider, pins the slot. `0` = unknown, which
+                 * passes budgets through unclamped rather than inventing a bound.
+                 */
+                callerDeadlineMs: leaf(0, 'NEO_MEMORY_HEALTHCHECK_CALLER_DEADLINE_MS', 'number'),
                 /**
                  * The canary producer's attempt period. A liveness probe NEVER triggers a canary
                  * run — healthcheck is a cheap pure read of the gate's current truth, so a
