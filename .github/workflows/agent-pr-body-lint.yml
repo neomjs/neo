@@ -21,6 +21,18 @@ jobs:
         if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
         uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # The validator imports `commander`, so the checkout alone is not runnable. Matches the
+      # install step every sibling lint workflow already carries.
+      - name: Install dependencies
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        run: npm ci
+
       - name: Validate PR body with the owning implementation
         if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
         env:
