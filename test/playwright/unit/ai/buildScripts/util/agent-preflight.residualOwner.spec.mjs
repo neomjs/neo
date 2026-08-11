@@ -305,6 +305,50 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         expect(residualFindings(commentThenRealOwner)).toHaveLength(0);
     });
 
+    test('BYPASS 11 — an UNTERMINATED comment hides the owner too, and needs no closing delimiter', () => {
+        // @neo-gpt's round-6 falsifier, and the sharpest statement yet of what this family is about.
+        // BYPASS 10 closed the comments that CLOSE. Requiring `-->` made the gate's notion of
+        // "commented out" stricter than the renderer's: GitHub swallows everything from `<!--` to
+        // end-of-body, so this renders as an obligation with NO owner while the gate read the owner
+        // and passed.
+        //
+        // Verified against the real renderer rather than assumed — `POST /markdown` on this exact body
+        // returns the heading and `<li>[ ] do real work</li>` and NOTHING else. The owner is absent
+        // from the artifact a reviewer reads.
+        //
+        // The lesson is not "handle one more spelling": my fix encoded an assumption about how the
+        // evasion would be SPELLED (with a closing delimiter) rather than the property that matters
+        // (invisible to a reader). Every arm in this family is that same correction at a finer grain.
+        const unterminated = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            '<!--', 'Residual-Owner: #200'
+        ].join('\n');
+
+        expect(residualFindings(unterminated)).toHaveLength(1);
+
+        // Same shape on ONE line, with no newline before EOF.
+        expect(residualFindings(`${base}\n\n## Post-Merge Validation\n- [ ] do real work\n<!-- Residual-Owner: #200`))
+            .toHaveLength(1);
+
+        // Control: blanking-to-EOF must not swallow a document that has NO comment. Without this, a
+        // regex that blanked from any `<` onward would pass every arm above while destroying ordinary
+        // bodies — the over-reach direction of this fix.
+        const ownedNoComment = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work', 'Residual-Owner: #16853'
+        ].join('\n');
+
+        expect(residualFindings(ownedNoComment)).toHaveLength(0);
+
+        // Control: a TERMINATED comment early in the body must not blank the real owner after it —
+        // proof the EOF alternation did not become greedy.
+        const terminatedThenOwner = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            '<!-- an aside -->', 'Residual-Owner: #16853', '', 'Trailing prose stays readable.'
+        ].join('\n');
+
+        expect(residualFindings(terminatedThenOwner)).toHaveLength(0);
+    });
+
     test('TWO declaration shapes — and anchoring the wrong one breaks the documented template', () => {
         // This arm exists because I broke it in both directions in consecutive rounds. `evidence-ladder.md`
         // prescribes a **1-line** declaration whose owner is MID-LINE:

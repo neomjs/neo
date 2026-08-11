@@ -296,7 +296,16 @@ function withoutHtmlComments(text = '') {
     // declaration — a reader of the PR sees unowned work while the gate reports success. Same class as
     // a fenced example: text that is present in the source and absent from the artifact. Blanked per
     // character so every later line keeps its index.
-    return text.replace(/<!--[\s\S]*?-->/g, match => match.replace(/[^\n]/g, ' '))
+    //
+    // `(?:-->|$)` — an UNTERMINATED comment runs to end-of-body and must blank too. Requiring the
+    // closing delimiter made the gate's notion of "commented out" stricter than the renderer's:
+    // GitHub swallows everything from `<!--` to EOF, so `## Post-Merge Validation / - [ ] do real
+    // work / <!-- / Residual-Owner: #200` renders as an unowned obligation while the gate read the
+    // owner and passed. Verified against the real renderer (`POST /markdown`): the response carries
+    // the heading and the list item and NO owner. The rule is the same one every arm here restates —
+    // judge what a READER SEES — and the closing delimiter was an assumption about how the evasion
+    // would be spelled.
+    return text.replace(/<!--[\s\S]*?(?:-->|$)/g, match => match.replace(/[^\n]/g, ' '))
 }
 
 function withoutInlineCode(text = '') {
