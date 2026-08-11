@@ -18,6 +18,10 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import {
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE
+} from '../../../../../../ai/provider/createTimeoutError.mjs';
 
 /**
  * Batch-failure isolation for `VectorService.embedChunks`.
@@ -250,6 +254,111 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(result.embedded).toBe(150);
         expect(result.failedBatches).toHaveLength(0);
         expect(spy.calls.upsert).toBe(3);
+    });
+
+    test('#16973: a provider timeout ends the whole sweep after one offer and the next sweep resumes', async () => {
+        const originalSetTimeout = globalThis.setTimeout;
+
+        // Mutation control: on the pre-repair loop this compresses the 2s/4s/8s/16s ladder so the
+        // provider-call assertion fails immediately instead of making the suite spend 30 seconds proving it.
+        globalThis.setTimeout = (fn, ms, ...args) => originalSetTimeout(fn, 0, ...args);
+
+        try {
+            Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 5});
+
+            for (const code of [
+                PROVIDER_TIMEOUT_CODE,
+                OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+                'ETIMEDOUT',
+                'ESOCKETTIMEDOUT'
+            ]) {
+                const
+                    spy          = createSpyCollection(),
+                    chunks       = makeChunks(3),
+                    timeoutError = Object.assign(new Error(`provider timeout: ${code}`), {
+                        code,
+                        timeoutMs: 1800000
+                    });
+                let providerCalls = 0;
+
+                TextEmbeddingService.embedTexts = async texts => {
+                    providerCalls++;
+
+                    if (providerCalls === 1) {
+                        return texts.map(() => new Array(384).fill(0))
+                    }
+
+                    throw timeoutError
+                };
+
+                const thrown = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks})
+                    .then(() => null, error => error);
+
+                expect(thrown, `${code} must survive as the original typed failure`).toBe(timeoutError);
+                expect(providerCalls,
+                    `${code}: batch 1 lands, batch 2 times out once, and batch 3 must never dispatch`).toBe(2);
+                expect(spy.upsertedIds, `${code}: the durable prefix remains landed`).toEqual(['chunk-0']);
+
+                const remaining = chunks.filter(chunk => !spy.upsertedIds.includes(chunk.id));
+
+                TextEmbeddingService.embedTexts = async texts => {
+                    providerCalls++;
+                    return texts.map(() => new Array(384).fill(0))
+                };
+
+                const resumed = await KB_VectorService.embedChunks({collection: spy, chunksToProcess: remaining});
+
+                expect(resumed.embedded, `${code}: the later scheduler-shaped pass lands only the remainder`)
+                    .toBe(2);
+                expect(spy.upsertedIds, `${code}: the successful prefix is not re-bought`).toEqual([
+                    'chunk-0', 'chunk-1', 'chunk-2'
+                ]);
+                expect(providerCalls, `${code}: one landed + one timed out + two resumed provider calls`).toBe(4);
+            }
+        } finally {
+            globalThis.setTimeout = originalSetTimeout;
+        }
+    });
+
+    test('#16973 phase guard: a timeout-shaped upsert error retries only the write', async () => {
+        const originalSetTimeout = globalThis.setTimeout;
+
+        globalThis.setTimeout = (fn, ms, ...args) => originalSetTimeout(fn, 0, ...args);
+
+        try {
+            Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 2});
+
+            const chunks        = makeChunks(1);
+            let   providerCalls = 0,
+                upsertCalls   = 0;
+
+            TextEmbeddingService.embedTexts = async texts => {
+                providerCalls++;
+                return texts.map(() => new Array(384).fill(0))
+            };
+
+            const collection = {
+                name: 'timeout-shaped-write-spy',
+                async upsert() {
+                    upsertCalls++;
+
+                    if (upsertCalls === 1) {
+                        throw Object.assign(new Error('vector-store write timed out'), {
+                            code     : PROVIDER_TIMEOUT_CODE,
+                            timeoutMs: 1800000
+                        })
+                    }
+                }
+            };
+
+            const result = await KB_VectorService.embedChunks({collection, chunksToProcess: chunks});
+
+            expect(result.embedded).toBe(1);
+            expect(upsertCalls, 'the persistence attempt remains retryable').toBe(2);
+            expect(providerCalls, 'cached vectors prevent a write retry from re-entering the provider').toBe(1);
+        } finally {
+            globalThis.setTimeout = originalSetTimeout;
+        }
     });
 
     test('CALLER BOUNDARY: shadow-swap REFUSES to promote when a batch failed', async () => {
