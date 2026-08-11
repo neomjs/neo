@@ -1,10 +1,11 @@
-import Base                from '../../../src/core/Base.mjs';
-import StorageRouter       from './managers/StorageRouter.mjs';
-import crypto              from 'crypto';
-import GraphService        from './GraphService.mjs';
-import logger              from '../../mcp/server/memory-core/logger.mjs';
-import SessionService      from './SessionService.mjs';
-import TurnPresenceService from './TurnPresenceService.mjs';
+import Base                   from '../../../src/core/Base.mjs';
+import StorageRouter          from './managers/StorageRouter.mjs';
+import {resolveSharingPolicy} from './helpers/resolveSharingPolicy.mjs';
+import crypto                 from 'crypto';
+import GraphService           from './GraphService.mjs';
+import logger                 from '../../mcp/server/memory-core/logger.mjs';
+import SessionService         from './SessionService.mjs';
+import TurnPresenceService    from './TurnPresenceService.mjs';
 import {withTimeout,
         WITH_TIMEOUT_CODE} from './helpers/withTimeout.mjs';
 
@@ -1171,7 +1172,13 @@ class MemoryService extends Base {
             // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
             // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
+            // A caller-supplied policy may NARROW but never widen: `team`/`legacy` drop the userId
+            // predicate, so on a `private`-default (per-org isolation) deployment an unclamped value
+            // would read past the isolation the operator configured.
+            const {policy} = resolveSharingPolicy({
+                configuredDefault: aiConfig.memorySharing.defaultPolicy,
+                requested        : memorySharing
+            });
 
             let tenantScope = null;
             if (userId) {
@@ -2290,7 +2297,11 @@ class MemoryService extends Base {
             // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
+            // Narrow-only: see resolveSharingPolicy — a public `memorySharing` must not widen scope.
+            const {policy} = resolveSharingPolicy({
+                configuredDefault: aiConfig.memorySharing.defaultPolicy,
+                requested        : memorySharing
+            });
 
             let tenantScope = null;
             if (userId) {

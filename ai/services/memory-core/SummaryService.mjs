@@ -1,5 +1,6 @@
 import aiConfig                                                 from '../../mcp/server/memory-core/config.mjs';
 import {isCollectionQuarantined}                                from './helpers/quarantineStore.mjs';
+import {resolveSharingPolicy}                                   from './helpers/resolveSharingPolicy.mjs';
 import Base                                                     from '../../../src/core/Base.mjs';
 import StorageRouter                                            from './managers/StorageRouter.mjs';
 import logger                                                   from '../../mcp/server/memory-core/logger.mjs';
@@ -189,9 +190,15 @@ class SummaryService extends Base {
      * @param {Object} options
      * @param {Number} options.limit=50 The maximum number of summaries to return.
      * @param {Number} options.offset=0 The number of summaries to skip.
+     * @param {String} [options.category] Exact-match category filter, mirroring `querySummaries`.
+     * The operation has always DECLARED this parameter — description `Filter by category`, with the
+     * operation text telling callers to use it to find work of a given kind — and this method never
+     * read it, so a caller filtering received silently unfiltered results and no error. Applied
+     * DB-side in the metadata sweep rather than as a post-filter, so `total` counts the filtered set
+     * and pagination pages it; a post-filter after the slice would page the wrong population.
      * @returns {Promise<{count: number, total: number, summaries: Object[]}>}
      */
-    async listSummaries({limit=50, offset=0, agentIdentity} = {}) {
+    async listSummaries({limit=50, offset=0, agentIdentity, category} = {}) {
         // Resolve the optional author-identity scope BEFORE the storage try/catch: a fail-closed
         // `@me` (no bound identity) must throw, not be swallowed into the SUMMARY_LIST_ERROR envelope.
         const authorScope = this.constructor.resolveAuthorScope(agentIdentity);
@@ -215,7 +222,14 @@ class SummaryService extends Base {
                 tenantScope = {userId};
             }
 
-            const where = tenantScope ? tenantScope : undefined;
+            // Category composes with tenancy exactly as in `querySummaries` (`$and` of the two), so the
+            // two read paths cannot disagree about what "filter by category" means. Tenancy is a
+            // security predicate and category is a user filter: the `$and` keeps the former
+            // load-bearing when both are present.
+            const where = category && tenantScope ? {$and: [{category}, tenantScope]}
+                : category    ? {category}
+                : tenantScope ? tenantScope
+                : undefined;
 
             // Step 1: Fetch ALL metadata (lightweight).
             let   allRecords = [];
@@ -385,7 +399,11 @@ class SummaryService extends Base {
             // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const policy = memorySharing || aiConfig.memorySharing.defaultPolicy;
+            // Narrow-only: see resolveSharingPolicy — a public `memorySharing` must not widen scope.
+            const {policy} = resolveSharingPolicy({
+                configuredDefault: aiConfig.memorySharing.defaultPolicy,
+                requested        : memorySharing
+            });
 
             // 'private' restricts to the caller's own records via a DB-where. 'team' and 'legacy' are
             // additive (caller-owned + 'shared' + untagged commons): the team commons is currently
