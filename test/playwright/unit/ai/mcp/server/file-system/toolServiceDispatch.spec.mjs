@@ -136,6 +136,33 @@ test.describe('ai/mcp/server/file-system — ToolService dispatch (#16231)', () 
             .toMatchObject({toolId: 'read_file', found: true});
     });
 
+    test('#16481 the not-jailed warning reaches the CALLER, not just the raw spec', async () => {
+        // The warning is only worth anything on the surface a caller actually reads before handing
+        // this tool a spec file. Both projections below resolve `operation.description` — neither
+        // reads `info.description` — so putting the warning in top-level OpenAPI metadata satisfies
+        // a human reading the YAML while leaving every MCP caller on the old isolated-spec wording.
+        // Asserting the projected text is therefore the falsifier: it fails if the warning moves
+        // back up to `info`, is deleted, or is softened into describing runner isolation again.
+        const handbook = await callTool('get_mcp_tool_handbook', {toolId: 'run_playwright_test'});
+
+        expect(handbook.handbook, 'the handbook a caller reads must carry the containment limit')
+            .toMatch(/EXECUTION IS NOT JAILED/);
+
+        // `tools/list` is the ordinary discovery path — a caller that never opens the handbook still
+        // sees this one. Both must carry it, because either alone leaves a reachable blind surface.
+        const {tools} = await listTools(),
+              listed  = tools.find(tool => tool.name === 'run_playwright_test');
+
+        expect(listed, 'run_playwright_test should be listed at all').toBeDefined();
+        expect(listed.description, 'the listed description must carry the containment limit too')
+            .toMatch(/EXECUTION IS NOT JAILED/);
+
+        // The substantive claim, not just the shouty line: the reason the warning exists is that the
+        // path guard bounds the ARGUMENT while the spec that runs is arbitrary JavaScript bounded by
+        // the host process. A rewrite that keeps the banner but drops the mechanism fails here.
+        expect(handbook.handbook).toMatch(/host process/);
+    });
+
     test('#16231 every tool this server LISTS is annotated — the contract cannot grow past this spec unnoticed', async () => {
         // The dispatch tests above name the tools they call, so a seventh tool added later would
         // inherit the same 0-annotation treatment unnoticed. This one reads `tools/list` instead, so
