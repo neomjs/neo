@@ -705,11 +705,13 @@ test.describe('Fleet cockpit AgentCard — resident card rendering its roster re
             runtime   : {source: hostile,             state: 'wired', confidence: 'observed'}
         }});
 
-        // the hostile producer fails the runtime row closed (not-wired) — which under the
-        // one-interpretation rule earns ZERO pixels: the strongest containment, nothing renders
-        // at all. The empty-and-hidden pin IS the witness.
-        expect(strip().hidden).toBe(true);
-        expect(strip().text).toBe('');
+        // the hostile producer literal fails producer validation → the fact reads `invalid` and
+        // RENDERS as an answered abnormality — and the containment is that the rendered words are
+        // the summariser's frozen literals: the hostile SOURCE string appears nowhere (only the
+        // validation fallback rides the line). The exact match IS the witness.
+        expect(strip().hidden).toBe(false);
+        expect(strip().text).toBe('Runtime not nominal · source fact failed producer validation');
+        expect(strip().html ?? null).toBeNull();
 
         // the REASON is the one adapter-authored string that now rides a rendered line — pin its
         // containment: a hostile reason on an ANSWERED abnormality renders as an inert text node

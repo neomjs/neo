@@ -515,9 +515,11 @@ test.describe('Fleet cockpit — Store-backed roster (loadRoster)', () => {
                 sources  : liveSources()
             });
 
+        // a lifecycle/runtime confidence contradiction is rejected evidence — the downgrade reads
+        // `invalid` with the contradiction named, never a silently calm not-wired
         expect(contradictory).toMatchObject({
             state  : 'off',
-            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'invalid', confidence: 'none', reason: 'lifecycle and runtime facts contradict'}}
         });
         expect(stopped).toMatchObject({
             state  : 'off',

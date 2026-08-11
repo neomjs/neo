@@ -133,10 +133,12 @@ test.describe('fleetCardFactory — cockpit DTO → dock card descriptors (#1479
         const placeholder = toAgentCardDescriptor({id: 'vega', lifecycle: {state: 'running'}})
         expect(placeholder.blueprint.record.state).toBe('off')
 
+        // an ABSENT lifecycle beside a wired runtime fact is a contradiction — rejected evidence
+        // reads `invalid` (operator-visible), never a silently calm not-wired
         const contradictory = toAgentCardDescriptor({id: 'vega', sources})
         expect(contradictory.blueprint.record).toMatchObject({
             state  : 'off',
-            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'not-wired', confidence: 'none'}}
+            sources: {runtime: {source: 'fleet:runtimeStatus', state: 'invalid', confidence: 'none', reason: 'lifecycle and runtime facts contradict'}}
         })
     })
 
