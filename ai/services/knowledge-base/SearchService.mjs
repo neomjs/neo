@@ -7,6 +7,7 @@ import fs                                                                       
 import logger                                                                        from '../../mcp/server/knowledge-base/logger.mjs';
 import path                                                                          from 'path';
 import QueryService                                                                  from './QueryService.mjs';
+import {assembleAskContext}                                                          from './helpers/askContextBudget.mjs';
 import {checkAskRateLimit}                                                           from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment}                                             from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves}                                                from './helpers/askSynthesisGuard.mjs';
@@ -487,13 +488,24 @@ class SearchService extends Base {
         // avoiding server-mirror infrastructure. Non-local tenants may use the same
         // relative `source` strings as Neo itself, so those references hydrate from
         // metadata.content and never fall through to the host checkout.
-        const contextPromises = contextReferences.map(async (ref, index) => {
-            const content = await this.hydrateReferenceContent(ref);
+        const contextPromises = contextReferences.map(async ref => ({
+            name   : ref.name,
+            source : ref.source,
+            content: await this.hydrateReferenceContent(ref)
+        }));
 
-            return `--- DOCUMENT ${index + 1} (${ref.name} from ${ref.source}) ---\n${content}`;
-        });
-
-        const contextDocs = (await Promise.all(contextPromises)).join('\n\n');
+        // The budget leaves are read HERE, at the use site, from the block this path already owns.
+        // Absent in an overlay predating them resolves to 0 = unbounded, which keeps an unmigrated
+        // clone answering exactly as it does today rather than acquiring a truncation nobody
+        // configured — the same call `reasoningEffort` makes one leaf above.
+        const
+            askBudget = aiConfig.askSynthesis,
+            assembled = assembleAskContext({
+                documents          : await Promise.all(contextPromises),
+                budgetChars        : askBudget.contextBudgetChars || 0,
+                maxCharsPerDocument: askBudget.contextMaxCharsPerDocument || 0
+            }),
+            contextDocs = assembled.context;
 
         const prompt = `
 You are an expert Neo.mjs architect.
@@ -562,8 +574,12 @@ Instructions:
             return withWalk(degraded);
         }
 
+        // The truncation notice is appended by US, never requested of the model in the prompt. An
+        // instruction to "say if context was truncated" is advisory — the model may drop it, and a
+        // caller would then read a confidently-scoped answer built from material it never saw. The
+        // guarantee has to live on this side of the provider call.
         return withWalk({
-            answer,
+            answer    : assembled.truncated ? `${answer}\n\n${assembled.notice}` : answer,
             references: responseReferences
         });
     }

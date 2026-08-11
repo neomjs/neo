@@ -294,7 +294,43 @@ class ConfigBase extends ConfigProvider {
                  * worse failure than answering slowly, and this leaf exists to improve answers.
                  * @type {string}
                  */
-                reasoningEffort: leaf('none', 'NEO_KB_ASK_REASONING_EFFORT', 'string')
+                reasoningEffort: leaf('none', 'NEO_KB_ASK_REASONING_EFFORT', 'string'),
+                /**
+                 * @summary Total character budget for the assembled ask-synthesis context.
+                 *
+                 * `limit` bounds the NUMBER of retrieved documents; nothing bounded their SIZE. The
+                 * context was every hit's whole file joined together, so request cost was decided by
+                 * whatever ranked top-`limit`: one guide in the corpus is ~18,800 tokens by itself, and
+                 * the five largest total ~73,900. Two large documents therefore exceed a deadline that
+                 * five small ones fit inside — which is why lowering `limit` relocates the cliff instead
+                 * of removing it, and why this bound is on characters rather than on document count.
+                 *
+                 * Characters, not tokens: a character budget is exact and provider-independent, while a
+                 * token budget needs the selected model's tokenizer and would silently mis-bound the
+                 * moment the ask model changes — and the ask model is expected to change.
+                 *
+                 * `0` disables the bound. An overlay predating this leaf resolves it absent, which is
+                 * read as `0` at the use site — the same reasoning as `reasoningEffort` above: a config
+                 * gap must keep answering with today's behaviour, never acquire a silent truncation the
+                 * operator did not configure. Deliberately NOT in `askSynthesisGuard`'s required-leaf
+                 * set, for that same reason.
+                 * @type {number}
+                 */
+                contextBudgetChars: leaf(48000, 'NEO_KB_ASK_CONTEXT_BUDGET_CHARS', 'number'),
+                /**
+                 * @summary Per-document character cap within {@link #contextBudgetChars}.
+                 *
+                 * A total-only budget lets ONE oversized document consume all of it, so the synthesis
+                 * sees a single truncated file and none of the other hits — a ranked-second document
+                 * that would have answered the question never reaches the prompt. Capping each
+                 * document's contribution keeps the context representative of the retrieval, which is
+                 * the property a citation-bearing answer depends on.
+                 *
+                 * `0` disables the per-document cap while leaving the total budget in force. Absent in
+                 * an older overlay reads as `0`, per the leaf above.
+                 * @type {number}
+                 */
+                contextMaxCharsPerDocument: leaf(12000, 'NEO_KB_ASK_CONTEXT_MAX_CHARS_PER_DOC', 'number')
             },
             /**
              * The path to the generated knowledge base JSONL file.
