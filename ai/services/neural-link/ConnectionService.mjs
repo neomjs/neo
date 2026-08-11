@@ -6,6 +6,30 @@ import path      from 'path';
 import WebSocket from 'ws';
 import Base      from '../../../src/core/Base.mjs';
 import logger    from '../../mcp/server/neural-link/logger.mjs';
+
+/**
+ * @summary Decides what `initAsync()` may do about the Bridge at construction time.
+ *
+ * Exported as a plain function so specs drive the production decision rather than a mirror of it:
+ * the live branch sits behind `Neo.config.unitTestMode`, which is exactly false in every unit run,
+ * so the interesting cases are otherwise unreachable without mutating the config singleton.
+ *
+ * `'defer'` is the answer whenever the working directory is still unknown. The singleton is
+ * constructed by its own import inside the Neural Link entrypoint, several steps before that
+ * entrypoint assigns `--cwd`, so an unresolved cwd at this moment is the ORDINARY boot path and
+ * not a misconfiguration. Treating it as one is what made a correctly-launched server fail.
+ *
+ * @param {Object} options
+ * @param {Boolean} options.unitTestMode Whether the hermetic unit harness is active.
+ * @param {Boolean} options.autoConnect  The resolved `autoConnect` config leaf.
+ * @param {String|null} options.cwd      The entrypoint-supplied working directory, if assigned yet.
+ * @returns {'connect'|'defer'|'disabled'}
+ */
+export function resolveBridgeAutoConnect({unitTestMode, autoConnect, cwd}) {
+    if (unitTestMode || !autoConnect) return 'disabled';
+
+    return cwd ? 'connect' : 'defer'
+}
 import {
     BRIDGE_INFO_TYPE,
     STALE_BRIDGE_ERROR_CODE,
@@ -216,8 +240,23 @@ class ConnectionService extends Base {
         // Skip the Bridge auto-connect under unitTestMode: unit specs that import this singleton (e.g. via
         // HealthService) must stay hermetic and must not reach or spawn the live Bridge. The e2e harness
         // connects explicitly via manageConnection(); production (non-unitTestMode) auto-connects as before.
-        if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
+        // Defer when `cwd` is still unresolved. This singleton is constructed by its own import
+        // (`Server.mjs:4`), which runs BEFORE the entrypoint assigns `ConnectionService.cwd` from
+        // `--cwd`. Spawning here therefore races the assignment and loses: a server launched
+        // perfectly with `--cwd` would still spawn its Bridge from the wrong directory — or, once
+        // the hidden `process.cwd()` default is gone, fail outright on the good path.
+        //
+        // The entrypoint owns connection startup because it is the only participant that knows the
+        // real working directory. `spawnBridge()` keeps its loud refusal for the case where nothing
+        // ever supplies one, which is a genuine misconfiguration rather than a boot ordering artifact.
+        if (resolveBridgeAutoConnect({
+            unitTestMode: Neo.config.unitTestMode,
+            autoConnect : aiConfig.autoConnect,
+            cwd         : this.cwd
+        }) === 'connect') {
             await this.ensureBridgeAndConnect();
+        } else if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
+            logger.fileDebug('[ConnectionService] Bridge auto-connect deferred: awaiting entrypoint-supplied cwd.');
         }
     }
 

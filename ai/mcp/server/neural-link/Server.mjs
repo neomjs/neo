@@ -185,6 +185,14 @@ class Server extends BaseServer {
                 ConnectionService.cwd = this.bridgeCwd;
             }
             await ConnectionService.ready();
+
+            // Drive the connect HERE, after cwd is assigned. `initAsync()` defers the auto-connect
+            // while cwd is unresolved, and it always is at that point — the singleton is constructed
+            // by this file's own import, several steps before `this.bridgeCwd` exists. This is the
+            // first moment the Bridge can be spawned from the directory the operator actually named.
+            if (ConnectionService.cwd && aiConfig.autoConnect) {
+                await ConnectionService.ensureBridgeAndConnect();
+            }
         } catch (e) {
             this.logger.error('ConnectionService failed to initialize:', e);
             // Do not throw — server stays alive to report health errors via MCP healthcheck.
