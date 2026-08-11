@@ -152,9 +152,9 @@ function sustainedOllamaResidualInputs(overrides = {}) {
             statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'local-model-A'}),
             statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'local-model-A'})
         ],
-        runtimeContainerId: 'local-model-A',
-        providerResidency : ollamaResidency(),
-        providerActivity  : providerActivity(),
+        runtimeContainerId       : 'local-model-A',
+        providerResidency        : ollamaResidency(),
+        providerActivity         : providerActivity(),
         providerResidencyEligible: true,
         ...overrides
     };
@@ -663,7 +663,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
                   ollamaHost: 'http://model:12000'
               }),
               decision = service.diagnose(sustainedOllamaResidualInputs({
-                  serviceKey: 'model',
+                  serviceKey  : 'model',
                   statsSamples: [
                       statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
                       statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
@@ -684,7 +684,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
                   ollamaHost: 'http://local-model:12000'
               }),
               decision = service.diagnose(sustainedOllamaResidualInputs({
-                  serviceKey: 'model',
+                  serviceKey  : 'model',
                   statsSamples: [
                       statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'model-A'}),
                       statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'model-A'})
@@ -708,14 +708,14 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
                   ollamaHost: 'http://shadow-model:12000'
               }),
               decision = service.diagnose(sustainedOllamaResidualInputs({
-                  serviceKey: 'shadow-model',
+                  serviceKey  : 'shadow-model',
                   statsSamples: [
                       statsSample({cpuPercent: 398, observedAtMs: OBSERVED_AT - 30_000, containerId: 'shadow-A'}),
                       statsSample({cpuPercent: 399, observedAtMs: OBSERVED_AT, containerId: 'shadow-A'})
                   ],
-                  runtimeContainerId: 'shadow-A',
+                  runtimeContainerId       : 'shadow-A',
                   providerResidencyEligible: false,
-                  providerResidency : ollamaResidency({
+                  providerResidency        : ollamaResidency({
                       host          : 'http://shadow-model:12000',
                       targetIdentity: {kind: 'compose-service', id: 'shadow-model'}
                   })
@@ -2230,6 +2230,48 @@ test.describe('cpu saturation names its subject', () => {
             .not.toContain('only when the container has no other processes');
         // A proxy without a retirement condition is a permanent shortcut wearing a temporary label.
         expect(block).toContain('Retirement trigger');
+    });
+
+    test('the subject rule keeps attribution and demand disposition as SEPARATE axes', () => {
+        // The defect this guards is a collapse, not an omission: an earlier revision reasoned from "no
+        // inference arrived in the sampled window" (a DISPOSITION fact) to "the container-wide figure
+        // spoke for neither" (an ATTRIBUTION claim). A runner spawned by the model server is that
+        // Compose service's own process; it does not become foreign because nobody awaits it. Structural
+        // only — it asserts what the contract says, which is the honest instrument for a prose defect.
+        const
+            source     = fs.readFileSync(
+                path.join(repoRoot, 'ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs'), 'utf8'),
+            sharedRule = source.indexOf('The saturation-SUBJECT rule, stated once for both metrics'),
+            block      = source
+                .slice(sharedRule, source.indexOf('MEMORY_SATURATION_SCOPES = Object.freeze', sharedRule))
+                .replace(/\n\s*\*\s?/g, ' ')
+                .replace(/\s+/g, ' ');
+
+        // All three axes named, and named as axes — two of them stated without the third is the
+        // shape that reads as complete while leaving the collapse expressible.
+        expect(block).toContain('THREE AXES');
+        expect(block).toContain('Observation subject');
+        expect(block).toContain('Work ownership');
+        expect(block).toContain('Demand disposition');
+
+        // The service-owned runner is the load-bearing sentence: it is what makes the receipt a
+        // disposition finding rather than an attribution one.
+        expect(block, 'a service-owned runner must not be called foreign for lack of arriving work')
+            .toContain('It does not become foreign because nobody is waiting for it');
+
+        // Retain-and-mark: the retired conclusion stays VISIBLE so a reader who remembers it is sent
+        // to the correction, but it must never read as a live claim again. The retired form carries
+        // markdown quoting, so the bare assertion below cannot match it.
+        expect(block).toContain('collapsing 3 into 1');
+        expect(block, 'the collapse must not return as a live conclusion')
+            .not.toContain('container-wide figure spoke for neither');
+
+        // The retirement trigger names what actually retires the proxy. The residual-demand lane
+        // sharpened disposition and shipped no per-process attribution, so citing it as the retiring
+        // evidence is the same collapse wearing a schedule.
+        expect(block).toContain('retired only by a process-scoped CPU producer');
+        expect(block, 'the residual-demand lane must not be cited as retiring the proxy')
+            .not.toContain('the evidence lane that retires the proxy');
     });
 
     test('the resolver mirrors the memory gate exactly, and says no', () => {

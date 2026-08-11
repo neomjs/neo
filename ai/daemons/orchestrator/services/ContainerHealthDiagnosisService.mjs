@@ -1693,27 +1693,60 @@ export function calculateDockerMemoryPercent(stats) {
  *   while idle and spawns a CPU-dominating runner under load — four cores' worth, sustained, with no
  *   client sockets left open. It satisfies the premise exactly when no CPU fact can fire, and violates
  *   it exactly when one can.
- * - **And the misattribution is real on this arm, not merely possible.** A CPU-only deployment was
- *   measured holding `cpuPercent: 399.4` on that container while its access log over the sampled window
- *   carried **only** health polling — `/api/ps`, `/api/tags`, `HEAD /` — and no inference endpoint at
- *   all. So the compose-declared server was idle, a runner process consumed four cores, and the
- *   container-wide figure spoke for neither. **`authoritative: true` was granted throughout.** The
- *   scheduled-job case that motivated the CPU slice was a *foreign* workload sharing a container; this
- *   is the service's own process doing work no client awaits, which is a different route to the same
- *   wrong subject. **The non-Node arm carries this gap unrepaired.** It is left as it was because
- *   withdrawing authority here needs process-cardinality evidence that does not exist in the tree yet,
- *   and inventing a second proxy to fix the first is how this defect was built.
+ * - **And an unaccounted CPU claim is real on this arm, not merely possible.** A CPU-only deployment
+ *   was measured holding `cpuPercent: 399.4` on that container while its access log over the sampled
+ *   window carried **only** health polling — `/api/ps`, `/api/tags`, `HEAD /` — and no inference
+ *   endpoint at all. **`authoritative: true` was granted throughout.** The scheduled-job case that
+ *   motivated the CPU slice was a *foreign* workload sharing a container; this is the service's own
+ *   process doing work no client awaits. **The non-Node arm carries this gap unrepaired**, because
+ *   closing it needs a per-process CPU reading that no producer in the tree emits, and inventing a
+ *   second proxy to fix the first is how this defect was built.
+ *
+ * **THREE AXES, and collapsing any two of them is how the previous revision of this block went wrong.**
+ * The receipt above answers the third question and was read as answering the first:
+ *
+ * 1. **Observation subject — always exact.** The Docker ratio describes the resolved container, and
+ *    `DeploymentRuntimeAccessService` verifies its `com.docker.compose.service` label before acting.
+ *    There is no ambiguity here and never was.
+ * 2. **Work ownership — who the running process belongs to.** A runner spawned by the model server is
+ *    that Compose service's **own** process. It does not become foreign because nobody is waiting for
+ *    it. A forked scheduled job in a Node service is the genuinely foreign case, and it is a different
+ *    thing entirely.
+ * 3. **Demand disposition — whether current work is accounted for.** Accounted, residual after a client
+ *    disconnect, stale, or unknown.
+ *
+ * *"No inference arrived in the sampled window"* answers **3** only. An earlier revision concluded from
+ * it that the container-wide figure *"spoke for neither"* the service nor the runner — collapsing 3
+ * into 1. It does not follow, and it is retired here: the subject was correct throughout. What the
+ * receipt establishes is **unexplained residual provider demand owned by that service**, which is a
+ * disposition problem, not an attribution one. That distinction decides the repair: a residual-demand
+ * problem is answered by accounting, and only an ownership problem would need process cardinality.
+ *
+ * **The mechanism class is now measured, though not for this specimen.** Ollama at tag `v0.23.1` logs
+ * `"aborting embedding request due to client closing the connection"` only when the admission semaphore
+ * acquire is cancelled — *pre-admission*. Once admitted, the handler waits on its result and never
+ * re-checks the request context, so **admitted work survives client disconnect**; a request was observed
+ * completing after 1h6m and then failing to write its reply (`broken pipe`) with nobody attached. That
+ * is a service-owned process burning cores with no arriving traffic — axis 2 owned, axis 3 residual —
+ * exactly the shape this block describes. **It does not establish the origin of the historical
+ * specimen above**, which was a different plane on a different day and stays bounded as recorded.
  *
  * **Latent, with no live instance:** `commandText` reads `Config.Cmd` and never `Config.Entrypoint`, so
  * a Node service whose `node` token sits in the entrypoint would read `false` — gaining container
  * authority and losing heap observation in one step. Every service on the canonical plane was checked;
  * all four Node services carry the token in `Config.Cmd`. Recorded because the layout invites one.
  *
- * **Retirement trigger:** runner/process-aware evidence for the containerized model service replaces
- * the proxy with an observation of the thing the rule actually needs. When that lands, this proxy
- * paragraph and its three bullets go with it.
- * @see https://github.com/neomjs/neo/issues/16830 — the evidence lane that retires the proxy
- * @see https://github.com/neomjs/neo/issues/16877 — this fold
+ * **Retirement trigger, corrected.** An earlier revision promised that the residual-load lane would
+ * supply runner/process-cardinality evidence and retire this proxy. It did not, and could not: what
+ * shipped is exact-container CPU bound to one incarnation, expected-model residency, recorder-owned
+ * provider activity, and a last-boundary demand veto — all of which sharpen **disposition** (axis 3)
+ * and none of which attribute CPU to a process. **This proxy is therefore retired only by a
+ * process-scoped CPU producer** — a per-process reading beside the existing `processHeapObservation`
+ * channel, which today publishes `rssBytes` and V8 fields and nothing about CPU time. Until such a
+ * producer exists, the gate stays a proxy and this paragraph stays with it.
+ * @see https://github.com/neomjs/neo/issues/16830 — the residual-demand lane; sharpens disposition, not attribution
+ * @see https://github.com/neomjs/neo/issues/16877 — the proxy fold
+ * @see https://github.com/neomjs/neo/issues/16886 — the three-axis separation
  *
  * **Where they deliberately differ, and why — this is the part that must stay written down together:**
  *
