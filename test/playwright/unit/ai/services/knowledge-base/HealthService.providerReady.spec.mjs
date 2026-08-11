@@ -134,12 +134,15 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
     test('an IN-FLIGHT slow probe is reported as slow, and that report REACHES the health payload', async () => {
         let t = 1_000_000, settle;
 
-        await startHealthyEmbeddingProbe(HealthService, {clock: () => t}); // seeds the healthy cache
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 900000});
+
+        t += 400000; // age the cache past the bar BEFORE the flight starts, so the two can diverge
 
         // Re-arm with a body that never settles, putting one attempt in flight.
         HealthService.startEmbeddingProbe({
             cadenceMs    : 1000,
             healthyTtlMs : 1000,
+            timeoutMs    : 900000,
             scheduler    : () => 0,
             clearSchedule: () => {},
             keyFor       : () => 'test-provider:3',
@@ -148,13 +151,53 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         });
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        t += 900000; // far past the staleness bar
+        t += 20000; // flight 20s old, well inside its 900s budget: slow, not stuck
 
         const health = await HealthService.healthcheck();
 
         expect(health.details.some(d => d.includes('is stale')), 'a running loop is not a stopped one').toBe(false);
         expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'and the slowness reaches the payload').toBe(true);
         expect(health.features.embedding, 'slow is not broken — the feature still works').toBe(true);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('a STUCK probe past its own budget reports stale — suppression is bounded by flight AGE', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 30000});
+
+        // Age the CACHE past the staleness bar BEFORE the flight starts, so cache-age and flight-age
+        // can diverge. They advance together otherwise, and a test where they cannot diverge cannot
+        // distinguish the two conditions it exists to separate.
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000,
+            healthyTtlMs : 1000,
+            timeoutMs    : 30000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 20000; // flight 20s old — inside its 30s budget
+
+        const slow = await HealthService.healthcheck();
+
+        expect(slow.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(true);
+
+        t += 600000; // now far past the budget — the deadline never fired
+
+        HealthService.clearCache();
+
+        const stuck = await HealthService.healthcheck();
+
+        expect(stuck.details.some(d => d.includes('STUCK in flight')), 'past its budget it is stuck, not slow').toBe(true);
+        expect(stuck.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'a hung probe must not read as merely slow forever').toBe(false);
 
         settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
     });

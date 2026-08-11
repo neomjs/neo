@@ -430,10 +430,24 @@ class HealthService extends Base {
                 // gone — and this guard aged the cache without ever asking. Slowness is reported as
                 // slowness; a loop with NOTHING in flight still reports stale, because a dead loop is
                 // a real condition and this must not become the way to hide it.
-                if (snapshot.inFlight) {
+                // Bounded by the flight's own age: a flight that never settles would otherwise
+                // suppress this guard forever, trading a false `stale` for a permanent false
+                // `healthy`. Past its issued budget the attempt's own deadline failed to fire.
+                const inFlightMs = Number.isFinite(snapshot.inFlightSince)
+                    ? producer.clock() - snapshot.inFlightSince
+                    : null;
+
+                if (snapshot.inFlight && Number.isFinite(inFlightMs) && inFlightMs <= producer.timeoutMs) {
                     return {
                         status: 'healthy',
-                        slow  : `an attempt has been in flight past the staleness bar (last healthy vector ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                        slow  : `an attempt has been in flight ${Math.round(inFlightMs / 1000)}s (budget ${producer.timeoutMs}ms, last healthy vector ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                    };
+                }
+
+                if (snapshot.inFlight) {
+                    return {
+                        status: 'stale',
+                        reason: `has an attempt STUCK in flight ${Number.isFinite(inFlightMs) ? `${Math.round(inFlightMs / 1000)}s` : 'for an unobservable time'}, past its own ${producer.timeoutMs}ms budget — the deadline did not fire`
                     };
                 }
 

@@ -1691,10 +1691,27 @@ class HealthService extends Base {
                 // was consulted for. The slow attempt is still reported — as slowness, which is what
                 // it is — and a loop with NOTHING in flight still reports stale, because a dead loop
                 // is a real condition and this must not become the way to hide it.
-                if (snapshot.inFlight) {
+                // BOUNDED by the flight's own age, not by its mere existence. A flight that never
+                // settles would otherwise suppress this guard forever — trading a false `stale` for a
+                // permanent false `healthy`, which is the worse direction: a probe reporting a dead
+                // provider as merely slow is unobservable, where the reverse at least gets
+                // investigated. The attempt's issued budget is the bound it agreed to; past that, its
+                // own deadline failed to fire, and that is a fault in its own right.
+                const inFlightMs = Number.isFinite(snapshot.inFlightSince)
+                    ? producer.clock() - snapshot.inFlightSince
+                    : null;
+
+                if (snapshot.inFlight && Number.isFinite(inFlightMs) && inFlightMs <= producer.timeoutMs) {
                     return {
                         status: 'healthy',
-                        slow  : `an attempt has been in flight past the staleness bar (last healthy result ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                        slow  : `an attempt has been in flight ${Math.round(inFlightMs / 1000)}s (budget ${producer.timeoutMs}ms, last healthy result ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                    };
+                }
+
+                if (snapshot.inFlight) {
+                    return {
+                        status: 'stale',
+                        reason: `attempt STUCK in flight ${Number.isFinite(inFlightMs) ? `${Math.round(inFlightMs / 1000)}s` : 'for an unobservable time'}, past its own ${producer.timeoutMs}ms budget — the deadline did not fire`
                     };
                 }
 

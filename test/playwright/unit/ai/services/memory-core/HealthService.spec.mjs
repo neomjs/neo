@@ -997,9 +997,12 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
     test('an IN-FLIGHT slow attempt is reported as slow, never as a dead loop', async () => {
         let   t = 1_000_000, settle;
 
+        // The budget matches the affected deployment's raised value, so the flight below is one this
+        // plane genuinely permits — WITHIN its deadline, and merely slower than the staleness bar.
         HealthService.startEmbeddingWriteCanary({
             cadenceMs    : 60000,
             healthyTtlMs : 60000,
+            timeoutMs    : 900000,
             runCanary    : async () => ({status: 'healthy'}), // seeds the healthy cache
             scheduler    : () => 0,
             clearSchedule: () => {},
@@ -1012,18 +1015,80 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         HealthService.startEmbeddingWriteCanary({
             cadenceMs   : 60000,
             healthyTtlMs: 60000,
+            timeoutMs   : 900000,
             runCanary   : () => new Promise(resolve => { settle = resolve }),
             clock       : () => t,
             keyFor      : () => 'inflight-not-stale'
         });
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        t += 900000; // far past 3 x max(cadence, healthyTtl) — the pre-fix bar fires here
+        t += 400000; // past 3 x max(cadence, healthyTtl), inside the 900s budget: slow, not stuck
 
         const result = await HealthService.healthcheck();
 
         expect(result.details.some(d => d.includes('loop not running')), 'a running loop is not a stopped one').toBe(false);
         expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'and the slowness IS still reported').toBe(true);
+
+        settle?.({status: 'healthy'});
+    });
+
+    /**
+     * @summary The direction-of-error check on my own fix, required by @neo-gpt-emmy.
+     *
+     * Suppressing staleness on the mere EXISTENCE of a flight disarms the dead-loop guard for the
+     * worst case: an attempt that never settles keeps `inFlight` true forever, so the surface reports
+     * `healthy, slow` indefinitely. That trades a false RED for a permanent false GREEN, and the
+     * green direction is the dangerous one — a dead provider reported as slow is never investigated,
+     * where the reverse at least gets someone looking.
+     *
+     * The bound is the attempt's own issued budget: past it, the deadline that was supposed to end
+     * this flight did not fire, which is a fault in its own right and not "slow".
+     */
+    test('a STUCK flight past its own budget reports stale — suppression is bounded, not unconditional', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            timeoutMs    : 30000,
+            runCanary    : async () => ({status: 'healthy'}), // seeds the healthy cache
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'stuck-flight'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Age the CACHE past the staleness bar BEFORE the flight starts, so cache-age and flight-age
+        // are independent. They advance together otherwise, and a test where they cannot diverge
+        // cannot distinguish the two conditions it exists to separate.
+        t += 400000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            healthyTtlMs: 60000,
+            timeoutMs   : 30000,
+            runCanary   : () => new Promise(resolve => { settle = resolve }),
+            clock       : () => t,
+            keyFor      : () => 'stuck-flight'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 20000; // flight 20s old — inside its 30s budget; cache 420s old — past the bar
+
+        const slow = await HealthService.healthcheck();
+
+        expect(slow.details.some(d => d.startsWith('Embedding write canary slow')), 'inside its budget it is slow').toBe(true);
+        expect(slow.details.some(d => d.includes('STUCK'))).toBe(false);
+
+        t += 600000; // now far past the 30s budget — the deadline never fired
+
+        HealthService.clearCache();
+
+        const stuck = await HealthService.healthcheck();
+
+        expect(stuck.details.some(d => d.includes('STUCK in flight')), 'past its budget it is stuck, not slow').toBe(true);
+        expect(stuck.details.some(d => d.startsWith('Embedding write canary slow')), 'a hung flight must not be reported as merely slow forever').toBe(false);
 
         settle?.({status: 'healthy'});
     });
