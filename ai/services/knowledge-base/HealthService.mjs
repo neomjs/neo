@@ -357,6 +357,17 @@ class HealthService extends Base {
 
         if (probe.status === 'healthy') {
             features.embedding = true;
+
+            // A slow-but-running loop is REPORTED without degrading. Returning `healthy` and dropping
+            // the signal here would trade a false `stale` for silence, which is the other half of the
+            // same defect: the reason this was mistaken for a dead loop is that nothing said "slow".
+            if (probe.slow) {
+                details = [
+                    ...details.filter(detail => !detail.startsWith('Knowledge Base embedding probe')),
+                    `Knowledge Base embedding probe slow: ${probe.slow}`
+                ];
+            }
+
             return {...payload, features, details};
         }
 

@@ -122,6 +122,57 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         expect(probeRuns).toBe(1);
     });
 
+    /**
+     * @summary A slow attempt IN FLIGHT is the loop running — and the report of it has to REACH a
+     * surface. Caught by @neo-gpt-emmy: my first cut stopped the false `stale` here but dropped the
+     * `slow` signal in the healthy branch, trading a false RED for silence.
+     *
+     * Silence is the other half of the same defect. The reason a slow loop was mistaken for a dead
+     * one is that nothing said "slow" — so a fix that only removes the wrong word, without supplying
+     * the right one, leaves the reader exactly as misinformed.
+     */
+    test('an IN-FLIGHT slow probe is reported as slow, and that report REACHES the health payload', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t}); // seeds the healthy cache
+
+        // Re-arm with a body that never settles, putting one attempt in flight.
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000,
+            healthyTtlMs : 1000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 900000; // far past the staleness bar
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('is stale')), 'a running loop is not a stopped one').toBe(false);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'and the slowness reaches the payload').toBe(true);
+        expect(health.features.embedding, 'slow is not broken — the feature still works').toBe(true);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('a DEAD probe loop with nothing in flight still reports stale — the fix must not hide it', async () => {
+        let t = 1_000_000;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t}); // scheduler never fires again
+
+        t += 900000;
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('is stale')), 'NON-VACUITY: a true dead loop is still caught').toBe(true);
+        expect(health.details.some(d => d.includes('no attempt in flight'))).toBe(true);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'a dead loop is not reported as merely slow').toBe(false);
+    });
+
     test('the first settled timeout degrades immediately and closes ensureHealthy()', async () => {
         await HealthService.startEmbeddingProbe({
             cadenceMs      : 1000,
