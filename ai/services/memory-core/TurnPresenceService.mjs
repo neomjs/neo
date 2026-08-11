@@ -193,9 +193,17 @@ class TurnPresenceService extends Base {
      * mid-turn agent can read `add_memory`-stale yet be live. Returns `null` when no beacon exists, so a
      * beaconless deployment's memory-recency verdict is never gated on a signal it cannot emit.
      *
+     * The beacon HORIZONS (`freshUntil` / `expiresAt`) are vouched verbatim alongside the derived
+     * boolean: `fresh` answers "is it fresh NOW" for this service's own clock, while a banded
+     * consumer (the roster's `active-turn / fresh / recent / dark` vocabulary) needs the horizons
+     * themselves to grade recency without minting a second clock authority. A legacy beacon row
+     * written before the horizons existed vouches `null` for the absent field — never a fabricated
+     * timestamp. `who_is_online`'s verbose rows carry this projection verbatim as
+     * `signals.turnPresence`, so the vouching reaches the plane's wire without a projection change.
+     *
      * @param {String} agentIdentity AgentIdentity node id.
      * @param {String|Date|Number} [now=new Date()] Clock source.
-     * @returns {{turnId: String, startedAt: String, lastProgressAt: String, fresh: Boolean}|null}
+     * @returns {{turnId: String, startedAt: String, lastProgressAt: String, fresh: Boolean, freshUntil: String|null, expiresAt: String|null}|null}
      */
     getFreshTurnPresence(agentIdentity, now = new Date()) {
         if (!agentIdentity) return null;
@@ -209,7 +217,14 @@ class TurnPresenceService extends Base {
 
         const fresh = !!props.freshUntil && this._coerceDate(props.freshUntil).getTime() > nowDate.getTime();
 
-        return {turnId, startedAt: props.startedAt, lastProgressAt: props.lastProgressAt, fresh};
+        return {
+            turnId,
+            startedAt     : props.startedAt,
+            lastProgressAt: props.lastProgressAt,
+            fresh,
+            freshUntil    : props.freshUntil ?? null,
+            expiresAt     : props.expiresAt  ?? null
+        };
     }
 
     /**

@@ -790,21 +790,25 @@ class WakeSubscriptionService extends Base {
         const activity = this._readActivityRecency(identity, nowMs);
         signals.activityRecency = activity;
 
-        // The turn-presence beacon is consulted BEFORE any not-online verdict, not only on the stale
-        // branch. add_memory lands at turn boundaries, so an agent on its FIRST turn has no
-        // AGENT_MEMORY row yet while being maximally present — reading that absence as "never
-        // connected" asserts a membership fact the beacon directly falsifies, and routes around a
-        // new peer precisely while they work. Absence of the durable write is only evidence of
-        // never-connected once every current-observation signal is exhausted.
-        if (!activity?.fresh) {
-            const beacon = TurnPresenceService.getFreshTurnPresence(identity, nowMs);
-            signals.turnPresence = beacon;
+        // Beacon OBSERVATION is unconditional; only its VERDICT precedence is gated. The two are
+        // different concerns: a banded consumer grades recency from the beacon horizons on every
+        // active row — including the most important one, an agent whose add_memory is ALSO fresh —
+        // while the verdict below still lets fresh activity speak first and uses the beacon only
+        // as the mid-turn rescue. Coupling observation to the rescue branch made the vouched
+        // horizons vanish exactly when an agent was most alive.
+        const beacon = TurnPresenceService.getFreshTurnPresence(identity, nowMs);
+        signals.turnPresence = beacon;
 
-            if (beacon?.fresh) {
-                return {identity, name, family, participationStatus, online: true, state: 'online',
-                    reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; ` +
-                            `${activity ? 'add_memory stale' : 'no add_memory write yet — first turn'}) — mid-turn rescue`, signals};
-            }
+        // The turn-presence beacon RESCUES the verdict BEFORE any not-online conclusion, not only
+        // on the stale branch. add_memory lands at turn boundaries, so an agent on its FIRST turn
+        // has no AGENT_MEMORY row yet while being maximally present — reading that absence as
+        // "never connected" asserts a membership fact the beacon directly falsifies, and routes
+        // around a new peer precisely while they work. Absence of the durable write is only
+        // evidence of never-connected once every current-observation signal is exhausted.
+        if (!activity?.fresh && beacon?.fresh) {
+            return {identity, name, family, participationStatus, online: true, state: 'online',
+                reason: `local turn-presence beacon fresh (turn started ${beacon.startedAt}; ` +
+                        `${activity ? 'add_memory stale' : 'no add_memory write yet — first turn'}) — mid-turn rescue`, signals};
         }
 
         // Never observed HERE, and no live beacon contradicting that. This is a MEMBERSHIP fact, not
