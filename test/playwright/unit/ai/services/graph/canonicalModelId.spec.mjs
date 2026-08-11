@@ -175,10 +175,13 @@ test.describe('model identity — the production seams that drive recovery', () 
      * The fail-open direction. A context requirement keyed on the configured `qwen3-embedding` misses
      * an observed `qwen3-embedding:latest`, so the requirement is not found — and a requirement that
      * is not found is a requirement not enforced. The under-sized model would pass the very check that
-     * exists to reject it, which is the dangerous way for a lookup to miss.
+     * exists to reject it, which is the dangerous way for a lookup to miss. Once detected, the configured
+     * id must remain the warm authority; using the observed alias detects the gap but never selects a role.
      */
-    test('a context requirement is enforced THROUGH the :latest alias, not skipped by it', async () => {
-        const run = () => ensureOllamaModelsReady({
+    test('an under-context :latest alias warms the configured role before readiness succeeds', async () => {
+        let   contextReady = false;
+        const warmCalls    = [];
+        const result       = await ensureOllamaModelsReady({
             roles: [
                 {role: 'chat',      providerRole: 'chat',      model: 'gemma4:26b'},
                 {role: 'embedding', providerRole: 'embedding', model: 'qwen3-embedding', contextLength: 8192}
@@ -186,18 +189,32 @@ test.describe('model identity — the production seams that drive recovery', () 
             requireParallelModels: 2,
             host                 : 'http://127.0.0.1:11434',
             fetchModelIds        : async () => [
-                {id: 'qwen3-embedding:latest', contextLength: 2048}, // resident, but too small
+                {id: 'qwen3-embedding:latest', contextLength: contextReady ? 8192 : 2048},
                 {id: 'gemma4:26b',             contextLength: 32768}
             ],
+            warmModel: async (role, options) => {
+                warmCalls.push({options, role});
+                contextReady = true
+            },
             attempts : 1,
             delayMs  : 0,
             timeoutMs: 1000
         });
 
-        // Readiness REFUSES rather than returning — and the refusal names the alias and both numbers,
-        // which is only possible if the requirement was resolved through `:latest`. Before the fix the
-        // lookup missed, the requirement was never evaluated, and this under-sized model passed.
-        await expect(run(), 'an under-sized alias must not pass as ready')
-            .rejects.toThrow(/qwen3-embedding:latest observed=2048 required>=8192/)
+        expect(result.ready, JSON.stringify(result)).toBe(true);
+        expect(warmCalls).toHaveLength(1);
+        expect(warmCalls[0].role).toMatchObject({
+            model       : 'qwen3-embedding',
+            role        : 'embedding',
+            providerRole: 'embedding'
+        });
+        expect(warmCalls[0].options.contextLength).toBe(8192);
+        expect(result.warmedModels).toEqual([{
+            contextLength: 8192,
+            model        : 'qwen3-embedding',
+            providerRole : 'embedding',
+            role         : 'embedding'
+        }]);
+        expect(result.insufficientContextModels).toEqual([])
     })
 });

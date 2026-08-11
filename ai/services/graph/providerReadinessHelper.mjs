@@ -1918,7 +1918,8 @@ export async function ensureOllamaModelsReady({
         .filter(({item, required}) => required !== null &&
             (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(required)))
         .map(({item, required}) => ({
-            model                : item.id,
+            model                : required,
+            ...(item.id !== required ? {observedModel: item.id} : {}),
             contextLength        : item.contextLength,
             requiredContextLength: contextRequirements.get(required)
         }));
@@ -2111,7 +2112,7 @@ export async function ensureOllamaModelsReady({
         if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap || contextOnlyGap))) {
             const degraded       = !ready;
             const contextWarning = serviceableContext.length
-                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.observedModel || item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
                 : null;
             return {
                 ready,
@@ -2149,7 +2150,7 @@ export async function ensureOllamaModelsReady({
     }
 
     const contextWarning = insufficientContextModels.length
-        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.observedModel || item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
         : null;
     const observedRequiredCount = getRequiredAvailable(availableModels).length;
     const contextModelIds       = new Set(insufficientContextModels.map(item => item.model));
