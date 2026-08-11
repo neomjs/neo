@@ -38,14 +38,36 @@ test.describe('resolveSharingPolicy (#16611)', () => {
             .toEqual({clamped: false, policy: 'private'});
     });
 
-    test('team and legacy are equal breadth, so neither escalates past the other', () => {
-        // Both drop the userId predicate; they differ only in which commons rows they additively
-        // include. Ranking one above the other would clamp a lateral move for no security gain.
+    test('C — a LEGACY-default plane CANNOT be widened to team', () => {
+        // The escalation that survived inside the first fix. `legacy` and `team` are NOT equal
+        // breadth: `legacy` post-filters to caller-owned + shared + untagged rows, while `team` runs
+        // no post-filter and returns every maintainer's records. `team` is a strict superset, so a
+        // legacy-configured deployment honouring a requested `team` reads past its own isolation.
+        expect(resolveSharingPolicy({configuredDefault: 'legacy', requested: 'team'}))
+            .toEqual({clamped: true, policy: 'legacy'});
+    });
+
+    test('C-control — the reverse is a NARROWING and stays honoured', () => {
+        // Non-vacuity for the arm above: the fix must deny the escalation without clamping the
+        // lateral-looking move in the safe direction, which would break legitimate narrowing.
         expect(resolveSharingPolicy({configuredDefault: 'team', requested: 'legacy'}))
             .toEqual({clamped: false, policy: 'legacy'});
+    });
 
-        expect(resolveSharingPolicy({configuredDefault: 'legacy', requested: 'team'}))
-            .toEqual({clamped: false, policy: 'team'});
+    test('the ordering is strict and total across all three policies', () => {
+        // Pins private < legacy < team as a whole, so a future edit cannot restore the equal-rank
+        // model by touching one transition and leaving the others green.
+        expect(resolveSharingPolicy({configuredDefault: 'private', requested: 'legacy'}))
+            .toEqual({clamped: true, policy: 'private'});
+
+        expect(resolveSharingPolicy({configuredDefault: 'private', requested: 'team'}))
+            .toEqual({clamped: true, policy: 'private'});
+
+        expect(resolveSharingPolicy({configuredDefault: 'legacy', requested: 'private'}))
+            .toEqual({clamped: false, policy: 'private'});
+
+        expect(resolveSharingPolicy({configuredDefault: 'team', requested: 'private'}))
+            .toEqual({clamped: false, policy: 'private'});
     });
 
     test('an absent request resolves to the configured default, unclamped', () => {

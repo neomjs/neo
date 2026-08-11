@@ -2,9 +2,9 @@
  * @summary Resolves a caller-supplied tenant-sharing policy so it can only NARROW, never widen.
  *
  * `memorySharing` is declared on `query_raw_memories` and `query_summaries`, so a caller can supply
- * it through a public surface. The parameter is not a filter — it selects a read scope. `team` and
- * `legacy` drop the restrictive `userId` predicate, returning every maintainer's records; `private`
- * restricts to the caller's own.
+ * it through a public surface. The parameter is not a filter — it selects a read scope. `team`
+ * returns every maintainer's records; `legacy` admits caller-owned, shared and untagged rows;
+ * `private` restricts to the caller's own. They form a strict ordering, not two tiers.
  *
  * On the shipped `team` default that is harmless, which is precisely why the default is not the case
  * that decides it: a deployment configuring per-org isolation sets `defaultPolicy = 'private'`, and
@@ -26,14 +26,23 @@
  */
 
 /**
- * Breadth rank of each policy. `team` and `legacy` are equal: both drop the `userId` predicate and
- * differ only in which commons rows they additively include, so neither can escalate past the other.
+ * Breadth rank of each policy — a STRICT ordering, `private` < `legacy` < `team`.
+ *
+ * An earlier revision ranked `team` and `legacy` equal on the reasoning that both drop the `userId`
+ * predicate. That is only half of what the read path does, and the missing half is the whole
+ * boundary: `legacy` additionally runs a post-filter admitting **caller-owned + shared + untagged**
+ * rows, while `team` runs **no post-filter at all** and returns every maintainer's records. `team` is
+ * therefore a strict superset of `legacy`, not a sibling of it.
+ *
+ * Ranking them equal left exactly one escalation open — a `legacy`-configured deployment honouring a
+ * caller-requested `team` — which is the same class of hole the clamp exists to close, surviving
+ * inside the fix for it.
  * @type {Object<String,Number>}
  */
 const BREADTH = {
     private: 0,
-    team   : 1,
-    legacy : 1
+    legacy : 1,
+    team   : 2
 };
 
 /**
