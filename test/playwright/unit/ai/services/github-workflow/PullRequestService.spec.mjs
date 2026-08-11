@@ -1,8 +1,8 @@
-import {setup} from '../../../../setup.mjs';
+import {setup}      from '../../../../setup.mjs';
 import {createHash} from 'node:crypto';
 
-const appName          = 'PullRequestServiceTest';
-const skipCiGitHubAuth = !!process.env.NEO_TEST_SKIP_CI;
+const appName                    = 'PullRequestServiceTest';
+const skipCiGitHubAuth           = !!process.env.NEO_TEST_SKIP_CI;
 const predecessorListQuerySha256 = '68b60ee57194252d68f3b50f2e174f25ff3859d3ba89bd2a66d7e2d873e1914f';
 
 setup({
@@ -299,7 +299,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — list fresh
     })
 });
 
-test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-readiness projection (#16029)', () => {
+test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-readiness projection (#16029, #16902)', () => {
+    let GET_MERGE_READINESS;
     let PullRequestService;
 
     const HEAD       = 'a'.repeat(40);
@@ -319,7 +320,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
 
     const checkRun = (state = 'success', {
         integrationId = 15368,
-        name = 'integration-parity'
+        integration = 'github-actions',
+        name = 'integration-parity',
+        workflow = workflowFixture()
     } = {}) => {
         const variants = {
             success         : {status: 'COMPLETED', conclusion: 'SUCCESS'},
@@ -337,16 +340,44 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             checkSuite: {
                 app: {
                     databaseId: integrationId,
-                    slug      : 'github-actions'
-                }
+                    slug      : integration
+                },
+                workflowRun: workflow ? {
+                    databaseId: workflow.runId,
+                    runNumber : workflow.runNumber,
+                    runAttempt: workflow.runAttempt ?? 1,
+                    workflow  : {
+                        databaseId  : workflow.id,
+                        name        : workflow.name,
+                        resourcePath: workflow.resourcePath
+                    }
+                } : null
             }
         };
     };
+
+    const workflowFixture = ({
+        id = 278020769,
+        name = 'Tests',
+        resourcePath = '/neomjs/neo/actions/workflows/test.yml',
+        runId = 31404273390,
+        runNumber = 8462,
+        runAttempt = 1
+    } = {}) => ({
+        id,
+        name,
+        resourcePath,
+        runId,
+        runNumber,
+        runAttempt
+    });
 
     const pullRequest = ({
         baseRefName = 'dev',
         checkCommit = HEAD,
         checkHasNextPage = false,
+        checkRollupAvailable = true,
+        checkTotalCount,
         contexts = [checkRun()],
         headRefOid = HEAD,
         mergeStateStatus = 'CLEAN',
@@ -373,13 +404,13 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             nodes: [{
                 commit: {
                     oid              : checkCommit,
-                    statusCheckRollup: {
+                    statusCheckRollup: checkRollupAvailable ? {
                         contexts: {
-                            totalCount: contexts.length,
+                            totalCount: checkTotalCount ?? contexts.length,
                             pageInfo  : {hasNextPage: checkHasNextPage, endCursor: null},
                             nodes     : contexts
                         }
-                    }
+                    } : null
                 }
             }]
         }
@@ -422,6 +453,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         PullRequestService = (await import(
             '../../../../../../ai/services/github-workflow/PullRequestService.mjs'
         )).default;
+        ({GET_MERGE_READINESS} = await import(
+            '../../../../../../ai/services/github-workflow/queries/pullRequestQueries.mjs'
+        ));
     });
 
     test('returns one immutable positive exact-head observation and ignores caller readiness fields', async () => {
@@ -441,10 +475,205 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
             {context: 'integration-parity', integrationId: 15368}
         ]);
         expect(result.principals).toEqual(PRINCIPALS);
+        expect(result.checksVerdict).toBe('green');
         expect(result.predicate.strictMergeReady).toBe(true);
         expect(Object.isFrozen(result)).toBe(true);
         expect(Object.isFrozen(result.requiredSet.contexts)).toBe(true);
         expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+    });
+
+    test('#16902: query carries exact workflow-run coordinates instead of inferring attempts by job name', () => {
+        for (const field of ['workflowRun', 'runNumber', 'runAttempt', 'resourcePath', 'databaseId']) {
+            expect(GET_MERGE_READINESS).toContain(field);
+        }
+    });
+
+    test('#16902: returns a checks verdict but withholds B-prime when Memory Core identity is unbound', async () => {
+        const identityAssertion = {
+            ok        : true,
+            code      : 'OK',
+            reason    : null,
+            principals: {...PRINCIPALS, memoryCoreIdentity: null}
+        };
+        const deps   = dependencies();
+        const result = await PullRequestService.getConversation({
+            pr_number : 16029,
+            projection: 'merge-readiness',
+            identityAssertion
+        }, deps);
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.checksVerdict).toBe('green');
+        expect(result.checksGreen).toBe(true);
+        expect(result.predicate.strictMergeReady).toBe(true);
+        expect(result.identityBinding).toEqual({complete: false, missing: ['memoryCoreIdentity']});
+        expect(result.principals.memoryCoreIdentity).toBeNull();
+        expect(result.blockers).toContainEqual(expect.objectContaining({
+            code             : 'IDENTITY_BINDING_MISSING',
+            missingPrincipals: ['memoryCoreIdentity'],
+            affects          : ['b-prime-certification']
+        }));
+        expect(result.marker).toBeUndefined();
+        expect(result.audit).toContainEqual({
+            source : 'memory-core-identity',
+            outcome: 'unbound-certification-withheld'
+        });
+        expect(deps.calls()).toEqual({queryCall: 2, restCall: 2});
+    });
+
+    test('#16902: latest workflow invocation supersedes an earlier failure on the same exact head', async () => {
+        const oldRun = workflowFixture({
+            runId    : 31404455665,
+            runNumber: 7355
+        });
+        const newRun = workflowFixture({
+            runId    : 31406709306,
+            runNumber: 7357
+        });
+        const contexts = [
+            checkRun('failing', {workflow: oldRun}),
+            checkRun('success', {workflow: newRun})
+        ];
+        const result = await project(dependencies({
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.contextStates[0].state).toBe('success');
+        expect(result.emittedContexts).toHaveLength(1);
+        expect(result.emittedContexts[0].workflow.runNumber).toBe(7357);
+    });
+
+    test('#16902: a genuinely failing latest workflow invocation remains red', async () => {
+        const oldRun   = workflowFixture({runId: 10, runNumber: 9});
+        const newRun   = workflowFixture({runId: 11, runNumber: 10});
+        const contexts = [
+            checkRun('success', {workflow: oldRun}),
+            checkRun('failing', {workflow: newRun})
+        ];
+        const result = await project(dependencies({
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.verdict).toBe('not-merge-ready');
+        expect(result.contextStates[0].state).toBe('failing');
+        expect(result.emittedContexts[0].workflow.runNumber).toBe(10);
+    });
+
+    test('#16902: a newer attempt of one workflow run supersedes its earlier attempt', async () => {
+        const oldAttempt = workflowFixture({runId: 20, runNumber: 12, runAttempt: 1});
+        const newAttempt = workflowFixture({runId: 20, runNumber: 12, runAttempt: 2});
+        const contexts   = [
+            checkRun('failing', {workflow: oldAttempt}),
+            checkRun('success', {workflow: newAttempt})
+        ];
+        const result = await project(dependencies({
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.contextStates[0].state).toBe('success');
+        expect(result.emittedContexts[0].workflow.runAttempt).toBe(2);
+    });
+
+    test('#16902: generic job names from different workflows do not collapse into one population', async () => {
+        const lintA = workflowFixture({
+            id          : 278020769,
+            name        : 'Agent PR Body Lint',
+            resourcePath: '/neomjs/neo/actions/workflows/agent-pr-body-lint.yml',
+            runId       : 30,
+            runNumber   : 7357
+        });
+        const lintB = workflowFixture({
+            id          : 288951422,
+            name        : 'Config Template SSOT Lint',
+            resourcePath: '/neomjs/neo/actions/workflows/config-template-ssot-lint.yml',
+            runId       : 31,
+            runNumber   : 970
+        });
+        const contexts = [
+            checkRun('success', {name: 'lint', workflow: lintA}),
+            checkRun('success', {name: 'lint', workflow: lintB})
+        ];
+        const result = await project(dependencies({
+            rules    : [[], []],
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.emittedContexts).toHaveLength(2);
+        expect(result.emittedContexts.map(item => item.workflow.resourcePath).sort()).toEqual([
+            '/neomjs/neo/actions/workflows/agent-pr-body-lint.yml',
+            '/neomjs/neo/actions/workflows/config-template-ssot-lint.yml'
+        ]);
+    });
+
+    test('#16902: retains every job from the selected latest workflow run', async () => {
+        const oldRun   = workflowFixture({runId: 40, runNumber: 20});
+        const newRun   = workflowFixture({runId: 41, runNumber: 21});
+        const contexts = [
+            checkRun('failing', {name: 'old-job', workflow: oldRun}),
+            checkRun('success', {name: 'lint', workflow: newRun}),
+            checkRun('success', {name: 'unit', workflow: newRun})
+        ];
+        const result = await project(dependencies({
+            rules    : [[], []],
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.emittedContexts.map(item => item.name).sort()).toEqual(['lint', 'unit']);
+        expect(result.emittedContexts.every(item => item.workflow.runId === 41)).toBe(true);
+    });
+
+    test('#16902: preserves external checks without workflow-run coordinates', async () => {
+        const contexts = [checkRun('success', {
+            integration  : 'advanced-security',
+            integrationId: 57789,
+            name         : 'CodeQL',
+            workflow     : null
+        })];
+        const result = await project(dependencies({
+            rules    : [[], []],
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.checksVerdict).toBe('green');
+        expect(result.emittedContexts).toHaveLength(1);
+        expect(result.emittedContexts[0].workflow).toBeNull();
+    });
+
+    test('#16902: fails closed on incomplete or ambiguous workflow-run evidence', async () => {
+        const sameTupleA = workflowFixture({id: 10, runId: 50, runNumber: 30, runAttempt: 2});
+        const sameTupleB = workflowFixture({id: 10, runId: 51, runNumber: 30, runAttempt: 2});
+        const cases      = [
+            pullRequest({contexts: [checkRun('success', {workflow: null})]}),
+            pullRequest({
+                contexts: [
+                    checkRun('success', {workflow: sameTupleA}),
+                    checkRun('success', {workflow: sameTupleB})
+                ]
+            }),
+            pullRequest({checkTotalCount: 2})
+        ];
+
+        for (const snapshot of cases) {
+            const result = await project(dependencies({snapshots: [snapshot, snapshot]}));
+
+            expect(result.checksVerdict).toBe('unknown');
+            expect(result.blockers.map(item => item.code)).toContain('EMITTED_CONTEXTS_UNREADABLE');
+            expect(result.marker).toBeUndefined();
+        }
+    });
+
+    test('#16902: a missing exact-head rollup or commit mismatch cannot inherit another head', async () => {
+        for (const snapshot of [
+            pullRequest({checkRollupAvailable: false}),
+            pullRequest({checkCommit: NEXT_HEAD})
+        ]) {
+            const result = await project(dependencies({snapshots: [snapshot, snapshot]}));
+
+            expect(result.checksVerdict).toBe('unknown');
+            expect(result.blockers.map(item => item.code)).toContain('EMITTED_CONTEXTS_UNREADABLE');
+            expect(result.marker).toBeUndefined();
+        }
     });
 
     test('preserves the default conversation projection shape and source count', async () => {
@@ -498,17 +727,26 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.source.final.head).toBe(NEXT_HEAD);
     });
 
-    test('fails closed when identity binding is absent before any source read', async () => {
-        const deps   = dependencies();
-        const result = await PullRequestService.getConversation({
-            pr_number : 16029,
-            projection: 'merge-readiness'
-        }, deps);
+    test('fails closed before source reads when AgentIdentity or GitHub identity is unbound', async () => {
+        const assertions = [
+            undefined,
+            {...IDENTITY, principals: {...PRINCIPALS, agentIdentity: null}},
+            {...IDENTITY, principals: {...PRINCIPALS, githubLogin: null}}
+        ];
 
-        expect(result.verdict).toBe('unavailable');
-        expect(result.blockers[0].code).toBe('IDENTITY_BINDING_MISSING');
-        expect(result.marker).toBeUndefined();
-        expect(deps.calls()).toEqual({queryCall: 0, restCall: 0});
+        for (const identityAssertion of assertions) {
+            const deps   = dependencies();
+            const result = await PullRequestService.getConversation({
+                pr_number : 16029,
+                projection: 'merge-readiness',
+                identityAssertion
+            }, deps);
+
+            expect(result.verdict).toBe('unavailable');
+            expect(result.blockers[0].code).toBe('IDENTITY_BINDING_MISSING');
+            expect(result.marker).toBeUndefined();
+            expect(deps.calls()).toEqual({queryCall: 0, restCall: 0});
+        }
     });
 
     test('fails closed for a missing or wrong-integration required context', async () => {

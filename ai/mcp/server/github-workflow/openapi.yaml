@@ -382,13 +382,18 @@ paths:
         `projection: conversation` preserves the existing response shape.
 
         `projection: merge-readiness` is PR-only and accepts no caller-composed readiness
-        fields. GitHub Workflow binds the current AgentIdentity/GitHub/Memory Core principals,
-        reads the PR twice around two effective branch-rules reads, compares the snapshots,
-        derives required-vs-emitted context states, and feeds them to the existing
-        `validateMergeReady()` predicate. Only a positive coherent observation carries a
-        copyable `[merge-eligible][B-prime:...]` marker. Negative or unreadable observations
-        contain diagnostics and no marker. This resident-local observation reports what was
-        merge-ready at `observedAt`; it never grants merge authority or promises later validity.
+        fields. GitHub Workflow binds the current AgentIdentity/GitHub principals, reads the PR
+        twice around two effective branch-rules reads, compares the snapshots, selects every job
+        from the latest exact-head invocation of each GitHub Actions workflow, derives
+        required-vs-emitted context states, and feeds them to the existing `validateMergeReady()`
+        predicate. A missing Memory Core principal does not hide readable GitHub evidence: the
+        projection returns `verdict: unavailable` with a separate `checksVerdict`, names the missing
+        binding, and withholds the identity-bound marker. This preserves B-prime verdict semantics
+        while removing the need for a hand-rolled checks read. Only a positive observation with all
+        three principals carries a copyable `[merge-eligible][B-prime:...]` marker. Negative or
+        unreadable observations contain diagnostics and no marker. This resident-local observation
+        reports what was merge-ready at `observedAt`; it never grants merge authority or promises
+        later validity.
 
         **When to Use:**
         Use this tool to get the context of a pull request or issue — the initial proposal/body and the discussion history.

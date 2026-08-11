@@ -242,6 +242,7 @@ function projectBelievedOpen(repository, lookups) {
 
 function classifyEmittedContext(node) {
     if (node?.__typename === 'CheckRun' && node.name) {
+        const workflowRun = node.checkSuite?.workflowRun;
         let state;
 
         if (node.status !== 'COMPLETED') {
@@ -264,7 +265,15 @@ function classifyEmittedContext(node) {
             status       : node.status,
             conclusion   : node.conclusion,
             state,
-            url          : node.detailsUrl ?? null
+            url          : node.detailsUrl ?? null,
+            workflow     : workflowRun ? {
+                id          : workflowRun.workflow?.databaseId ?? null,
+                name        : workflowRun.workflow?.name ?? null,
+                resourcePath: workflowRun.workflow?.resourcePath ?? null,
+                runId       : workflowRun.databaseId ?? null,
+                runNumber   : workflowRun.runNumber ?? null,
+                runAttempt  : workflowRun.runAttempt ?? null
+            } : null
         };
     }
 
@@ -285,7 +294,8 @@ function classifyEmittedContext(node) {
             status       : node.state,
             conclusion   : null,
             state,
-            url          : node.targetUrl ?? null
+            url          : node.targetUrl ?? null,
+            workflow     : null
         };
     }
 
@@ -297,8 +307,88 @@ function classifyEmittedContext(node) {
         status       : null,
         conclusion   : null,
         state        : 'not-applicable',
-        url          : null
+        url          : null,
+        workflow     : null
     };
+}
+
+/**
+ * @summary Keeps every job from the latest exact-head run of each GitHub Actions workflow.
+ *
+ * A commit rollup can retain check runs from multiple invocations of the same workflow. Comparing
+ * those rows by check name is unsafe: unrelated workflows commonly expose the same generic job name
+ * (for example `lint`). The workflow definition id is therefore the grouping authority; run number
+ * and attempt form the newest-run coordinate, while run id distinguishes contradictory equal tuples.
+ * Check runs without a workflow owner (external integrations and legacy status contexts) stay intact
+ * and continue through the conservative required-context comparison. A GitHub Actions check without
+ * complete workflow coordinates makes the whole selection unreadable: silently retaining or dropping
+ * it could either manufacture a green result or erase a live failure.
+ *
+ * @param {Object[]} contexts Normalized exact-head rollup contexts.
+ * @returns {{contexts: Object[], readable: Boolean}} Selected contexts and selection readability.
+ */
+function selectLatestWorkflowContexts(contexts) {
+    const latestByWorkflow = new Map();
+    let   readable         = true;
+
+    const compareCoordinates = (left, right) => {
+        for (const field of ['runNumber', 'runAttempt']) {
+            const delta = left[field] - right[field];
+
+            if (delta) {
+                return delta;
+            }
+        }
+
+        return 0;
+    };
+
+    for (const context of contexts) {
+        const workflow = context.workflow;
+
+        if (context.kind !== 'check-run' || context.integration !== 'github-actions') {
+            continue;
+        }
+
+        if (
+            !Number.isInteger(workflow?.id) ||
+            !Number.isInteger(workflow.runId) ||
+            !Number.isInteger(workflow.runNumber) ||
+            !Number.isInteger(workflow.runAttempt)
+        ) {
+            readable = false;
+            continue;
+        }
+
+        const current  = latestByWorkflow.get(workflow.id);
+        const ordering = current ? compareCoordinates(current, workflow) : 1;
+
+        if (current && ordering === 0 && current.runId !== workflow.runId) {
+            readable = false;
+        } else if (!current || ordering < 0) {
+            latestByWorkflow.set(workflow.id, workflow);
+        }
+    }
+
+    const selected = contexts.filter(context => {
+        const workflow = context.workflow;
+
+        if (context.kind !== 'check-run' || context.integration !== 'github-actions') {
+            return true;
+        }
+
+        if (!Number.isInteger(workflow?.id)) {
+            return true;
+        }
+
+        const latest = latestByWorkflow.get(workflow.id);
+
+        return workflow.runId === latest.runId &&
+            workflow.runNumber === latest.runNumber &&
+            workflow.runAttempt === latest.runAttempt;
+    });
+
+    return {contexts: selected, readable};
 }
 
 function normalizeMergeReadinessSnapshot(pullRequest) {
@@ -312,7 +402,9 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
     const commit            = pullRequest.commits?.nodes?.[0]?.commit || null;
     const rollup            = commit?.statusCheckRollup;
     const contextConnection = rollup?.contexts;
-    const emittedContexts   = (contextConnection?.nodes || []).map(classifyEmittedContext)
+    const rawContexts       = Array.isArray(contextConnection?.nodes) ? contextConnection.nodes : [];
+    const selection         = selectLatestWorkflowContexts(rawContexts.map(classifyEmittedContext));
+    const emittedContexts   = selection.contexts
         .sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
 
     return {
@@ -329,12 +421,14 @@ function normalizeMergeReadinessSnapshot(pullRequest) {
             nodes      : reviewers
         },
         checks: {
-            commitAvailable: Boolean(commit),
-            commitOid      : commit?.oid ?? null,
-            rollupAvailable: rollup === null || Boolean(contextConnection && Array.isArray(contextConnection.nodes)),
-            hasNextPage    : Boolean(contextConnection?.pageInfo?.hasNextPage),
-            totalCount     : contextConnection?.totalCount ?? emittedContexts.length,
-            nodes          : emittedContexts
+            commitAvailable  : Boolean(commit),
+            commitOid        : commit?.oid ?? null,
+            rollupAvailable  : Boolean(contextConnection && Array.isArray(contextConnection.nodes)),
+            hasNextPage      : Boolean(contextConnection?.pageInfo?.hasNextPage),
+            totalCount       : contextConnection?.totalCount ?? null,
+            rawCount         : rawContexts.length,
+            selectionReadable: selection.readable,
+            nodes            : emittedContexts
         }
     };
 }
@@ -461,13 +555,15 @@ async function buildMergeReadinessProjection({
         ...options
     });
 
-    if (!identityAssertion?.ok || Object.values(principals).some(value => !value)) {
+    if (!identityAssertion?.ok || !principals.agentIdentity || !principals.githubLogin) {
         return fail({
             code   : 'IDENTITY_BINDING_MISSING',
-            message: 'The merge-readiness projection requires bound AgentIdentity, GitHub, and Memory Core principals.',
+            message: 'The merge-readiness projection requires bound AgentIdentity and GitHub principals.',
             audit  : [{source: 'identity-assertion', outcome: 'failed'}]
         });
     }
+
+    const identityBindingComplete = Boolean(principals.memoryCoreIdentity);
 
     const variables = {owner, repo, prNumber};
     let firstSnapshot;
@@ -559,10 +655,16 @@ async function buildMergeReadinessProjection({
     const checkSourceReady = snapshot.checks.commitAvailable &&
         snapshot.checks.rollupAvailable &&
         !snapshot.checks.hasNextPage &&
+        Number.isInteger(snapshot.checks.totalCount) &&
+        snapshot.checks.totalCount === snapshot.checks.rawCount &&
+        snapshot.checks.selectionReadable &&
         snapshot.checks.nodes.every(item => item.kind !== 'unknown') &&
         snapshot.checks.commitOid === snapshot.headRefOid;
     const checksGreen = checkSourceReady &&
         comparison.requiredStates.every(item => item.state === 'success');
+    const checksVerdict = checkSourceReady
+        ? checksGreen ? 'green' : 'not-green'
+        : 'unknown';
     const reviewRequests = reviewSourceReady
         ? snapshot.reviewRequests.nodes.map(item => item.login)
         : undefined;
@@ -597,22 +699,27 @@ async function buildMergeReadinessProjection({
         mergeStateStatus: snapshot.mergeStateStatus,
         reviewRequests
     });
-    const strictMergeReady = predicate.strictMergeReady && sourceBlockers.length === 0;
-    const requiredSet      = {
+    const sourceMergeReady    = predicate.strictMergeReady && sourceBlockers.length === 0;
+    const certifiedMergeReady = sourceMergeReady && identityBindingComplete;
+    const requiredSet         = {
         source  : `GET ${rulesPath}`,
         digest  : digestValue(requiredContexts),
         contexts: requiredContexts
     };
     const observationCore = {
-        schemaVersion: MERGE_READINESS_SCHEMA_VERSION,
-        repo         : `${owner}/${repo}`,
-        pr           : prNumber,
-        base         : snapshot.baseRefName,
-        head         : snapshot.headRefOid,
-        state        : snapshot.state,
-        mergedAt     : snapshot.mergedAt,
+        schemaVersion  : MERGE_READINESS_SCHEMA_VERSION,
+        repo           : `${owner}/${repo}`,
+        pr             : prNumber,
+        base           : snapshot.baseRefName,
+        head           : snapshot.headRefOid,
+        state          : snapshot.state,
+        mergedAt       : snapshot.mergedAt,
         observedAt,
         principals,
+        identityBinding: {
+            complete: identityBindingComplete,
+            missing : identityBindingComplete ? [] : ['memoryCoreIdentity']
+        },
         requiredSet,
         contextStates: comparison.requiredStates,
         predicate
@@ -628,19 +735,34 @@ async function buildMergeReadinessProjection({
         emittedContexts : snapshot.checks.nodes,
         emittedOnly     : comparison.emittedOnly,
         checksGreen,
-        verdict         : strictMergeReady ? 'merge-ready-observed' : 'not-merge-ready',
-        statement       : strictMergeReady
-            ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`
-            : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
+        checksVerdict,
+        verdict         : identityBindingComplete
+            ? sourceMergeReady ? 'merge-ready-observed' : 'not-merge-ready'
+            : 'unavailable',
+        statement       : !identityBindingComplete
+            ? `Observed GitHub checks verdict '${checksVerdict}' at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}; B-prime certification is unavailable because Memory Core identity is unbound.`
+            : certifiedMergeReady
+                ? `Observed strict merge-ready at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`
+                : `Did not observe strict merge-readiness at ${observedAt} for ${owner}/${repo}#${prNumber} head ${snapshot.headRefOid}.`,
         blockers: [
+            ...(!identityBindingComplete ? [{
+                code             : 'IDENTITY_BINDING_MISSING',
+                message          : 'Memory Core identity is unbound; GitHub checks remain readable but B-prime certification is unavailable.',
+                missingPrincipals: ['memoryCoreIdentity'],
+                affects          : ['b-prime-certification']
+            }] : []),
             ...sourceBlockers,
             ...predicate.blockers.map(message => ({code: 'STRICT_MERGE_READINESS', message}))
         ],
         audit: [
             ...audit,
-            {source: 'validateMergeReady', call: 1, outcome: strictMergeReady ? 'positive' : 'negative'}
+            {source: 'validateMergeReady', call: 1, outcome: sourceMergeReady ? 'positive' : 'negative'},
+            {
+                source : 'memory-core-identity',
+                outcome: identityBindingComplete ? 'bound' : 'unbound-certification-withheld'
+            }
         ],
-        ...(strictMergeReady ? {marker: `[merge-eligible][B-prime:${observationId}]`} : {})
+        ...(certifiedMergeReady ? {marker: `[merge-eligible][B-prime:${observationId}]`} : {})
     };
 
     return deepFreeze(result);

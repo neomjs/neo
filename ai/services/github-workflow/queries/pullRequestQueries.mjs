@@ -103,6 +103,16 @@ export const GET_MERGE_READINESS = `
                           databaseId
                           slug
                         }
+                        workflowRun {
+                          databaseId
+                          runNumber
+                          runAttempt
+                          workflow {
+                            databaseId
+                            name
+                            resourcePath
+                          }
+                        }
                       }
                     }
                     ... on StatusContext {
