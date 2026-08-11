@@ -153,10 +153,39 @@ test.describe('Neo.ai.mcp.server.shared.services.HeapObservationReporterService 
         // `start()` runs inside `BaseServer.initAsync()`, so a throw here fails a whole MCP server's
         // startup over an observation lane. The config read is the one operation that runs before any
         // guard could report through a return value, which is why it is inside this one.
-        const unreadable = {get enabled() { throw new Error('overlay unresolved') }};
+        //
+        // This throws where PRODUCTION reads. The superseded seam was a default parameter,
+        // `config = AiConfig.heapObservation`, and defaults evaluate before the body — so the shipped
+        // read sat outside the `try` while this spec injected an object whose getter throws INSIDE it.
+        // That arm passed against a boundary production never crossed. Failing the reader itself is
+        // the same call the shipped path makes.
+        const unreadable = () => { throw new Error('overlay unresolved') };
 
-        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir: makeDir(), config: unreadable}))
+        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir: makeDir(), readConfig: unreadable}))
             .toBe(false);
+    });
+
+    test('an unreadable config is caught at the READER, not merely at the leaf access', () => {
+        // The distinction the default-parameter bug hid: a reader that throws on invocation models an
+        // `AiConfig.heapObservation` read that fails outright — an unresolved overlay, a provider that
+        // rejects — whereas a throwing `enabled` getter only models a failure one property deeper, and
+        // is reachable from inside any guard. Both must be total; only the first was ever in doubt.
+        const dir = makeDir();
+
+        expect(() => HeapObservationReporterService.start({
+            serviceKey: 'mc-server',
+            dir,
+            readConfig: () => { throw new Error('provider rejected the read') }
+        })).not.toThrow();
+
+        expect(HeapObservationReporterService.start({
+            serviceKey: 'mc-server',
+            dir,
+            readConfig: () => ({get enabled() { throw new Error('leaf unresolved') }})
+        })).toBe(false);
+
+        // Neither arm started a cadence, so neither published.
+        expect(fs.readdirSync(dir)).toEqual([]);
     });
 
     test('start() survives a channel that can never be written', () => {
@@ -177,7 +206,7 @@ test.describe('Neo.ai.mcp.server.shared.services.HeapObservationReporterService 
     test('a disabled channel starts nothing', () => {
         const dir = makeDir();
 
-        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir, config: {enabled: false}}))
+        expect(HeapObservationReporterService.start({serviceKey: 'mc-server', dir, readConfig: () => ({enabled: false})}))
             .toBe(false);
         expect(fs.readdirSync(dir)).toEqual([]);
     });
