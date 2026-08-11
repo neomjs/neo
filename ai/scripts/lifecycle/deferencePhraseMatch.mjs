@@ -29,7 +29,16 @@ export const DEFERENCE_PHRASES = [
     "unless you'd rather",
     'or steer me elsewhere',
     'your call',
-    'your move'
+    'your move',
+    // The subtlest form, and the one that survives a self-audit: the agent NAMES the highest-value
+    // action, then attaches a permission gate that does not exist. It reads as deferential courtesy
+    // and functions as a stop - the work is identified, credited, and not done. Operator-caught
+    // 2026-08-11 on a live client incident, where the named action was the cheapest unrun probe of a
+    // seven-week outage. Listed as three surface forms because the trailing object varies and none
+    // of the neighbours above match any of them.
+    'if you want it',
+    'if you want me',
+    'if you would like'
 ];
 
 /**

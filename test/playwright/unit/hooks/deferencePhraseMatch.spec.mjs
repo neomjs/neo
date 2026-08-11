@@ -152,4 +152,22 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(reminder).toContain('mutable substrate');
         expect(reminder).toContain('deference phrase "your call"');
     });
+
+    test('the permission-gate form: names the action, then attaches a gate that does not exist (#16706)', () => {
+        // Operator-caught 2026-08-11 during a live client incident. This is the subtlest form and the
+        // one that survives a self-audit, because it reads as courtesy: the agent identifies the
+        // highest-value action — there, the cheapest unrun probe of a seven-week outage — takes credit
+        // for identifying it, and then does not do it. The work is named and not done.
+        expect(matchDeferencePhrase('The one thing I would still act on immediately if you want it: run ollama ps on that host.')).toBeTruthy();
+        expect(matchDeferencePhrase('I can wire the KB probe too if you want me to.')).toBeTruthy();
+        expect(matchDeferencePhrase('I will add it if you would like.')).toBeTruthy();
+    });
+
+    test('NON-VACUITY — a declarative lane claim is NOT deference', () => {
+        // Without this arm a matcher that flagged every sentence would pass the arm above. Announcing
+        // and taking a lane is the required behaviour, not the slip.
+        expect(matchDeferencePhrase('Taking the starved-record lane now.')).toBeFalsy();
+        expect(matchDeferencePhrase('I will take FIX-2 next.')).toBeFalsy();
+        expect(matchDeferencePhrase('Running ollama ps on that host now.')).toBeFalsy();
+    });
 });
