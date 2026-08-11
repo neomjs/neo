@@ -1722,14 +1722,22 @@ export function calculateDockerMemoryPercent(stats) {
  * disposition problem, not an attribution one. That distinction decides the repair: a residual-demand
  * problem is answered by accounting, and only an ownership problem would need process cardinality.
  *
- * **The mechanism class is now measured, though not for this specimen.** Ollama at tag `v0.23.1` logs
- * `"aborting embedding request due to client closing the connection"` only when the admission semaphore
- * acquire is cancelled — *pre-admission*. Once admitted, the handler waits on its result and never
- * re-checks the request context, so **admitted work survives client disconnect**; a request was observed
- * completing after 1h6m and then failing to write its reply (`broken pipe`) with nobody attached. That
- * is a service-owned process burning cores with no arriving traffic — axis 2 owned, axis 3 residual —
- * exactly the shape this block describes. **It does not establish the origin of the historical
- * specimen above**, which was a different plane on a different day and stays bounded as recorded.
+ * **One residual-demand specimen has been observed, and its bounds are the point.** Two facts, kept
+ * separate because merging them is how this paragraph previously overstated itself:
+ *
+ * - **Source, at tag `v0.23.1`:** the log line `"aborting embedding request due to client closing the
+ *   connection"` is emitted only where the admission semaphore acquire is cancelled — it is a
+ *   **pre-admission** signal. So that line's presence says nothing about admitted work either way.
+ * - **Observation, once:** an admitted request completed after 1h6m and then failed to write its reply
+ *   (`broken pipe`), meaning the reply socket was closed by then. **The disconnect point was not
+ *   observed** — only that the request ran to completion and had no reader at the end.
+ *
+ * Together those establish that **a service-owned process can burn cores with no arriving traffic** —
+ * axis 2 owned, axis 3 residual, the shape this block describes. They do **not** establish a universal
+ * rule that admitted work always survives a disconnect, and an earlier revision of this paragraph
+ * asserted exactly that from the source read alone; it is retired here. Nor does any of it establish
+ * the origin of the historical 399.4% specimen above, which was a different plane on a different day
+ * and stays bounded as recorded.
  *
  * **Latent, with no live instance:** `commandText` reads `Config.Cmd` and never `Config.Entrypoint`, so
  * a Node service whose `node` token sits in the entrypoint would read `false` — gaining container
