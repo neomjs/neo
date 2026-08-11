@@ -67,7 +67,16 @@ export const HEAP_OBSERVATION_STATE = Object.freeze({observed: 'observed', unava
  * as "nobody bounded this", which is precisely the claim this record exists to make falsifiable. Both
  * channels are now read.
  *
- * Divergence between the two is reported as `ambiguous` rather than resolved. The last-wins rule is
+ * **`ambiguous` means "a declaration is in play and no single ceiling can be read from it", which has
+ * two causes rather than one.** The first is divergence between the channels, below. The second is a
+ * declaration that names the flag while carrying no ceiling this reader will state — a value V8
+ * ignores, a value Node refuses to start on, or a `NODE_OPTIONS` string Node cannot tokenize at all;
+ * {@link readCeilingToken} and {@link tokenizeNodeOptions} carry the measurements. Both causes leave
+ * `bytes` at `null` and both are emphatically **not** `undeclared`, which is affirmative evidence that
+ * no declaration exists. Consumers already gate on `ceilingState === 'declared'`
+ * (`ContainerHealthDiagnosisService`), so the widened meaning reaches them as the same refusal.
+ *
+ * Divergence between the two channels is reported as `ambiguous` rather than resolved. The last-wins rule is
  * consistent across all five measurements above (concatenate `NODE_OPTIONS` then the command line and
  * take the last), but it is V8's rule, not ours, and `heapSizeLimitBytes` is already observed
  * independently — so a consumer needing to know **which declaration V8 actually applied** can read that
@@ -115,6 +124,22 @@ export const UNAVAILABLE_REASON = Object.freeze({
 const MEGABYTE = 1024 * 1024;
 
 /**
+ * Matches an argument token that names the old-generation ceiling flag, capturing its raw value.
+ * `[\s\S]*` rather than `.*` so a value carrying a newline is captured instead of silently truncated:
+ * only the space character separates tokens in `NODE_OPTIONS`, so a newline reaches the value intact.
+ * @type {RegExp}
+ */
+const CEILING_FLAG = /^--max[-_]old[-_]space[-_]size(?:=([\s\S]*))?$/;
+
+/**
+ * Detects the flag name anywhere in a raw, untokenizable `NODE_OPTIONS` value. Deliberately unanchored
+ * and used only when tokenization failed: at that point no token boundaries exist to anchor to, and the
+ * question has narrowed to whether the unreadable value is one worth failing closed over.
+ * @type {RegExp}
+ */
+const NAMES_CEILING_FLAG = /--max[-_]old[-_]space[-_]size/;
+
+/**
  * @summary Reads the declared old-generation ceiling out of a process argument vector.
  *
  * Fail-closed on ambiguity, matching how `DeploymentStateBridgeService` treats the same flag when it
@@ -127,6 +152,11 @@ const MEGABYTE = 1024 * 1024;
  * for the measurements. `sources` names which channels carried a declaration, so a ceiling arriving
  * through `NODE_OPTIONS` on a deployment that forbids it is visible rather than merely counted.
  *
+ * The two channels are also **parsed** differently, which is not an inconsistency but the measured
+ * behaviour: `NODE_OPTIONS` is quote-aware syntax Node consumes itself, while an `execArgv` entry
+ * reaches V8 verbatim. {@link tokenizeNodeOptions} covers the split and why applying it to both would
+ * credit declarations that cannot exist.
+ *
  * @param {String[]} [execArgv]    Node execution arguments.
  * @param {String}   [nodeOptions] Raw `NODE_OPTIONS` value.
  * @returns {Object} `{state, bytes, sources}` where `bytes` is `null` for every non-`declared` state.
@@ -137,28 +167,152 @@ export function readDeclaredCeiling(execArgv = [], nodeOptions = '') {
             const found = [];
 
             for (const arg of Array.isArray(args) ? args : []) {
-                const match = /^--max[-_]old[-_]space[-_]size=(\d+)$/.exec(String(arg));
+                const read = readCeilingToken(String(arg));
 
-                match && found.push({bytes: Number(match[1]) * MEGABYTE, source})
+                read && found.push({bytes: read.bytes, source})
             }
 
             return found
         },
-        // Whitespace-split rather than shell-parsed: Node accepts no quoting inside NODE_OPTIONS for
-        // this flag, and a parser richer than the input it reads invents cases it cannot verify.
-        envArgs = typeof nodeOptions === 'string' ? nodeOptions.split(/\s+/).filter(Boolean) : [],
-        values  = [...readFrom(envArgs, CEILING_SOURCE.nodeOptions), ...readFrom(execArgv, CEILING_SOURCE.execArgv)],
+        // `null` means the value is one Node itself rejects, so no token list exists to read. The two
+        // channels get different treatment on purpose: quotes are NODE_OPTIONS syntax and are illegal
+        // in `execArgv` — see {@link tokenizeNodeOptions}.
+        envTokens = typeof nodeOptions === 'string' ? tokenizeNodeOptions(nodeOptions) : [],
+        envValues = envTokens === null
+            // Unreadable, yet it names the flag: a declaration is present and its ceiling cannot be
+            // stated. That is the `ambiguous` case, never the `undeclared` one.
+            ? (NAMES_CEILING_FLAG.test(nodeOptions) ? [{bytes: null, source: CEILING_SOURCE.nodeOptions}] : [])
+            : readFrom(envTokens, CEILING_SOURCE.nodeOptions),
+        values  = [...envValues, ...readFrom(execArgv, CEILING_SOURCE.execArgv)],
         sources = Object.freeze([...new Set(values.map(value => value.source))]);
 
     if (values.length === 0) {
         return {state: CEILING_STATE.undeclared, bytes: null, sources}
     }
 
-    if (values.some(value => value.bytes !== values[0].bytes)) {
+    // A declaration exists, so `undeclared` is off the table from here — it is affirmative evidence
+    // that none was found, and returning it for a flag that is present is the false negative this
+    // whole record exists to prevent. A `null` bytes entry is a declaration whose ceiling could not
+    // be read; it degrades the answer to `ambiguous` exactly as a disagreement between two readable
+    // ones does, because both mean "a declaration is in play and I decline to name a number".
+    if (values.some(value => value.bytes === null || value.bytes !== values[0].bytes)) {
         return {state: CEILING_STATE.ambiguous, bytes: null, sources}
     }
 
     return {state: CEILING_STATE.declared, bytes: values[0].bytes, sources}
+}
+
+/**
+ * @summary Splits a raw `NODE_OPTIONS` value into argument tokens the way Node itself does.
+ *
+ * This is a transcription of Node's `ParseNodeOptionsEnvVar` (`src/node_options.cc`), not a shell
+ * parser and not a richer one: **double quotes are removed wherever they appear**, a backslash escapes
+ * the next character only *inside* a quoted run, and **only the space character separates** — a tab
+ * does not. Measured on node `v25.9.0`, all five of these apply an identical 256 MiB ceiling
+ * (`heap_size_limit = 469762048` against a 4288 MiB baseline):
+ *
+ * | `NODE_OPTIONS`                  | ceiling in force |
+ * |---------------------------------|------------------|
+ * | `--max-old-space-size=256`      | yes              |
+ * | `"--max-old-space-size=256"`    | yes              |
+ * | `--max-old-space-size="256"`    | yes              |
+ * | `"--max-old-space-size"=256`    | yes              |
+ * | `--max-old-space-size=25"6"`    | yes              |
+ *
+ * The superseded revision whitespace-split and applied an unquoted-token regex, and its comment
+ * asserted Node accepts no quoting here. Four of those five rows therefore reported `undeclared` for a
+ * process that was genuinely bounded — the exact false-negative direction {@link CEILING_STATE} was
+ * written to eliminate on the `execArgv`-only bug, reintroduced one channel over. Note that matching
+ * only the two *shapes* named above would still miss row five, so the transcription is the fix rather
+ * than a pair of extra patterns: the mechanism strips quotes, it does not recognise forms.
+ *
+ * **The asymmetry with `execArgv` is real and measured.** Quoting is `NODE_OPTIONS` syntax that Node
+ * consumes before V8 sees the flag; the same text arriving through the command line reaches V8 intact
+ * and Node **refuses to start** (`--max-old-space-size="256"` → *Value for flag ... of type size_t is
+ * out of bounds*). So a live process can never carry a quoted `execArgv` entry, and stripping quotes
+ * there would credit a declaration that cannot exist. Only this channel is tokenized.
+ *
+ * @param {String} nodeOptions Raw `NODE_OPTIONS` value.
+ * @returns {String[]|null} The tokens, or `null` for a value Node rejects outright — an unterminated
+ * quoted run or a trailing escape, both of which abort startup rather than yielding a process to
+ * observe.
+ */
+function tokenizeNodeOptions(nodeOptions) {
+    const tokens = [];
+
+    let inString    = false,
+        startNewArg = true;
+
+    for (let index = 0; index < nodeOptions.length; index++) {
+        let char = nodeOptions[index];
+
+        if (char === '\\' && inString) {
+            if (index + 1 === nodeOptions.length) {
+                return null
+            }
+
+            char = nodeOptions[++index]
+        } else if (char === ' ' && !inString) {
+            startNewArg = true;
+            continue
+        } else if (char === '"') {
+            inString = !inString;
+            continue
+        }
+
+        if (startNewArg) {
+            tokens.push(char);
+            startNewArg = false
+        } else {
+            tokens[tokens.length - 1] += char
+        }
+    }
+
+    return inString ? null : tokens
+}
+
+/**
+ * @summary Reads one already-tokenized argument as a ceiling declaration.
+ *
+ * Separating "does this name the flag" from "can I read its value" is what keeps a broken declaration
+ * out of the `undeclared` bucket. The value rule is measured against what V8 does with it rather than
+ * assumed, on node `v25.9.0` and against a 4288 MiB baseline:
+ *
+ * | value                    | node starts | ceiling in force | read as    |
+ * |--------------------------|-------------|------------------|------------|
+ * | `256`, `0256`            | yes         | 256 MiB          | `declared` |
+ * | `+256`                   | yes         | 256 MiB          | `declared` |
+ * | `0`                      | yes         | **no**           | ambiguous  |
+ * | `-256`                   | yes         | **no**           | ambiguous  |
+ * | `99999999999999999999`   | yes         | **no**           | ambiguous  |
+ * | `256abc`, `256.0`        | **no**      | —                | ambiguous  |
+ * | *(no `=value` at all)*   | **no**      | —                | ambiguous  |
+ *
+ * The superseded `=(\d+)` predicate got two of these wrong in both directions at once: it reported
+ * `undeclared` for `+256`, which bounds the process at 256 MiB, and `declared` at **zero bytes** for
+ * `=0`, which bounds nothing at all — a ceiling of zero makes every saturation ratio taken against it
+ * infinite. V8 silently ignores the three "no" rows, so each is a declaration whose ceiling is not
+ * what it says; naming a number for any of them would be worse than declining to.
+ *
+ * The upper bound is `Number.isSafeInteger` on the byte product rather than a transcribed V8 `size_t`
+ * limit: the point is to never state a byte count this runtime cannot represent exactly, which is a
+ * property of the arithmetic here and needs no constant from a runtime we do not control.
+ *
+ * @param {String} token One argument token.
+ * @returns {Object|null} `{bytes}` when the token names the flag — `bytes` is `null` when it names it
+ * without a readable ceiling — or `null` when the token is some other flag entirely.
+ */
+function readCeilingToken(token) {
+    const match = CEILING_FLAG.exec(token);
+
+    if (!match) {
+        return null
+    }
+
+    const digits = /^\+?(\d+)$/.exec(match[1] ?? ''),
+          mib    = digits ? Number(digits[1]) : NaN;
+
+    return {bytes: mib > 0 && Number.isSafeInteger(mib * MEGABYTE) ? mib * MEGABYTE : null}
 }
 
 /**

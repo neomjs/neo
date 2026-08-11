@@ -134,18 +134,30 @@ class HeapObservationReporterService extends Base {
      *
      * `true` means the cadence started, NOT that the first write succeeded — a write failure is
      * reported through `writeOnce()`'s own return and must not stop the channel from trying again.
-     * `config` is the same use-site-default seam the bridge's reader takes, so a spec can exercise the
-     * disabled and unreadable arms without mutating the shared `AiConfig` singleton.
+     *
+     * **The seam is a reader rather than a value, and that is what makes the guard falsifiable.** It
+     * was `config = AiConfig.heapObservation`, a default parameter — and JavaScript evaluates those
+     * *before* entering the function body, so the one config read production actually performs sat
+     * outside the very `try` this method's contract is built on. The old spec injected an object whose
+     * `enabled` getter throws, which proves the in-body read is caught and can never reach the
+     * production path, so the totality claim above held only by code-reading. A thunk closes it: the
+     * default is now an arrow-function literal, whose *creation* cannot throw, and the read happens at
+     * `readConfig()` inside the guard. Production and every spec arm then run the identical mechanism
+     * and differ only in which function is invoked — an injected throwing reader is a true falsifier
+     * for the shipped path, and the shared `AiConfig` singleton still never gets mutated to isolate a
+     * test.
      *
      * @param {Object}   options
-     * @param {String}   options.serviceKey Stable service identity.
-     * @param {String}   [options.dir]      Directory to publish into.
-     * @param {Function} [options.writeLog] Optional logger, called `(level, message)`.
-     * @param {Object}   [options.config]   Resolved `heapObservation` leaves.
+     * @param {String}   options.serviceKey   Stable service identity.
+     * @param {String}   [options.dir]        Directory to publish into.
+     * @param {Function} [options.writeLog]   Optional logger, called `(level, message)`.
+     * @param {Function} [options.readConfig] Returns the resolved `heapObservation` leaves.
      * @returns {Boolean} Whether reporting started.
      */
-    start({serviceKey, dir, writeLog, config = AiConfig.heapObservation}) {
+    start({serviceKey, dir, writeLog, readConfig = () => AiConfig.heapObservation}) {
         try {
+            const config = readConfig();
+
             if (!config.enabled) {
                 return false
             }
