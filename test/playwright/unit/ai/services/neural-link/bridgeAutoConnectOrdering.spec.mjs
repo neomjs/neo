@@ -26,6 +26,65 @@ const NEURAL_LINK_ENTRYPOINT = fileURLToPath(
 );
 
 /**
+ * @summary Calls `healthcheck` on a spawned Neural Link server over its real stdio MCP transport.
+ *
+ * Drives the actual protocol rather than importing `HealthService` in-process, because the claim
+ * under test is what a CLIENT is told by a server that survived a failed Bridge spawn — an
+ * in-process call would answer from a different config resolution and prove nothing about the child.
+ *
+ * @param {Object} child The spawned ChildProcess.
+ * @param {Number} [timeoutMs=8000] Overall budget for the handshake plus the call.
+ * @returns {Promise<Object|null>} The parsed health payload, or null if it never answered.
+ */
+async function callHealthcheck(child, timeoutMs = 8000) {
+    return new Promise(resolve => {
+        let buffer  = '',
+            settled = false;
+
+        const finish = value => {
+            if (!settled) {
+                settled = true;
+                clearTimeout(timer);
+                resolve(value)
+            }
+        };
+
+        const timer = setTimeout(() => finish(null), timeoutMs);
+
+        child.stdout.on('data', chunk => {
+            buffer += chunk.toString();
+
+            for (const line of buffer.split('\n')) {
+                if (!line.trim().startsWith('{')) continue;
+
+                let message;
+
+                try { message = JSON.parse(line) } catch { continue }
+
+                if (message.id === 1) {
+                    child.stdin.write(`${JSON.stringify({jsonrpc: '2.0', method: 'notifications/initialized'})}\n`);
+                    child.stdin.write(`${JSON.stringify({
+                        jsonrpc: '2.0', id: 2, method: 'tools/call',
+                        params : {name: 'healthcheck', arguments: {}}
+                    })}\n`)
+                }
+
+                if (message.id === 2) {
+                    const text = message.result?.content?.[0]?.text;
+
+                    try { finish(text ? JSON.parse(text) : message.result) } catch { finish(message.result) }
+                }
+            }
+        });
+
+        child.stdin.write(`${JSON.stringify({
+            jsonrpc: '2.0', id: 1, method: 'initialize',
+            params : {protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {name: 'witness', version: '1'}}
+        })}\n`)
+    })
+}
+
+/**
  * @summary Coverage for the Bridge auto-connect boot ordering.
  *
  * `ConnectionService` is a singleton constructed by its own import in `Server.mjs:4`. The entrypoint
@@ -102,6 +161,24 @@ test.describe('ai/services/neural-link — Bridge auto-connect ordering (#16429)
             // and the process dies instead — the outcome this whole boot path exists to prevent.
             expect(exited, `MCP server exited (${exited}) instead of surviving an unspawnable Bridge`).toBeNull();
             expect(child.exitCode, 'the server process must still be running').toBeNull();
+
+            // "Alive" is only half the promise. A survivor that misreports its own state sends the
+            // operator to the wrong socket, so the witness continues THROUGH the real stdio MCP
+            // transport and reads what a client would actually be told.
+            const health = await callHealthcheck(child);
+
+            expect(health, 'healthcheck must answer on a surviving server').toBeTruthy();
+
+            // The configured port, not the class-field default. This is the assertion that fails
+            // when the payload reads `ConnectionService.port`: a server configured on 34117 answered
+            // 8081, which is indistinguishable from a correct answer unless you configured it away
+            // from the default on purpose.
+            expect(health.bridge?.port, 'healthcheck must report the CONFIGURED bridge port').toBe(34117);
+
+            // Attribution: unhealthy alone cannot tell an operator whether the Bridge is down, slow,
+            // or unspawnable. The sanitized code can, and carries no path or argv.
+            expect(health.bridge?.connected, 'the Bridge cannot be connected here').toBe(false);
+            expect(health.bridge?.spawnFailure, 'healthcheck must attribute the spawn failure').toBe('ENOENT');
         } finally {
             child.kill('SIGKILL')
         }

@@ -138,7 +138,12 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
             return {
                 unref() {
                     unrefCalled = true
-                }
+                },
+                // A real `spawn()` returns a ChildProcess, which IS an EventEmitter — the production
+                // path subscribes to 'error' because a spawn failure arrives as an event rather than
+                // a throw. A double without `once` models a boundary that cannot fail the way the
+                // real one does, so it stayed green while production had no failure path at all.
+                once() {}
             }
         };
 
@@ -192,7 +197,9 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
         const logDir = path.resolve(os.tmpdir(), `nl-bridge-delay-${process.pid}-${Date.now()}`);
 
         ConnectionService.openBridgeLogFile  = () => 42;
-        ConnectionService.spawnBridgeProcess = () => ({unref() {}});
+        // `once` is part of the real boundary: spawn returns an EventEmitter and the production path
+        // subscribes to 'error'. See the fuller note on the double above.
+        ConnectionService.spawnBridgeProcess = () => ({unref() {}, once() {}});
         ConnectionService.cwd                = '/real-seat';
 
         const startedAt = Date.now();

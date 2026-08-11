@@ -183,11 +183,13 @@ class ConnectionService extends Base {
          */
         cwd: null,
         /**
-         * @member {Number} port=8081
-         * Legacy prototype default; connection/spawn reads `aiConfig.port` at the use site.
+         * @member {String|null} lastSpawnFailure=null
+         * Sanitized reason the most recent Bridge spawn failed (error `code`, or a short message
+         * with no paths/argv), surfaced through `getStatus()` so healthcheck can attribute an
+         * unconnected Bridge instead of only reporting that it is down.
          * @protected
          */
-        port: 8081,
+        lastSpawnFailure: null,
         /**
          * @member {Number} bridgeInfoTimeout=1000
          * @protected
@@ -531,7 +533,14 @@ class ConnectionService extends Base {
             windows,
             bridgeConnected: !!this.bridgeSocket,
             agentId        : this.agentId,
-            agents         : Array.from(this.activeAgents)
+            agents         : Array.from(this.activeAgents),
+            // Resolved at the use site from the SSOT, exactly like `createBridgeUrl()` and the spawn
+            // path. Reporting a class-field default here is how healthcheck came to answer 8081 for
+            // a server configured on another port — the operator then debugs the wrong socket.
+            port           : aiConfig.port,
+            // Sanitized on capture, not here: an operator needs to know the Bridge failed to spawn
+            // and why, without the payload carrying host paths or argv.
+            lastSpawnFailure: this.lastSpawnFailure
         }
     }
 
@@ -819,6 +828,10 @@ class ConnectionService extends Base {
             // the opposite of the survivability this boot path exists to provide. Rejecting instead
             // routes the failure back into the caller's existing non-fatal handling.
             this.bridgeProcess.once('error', error => {
+                // Sanitized deliberately: `error.message` carries the spawn path and argv, and this
+                // value travels to any healthcheck caller. The code (ENOENT, EACCES) is what an
+                // operator acts on; the path is what leaks.
+                this.lastSpawnFailure = error.code || 'BRIDGE_SPAWN_FAILED';
                 logger.error(`[ConnectionService] Bridge spawn failed: ${error.message}`);
                 reject(error)
             });
