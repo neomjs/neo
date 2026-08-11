@@ -356,7 +356,11 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         });
         expect(typeof ollamaTask.livenessProbe).toBe('function');
         expect(typeof ollamaTask.postSpawn).toBe('function');
-        expect(ollamaTask.healthProbe).toBeUndefined();
+        // A supervised runner with no healthProbe has no path back from stranded: residency answers
+        // while one grinding inference holds the only NUM_PARALLEL slot. Asserting the probe EXISTS
+        // is the guard against retiring recovery again — the previous removal left a client
+        // deployment burning its full CPU allocation for days with no user work in flight.
+        expect(typeof ollamaTask.healthProbe).toBe('function');
 
         AiConfig.embeddingProvider = 'gemini';
         expect(createMinimalOrchestrator().buildConfiguredTaskDefinitions({

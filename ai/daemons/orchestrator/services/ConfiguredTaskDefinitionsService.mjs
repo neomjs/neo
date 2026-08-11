@@ -184,6 +184,10 @@ function applyConfiguredOllamaTask(tasks) {
         return;
     }
 
+    // Persisted across probe calls (the closure outlives this function): consecutive sustained
+    // inference-canary failures before the stuck-runner recycle fires.
+    let consecutiveStuckFailures = 0;
+
     tasks.ollama = {
         label                  : 'ollama server',
         command                : 'ollama',
@@ -226,6 +230,46 @@ function applyConfiguredOllamaTask(tasks) {
             } catch {
                 return false;
             }
+        },
+        healthProbe            : async () => {
+            // Residency probes are not liveness. A runner can answer `/api/tags` while one
+            // pathological inference grinds at ~100%×N-cores and serves nothing, because
+            // OLLAMA_NUM_PARALLEL=1 queues everything behind it. Only a real inference canary
+            // distinguishes stuck from busy, and without one a stranded runner has no path back:
+            // it burns its full CPU allocation forever with no user work in flight.
+            //
+            // The canary is safe to time out now because its abort closes the connection rather
+            // than returning a pooled socket, so the provider observes a peer disconnect and ends
+            // the work instead of orphaning it. That was the objection that retired the previous
+            // attempt, and it is answered at the transport rather than by removing detection.
+            //
+            // A single failure stays HEALTHY — a legitimately-long request must never be killed.
+            // Only `consecutiveFailures` sustained failures recycle, and the supervisor's restart
+            // cooldown bounds the cadence.
+            const stuckCfg  = AiConfig.orchestrator.providerReadiness.stuckRunner,
+                  chatModel = roles.find(role => role.role === 'chat')?.model;
+
+            if (!stuckCfg.enabled || !chatModel) {
+                return true;
+            }
+
+            const {classifyStuckRunner, probeOllamaServing} = await import('../../../services/graph/ollamaStuckRunnerLiveness.mjs');
+
+            const served = await probeOllamaServing({
+                host     : readinessConfig.host,
+                model    : chatModel,
+                timeoutMs: stuckCfg.canaryTimeoutMs
+            });
+
+            const verdict = classifyStuckRunner({
+                served,
+                consecutiveFailures: consecutiveStuckFailures,
+                threshold          : stuckCfg.consecutiveFailures
+            });
+
+            consecutiveStuckFailures = verdict.consecutiveFailures;
+
+            return verdict.alive;
         },
         postSpawn              : async () => {
             const {ensureOllamaModelsReady} = await import('../../../services/graph/providerReadinessHelper.mjs');
