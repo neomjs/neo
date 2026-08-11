@@ -16,13 +16,13 @@ setup({
 });
 
 import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
-import os                    from 'node:os';
-import path                  from 'node:path';
-import {test, expect}        from '@playwright/test';
-import Database              from 'better-sqlite3';
-import Neo                   from '../../../../../../src/Neo.mjs';
-import * as core             from '../../../../../../src/core/_export.mjs';
-import {snapshotAiConfig}    from '../memory-core/util.mjs';
+import os                                   from 'node:os';
+import path                                 from 'node:path';
+import {test, expect}                       from '@playwright/test';
+import Database                             from 'better-sqlite3';
+import Neo                                  from '../../../../../../src/Neo.mjs';
+import * as core                            from '../../../../../../src/core/_export.mjs';
+import {snapshotAiConfig}                   from '../memory-core/util.mjs';
 
 /**
  * @summary Persistence failure is an UNBOUNDED re-embed loop, proven through PRODUCTION's own selector.
@@ -251,6 +251,137 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
 
         restoreKBConfig?.();
         restoreMCConfig?.();
+    });
+
+    test('a PROVIDER rejection is STILL retried — the repair caches a result, never a failure', async () => {
+        // The negative control for `??=`. Caching the embeddings across retries is only safe if a
+        // FAILED provider call leaves nothing cached: `embeddings ??= await embedTexts(...)` never
+        // assigns when the await throws, so the next lap must re-attempt the provider. If that were
+        // wrong the repair would convert one transient provider blip into a permanently unembeddable
+        // batch — strictly worse than the redundant work it removes.
+        KB_Config.data.maxRetries = 3;
+
+        const corpus = makeChunks(2);
+
+        let providerAttempts = 0,
+            upsertCalls      = 0;
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) {
+                const texts = Array.isArray(input) ? input : [input];
+
+                providerAttempts++;
+
+                // Fails the first attempt, succeeds after — a transient provider, which must still be
+                // re-asked rather than written off.
+                if (providerAttempts < 2) throw new Error('provider unavailable: transient embed rejection');
+
+                return {embeddings: texts.map(() => new Array(384).fill(0.1))}
+            }
+        };
+
+        const landed     = new Set(),
+              collection = {
+                  name: 'flaky-provider-knowledge-base',
+                  async count() { return landed.size },
+                  async get() { return {ids: [...landed], metadatas: [], documents: []} },
+                  async delete({ids}) { ids.forEach(id => landed.delete(id)) },
+                  async upsert({ids}) { upsertCalls++; ids.forEach(id => landed.add(id)) }
+              };
+
+        const result = await KB_VectorService.embedChunks({collection, chunksToProcess: corpus});
+
+        expect(providerAttempts, 'the failed provider call is re-attempted, not cached').toBe(2);
+        expect(result.embedded, 'and the batch converges once the provider recovers').toBe(corpus.length);
+        expect(upsertCalls, 'the write runs only after the provider actually produced vectors').toBe(1)
+    });
+
+    test('EXHAUSTED persistence retries report failure, never false embedded progress', async () => {
+        // The other direction: caching vectors across retries must not make a batch that NEVER landed
+        // look landed. `embedded` counts what reached the store, so a store that rejects every attempt
+        // has to end at zero — otherwise the repair would manufacture exactly the phantom progress this
+        // ticket family exists to remove.
+        KB_Config.data.maxRetries = 2;
+
+        const corpus = makeChunks(2);
+
+        let providerCalls = 0,
+            upsertCalls   = 0;
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) {
+                const texts = Array.isArray(input) ? input : [input];
+                providerCalls += texts.length;
+                return {embeddings: texts.map(() => new Array(384).fill(0.1))}
+            }
+        };
+
+        const collection = {
+            name: 'permanently-unwritable-knowledge-base',
+            async count() { return 0 },
+            async get() { return {ids: [], metadatas: [], documents: []} },
+            async delete() {},
+            async upsert() { upsertCalls++; throw new Error('collection unavailable: permanent write rejection') }
+        };
+
+        // The pre-existing contract, deliberately asserted rather than assumed: exhausting the write
+        // retries REJECTS. I first wrote this expecting `{embedded: 0}` and the suite corrected me —
+        // "preserve current failure accounting" means preserving the throw, not softening it into a
+        // zero-count success that a caller could mistake for an empty batch.
+        await expect(
+            KB_VectorService.embedChunks({collection, chunksToProcess: corpus}),
+            'a batch that never lands still rejects'
+        ).rejects.toThrow(/after 2 retries/);
+
+        expect(upsertCalls, 'every configured attempt was spent on the write').toBe(2);
+        // The repair still holds on the failing path: the provider is paid once even though the write
+        // was attempted twice. Redundant purchase is removed WITHOUT softening the failure accounting.
+        expect(providerCalls, 'and the provider was still paid exactly once per text').toBe(corpus.length)
+    });
+
+    test('a PERSISTENCE failure retries the WRITE, never re-buying the vectors (#16780)', async () => {
+        // The loop the other tests in this file prove costs provider time on every lap, and this is the
+        // seam where that cost was paid: `embedTexts` and `collection.upsert` shared one `try`, so a
+        // failed WRITE sent the retry back through the PROVIDER for identical texts. Same model, same
+        // inputs — the second purchase could not differ, only be charged.
+        KB_Config.data.maxRetries = 3;
+
+        const corpus = makeChunks(2);
+
+        let providerCalls = 0,
+            upsertCalls   = 0;
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) {
+                const texts = Array.isArray(input) ? input : [input];
+                providerCalls += texts.length;
+                return {embeddings: texts.map(() => new Array(384).fill(0.1))}
+            }
+        };
+
+        // Rejects the first two writes, then accepts — a transient store, which is precisely the case
+        // that must not be charged three times.
+        const landed     = new Set(),
+              collection = {
+                  name: 'flaky-knowledge-base',
+                  async count() { return landed.size },
+                  async get() { return {ids: [...landed], metadatas: [], documents: []} },
+                  async delete({ids}) { ids.forEach(id => landed.delete(id)) },
+                  async upsert({ids}) {
+                      upsertCalls++;
+                      if (upsertCalls < 3) throw new Error('collection unavailable: transient write rejection');
+                      ids.forEach(id => landed.add(id))
+                  }
+              };
+
+        const result = await KB_VectorService.embedChunks({collection, chunksToProcess: corpus});
+
+        expect(upsertCalls, 'the write is retried until it lands').toBe(3);
+        expect(result.embedded, 'and the batch ultimately succeeds').toBe(corpus.length);
+
+        // The load-bearing assertion. Before the repair this was 6: two texts re-embedded on every one
+        // of the three attempts.
+        expect(providerCalls, 'the provider is paid exactly once for each text').toBe(corpus.length)
     });
 
     test('PRODUCTION re-selects the identical set on every sweep when persistence fails (#16780 AC-2)', async () => {
