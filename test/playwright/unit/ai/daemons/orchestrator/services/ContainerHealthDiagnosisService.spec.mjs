@@ -587,7 +587,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthDiagnosisService', () => {
 
         const evalAttribution = {
             primaryRole: {role: 'chat'},
-            primaryLoad: {model: 'gemma4:31b'},
+            primaryLoad: {model: 'gemma4:26b'},
             stuckModels: [{
                 model          : 'qwen3-embedding',
                 role           : 'embedding',

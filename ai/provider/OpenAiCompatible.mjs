@@ -21,9 +21,21 @@ class OpenAiCompatibleProvider extends Base {
          */
         host: 'http://127.0.0.1:8000',
         /**
-         * @member {String} modelName='gemma4:31b'
+         * @summary The model id, INJECTED by the caller. No default, deliberately.
+         *
+         * This carried `'gemma4:31b'` — an **Ollama**-namespaced id sitting in the OpenAI-compatible
+         * provider, so it could never name a model an OpenAI-compatible server actually serves. A
+         * caller that forgot `modelName` therefore did not get a working fallback; it got a request
+         * for a model that does not exist, at whatever host was configured.
+         *
+         * A default here is wrong in principle too. The model is a deployment decision owned by the
+         * `AiConfig` SSOT (`openAiCompatible.model`), and a class-level literal is a second, hidden
+         * source for the same value — so a config-resolution failure stops presenting as a failure
+         * and starts presenting as a slightly-wrong model, which is far harder to notice. `null`
+         * makes the omission loud at the call site instead.
+         * @member {String|null} modelName=null
          */
-        modelName: 'gemma4:31b',
+        modelName: null,
         /**
          * @summary Optional bearer token for OpenAI-compatible API servers that require one.
          *

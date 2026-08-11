@@ -44,7 +44,18 @@ test.describe('Memory Core Offline Summarization', () => {
     // The per-test `localModelActive` guard below stays as a defensive fallback for local-dev
     // without gemma4 running, but the CI-side skip is the early exit that prevents `beforeAll`
     // from probing a nonexistent endpoint.
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: heavy SLM (gemma4) — bucket A (#10903)');
+    // OPT-IN, and the inversion is the point. This read `!!process.env.NEO_TEST_SKIP_CI` — skip in
+    // CI, RUN everywhere else — which protects the machine with nothing to lose and exposes the one
+    // with the real models loaded. These tests drive a REAL model server at `127.0.0.1:1234`, so on
+    // an operator's box every routine `npm run test-unit` was live inference against their LM Studio.
+    //
+    // The same shape as guarding on a missing API key: the condition that means "unsafe to run here"
+    // was wired as the condition to skip, so the guard fired precisely where running was harmless.
+    //
+    // Default OFF everywhere, including locally. Set `NEO_TEST_LIVE_MODELS=true` to run against a
+    // model server you have deliberately provisioned.
+    test.skip(!process.env.NEO_TEST_LIVE_MODELS,
+        'live-model spec — set NEO_TEST_LIVE_MODELS=true to run against a real model server');
 
     let SDK, TextEmbeddingService, dummySessionId, originalEmbedText, originalEmbedTexts, originalSessionModel, restoreAiConfig;
     let localModelActive = false;
@@ -73,7 +84,18 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
         SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
         SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
-        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
+        // The MODEL is deliberately NOT overridden: it resolves from the SSOT leaf
+        // (`ai/configBase.mjs` -> `google/gemma-4-26b-a4b`), the deployment's agreed chat model.
+        //
+        // This line previously hardcoded `gemma-4-31b-it`. That is not a fixture value — it is a
+        // LOAD INSTRUCTION. LM Studio JIT-loads whatever model id a request names, so every local
+        // run of this suite pulled a 19.7 GB second chat model into the operator's RAM beside the
+        // 15.6 GB one already serving real traffic, and the 60-minute idle TTL kept it resident
+        // long after the run finished. The suite was choosing the deployment's model policy, and
+        // choosing against it — 26b was selected over 31b on measured performance grounds.
+        //
+        // Only `host` is overridden, because the leaf default points at the Ollama port and this
+        // spec asserts the OpenAI-compatible route specifically.
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';
         // Adjust batch limit to speed up test execution
         SDK.Memory_Config.data.summarizationBatchLimit = 5;

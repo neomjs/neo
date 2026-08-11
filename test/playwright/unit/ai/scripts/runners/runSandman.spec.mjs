@@ -179,23 +179,23 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('extracts native Ollama resident model ids from /api/ps variants', () => {
         expect(providerReadinessHelper.getOllamaRunningModelIds({
             models: [
-                {name: 'gemma4:31b', context_length: 131072},
+                {name: 'gemma4:26b', context_length: 131072},
                 {model: 'qwen3-embedding', context_length: 32768},
                 {id: 'fallback-model'},
-                {name: 'gemma4:31b'},
+                {name: 'gemma4:26b'},
                 {}
             ]
-        })).toEqual(['gemma4:31b', 'qwen3-embedding', 'fallback-model']);
+        })).toEqual(['gemma4:26b', 'qwen3-embedding', 'fallback-model']);
 
         expect(providerReadinessHelper.getOllamaRunningModels({
             models: [
-                {name: 'gemma4:31b', context_length: 131072},
+                {name: 'gemma4:26b', context_length: 131072},
                 {model: 'qwen3-embedding', context_length: 32768},
                 {id: 'fallback-model'},
-                {name: 'gemma4:31b', context_length: 4096}
+                {name: 'gemma4:26b', context_length: 4096}
             ]
         })).toEqual([{
-            id           : 'gemma4:31b',
+            id           : 'gemma4:26b',
             contextLength: 131072
         }, {
             id           : 'qwen3-embedding',
@@ -220,7 +220,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                     ok  : true,
                     json: async () => ({
                         models: [
-                            {name: 'gemma4:31b', context_length: 131072},
+                            {name: 'gemma4:26b', context_length: 131072},
                             {name: 'qwen3-embedding', context_length: 32768}
                         ]
                     })
@@ -228,7 +228,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         });
 
-        expect(result).toEqual(['gemma4:31b', 'qwen3-embedding']);
+        expect(result).toEqual(['gemma4:26b', 'qwen3-embedding']);
         expect(calls).toEqual([{url: 'http://ollama.test/api/ps', method: 'GET'}]);
     });
 
@@ -258,7 +258,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         const chatWarm = await providerReadinessHelper.warmOllamaRoleModel({
             host     : 'http://ollama.test',
-            model    : 'gemma4:31b',
+            model    : 'gemma4:26b',
             role     : 'chat',
             keepAlive: '-1',
             timeoutMs: 25,
@@ -279,7 +279,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             headers  : {'content-type': 'application/json'},
             hasSignal: false,
             body     : {
-                model     : 'gemma4:31b',
+                model     : 'gemma4:26b',
                 messages  : [{role: 'user', content: ''}],
                 stream    : false,
                 keep_alive: '-1'
@@ -296,7 +296,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         }]);
         expect(chatWarm.evalSample).toMatchObject({
-            model               : 'gemma4:31b',
+            model               : 'gemma4:26b',
             role                : 'chat',
             evalCount           : 20,
             evalTokensPerSecond : 20,
@@ -394,7 +394,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
 
         await providerReadinessHelper.warmOllamaRoleModel({
             host         : 'http://ollama.test',
-            model        : 'gemma4:31b',
+            model        : 'gemma4:26b',
             role         : 'chat',
             contextLength: 131072,
             timeoutMs    : 25,
@@ -412,7 +412,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(calls).toEqual([{
             url : 'http://ollama.test/api/chat',
             body: {
-                model   : 'gemma4:31b',
+                model   : 'gemma4:26b',
                 messages: [{role: 'user', content: ''}],
                 stream  : false,
                 options : {num_ctx: 131072}
@@ -435,13 +435,13 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 modelProvider: 'openAiCompatible',
                 ollama       : {
                     host                 : 'http://ollama.test',
-                    model                : 'gemma4:31b',
+                    model                : 'gemma4:26b',
                     embeddingModel       : 'qwen3-embedding',
                     requireParallelModels: 2
                 }
             },
             timeoutMs        : 25,
-            fetchOllamaModels: async () => ['gemma4:31b'],
+            fetchOllamaModels: async () => ['gemma4:26b'],
             log              : {warn: (...args) => warnings.push(args)}
         });
 
@@ -463,13 +463,13 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 modelProvider   : 'gemini',
                 openAiCompatible: {
                     host                 : 'http://oai.test',
-                    model                : 'gemma-4-31b-it',
+                    model                : 'google/gemma-4-26b-a4b',
                     embeddingModel       : 'text-embedding-qwen3-embedding-8b',
                     requireParallelModels: 2
                 }
             },
             timeoutMs                  : 25,
-            fetchOpenAiCompatibleModels: async () => ['gemma-4-31b-it', 'text-embedding-qwen3-embedding-8b'],
+            fetchOpenAiCompatibleModels: async () => ['google/gemma-4-26b-a4b', 'text-embedding-qwen3-embedding-8b'],
             log                        : {warn: (...args) => warnings.push(args)}
         });
 
@@ -489,7 +489,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 graphProvider   : 'openAiCompatible',
                 openAiCompatible: {
                     host          : 'http://oai.test',
-                    model         : 'gemma-4-31b-it',
+                    model         : 'google/gemma-4-26b-a4b',
                     embeddingModel: 'text-embedding-qwen3-embedding-8b'
                 }
             },
@@ -511,7 +511,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                     graphProvider   : 'openAiCompatible',
                     openAiCompatible: {
                         host          : 'http://oai.test',
-                        model         : 'gemma-4-31b-it',
+                        model         : 'google/gemma-4-26b-a4b',
                         embeddingModel: 'text-embedding-qwen3-embedding-8b',
                         requireParallelModels
                     }
@@ -1631,7 +1631,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const modelSnapshots = [
             [],
             [
-                {id: 'gemma4:31b', contextLength: 131072},
+                {id: 'gemma4:26b', contextLength: 131072},
                 {id: 'qwen3-embedding', contextLength: 32768}
             ]
         ];
@@ -1641,7 +1641,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             roles: [{
                 providerRole : 'modelProvider',
                 role         : 'chat',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             }, {
                 providerRole : 'embeddingProvider',
@@ -1655,7 +1655,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs            : 25,
             keepAlive            : '-1',
             fetchModelIds        : async () => modelSnapshots.shift() || [
-                {id: 'gemma4:31b', contextLength: 131072},
+                {id: 'gemma4:26b', contextLength: 131072},
                 {id: 'qwen3-embedding', contextLength: 32768}
             ],
             warmModel: async (role, options) => {
@@ -1678,7 +1678,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             role: {
                 providerRole : 'modelProvider',
                 role         : 'chat',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             },
             options: {
@@ -1705,7 +1705,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             ready       : true,
             provider    : 'ollama',
             warmedModels: [{
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 role         : 'chat',
                 providerRole : 'modelProvider',
                 contextLength: 131072
@@ -1715,11 +1715,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 providerRole : 'embeddingProvider',
                 contextLength: 32768
             }],
-            requiredModels : ['gemma4:31b', 'qwen3-embedding'],
-            availableModels: ['gemma4:31b', 'qwen3-embedding'],
+            requiredModels : ['gemma4:26b', 'qwen3-embedding'],
+            availableModels: ['gemma4:26b', 'qwen3-embedding'],
             extraModels    : [],
             loadedContexts : {
-                'gemma4:31b'     : 131072,
+                'gemma4:26b'     : 131072,
                 'qwen3-embedding': 32768
             },
             observedRequiredCount: 2,
@@ -1727,7 +1727,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
         expect(result.ollamaEvalAttribution).toMatchObject({
             primaryLoad: {
-                model          : 'gemma4:31b',
+                model          : 'gemma4:26b',
                 role           : 'chat',
                 tokensPerSecond: 20
             },
@@ -1813,8 +1813,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     test('ensureOllamaModelsReady degrades resident models loaded below configured context (#13865)', async () => {
         const warmCalls      = [];
         const modelSnapshots = [
-            [{id: 'gemma4:31b', contextLength: 4096}],
-            [{id: 'gemma4:31b', contextLength: 4096}]
+            [{id: 'gemma4:26b', contextLength: 4096}],
+            [{id: 'gemma4:26b', contextLength: 4096}]
         ];
 
         const result = await providerReadinessHelper.ensureOllamaModelsReady({
@@ -1822,7 +1822,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             roles: [{
                 providerRole : 'graphProvider',
                 role         : 'chat',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             }],
             requireParallelModels: 1,
@@ -1831,7 +1831,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             delayMs              : 0,
             timeoutMs            : 25,
             keepAlive            : '-1',
-            fetchModelIds        : async () => modelSnapshots.shift() || [{id: 'gemma4:31b', contextLength: 4096}],
+            fetchModelIds        : async () => modelSnapshots.shift() || [{id: 'gemma4:26b', contextLength: 4096}],
             warmModel            : async (role, options) => warmCalls.push({role, options}),
             log                  : {info: () => {}}
         });
@@ -1840,7 +1840,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             role: {
                 providerRole : 'graphProvider',
                 role         : 'chat',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             },
             options: {
@@ -1856,11 +1856,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.extraModels).toEqual([]);
         expect(result.observedRequiredCount).toBe(1);
         expect(result.insufficientContextModels).toEqual([{
-            model                : 'gemma4:31b',
+            model                : 'gemma4:26b',
             contextLength        : 4096,
             requiredContextLength: 131072
         }]);
-        expect(result.loadedContexts).toEqual({'gemma4:31b': 4096});
+        expect(result.loadedContexts).toEqual({'gemma4:26b': 4096});
         expect(result.warning).toContain('loaded context too small');
         expect(result.warning).toContain('observed=4096 required>=131072');
     });
@@ -1872,7 +1872,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             roles: [{
                 providerRole: 'modelProvider',
                 role        : 'chat',
-                model       : 'gemma4:31b'
+                model       : 'gemma4:26b'
             }, {
                 providerRole: 'embeddingProvider',
                 role        : 'embedding',
@@ -1898,16 +1898,16 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(result.ready).toBe(false);
         expect(result.degraded).toBe(true);
         expect(result.failedModels).toEqual([{
-            model       : 'gemma4:31b',
+            model       : 'gemma4:26b',
             role        : 'chat',
             providerRole: 'modelProvider',
             error       : 'Ollama refused chat model'
         }]);
-        expect(result.missingModels).toEqual(['gemma4:31b']);
+        expect(result.missingModels).toEqual(['gemma4:26b']);
         expect(result.availableModels).toEqual(['qwen3-embedding']);
         expect(result.extraModels).toEqual([]);
         expect(result.observedRequiredCount).toBe(1);
-        expect(result.warning).toContain('ollama pull gemma4:31b');
+        expect(result.warning).toContain('ollama pull gemma4:26b');
         expect(result.warning).not.toContain('set OLLAMA_MAX_LOADED_MODELS=2');
         expect(warnings[0]).toContain('warm-up failed');
     });
@@ -1952,17 +1952,17 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             roles: [{
                 providerRole: 'graphProvider',
                 role        : 'chat',
-                model       : 'gemma4:31b'
+                model       : 'gemma4:26b'
             }],
             requireParallelModels: 2,
             attempts             : 1,
             delayMs              : 0,
             timeoutMs            : 25,
-            fetchModelIds        : async () => ['gemma4:31b']
+            fetchModelIds        : async () => ['gemma4:26b']
         });
 
         expect(result.ready).toBe(true);
-        expect(result.requiredModels).toEqual(['gemma4:31b']);
+        expect(result.requiredModels).toEqual(['gemma4:26b']);
         expect(result.extraModels).toEqual([]);
         expect(result.observedRequiredCount).toBe(1);
         expect(result.requiredResidentModels).toBe(1);
@@ -2125,7 +2125,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             graphProvider    : 'openAiCompatible',
             embeddingProvider: 'openAiCompatible',
             openAiCompatible : {
-                model         : 'gemma-4-31b-it',
+                model         : 'google/gemma-4-26b-a4b',
                 embeddingModel: 'text-embedding-qwen3-embedding-8b'
             },
             localModels: {
@@ -2138,11 +2138,11 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         })).toEqual({
             models: [
-                'gemma-4-31b-it',
+                'google/gemma-4-26b-a4b',
                 'text-embedding-qwen3-embedding-8b'
             ],
             contextLengths: {
-                'gemma-4-31b-it'                   : 262144,
+                'google/gemma-4-26b-a4b'           : 262144,
                 'text-embedding-qwen3-embedding-8b': 32768
             },
             parallels: {}
@@ -2156,7 +2156,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             embeddingProvider: 'ollama',
             ollama           : {
                 host                 : 'http://ollama.test',
-                model                : 'gemma4:31b',
+                model                : 'gemma4:26b',
                 embeddingModel       : 'qwen3-embedding',
                 keep_alive           : '-1',
                 requireParallelModels: 2
@@ -2178,13 +2178,13 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             host                 : 'http://ollama.test',
             keepAlive            : '-1',
             requireParallelModels: 2,
-            model                : 'gemma4:31b',
+            model                : 'gemma4:26b',
             embeddingModel       : 'qwen3-embedding',
             roles                : [{
                 provider     : 'ollama',
                 providerRole : 'graphProvider',
                 role         : 'chat',
-                model        : 'gemma4:31b',
+                model        : 'gemma4:26b',
                 contextLength: 131072
             }, {
                 provider     : 'ollama',
@@ -2193,9 +2193,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 model        : 'qwen3-embedding',
                 contextLength: 32768
             }],
-            models        : ['gemma4:31b', 'qwen3-embedding'],
+            models        : ['gemma4:26b', 'qwen3-embedding'],
             contextLengths: {
-                'gemma4:31b'     : 131072,
+                'gemma4:26b'     : 131072,
                 'qwen3-embedding': 32768
             }
         });
@@ -2206,7 +2206,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             embeddingProvider: 'openAiCompatible',
             ollama           : {
                 host                 : 'http://ollama.test',
-                model                : 'gemma4:31b',
+                model                : 'gemma4:26b',
                 embeddingModel       : 'qwen3-embedding',
                 requireParallelModels: 2
             },
@@ -2257,14 +2257,14 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             graphProvider: 'ollama',
             ollama       : {
                 host : 'http://127.0.0.1:11434/',
-                model: 'gemma4:31b'
+                model: 'gemma4:26b'
             }
         })).toMatchObject({
             provider : 'ollama',
             supported: true,
             endpoint : '/api/tags',
             host     : 'http://127.0.0.1:11434/',
-            model    : 'gemma4:31b',
+            model    : 'gemma4:26b',
             url      : 'http://127.0.0.1:11434/api/tags'
         });
 
@@ -2277,7 +2277,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             },
             ollama        : {
                 host : 'http://127.0.0.1:11434',
-                model: 'gemma4:31b'
+                model: 'gemma4:26b'
             }
         })).toMatchObject({
             provider : 'openAiCompatible',
@@ -2390,9 +2390,9 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             degraded             : true,
             provider             : 'ollama',
             host                 : 'http://ollama.test',
-            requiredModels       : ['gemma4:31b', 'qwen3-embedding'],
+            requiredModels       : ['gemma4:26b', 'qwen3-embedding'],
             availableModels      : ['qwen3-embedding'],
-            missingModels        : ['gemma4:31b'],
+            missingModels        : ['gemma4:26b'],
             observedCount        : 1,
             requireParallelModels: 2,
             warning              : '[provider/ollama] expected 2+ models loaded; set OLLAMA_MAX_LOADED_MODELS=2 in the Ollama server environment.'
@@ -2403,7 +2403,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 graphProvider: 'ollama',
                 ollama       : {
                     host          : 'http://ollama.test',
-                    model         : 'gemma4:31b',
+                    model         : 'gemma4:26b',
                     embeddingModel: 'qwen3-embedding'
                 }
             },

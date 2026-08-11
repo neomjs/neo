@@ -248,7 +248,7 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         expect(overlaySource).not.toMatch(/\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+/);
         expect(parityOverlay.services?.['kb-server']?.environment).toMatchObject({
             NEO_KB_ASK_PROVIDER: 'openAiCompatible',
-            NEO_KB_ASK_MODEL   : 'gemma-4-31b-it',
+            NEO_KB_ASK_MODEL   : 'google/gemma-4-26b-a4b',
             NEO_KB_ASK_API_KEY : 'neo-parity-ci-key',
             NEO_KB_ASK_BASE_URL: 'http://embedding-server:11434'
         });

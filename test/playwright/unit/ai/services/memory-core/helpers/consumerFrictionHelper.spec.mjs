@@ -18,13 +18,13 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Unit coverage for the Brain-Pillar Consumer-Friction Helper (#11447 V1).
+ * @summary Unit coverage for the Brain-Pillar Consumer-Friction Helper (#11447 V1). ticket-ref-ok: names the contract this file exists to verify
  *
  * The helper is module-singleton state — tests MUST `clearAggregatedFrictions()` in
  * `beforeEach` to prevent cross-test pollution. Per `feedback_symmetric_spec_cleanup`,
  * shared mutable state across tests requires symmetric reset discipline.
  *
- * Schema verified against Discussion #11444 graduation contract (Round-2 + Round-3
+ * Schema verified against Discussion #11444 graduation contract (Round-2 + Round-3 ticket-ref-ok: the schema authority
  * consensus): structured `ConsumerFriction` with `suggestionKind`, token-based durable
  * metrics, `(assetRef, consumer, symptom)` aggregation tuple, `serviceDomain` provenance,
  * `firstSeenAt`/`lastSeenAt`/`count` aggregation fields.
@@ -104,7 +104,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         emitConsumerFriction({
             assetRef          : 'session:abc',
             consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'size-precheck-skip',
             emissionPoint     : 'pre-invocation',
             inputBytes        : 100000,
@@ -118,7 +118,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(surfaced[0]).toMatchObject({
             assetRef           : 'session:abc',
             consumer           : 'SemanticGraphExtractor',
-            model              : 'gemma4-31b',
+            model              : 'gemma4-26b',
             symptom            : 'size-precheck-skip',
             emissionPoint      : 'pre-invocation',
             suggestionKind     : 'compress-payload',
@@ -139,7 +139,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         emitConsumerFriction({
             assetRef          : 'session:def',
             consumer          : 'SessionService',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'context-overflow',
             emissionPoint     : 'post-invocation-failure',
             inputBytes        : 50000,
@@ -160,7 +160,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const baseFriction = {
             assetRef          : 'session:ghi',
             consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'parse-failure',
             emissionPoint     : 'post-invocation-failure',
             inputBytes        : 5000,
@@ -188,7 +188,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
 
         const base = {
             consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'parse-failure',
             emissionPoint     : 'post-invocation-failure',
             inputBytes        : 5000,
@@ -213,7 +213,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         emitConsumerFriction({
             assetRef          : 'session:ttl',
             consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'size-precheck-skip',
             emissionPoint     : 'pre-invocation',
             inputBytes        : 100000,
@@ -236,7 +236,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const result  = await invokeWithGuardrail({
             invocationFn             : async () => { invoked = true; return 'should not run'; },
             inputPayload             : 'x'.repeat(50000), // 50000 bytes = 16667 tokens estimate
-            model                    : 'gemma4-31b',
+            model                    : 'gemma4-26b',
             assetRef                 : 'session:precheck',
             consumer                 : 'SemanticGraphExtractor',
             contextLimitTokens       : 10000,
@@ -299,7 +299,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
                 return {content: 'ok'};
             },
             inputPayload             : 'x'.repeat(21000), // 21000 bytes = 7000 tokens estimate
-            model                    : 'gemma4-31b',
+            model                    : 'gemma4-26b',
             assetRef                 : 'session:under-band',
             consumer                 : 'SemanticGraphExtractor',
             contextLimitTokens       : 10000,
@@ -320,7 +320,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const result = await invokeWithGuardrail({
             invocationFn      : async () => { invoked = true; return 'should not run'; },
             inputPayload      : 'x'.repeat(33000),
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             assetRef          : 'session:precheck-default',
             consumer          : 'SemanticGraphExtractor',
             contextLimitTokens: 10000,
@@ -338,16 +338,16 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
         const result = await invokeWithGuardrail({
-            invocationFn      : async () => ({content: 'ok', model: 'gemma4-31b'}),
+            invocationFn      : async () => ({content: 'ok', model: 'gemma4-26b'}),
             inputPayload      : 'small input',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             assetRef          : 'session:success',
             consumer          : 'SemanticGraphExtractor',
             contextLimitTokens: 10000,
             serviceDomain     : 'dream-pipeline'
         });
 
-        expect(result.result).toEqual({content: 'ok', model: 'gemma4-31b'});
+        expect(result.result).toEqual({content: 'ok', model: 'gemma4-26b'});
         expect(result.friction).toBeNull();
         expect(getAggregatedFrictions()).toHaveLength(0);
     });
@@ -360,7 +360,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
             const result = await invokeWithGuardrail({
                 invocationFn      : async () => { throw new Error('Malformed JSON response'); },
                 inputPayload      : 'small input',
-                model             : 'gemma4-31b',
+                model             : 'gemma4-26b',
                 assetRef          : 'session:fail-parse',
                 consumer          : 'SemanticGraphExtractor',
                 contextLimitTokens: 10000,
@@ -384,7 +384,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const result = await invokeWithGuardrail({
             invocationFn      : async () => { throw new Error('Context window exceeded'); },
             inputPayload      : 'medium input',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             assetRef          : 'session:fail-overflow',
             consumer          : 'SessionService',
             contextLimitTokens: 10000,
@@ -402,7 +402,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const result = await invokeWithGuardrail({
             invocationFn      : async () => { throw new Error('JSON malformed'); },
             inputPayload      : 'tiny',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             assetRef          : 'session:hint',
             consumer          : 'SemanticGraphExtractor',
             contextLimitTokens: 10000,
@@ -418,15 +418,15 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
     test('emitConsumerFriction loud-fails on non-positive-finite contextLimitTokens (#12116 AC2)', () => {
         const {emitConsumerFriction, getAggregatedFrictions} = helper;
 
-        // Direct emitter contract: #12116 AC2 requires the same loud-fail discipline
+        // Direct emitter contract: #12116 AC2 requires the same loud-fail discipline ticket-ref-ok: names the AC under test
         // on emitConsumerFriction itself, not only on the invokeWithGuardrail wrapper.
         // Pre-fix the emitter happily recorded a friction entry with undefined
         // contextLimitTokens, silently corrupting the friction-feed downstream
-        // (cross-family reviewer's empirical falsifier on PR #12121 cycle-1).
+        // (cross-family reviewer's empirical falsifier on PR #12121 cycle-1). ticket-ref-ok: provenance of the falsifier
         const baseInput = {
             assetRef     : 'session:emit-loud-fail',
             consumer     : 'SemanticGraphExtractor',
-            model        : 'gemma4-31b',
+            model        : 'gemma4-26b',
             symptom      : 'size-precheck-skip',
             emissionPoint: 'pre-invocation',
             inputBytes   : 100,
@@ -447,7 +447,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
     test('invokeWithGuardrail loud-fails on non-positive-finite contextLimitTokens (#12116 AC1)', async () => {
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
-        // Pre-#12116 the NaN-silent-skip hole let undefined/null/NaN bypass the
+        // Pre-#12116 the NaN-silent-skip hole let undefined/null/NaN bypass the ticket-ref-ok: the before-state this arm pins
         // Angle-2 pre-check (Math.floor(undefined * 0.75) === NaN; `n > NaN`
         // === false), then the invocation proceeded unguarded and the friction
         // record stored undefined for contextLimitTokens — silently corrupting
@@ -457,7 +457,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const baseInput = {
             invocationFn : async () => 'should not reach here',
             inputPayload : 'small',
-            model        : 'gemma4-31b',
+            model        : 'gemma4-26b',
             assetRef     : 'session:loud-fail',
             consumer     : 'SemanticGraphExtractor',
             serviceDomain: 'dream-pipeline'
@@ -489,7 +489,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         emitConsumerFriction({
             assetRef                 : 'session:render',
             consumer                 : 'SemanticGraphExtractor',
-            model                    : 'gemma4-31b',
+            model                    : 'gemma4-26b',
             symptom                  : 'size-precheck-skip',
             emissionPoint            : 'pre-invocation',
             inputBytes               : 100000,
@@ -504,7 +504,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(section).toContain('**size-precheck-skip**');
         expect(section).toContain('`SemanticGraphExtractor`');
         expect(section).toContain('`session:render`');
-        expect(section).toContain('`gemma4-31b`');
+        expect(section).toContain('`gemma4-26b`');
         expect(section).toContain('`dream-pipeline`');
         expect(section).toContain('33334 tokens');
         expect(section).toContain('safe 6144');
@@ -519,7 +519,7 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         emitConsumerFriction({
             assetRef          : 'session:overflow-1',
             consumer          : 'SemanticGraphExtractor',
-            model             : 'gemma4-31b',
+            model             : 'gemma4-26b',
             symptom           : 'context-overflow',
             emissionPoint     : 'post-invocation-failure',
             inputBytes        : 50000,

@@ -15,6 +15,57 @@ import {CONCEPT_EXPANSION_EDGE_TYPES, KB_TERMINAL_EDGE_TYPES, enrichWithConceptW
 import {buildKbFileResolveCandidate}                                                 from './conceptWalkKbFileGate.mjs';
 import KBRecorderService                                                             from './KBRecorderService.mjs';
 
+/**
+ * @summary Builds the ask path's provider configs, pairing each host with its OWN credential.
+ *
+ * **A host and its credential are one coordinate.** Overriding the host must never inherit secret
+ * authority from the endpoint it displaced. Two leaks of that shape exist here, and the second was
+ * created while fixing the first:
+ *
+ * 1. `ask.apiKey` (`NEO_KB_ASK_API_KEY`) is the dedicated **Gemini** credential — it belongs to the
+ *    remote synthesis path and is passed separately as `geminiApiKey`. Forwarding it into the
+ *    OpenAI-compatible config would aim a cloud key at a local LM Studio.
+ * 2. Subtler: with a Tier-1 coordinate of `https://managed.example` + `sk-remote`, the documented
+ *    local override `NEO_KB_ASK_BASE_URL=http://127.0.0.1:1234` moved the HOST while leaving
+ *    `sk-remote` attached, so the transport emitted `Authorization: Bearer sk-remote` to a local
+ *    server. @neo-gpt reproduced that against the real provider factory.
+ *
+ * So the key travels with its own host or not at all: an own-endpoint override is BY DEFINITION not
+ * the Tier-1 endpoint. Empty is the safe default — an endpoint that needs a credential fails
+ * loudly, whereas a wrong credential leaves silently.
+ *
+ * Every value is READ BY NAME off the AiConfig node. Never spread it: the proxy's `get` trap walks
+ * the parent chain while `ownKeys` enumerates local `#dataConfigs` only, so `{...node}` is
+ * measurably `{}` for leaves declared on the Tier-1 root — which silently dropped `host` here and
+ * left the provider on its class default of Chroma's port.
+ *
+ * Exported as a pure function so the credential pairing is drivable in a spec. Asserting it through
+ * `SearchService` alone would mean re-deriving the expected value in the test, which proves the
+ * arithmetic rather than the contract.
+ *
+ * @param {Object} config The Knowledge Base AiConfig node (`askSynthesis` + the Tier-1 providers).
+ * @returns {{openAiCompatibleConfig: Object, ollamaConfig: Object}}
+ */
+export function buildAskProviderConfigs(config) {
+    const ask = config.askSynthesis;
+
+    return {
+        openAiCompatibleConfig: {
+            apiKey    : ask.baseUrl ? '' : config.openAiCompatible.apiKey,
+            host      : ask.baseUrl || config.openAiCompatible.host,
+            model     : ask.model,
+            keep_alive: config.openAiCompatible.keep_alive
+        },
+        // Ollama carries no key in this config shape, so the pairing question does not arise here;
+        // the host override alone is complete.
+        ollamaConfig: {
+            host      : ask.baseUrl || config.ollama.host,
+            model     : ask.model,
+            keep_alive: config.ollama.keep_alive
+        }
+    }
+}
+
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
 
@@ -108,10 +159,24 @@ class SearchService extends Base {
         // through to the provider's configured host, and `model` selects the per-task model name.
         const ask = aiConfig.askSynthesis;
 
+        // Each provider config is assembled by READING the four leaves `buildChatModel` consumes
+        // (`apiKey` / `host` / `model` / `keep_alive`), never by spreading the AiConfig node.
+        //
+        // `{...aiConfig.openAiCompatible}` here was measurably `{}`. An AiConfig node is a
+        // `Neo.state.Provider` proxy whose `get` trap walks the parent chain but whose `ownKeys`
+        // trap (`Provider#getTopLevelDataKeys`) enumerates LOCAL `#dataConfigs` only — and these
+        // leaves live on the Tier-1 root, so from the Knowledge Base child every named read is
+        // correct and every enumeration is empty. The spread silently dropped `host`, leaving the
+        // provider to fall back to its class default of `http://127.0.0.1:8000` — Chroma's port,
+        // not a chat endpoint. It went unnoticed because the ask path defaulted to `gemini`, which
+        // ignores this object entirely; pointing the default at a local provider is exactly what
+        // would have surfaced it, as a chat request POSTed at a vector database.
+        const {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig);
+
         this.model = buildChatModel({
-            modelProvider           : ask.provider,
-            openAiCompatibleConfig  : {...aiConfig.openAiCompatible, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
-            ollamaConfig            : {...aiConfig.ollama, ...(ask.baseUrl ? {host: ask.baseUrl} : {}), model: ask.model},
+            modelProvider         : ask.provider,
+            openAiCompatibleConfig,
+            ollamaConfig,
             geminiApiKey            : ask.apiKey,
             geminiModelName         : ask.model,
             providerActivityRecorder: KBRecorderService,

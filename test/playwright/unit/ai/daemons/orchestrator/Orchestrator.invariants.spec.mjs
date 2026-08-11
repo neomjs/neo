@@ -421,7 +421,7 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
             graphProvider    : 'openAiCompatible',
             embeddingProvider: 'openAiCompatible',
             openAiCompatible : {
-                model         : 'gemma-4-31b-it',
+                model         : 'google/gemma-4-26b-a4b',
                 embeddingModel: 'qwen3-embedding'
             },
             localModels: {
@@ -432,8 +432,8 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         // Per-model slot counts are distinct from requireParallelModels, which governs how many
         // distinct configured models stay co-resident.
         expect(result.parallels).toEqual({
-            'gemma-4-31b-it' : 1,
-            'qwen3-embedding': 1
+            'google/gemma-4-26b-a4b': 1,
+            'qwen3-embedding'       : 1
         });
     });
 

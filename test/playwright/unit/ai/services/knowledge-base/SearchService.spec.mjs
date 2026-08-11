@@ -289,7 +289,7 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         SearchService.model = {
             generateContent: async (prompt, options) => {
                 capturedOptions = options;
-                throw new Error('[Ollama] ask_knowledge_base synthesis timed out after 30000ms (host=http://127.0.0.1:11434, model=gemma4:31b)');
+                throw new Error('[Ollama] ask_knowledge_base synthesis timed out after 30000ms (host=http://127.0.0.1:11434, model=gemma4:26b)');
             }
         };
 
@@ -476,5 +476,50 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         } finally {
             ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         }
+    });
+
+    /**
+     * @summary A host override must not inherit the displaced endpoint's credential.
+     *
+     * @neo-gpt's falsifier, pinned. The first repair here removed the GEMINI key from the
+     * OpenAI-compatible branch and I described the credential boundary as closed. It was not: the
+     * documented local override `NEO_KB_ASK_BASE_URL` moved the HOST while the Tier-1
+     * `openAiCompatible.apiKey` stayed attached, so a managed `sk-remote` was emitted as
+     * `Authorization: Bearer sk-remote` at a local LM Studio. One cross-provider leak closed, one
+     * cross-endpoint leak opened, same shape.
+     *
+     * Driven through the exported producer with real config shapes, so it fails on the PRODUCER
+     * rather than on a value the test recomputed.
+     */
+    test('#16932: an ask.baseUrl override gets the LOCAL host and NO inherited Tier-1 key', async () => {
+        const {buildAskProviderConfigs} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs');
+
+        const {openAiCompatibleConfig} = buildAskProviderConfigs({
+            askSynthesis    : {baseUrl: 'http://127.0.0.1:1234', model: 'google/gemma-4-26b-a4b', apiKey: 'gemini-key'},
+            openAiCompatible: {host: 'https://managed.example', apiKey: 'sk-remote', keep_alive: -1},
+            ollama          : {host: 'http://127.0.0.1:11434', keep_alive: -1}
+        });
+
+        expect(openAiCompatibleConfig.host, 'the override must win the host').toBe('http://127.0.0.1:1234');
+        expect(openAiCompatibleConfig.apiKey,
+            'the displaced Tier-1 credential must NOT travel to the override host').toBe('');
+        expect(openAiCompatibleConfig.apiKey,
+            'and the Gemini ask key must never reach this branch either').not.toBe('gemini-key')
+    });
+
+    test('#16932: NON-VACUITY — with NO override, the Tier-1 host keeps its OWN key', async () => {
+        // Without this, the arm above passes against a producer that simply never sends a key —
+        // which would break every managed OpenAI-compatible deployment while looking secure.
+        const {buildAskProviderConfigs} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs');
+
+        const {openAiCompatibleConfig} = buildAskProviderConfigs({
+            askSynthesis    : {baseUrl: null, model: 'google/gemma-4-26b-a4b', apiKey: 'gemini-key'},
+            openAiCompatible: {host: 'https://managed.example', apiKey: 'sk-remote', keep_alive: -1},
+            ollama          : {host: 'http://127.0.0.1:11434', keep_alive: -1}
+        });
+
+        expect(openAiCompatibleConfig.host).toBe('https://managed.example');
+        expect(openAiCompatibleConfig.apiKey,
+            'an un-displaced endpoint keeps its own credential').toBe('sk-remote')
     });
 });

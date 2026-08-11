@@ -43,29 +43,37 @@ Object.defineProperty(documentRef, 'hidden', {
     get         : () => hiddenState
 });
 
-globalThis.document = documentRef;
-globalThis.window   = new EventTarget();
-
-globalThis.getComputedStyle = node => ({
+// NAMED so `beforeEach` can re-install them. They are assigned here as well because the addon
+// module is imported at this file's top level and must find a DOM already in place; the hook then
+// guarantees they are still there for every test, including a second worker slice that skips this
+// module's already-cached top level.
+const getComputedStyleStub = node => ({
     getPropertyValue: prop => String(node.styleValues?.[prop] ?? '0')
 });
 
-globalThis.ResizeObserver = class {
+const ResizeObserverStub = class {
     constructor(callback) { roCallback = callback }
     observe() {}
     unobserve() {}
     disconnect() {}
 };
 
-globalThis.requestAnimationFrame = callback => {
+const requestAnimationFrameStub = callback => {
     rafSequence++;
     rafQueue.set(rafSequence, callback);
     return rafSequence
 };
 
-globalThis.cancelAnimationFrame = id => {
+const cancelAnimationFrameStub = id => {
     rafQueue.delete(id)
 };
+
+globalThis.document              = documentRef;
+globalThis.window                = new EventTarget();
+globalThis.getComputedStyle      = getComputedStyleStub;
+globalThis.ResizeObserver        = ResizeObserverStub;
+globalThis.requestAnimationFrame = requestAnimationFrameStub;
+globalThis.cancelAnimationFrame  = cancelAnimationFrameStub;
 
 // Flushes the pending rAF queue, simulating one serviced frame.
 function serviceFrame() {
@@ -168,6 +176,27 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
     let addon;
 
     test.beforeEach(() => {
+        // RE-INSTALL the DOM globals, do not assume module scope still owns them.
+        //
+        // They are installed once at import time, but torn down by `afterAll` — two different
+        // lifecycles. Under `fullyParallel` a worker can receive a SECOND slice of this same file:
+        // the module is already in the import cache so its top level never re-runs, while the
+        // previous slice's `afterAll` has already deleted the globals. The second slice then dies in
+        // this hook with `ReferenceError: ResizeObserver is not defined`, thrown from
+        // `src/main/addon/ResizeObserver.mjs` — a production stack trace for a harness defect.
+        //
+        // It passed in isolation and failed in every full run, which is precisely why it read as
+        // flake. Re-installing here makes the globals a per-test precondition owned by the same
+        // lifecycle that tears them down, and leaves the import-time ordering above untouched —
+        // that ordering is load-bearing, since the addon module must be imported only after the
+        // harness stubs are removed.
+        globalThis.document              = documentRef;
+        globalThis.window              ??= new EventTarget();
+        globalThis.getComputedStyle      = getComputedStyleStub;
+        globalThis.ResizeObserver        = ResizeObserverStub;
+        globalThis.requestAnimationFrame = requestAnimationFrameStub;
+        globalThis.cancelAnimationFrame  = cancelAnimationFrameStub;
+
         nodeMap.clear();
         rafQueue.clear();
         hiddenState  = false;
