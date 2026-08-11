@@ -37,7 +37,11 @@ const
     // undetected, which is the quiet failure: the guard reports success on the exact grammar the
     // template teaches. `Residual-Owner:` cannot match it — the colon must follow `Residual`.
     INLINE_RESIDUAL_PATTERN       = /\bResidual:[ \t]*(AC\s*\d+[^\n.]*)/i,
-    RESIDUAL_OWNER_PATTERN        = /\bResidual-Owner:?\s+#(\d+)/i,
+    // The COLON is mandatory. `:?` accepted `Residual-Owner #200`, a spelling no template teaches, so a
+    // near-miss line discharged a live obligation. Preceded by line-start or whitespace rather than
+    // line-anchored, because the Evidence Ladder's canonical residual sits MID-LINE on the `Evidence:`
+    // line and its owner has to be declarable there too.
+    RESIDUAL_OWNER_PATTERN        = /(?:^|[\s>])Residual-Owner:[ \t]+#(\d+)/im,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
@@ -230,9 +234,56 @@ export function validateChangeClass({
  */
 function withoutFencedBlocks(body = '') {
     // A heading inside a fence is an EXAMPLE, not this body's section. Bodies that document the
-    // template — including this PR's own — carry `## Post-Merge Validation` inside ``` fences, and
+    // template — including this PR's own — carry `## Post-Merge Validation` inside fences, and
     // anchoring there reads a worked example as the real obligation.
-    return body.replace(/^```[^\n]*\n[\s\S]*?^```[ \t]*$/gm, match => match.replace(/[^\n]/g, ' '));
+    //
+    // Line-scanned rather than regex-matched, because GFM fences are not one spelling: an opener is
+    // three-or-more BACKTICKS **or** three-or-more TILDES, indentable up to three spaces, and a closer
+    // must use the same character and be at least as long. A single ```-only pattern let `~~~~md` and
+    // ````markdown` shadow the real section — two live bypasses at review. Blanked (not deleted) so
+    // every later line keeps its index.
+    let fenceChar = null,
+        fenceLen  = 0;
+
+    return body.split('\n').map(line => {
+        const marker = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/),
+              blank  = () => line.replace(/[^\n]/g, ' ');
+
+        if (fenceChar === null) {
+            if (!marker) {
+                return line;
+            }
+            fenceChar = marker[1][0];
+            fenceLen  = marker[1].length;
+
+            return blank();
+        }
+
+        // A closer carries nothing but its own run; an info string means a new opener, never a close.
+        const closer = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
+
+        if (closer && closer[1][0] === fenceChar && closer[1].length >= fenceLen) {
+            fenceChar = null;
+            fenceLen  = 0;
+        }
+
+        return blank();
+    }).join('\n')
+}
+
+/**
+ * @summary Blanks inline code spans, preserving length so offsets stay comparable.
+ *
+ * A backticked `Residual-Owner: #200` inside a Post-Merge Validation section DOCUMENTS the spelling; it
+ * does not declare ownership. Reading it as a declaration let a section satisfy its own live obligation
+ * by quoting the syntax that would have satisfied it — the same class as a fenced heading standing in
+ * for a real one, one grain finer.
+ * @param {String} text
+ * @returns {String}
+ * @private
+ */
+function withoutInlineCode(text = '') {
+    return text.replace(/`[^`\n]*`/g, match => match.replace(/[^\n]/g, ' '))
 }
 
 /**
@@ -246,18 +297,27 @@ function withoutFencedBlocks(body = '') {
  * @returns {String}
  * @private
  */
-function postMergeValidationSection(body = '') {
-    body = withoutFencedBlocks(body);
-
-    const match = body.match(POST_MERGE_VALIDATION_H2);
-
-    if (!match) return '';
-
+function postMergeValidationSections(body = '') {
+    // EVERY matching section, not the first. `body.match()` returns one hit, so a duplicate — even an
+    // empty `## Post-Merge Validation / None deferred.` earlier in the document — shadowed a later
+    // section that genuinely owed work. A body owes work if ANY of its sections does, so the caller
+    // needs the whole set and picks the owing one.
     const
-        after = body.slice(match.index + match[0].length),
-        next  = after.search(/^##\s/m);
+        fenceless = withoutFencedBlocks(body),
+        matcher   = new RegExp(POST_MERGE_VALIDATION_H2.source, 'gm'),
+        sections  = [];
 
-    return next === -1 ? after : after.slice(0, next)
+    let match;
+
+    while ((match = matcher.exec(fenceless)) !== null) {
+        const
+            after = fenceless.slice(match.index + match[0].length),
+            next  = after.search(/^##\s/m);
+
+        sections.push(next === -1 ? after : after.slice(0, next))
+    }
+
+    return sections
 }
 
 /**
@@ -311,15 +371,22 @@ export function validatePrBody(body, {draft = false} = {}) {
     // discharge an obligation it has no relationship to.
     const
         fenceless         = withoutFencedBlocks(body),
-        pmvSection        = postMergeValidationSection(body),
+        // The OWING section, not the first one. A body owes work if any of its Post-Merge Validation
+        // sections does, and the owner must appear in THAT section — so an earlier discharged duplicate
+        // can no longer stand in for a later live one.
+        pmvSections       = postMergeValidationSections(body),
+        pmvSection        = pmvSections.find(section => firstLiveObligation(section)) ?? pmvSections[0] ?? '',
         sectionObligation = firstLiveObligation(pmvSection),
         inlineResidual    = fenceless.match(INLINE_RESIDUAL_PATTERN),
         inlineLine        = inlineResidual
             ? fenceless.slice(0, inlineResidual.index).split('\n').length - 1
             : -1,
-        ownerScope       = sectionObligation
+        // Inline code is blanked in the scope: a backticked `Residual-Owner: #200` documents the spelling
+        // rather than declaring an owner, and reading it as a declaration let a section discharge its own
+        // obligation by quoting the syntax that would have discharged it.
+        ownerScope       = withoutInlineCode(sectionObligation
             ? pmvSection
-            : (inlineLine >= 0 ? fenceless.split('\n')[inlineLine] : ''),
+            : (inlineLine >= 0 ? fenceless.split('\n')[inlineLine] : '')),
         obligation       = sectionObligation
             || (inlineResidual ? `Residual: ${inlineResidual[1].trim()}` : null);
 

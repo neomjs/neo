@@ -188,4 +188,62 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
 
         expect(residualFindings(body)).toHaveLength(0);
     });
+
+    test('BYPASS 3 — GFM has more than one fence spelling', () => {
+        // The first fence guard matched ``` only. GFM opens a fence with three-or-more BACKTICKS **or**
+        // three-or-more TILDES, so a worked example in either of these shadowed the real section and the
+        // obligation went unseen. Fence handling is now line-scanned: same character, closer at least as
+        // long as its opener.
+        const owes = '## Post-Merge Validation\n- [ ] do real work';
+
+        for (const fence of ['~~~~md', '````markdown', '~~~text', '`````']) {
+            const closer = fence.replace(/[a-z]+$/, ''),
+                  body   = `${base}\n\nExample:\n\n${fence}\n## Post-Merge Validation\nNone deferred.\n${closer}\n\n${owes}`;
+
+            expect(residualFindings(body), `fence ${fence} must not shadow the real section`).toHaveLength(1);
+        }
+    });
+
+    test('BYPASS 4 — a backticked owner DOCUMENTS the spelling, it does not declare an owner', () => {
+        // One grain finer than BYPASS 2: the mention is inside the owing section, so scoping alone cannot
+        // reject it. Quoting the syntax that would discharge an obligation must not discharge it.
+        const body = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            'The canonical spelling is `Residual-Owner: #200` — documented, not declared.'
+        ].join('\n');
+
+        expect(residualFindings(body)).toHaveLength(1);
+    });
+
+    test('BYPASS 5 — the colon is part of the declaration', () => {
+        // `Residual-Owner:?` accepted a spelling no template teaches, so a near-miss line discharged live
+        // work. Control below keeps the mid-line canonical form legal, which is why this is not anchored.
+        const colonless = `${base}\n\n## Post-Merge Validation\n- [ ] do real work\nResidual-Owner #200`;
+
+        expect(residualFindings(colonless)).toHaveLength(1);
+
+        const inlineForm = `${base.replace('Evidence: L2', 'Evidence: L2 — Residual: AC3 pending. Residual-Owner: #200')}\n`;
+
+        expect(residualFindings(inlineForm)).toHaveLength(0);
+    });
+
+    test('BYPASS 6 — a DISCHARGED duplicate section cannot shadow a later live one', () => {
+        // `body.match()` returns one hit, so an earlier `None deferred.` section satisfied the gate while a
+        // later section owed real work. Every section is now read, and the OWING one carries the scope.
+        const body = [
+            base, '', '## Post-Merge Validation', 'None deferred.', '',
+            '## Notes', 'unrelated', '',
+            '## Post-Merge Validation', '- [ ] do real work'
+        ].join('\n');
+
+        expect(residualFindings(body)).toHaveLength(1);
+
+        // …and the owner must sit in the section that OWES, not in the discharged duplicate.
+        const ownerInWrongSection = [
+            base, '', '## Post-Merge Validation', 'None deferred.', 'Residual-Owner: #200', '',
+            '## Post-Merge Validation', '- [ ] do real work'
+        ].join('\n');
+
+        expect(residualFindings(ownerInWrongSection)).toHaveLength(1);
+    });
 });
