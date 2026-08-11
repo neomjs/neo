@@ -67,6 +67,12 @@ export const BOUNDED_KB_ERROR_CODE_PATTERN = /^KB_[A-Z0-9_]{1,120}$/;
 export const KB_VECTOR_EMBED_UNCLASSIFIED = 'KB_VECTOR_EMBED_FAILED';
 
 /**
+ * @summary Bounded cause for a repository that never dispatched because this tenant sweep opened its provider circuit.
+ * @type {String}
+ */
+export const KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN = 'KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN';
+
+/**
  * @summary The codes our OWN layers raise on the embed path, and the only ones allowed through
  * unchanged.
  *
@@ -83,7 +89,8 @@ export const KB_VECTOR_EMBED_UNCLASSIFIED = 'KB_VECTOR_EMBED_FAILED';
 const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
     'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
     'KB_SYNC_VOLUME_EXCEEDED',
-    'KB_TENANT_SPOOF_REJECTED'
+    'KB_TENANT_SPOOF_REJECTED',
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN
 ]));
 
 /**

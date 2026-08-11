@@ -112,6 +112,7 @@ function createEmbeddingGuardrail(overrides = {}) {
 
 test.describe('IngestionService.ingestSourceFiles', () => {
     let Service;
+    let SafeService;
     let originals;
     let vectorCalls;
     let metrics;
@@ -119,6 +120,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
 
     test.beforeAll(async () => {
         Service = (await import('../../../../../../ai/services/knowledge-base/IngestionService.mjs')).default;
+        SafeService = (await import('../../../../../../ai/services.mjs')).KB_IngestionService;
     });
 
     test.beforeEach(() => {
@@ -207,6 +209,32 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             chunksTotal   : 1,
             chunksEmbedded: 1
         });
+    });
+
+    test('#16995: the unwrapped tenant-sync entry preserves circuit controls outside OpenAPI', async () => {
+        const controller        = new AbortController(),
+              onProviderTimeout = () => {};
+        const payload = {
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        };
+
+        await SafeService.ingestSourceFilesForTenantSync(payload, {
+            signal: controller.signal,
+            onProviderTimeout
+        });
+
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].options.signal, 'the exact run-scoped signal reaches VectorService')
+            .toBe(controller.signal);
+        expect(vectorCalls[0].options.onProviderTimeout, 'the synchronous hook is not stripped by makeSafe')
+            .toBe(onProviderTimeout);
+
+        vectorCalls.length = 0;
+        await Service.ingestSourceFiles(payload);
+
+        expect(vectorCalls[0].options.signal, 'ordinary public ingestion remains circuit-neutral').toBeUndefined();
+        expect(vectorCalls[0].options.onProviderTimeout, 'the control is internal, never implicit').toBeUndefined();
     });
 
     test('distinguishes NEVER-ATTEMPTED from idle, and discloses its process scope (#14028)', () => {

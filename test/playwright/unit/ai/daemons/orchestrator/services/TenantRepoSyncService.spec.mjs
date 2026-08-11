@@ -53,6 +53,14 @@ import {
     resolveExitCode
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
 import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import MemoryCoreConfig from '../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
+import {PROVIDER_TIMEOUT_CODE} from '../../../../../../../ai/provider/createTimeoutError.mjs';
+import {
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    classifyEmbedFailureCode
+} from '../../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
+import TextEmbeddingService from '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
+import {snapshotAiConfig} from '../../../services/memory-core/util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -2363,6 +2371,172 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // The load-bearing assertion. `completed` here would report a cycle that ingested nothing
         // as a clean run — the same shape as a healthy lane feeding a KB that receives no content.
         expect(result.status).toBe('deferred');
+    });
+
+    test('a provider timeout stops the next queued repo in this sweep and a fresh sweep can dispatch (#16995)', async () => {
+        const
+            restoreMCConfig        = snapshotAiConfig(MemoryCoreConfig, ['ollama.maxInFlightEmbeddings']),
+            originalOllamaProvider = TextEmbeddingService.ollamaProvider,
+            taskStateService       = createInMemoryTaskStateService(),
+            slugs                  = ['org/provider-timeout-a', 'org/provider-timeout-b'],
+            providerInputs         = [],
+            ingestionEntries       = [],
+            controlsSeen           = [],
+            timeoutError           = Object.assign(new Error('simulated native provider timeout'), {
+                code: PROVIDER_TIMEOUT_CODE
+            }),
+            ingestionService       = makeFakeIngestionService();
+
+        let firstProviderSettlement,
+            firstRunPromise,
+            secondRunPromise,
+            signalBothEntered;
+
+        const bothEntered = new Promise(resolve => signalBothEntered = resolve);
+
+        MemoryCoreConfig.ollama.maxInFlightEmbeddings = 1;
+        TenantRepoSyncService.concurrencyLimit        = 2;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed(inputs) {
+                providerInputs.push([...inputs]);
+
+                if (providerInputs.length === 1) {
+                    return new Promise((resolve, reject) => {
+                        firstProviderSettlement = {resolve, reject};
+                    })
+                }
+
+                return Promise.resolve({embeddings: inputs.map(() => [0.1])})
+            }
+        };
+
+        ingestionService.ingestSourceFilesForTenantSync = async (payload, controls) => {
+            // Start the real native admission path before announcing entry. When the second entry
+            // resolves `bothEntered`, repo B is already parked behind A's cap-owned provider call.
+            const embeddingPromise = TextEmbeddingService.embedTexts([payload.repoSlug], 'ollama', {
+                ...controls,
+                operationLabel          : 'tenant timeout circuit spec',
+                operationStage          : 'kb-tenant-ingestion-embedding',
+                providerActivityRecorder: null,
+                service                 : 'knowledge-base'
+            });
+
+            ingestionEntries.push(payload.repoSlug);
+            controlsSeen.push(controls);
+
+            if (ingestionEntries.length === 2) {
+                signalBothEntered();
+            }
+
+            try {
+                await embeddingPromise;
+
+                return {
+                    ingested           : 1,
+                    deleted            : 0,
+                    embeddingsGenerated: 1,
+                    errors             : [],
+                    tenantId           : payload.tenantId,
+                    durationMs         : 1
+                }
+            } catch (error) {
+                return {
+                    ingested           : 0,
+                    deleted            : 0,
+                    embeddingsGenerated: 0,
+                    errors             : [{code: classifyEmbedFailureCode(error.code)}],
+                    tenantId           : payload.tenantId,
+                    durationMs         : 1
+                }
+            }
+        };
+
+        const options = {
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: slugs.map((repoSlug, index) => ({
+                tenantId: 't1',
+                repoSlug,
+                mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/circuit-${index}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        };
+
+        try {
+            for (const repoSlug of slugs) {
+                await provisionMirrorDir({tenantId: 't1', repoSlug});
+            }
+
+            firstRunPromise = TenantRepoSyncService.runTask({...options, onlyRepoSlugs: slugs});
+            await bothEntered;
+
+            expect(ingestionEntries).toHaveLength(2);
+            expect(providerInputs, 'cap=1 admitted A while B is genuinely queued').toHaveLength(1);
+            expect(controlsSeen[0].signal, 'both repos share one run-scoped circuit').toBe(controlsSeen[1].signal);
+
+            const
+                dispatchedSlug = providerInputs[0][0],
+                queuedSlug     = slugs.find(repoSlug => repoSlug !== dispatchedSlug);
+
+            firstProviderSettlement.reject(timeoutError);
+
+            const first  = await firstRunPromise,
+                  bySlug = Object.fromEntries(first.details.repos.map(repo => [repo.repoSlug, repo]));
+
+            expect(providerInputs, 'the provider timeout must not hand its slot to repo B').toHaveLength(1);
+            expect(first).toMatchObject({
+                status : 'deferred',
+                details: {completedCount: 0, deferredCount: 2, failedCount: 0}
+            });
+            expect(bySlug[dispatchedSlug]).toMatchObject({
+                status             : 'deferred',
+                lastSourceErrorCode: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'
+            });
+            expect(bySlug[queuedSlug]).toMatchObject({
+                status             : 'deferred',
+                lastSourceErrorCode: KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN
+            });
+            expect(taskStateService.taskState['tenant-repo-sync']).toMatchObject({
+                running       : false,
+                lastCompletion: {status: 'deferred'}
+            });
+
+            secondRunPromise = TenantRepoSyncService.runTask({
+                ...options,
+                reason       : 'manual-resume',
+                onlyRepoSlugs: [queuedSlug]
+            });
+
+            const second = await secondRunPromise;
+
+            expect(providerInputs, 'the later sweep, not the timed-out sweep, dispatches B').toEqual([
+                [dispatchedSlug],
+                [queuedSlug]
+            ]);
+            expect(controlsSeen[2].signal).not.toBe(controlsSeen[0].signal);
+            expect(controlsSeen[2].signal.aborted).toBe(false);
+            expect(second).toMatchObject({
+                status : 'completed',
+                details: {
+                    completedCount: 1,
+                    deferredCount : 0,
+                    failedCount   : 0,
+                    repos         : [{repoSlug: queuedSlug, status: 'active'}]
+                }
+            });
+            expect(taskStateService.taskState['tenant-repo-sync'].running).toBe(false);
+        } finally {
+            firstProviderSettlement?.reject(timeoutError);
+            await Promise.allSettled([firstRunPromise, secondRunPromise].filter(Boolean));
+            TextEmbeddingService.ollamaProvider = originalOllamaProvider;
+            restoreMCConfig();
+        }
     });
 
     test('a deferral at a capped failure streak retains its cause for the recovery lane', async () => {

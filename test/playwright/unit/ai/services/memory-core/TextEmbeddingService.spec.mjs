@@ -578,6 +578,103 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         }
     });
 
+    test('#16995: a provider timeout opens the sweep circuit before the queued caller can dispatch', async () => {
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            activities = [],
+            recorder   = {
+                nextId: 0,
+                beginProviderActivity(entry) {
+                    const id = `circuit-${++this.nextId}`;
+
+                    activities.push({type: 'begin', id, ...entry});
+                    return id
+                },
+                startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+            },
+            controller   = new AbortController(),
+            timeoutError = Object.assign(new Error('native provider timed out'), {
+                code     : PROVIDER_TIMEOUT_CODE,
+                timeoutMs: 1800000
+            }),
+            circuitError = Object.assign(new Error('tenant sweep provider circuit is open'), {
+                code: 'KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN'
+            }),
+            hookErrors = [];
+
+        let providerCalls = 0,
+            rejectProvider;
+
+        TextEmbeddingService.ollamaProvider = {
+            embed() {
+                providerCalls++;
+                return new Promise((resolve, reject) => rejectProvider = reject)
+            }
+        };
+
+        const onProviderTimeout = error => {
+            hookErrors.push(error);
+            controller.abort(circuitError);
+        };
+        const first = TextEmbeddingService.embedTexts(['repo-a'], 'ollama', {
+            onProviderTimeout,
+            providerActivityRecorder: recorder,
+            signal                  : controller.signal
+        }).then(() => null, error => error);
+        const second = TextEmbeddingService.embedTexts(['repo-b'], 'ollama', {
+            onProviderTimeout,
+            providerActivityRecorder: recorder,
+            signal                  : controller.signal
+        }).then(() => null, error => error);
+
+        try {
+            await waitForCondition(
+                () => providerCalls === 1 &&
+                    activities.filter(item => item.type === 'begin').length === 2 &&
+                    activities.filter(item => item.type === 'start').length === 1,
+                'repo B to be queued behind repo A without provider dispatch'
+            );
+
+            rejectProvider(timeoutError);
+
+            const [firstError, secondError] = await Promise.all([first, second]);
+
+            expect(firstError, 'the dispatched caller retains the source provider timeout').toBe(timeoutError);
+            expect(secondError, 'the queued caller reports the circuit reason, not a fabricated timeout').toBe(circuitError);
+            expect(hookErrors, 'the source timeout opens the circuit exactly once').toEqual([timeoutError]);
+            expect(providerCalls, 'repo B must never reach native Ollama in this sweep').toBe(1);
+
+            const
+                queuedRow       = activities.filter(item => item.type === 'begin').at(-1),
+                queuedCompletion = activities.find(item => item.type === 'complete' && item.id === queuedRow.id);
+
+            expect(queuedCompletion?.outcome).toMatchObject({failureStage: 'queue', success: false});
+
+            const ordinaryError = new Error('ordinary provider rejection');
+
+            TextEmbeddingService.ollamaProvider = {async embed() { throw ordinaryError }};
+
+            const ordinaryObserved = await TextEmbeddingService.embedTexts(['ordinary'], 'ollama', {
+                onProviderTimeout
+            }).then(() => null, error => error);
+
+            expect(ordinaryObserved).toBe(ordinaryError);
+            expect(hookErrors, 'non-timeout provider errors must not open the tenant circuit').toEqual([timeoutError]);
+        } finally {
+            rejectProvider?.(timeoutError);
+            await Promise.allSettled([first, second]);
+
+            // A real post-condition rather than an internal counter: a leaked slot or waiter would
+            // leave this uncontended call parked and poison whichever spec runs next.
+            TextEmbeddingService.ollamaProvider = {
+                async embed() { return {embeddings: [[0.1, 0.2]]} }
+            };
+            await TextEmbeddingService.embedTexts(['drain'], 'ollama');
+        }
+    });
+
     test('#16880 NON-VACUITY: an UNCONTENDED caller also records neo-queued, with a ~zero wait', async () => {
         // Without this, the arm above passes against an implementation that only opens a row under
         // contention — which would make the queue look like it materializes at load rather than

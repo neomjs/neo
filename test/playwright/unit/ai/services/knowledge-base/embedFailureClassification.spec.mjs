@@ -10,6 +10,7 @@ import '../../../../../../src/core/Base.mjs';
 import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     KB_VECTOR_EMBED_UNCLASSIFIED,
     classifyEmbedDisposition,
     classifyEmbedFailureCode,
@@ -88,6 +89,8 @@ test.describe('embed failure classification (#16647)', () => {
         // member, not because of how it is spelled — see the provenance test below.
         expect(classifyEmbedFailureCode('KB_SYNC_VOLUME_EXCEEDED')).toBe('KB_SYNC_VOLUME_EXCEEDED');
         expect(classifyEmbedFailureCode('KB_EMBEDDING_INPUT_SIZE_EXCEEDED')).toBe('KB_EMBEDDING_INPUT_SIZE_EXCEEDED');
+        expect(classifyEmbedFailureCode(KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN))
+            .toBe(KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN);
     });
 
     test('a provider-authored KB_-shaped code does NOT pass through — shape is not provenance', () => {
@@ -382,6 +385,7 @@ test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
         'KB_VECTOR_EMBED_ABORTED',
         'KB_VECTOR_EMBED_CONNECTION_REFUSED',
         'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
+        KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
         'KB_VECTOR_EMBED_TIMEOUT',
         'KB_VECTOR_EMBED_PROVIDER_TIMEOUT'
     ]) {
@@ -410,6 +414,7 @@ test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
         // advancing, never surfacing a cause. This is the guard that keeps deferral opt-in by domain.
         expect(isEmbedFailureCode(KB_VECTOR_EMBED_UNCLASSIFIED)).toBe(true);
         expect(isEmbedFailureCode('KB_VECTOR_EMBED_TIMEOUT')).toBe(true);
+        expect(isEmbedFailureCode(KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN)).toBe(true);
         expect(isEmbedFailureCode('KB_TENANT_SPOOF_REJECTED')).toBe(true);
 
         // A real non-embed code from a sibling stage. It is bounded and legitimate, and it must NOT
@@ -432,6 +437,7 @@ test.describe('classifyEmbedDisposition (retry-or-discard)', () => {
             classifyEmbedFailureCode('EMBEDDING_MODEL_NOT_RESIDENT'),
             classifyEmbedFailureCode('ABORT_ERR'),
             classifyEmbedFailureCode('KB_EMBEDDING_INPUT_SIZE_EXCEEDED'),
+            classifyEmbedFailureCode(KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN),
             classifyEmbedFailureCode('an unmapped provider code')
         ];
 

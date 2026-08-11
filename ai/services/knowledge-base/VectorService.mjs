@@ -22,6 +22,7 @@ import DestructiveOperationGuard                                       from '../
 import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
 import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
 import KBRecorderService                                               from './KBRecorderService.mjs';
+import {KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN}                         from './helpers/embedFailureClassification.mjs';
 
 /**
  * @summary Flattens one chunk into Chroma-storable scalar metadata.
@@ -634,7 +635,7 @@ class VectorService extends Base {
     }
 
     /**
-     * Embeds a set of chunks into the provided Chroma collection.
+     * @summary Embeds a set of chunks into the provided Chroma collection.
      *
      * @param {Object}   options
      * @param {Object}   options.collection      Chroma collection target.
@@ -649,6 +650,8 @@ class VectorService extends Base {
      *     `maxRetries * ceil(batchSize / batchEmbeddingChunkSize) * (1 + unloadRetryCount) *
      *     batchEmbeddingTimeoutMs`, which is 16h40m at stock leaves against a 30-minute `maxActiveHoldMs`.
      *     Per-chunk consultation caps the interval at one chunk's worst case.
+     * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
+     * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[]}>}
      *     `failedBatches` carries `{batchIndex, chunkIds, reason}` for every batch that exhausted its retries
      *     while other batches were succeeding. Such a batch is skipped rather than aborting the sweep, because
@@ -658,7 +661,7 @@ class VectorService extends Base {
      *     The whole sweep ends after that one offer so the outer scheduler owns the later attempt; already-landed
      *     chunks remain the durable resume boundary.
      */
-    async embedChunks({collection, chunksToProcess, shouldYield = () => false}) {
+    async embedChunks({collection, chunksToProcess, shouldYield = () => false, signal, onProviderTimeout}) {
         if (chunksToProcess.length === 0) {
             return {embedded: 0, skipped: 0, yielded: false};
         }
@@ -742,7 +745,9 @@ class VectorService extends Base {
                         operationStage          : 'kb-tenant-ingestion-embedding',
                         providerActivityRecorder: KBRecorderService,
                         service                 : 'knowledge-base',
-                        shouldYield
+                        shouldYield,
+                        signal,
+                        onProviderTimeout
                     });
 
                     const metadatas = batchToEmbed.map(buildChunkMetadata);
@@ -804,15 +809,21 @@ class VectorService extends Base {
                     // The phase guard is load-bearing. This catch also covers `collection.upsert()`: a write
                     // error carrying a foreign timeout-shaped code must retry the write with the cached vectors,
                     // never be misclassified as provider work that might still be running.
-                    const providerTimedOut = embeddings === null && (
-                        err?.code === PROVIDER_TIMEOUT_CODE ||
-                        err?.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
-                        err?.code === 'ETIMEDOUT' ||
-                        err?.code === 'ESOCKETTIMEDOUT'
-                    );
+                    const
+                        providerCircuitOpen = embeddings === null && err?.code === KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+                        providerTimedOut    = embeddings === null && (
+                            err?.code === PROVIDER_TIMEOUT_CODE ||
+                            err?.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
+                            err?.code === 'ETIMEDOUT' ||
+                            err?.code === 'ESOCKETTIMEDOUT'
+                        );
 
-                    if (providerTimedOut) {
-                        console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Ending this embedding sweep after one timeout-class provider attempt; pending chunks remain for a later scheduler cycle.`, err.message);
+                    if (providerCircuitOpen || providerTimedOut) {
+                        const disposition = providerCircuitOpen
+                            ? 'the run-scoped provider circuit opened before this repository dispatched'
+                            : 'one timeout-class provider attempt ended';
+
+                        console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Ending this embedding sweep because ${disposition}; pending chunks remain for a later scheduler cycle.`, err.message);
                         throw err
                     }
 
@@ -899,7 +910,7 @@ class VectorService extends Base {
     }
 
     /**
-     * Rebuilds the full corpus into a shadow collection, then promotes it to the
+     * @summary Rebuilds the full corpus into a shadow collection, then promotes it to the
      * canonical name without ever gutting the live collection in-place.
      *
      * ChromaDB has no single atomic exchange primitive, so the promote step is a
@@ -915,9 +926,11 @@ class VectorService extends Base {
      *     threaded to `embedChunks`. On a between-batch yield the shadow is preserved-not-promoted (the
      *     write-ahead resume marker already indexes it) and a `{yielded: true}` envelope is returned so the
      *     lease holder releases; the next sweep resumes from the preserved shadow.
+     * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
+     * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
      */
-    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false}) {
+    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false, signal, onProviderTimeout}) {
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
         const resumeState = await readResumeState({dir: stateDir});
@@ -975,7 +988,13 @@ class VectorService extends Base {
         let shadowPromoted = false;
 
         try {
-            const embedResult = await this.embedChunks({collection: shadowCollection, chunksToProcess: chunksToEmbed, shouldYield});
+            const embedResult = await this.embedChunks({
+                collection: shadowCollection,
+                chunksToProcess: chunksToEmbed,
+                shouldYield,
+                signal,
+                onProviderTimeout
+            });
 
             if (embedResult.yielded) {
                 // Cooperative lease-yield: the shadow holds the completed batches and the write-ahead
@@ -1157,7 +1176,7 @@ class VectorService extends Base {
     }
 
     /**
-     * Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
+     * @summary Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
      *
      * **Work-volume gate:** when invoked via MCP (`viaMcp: true`), refuses
      * synchronous execution if `chunksToProcess.length` exceeds `aiConfig.mcpSyncMaxChunks`
@@ -1183,10 +1202,20 @@ class VectorService extends Base {
      *                                             re-embed releases the lease at a batch boundary for a starved
      *                                             heavy task, then resumes from the preserved shadow. Default
      *                                             never yields, so non-lease-held callers are unaffected.
+     * @param {AbortSignal} [opts.signal]          Shared tenant-sweep provider circuit signal.
+     * @param {Function} [opts.onProviderTimeout]  Synchronous native-provider timeout hook.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy, shouldYield = () => false} = {}) {
+    async embed(knowledgeBasePath, {
+        viaMcp = false,
+        tenantContext = {},
+        deleteStale = true,
+        staleStrategy,
+        shouldYield = () => false,
+        signal,
+        onProviderTimeout
+    } = {}) {
         logger.log('Starting knowledge base embedding...');
         const resolvedStaleStrategy = this.resolveStaleStrategy({staleStrategy, deleteStale});
 
@@ -1353,7 +1382,9 @@ class VectorService extends Base {
                 liveCollection  : collection,
                 knowledgeBase   : expandedKnowledgeBase,
                 idsToDeleteCount: idsToDelete.length,
-                shouldYield
+                shouldYield,
+                signal,
+                onProviderTimeout
             });
         }
 
@@ -1362,7 +1393,7 @@ class VectorService extends Base {
             logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
-        const embedResult = await this.embedChunks({collection, chunksToProcess});
+        const embedResult = await this.embedChunks({collection, chunksToProcess, signal, onProviderTimeout});
 
         const count         = await collection.count();
         const failedBatches = embedResult.failedBatches || [];
