@@ -202,6 +202,46 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         ].join('\n'))).toEqual([])
     });
 
+    /*
+     * @neo-gpt's second falsifier, and the sharper of the two: the widened whole-file scan I wrote to
+     * close his FIRST finding introduced a silent bypass of the gate.
+     *
+     * `[...line]` iterates code POINTS. Acorn's token offsets, `line.length` and the line-start table
+     * all count UTF-16 code UNITS. One astral character — an emoji in a comment is enough — made the
+     * code-only projection SHORTER than its source and shifted every offset after it, so `/*<emoji>*\/`
+     * before a capture blanked the `N` of executable `Neo`, and an astral comment line mapped the NEXT
+     * line's hit onto itself where an unrelated escape marker suppressed it.
+     *
+     * His diagnosis of why it survived my own controls is the durable part: "existing tests use
+     * BMP-only coordinates and cannot convict it." A suite that never leaves the BMP cannot see a
+     * code-unit/code-point split, however many cells it has.
+     */
+    test('UNICODE: an astral character in a comment does not blank the capture that follows it', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        expect(findCloneCaptures(`/*${emoji}*/Neo.clone(AiConfig.data);`).map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures(`/*${emoji}*/const saved = Neo.clone(\n    SDK.Memory_Config.data);`).map(h => h.line)).toEqual([1])
+    });
+
+    test('UNICODE: an astral line does not shift a later hit onto an unrelated escape marker', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        // @neo-gpt's EXACT repro shape. An earlier draft of this control prefixed the capture with
+        // `const saved = `, which shifted the offsets just enough that the broken version still
+        // landed on line 2 — the test passed against the bug it was written to catch.
+        expect(findCloneCaptures([
+            `// ${emoji} ${ESCAPE_MARKER}: an UNRELATED exemption on its own line`,
+            'Neo.clone(AiConfig.data);'
+        ].join('\n')).map(h => h.line), 'the capture is on line 2 and nothing exempts it').toEqual([2])
+    });
+
+    test('UNICODE: astral characters do not weaken the string negative or a genuine marker', () => {
+        const emoji = String.fromCodePoint(0x1F4D0);
+
+        expect(findCloneCaptures(`const doc = '${emoji} Neo.clone(AiConfig.data)';`)).toEqual([]);
+        expect(findCloneCaptures(`const saved = Neo.clone(AiConfig.data); // ${emoji} ${ESCAPE_MARKER}: real reason`)).toEqual([])
+    });
+
     test('RESTORE-CAPTURE: does NOT flag a clone of a non-config value', () => {
         expect(findCloneCaptures('const copy = Neo.clone(plainThing);')).toEqual([]);
         expect(findCloneCaptures('const copy = Neo.clone(record, true, true);')).toEqual([])

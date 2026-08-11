@@ -325,9 +325,28 @@ export function findCloneCaptures(content) {
           state = {source: content};
 
     // Offset-preserving code-only projection: same length, non-code blanked.
+    //
+    // Indexed by UTF-16 CODE UNIT, deliberately. `[...line]` iterates code POINTS, and acorn's token
+    // offsets, `line.length` and the `lineStarts` table below all count code units — so one astral
+    // character (an emoji in a comment is enough) made the projection SHORTER than its source and
+    // shifted every offset after it. Measured consequences of that version:
+    //
+    //   /*📐*/Neo.clone(AiConfig.data);   → blanked the `N` of executable `Neo`; no hit
+    //   an astral comment line above      → mapped the next line's hit onto the line above, where an
+    //                                       unrelated escape marker then suppressed it
+    //
+    // A silent bypass of a safety gate, reachable by typing an emoji in a comment. A surrogate pair
+    // is never split by this loop in practice: a token boundary cannot fall between its halves, so
+    // both units are always classified the same way.
     const codeOnly = lines.map((line, index) => {
         const mask = codeMask(line, state, index);
-        return [...line].map((char, column) => (mask[column] ? char : ' ')).join('')
+        let   out  = '';
+
+        for (let unit = 0; unit < line.length; unit++) {
+            out += mask[unit] ? line[unit] : ' '
+        }
+
+        return out
     }).join('\n');
 
     const lineStarts = [];
