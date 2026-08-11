@@ -660,7 +660,12 @@ export class DeploymentStateBridgeService extends Base {
         // anchor resets on every restart and the count can never reach a threshold — the same
         // reasoning ADR-0025 rejects in-memory anti-thrash state on. // ticket-ref-ok: names the decision this durability requirement inherits
         // An unjudgeable baseline must not be overwritten by a fresh anchor derived from it —
-        // that is the silent-reset path. Leave it and let the ERROR log carry the degradation.
+        // that is the silent-reset path. Leave it; the `restartChurn` section below reports the
+        // degradation on the record, so skipping the write no longer costs an operator the signal.
+        //
+        // `null` is the honest value for "no write was attempted", which is distinct from both
+        // outcomes of one that was — a tri-state, because collapsing it to a boolean would make a
+        // first observation and a failed write agree.
         let baselineWrite = null;
 
         if (diagnosis?.churnBaseline && !churnBaseline?.unreadable) {
