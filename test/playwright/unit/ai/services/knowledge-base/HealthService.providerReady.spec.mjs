@@ -202,6 +202,82 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
     });
 
+    /**
+     * @summary The issued budget is the flight's OWN, not whatever the last re-arm set. Paired in
+     * both directions, because each fails differently. (@neo-gpt-emmy)
+     */
+    test('re-arm 900s → 30s: a probe issued under the LONG budget is not falsely STUCK', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 900000});
+
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000, healthyTtlMs: 1000, timeoutMs: 900000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 60000; // inside the 900s it was ISSUED under
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs: 1000, healthyTtlMs: 1000, timeoutMs: 30000,
+            keyFor   : () => 'test-provider:3',
+            clock    : () => t
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('STUCK')), '60s < the 900s it was issued under').toBe(false);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(true);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('re-arm 30s → 900s: a probe issued under the SHORT budget is still STUCK past it', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 30000});
+
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000, healthyTtlMs: 1000, timeoutMs: 30000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 200000; // far past the 30s it was ISSUED under
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs: 1000, healthyTtlMs: 1000, timeoutMs: 900000,
+            keyFor   : () => 'test-provider:3',
+            clock    : () => t
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('STUCK in flight')), 'a widened config does not excuse a missed deadline').toBe(true);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(false);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
     test('a DEAD probe loop with nothing in flight still reports stale — the fix must not hide it', async () => {
         let t = 1_000_000;
 

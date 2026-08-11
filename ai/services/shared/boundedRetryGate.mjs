@@ -242,11 +242,7 @@ export function createBoundedRetryGate({
      * @returns {Object} The flight record `{genId, promise, waiters}`.
      */
     function startFlight(gen, force) {
-        // `startedAt` is the flight's OWN clock reading, captured before the attempt runs. A health
-        // surface that can see only whether a flight EXISTS cannot tell a slow attempt from a hung
-        // one, so it must either call both alive (disarming dead-loop detection) or both dead
-        // (the false-stale defect). Both readings are wrong; the age is what separates them.
-        const flight = {genId: gen.id, promise: null, waiters: [], startedAt: now()};
+        const flight = {genId: gen.id, promise: null, waiters: []};
 
         flight.promise = Promise.resolve()
             .then(() => run({key: gen.key, force}))
@@ -346,7 +342,7 @@ export function createBoundedRetryGate({
          * starts, joins, schedules, or mutates anything — liveness reads perform zero inference.
          * The returned `cached` record is a deep copy: mutating it cannot change live gate behavior.
          * @returns {Object} `{status: 'never-started'|'pending'|'healthy'|'failed'|'terminal', key,
-         *     genId, inFlight, inFlightSince, pendingDemand, failureStreak, backoffMs, nextAttemptAt, terminal, stopReason, cached}`
+         *     genId, inFlight, pendingDemand, failureStreak, backoffMs, nextAttemptAt, terminal, stopReason, cached}`
          */
         snapshot() {
             if (!generation) {
@@ -370,7 +366,6 @@ export function createBoundedRetryGate({
                 key          : generation.key,
                 genId        : generation.id,
                 inFlight     : Boolean(active && active.genId === generation.id),
-                inFlightSince: active && active.genId === generation.id ? active.startedAt : null,
                 pendingDemand: pending ? pending.gen.key : null,
                 failureStreak: generation.failureStreak,
                 backoffMs    : generation.cached?.backoffMs ?? 0,

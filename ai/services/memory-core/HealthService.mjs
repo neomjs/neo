@@ -1697,21 +1697,25 @@ class HealthService extends Base {
                 // provider as merely slow is unobservable, where the reverse at least gets
                 // investigated. The attempt's issued budget is the bound it agreed to; past that, its
                 // own deadline failed to fire, and that is a fault in its own right.
-                const inFlightMs = Number.isFinite(snapshot.inFlightSince)
-                    ? producer.clock() - snapshot.inFlightSince
-                    : null;
+                // Both sides come from the attempt's OWN record: the budget it was issued under and
+                // the start instant on the clock it was issued with. Reading `producer.timeoutMs`
+                // here would judge a live flight against whatever the last re-arm happened to set.
+                const attempt    = producer.activeAttempt,
+                      inFlightMs = attempt ? Math.max(0, producer.clock() - attempt.startedAt) : null;
 
-                if (snapshot.inFlight && Number.isFinite(inFlightMs) && inFlightMs <= producer.timeoutMs) {
+                if (snapshot.inFlight && attempt && inFlightMs <= attempt.timeoutMs) {
                     return {
                         status: 'healthy',
-                        slow  : `an attempt has been in flight ${Math.round(inFlightMs / 1000)}s (budget ${producer.timeoutMs}ms, last healthy result ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                        slow  : `an attempt has been in flight ${Math.round(inFlightMs / 1000)}s (issued budget ${attempt.timeoutMs}ms, last healthy result ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
                     };
                 }
 
                 if (snapshot.inFlight) {
                     return {
                         status: 'stale',
-                        reason: `attempt STUCK in flight ${Number.isFinite(inFlightMs) ? `${Math.round(inFlightMs / 1000)}s` : 'for an unobservable time'}, past its own ${producer.timeoutMs}ms budget — the deadline did not fire`
+                        reason: attempt
+                            ? `attempt STUCK in flight ${Math.round(inFlightMs / 1000)}s, past the ${attempt.timeoutMs}ms budget it was ISSUED under — the deadline did not fire`
+                            : 'a flight is active but its issued basis is unobservable — treating as stuck'
                     };
                 }
 
@@ -1840,7 +1844,21 @@ class HealthService extends Base {
                 gate : createBoundedRetryGate({
                     // Delegated through the record so a re-arm can refresh the attempt body
                     // without replacing the gate (single-flight continuity across restarts).
-                    run: ctx => producer.runCanary(ctx),
+                    // Wrapped so the attempt's ISSUED budget and start instant are captured at the
+                    // moment it is issued. `producer.timeoutMs` is mutable — every re-arm overwrites
+                    // it while this gate and any in-flight attempt are deliberately preserved — so
+                    // judging a live flight against the CURRENT config compares it to a deadline it
+                    // was never issued under. A 900s attempt re-armed to 30s would read STUCK at 31s;
+                    // a 30s attempt re-armed to 900s would read healthy past its missed deadline.
+                    run: async ctx => {
+                        producer.activeAttempt = {startedAt: producer.clock(), timeoutMs: producer.timeoutMs};
+
+                        try {
+                            return await producer.runCanary(ctx);
+                        } finally {
+                            producer.activeAttempt = null;
+                        }
+                    },
                     failureTtlMs,
                     failureTtlMaxMs,
                     now: () => producer.clock()
@@ -1854,10 +1872,25 @@ class HealthService extends Base {
                 // re-resolve on re-arm flows through the preserved body without replacing it.
                 runCanary: runCanary ?? (() => buildEmbeddingWriteCanaryBlock({timeoutMs: producer.timeoutMs})),
                 stopped  : false,
-                timer    : null
+                timer    : null,
+                // The in-flight attempt's own basis: `{startedAt, timeoutMs}` as issued. Null between
+                // attempts. Never read from the mutable arm fields — see the `run` wrapper above.
+                activeAttempt: null
             };
         } else {
-            if (clock)     producer.clock     = clock;
+            if (clock) {
+                // `startedAt` is an absolute instant, meaningful only in the clock that produced it.
+                // A re-arm carrying a fresh source must carry the in-flight attempt's ELAPSED time
+                // across, or the flight's age becomes a comparison between two unrelated timelines.
+                if (producer.activeAttempt) {
+                    const elapsedMs = Math.max(0, producer.clock() - producer.activeAttempt.startedAt);
+
+                    producer.activeAttempt.startedAt = clock() - elapsedMs;
+                }
+
+                producer.clock = clock;
+            }
+
             if (keyFor)    producer.keyFor    = keyFor;
             if (runCanary) producer.runCanary = runCanary;
 

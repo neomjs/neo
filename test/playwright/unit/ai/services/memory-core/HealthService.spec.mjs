@@ -1093,6 +1093,105 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         settle?.({status: 'healthy'});
     });
 
+    /**
+     * @summary The issued budget is the flight's OWN, not whatever the last re-arm set.
+     *
+     * Found by @neo-gpt-emmy on the previous head: `producer.timeoutMs` is mutable and every re-arm
+     * overwrites it, while the gate and any in-flight attempt are deliberately preserved. So a live
+     * flight was being judged against a deadline it was never issued under. My comment claimed
+     * "issued budget" while the code read the current config — the prose asserted a property the
+     * code did not have.
+     *
+     * Paired in BOTH directions, because each fails differently and a single direction would leave
+     * the other silently wrong.
+     */
+    test('re-arm 900s → 30s: a flight issued under the LONG budget is not falsely STUCK', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 400000; // age the cache past the bar before the flight starts
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            runCanary: () => new Promise(resolve => { settle = resolve }),
+            clock    : () => t,
+            keyFor   : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 60000; // 60s in flight: inside the 900s it was ISSUED under
+
+        // Re-arm to a SHORT budget. The live flight keeps the deadline it was issued with; only the
+        // NEXT attempt gets the new one.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            clock    : () => t,
+            keyFor   : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('STUCK')), '60s < the 900s it was issued under').toBe(false);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow'))).toBe(true);
+
+        settle?.({status: 'healthy'});
+    });
+
+    test('re-arm 30s → 900s: a flight issued under the SHORT budget is still STUCK past it', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 400000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            runCanary: () => new Promise(resolve => { settle = resolve }),
+            clock    : () => t,
+            keyFor   : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 200000; // 200s in flight: far past the 30s it was ISSUED under
+
+        // Re-arm to a LONG budget. A widened config must not retroactively excuse a missed deadline.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            clock    : () => t,
+            keyFor   : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('STUCK in flight')), 'the missed deadline stands').toBe(true);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow'))).toBe(false);
+
+        settle?.({status: 'healthy'});
+    });
+
     test('a DEAD loop with nothing in flight still reports stale — the fix must not hide the real condition', async () => {
         let t = 1_000_000;
 
