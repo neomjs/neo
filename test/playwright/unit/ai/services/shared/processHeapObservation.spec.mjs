@@ -223,6 +223,114 @@ test.describe('ai/services/shared/processHeapObservation — the declared ceilin
         expect(bytes).toBeNull();
     });
 
+    // ---- The quoting regression. -----------------------------------------------------------------
+    // The repair above read both channels but whitespace-split NODE_OPTIONS and applied an
+    // unquoted-token regex, asserting in a comment that Node accepts no quoting here. Measured on node
+    // v25.9.0 by spawning real children with an explicit env object, every row below applies an
+    // identical 256 MiB ceiling — `heap_size_limit = 469762048` against a 4288 MiB baseline — while the
+    // superseded reader called four of the five `undeclared`. Node strips double quotes wherever they
+    // appear (`ParseNodeOptionsEnvVar`), so recognising SHAPES would still miss the last row; the
+    // tokenizer transcribes the mechanism instead.
+
+    for (const nodeOptions of [
+        '--max-old-space-size=256',
+        '"--max-old-space-size=256"',
+        '--max-old-space-size="256"',
+        '"--max-old-space-size"=256',
+        '--max-old-space-size=25"6"'
+    ]) {
+        test(`a quoted NODE_OPTIONS ceiling is in force and must read as declared: ${nodeOptions}`, () => {
+            expect(readDeclaredCeiling([], nodeOptions)).toEqual({
+                state  : CEILING_STATE.declared,
+                bytes  : 256 * MEGABYTE,
+                sources: ['node-options']
+            });
+        });
+    }
+
+    test('quoting is stripped WITHOUT swallowing the options around it', () => {
+        // The control for the row above: a tokenizer that over-matched would credit a ceiling here, or
+        // lose one. Measured — this exact value boots with the 256 MiB ceiling in force.
+        expect(readDeclaredCeiling([], '"--enable-source-maps" --max-old-space-size=256 --no-warnings').bytes)
+            .toBe(256 * MEGABYTE);
+        // ...and a quoted option that is NOT the ceiling flag is still no declaration at all.
+        expect(readDeclaredCeiling([], '"--enable-source-maps" --no-warnings')).toEqual({
+            state: CEILING_STATE.undeclared, bytes: null, sources: []
+        });
+    });
+
+    test('only a SPACE separates in NODE_OPTIONS — a tab does not, and Node refuses to start', () => {
+        // Measured: `--max-old-space-size=256\t--no-warnings` aborts startup with *illegal value for
+        // flag* — Node's parser tests `c == ' '` literally. The superseded `/\s+/` split reported this
+        // as a clean 256 MiB declaration for a process that cannot exist.
+        expect(readDeclaredCeiling([], '--max-old-space-size=256\t--no-warnings').state)
+            .toBe(CEILING_STATE.ambiguous);
+    });
+
+    test('a NODE_OPTIONS value Node cannot tokenize is ambiguous, never undeclared', () => {
+        // Measured: an unterminated quoted run aborts startup — *invalid value for NODE_OPTIONS
+        // (unterminated string)*. No process to observe, but the declaration is unmistakably present,
+        // and reading "nobody bounded this" off a string that names the flag is the false negative
+        // this record exists to prevent.
+        expect(readDeclaredCeiling([], '"--max-old-space-size=256')).toEqual({
+            state: CEILING_STATE.ambiguous, bytes: null, sources: ['node-options']
+        });
+
+        // An unreadable value that does NOT name the flag is genuinely no declaration of ours.
+        expect(readDeclaredCeiling([], '"--enable-source-maps').state).toBe(CEILING_STATE.undeclared);
+    });
+
+    // ---- Values V8 accepts, ignores, or rejects. --------------------------------------------------
+
+    test('a leading + is a real ceiling, not an absent one', () => {
+        // Measured: `+256` boots with the 256 MiB ceiling in force. `=(\d+)` missed it — the same
+        // false-negative direction as the quoting rows, from the same predicate.
+        expect(readDeclaredCeiling([], '--max-old-space-size=+256').bytes).toBe(256 * MEGABYTE);
+        expect(readDeclaredCeiling(['--max-old-space-size=0256']).bytes).toBe(256 * MEGABYTE);
+    });
+
+    test('a value V8 IGNORES is ambiguous, never a ceiling of that number', () => {
+        // Measured: each of these boots at the 4288 MiB baseline — the declaration binds nothing. The
+        // superseded predicate reported `=0` as `declared` at ZERO bytes, which is worse than missing
+        // it: every saturation ratio taken against a zero ceiling is infinite, so an unbounded process
+        // reads as catastrophically saturated.
+        for (const value of ['0', '-256', '99999999999999999999']) {
+            const {state, bytes} = readDeclaredCeiling([`--max-old-space-size=${value}`]);
+
+            expect(state, `--max-old-space-size=${value}`).toBe(CEILING_STATE.ambiguous);
+            expect(bytes,  `--max-old-space-size=${value}`).toBeNull();
+        }
+    });
+
+    test('a value Node REFUSES to start on is ambiguous, and so is a bare flag', () => {
+        // Measured: `256abc` and `256.0` both abort startup (*illegal value for flag*), and the
+        // space-separated form `--max-old-space-size 256` aborts too — the flag takes no detached
+        // value. All three name the ceiling; none yields one.
+        for (const arg of ['--max-old-space-size=256abc', '--max-old-space-size=256.0', '--max-old-space-size']) {
+            expect(readDeclaredCeiling([arg]).state, arg).toBe(CEILING_STATE.ambiguous);
+        }
+    });
+
+    test('quoting is NODE_OPTIONS syntax only — the same text in execArgv cannot be a ceiling', () => {
+        // The asymmetry is measured, not stylistic: Node consumes the quotes before V8 sees the flag,
+        // so `--max-old-space-size="256"` on the COMMAND LINE reaches V8 intact and aborts startup
+        // (*Value for flag ... of type size_t is out of bounds*). Stripping quotes in this channel too
+        // would credit a 256 MiB ceiling to a process that could never have booted.
+        expect(readDeclaredCeiling(['--max-old-space-size="256"']).state).toBe(CEILING_STATE.ambiguous);
+        expect(readDeclaredCeiling([], '--max-old-space-size="256"').bytes).toBe(256 * MEGABYTE);
+    });
+
+    test('a quoted NODE_OPTIONS ceiling agreeing with a plain execArgv one is declared once', () => {
+        // The deployment-drift signal has to survive quoting: `ai/deploy/docker-compose.yml` forbids
+        // the NODE_OPTIONS channel, and a quoted declaration that read as `undeclared` would hide
+        // exactly the drift `sources` exists to expose.
+        expect(readDeclaredCeiling(['--max-old-space-size=256'], '"--max-old-space-size=256"')).toEqual({
+            state  : CEILING_STATE.declared,
+            bytes  : 256 * MEGABYTE,
+            sources: ['node-options', 'exec-argv']
+        });
+    });
+
     test('an ambiguous ceiling does not stop the heap from being observed', () => {
         // The declaration and the measurement are independent facts; losing one must not blind the
         // record to the other.
