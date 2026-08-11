@@ -855,15 +855,20 @@ export class DeploymentStateBridgeService extends Base {
      * @summary Residency keys this bridge can never evaluate, because it does not enumerate them.
      *
      * `isProviderResidencyServiceKey()` is only ever called with a serviceKey the bridge already
-     * enumerates, so a residency key outside `allowedServices` is unreachable by construction. The
-     * predicate cannot return `true` for it, `collectProviderResidency()` returns `null` on every
-     * service, and `providerActivity` — gated by the same predicate — is absent too. Nothing fails;
-     * the pair simply reports the same value a correctly-configured non-provider container reports.
+     * enumerates, so a residency key outside `allowedServices` is unreachable by construction — the
+     * predicate cannot return `true` **for that key**. The effect is per key: the unenumerated key
+     * contributes nothing while any enumerated peer keeps observing normally. Only a **zero**
+     * intersection leaves `collectProviderResidency()` and `providerActivity` — gated by the same
+     * predicate — absent across every service. Nothing fails in either case; the pair simply reports
+     * the same value a correctly-configured non-provider container reports.
      *
      * Measured on a live plane: `allowedServices` was aliased to the orchestrator's runtime-access
-     * list, which has no reason to name the model container, while the residency default named
-     * exactly that container. Intersection empty, both fields `null` for the life of the deployment,
-     * and the reader concluded the provider was unobservable rather than unasked.
+     * list while the residency default named the model container, giving a zero intersection and
+     * leaving both fields `null` for the life of the deployment — so the reader concluded the
+     * provider was unobservable rather than unasked. That alias is **deliberate** on the profile
+     * that carries it (it runs a host model and monitors only what it starts), which is what makes
+     * this worth reporting rather than fixing there: the misleading `null` is a permanent steady
+     * state, not a misconfiguration anyone would eventually notice.
      *
      * @returns {String[]} Configured residency keys the enumeration does not cover.
      */
