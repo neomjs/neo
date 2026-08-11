@@ -50,7 +50,7 @@ test.describe('ai/configBase — delta-only subclass overlays (overlay-drift roo
      * unset, which would have failed boot for every deployment that never set the override. Only
      * probing all of them caught it.
      */
-    test('#16463 — the supervised-child heap ceiling refuses a non-positive override rather than falling back', () => {
+    test('#16480 — the supervised-child heap ceiling refuses a non-positive override rather than falling back', () => {
         const envName  = 'NEO_SUPERVISED_TASK_HEAP_MB',
               original = process.env[envName];
 

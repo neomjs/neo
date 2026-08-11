@@ -2678,7 +2678,7 @@ test.describe('taskDefinitions — chroma persist dir rides the resolved leaf (#
  * by falling back, and a test that cannot fail on the deletion is not covering it. The override is
  * therefore set to a value no fallback can produce.
  */
-test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling injection (#16463)', () => {
+test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling injection (#16480)', () => {
     // Must be a value NEITHER fallback can produce, or the assertions pass with the injection
     // deleted. Both forbidden values are derived live rather than written as literals, because the
     // pair drifted once already: this ticket was filed stating both were 384, and the leaf default
