@@ -98,6 +98,44 @@ export function buildAskRequestQueue(config) {
     return new InteractiveBatchQueue({capacity: config.askSynthesis.maxParallel})
 }
 
+/**
+ * @summary Assembles the EXACT options object `SearchService` hands to `buildChatModel`.
+ *
+ * Extracted as a pure function because a review showed the gap it closes: the
+ * spec asserted `buildAskRequestQueue(...).capacity` directly, so **deleting the injection from the
+ * call site left the whole suite green.** A helper-capacity assertion proves the helper builds a
+ * queue; it proves nothing about asks USING that queue. With the composition itself returned, a spec
+ * asserts what the provider layer actually receives, and removing the injection fails an arm.
+ *
+ * Same precedent and same reason as {@link buildAskProviderConfigs}: the alternative is asserting
+ * through a constructed singleton, which cannot observe what was passed.
+ *
+ * @param {Object} config The Knowledge Base AiConfig node.
+ * @param {Object} providerConfigs Output of {@link buildAskProviderConfigs}.
+ * @param {Object} providerConfigs.openAiCompatibleConfig
+ * @param {Object} providerConfigs.ollamaConfig
+ * @returns {Object} The `buildChatModel` options, including the ask-owned admission queue.
+ */
+export function buildAskChatModelOptions(config, {openAiCompatibleConfig, ollamaConfig}) {
+    const ask = config.askSynthesis;
+
+    return {
+        modelProvider         : ask.provider,
+        openAiCompatibleConfig,
+        ollamaConfig,
+        // Ask owns its admission queue so its parallelism is configurable without handing concurrency
+        // to any other consumer. No contention changes hands: the two `buildChatModel` callers are
+        // SearchService and memory-core's `SessionService`, which runs in a DIFFERENT process — so the
+        // "process-wide" shared queue never serialized them against each other, and ask is the only
+        // chat consumer in this process.
+        chatRequestQueue        : buildAskRequestQueue(config),
+        geminiApiKey            : ask.apiKey,
+        geminiModelName         : ask.model,
+        providerActivityRecorder: KBRecorderService,
+        providerActivityService : 'knowledge-base'
+    }
+}
+
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
 
@@ -205,21 +243,7 @@ class SearchService extends Base {
         // would have surfaced it, as a chat request POSTed at a vector database.
         const {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig);
 
-        this.model = buildChatModel({
-            modelProvider         : ask.provider,
-            openAiCompatibleConfig,
-            ollamaConfig,
-            // Ask owns its admission queue so its parallelism is configurable without handing
-            // concurrency to any other consumer. No contention changes hands: the two
-            // `buildChatModel` callers are this one and memory-core's `SessionService`, which runs in
-            // a DIFFERENT process — so the "process-wide" shared queue never serialized them against
-            // each other, and ask is the only chat consumer in this process.
-            chatRequestQueue        : buildAskRequestQueue(aiConfig),
-            geminiApiKey            : ask.apiKey,
-            geminiModelName         : ask.model,
-            providerActivityRecorder: KBRecorderService,
-            providerActivityService : 'knowledge-base'
-        });
+        this.model = buildChatModel(buildAskChatModelOptions(aiConfig, {openAiCompatibleConfig, ollamaConfig}));
     }
 
     /**

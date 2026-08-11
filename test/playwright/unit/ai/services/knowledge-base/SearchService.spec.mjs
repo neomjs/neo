@@ -596,6 +596,28 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
             .toBeLessThan(aiConfig.askSynthesis.contextBudgetChars)
     });
 
+    test('the queue is actually HANDED to buildChatModel — not merely constructible', async () => {
+        // The arm below asserts `buildAskRequestQueue(...).capacity`, which proves the
+        // helper builds a queue and says NOTHING about asks using it. Deleting the injection from the
+        // call site left the entire suite green — testing the proxy and calling it the delivery, the same
+        // class as testing a helper's output instead of the production path that consumes it.
+        //
+        // This asserts the COMPOSITION: the exact options object the provider layer receives.
+        const {buildAskChatModelOptions} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs'),
+              providerConfigs            = {openAiCompatibleConfig: {}, ollamaConfig: {}},
+              options                    = buildAskChatModelOptions(
+                  {askSynthesis: {provider: 'openAiCompatible', model: 'm', maxParallel: 4}},
+                  providerConfigs
+              );
+
+        expect(options.chatRequestQueue, 'an admission queue reaches buildChatModel').toBeTruthy();
+        expect(options.chatRequestQueue.capacity, 'and it carries the operator-set parallelism').toBe(4);
+
+        // NON-VACUITY: the queue handed over must be the ASK-OWNED one, not whatever the provider layer
+        // would have defaulted to. A different capacity than the shared queue's 1 is what proves it.
+        expect(options.chatRequestQueue.capacity).not.toBe(1);
+    });
+
     test('ask owns an admission queue sized by maxParallel, defaulting to serialized', async () => {
         const {buildAskRequestQueue} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs');
 

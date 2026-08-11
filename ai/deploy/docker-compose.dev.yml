@@ -202,6 +202,7 @@ services:
       NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS: ${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
       NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE: ${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
       NEO_KB_ASK_MAX_RPM: ${NEO_KB_ASK_MAX_RPM:-}
+      NEO_KB_ASK_MAX_PARALLEL: ${NEO_KB_ASK_MAX_PARALLEL:-}
       # Provider-readiness coordinate. TextEmbeddingService (:845) reads
       # orchestrator.providerReadiness.timeoutMs and runs inside THIS process.
       NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}

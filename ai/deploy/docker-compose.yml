@@ -146,6 +146,7 @@ services:
       - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
       - NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE=${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
       - NEO_KB_ASK_MAX_RPM=${NEO_KB_ASK_MAX_RPM:-}
+      - NEO_KB_ASK_MAX_PARALLEL=${NEO_KB_ASK_MAX_PARALLEL:-}
     # Declared V8 heap ceiling, sized BELOW the 1g container limit below. Without it V8 picks a
     # heuristic (~560 MiB in a 1 GiB container) and self-aborts with `Ineffective mark-compacts near
     # heap limit` while ~460 MiB of the container's own allowance is still unused — and because NODE
