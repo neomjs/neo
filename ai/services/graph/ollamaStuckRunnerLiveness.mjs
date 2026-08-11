@@ -89,15 +89,7 @@ export async function probeOllamaServing({host, model, timeoutMs, fetchFn = fetc
     try {
         const response = await fetchFn(`${host.replace(/\/$/, '')}/api/chat`, {
             method : 'POST',
-            // `Connection: close` is load-bearing, not hygiene. Aborting a POOLED keep-alive fetch
-            // rejects our promise and returns the socket to the agent — Ollama never observes a peer
-            // disconnect and keeps grinding the request it was already dispatched, at
-            // ~100%×N-cores, indefinitely. That is why an earlier attempt at this canary was
-            // measured stranding a runner (1.018s abort, zero sockets, sustained 397-400%) while a
-            // client SIGKILL freed it in 2-3s: SIGKILL closes the socket, an in-process abort does
-            // not. Opting out of pooling makes the abort reach the provider as the disconnect it is,
-            // so a canary timeout ENDS provider work instead of orphaning it.
-            headers: {'Connection': 'close', 'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json'},
             body   : JSON.stringify({
                 model,
                 messages: [{role: 'user', content: 'ping'}],
