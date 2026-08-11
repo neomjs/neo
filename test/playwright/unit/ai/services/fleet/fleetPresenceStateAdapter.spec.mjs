@@ -230,8 +230,9 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
         })
 
         expect(capability.state).toBe('wired')
-        expect(states.find(row => row.agentId === 'prefixed').presence).toBe('online')
-        expect(states.find(row => row.agentId === 'bare').presence).toBe('idle')
+        // graded emission: beaconless online → fresh, idle → recent
+        expect(states.find(row => row.agentId === 'prefixed').presence).toBe('fresh')
+        expect(states.find(row => row.agentId === 'bare').presence).toBe('recent')
 
         // the canonicalizer itself: one prefix, degenerate stacking stripped, id fallback covered
         expect(presenceIdentityForAgent({githubUsername: '@neo-gpt'})).toBe('@neo-gpt')
@@ -248,7 +249,7 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
             readPresence: () => ({agents: [{identity: '@neo-gpt', state: 'online'}]})
         })
 
-        expect(states.map(row => row.presence)).toEqual(['online', 'online'])
+        expect(states.map(row => row.presence)).toEqual(['fresh', 'fresh'])
     })
 
     test('a custom presenceIdentityFor overrides the identity join', async () => {
@@ -258,7 +259,7 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
             presenceIdentityFor: () => 'IDENTITY:custom'
         })
 
-        expect(states[0].presence).toBe('online')
+        expect(states[0].presence).toBe('fresh')
     })
 
     test('agents without an id are skipped — the sibling adapters\' one-agent-set rule', async () => {
