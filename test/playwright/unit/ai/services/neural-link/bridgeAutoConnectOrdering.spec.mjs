@@ -13,13 +13,14 @@ setup({
     }
 });
 
-import {test, expect}             from '@playwright/test';
-import {spawn}                    from 'node:child_process';
-import path                       from 'node:path';
-import {fileURLToPath}            from 'node:url';
-import Neo                        from '../../../../../../src/Neo.mjs';
-import * as core                  from '../../../../../../src/core/_export.mjs';
-import {resolveBridgeAutoConnect} from '../../../../../../ai/services/neural-link/ConnectionService.mjs';
+import {test, expect}                                from '@playwright/test';
+import {spawn}                                       from 'node:child_process';
+import {EventEmitter}                                from 'node:events';
+import path                                          from 'node:path';
+import {fileURLToPath}                               from 'node:url';
+import Neo                                           from '../../../../../../src/Neo.mjs';
+import * as core                                     from '../../../../../../src/core/_export.mjs';
+import ConnectionService, {resolveBridgeAutoConnect} from '../../../../../../ai/services/neural-link/ConnectionService.mjs';
 
 const NEURAL_LINK_ENTRYPOINT = fileURLToPath(
     new URL('../../../../../../ai/mcp/server/neural-link/mcp-server.mjs', import.meta.url)
@@ -181,6 +182,69 @@ test.describe('ai/services/neural-link — Bridge auto-connect ordering (#16429)
             expect(health.bridge?.spawnFailure, 'healthcheck must attribute the spawn failure').toBe('ENOENT');
         } finally {
             child.kill('SIGKILL')
+        }
+    });
+
+    test('#16429 a Bridge that STARTS and then dies is attributed — exit, not error', async () => {
+        // The production failure is not "the process could not be created" — that is `error`. It is
+        // `npm` starting fine and its script exiting non-zero a moment later, which emits `exit` and
+        // nothing else. Before this, the spawn resolved, the Bridge was dead, and healthcheck had
+        // nothing to say about why.
+        const child = new EventEmitter();
+
+        child.unref = () => {};
+
+        const originalSpawn   = ConnectionService.spawnBridgeProcess,
+              originalOpenLog = ConnectionService.openBridgeLogFile,
+              originalCwd     = ConnectionService.cwd;
+
+        ConnectionService.spawnBridgeProcess = () => child;
+        ConnectionService.openBridgeLogFile  = () => 42;
+        ConnectionService.cwd                = '/real-seat';
+
+        try {
+            await ConnectionService.spawnBridge({logPath: '/tmp', startupDelayMs: 0});
+
+            child.emit('exit', 42, null);
+
+            expect(ConnectionService.getStatus().lastSpawnFailure,
+                'a non-zero exit must be attributed, not silently resolved').toBe('BRIDGE_EXIT_42');
+        } finally {
+            ConnectionService.spawnBridgeProcess = originalSpawn;
+            ConnectionService.openBridgeLogFile  = originalOpenLog;
+            ConnectionService.cwd                = originalCwd;
+            ConnectionService.lastSpawnFailure   = null;
+            ConnectionService.bridgeProcess      = null
+        }
+    });
+
+    test('#16429 a new attempt OWNS the reported state — a stale failure does not outlive it', async () => {
+        // The contradictory payload this prevents is `{connected: true, spawnFailure: 'ENOENT'}`:
+        // a resolved problem still reported, sending an operator hunting something already fixed.
+        const child = new EventEmitter();
+
+        child.unref = () => {};
+
+        const originalSpawn   = ConnectionService.spawnBridgeProcess,
+              originalOpenLog = ConnectionService.openBridgeLogFile,
+              originalCwd     = ConnectionService.cwd;
+
+        ConnectionService.spawnBridgeProcess = () => child;
+        ConnectionService.openBridgeLogFile  = () => 42;
+        ConnectionService.cwd                = '/real-seat';
+        ConnectionService.lastSpawnFailure   = 'ENOENT';
+
+        try {
+            await ConnectionService.spawnBridge({logPath: '/tmp', startupDelayMs: 0});
+
+            expect(ConnectionService.getStatus().lastSpawnFailure,
+                'a prior failure must not survive into a fresh attempt').toBeNull();
+        } finally {
+            ConnectionService.spawnBridgeProcess = originalSpawn;
+            ConnectionService.openBridgeLogFile  = originalOpenLog;
+            ConnectionService.cwd                = originalCwd;
+            ConnectionService.lastSpawnFailure   = null;
+            ConnectionService.bridgeProcess      = null
         }
     });
 

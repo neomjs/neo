@@ -364,6 +364,11 @@ class ConnectionService extends Base {
                 clearTimeout(handshakeTimeout);
 
                 this.bridgeSocket = ws;
+
+                // A live connection is proof the previous failure no longer describes reality.
+                // Leaving it set reports `{connected: true, spawnFailure: 'ENOENT'}` — a payload that
+                // is internally contradictory and sends an operator hunting a resolved problem.
+                this.lastSpawnFailure = null;
                 resolve();
             };
 
@@ -827,6 +832,10 @@ class ConnectionService extends Base {
             // spawned (missing cwd, npm not on PATH) takes the whole MCP server down with it —
             // the opposite of the survivability this boot path exists to provide. Rejecting instead
             // routes the failure back into the caller's existing non-fatal handling.
+            // This attempt owns the reported state from here on. Without the reset, a failure from a
+            // previous attempt outlives it and is still reported after a later attempt succeeds.
+            this.lastSpawnFailure = null;
+
             this.bridgeProcess.once('error', error => {
                 // Sanitized deliberately: `error.message` carries the spawn path and argv, and this
                 // value travels to any healthcheck caller. The code (ENOENT, EACCES) is what an
@@ -834,6 +843,20 @@ class ConnectionService extends Base {
                 this.lastSpawnFailure = error.code || 'BRIDGE_SPAWN_FAILED';
                 logger.error(`[ConnectionService] Bridge spawn failed: ${error.message}`);
                 reject(error)
+            });
+
+            // `error` fires only when the process could not be CREATED. The failure that actually
+            // shows up in production is the opposite: `npm` starts fine and its script exits
+            // non-zero a moment later. That path emits `exit`, never `error`, so it was invisible —
+            // the spawn resolved, the Bridge was dead, and healthcheck had nothing to attribute.
+            this.bridgeProcess.once('exit', (code, signal) => {
+                if (code) {
+                    this.lastSpawnFailure = `BRIDGE_EXIT_${code}`;
+                    logger.error(`[ConnectionService] Bridge exited with code ${code}`)
+                } else if (signal) {
+                    this.lastSpawnFailure = `BRIDGE_SIGNAL_${signal}`;
+                    logger.error(`[ConnectionService] Bridge terminated on ${signal}`)
+                }
             });
 
             this.bridgeProcess.unref();
