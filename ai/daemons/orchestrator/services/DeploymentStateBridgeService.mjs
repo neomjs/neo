@@ -752,11 +752,14 @@ export class DeploymentStateBridgeService extends Base {
                 statsSampleWindow           : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) ? AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow : null,
                 providerResidencyServiceKeys: Array.isArray(AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys) ? [...AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys] : [],
                 // Residency keys the bridge will never evaluate, because it only ever tests the
-                // predicate against a service it ENUMERATES. A non-empty list here means residency
-                // and provider-activity are silently `null` on every service, forever — a control
-                // that cannot fire. Published rather than logged: the reader diagnosing an absent
-                // residency reading is outside this process, and a warning in our logs is not
-                // reachable from the snapshot they are holding.
+                // predicate against a service it ENUMERATES. The effect is PER KEY, not global: a
+                // listed key contributes nothing while any enumerated peer keeps observing normally,
+                // so a partial overlap yields a partly-live pair rather than a dead one. Only a ZERO
+                // intersection — every configured key unobservable — silences residency and
+                // provider-activity across the whole snapshot for the life of the deployment, which
+                // is the control-that-cannot-fire case. Published rather than logged: the reader
+                // diagnosing an absent residency reading is outside this process, and a warning in
+                // our logs is not reachable from the snapshot they are holding.
                 unobservableResidencyKeys   : this.collectUnobservableResidencyKeys()
             },
             serviceResolution: {

@@ -2857,10 +2857,12 @@ test.describe('DeploymentStateBridgeService — a residency key the bridge never
     // ---- Residency observability: `null` must say WHICH null it is. --------------------------------
     // `isProviderResidencyServiceKey()` is only ever evaluated against a serviceKey the bridge already
     // ENUMERATES, so a residency key outside `allowedServices` is unreachable by construction — the
-    // predicate cannot return true, and `providerResidency` plus `providerActivity` (same gate) are
-    // `null` on every service for the life of the deployment. Nothing throws. The pair simply reports
-    // the value a correctly-configured non-provider container reports, and a reader outside the
-    // process cannot tell a disabled instrument from a working one.
+    // predicate cannot return true FOR THAT KEY. The effect is per key: an enumerated peer keeps
+    // observing normally, which the partial-overlap case below proves. Only a ZERO intersection
+    // leaves `providerResidency` and `providerActivity` (same gate) `null` across every service for
+    // the life of the deployment. Nothing throws in either case. The pair simply reports the value a
+    // correctly-configured non-provider container reports, and a reader outside the process cannot
+    // tell a disabled instrument from a working one.
     //
     // Measured live before this fix: `allowedServices` was aliased to the orchestrator's
     // runtime-access list, which has no reason to name the model container, while the residency
