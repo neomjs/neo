@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import {spawnSync}    from 'node:child_process';
 import Database       from 'better-sqlite3';
 import fs             from 'fs-extra';
 import path           from 'path';
@@ -2678,76 +2679,104 @@ test.describe('taskDefinitions — chroma persist dir rides the resolved leaf (#
  * therefore set to a value no fallback can produce.
  */
 test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling injection (#16463)', () => {
-    const LEAF_PATH = 'orchestrator.supervisedTaskHeapMb',
-          // Deliberately not 384, and not any other constant in the module under test.
-          INJECTED   = 777;
+    // Must be a value NEITHER fallback can produce, or the assertions pass with the injection
+    // deleted. Both forbidden values are derived live rather than written as literals, because the
+    // pair drifted once already: this ticket was filed stating both were 384, and the leaf default
+    // has since moved to 1024 while the service fallback stayed at 384. A hard-coded premise would
+    // have gone on asserting the old arithmetic without failing.
+    const INJECTED = 777,
+          WITNESS  = 'test/playwright/unit/ai/daemons/orchestrator/fixtures/heapCeilingEnvWitness.mjs',
+          // The service's own fallback, read through the real function rather than copied from it:
+          // `buildSupervisedTaskEnv` applies `FALLBACK_SUPERVISED_TASK_HEAP_MB` when given no ceiling.
+          serviceFallback = () => Number(/--max-old-space-size=(\d+)/.exec(buildSupervisedTaskEnv({}).NODE_OPTIONS)[1]),
+          // The leaf default: this process carries no `NEO_SUPERVISED_TASK_HEAP_MB`, so what the leaf
+          // resolves to HERE is exactly what the child would get without the override.
+          //
+          // Both are THUNKS so the reads happen at test time. A describe body runs at COLLECTION
+          // time — before any test and before the suite's fixtures — and capturing a config leaf
+          // there is the module-load capture this repo has been burned by: the value is read at a
+          // moment the suite does not control, and a later env or overlay resolution cannot reach it.
+          leafDefault = () => AiConfig.orchestrator.supervisedTaskHeapMb;
 
-    let saved;
+    let witness;
 
-    test.beforeEach(() => {
-        saved = AiConfig.orchestrator.supervisedTaskHeapMb;
-        AiConfig.setData(LEAF_PATH, INJECTED);
+    /**
+     * @summary Runs the witness in a fresh process whose env carries the override.
+     *
+     * The superseded fixture mutated the shared `AiConfig` singleton
+     * (`AiConfig.setData('orchestrator.supervisedTaskHeapMb', 777)`) in `beforeEach`. That is unsound
+     * for the claim, not merely a style violation: the leaf resolves through its env layer at config
+     * construction, so writing the member afterwards proves the member can be SET, never that the
+     * override RESOLVES — a deployment sets `NEO_SUPERVISED_TASK_HEAP_MB` and the leaf's
+     * `metadata.parse` hook reads it by name. It was also only invisible by luck; any later spec in
+     * this file resolving config inside the mutated window would inherit a value it never asked for
+     * and fail as an unrelated flake.
+     *
+     * A process that cannot be spawned or that throws FAILS here. There is deliberately no in-process
+     * fallback: degrading to `setData` on a bad day would restore the defect silently.
+     */
+    test.beforeAll(() => {
+        const result = spawnSync(process.execPath, [WITNESS], {
+            cwd     : process.cwd(),
+            encoding: 'utf8',
+            timeout : 120000,
+            env     : {
+                ...process.env,
+                NEO_SUPERVISED_TASK_HEAP_MB: String(INJECTED),
+                // The Orchestrator reads this during `Neo.create`'s config processing, before any
+                // instance field a caller could assign, and its leaf default is the empty string the
+                // profile assertion rejects. Supplied through env for the same reason the ceiling is.
+                NEO_AI_ORCHESTRATOR_AUTHORITY_PROFILE: 'legacy-mixed'
+            }
+        });
+
+        // stdout carries service boot logging ahead of the payload, so take the last JSON line rather
+        // than assuming the process wrote nothing else.
+        const payload = (result.stdout || '').trim().split('\n').filter(line => line.startsWith('{')).pop();
+
+        expect(result.status, `witness process failed: ${result.stderr || result.error?.message || 'no output'}`).toBe(0);
+        expect(payload, `witness produced no JSON payload. stderr: ${result.stderr}`).toBeTruthy();
+
+        witness = JSON.parse(payload);
     });
 
-    test.afterEach(() => {
-        AiConfig.setData(LEAF_PATH, saved);
+    test('the premise holds: the injected ceiling is one NO fallback can produce', () => {
+        // Without this, every assertion below would pass with the injection deleted — the exact
+        // vacuity the original coverage was shaped to avoid.
+        expect(INJECTED).not.toBe(serviceFallback());
+        expect(INJECTED).not.toBe(leafDefault());
+        // And the override genuinely reached the child's environment, rather than the child having
+        // agreed with us by coincidence.
+        expect(witness.envVarSeen).toBe(String(INJECTED));
+    });
+
+    test('the override resolves through the ENV LAYER, the path a deployment uses', () => {
+        // The claim the superseded `setData` fixture could not make: the value arrived by the leaf's
+        // `metadata.parse` hook reading the env var by name at construction, in a process where the
+        // var existed before any canonical import.
+        expect(witness.resolvedLeaf).toBe(INJECTED);
     });
 
     test('the resolved leaf reaches the constructed ProcessSupervisorService', () => {
-        // The premise: the injected value is distinguishable from the service's own fallback.
-        expect(INJECTED).not.toBe(384);
-        expect(AiConfig.orchestrator.supervisedTaskHeapMb).toBe(INJECTED);
-
-        const orchestrator = createTestOrchestrator();
-
-        expect(orchestrator.processSupervisorService.supervisedTaskHeapMb).toBe(INJECTED);
+        expect(witness.injectedIntoService).toBe(INJECTED);
     });
 
     /**
      * SECOND HOP, driven rather than replayed.
      *
-     * The previous revision of this test called `buildSupervisedTaskEnv({defaultHeapMb: <member>})`
-     * itself — it hand-fed the value across the very boundary it claimed to cover, so it asserted
-     * that a pure function formats a number it was given. @neo-gpt-emmy mutated `runTask`'s read to
-     * the module fallback and BOTH tests stayed green; the service-to-child hop had no coverage at
-     * all while its test name claimed otherwise.
+     * An earlier revision called `buildSupervisedTaskEnv({defaultHeapMb: <member>})` itself — it
+     * hand-fed the value across the very boundary it claimed to cover, so it asserted that a pure
+     * function formats a number it was given. @neo-gpt-emmy mutated `runTask`'s read to the module
+     * fallback and BOTH tests stayed green; the service-to-child hop had no coverage at all while its
+     * test name claimed otherwise.
      *
-     * This drives the real `runTask` on the orchestrator-constructed service and reads the ceiling
-     * off the spawn arguments, so the assertion depends on the production expression rather than on
-     * a copy of it.
+     * The witness drives the real `runTask` on the orchestrator-constructed service and reads the
+     * ceiling off the spawn arguments, so the assertion depends on the production expression rather
+     * than on a copy of it.
      */
     test('the injected ceiling reaches the SPAWNED child env — driven through runTask, not replayed', () => {
-        const orchestrator = createTestOrchestrator(),
-              supervisor   = orchestrator.processSupervisorService;
-
-        let spawnedEnv = null;
-
-        const probeDefinition = {
-            heapCeilingProbe: {
-                label          : 'Heap Ceiling Probe',
-                command        : 'node',
-                args           : ['--version'],
-                pidFileName    : 'heap-ceiling-probe.pid',
-                expectedCommand: 'node'
-            }
-        };
-
-        supervisor.taskDefinitions = {...supervisor.taskDefinitions, ...probeDefinition};
-
-        // `taskState` is seeded from the definitions the harness constructed with, so a definition
-        // added afterwards has none and `runTask` reads `state.running` off undefined. Seeded with
-        // the same factory rather than a hand-shaped literal, so the probe cannot drift from the
-        // real initial shape.
-        Object.assign(TaskStateService.taskState, createInitialTaskState(probeDefinition));
-
-        supervisor.spawnFn = (command, args, options) => {
-            spawnedEnv = options.env;
-            return {pid: 4711, on: () => {}, stderr: {on: () => {}}};
-        };
-
-        expect(supervisor.runTask('heapCeilingProbe', 'heap-ceiling-witness')).toBe(true);
-
-        // Read off the spawn call, which is the only surface a real child ever sees.
-        expect(spawnedEnv.NODE_OPTIONS).toBe(`--max-old-space-size=${INJECTED}`);
+        expect(witness.ran).toBe(true);
+        // Read off the spawn call, which is the only surface a real supervised child ever sees.
+        expect(witness.spawnedNodeOptions).toBe(`--max-old-space-size=${INJECTED}`);
     });
 });
