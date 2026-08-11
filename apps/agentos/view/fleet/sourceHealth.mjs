@@ -62,17 +62,27 @@ export function normalizeSourceFact(value, expectedSource = null) {
         return {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed producer validation'}
     }
 
+    // `missing` and `not-wired` cannot CARRY confidence: only the explicit `none` pairing is the
+    // declared shape. A present fact asserting `missing`/`not-wired` WITH an observation
+    // confidence is a contradictory pair — rejected evidence, never accepted onto the calm or
+    // answered-abnormal vocabulary (accepting impossible confidence on absence states would
+    // recreate the exact rejected-evidence→nominal conflation `invalid` exists to remove).
     if (state === 'missing') {
-        return {source, state: 'missing', confidence: 'none', reason}
+        return confidence === 'none'
+            ? {source, state: 'missing', confidence: 'none', reason}
+            : {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
     }
 
     if (state === 'wired' && (confidence === 'observed' || confidence === 'inferred')) {
         return {source, state: 'wired', confidence, reason}
     }
 
-    // The producer explicitly declares expected absence — the ONE present shape allowed to be calm.
+    // The producer explicitly declares expected absence — the ONE present shape allowed to be
+    // calm, and only with the explicit `none` confidence it is declared with.
     if (state === 'not-wired') {
-        return {source, state: 'not-wired', confidence: 'none', reason}
+        return confidence === 'none'
+            ? {source, state: 'not-wired', confidence: 'none', reason}
+            : {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
     }
 
     // Everything else is a present fact this contract cannot read (unknown state, cross-axis

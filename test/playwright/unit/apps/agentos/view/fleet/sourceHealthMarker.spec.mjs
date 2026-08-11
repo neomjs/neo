@@ -30,14 +30,15 @@ test.describe('Fleet source-health honesty (#14643)', () => {
                 const
                     health        = {source: 'fleet:runtimeStatus', state, confidence},
                     normalized    = normalizeSourceFact(health),
-                    // wired-without-usable-confidence is a PRESENT contradictory fact → rejected
-                    // evidence (`invalid`), never silently calm; declared `not-wired` stays the
-                    // one calm present shape
+                    // impossible pairs are PRESENT contradictory facts → rejected evidence
+                    // (`invalid`), never silently accepted: wired needs a usable confidence;
+                    // missing/not-wired cannot CARRY one — only their explicit `none` pairing is
+                    // the declared shape
                     expectedState = state === 'wired'
                         ? (confidence !== 'none' ? 'wired' : 'invalid')
-                        : state === 'missing'
-                            ? 'missing'
-                            : 'not-wired',
+                        : confidence === 'none'
+                            ? state
+                            : 'invalid',
                     expectedConfidence   = expectedState === 'wired' ? confidence : 'none',
                     expectedReason       = expectedState === 'invalid' ? 'source fact failed contract validation' : null,
                     expectedTreatment    = expectedState === 'wired'
