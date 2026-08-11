@@ -415,9 +415,20 @@ class HealthService extends Base {
                   age        = producer.clock() - snapshot.cached.checkedAt;
 
             if (age > staleAfter) {
+                // An ACTIVE flight is the loop running, so it cannot also be evidence the loop is
+                // gone — and this guard aged the cache without ever asking. Slowness is reported as
+                // slowness; a loop with NOTHING in flight still reports stale, because a dead loop is
+                // a real condition and this must not become the way to hide it.
+                if (snapshot.inFlight) {
+                    return {
+                        status: 'healthy',
+                        slow  : `an attempt has been in flight past the staleness bar (last healthy vector ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                    };
+                }
+
                 return {
                     status: 'stale',
-                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms)`
+                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms, no attempt in flight)`
                 };
             }
 

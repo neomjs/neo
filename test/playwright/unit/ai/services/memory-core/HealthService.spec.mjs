@@ -983,6 +983,77 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details.some(d => d.includes('backing off 30000ms (streak 1)'))).toBe(true);
     });
 
+    /**
+     * @summary A slow attempt IN FLIGHT is the loop running — it cannot also be evidence the loop
+     * is gone. Found by @neo-gpt-emmy on live data I had already read myself.
+     *
+     * The staleness guard aged the cached healthy result and never asked whether an attempt was
+     * currently running, so attempts of 662-1010s settled successfully while being reported as
+     * `loop not running` throughout. That is the exact signal every observer used to conclude the
+     * deployment was dead: the instrument manufactured the diagnosis it was consulted for.
+     *
+     * A wrong number invites re-measurement. A wrong CLASSIFICATION terminates the search.
+     */
+    test('an IN-FLIGHT slow attempt is reported as slow, never as a dead loop', async () => {
+        let   t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            runCanary    : async () => ({status: 'healthy'}), // seeds the healthy cache
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'inflight-not-stale'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Re-arm with a body that never settles, putting one attempt in flight.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            healthyTtlMs: 60000,
+            runCanary   : () => new Promise(resolve => { settle = resolve }),
+            clock       : () => t,
+            keyFor      : () => 'inflight-not-stale'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 900000; // far past 3 x max(cadence, healthyTtl) — the pre-fix bar fires here
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('loop not running')), 'a running loop is not a stopped one').toBe(false);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'and the slowness IS still reported').toBe(true);
+
+        settle?.({status: 'healthy'});
+    });
+
+    test('a DEAD loop with nothing in flight still reports stale — the fix must not hide the real condition', async () => {
+        let t = 1_000_000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0, // never fires again → the loop genuinely dies after one attempt
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'genuinely-dead-loop'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 900000;
+
+        const result = await HealthService.healthcheck();
+
+        // Asserted on the CANARY details, not the payload status: the claim is about this classifier,
+        // and the surrounding payload carries unrelated environment surface that would answer a
+        // different question than the one this control asks.
+        expect(result.details.some(d => d.includes('loop not running')), 'NON-VACUITY: a true dead loop is still caught').toBe(true);
+        expect(result.details.some(d => d.includes('no attempt in flight'))).toBe(true);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'a dead loop is not reported as merely slow').toBe(false);
+    });
+
     test('a never-started producer projects a named non-degrading wiring gap', async () => {
         HealthService.clearEmbeddingWriteCanaryProducer(); // simulate a boot that never started it
 

@@ -1595,11 +1595,19 @@ class HealthService extends Base {
             // A live healthy canary strips canary details projected onto an earlier copy of this
             // payload (e.g. a pending note cached before the flight settled healthy) — on a COPY,
             // never mutating the stored cache. Identity is preserved when there is nothing to strip.
-            if (payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
-                return {
-                    ...payload,
-                    details: payload.details.filter(detail => !detail.startsWith('Embedding write canary'))
-                };
+            // A slow-but-running loop is REPORTED without degrading. Degrading would flip exactly the
+            // deployments this distinguishes into unhealthy, and the container restarts that follow
+            // are the hazard the cadence leaf already warns about. Silence is not an option either:
+            // an unreported slow loop is how this was mistaken for a dead one.
+            if (canary.slow || payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
+                const details = (payload.details || [])
+                    .filter(detail => !detail.startsWith('Embedding write canary'));
+
+                if (canary.slow) {
+                    details.push(`Embedding write canary slow: ${canary.slow}`);
+                }
+
+                return {...payload, details};
             }
 
             return payload;
@@ -1673,9 +1681,26 @@ class HealthService extends Base {
                   age        = producer.clock() - snapshot.cached.checkedAt;
 
             if (age > staleAfter) {
+                // An ACTIVE flight is the loop running, so it cannot also be evidence the loop is
+                // gone — and this guard aged the cache without ever asking. A slow attempt therefore
+                // reported `loop not running` while it was demonstrably running: on a live plane,
+                // attempts of 662-1010s settled SUCCESSFULLY and were labelled dead throughout.
+                //
+                // That is worse than a mislabel. `loop not running` is the signal observers used to
+                // conclude the deployment was dead, so the instrument manufactured the diagnosis it
+                // was consulted for. The slow attempt is still reported — as slowness, which is what
+                // it is — and a loop with NOTHING in flight still reports stale, because a dead loop
+                // is a real condition and this must not become the way to hide it.
+                if (snapshot.inFlight) {
+                    return {
+                        status: 'healthy',
+                        slow  : `an attempt has been in flight past the staleness bar (last healthy result ${Math.round(age / 1000)}s old) — the loop is running SLOWLY, not stopped`
+                    };
+                }
+
                 return {
                     status: 'stale',
-                    reason: `loop not running (last healthy result ${Math.round(age / 1000)}s old, cadence ${producer.cadenceMs}ms)`
+                    reason: `loop not running (last healthy result ${Math.round(age / 1000)}s old, cadence ${producer.cadenceMs}ms, no attempt in flight)`
                 };
             }
 
