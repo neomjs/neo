@@ -2696,6 +2696,87 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
     });
 
+    test('#16960 listMessages projects only indexed routing candidates, never the full edge store', async () => {
+        GraphService.upsertNode({id: '@charlie', type: 'AgentIdentity', name: 'Charlie', properties: {accountType: 'agent'}});
+        GraphService.upsertNode({id: 'THREAD:indexed', type: 'THREAD', name: 'Indexed Thread', properties: {}});
+        GraphService.upsertNode({id: 'ISSUE:indexed', type: 'ISSUE', name: 'Indexed Issue', properties: {}});
+        GraphService.upsertNode({id: 'CONCEPT:indexed', type: 'CONCEPT', name: 'Indexed Concept', properties: {}});
+        GraphService.upsertNode({id: 'UNRELATED:source', type: 'UNRELATED', name: 'Unrelated Source', properties: {}});
+
+        await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+            await PermissionService.grantPermission({to: '@alice', scope: 'CAN_REPLY_TO'});
+        });
+
+        let directId, broadcastId;
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            directId = (await MailboxService.addMessage({
+                to            : '@bob',
+                subject       : 'indexed direct',
+                body          : 'direct body',
+                partOfThread  : 'THREAD:indexed',
+                relatedTickets: ['ISSUE:indexed'],
+                taggedConcepts: ['CONCEPT:indexed']
+            })).messageId;
+            broadcastId = (await MailboxService.addMessage({
+                to     : 'AGENT:*',
+                subject: 'indexed broadcast',
+                body   : 'broadcast body'
+            })).messageId;
+        });
+
+        // An unrelated target-@bob edge proves the target index is still type-filtered. It must
+        // neither become a mailbox candidate nor force a cache-wide scan.
+        GraphService.linkNodes('UNRELATED:source', '@bob', 'UNRELATED', 1, {});
+
+        const db = GraphService.db;
+        db.getAdjacentNodes('@bob', 'inbound');
+        db.getAdjacentNodes('AGENT:*', 'inbound');
+        db.getAdjacentNodes(directId, 'outbound');
+        db.getAdjacentNodes(broadcastId, 'outbound');
+        db.acknowledgeLocalMutations();
+
+        const
+            originalItems  = db.edges._items,
+            originalRepair = MailboxService.repairMessageGraphIntegrity;
+
+        // The secondary index maps own independent Sets. Poisoning only full-array iteration is a
+        // mutation witness: the former outer and per-message `db.edges.items` walks throw, while
+        // `getByIndex('target'|'source', ...)` remains fully functional.
+        db.edges._items = new Proxy(originalItems, {
+            get(target, property, receiver) {
+                if (property === Symbol.iterator) {
+                    throw new Error('full edge-store iteration is forbidden in listMessages');
+                }
+                return Reflect.get(target, property, receiver)
+            }
+        });
+        MailboxService.repairMessageGraphIntegrity = async () => ({scanned: 0, repaired: 0, failed: 0});
+
+        try {
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+                const all = await MailboxService.listMessages({box: 'all'});
+                expect(all.messages.map(message => message.subject).sort()).toEqual([
+                    'indexed broadcast',
+                    'indexed direct'
+                ]);
+
+                const direct = all.messages.find(message => message.messageId === directId);
+                expect(direct).toMatchObject({
+                    from          : '@alice',
+                    to            : '@bob',
+                    partOfThread  : 'THREAD:indexed',
+                    relatedTickets: ['ISSUE:indexed']
+                });
+
+                const tagged = await MailboxService.listMessages({taggedConcepts: ['CONCEPT:indexed']});
+                expect(tagged.messages.map(message => message.messageId)).toEqual([directId]);
+            });
+        } finally {
+            MailboxService.repairMessageGraphIntegrity = originalRepair;
+            db.edges._items = originalItems;
+        }
+    });
+
     test('listMessages pagination (limit/offset) boundary', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
