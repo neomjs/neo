@@ -61,6 +61,24 @@ test.describe('FM vocabulary parity — the realm boundary carries no imports, s
         expect(violations).toContain('wire.twin.UNREGISTERED_PAIR_PROBE: export is unclassified')
     });
 
+    test('a registered pair missing from both realms fails closed on each side (#16805)', () => {
+        const
+            {FLEET_WIRE_ENVELOPE_SCHEMA: omittedAuthority, ...authorityWireWithoutSchema} = authority.wire,
+            {FLEET_WIRE_ENVELOPE_SCHEMA: omittedTwin,      ...twinWireWithoutSchema}      = twin.wire,
+            shrunkAuthority                                                               = {...authority, wire: authorityWireWithoutSchema},
+            shrunkTwin                                                                    = {...twin,      wire: twinWireWithoutSchema},
+            violations                                                                    = compareFleetVocabulary({authority: shrunkAuthority, twin: shrunkTwin});
+
+        expect(omittedAuthority).toBeDefined();
+        expect(omittedTwin).toBeDefined();
+        expect(violations).toContain(
+            'wire.authority.FLEET_WIRE_ENVELOPE_SCHEMA: data-pair disposition names a missing export'
+        );
+        expect(violations).toContain(
+            'wire.twin.FLEET_WIRE_ENVELOPE_SCHEMA: data-pair disposition names a missing export'
+        )
+    });
+
     test('the comparator is not a rubber stamp: an induced data drift reddens with the surface named', () => {
         // The permanent red-proof: a twin whose catalog gained an unmirrored server MUST fail, and
         // the violation names the drifted surface — the exact defect class the dissolution's
