@@ -2,8 +2,10 @@ import {FLEET_COCKPIT_SOURCES} from '../../config/cockpitSources.mjs';
 
 /**
  * @summary Closed source-health contract shared by the Fleet cockpit's store-backed cards and
- * serializable dock blueprints. It preserves the DTO's roster / repo / runtime provenance while
- * failing malformed or contradictory input to `not-wired` + `none` — never to healthy fact.
+ * serializable dock blueprints. It preserves the DTO's roster / repo / runtime provenance under a
+ * three-way honesty split: GENUINE absence (absent key or declared `not-wired`) is calm; a present
+ * fact the contract REJECTS (malformed, cross-axis, contradictory) is `invalid` — operator-visible
+ * and attention-bearing, never a healthy fact and never silently absent.
  */
 
 export const FLEET_SOURCE_KEYS = Object.freeze(['roster', 'repoStatus', 'runtime']);
@@ -18,16 +20,26 @@ const
 
 /**
  * @summary Normalize one `fleetCockpitStatus` row-source fact onto the closed render vocabulary.
- * `missing` and `not-wired` cannot carry confidence; `wired` is usable only with `observed` or
- * `inferred`. When supplied, `expectedSource` closes the fact over its DTO-owned producer. Unknown,
- * inherited, malformed, cross-axis, and contradictory values fail closed.
- * @param {*} value Source-health input; malformed values fail closed.
+ * `missing`, `not-wired`, and `invalid` cannot carry confidence; `wired` is usable only with
+ * `observed` or `inferred`. When supplied, `expectedSource` closes the fact over its DTO-owned
+ * producer. Absent input fails closed to the calm `not-wired`; unknown, inherited-shaped,
+ * malformed, cross-axis, and contradictory PRESENT values read `invalid` — rejected evidence is
+ * never conflated with absence.
+ * @param {*} value Source-health input.
  * @param {String|null} expectedSource Canonical producer literal for this source axis.
- * @returns {{source: String|null, state: String, confidence: String}}
+ * @returns {{source: String|null, state: String, confidence: String, reason: String|null}}
  */
 export function normalizeSourceFact(value, expectedSource = null) {
+    // GENUINE absence: no fact was supplied at all (the absent-key path). Only this shape may be
+    // calm — an ABSENT producer is not the same fact as a REJECTED answer, and conflating them
+    // would let validation failure normalize into a green surface.
+    if (value === null || value === undefined) {
+        return {source: null, state: 'not-wired', confidence: 'none', reason: null}
+    }
+
+    // PRESENT but not a plain own-key object: rejected evidence, not absence.
     if (!isPlainObject(value)) {
-        return {source: null, state: 'not-wired', confidence: 'none'}
+        return {source: null, state: 'invalid', confidence: 'none', reason: 'malformed source fact'}
     }
 
     const
@@ -35,21 +47,47 @@ export function normalizeSourceFact(value, expectedSource = null) {
             ? value.source.trim()
             : null,
         state      = Object.hasOwn(value, 'state') ? value.state : null,
-        confidence = Object.hasOwn(value, 'confidence') ? value.confidence : null;
+        confidence = Object.hasOwn(value, 'confidence') ? value.confidence : null,
+        // the producer's retained cause survives normalization VERBATIM (trimmed): the abnormal
+        // summary must name source AND reason, and a reason invented here would be a fabrication —
+        // absent stays null. Carried on every branch: a fact failing closed keeps the cause that
+        // explains WHY it failed closed.
+        reason     = Object.hasOwn(value, 'reason') && typeof value.reason === 'string' && value.reason.trim()
+            ? value.reason.trim()
+            : null;
 
+    // A PRESENT fact naming no producer — or the wrong one — is rejected evidence: `invalid`,
+    // never `not-wired`. The retained reason survives; the rejection itself is the fallback cause.
     if (!source || expectedSource && source !== expectedSource) {
-        return {source, state: 'not-wired', confidence: 'none'}
+        return {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed producer validation'}
     }
 
+    // `missing` and `not-wired` cannot CARRY confidence: only the explicit `none` pairing is the
+    // declared shape. A present fact asserting `missing`/`not-wired` WITH an observation
+    // confidence is a contradictory pair — rejected evidence, never accepted onto the calm or
+    // answered-abnormal vocabulary (accepting impossible confidence on absence states would
+    // recreate the exact rejected-evidence→nominal conflation `invalid` exists to remove).
     if (state === 'missing') {
-        return {source, state: 'missing', confidence: 'none'}
+        return confidence === 'none'
+            ? {source, state: 'missing', confidence: 'none', reason}
+            : {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
     }
 
     if (state === 'wired' && (confidence === 'observed' || confidence === 'inferred')) {
-        return {source, state: 'wired', confidence}
+        return {source, state: 'wired', confidence, reason}
     }
 
-    return {source, state: 'not-wired', confidence: 'none'}
+    // The producer explicitly declares expected absence — the ONE present shape allowed to be
+    // calm, and only with the explicit `none` confidence it is declared with.
+    if (state === 'not-wired') {
+        return confidence === 'none'
+            ? {source, state: 'not-wired', confidence: 'none', reason}
+            : {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
+    }
+
+    // Everything else is a present fact this contract cannot read (unknown state, cross-axis
+    // value, contradictory confidence): rejected evidence, operator-visible.
+    return {source, state: 'invalid', confidence: 'none', reason: reason ?? 'source fact failed contract validation'}
 }
 
 /**
@@ -106,14 +144,61 @@ export function summarizeFleetSources(value) {
         return {level: 'ok', text: 'all sources nominal', ariaLabel: 'Source health: all sources nominal.'}
     }
 
+    return buildAbnormalSummary(sources, abnormal, labels)
+}
+
+/**
+ * @summary The strip's ANSWERED-abnormal summary — the one interpretation of `not-wired` shared
+ * with the aggregate attention fold: a `missing` fact is a producer ANSWERING that something is
+ * gone (renders, with its name and retained reason, and carries weight); `not-wired` is expected
+ * absence (earns zero pixels here exactly as it carries zero weight there — rendering it was the
+ * second permanent default-state line the operator verdict retired). Split from
+ * {@link #summarizeFleetSources} so the legacy any-abnormal summary stays available to the
+ * detail/drill surfaces that enumerate every fact.
+ * @param {*} value Source collection; malformed values fail closed.
+ * @returns {{level: String, text: String, ariaLabel: String}} `level` is `ok` (nothing answered
+ *     abnormal — the strip renders nothing) or `bad`.
+ */
+export function summarizeAnsweredAbnormal(value) {
+    const
+        sources = normalizeFleetSources(value),
+        labels  = {runtime: 'Runtime', repoStatus: 'Repository', roster: 'Roster'},
+        order   = ['runtime', 'repoStatus', 'roster'],
+        // missing = a producer ANSWERED that something is gone; invalid = a present answer this
+        // contract REJECTED. Both are operator-visible truth; only genuine absence (`not-wired`,
+        // whether declared or absent-key) stays silent.
+        abnormal = order.filter(key => sources[key].state === 'missing' || sources[key].state === 'invalid');
+
+    if (abnormal.length === 0) {
+        return {level: 'ok', text: '', ariaLabel: 'Source health: nothing answered abnormal.'}
+    }
+
+    return buildAbnormalSummary(sources, abnormal, labels)
+}
+
+/**
+ * @summary Shared abnormal-line composer: leading source name (+N overflow) with the leading
+ * source's retained reason when one exists — name-only otherwise, never a fabricated cause.
+ * @param {Object} sources Normalized source facts.
+ * @param {String[]} abnormal Abnormal keys, action-owning order.
+ * @param {Object} labels Full-word labels.
+ * @returns {{level: String, text: String, ariaLabel: String}}
+ * @private
+ */
+function buildAbnormalSummary(sources, abnormal, labels) {
+
     const
         first = abnormal[0],
-        extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '';
+        extra = abnormal.length > 1 ? ` +${abnormal.length - 1}` : '',
+        // the leading abnormal source's retained cause rides the line — name AND reason, the
+        // operator-ratified bar for a rendered exception. A reasonless fact renders name-only
+        // (never a fabricated cause); the text node downstream keeps the whole line inert.
+        reason = sources[first].reason ? ` · ${sources[first].reason}` : '';
 
     return {
         level    : 'bad',
-        text     : `${labels[first]} not nominal${extra}`,
-        ariaLabel: `Source health: ${abnormal.map(key => labels[key]).join(', ')} not nominal.`
+        text     : `${labels[first]} not nominal${extra}${reason}`,
+        ariaLabel: `Source health: ${abnormal.map(key => labels[key]).join(', ')} not nominal.${sources[first].reason ? ` ${labels[first]}: ${sources[first].reason}.` : ''}`
     }
 }
 
@@ -133,7 +218,10 @@ export function mapFleetSessionHealth(lifecycle, sources) {
         downgradeRuntime  = () => ({
             sources: {
                 ...normalizedSources,
-                runtime: {source: runtime.source, state: 'not-wired', confidence: 'none'}
+                // a lifecycle/source CONTRADICTION is rejected evidence, not absence — `invalid`
+                // keeps it operator-visible and attention-bearing; the producer's retained cause
+                // survives, with the contradiction named as the fallback
+                runtime: {source: runtime.source, state: 'invalid', confidence: 'none', reason: runtime.reason ?? 'lifecycle and runtime facts contradict'}
             },
             state: 'off'
         });
@@ -176,31 +264,39 @@ export function mapFleetSessionHealth(lifecycle, sources) {
  * @summary Resolve one roster row's display state as ONE atomic honesty contract shared by the
  * AgentCard and the HealthBar, so the card grain and the glance tally can never diverge.
  *
- * The vocabulary distinguishes participation truth from session truth:
- * - **Wired runtime** → the row's `state` IS session truth (observed/inferred) and renders as-is.
- * - **Not-wired + `state: 'off'`** → a first-party participation fact (operator-benched, e.g.
- *   identityRoots `operator_benched`) — renders `off` (`benched / offline`), never softened.
- * - **Not-wired + any other state** → participation-active with NO session observation (the
- *   derived sample path) — renders `unobserved`: no liveness is claimed and no benched verdict
- *   is claimed. Rendering it `off` would be a false participation claim; rendering it `ok`
- *   would fabricate session liveness. `unobserved` is the honest third answer.
+ * The vocabulary distinguishes participation truth from session truth, under one invariant:
+ * **supervision vocabulary renders only where supervision exists (a wired runtime)** — the
+ * operator-ratified default-state contract; un-managed is the NORMAL topology on FM-as-client
+ * deployments and must never read as a supervision verdict or carry attention weight.
+ * - **Wired runtime** → the row's `state` IS session truth (observed/inferred) and renders as-is —
+ *   including `off` (`benched / offline`): a process Fleet manages and knows to be stopped.
+ * - **Not-wired + `state: 'off'`** (and unknown / guest / missing rows, which are equally outside
+ *   any supervision contract) → `external`: the seat runs in its own harness; Fleet manages
+ *   nothing here, so no benched/offline verdict exists to claim. The previous mapping rendered
+ *   these `off` — the falsified copy ("offline" about agents visibly merging PRs) this partition
+ *   retires.
+ * - **Not-wired + any other canonical state** → participation-active with NO session observation
+ *   (the derived sample path) — renders `unobserved`: no liveness is claimed and no benched
+ *   verdict is claimed. Rendering it `off` would be a false participation claim; rendering it
+ *   `ok` would fabricate session liveness.
  * @param {Object} data
  * @param {String|null} [data.state] The row's raw state field.
  * @param {Object|null} [data.sources] The row's source facts (normalized here; malformed fails closed).
- * @returns {String} `ok` · `idle` · `wedged` · `limited` · `off` · `unobserved`
+ * @returns {String} `ok` · `idle` · `wedged` · `limited` · `off` · `unobserved` · `external`
  */
 export function resolveFleetDisplayState({state, sources} = {}) {
     if (normalizeFleetSources(sources).runtime.state === 'wired') {
         return state ?? 'off'
     }
 
-    // unknown / guest / missing rows are not participation-active: they fold to `off`, matching
-    // the grid's benched tier — `unobserved` belongs only to canonical states.
-    if (!CARD_STATES.includes(state)) {
-        return 'off'
+    // unknown / guest / missing rows sit outside any supervision contract exactly like an
+    // explicit un-managed `off` — both resolve `external` (the grid's raw-state tail tiering is
+    // unaffected: it reads `agent.state`, never this display value).
+    if (!CARD_STATES.includes(state) || state === 'off') {
+        return 'external'
     }
 
-    return state === 'off' ? 'off' : 'unobserved'
+    return 'unobserved'
 }
 
 /**

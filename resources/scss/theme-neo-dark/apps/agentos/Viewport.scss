@@ -51,6 +51,9 @@
     // participation-active with no session observation: slate-blue "signal pending", distinct
     // from off's dead grey (#616d7c) — ≥3:1 against card surfaces (non-text floor).
     --fm-state-unobserved: #6b7f94;
+    // a seat Fleet does not manage (the FM-as-client normal): calm neutral, deliberately close to
+    // the dim ink — zero attention weight, distinct from off's supervision grey.
+    --fm-state-external: #7d8a9c;
     --fm-state-off     : #616d7c;
 
     --fm-family-claude : #d99a5b;

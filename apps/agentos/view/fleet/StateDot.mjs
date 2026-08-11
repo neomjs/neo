@@ -22,6 +22,10 @@ const STATE_TOKEN = {
     // participation-active with NO session observation: the slate signal-pending token, visually
     // distinct from off's dead grey — no liveness claimed, no benched verdict claimed.
     unobserved: '--fm-state-unobserved',
+    // a seat Fleet does not manage: supervision vocabulary does not apply, so the dot carries the
+    // calm neutral token — un-managed is the NORMAL topology on FM-as-client deployments, never an
+    // attention state (the operator-ratified default-state contract).
+    external: '--fm-state-external',
     off     : '--fm-state-off'
 };
 
@@ -64,6 +68,10 @@ const STATE_LABEL = {
     starting: 'starting',
     stopping: 'stopping',
     unobserved: 'unobserved',
+    // neutral operator copy, not a supervision verdict: the seat runs in its own harness and Fleet
+    // simply does not manage it — "offline" would be a fact about FLEET presented as a fact about
+    // the agent (the falsified copy this label replaces).
+    external: 'external harness',
     off     : 'benched / offline'
 };
 

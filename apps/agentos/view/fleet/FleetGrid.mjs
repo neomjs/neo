@@ -125,6 +125,14 @@ class FleetGrid extends Container {
          */
         presenceCapability_: null,
         /**
+         * Whether a Brain daemon sits in a fault state — the spine banner's own fault set
+         * (`DAEMON_FAULT_STATES`), plumbed by the cockpit from the one lifecycle authority. Feeds
+         * the health bar's aggregate attention fold; this grid derives nothing about daemons.
+         * @member {Boolean} daemonFault_=false
+         * @reactive
+         */
+        daemonFault_: false,
+        /**
          * An OPTIONAL Up/Down efficiency shortcut that jumps focus between the DRILL Buttons only (the
          * gate-1 scale disposition) — a fast inter-agent jump for large rosters WITHOUT an outer roving
          * tab stop or a hidden interaction mode. Every control (drill / toggle / restart) stays in ordinary
@@ -258,7 +266,34 @@ class FleetGrid extends Container {
             chip     = this.getReference('fleet-presence-cap');
 
         chip.set({hidden: !degraded, text});
-        chip.changeVdomRootKey('aria-label', degraded ? `Presence: unobservable.${reason ? ` ${reason}.` : ''}` : null)
+        chip.changeVdomRootKey('aria-label', degraded ? `Presence: unobservable.${reason ? ` ${reason}.` : ''}` : null);
+
+        // the chip and the aggregate dot read ONE fact: a rendered degradation always carries
+        // attention weight, so the chip can never sit over a green header
+        this.pushAttentionInputs()
+    }
+
+    /**
+     * Triggered after the daemonFault config changed — the cockpit-plumbed lifecycle fact feeds
+     * the bar's aggregate fold.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDaemonFault(value, oldValue) {
+        this.isConstructed && this.pushAttentionInputs()
+    }
+
+    /**
+     * @summary Hand the bar the non-roster attention facts this grid holds — one push site, so the
+     * chip render and the aggregate verdict cannot diverge.
+     * @protected
+     */
+    pushAttentionInputs() {
+        this.getReference('fleet-health').attentionInputs = {
+            daemonFault     : this.daemonFault === true,
+            presenceDegraded: this.presenceCapability?.state === 'degraded'
+        }
     }
 
     /**

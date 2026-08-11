@@ -104,10 +104,20 @@ test.describe('fleetStartPlan — the staged fleet bring-up (pure half)', () => 
         expect(eligible).toHaveLength(0);
         expect(excluded[0].reason).toContain("runtime source 'not-wired'");
 
-        // missing runtime axis → fail closed with the missing state visible
+        // a missing-state fact OMITTING its confidence field is an incomplete answer under the
+        // airtight vocabulary (missing/not-wired pair only with an explicit `none`) → it reads
+        // `invalid` — and the start STILL fails closed, which is this rule's actual authority
         ({eligible, excluded} = partitionOne({
             agentId: 'gone', state: 'off',
             sources: {...wiredRuntime(), runtime: {source: 'fleet:runtimeStatus', state: 'missing'}}
+        }));
+        expect(eligible).toHaveLength(0);
+        expect(excluded[0].reason).toContain("runtime source 'invalid'");
+
+        // the complete declared shape keeps its own name in the exclusion
+        ({eligible, excluded} = partitionOne({
+            agentId: 'gone-2', state: 'off',
+            sources: {...wiredRuntime(), runtime: {source: 'fleet:runtimeStatus', state: 'missing', confidence: 'none'}}
         }));
         expect(eligible).toHaveLength(0);
         expect(excluded[0].reason).toContain("runtime source 'missing'");
