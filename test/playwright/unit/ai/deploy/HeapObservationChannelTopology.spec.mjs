@@ -1,12 +1,11 @@
-import {test, expect}      from '@playwright/test';
-import fs                  from 'node:fs';
-import path                from 'node:path';
-import process             from 'node:process';
-import {load as yamlLoad}  from 'js-yaml';
-import Neo                 from '../../../../../src/Neo.mjs';
-import * as core           from '../../../../../src/core/_export.mjs';
-import KnowledgeBaseServer from '../../../../../ai/mcp/server/knowledge-base/Server.mjs';
-import MemoryCoreServer    from '../../../../../ai/mcp/server/memory-core/Server.mjs';
+import {test, expect}     from '@playwright/test';
+import fs                 from 'node:fs';
+import path               from 'node:path';
+import process            from 'node:process';
+import {pathToFileURL}    from 'node:url';
+import {load as yamlLoad} from 'js-yaml';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
 
 /**
  * Guards the heap-observation channel's mount topology in both deployment profiles.
@@ -51,20 +50,52 @@ const
     repoRoot       = path.resolve(process.cwd()),
     canonicalPath  = path.join(repoRoot, 'ai/deploy/docker-compose.yml'),
     parityPath     = path.join(repoRoot, 'ai/deploy/docker-compose.dev.yml'),
+    serverRoot     = path.join(repoRoot, 'ai/mcp/server'),
     READER_SERVICE = 'orchestrator';
 
 /**
- * The reporter roster, sourced from production rather than restated here.
+ * @summary Discovers the reporter roster by asking every shipped MCP server module what it declares.
  *
- * `getHeapObservationServiceKey` is a prototype method with no instance state on either server, so
- * it is callable against the prototype without booting a server. A module whose hook is renamed or
- * removed inherits `BaseServer`'s `null` and drops out of the roster — which the set-equality
+ * **The population is discovered, never listed.** An earlier revision named the two known servers in an
+ * array here, which made this file its own census: a seventh server that declared a key and shipped
+ * without a mount would have joined production and not this guard, and the guard would have stayed
+ * green by not knowing about it. A checked-in list classifies once and then decays; enumerating the
+ * server directory classifies as a side effect of running.
+ *
+ * `getHeapObservationServiceKey` is a prototype method with no instance state on any server, so it is
+ * callable against the prototype without booting one. A module whose hook is renamed or removed
+ * inherits `BaseServer`'s `null` opt-out and drops out of the roster — which the set-equality
  * assertions then convict, rather than silently shrinking the population under test.
+ *
+ * Reading the **default export** is what makes a decoy class unable to supply an identity: it is not
+ * what the module exports, so it is never asked.
+ *
+ * @returns {Promise<String[]>} Declared service keys, sorted.
  */
-const reporterRoster = [KnowledgeBaseServer, MemoryCoreServer]
-    .map(ServerClass => ServerClass.prototype.getHeapObservationServiceKey.call(ServerClass.prototype))
-    .filter(Boolean)
-    .sort();
+async function discoverReporterRoster() {
+    const keys = [];
+
+    for (const entry of fs.readdirSync(serverRoot, {withFileTypes: true}).sort((a, b) => a.name.localeCompare(b.name))) {
+        const modulePath = path.join(serverRoot, entry.name, 'Server.mjs');
+
+        if (!entry.isDirectory() || !fs.existsSync(modulePath)) {
+            continue
+        }
+
+        const ServerClass = (await import(pathToFileURL(modulePath).href)).default,
+              serviceKey  = ServerClass?.prototype?.getHeapObservationServiceKey?.call(ServerClass.prototype) ?? null;
+
+        serviceKey && keys.push(serviceKey)
+    }
+
+    return keys.sort()
+}
+
+let reporterRoster;
+
+test.beforeAll(async () => {
+    reporterRoster = await discoverReporterRoster()
+});
 
 /**
  * @summary Classifies every service mounting `volumeName` as a writer or a read-only reader.
@@ -101,11 +132,32 @@ const profiles = [
 ];
 
 test.describe('heap-observation channel topology (#16838)', () => {
-    test('the production roster is non-empty and sourced from the exported server classes', () => {
+    test('the production roster is non-empty and discovered from the shipped server modules', () => {
         // A roster that silently emptied would make every per-profile assertion below vacuous, so
         // this is the guard on the guard. It also pins the identities themselves: a hook renamed on
         // one server drops exactly one key here, before any Compose document is read.
         expect(reporterRoster).toEqual(['kb-server', 'mc-server']);
+    });
+
+    test('a NEW reporter shipping without a mount reddens, without anyone editing this file', () => {
+        // The reason the roster is discovered rather than listed. A seventh server that declares a
+        // service key joins `reporterRoster` by existing — so if it ships without a Compose mount,
+        // the set-equality assertions below diverge on their own.
+        //
+        // Asserted against the REAL canonical mounts with one synthetic reporter added, because the
+        // property under test is the comparison, not the filesystem: this must fail for the future
+        // population without requiring a future server to exist today.
+        const
+            compose     = yamlLoad(fs.readFileSync(canonicalPath, 'utf8')),
+            {readWrite} = classifyMounts(compose, 'shared-heap-observation-data'),
+            grownRoster = [...reporterRoster, 'fleet-server'].sort();
+
+        expect(readWrite, 'a declared reporter with no mount must not compare equal')
+            .not.toEqual(grownRoster);
+
+        // The paired control: the SAME comparison against the unchanged roster passes. Without it
+        // this test would also pass on a comparison that can never be equal to anything.
+        expect(readWrite).toEqual(reporterRoster);
     });
 
     profiles.forEach(({label, composePath, volumeName}) => {
