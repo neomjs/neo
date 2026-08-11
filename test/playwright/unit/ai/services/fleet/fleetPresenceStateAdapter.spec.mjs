@@ -18,6 +18,8 @@ import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
 import {
+    gradePresenceBand,
+    PRESENCE_BANDS,
     PRESENCE_SOURCE_LABEL,
     PRESENCE_STATES,
     presenceIdentityForAgent,
@@ -102,7 +104,7 @@ test.describe('fleetPresenceStateAdapter — capability envelope (producer healt
 })
 
 test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => {
-    test('bands + recency join per agent through the default @githubUsername identity', async () => {
+    test('bands + recency join per agent through the default @githubUsername identity — emitted GRADED', async () => {
         const {capability, states} = await readFleetPresenceSnapshot({
             agents,
             readPresence: () => healthyPayload
@@ -112,15 +114,63 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
         expect(capability.confidence).toBe('observed')
         expect(capability.reason).toBeNull()
 
+        // the emitted vocabulary is the GRADE: online-without-a-fresh-beacon reads `fresh`
+        // (recent durable activity), the plane's idle window reads `recent`
         expect(states[0]).toEqual({
             agentId   : 'neo-fable-clio',
-            presence  : 'online',
+            presence  : 'fresh',
             lastSeenAt: '2026-08-09T11:00:00.000Z',
             confidence: 'observed',
             source    : PRESENCE_SOURCE_LABEL
         })
-        expect(states[1].presence).toBe('idle')
+        expect(states[1].presence).toBe('recent')
         expect(states[1].lastSeenAt).toBeNull()
+    })
+
+    test('the flap falsifier: a FRESH beacon grades active-turn regardless of add_memory staleness; membership facts never grade', async () => {
+        const {states} = await readFleetPresenceSnapshot({
+            agents: [
+                {id: 'mid-turn',  githubUsername: 'mid-turn'},
+                {id: 'long-turn', githubUsername: 'long-turn'},
+                {id: 'benched',   githubUsername: 'benched'}
+            ],
+            readPresence: () => ({agents: [
+                // fresh beacon + fresh activity: mid-turn RIGHT NOW
+                {identity: '@mid-turn', state: 'online', signals: {turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z'}}},
+                // the 70-minute-turn specimen: add_memory stale (plane says idle) but the beacon
+                // is fresh — the grade is active-turn, never a flap to recent/dark
+                {identity: '@long-turn', state: 'idle', signals: {turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z'}}},
+                // a fresh beacon must not rescue a membership fact
+                {identity: '@benched', state: 'benched', signals: {turnPresence: {fresh: true}}}
+            ]})
+        })
+
+        expect(states.map(row => row.presence)).toEqual(['active-turn', 'active-turn', 'benched'])
+    })
+
+    test('gradePresenceBand is pure and total: the full grade matrix, malformed signals never fabricate', () => {
+        // the grade matrix over the plane vocabulary × beacon freshness
+        expect(gradePresenceBand({state: 'online', beaconFresh: true})).toBe('active-turn')
+        expect(gradePresenceBand({state: 'idle',   beaconFresh: true})).toBe('active-turn')
+        expect(gradePresenceBand({state: 'dark',   beaconFresh: true})).toBe('active-turn')
+        expect(gradePresenceBand({state: 'online'})).toBe('fresh')
+        expect(gradePresenceBand({state: 'idle'})).toBe('recent')
+        expect(gradePresenceBand({state: 'dark'})).toBe('dark')
+
+        // membership facts pass through untouched, beacon or not
+        expect(gradePresenceBand({state: 'benched',        beaconFresh: true})).toBe('benched')
+        expect(gradePresenceBand({state: 'neverConnected', beaconFresh: true})).toBe('neverConnected')
+
+        // total on odd input: pass-through, never a fabricated grade; absent signal = not fresh
+        expect(gradePresenceBand({state: 'unknown'})).toBe('unknown')
+        expect(gradePresenceBand({})).toBe(undefined)
+        expect(gradePresenceBand()).toBe(undefined)
+
+        // every graded output the adapter can emit is in the declared band vocabulary
+        for (const state of PRESENCE_STATES) {
+            expect(PRESENCE_BANDS).toContain(gradePresenceBand({state, beaconFresh: true}))
+            expect(PRESENCE_BANDS).toContain(gradePresenceBand({state, beaconFresh: false}))
+        }
     })
 
     test('a seat absent from a HEALTHY report is row-local unknown — capability stays wired/observed', async () => {
@@ -138,7 +188,7 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
         expect(absent.reason).toBe('seat absent from the presence report')
 
         // Siblings keep their own truth — row-local honesty never spreads.
-        expect(states.find(row => row.agentId === 'neo-fable-clio').presence).toBe('online')
+        expect(states.find(row => row.agentId === 'neo-fable-clio').presence).toBe('fresh')
     })
 
     test('an out-of-vocabulary band is skipped, not admitted — the seat answers unknown, the enum stays closed', async () => {
@@ -153,13 +203,16 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
         expect(PRESENCE_STATES).not.toContain('levitating')
     })
 
-    test('every emitted band in the closed vocabulary passes through verbatim', async () => {
+    test('every admitted plane verdict emits its GRADE — the closed input set maps onto the closed band set', async () => {
         const
             roster   = PRESENCE_STATES.map((state, index) => ({id: `agent-${index}`, githubUsername: `agent-${index}`})),
             payload  = {agents: PRESENCE_STATES.map((state, index) => ({identity: `@agent-${index}`, state}))},
             {states} = await readFleetPresenceSnapshot({agents: roster, readPresence: () => payload})
 
-        expect(states.map(row => row.presence)).toEqual([...PRESENCE_STATES])
+        // beaconless grading: online→fresh, idle→recent, the rest verbatim — and every emission
+        // is in the declared band vocabulary
+        expect(states.map(row => row.presence)).toEqual(['fresh', 'recent', 'dark', 'benched', 'neverConnected'])
+        states.forEach(row => expect(PRESENCE_BANDS).toContain(row.presence))
     })
 
     test('the default join accepts the registry\'s FULL production spelling domain — a persisted leading @ never fabricates absence', async () => {
