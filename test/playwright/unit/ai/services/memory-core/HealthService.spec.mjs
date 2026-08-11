@@ -983,6 +983,241 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details.some(d => d.includes('backing off 30000ms (streak 1)'))).toBe(true);
     });
 
+    /**
+     * @summary A slow attempt IN FLIGHT is the loop running — it cannot also be evidence the loop
+     * is gone. Found by @neo-gpt-emmy on live data I had already read myself.
+     *
+     * The staleness guard aged the cached healthy result and never asked whether an attempt was
+     * currently running, so attempts of 662-1010s settled successfully while being reported as
+     * `loop not running` throughout. That is the exact signal every observer used to conclude the
+     * deployment was dead: the instrument manufactured the diagnosis it was consulted for.
+     *
+     * A wrong number invites re-measurement. A wrong CLASSIFICATION terminates the search.
+     */
+    test('an IN-FLIGHT slow attempt is reported as slow, never as a dead loop', async () => {
+        let   t = 1_000_000, settle;
+
+        // The budget matches the affected deployment's raised value, so the flight below is one this
+        // plane genuinely permits — WITHIN its deadline, and merely slower than the staleness bar.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            timeoutMs    : 900000,
+            runCanary    : async () => ({status: 'healthy'}), // seeds the healthy cache
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'inflight-not-stale'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Re-arm with a body that never settles, putting one attempt in flight.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            healthyTtlMs: 60000,
+            timeoutMs   : 900000,
+            runCanary   : () => new Promise(resolve => { settle = resolve }),
+            clock       : () => t,
+            keyFor      : () => 'inflight-not-stale'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 400000; // past 3 x max(cadence, healthyTtl), inside the 900s budget: slow, not stuck
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('loop not running')), 'a running loop is not a stopped one').toBe(false);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'and the slowness IS still reported').toBe(true);
+
+        settle?.({status: 'healthy'});
+    });
+
+    /**
+     * @summary The direction-of-error check on my own fix, required by @neo-gpt-emmy.
+     *
+     * Suppressing staleness on the mere EXISTENCE of a flight disarms the dead-loop guard for the
+     * worst case: an attempt that never settles keeps `inFlight` true forever, so the surface reports
+     * `healthy, slow` indefinitely. That trades a false RED for a permanent false GREEN, and the
+     * green direction is the dangerous one — a dead provider reported as slow is never investigated,
+     * where the reverse at least gets someone looking.
+     *
+     * The bound is the attempt's own issued budget: past it, the deadline that was supposed to end
+     * this flight did not fire, which is a fault in its own right and not "slow".
+     */
+    test('a STUCK flight past its own budget reports stale — suppression is bounded, not unconditional', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            timeoutMs    : 30000,
+            runCanary    : async () => ({status: 'healthy'}), // seeds the healthy cache
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'stuck-flight'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // Age the CACHE past the staleness bar BEFORE the flight starts, so cache-age and flight-age
+        // are independent. They advance together otherwise, and a test where they cannot diverge
+        // cannot distinguish the two conditions it exists to separate.
+        t += 400000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            healthyTtlMs: 60000,
+            timeoutMs   : 30000,
+            runCanary   : () => new Promise(resolve => { settle = resolve }),
+            clock       : () => t,
+            keyFor      : () => 'stuck-flight'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 20000; // flight 20s old — inside its 30s budget; cache 420s old — past the bar
+
+        const slow = await HealthService.healthcheck();
+
+        expect(slow.details.some(d => d.startsWith('Embedding write canary slow')), 'inside its budget it is slow').toBe(true);
+        expect(slow.details.some(d => d.includes('STUCK'))).toBe(false);
+
+        t += 600000; // now far past the 30s budget — the deadline never fired
+
+        HealthService.clearCache();
+
+        const stuck = await HealthService.healthcheck();
+
+        expect(stuck.details.some(d => d.includes('STUCK in flight')), 'past its budget it is stuck, not slow').toBe(true);
+        expect(stuck.details.some(d => d.startsWith('Embedding write canary slow')), 'a hung flight must not be reported as merely slow forever').toBe(false);
+
+        settle?.({status: 'healthy'});
+    });
+
+    /**
+     * @summary The issued budget is the flight's OWN, not whatever the last re-arm set.
+     *
+     * Found by @neo-gpt-emmy on the previous head: `producer.timeoutMs` is mutable and every re-arm
+     * overwrites it, while the gate and any in-flight attempt are deliberately preserved. So a live
+     * flight was being judged against a deadline it was never issued under. My comment claimed
+     * "issued budget" while the code read the current config — the prose asserted a property the
+     * code did not have.
+     *
+     * Paired in BOTH directions, because each fails differently and a single direction would leave
+     * the other silently wrong.
+     */
+    test('re-arm 900s → 30s: a flight issued under the LONG budget is not falsely STUCK', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 400000; // age the cache past the bar before the flight starts
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            runCanary: () => new Promise(resolve => { settle = resolve }),
+            clock    : () => t,
+            keyFor   : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 60000; // 60s in flight: inside the 900s it was ISSUED under
+
+        // Re-arm to a SHORT budget. The live flight keeps the deadline it was issued with; only the
+        // NEXT attempt gets the new one.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            clock    : () => t,
+            keyFor   : () => 'rearm-long-to-short'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('STUCK')), '60s < the 900s it was issued under').toBe(false);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow'))).toBe(true);
+
+        settle?.({status: 'healthy'});
+    });
+
+    test('re-arm 30s → 900s: a flight issued under the SHORT budget is still STUCK past it', async () => {
+        let t = 1_000_000, settle;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 400000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 30000,
+            runCanary: () => new Promise(resolve => { settle = resolve }),
+            clock    : () => t,
+            keyFor   : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 200000; // 200s in flight: far past the 30s it was ISSUED under
+
+        // Re-arm to a LONG budget. A widened config must not retroactively excuse a missed deadline.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs: 60000, healthyTtlMs: 60000, timeoutMs: 900000,
+            clock    : () => t,
+            keyFor   : () => 'rearm-short-to-long'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('STUCK in flight')), 'the missed deadline stands').toBe(true);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow'))).toBe(false);
+
+        settle?.({status: 'healthy'});
+    });
+
+    test('a DEAD loop with nothing in flight still reports stale — the fix must not hide the real condition', async () => {
+        let t = 1_000_000;
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            healthyTtlMs : 60000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0, // never fires again → the loop genuinely dies after one attempt
+            clearSchedule: () => {},
+            clock        : () => t,
+            keyFor       : () => 'genuinely-dead-loop'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 900000;
+
+        const result = await HealthService.healthcheck();
+
+        // Asserted on the CANARY details, not the payload status: the claim is about this classifier,
+        // and the surrounding payload carries unrelated environment surface that would answer a
+        // different question than the one this control asks.
+        expect(result.details.some(d => d.includes('loop not running')), 'NON-VACUITY: a true dead loop is still caught').toBe(true);
+        expect(result.details.some(d => d.includes('no attempt in flight'))).toBe(true);
+        expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'a dead loop is not reported as merely slow').toBe(false);
+    });
+
     test('a never-started producer projects a named non-degrading wiring gap', async () => {
         HealthService.clearEmbeddingWriteCanaryProducer(); // simulate a boot that never started it
 

@@ -122,6 +122,176 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         expect(probeRuns).toBe(1);
     });
 
+    /**
+     * @summary A slow attempt IN FLIGHT is the loop running — and the report of it has to REACH a
+     * surface. Caught by @neo-gpt-emmy: my first cut stopped the false `stale` here but dropped the
+     * `slow` signal in the healthy branch, trading a false RED for silence.
+     *
+     * Silence is the other half of the same defect. The reason a slow loop was mistaken for a dead
+     * one is that nothing said "slow" — so a fix that only removes the wrong word, without supplying
+     * the right one, leaves the reader exactly as misinformed.
+     */
+    test('an IN-FLIGHT slow probe is reported as slow, and that report REACHES the health payload', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 900000});
+
+        t += 400000; // age the cache past the bar BEFORE the flight starts, so the two can diverge
+
+        // Re-arm with a body that never settles, putting one attempt in flight.
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000,
+            healthyTtlMs : 1000,
+            timeoutMs    : 900000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 20000; // flight 20s old, well inside its 900s budget: slow, not stuck
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('is stale')), 'a running loop is not a stopped one').toBe(false);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'and the slowness reaches the payload').toBe(true);
+        expect(health.features.embedding, 'slow is not broken — the feature still works').toBe(true);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('a STUCK probe past its own budget reports stale — suppression is bounded by flight AGE', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 30000});
+
+        // Age the CACHE past the staleness bar BEFORE the flight starts, so cache-age and flight-age
+        // can diverge. They advance together otherwise, and a test where they cannot diverge cannot
+        // distinguish the two conditions it exists to separate.
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000,
+            healthyTtlMs : 1000,
+            timeoutMs    : 30000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 20000; // flight 20s old — inside its 30s budget
+
+        const slow = await HealthService.healthcheck();
+
+        expect(slow.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(true);
+
+        t += 600000; // now far past the budget — the deadline never fired
+
+        HealthService.clearCache();
+
+        const stuck = await HealthService.healthcheck();
+
+        expect(stuck.details.some(d => d.includes('STUCK in flight')), 'past its budget it is stuck, not slow').toBe(true);
+        expect(stuck.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'a hung probe must not read as merely slow forever').toBe(false);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    /**
+     * @summary The issued budget is the flight's OWN, not whatever the last re-arm set. Paired in
+     * both directions, because each fails differently. (@neo-gpt-emmy)
+     */
+    test('re-arm 900s → 30s: a probe issued under the LONG budget is not falsely STUCK', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 900000});
+
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000, healthyTtlMs: 1000, timeoutMs: 900000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 60000; // inside the 900s it was ISSUED under
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs: 1000, healthyTtlMs: 1000, timeoutMs: 30000,
+            keyFor   : () => 'test-provider:3',
+            clock    : () => t
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('STUCK')), '60s < the 900s it was issued under').toBe(false);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(true);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('re-arm 30s → 900s: a probe issued under the SHORT budget is still STUCK past it', async () => {
+        let t = 1_000_000, settle;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t, timeoutMs: 30000});
+
+        t += 400000;
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs    : 1000, healthyTtlMs: 1000, timeoutMs: 30000,
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'test-provider:3',
+            clock        : () => t,
+            runProbe     : () => new Promise(resolve => { settle = resolve })
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 200000; // far past the 30s it was ISSUED under
+
+        HealthService.startEmbeddingProbe({
+            cadenceMs: 1000, healthyTtlMs: 1000, timeoutMs: 900000,
+            keyFor   : () => 'test-provider:3',
+            clock    : () => t
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        HealthService.clearCache();
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('STUCK in flight')), 'a widened config does not excuse a missed deadline').toBe(true);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow'))).toBe(false);
+
+        settle?.({status: 'healthy', provider: 'test-provider', dimensions: 3, expectedDimensions: 3, durationMs: 1});
+    });
+
+    test('a DEAD probe loop with nothing in flight still reports stale — the fix must not hide it', async () => {
+        let t = 1_000_000;
+
+        await startHealthyEmbeddingProbe(HealthService, {clock: () => t}); // scheduler never fires again
+
+        t += 900000;
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.includes('is stale')), 'NON-VACUITY: a true dead loop is still caught').toBe(true);
+        expect(health.details.some(d => d.includes('no attempt in flight'))).toBe(true);
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe slow')), 'a dead loop is not reported as merely slow').toBe(false);
+    });
+
     test('the first settled timeout degrades immediately and closes ensureHealthy()', async () => {
         await HealthService.startEmbeddingProbe({
             cadenceMs      : 1000,
