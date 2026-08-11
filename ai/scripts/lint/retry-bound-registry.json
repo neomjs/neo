@@ -206,13 +206,6 @@
             "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
             "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
         },
-        "ai/services/knowledge-base/VectorService.mjs#evaluateEmbeddingInput:2603053b": {
-            "kind": "retry-growth",
-            "lifetime": "in-cycle",
-            "boundCarrier": "max-attempts",
-            "witness": "`retries < maxRetries` guard at the call site; throws on exhaustion",
-            "note": "Embedding batch retry inside one pass."
-        },
         "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
             "kind": "retry-growth",
             "lifetime": "persisted",
@@ -259,6 +252,13 @@
             "boundCarrier": "max-delay",
             "witness": "`Math.min(5000, ...)` plus a clamped exponent `Math.min(dispositionAttempts - 1, 4)`",
             "note": "Bounded twice — the delay is capped AND the exponent itself is clamped."
+        },
+        "ai/services/knowledge-base/VectorService.mjs#onSplit:2603053b": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`retries < maxRetries` guard at the call site; throws on exhaustion",
+            "note": "Embedding batch retry inside one pass. The site is unchanged; only its ATTRIBUTED symbol moved when the adaptive-batch `onSplit` reporter was added above it — the backoff belongs to the retry loop, not to `onSplit`."
         }
     }
 }
