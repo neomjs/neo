@@ -152,4 +152,109 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(reminder).toContain('mutable substrate');
         expect(reminder).toContain('deference phrase "your call"');
     });
+
+    test('the permission-gate form: names the action, then attaches a gate that does not exist (#16706)', () => {
+        // Operator-caught 2026-08-11 during a live client incident. This is the subtlest form and the
+        // one that survives a self-audit, because it reads as courtesy: the agent identifies the
+        // highest-value action — there, the cheapest unrun probe of a seven-week outage — takes credit
+        // for identifying it, and then does not do it. The work is named and not done.
+        //
+        // Asserts the EXACT matched entry, never truthiness. An arm that only asserts truthiness passes
+        // through ANY neighbouring phrase, so it cannot prove the entry under test contributes
+        // anything. That is how a since-dropped `if you want me` arm "passed" while being satisfied
+        // entirely by the pre-existing `want me to`.
+        expect(matchDeferencePhrase('The one thing I would still act on immediately if you want it: run ollama ps on that host.'))
+            .toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host if you want it.'))
+            .toBe('if you want it');
+    });
+
+    test('the permission-gate entry does NOT reserve ordinary technical conditionals (#16966)', () => {
+        // The blocking finding of @neo-gpt's review, executed at exact head rather than argued: both
+        // sentences below are legitimate engineering prose, and an ENFORCING Stop hook that turns them
+        // into blocking directives taxes correct work on every autonomous turn. The discriminator is
+        // clause POSITION — once the pronoun carries a predicate (`it to reject …`) or the verb takes a
+        // noun object, the phrase governs that object rather than gating the agent's own action.
+        expect(matchDeferencePhrase('Set maxQueue to zero if you want it to reject excess work.')).toBeFalsy();
+        expect(matchDeferencePhrase('Keep the fixture local if you would like deterministic isolation.')).toBeFalsy();
+        expect(matchDeferencePhrase('Shrink the batch if you want it to complete on CPU-only hardware.')).toBeFalsy();
+    });
+
+    test('clause position is GRAMMAR, never Markdown layout', () => {
+        // Both arms are precision defects a reviewer replayed against the first clause-terminal repair,
+        // and they share one root: layout characters were read as grammar.
+
+        // (1) Inline emphasis must be TRANSPARENT. Agents bold the phrase they are deferring with, so
+        // this is the specimen's most likely written form — and reading `*` as a following word made the
+        // guard MISS it. A false negative on the shape the entry exists to catch is worse than the false
+        // positive that motivated the guard in the first place.
+        expect(matchDeferencePhrase('The one thing I would still act on immediately **if you want it**: run ollama ps.'))
+            .toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host *if you want it*.')).toBe('if you want it');
+        // The arm that ISOLATES the pre-scan emphasis strip. The two arms above are also satisfied by the
+        // post-soft-wrap strip, so removing the first one leaves them green — a partially vacuous test I
+        // only found by mutating each half separately. Emphasis running straight into END-OF-TEXT reaches
+        // neither the punctuation test nor the paragraph-break test, so only the first strip can save it.
+        expect(matchDeferencePhrase('I would still probe that host **if you want it**')).toBe('if you want it');
+
+        // UNDERSCORE emphasis is the case that survived the first two repairs, and it failed one level
+        // EARLIER than they did: the matcher's boundary class is `[^a-z0-9_]`, which counts `_` as a WORD
+        // character, so the phrase never matched and no amount of terminal normalization could see it.
+        // Same root — layout read as grammar — one stage upstream.
+        expect(matchDeferencePhrase('I would still probe that host __if you want it__: now.')).toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host _if you want it_.')).toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host ~~if you want it~~.')).toBe('if you want it');
+    });
+
+    test('emphasis stripping must not rewrite IDENTIFIERS into phrases', () => {
+        // The regression my own fix could introduce, so it is pinned rather than trusted. A blanket
+        // `[*_~] -> ' '` would turn `your_call` into `your call` and MANUFACTURE a match out of an
+        // identifier — inventing deference where there is only code. Emphasis removal is therefore
+        // delimiter-scoped: an opener needs whitespace/bracket before it, a closer needs
+        // whitespace/punctuation after it, and an intra-word underscore matches neither.
+        expect(matchDeferencePhrase('The your_call handler routes through the shared seam.')).toBeNull();
+        expect(matchDeferencePhrase('Set wal_autocheckpoint before the your_move guard runs.')).toBeNull();
+        // …and the genuine phrase still fires in the same sentence shape, so the guard above is not
+        // silently suppressing real matches.
+        expect(matchDeferencePhrase('The your_call handler is fine. Your call on the branch cut.'))
+            .toBe('your call');
+
+        // (2) A SOFT WRAP is whitespace, not a clause end. Hard-wrapped prose splits the predicate
+        // across a newline, and treating that newline as terminal resurrects the false positive above.
+        expect(matchDeferencePhrase('Set maxQueue to zero if you want it\nto reject excess work.')).toBeFalsy();
+        expect(matchDeferencePhrase('Shrink the batch if you want it\n    to complete on CPU-only hardware.')).toBeFalsy();
+
+        // (3) …but a BLANK line is a paragraph break, which genuinely does end the clause. Without this
+        // arm, folding newlines away would swallow the terminal case at the end of a paragraph.
+        expect(matchDeferencePhrase('I would still probe that host if you want it\n\nNext lane: #16982.'))
+            .toBe('if you want it');
+    });
+
+    test('the two noisy variants are GONE, not merely untested (#16966)', () => {
+        // A dropped phrase has to be absent from the list, not just absent from the arms above —
+        // otherwise a later edit re-adds the false-positive surface and every test still passes.
+        expect(DEFERENCE_PHRASES).not.toContain('if you would like');
+        expect(DEFERENCE_PHRASES).not.toContain('if you want me');
+        // …while the form the redundant entry was supposed to cover is still caught by its neighbour.
+        expect(matchDeferencePhrase('I can wire the KB probe too if you want me to.')).toBe('want me to');
+    });
+
+    test('NON-VACUITY — a declarative lane claim carries no deference PHRASE', () => {
+        // Without this arm a matcher that flagged every sentence would pass the arms above.
+        //
+        // ⚠️ SCOPE, stated exactly, because the obvious phrasing of this comment is wrong: these
+        // sentences are clean **to this matcher**, which is not the same as correct behaviour. A
+        // declarative claim hands nothing back to the operator, so there is no deference phrase to
+        // find — but "Taking X now." at TURN-TERMINAL with nothing after it is the STRUCTURAL slip,
+        // and this matcher runs at exactly that position. Announcing a lane is required behaviour
+        // only when execution follows; at the moment the hook fires, the announcement is all there
+        // is. Saying is not acting.
+        //
+        // The module docstring already names the boundary: this is the PHRASED half, and the
+        // phraseless half belongs to the no-hold gate and the value floor. A future reader must not
+        // take a falsy result here as a verdict that the turn was fine.
+        expect(matchDeferencePhrase('Taking the starved-record lane now.')).toBeFalsy();
+        expect(matchDeferencePhrase('I will take FIX-2 next.')).toBeFalsy();
+        expect(matchDeferencePhrase('Running ollama ps on that host now.')).toBeFalsy();
+    });
 });
