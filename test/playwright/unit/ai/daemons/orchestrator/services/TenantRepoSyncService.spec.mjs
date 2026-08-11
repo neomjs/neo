@@ -53,7 +53,7 @@ import {
     resolveExitCode
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
 import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import MemoryCoreConfig from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
+import MemoryCoreConfig from '../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 import {PROVIDER_TIMEOUT_CODE} from '../../../../../../../ai/provider/createTimeoutError.mjs';
 import {
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
