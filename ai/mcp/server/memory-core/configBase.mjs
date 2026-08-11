@@ -386,16 +386,46 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
-                 * The canary producer's attempt period. A liveness probe NEVER triggers a canary
-                 * run — healthcheck is a cheap pure read of the gate's current truth, so a
-                 * container probe interval is free to differ from this cadence. Guidance: sample
-                 * in MINUTES, not seconds. A seconds-order probe buys nothing (the probe performs
-                 * no inference itself), while its consecutive failures can still restart the
-                 * container — oversampling only adds restart-loop risk against a struggling
-                 * dependency. `<= 0` disables the producer and disarms an existing schedule.
+                 * The canary producer's attempt period — a FLOOR on the gap between attempts, not a
+                 * guaranteed rate. The effective period is `max(this, dutyCycleFloor)`; see
+                 * `embeddingWriteCanaryMaxDutyCycle`.
+                 *
+                 * A liveness probe NEVER triggers a canary run — healthcheck is a cheap pure read of
+                 * the gate's current truth, so a container probe interval is free to differ from this
+                 * cadence. But the canary attempt itself DOES perform an embedding inference; on a
+                 * CPU-only deployment that is the single most expensive thing the server does.
+                 *
+                 * Guidance: sample in MINUTES, not seconds. Consecutive failures can restart the
+                 * container, so oversampling adds restart-loop risk against a struggling dependency —
+                 * and every attempt is real provider load. `<= 0` disables the producer and disarms
+                 * an existing schedule.
+                 *
+                 * The default stays at one minute deliberately. Raising it does NOT bound a slow probe
+                 * (see `embeddingWriteCanaryMaxDutyCycle`) and it directly delays dead-provider
+                 * detection, since the staleness guard keys off this value — a costlier trade than it
+                 * looks, for none of the benefit.
                  * @type {number}
                  */
                 embeddingWriteCanaryCadenceMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_CADENCE_MS', 'number'),
+                /**
+                 * The share of wall-clock time the canary may occupy its provider. THE bound that
+                 * keeps a liveness probe from becoming the deployment's steady-state load: after each
+                 * attempt the producer stays idle for `duration · (1 - d) / d`, so at `0.2` a probe
+                 * measured at 264s forces ~17.6 minutes of provider idle before the next one.
+                 *
+                 * Why a RATIO and not a bigger cadence: cadence alone cannot bound this. A probe whose
+                 * duration approaches its cadence runs back-to-back at ANY cadence value — 264s against
+                 * a 300s cadence is 88% occupancy exactly as 264s against 60s is. Only a
+                 * duration-derived floor closes it, and it self-scales: a fast probe never reaches the
+                 * floor and keeps sampling at the cadence, unchanged.
+                 *
+                 * Healthy results carry NO backoff of their own (that is correct — a healthy provider
+                 * should be re-probed), which is why this bound is separate from the failure windows:
+                 * on a plane where the canary is slow but SUCCEEDS, nothing else suppresses it.
+                 * `<= 0` or `>= 1` disables the floor and restores pure-cadence scheduling.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryMaxDutyCycle: leaf(0.2, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_MAX_DUTY_CYCLE', 'number'),
                 /**
                  * Staleness floor for the last healthy canary result — NOT an attempt period.
                  * Attempts run at `embeddingWriteCanaryCadenceMs`; this only feeds the dead-loop

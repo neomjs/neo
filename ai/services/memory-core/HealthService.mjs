@@ -1591,6 +1591,14 @@ class HealthService extends Base {
     #applyEmbeddingWriteCanary(payload) {
         const canary = this.#getEmbeddingWriteCanary();
 
+        // A probe that is out of scale with its own schedule REPORTS but never degrades. Degrading
+        // would flip exactly the saturated deployments this detects into `unhealthy`, and the
+        // container restarts that follow are the hazard the cadence leaf already warns about — the
+        // probe would then be both the load AND the restart trigger. One detail entry, no status change.
+        const costNote = canary.probe?.warnings?.length
+            ? `Embedding write canary cost: ${canary.probe.warnings.join('; ')} (effective period ${canary.probe.effectivePeriodMs}ms, ${canary.probe.skippedTicks} tick(s) suppressed)`
+            : null;
+
         if (canary.status === 'healthy') {
             // A live healthy canary strips canary details projected onto an earlier copy of this
             // payload (e.g. a pending note cached before the flight settled healthy) — on a COPY,
@@ -1599,12 +1607,20 @@ class HealthService extends Base {
             // deployments this distinguishes into unhealthy, and the container restarts that follow
             // are the hazard the cadence leaf already warns about. Silence is not an option either:
             // an unreported slow loop is how this was mistaken for a dead one.
-            if (canary.slow || payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
+            //
+            // Slowness and COST are separate facts and both are emitted: a probe can be slow without
+            // being out of scale with its cadence, and out of scale without any attempt being slow
+            // right now. Collapsing them would lose whichever the reader happened to need.
+            if (canary.slow || costNote || payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
                 const details = (payload.details || [])
                     .filter(detail => !detail.startsWith('Embedding write canary'));
 
                 if (canary.slow) {
                     details.push(`Embedding write canary slow: ${canary.slow}`);
+                }
+
+                if (costNote) {
+                    details.push(costNote);
                 }
 
                 return {...payload, details};
@@ -1631,6 +1647,10 @@ class HealthService extends Base {
                 details.push(`Embedding write canary failed: ${canary.error} — backing off ${canary.backoffMs}ms (streak ${canary.failureStreak})`);
             } else {
                 details.push(`Embedding write canary failed: ${canary.error}`);
+            }
+
+            if (costNote) {
+                details.push(costNote);
             }
         } else {
             // 'pending' / 'unavailable' / 'disabled': appended observability, never a degradation — the
@@ -1676,8 +1696,14 @@ class HealthService extends Base {
             };
         }
 
+        const probe = this.#getCanaryProbeCost(producer);
+
         if (snapshot.status === 'healthy') {
-            const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs),
+            // Staleness is measured against the EFFECTIVE period, not the configured cadence. Under
+            // the duty-cycle floor a slow-but-alive probe legitimately waits longer than its cadence;
+            // measuring against cadence alone would report a working loop as "not running" — the
+            // guard would fire precisely on the deployments the floor exists to protect.
+            const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs, probe.effectivePeriodMs),
                   age        = producer.clock() - snapshot.cached.checkedAt;
 
             if (age > staleAfter) {
@@ -1721,11 +1747,12 @@ class HealthService extends Base {
 
                 return {
                     status: 'stale',
-                    reason: `loop not running (last healthy result ${Math.round(age / 1000)}s old, cadence ${producer.cadenceMs}ms, no attempt in flight)`
+                    reason: `loop not running (last healthy result ${Math.round(age / 1000)}s old, effective period ${probe.effectivePeriodMs}ms, no attempt in flight)`,
+                    probe
                 };
             }
 
-            return {status: 'healthy'};
+            return {status: 'healthy', probe};
         }
 
         if (snapshot.cached) {
@@ -1738,15 +1765,115 @@ class HealthService extends Base {
                 failureStreak: snapshot.failureStreak,
                 backoffMs    : snapshot.backoffMs,
                 nextAttemptAt: snapshot.nextAttemptAt,
-                stopReason   : snapshot.stopReason
+                stopReason   : snapshot.stopReason,
+                probe
             };
         }
 
         // 'pending' (no settled result yet — first flight in progress or never ticked)
         return {
             status: 'pending',
-            reason: snapshot.inFlight ? 'run in flight' : 'no result yet'
+            reason: snapshot.inFlight ? 'run in flight' : 'no result yet',
+            probe
         };
+    }
+
+    /**
+     * @summary The canary's own cost projection: what the last attempt was charged, the idle it
+     * bought, the resulting effective period, and named warnings when the probe is out of scale
+     * with its own schedule.
+     *
+     * This block exists because the defect it describes was INVISIBLE. A canary slower than its
+     * cadence reported `healthy` while occupying its provider ~88% of the time: the probe worked,
+     * the retry gate worked, every projection was green, and the deployment was saturated by the
+     * liveness check itself. A cost the health surface never states is a cost nobody can act on.
+     *
+     * @param {Object} producer The producer record.
+     * @returns {Object} `{chargedMs, lastRunMs, idleFloorMs, effectivePeriodMs, skippedTicks, warnings}`
+     * @private
+     */
+    #getCanaryProbeCost(producer) {
+        const duty        = producer.maxDutyCycle,
+              bounded     = duty > 0 && duty < 1,
+              chargedMs   = producer.chargedMs || 0,
+              idleFloorMs = bounded ? Math.round(chargedMs * (1 - duty) / duty) : 0,
+              warnings    = [];
+
+        // `>=`, not `>`: an attempt costing EXACTLY its cadence is the worst case, not an exempt
+        // one — without the floor the next tick lands on the settle instant, at 100% occupancy.
+        if (chargedMs >= producer.cadenceMs) {
+            warnings.push(`attempt cost ${chargedMs}ms exceeds the ${producer.cadenceMs}ms cadence — without the duty-cycle floor this probe would run back-to-back`);
+        }
+
+        // Abandoning a request does not stop it upstream, so a budget larger than the period means an
+        // attempt we gave up on is still executing when the next one is due. The floor charges for
+        // that, but the CONFIG is the thing to fix.
+        if (producer.timeoutMs > producer.cadenceMs) {
+            warnings.push(`attempt budget ${producer.timeoutMs}ms exceeds the ${producer.cadenceMs}ms cadence — an abandoned attempt outlives its own period and the provider keeps executing it`);
+        }
+
+        if (!bounded) {
+            warnings.push(`duty-cycle floor disabled (maxDutyCycle ${duty}) — attempts are bounded by cadence alone, which cannot bound a probe slower than its cadence`);
+        }
+
+        return {
+            chargedMs,
+            lastRunMs        : producer.lastRunMs || 0,
+            idleFloorMs,
+            effectivePeriodMs: Math.max(producer.cadenceMs, chargedMs + idleFloorMs),
+            skippedTicks     : producer.skippedTicks || 0,
+            warnings
+        };
+    }
+
+    /**
+     * @summary Runs one canary attempt and charges its provider occupancy against the duty-cycle
+     * floor, arming the idle window the next tick must wait out.
+     *
+     * **Why the charge is not simply the measured span.** Our timeout aborts the CLIENT; it does not
+     * stop the provider — Ollama runs an abandoned request to completion
+     * (`ollama/ollama#11889`, open upstream). ticket-ref-ok: third-party defect this model depends on.
+     * So the instant we give up measures OUR patience, not the provider's occupancy — a request
+     * abandoned at 30s can still hold a core for minutes with nothing left to observe it.
+     * Charging the measured span there would compute a floor from a number that does not describe the
+     * resource being protected.
+     *
+     * The discriminator is therefore NOT healthy-vs-failed — it is whether we gave up. An attempt
+     * that returned inside its budget is done either way (a connection refused in 5ms cost the
+     * provider nothing, and charging it 30s would slow recovery on exactly the plane we most want to
+     * re-probe). An attempt that consumed its whole budget was abandoned, so it is charged its
+     * measured span PLUS one further budget: we know it ran at least that long, upstream says it
+     * keeps running, and we have no signal for when it stops.
+     *
+     * The error direction is deliberate — overcharging costs probe frequency, which the projection
+     * reports; undercharging re-issues work onto a provider still executing the last attempt, which
+     * is silent, and is the failure that froze four cores for a month.
+     *
+     * @param {Object} producer The producer record.
+     * @param {Object} ctx      The gate's attempt context (`{key, force}`).
+     * @returns {Promise<Object>} The attempt outcome, unmodified.
+     * @private
+     */
+    async #chargeCanaryDutyCycle(producer, ctx) {
+        const startedAt = producer.clock();
+
+        try {
+            return await producer.runCanary(ctx);
+        } finally {
+            const duty       = producer.maxDutyCycle,
+                  measuredMs = Math.max(0, producer.clock() - startedAt),
+                  abandoned  = producer.timeoutMs > 0 && measuredMs >= producer.timeoutMs,
+                  chargedMs  = abandoned ? measuredMs + producer.timeoutMs : measuredMs;
+
+            producer.chargedMs = chargedMs;
+            producer.lastRunMs = measuredMs;
+
+            // A duty outside (0, 1) disables the floor: 0/negative would demand infinite idle and
+            // >= 1 asks for no bound at all. Both project as "pure cadence scheduling".
+            producer.nextEligibleAt = duty > 0 && duty < 1
+                ? producer.clock() + chargedMs * (1 - duty) / duty
+                : 0;
+        }
     }
 
     /**
@@ -1782,6 +1909,7 @@ class HealthService extends Base {
      * @param {Number}   [options.healthyTtlMs=aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs] Staleness floor for the last healthy result.
      * @param {Number}   [options.failureTtlMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs] Base failure-backoff window (binds at first gate creation).
      * @param {Number}   [options.failureTtlMaxMs=aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs] Backoff ceiling (binds at first gate creation).
+     * @param {Number}   [options.maxDutyCycle=aiConfig.healthcheck.embeddingWriteCanaryMaxDutyCycle] Share of wall-clock the canary may occupy the provider; outside `(0, 1)` disables the floor.
      * @param {Function} [options.runCanary] Attempt body; preserved when omitted on re-arm.
      * @param {Function} [options.keyFor] Generation-key resolver; preserved when omitted on re-arm.
      * @param {Function} [options.scheduler] `(fn, ms) => handle`; preserved when omitted on re-arm.
@@ -1797,6 +1925,7 @@ class HealthService extends Base {
             healthyTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs,
             failureTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
             failureTtlMaxMs = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
+            maxDutyCycle    = aiConfig.healthcheck.embeddingWriteCanaryMaxDutyCycle,
             runCanary,
             keyFor,
             scheduler,
@@ -1850,11 +1979,14 @@ class HealthService extends Base {
                     // judging a live flight against the CURRENT config compares it to a deadline it
                     // was never issued under. A 900s attempt re-armed to 30s would read STUCK at 31s;
                     // a 30s attempt re-armed to 900s would read healthy past its missed deadline.
+                    // Two wrappers, composed outside-in: the issued basis is recorded first so it
+                    // spans the WHOLE attempt including the duty charge, and the charge is inside so
+                    // an injected `runCanary` cannot opt out of the bound that protects the provider.
                     run: async ctx => {
                         producer.activeAttempt = {startedAt: producer.clock(), timeoutMs: producer.timeoutMs};
 
                         try {
-                            return await producer.runCanary(ctx);
+                            return await this.#chargeCanaryDutyCycle(producer, ctx);
                         } finally {
                             producer.activeAttempt = null;
                         }
@@ -1875,20 +2007,34 @@ class HealthService extends Base {
                 timer    : null,
                 // The in-flight attempt's own basis: `{startedAt, timeoutMs}` as issued. Null between
                 // attempts. Never read from the mutable arm fields — see the `run` wrapper above.
-                activeAttempt: null
+                activeAttempt: null,
+                // Duty-cycle ledger: the last attempt's measured span, what it was CHARGED, the
+                // instant the next attempt becomes eligible, and how many ticks the floor has
+                // suppressed since arming (projected, never silent).
+                chargedMs     : 0,
+                lastRunMs     : 0,
+                nextEligibleAt: 0,
+                skippedTicks  : 0
             };
         } else {
             if (clock) {
-                // `startedAt` is an absolute instant, meaningful only in the clock that produced it.
-                // A re-arm carrying a fresh source must carry the in-flight attempt's ELAPSED time
-                // across, or the flight's age becomes a comparison between two unrelated timelines.
+                // TWO absolute instants must survive a clock swap, and they re-base differently.
+                //
+                // `activeAttempt.startedAt` carries the in-flight attempt's ELAPSED time across, or
+                // the flight's age becomes a comparison between two unrelated timelines.
                 if (producer.activeAttempt) {
                     const elapsedMs = Math.max(0, producer.clock() - producer.activeAttempt.startedAt);
 
                     producer.activeAttempt.startedAt = clock() - elapsedMs;
                 }
 
-                producer.clock = clock;
+                // `nextEligibleAt` carries the REMAINING idle rather than being dropped: a re-arm
+                // with a fresh clock must not become a way to bypass the floor, and a stale instant
+                // from the old source must not outlive it either.
+                const remainingMs = Math.max(0, producer.nextEligibleAt - producer.clock());
+
+                producer.clock          = clock;
+                producer.nextEligibleAt = remainingMs > 0 ? clock() + remainingMs : 0;
             }
 
             if (keyFor)    producer.keyFor    = keyFor;
@@ -1901,6 +2047,7 @@ class HealthService extends Base {
         producer.cadenceMs    = cadenceMs;
         producer.disabled     = false;
         producer.healthyTtlMs = healthyTtlMs;
+        producer.maxDutyCycle = maxDutyCycle;
         producer.stopped      = false;
         producer.timeoutMs    = timeoutMs;
 
@@ -1910,12 +2057,23 @@ class HealthService extends Base {
             // Epoch fence: a callback queued before stop()/re-arm stays inert forever — it reads
             // an epoch that has moved on, never a reset `stopped` flag.
             if (producer.epoch === epoch && !producer.stopped) {
+                if (producer.clock() < producer.nextEligibleAt) {
+                    // Inside the duty-cycle floor: the provider is still owed idle for the LAST
+                    // attempt. Counted, not silent — a suppressed tick is reported truth.
+                    producer.skippedTicks++;
+                    return;
+                }
+
                 producer.gate.tick({key: producer.keyFor()});
             }
         }, cadenceMs);
 
         // First-truth-fast: one immediate demand; it joins an unresolved flight on re-arm.
-        producer.gate.tick({key: producer.keyFor()});
+        // Joining an active flight is free (no new provider work), so it always proceeds; STARTING
+        // one inside the floor is not, so a re-arm cannot be used to bypass the bound.
+        if (producer.gate.snapshot().inFlight || producer.clock() >= producer.nextEligibleAt) {
+            producer.gate.tick({key: producer.keyFor()});
+        }
 
         return producer;
     }

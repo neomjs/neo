@@ -1218,6 +1218,235 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details.some(d => d.startsWith('Embedding write canary slow')), 'a dead loop is not reported as merely slow').toBe(false);
     });
 
+    /**
+     * @summary The canary's duty-cycle floor: a liveness probe may not occupy its own subject.
+     *
+     * The defect these cover froze four CPU cores on a client deployment for a month while every
+     * projection read green. The canary's own retry gate single-flights correctly and its failure
+     * backoff works; neither bounds a probe that SUCCEEDS slowly, because a healthy result carries
+     * no suppression at all. Cadence 60s against a measured 264s attempt is ~88% provider occupancy
+     * by a liveness check.
+     */
+    test('#16951 AC1: a canary slower than its cadence stops running back-to-back', async () => {
+        let   t     = 1_000_000, calls = 0;
+        const ticks = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            timeoutMs   : 900000, // the deployment's raised budget: this attempt COMPLETES, never aborts
+            maxDutyCycle: 0.2,
+            runCanary   : async () => {
+                calls++;
+                t += 264000; // the span measured on the frozen deployment
+                return {status: 'healthy'}
+            },
+            scheduler    : fn => { ticks.push(fn); return ticks.length },
+            clearSchedule: () => { ticks.length = 0 },
+            clock        : () => t,
+            keyFor       : () => 'duty-floor-slow'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls).toBe(1); // the arm-time demand; t is now 1_264_000 and the floor owes 264s * 4
+
+        // 17 cadence ticks = 1020s of wall clock, inside the 1056s the last attempt bought. On the
+        // pre-fix code EVERY one of these started a fresh 264s run, which is the 88% occupancy.
+        for (let i = 0; i < 17; i++) {
+            t += 60000;
+            ticks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        expect(calls, 'the floor suppressed every tick inside the idle window').toBe(1);
+
+        // AC2 of the ticket: the guard must NOT be permanent. A guard that silently removes liveness
+        // detection is a worse defect than the pileup it replaces, so the very next eligible tick runs.
+        t += 60000;
+        ticks[0]();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls, 'the probe resumes the moment the floor is paid — never permanently suppressed').toBe(2);
+    });
+
+    test('#16951 NON-VACUITY: a fast canary on a healthy plane is untouched — every cadence tick runs', async () => {
+        // The control. It does NOT discriminate the fix (it passes before and after) — its job is to
+        // prove the floor cannot be the reason a healthy deployment stops being probed on schedule.
+        let   t     = 1_000_000, calls = 0;
+        const ticks = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            timeoutMs   : 30000,
+            maxDutyCycle: 0.2,
+            runCanary   : async () => {
+                calls++;
+                t += 2000; // a warm embedder: 2s, far under the 8s floor it buys
+                return {status: 'healthy'}
+            },
+            scheduler    : fn => { ticks.push(fn); return ticks.length },
+            clearSchedule: () => { ticks.length = 0 },
+            clock        : () => t,
+            keyFor       : () => 'duty-floor-fast'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        for (let i = 0; i < 5; i++) {
+            t += 60000;
+            ticks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        expect(calls, 'arm + 5 cadence ticks, none suppressed').toBe(6);
+
+        const healthy = await HealthService.healthcheck();
+
+        // Asserted on the CANARY details, not the payload status: the claim is about this probe, and
+        // the surrounding payload carries unrelated environment surface (loopback/provider probes)
+        // that would answer a different question than the one this control asks.
+        expect(healthy.details.some(d => d.startsWith('Embedding write canary cost')), 'a probe in scale reports no cost warning').toBe(false);
+        expect(healthy.details.some(d => d.startsWith('Embedding write canary')), 'nothing to say about a canary that is simply working').toBe(false);
+    });
+
+    test('#16951: an ABANDONED attempt is charged a further budget; a fast failure is charged what it cost', async () => {
+        // A request whose client gave up KEEPS EXECUTING upstream, so the instant we abort measures
+        // our patience, not the provider's occupancy — an attempt that burned its whole budget is
+        // charged again for the work still running where we cannot see it.
+        let   t     = 1_000_000, calls = 0;
+        const ticks = [];
+        const arm   = (runMs, key) => {
+            calls        = 0;
+            ticks.length = 0;
+
+            HealthService.startEmbeddingWriteCanary({
+                cadenceMs      : 60000,
+                timeoutMs      : 30000,
+                failureTtlMs   : 1, // the floor is what this measures, not the failure backoff
+                failureTtlMaxMs: 1,
+                maxDutyCycle   : 0.2,
+                runCanary      : async () => {
+                    calls++;
+                    t += runMs;
+                    return {status: 'failed', error: 'provider-failure:EMBEDDING_PROVIDER_ERROR'}
+                },
+                scheduler    : fn => { ticks.push(fn); return ticks.length },
+                clearSchedule: () => { ticks.length = 0 },
+                clock        : () => t,
+                keyFor       : () => key
+            });
+            return new Promise(resolve => setTimeout(resolve, 0))
+        };
+        const tick = async () => {
+            t += 60000;
+            ticks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+        };
+
+        await arm(30000, 'duty-charge-abandoned'); // consumed the whole 30s budget → abandoned
+        expect(calls).toBe(1);
+
+        // 30s measured + a 30s abandonment surcharge = 60s charged → 60s * (1 - 0.2)/0.2 = 240s idle.
+        // WITHOUT the surcharge the charge would be 30s → 120s idle, and the SECOND tick would run —
+        // so the third suppression below is what discriminates the surcharge from its absence.
+        await tick();
+        await tick();
+        await tick();
+
+        expect(calls, 'three ticks inside the 240s the abandonment bought').toBe(1);
+
+        await tick();
+
+        expect(calls, 'the fourth tick clears 240s and runs').toBe(2);
+
+        const abandoned = await HealthService.healthcheck();
+
+        expect(abandoned.details.some(d => d.includes('exceeds the 60000ms cadence')), 'a probe out of scale with its own cadence is reported').toBe(true);
+
+        await arm(5, 'duty-charge-fast-failure'); // connection refused: the provider did no work
+
+        // The re-arm lands while the previous attempt still owes idle, and its start-time demand is
+        // suppressed: a restart cannot be used to bypass the floor. `nextEligibleAt` is an absolute
+        // instant, so the re-arm RE-BASES the remaining idle onto the new clock rather than dropping it.
+        expect(calls, 'a re-arm inside the owed idle does not issue an attempt').toBe(0);
+
+        t += 300000; // the carried floor is now paid
+        await tick();
+
+        expect(calls).toBe(1);
+
+        // The direction that matters: a DOWN provider must stay cheap to re-probe. Charging a fast
+        // failure its full budget would slow recovery on exactly the plane we most want to retry.
+        await tick();
+
+        expect(calls, 'a failure that cost the provider nothing buys no idle').toBe(2);
+
+        const fast = await HealthService.healthcheck();
+
+        expect(fast.details.some(d => d.startsWith('Embedding write canary cost')), 'nothing to warn about — the attempt cost ~nothing').toBe(false);
+        expect(fast.details.some(d => d.startsWith('Embedding write canary failed')), 'failure projection is untouched by the floor').toBe(true);
+    });
+
+    test('#16951: a slow-but-ALIVE probe does not false-degrade to stale (the floor moves the staleness bar)', async () => {
+        // Second-order break the floor would otherwise cause: staleness was measured against the
+        // CONFIGURED cadence, so a probe legitimately waiting out its idle window would report
+        // "loop not running" — the dead-loop guard firing precisely on the deployments the floor protects.
+        let   t     = 1_000_000;
+        const ticks = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            healthyTtlMs: 60000,
+            timeoutMs   : 900000,
+            maxDutyCycle: 0.2,
+            runCanary   : async () => {
+                t += 264000;
+                return {status: 'healthy'}
+            },
+            scheduler    : fn => { ticks.push(fn); return ticks.length },
+            clearSchedule: () => { ticks.length = 0 },
+            clock        : () => t,
+            keyFor       : () => 'duty-floor-staleness'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 500000; // 500s since the healthy settle — over 3 * 60s cadence, under 3 * the real period
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('loop not running')), 'a probe waiting out its own floor is alive, not stale').toBe(false);
+        expect(result.details.some(d => d.startsWith('Embedding write canary cost')), 'the cost IS reported — silence was the original defect').toBe(true);
+    });
+
+    test('#16951: maxDutyCycle outside (0, 1) disables the floor and says so', async () => {
+        let   t     = 1_000_000, calls = 0;
+        const ticks = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            timeoutMs   : 900000,
+            maxDutyCycle: 1, // no bound requested
+            runCanary   : async () => {
+                calls++;
+                t += 264000;
+                return {status: 'healthy'}
+            },
+            scheduler    : fn => { ticks.push(fn); return ticks.length },
+            clearSchedule: () => { ticks.length = 0 },
+            clock        : () => t,
+            keyFor       : () => 'duty-floor-disabled'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        t += 60000;
+        ticks[0]();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls, 'pure-cadence scheduling restored — the pre-fix behaviour, opted into').toBe(2);
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.includes('duty-cycle floor disabled')), 'an opted-out bound is still stated').toBe(true);
+    });
+
     test('a never-started producer projects a named non-degrading wiring gap', async () => {
         HealthService.clearEmbeddingWriteCanaryProducer(); // simulate a boot that never started it
 
@@ -1420,6 +1649,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         HealthService.startEmbeddingWriteCanary({
             timeoutMs    : 5,
+            maxDutyCycle : 1, // floor disabled: this arm's subject is timeout re-resolution
             scheduler    : () => 0,
             clearSchedule: () => {},
             keyFor       : () => 'timeout-refresh'
@@ -1429,6 +1659,7 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         HealthService.startEmbeddingWriteCanary({ // refresh the bound to 80ms; the default body is preserved
             timeoutMs    : 80,
+            maxDutyCycle : 1,
             scheduler    : () => 0,
             clearSchedule: () => {},
             keyFor       : () => 'timeout-refresh-2' // rotation: fresh generation, no inherited backoff
@@ -1443,6 +1674,56 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
 
         const settled = await HealthService.healthcheck();
         expect(settled.details.some(d => d.startsWith('Embedding write canary failed: consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT'))).toBe(true);
+    });
+
+    /**
+     * @summary The duty-cycle floor survives a key ROTATION, unlike failure backoff.
+     *
+     * The gate's contract is that a rotated generation inherits nothing — clean streak, empty cache,
+     * no backoff — because those describe whether THIS configuration has been failing. The floor
+     * describes something else: whether the PROVIDER has been worked. Rotating a key does not give
+     * the provider its time back, and the previous attempt may still be executing upstream, so a
+     * rotation that reset the floor would be a bypass with extra steps.
+     *
+     * This surfaced as a regression in the timeout-refresh arm above, which re-arms under a new key
+     * and expected an immediate attempt. That expectation was the pre-floor contract.
+     */
+    test('#16951: a key rotation does NOT reset the duty-cycle floor — it protects the provider, not the generation', async () => {
+        let   t     = 1_000_000, calls = 0;
+        const ticks = [];
+
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            timeoutMs    : 900000,
+            maxDutyCycle : 0.2,
+            runCanary    : async () => { calls++; t += 264000; return {status: 'healthy'} },
+            scheduler    : fn => { ticks.push(fn); return ticks.length },
+            clearSchedule: () => { ticks.length = 0 },
+            clock        : () => t,
+            keyFor       : () => 'rotation-a'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls).toBe(1); // 264s charged → 1056s of owed idle
+
+        // Rotate the key. Backoff and cache reset by the gate's contract; the floor must not.
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs   : 60000,
+            timeoutMs   : 900000,
+            maxDutyCycle: 0.2,
+            clock       : () => t,
+            keyFor      : () => 'rotation-b'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls, 'a rotation is not a way to re-issue immediately').toBe(1);
+
+        t += 1_056_000; // pay the floor
+
+        ticks[0]();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(calls, 'and it is finite — the rotated generation runs once the provider is owed nothing').toBe(2);
     });
 
     test('a scheduler handle of 0 is cleared on stop (every non-null handle clears)', async () => {
