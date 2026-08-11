@@ -787,7 +787,7 @@ class ConnectionService extends Base {
         // here is what makes the race legible: a named error names the missing input, where `/` named
         // nothing and produced an ENOENT three layers away. A hidden default that substitutes a
         // wrong value is worse than no default: it converts a missing input into a distant symptom.
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
             const args    = ['run', 'ai:server-neural-link'];
             const file    = getBridgeStdioLogPath({logPath});
             const logFile = this.openBridgeLogFile(file);
@@ -810,6 +810,17 @@ class ConnectionService extends Base {
                 detached: true,
                 env     : {...process.env, NEO_NL_PORT: String(port)},
                 stdio   : ['ignore', logFile, logFile]
+            });
+
+            // A spawn failure arrives as an asynchronous 'error' EVENT, not a throw and not a
+            // rejection — so `boot()`'s try/catch cannot see it, and an unhandled 'error' on an
+            // EventEmitter is fatal to the process. Without this listener a Bridge that cannot be
+            // spawned (missing cwd, npm not on PATH) takes the whole MCP server down with it —
+            // the opposite of the survivability this boot path exists to provide. Rejecting instead
+            // routes the failure back into the caller's existing non-fatal handling.
+            this.bridgeProcess.once('error', error => {
+                logger.error(`[ConnectionService] Bridge spawn failed: ${error.message}`);
+                reject(error)
             });
 
             this.bridgeProcess.unref();
