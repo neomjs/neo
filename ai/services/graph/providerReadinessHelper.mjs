@@ -56,6 +56,69 @@ const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
  * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
  * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
  */
+/**
+ * @summary True when an OBSERVED model id satisfies a REQUIRED one. Directional, and Ollama-only.
+ *
+ * Ollama canonicalises stored models to `name:tag` and reports an untagged pull as `name:latest`.
+ * Our config carries the untagged name — `NEO_OLLAMA_EMBEDDING_MODEL=qwen3-embedding` is valid Ollama
+ * and what every deployment uses — so an exact comparison reports a **resident** model as missing,
+ * permanently: warming it produces the same `:latest` id that already failed to match.
+ *
+ * That false negative is not cosmetic. It reaches an actuator — `missingModels` becomes
+ * `missing-required-model`, which `ContainerHealthDiagnosisService` classes as recoverable and answers
+ * with `warmProvider`. The requirement can never be satisfied, so the warm has no exit.
+ *
+ * **Three bounds, each of which a laxer rule would break:**
+ *
+ * 1. **Directional.** Only an UNTAGGED requirement accepts a `:latest` observation. A requirement
+ *    written `x:latest` is a pin and stays exact — equivalence must not erase which side owns the
+ *    requirement, or a config pin silently becomes a suggestion.
+ * 2. **Ollama-only.** LM Studio ids carry no implicit tag (`google/gemma-4-26b-a4b` is the whole id),
+ *    so folding tags there would accept a model the deployment does not serve.
+ * 3. **`:latest` only.** `qwen3-embedding:8b` and `qwen3-embedding:4b` are different models with
+ *    different vector dimensions. Collapsing arbitrary tags would let a plane embed against the wrong
+ *    model and corrupt a corpus — far worse than the loop this fixes.
+ *
+ * @param {*} required Configured model id (owns the requirement).
+ * @param {*} observed Model id reported by the provider.
+ * @param {String} provider Provider key; only `'ollama'` carries the implicit-tag semantics.
+ * @returns {Boolean}
+ */
+export function satisfiesRequiredModelId(required, observed, provider) {
+    if (typeof required !== 'string' || typeof observed !== 'string' || !required) {
+        return false;
+    }
+
+    if (required === observed) {
+        return true;
+    }
+
+    return provider === 'ollama' && !required.includes(':') && observed === `${required}:latest`;
+}
+
+/**
+ * @summary Resolves which REQUIRED id (if any) an observed id satisfies — the keyed-lookup form of
+ * `satisfiesRequiredModelId`, for maps whose keys are configured ids.
+ *
+ * Needed wherever a requirement is looked up BY the observed id: a `Map` keyed on the configured
+ * `qwen3-embedding` misses an observed `qwen3-embedding:latest`, and a missed context requirement is
+ * a requirement not enforced — a low-context alias would pass the very check meant to reject it.
+ *
+ * @param {*} observed Model id reported by the provider.
+ * @param {Iterable<String>} requiredIds Configured ids.
+ * @param {String} provider
+ * @returns {String|null} The satisfied required id, or null.
+ */
+export function resolveRequiredModelId(observed, requiredIds, provider) {
+    for (const required of requiredIds) {
+        if (satisfiesRequiredModelId(required, observed, provider)) {
+            return required;
+        }
+    }
+
+    return null;
+}
+
 export function lmsExecOptions(extra = {}) {
     // Merge the caller's env (if any) over process.env, then derive + augment PATH from THAT merged env,
     // so a caller-supplied `extra.env` (and its own PATH) is preserved rather than clobbered.
@@ -1334,6 +1397,8 @@ export async function ensureLmsModelsLoaded({
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
 
+    // EXACT, deliberately. LM Studio model ids carry no implicit tag, so the Ollama untagged→`:latest`
+    // equivalence would accept a model this deployment does not serve.
     const getMissing          = available => requiredModels.filter(model => !available.includes(model));
     const completeReadyResult = async result => {
         if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
@@ -1817,9 +1882,13 @@ export async function ensureOllamaModelsReady({
                 Neo.isNumber(item.context_length) ? item.context_length : undefined
         }] : null;
     }).filter(Boolean)).values()];
-    const toIds                = available => available.map(item => item.id);
-    const getRequiredAvailable = available => available.filter(item => requiredModelSet.has(item.id));
-    const getExtraModels       = available => toIds(available.filter(item => !requiredModelSet.has(item.id)));
+    const toIds = available => available.map(item => item.id);
+    // ONE predicate behind every derived verdict — required-available, extra, missing, and context.
+    // A model-identity rule applied at only some of them produces a payload that contradicts itself:
+    // a resident `x:latest` reported as EXTRA while `x` is reported as MISSING, in the same result.
+    const satisfiesRequired    = item => resolveRequiredModelId(item.id, requiredModelSet, 'ollama');
+    const getRequiredAvailable = available => available.filter(satisfiesRequired);
+    const getExtraModels       = available => toIds(available.filter(item => !satisfiesRequired(item)));
     const contextRequirements  = roles.reduce((map, role) => {
         if (!role.model || !Neo.isNumber(role.contextLength)) {
             return map;
@@ -1838,13 +1907,21 @@ export async function ensureOllamaModelsReady({
         providerRole: role.providerRole,
         ...(Neo.isNumber(role.contextLength) ? {contextLength: role.contextLength} : {})
     });
-    const getMissing             = available => requiredModels.filter(model => !toIds(available).includes(model));
+    const getMissing = available => requiredModels.filter(model =>
+        !toIds(available).some(observed => satisfiesRequiredModelId(model, observed, 'ollama')));
+    // Resolved by requirement, not by exact key: a context requirement keyed on the configured
+    // `qwen3-embedding` would MISS an observed `qwen3-embedding:latest`, and a requirement that is
+    // not found is a requirement not enforced — the low-context alias would pass the check that
+    // exists to reject it. A missed lookup here fails OPEN, which is the dangerous direction.
     const getInsufficientContext = available => available
-        .filter(item => contextRequirements.has(item.id) && (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(item.id)))
-        .map(item => ({
-            model                : item.id,
+        .map(item => ({item, required: resolveRequiredModelId(item.id, contextRequirements.keys(), 'ollama')}))
+        .filter(({item, required}) => required !== null &&
+            (!Neo.isNumber(item.contextLength) || item.contextLength < contextRequirements.get(required)))
+        .map(({item, required}) => ({
+            model                : required,
+            ...(item.id !== required ? {observedModel: item.id} : {}),
             contextLength        : item.contextLength,
-            requiredContextLength: contextRequirements.get(item.id)
+            requiredContextLength: contextRequirements.get(required)
         }));
     const getWarning = ({availableModels, missingModels, observedRequiredCount}) => {
         const availableModelIds = toIds(availableModels);
@@ -2035,7 +2112,7 @@ export async function ensureOllamaModelsReady({
         if (ready || (allowPartial && (serviceableMissing.length === 0 || capacityOnlyGap || contextOnlyGap))) {
             const degraded       = !ready;
             const contextWarning = serviceableContext.length
-                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+                ? `[provider/ollama] loaded context too small: ${serviceableContext.map(item => `${item.observedModel || item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
                 : null;
             return {
                 ready,
@@ -2073,7 +2150,7 @@ export async function ensureOllamaModelsReady({
     }
 
     const contextWarning = insufficientContextModels.length
-        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
+        ? `[provider/ollama] loaded context too small: ${insufficientContextModels.map(item => `${item.observedModel || item.model} observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`).join(', ')}; warm with options.num_ctx matching localModels context caps.`
         : null;
     const observedRequiredCount = getRequiredAvailable(availableModels).length;
     const contextModelIds       = new Set(insufficientContextModels.map(item => item.model));
@@ -2416,12 +2493,16 @@ export async function probeProviderParallelModelCapacity({
                 ? modelDiscoveryCacheTtlMs
                 : undefined
         });
-    const uniqueAvailable        = [...new Set(availableModels)];
-    const missingModels          = requiredModels.filter(model => !uniqueAvailable.includes(model));
-    const requiredModelSet       = new Set(requiredModels);
-    const extraModels            = uniqueAvailable.filter(model => !requiredModelSet.has(model));
+    const uniqueAvailable = [...new Set(availableModels)];
+    // THE production seam: this result feeds `DeploymentStateBridgeService`, whose residency verdict
+    // licenses `warmProvider`. Comparing exactly here — while the helpers below canonicalise — would
+    // leave the actuator driven by the very false negative this fixes, with green helper tests over it.
+    const satisfiedBy   = model => resolveRequiredModelId(model, requiredModels, target.provider);
+    const missingModels = requiredModels.filter(required =>
+        !uniqueAvailable.some(observed => satisfiesRequiredModelId(required, observed, target.provider)));
+    const extraModels            = uniqueAvailable.filter(model => !satisfiedBy(model));
     const observedCount          = uniqueAvailable.length;
-    const observedRequiredCount  = uniqueAvailable.filter(model => requiredModelSet.has(model)).length;
+    const observedRequiredCount  = uniqueAvailable.filter(satisfiedBy).length;
     const requiredResidentModels = Math.min(requireParallelModels, requiredModels.length);
     const ready                  = observedRequiredCount >= requiredResidentModels && missingModels.length === 0;
 
