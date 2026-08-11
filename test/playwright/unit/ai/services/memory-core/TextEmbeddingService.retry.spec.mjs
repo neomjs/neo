@@ -828,17 +828,23 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(requestCount, 'chunk 1 succeeded, chunk 2 + its retry both 404').toBe(3);
     });
 
-    test('a model that was NEVER resident keeps the configuration-fault code (#16852)', async () => {
+    test('a model that was NEVER resident keeps the configuration-fault code (#16852, #16859)', async () => {
         serverBehavior = 'fail-all-404';
+
+        let probeCount = 0;
 
         // Preflight finds nothing loaded, so the operation never observes residency. This is the
         // control that keeps the new code narrow: without it, reclassifying on 404 would relabel every
         // configuration fault as an eviction and destroy the distinction it exists to create.
-        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [];
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => {
+            probeCount++;
+            return []
+        };
 
         const error = await TextEmbeddingService.embedTexts(['a'], 'openAiCompatible')
             .then(() => null, observed => observed);
 
+        expect(probeCount, 'the observed-negative arm performs exactly one residency preflight').toBe(1);
         expect(error.code).toBe('EMBEDDING_MODEL_NOT_RESIDENT');
         expect(error.residencyDisposition, 'never observed resident ⇒ configuration fault, not capacity').toBe('never-resident');
     });

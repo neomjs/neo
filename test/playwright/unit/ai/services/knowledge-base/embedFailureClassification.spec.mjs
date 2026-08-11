@@ -165,8 +165,9 @@ test.describe('embed failure classification (#16647)', () => {
  *
  * The specs above pin the classifier in isolation. That is necessary and not sufficient — a correct
  * helper wired to nothing would satisfy every one of them. This block drives the method the
- * orchestrator's sync lane actually calls, and asserts on `summary.errors[].code`: the exact field
- * `assertErrorFreeIngestionSummary` filters through `^KB_` on its way to `lastSourceErrorCode`.
+ * orchestrator's sync lane actually calls, and asserts on `summary.errors[].code` plus the bounded
+ * `summary.errors[].details.residencyDisposition` discriminator: the exact receipt fields a remote
+ * operator uses to distinguish a configuration fault from an eviction.
  *
  * The bounded-pattern assertion is the load-bearing half. Pre-fix these arrived as
  * `EMBEDDING_PROBE_TIMEOUT` and `ABORT_ERR`, which are rejected by that filter — so the receipt lost
@@ -187,23 +188,26 @@ test.describe('embed failure classification — production path', () => {
         );
         const
             summary = {errors: [], embeddingsGenerated: 0},
+            tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-embed-witness-')),
             harness = {
                 createError            : IngestionService.createError.bind(IngestionService),
                 updateIngestionProgress: () => {},
                 vectorService          : {embed},
-                writeTempJsonl         : async () => path.join(
-                    await fs.mkdtemp(path.join(os.tmpdir(), 'neo-embed-witness-')), 'chunks.jsonl'
-                )
+                writeTempJsonl         : async () => path.join(tempDir, 'chunks.jsonl')
             };
 
-        await IngestionService.embedChunkGroups.call(harness, {
-            chunks       : [{repoSlug: 'org/witness', text: 'x'}],
-            summary,
-            tenantContext: {tenantId: 't1', repoSlug: 'org/witness'},
-            viaMcp       : false
-        });
+        try {
+            await IngestionService.embedChunkGroups.call(harness, {
+                chunks       : [{repoSlug: 'org/witness', text: 'x'}],
+                summary,
+                tenantContext: {tenantId: 't1', repoSlug: 'org/witness'},
+                viaMcp       : false
+            });
 
-        return summary
+            return summary
+        } finally {
+            await fs.remove(tempDir)
+        }
     }
 
     test('a thrown provider timeout and a thrown abort reach the receipt as distinct admissible codes', async () => {
@@ -239,6 +243,34 @@ test.describe('embed failure classification — production path', () => {
         expect(run.errors).toHaveLength(1);
         expect(run.errors[0].code).toMatch(BOUNDED_KB_ERROR_CODE_PATTERN);
         expect(run.errors[0].code).not.toBe(KB_VECTOR_EMBED_UNCLASSIFIED);
+    });
+
+    test('an observed mid-batch eviction reaches the final ingestion receipt (#16859)', async () => {
+        const error = Object.assign(new Error('embedding model was evicted'), {
+                  code                : 'EMBEDDING_MODEL_NOT_RESIDENT',
+                  residencyDisposition: 'evicted-mid-batch'
+              }),
+              run   = await runEmbedWithFailure(async () => { throw error });
+
+        expect(run.errors, 'the classified failure produced an operator-visible receipt').toHaveLength(1);
+        expect(run.errors[0].code).toBe('KB_VECTOR_EMBED_MODEL_NOT_RESIDENT');
+        expect(run.errors[0].details).toEqual({
+            repoSlug            : 'org/witness',
+            residencyDisposition: 'evicted-mid-batch'
+        });
+    });
+
+    test('an unobserved residency state stays absent from the final ingestion receipt (#16859)', async () => {
+        const error = Object.assign(new Error('embedding model was not resident'), {
+                  code: 'EMBEDDING_MODEL_NOT_RESIDENT'
+              }),
+              run   = await runEmbedWithFailure(async () => { throw error });
+
+        expect(run.errors, 'the unobserved-residency failure still produced an operator-visible receipt')
+            .toHaveLength(1);
+        expect(run.errors[0].details).toEqual({repoSlug: 'org/witness'});
+        expect(Object.hasOwn(run.errors[0].details, 'residencyDisposition'),
+            'absence means unobserved; a null-valued field would imply a measurement').toBe(false);
     });
 });
 
