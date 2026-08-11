@@ -37,11 +37,20 @@ const
     // undetected, which is the quiet failure: the guard reports success on the exact grammar the
     // template teaches. `Residual-Owner:` cannot match it — the colon must follow `Residual`.
     INLINE_RESIDUAL_PATTERN       = /\bResidual:[ \t]*(AC\s*\d+[^\n.]*)/i,
-    // The COLON is mandatory. `:?` accepted `Residual-Owner #200`, a spelling no template teaches, so a
-    // near-miss line discharged a live obligation. Preceded by line-start or whitespace rather than
-    // line-anchored, because the Evidence Ladder's canonical residual sits MID-LINE on the `Evidence:`
-    // line and its owner has to be declarable there too.
-    RESIDUAL_OWNER_PATTERN        = /(?:^|[\s>])Residual-Owner:[ \t]+#(\d+)/im,
+    // TWO legitimate declaration shapes, because the substrate teaches two — conflating them is what
+    // produced a bypass in one direction and a broken canonical form in the other.
+    //
+    // 1. SECTION shape: the owner is the LINE's content, after optional blockquote / list markers. The
+    //    ticket says line — *"an explicit `Residual-Owner: #N` line"*. Anchoring matters here because a
+    //    section is prose: `We considered Residual-Owner: #200 but rejected that owner.` discharged work
+    //    while SAYING it rejected the owner.
+    RESIDUAL_OWNER_LINE_PATTERN   = /^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+)?Residual-Owner:[ \t]+#(\d+)[ \t]*$/im,
+    // 2. INLINE shape: `evidence-ladder.md` prescribes a **1-line** declaration whose owner is mid-line —
+    //    `Evidence: L2 (…) → L4 required (AC5 …). Residual: AC5, Residual-Owner: #<an existing open ticket>.` Anchoring THIS
+    //    would refuse the documented template, which is what my first attempt did; a spec arm written the
+    //    round before caught it. The owner must follow the `Residual:` clause on that same line, so a
+    //    bare mid-line mention still cannot qualify.
+    RESIDUAL_OWNER_INLINE_PATTERN = /Residual:[^\n]*?,[ \t]*Residual-Owner:[ \t]+#(\d+)/i,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
@@ -283,7 +292,16 @@ function withoutFencedBlocks(body = '') {
  * @private
  */
 function withoutInlineCode(text = '') {
-    return text.replace(/`[^`\n]*`/g, match => match.replace(/[^\n]/g, ' '))
+    return text
+        // Longest backtick runs FIRST: a ``double`` span is not two single spans, and a single-backtick
+        // pattern applied first would consume the opening pair and leave the token exposed.
+        .replace(/(`{2,})[\s\S]*?\1/g, match => match.replace(/[^\n]/g, ' '))
+        .replace(/`[^`\n]*`/g, match => match.replace(/[^\n]/g, ' '))
+        // GFM indented code: four spaces (or a tab) at line start is a code block, so a token there is
+        // rendered example text, not a declaration. Blanked per line to keep offsets stable.
+        .split('\n')
+        .map(line => (/^(?: {4,}|\t)/.test(line) ? line.replace(/[^\n]/g, ' ') : line))
+        .join('\n')
 }
 
 /**
@@ -375,7 +393,13 @@ export function validatePrBody(body, {draft = false} = {}) {
         // sections does, and the owner must appear in THAT section — so an earlier discharged duplicate
         // can no longer stand in for a later live one.
         pmvSections       = postMergeValidationSections(body),
-        pmvSection        = pmvSections.find(section => firstLiveObligation(section)) ?? pmvSections[0] ?? '',
+        // EVERY owing section is checked, not the first. `find()` validated one and let a second owing
+        // section ride on the first's owner — the same shadowing defect one level along, where the fix
+        // for duplicate sections introduced its own blind spot. The first UNOWNED owing section is the
+        // one reported, so the message names work that is genuinely orphaned.
+        owingSections     = pmvSections.filter(section => firstLiveObligation(section)),
+        pmvSection        = owingSections.find(section => !withoutInlineCode(section).match(RESIDUAL_OWNER_LINE_PATTERN))
+            ?? owingSections[0] ?? pmvSections[0] ?? '',
         sectionObligation = firstLiveObligation(pmvSection),
         inlineResidual    = fenceless.match(INLINE_RESIDUAL_PATTERN),
         inlineLine        = inlineResidual
@@ -393,7 +417,11 @@ export function validatePrBody(body, {draft = false} = {}) {
     if (obligation) {
         const
             resolvesMatch = body.match(RESOLVES_PATTERN),
-            ownerMatch    = ownerScope.match(RESIDUAL_OWNER_PATTERN),
+            // The shape is chosen by which obligation is being discharged: a section obligation needs a
+            // declaration LINE, the Evidence Ladder's 1-line form needs its mid-line owner.
+            ownerMatch    = sectionObligation
+                ? ownerScope.match(RESIDUAL_OWNER_LINE_PATTERN)
+                : ownerScope.match(RESIDUAL_OWNER_INLINE_PATTERN),
             closeTarget   = resolvesMatch ? resolvesMatch[0].match(/\d+/)[0] : null,
             owner         = ownerMatch ? ownerMatch[1] : null;
 

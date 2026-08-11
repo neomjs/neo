@@ -227,6 +227,87 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         expect(residualFindings(inlineForm)).toHaveLength(0);
     });
 
+    test('BYPASS 7 — PROSE is not a declaration, even prose that REJECTS the owner', () => {
+        // The sharpest of the set: the sentence says the owner was rejected, and the gate accepted it as
+        // the owner. A section is prose, so an owner there must BE the line rather than appear in it.
+        const body = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            'We considered Residual-Owner: #200 but rejected that owner.'
+        ].join('\n');
+
+        expect(residualFindings(body)).toHaveLength(1);
+
+        // Trailing text disqualifies too — a declaration ends at the ticket number.
+        const trailing = `${base}\n\n## Post-Merge Validation\n- [ ] do real work\nResidual-Owner: #200 but not really`;
+
+        expect(residualFindings(trailing)).toHaveLength(1);
+    });
+
+    test('BYPASS 8 — code rendering has more spellings than one backtick pair', () => {
+        // A `` ``double`` `` span is not two single spans, so a single-backtick-first strip consumed the
+        // opening pair and left the token exposed. Four-space indentation is GFM code too, and was not
+        // stripped at all.
+        const doubleTick = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            'Spelling example: ``Residual-Owner: #200`` — documented only.'
+        ].join('\n');
+
+        expect(residualFindings(doubleTick)).toHaveLength(1);
+
+        const indented = `${base}\n\n## Post-Merge Validation\n- [ ] do real work\n\n    Residual-Owner: #200`;
+
+        expect(residualFindings(indented)).toHaveLength(1);
+    });
+
+    test('BYPASS 9 — EVERY owing section carries its own owner, not just the first', () => {
+        // The fix for duplicate sections introduced this: validating the first owing section let a second
+        // owing section ride on the first's owner. Same shadowing defect, one level along.
+        const secondUnowned = [
+            base, '', '## Post-Merge Validation', '- [ ] first work', 'Residual-Owner: #16853', '',
+            '## Notes', 'x', '',
+            '## Post-Merge Validation', '- [ ] second work'
+        ].join('\n');
+
+        expect(residualFindings(secondUnowned)).toHaveLength(1);
+
+        // Control: both owned is legal, so this is not "more than one owing section always fails".
+        const bothOwned = [
+            base, '', '## Post-Merge Validation', '- [ ] a', 'Residual-Owner: #16853', '',
+            '## Notes', 'x', '',
+            '## Post-Merge Validation', '- [ ] b', 'Residual-Owner: #16853'
+        ].join('\n');
+
+        expect(residualFindings(bothOwned)).toHaveLength(0);
+    });
+
+    test('TWO declaration shapes — and anchoring the wrong one breaks the documented template', () => {
+        // This arm exists because I broke it in both directions in consecutive rounds. `evidence-ladder.md`
+        // prescribes a **1-line** declaration whose owner is MID-LINE:
+        //
+        //   Evidence: L2 (…) → L4 required (AC5 …). Residual: AC5, Residual-Owner: #<an existing open ticket>.
+        //
+        // …while the Post-Merge Validation section form is a standalone LINE. Anchoring both refuses the
+        // template; anchoring neither lets prose discharge work. The shape is selected by which obligation
+        // is being discharged, and each half needs its own arm or the next author will collapse them again.
+        const inlineForm = [
+            'Resolves #16906', '',
+            'Evidence: L2 (mock dispatch) → L4 required (AC5 distinctness). Residual: AC5, Residual-Owner: #16853.', '',
+            '## Test Evidence', 'Ran it.', '', 'Authored by @neo-opus-vega', '', '## Deltas', 'none', '',
+            '## Post-Merge Validation', 'None deferred.'
+        ].join('\n');
+
+        expect(residualFindings(inlineForm), 'the canonical 1-line inline form must discharge').toHaveLength(0);
+
+        // …and the inline shape requires the owner to follow the `Residual:` clause, so a bare mid-line
+        // mention elsewhere on a line does not qualify as one.
+        const bareMidLine = inlineForm.replace(
+            'Residual: AC5, Residual-Owner: #16853.',
+            'Residual: AC5. Ownership discussed with Residual-Owner: #16853 pending.'
+        );
+
+        expect(residualFindings(bareMidLine)).toHaveLength(1);
+    });
+
     test('BYPASS 6 — a DISCHARGED duplicate section cannot shadow a later live one', () => {
         // `body.match()` returns one hit, so an earlier `None deferred.` section satisfied the gate while a
         // later section owed real work. Every section is now read, and the OWING one carries the scope.
