@@ -104,5 +104,17 @@ services:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 8080"]
 
 secrets:
+  # Checkout-INDEPENDENT by default, the same shape `NEO_HOST_BACKUP_ROOT` already carries in the
+  # base compose. A relative `file:` resolves inside whichever checkout renders this document, so
+  # provisioning the token once made exactly ONE clone able to run the sanctioned rebuild — and
+  # pinned the whole local plane to whatever branch that clone happened to sit on. Measured cost:
+  # every container running a revision 103 commits behind `dev` while the fixes sat merged.
+  #
+  # The value must be the token the plane ALREADY bootstrapped (it is both the auth-provider
+  # bootstrap PAT and the healthcheck token), so a per-checkout copy is not a workaround — every
+  # root needs the same secret, which is precisely what a checkout-relative path prevents.
+  #
+  # A missing file makes Compose refuse to start. That is the intended failure: loud, at the one
+  # moment someone can act, rather than a silent fallback that restores the single-seat dependency.
   mcp-auth-token: !override
-    file: ../../.neo-ai-secrets/mcp-auth-token
+    file: ${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}

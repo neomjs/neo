@@ -479,7 +479,11 @@ test.describe('ai/scripts/diagnostics/mcpHealthcheck (#11725)', () => {
         expect(source).not.toContain('NEO_AUTH_AUTO_PROVISION_IDENTITY_SOURCES');
         expect(source).toContain('NEO_AUTH_PIN_FIRST_PROVIDER_SUBJECT: "false"');
         expect(source).not.toContain('NEO_AUTH_PROVIDER_BOOTSTRAP_PAT');
-        expect(source).toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
+        // Checkout-INDEPENDENT — see the overlay's own comment. The negative is the load-bearing
+        // half: a revert to the relative path restores the single-seat rebuild dependency.
+        expect(source).toContain('file: ${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}');
+        expect(source, 'the checkout-relative secret path must not return')
+            .not.toContain('file: ../../.neo-ai-secrets/mcp-auth-token');
         expect(source).not.toContain('environment: GH_TOKEN');
         expect(source).toContain('"127.0.0.1:3102:8080"');
         expect(source).not.toContain('docker-compose.dev.yml');
