@@ -35,6 +35,24 @@ function composeConfigAvailable() {
 }
 
 /**
+ * @summary True when `ai/deploy/.env` is a symlink whose target does not exist.
+ *
+ * The deployment-prescription workflow links that path at a per-operator store outside the repo, so
+ * a machine that has run it once carries the link whether or not the target survives. `existsSync`
+ * FOLLOWS symlinks, so a dangling link reads as absent — which defeats the test's own preserve-and-
+ * restore: it records "nothing to back up", then writes through a link that resolves nowhere and
+ * fails `ENOENT` on a path that visibly exists. The failure names the repo path, so it reads as a
+ * broken suite rather than a broken link, and it cost a full-suite run to attribute.
+ *
+ * `lstatSync` is the distinction: it describes the LINK, never its target.
+ * @param {String} envPath
+ * @returns {Boolean}
+ */
+function danglingEnvSymlink(envPath) {
+    return fs.lstatSync(envPath, {throwIfNoEntry: false})?.isSymbolicLink() === true && !fs.existsSync(envPath)
+}
+
+/**
  * Resolves kb-server's `--max-old-space-size` as Compose would create it.
  * @param {String} repoRoot
  * @returns {Number|null}
@@ -115,7 +133,14 @@ test.describe('deployment prescription -> env file', () => {
 
         const
             repoRoot = process.cwd(),
-            envPath  = path.join(repoRoot, 'ai/deploy/.env'),
+            envPath  = path.join(repoRoot, 'ai/deploy/.env');
+
+        // An environment precondition, exactly like the compose-CLI check above: this test WRITES the
+        // env file, and a link to a vanished prescription store cannot be written through. Skipping
+        // states that; failing would blame the suite for the machine.
+        test.skip(danglingEnvSymlink(envPath), 'ai/deploy/.env is a symlink to a missing prescription store');
+
+        const
             existed  = fs.existsSync(envPath),
             backup   = existed ? fs.readFileSync(envPath, 'utf8') : null,
             // A value no default in the tree carries, so a pass cannot come from the baseline.
