@@ -8,6 +8,34 @@ jobs:
   lint-pr-body:
     runs-on: ubuntu-latest
     steps:
+      # ONE OWNING IMPLEMENTATION for the body gates. The inline script below cannot import
+      # `validatePrBody`, so any rule added there is unreachable at the merge gate — which is
+      # exactly how the residual-owner gate shipped enforcing nothing. This step runs the same
+      # validator the author runs locally, so local and hosted verdicts cannot diverge.
+      #
+      # The `if:` MIRRORS the inline script's own gate. `agentAuthors` is a list whose every
+      # entry starts with `neo-`, so `isAgentAuthor` reduces exactly to the prefix test; the
+      # label arm is carried verbatim. Without this condition the validator would start judging
+      # human-authored PRs that the existing gate deliberately skips.
+      - name: Checkout repository
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        uses: actions/checkout@v6
+
+      - name: Validate PR body with the owning implementation
+        if: startsWith(github.event.pull_request.user.login, 'neo-') || contains(github.event.pull_request.labels.*.name, 'ai')
+        env:
+          # Passed through the environment, never interpolated into the shell: a PR body is
+          # attacker-controlled text and `${{ }}` inside `run:` would splice it into the script.
+          PR_BODY : ${{ github.event.pull_request.body }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          if [ "$PR_DRAFT" = "true" ]; then
+            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md" --pr-draft
+          else
+            node buildScripts/util/agent-preflight.mjs --pr-body "$RUNNER_TEMP/pr-body.md"
+          fi
+
       - name: Validate PR Body
         uses: actions/github-script@v9
         with:
