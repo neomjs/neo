@@ -684,6 +684,9 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
             expect(metrics.status).toBe('ok');
             expect(metrics.providerActivity).toEqual({
                 status                    : 'partial',
+                // Present-and-empty on a degraded arm, never absent: `undefined` reads as zero
+                // demand, which is the one reassuring answer a failed projection must not give.
+                nativeAdmission           : {},
                 totalActivities           : 0,
                 totalInFlight             : 0,
                 totalRecentCompletions    : 0,
@@ -759,6 +762,7 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         try {
             expect(MemoryCoreRecorderService.getMemoryCoreToolMetrics({sinceMs: 60_000, limit: 5}).providerActivity).toEqual({
                 status                    : 'unavailable',
+                nativeAdmission           : {},
                 totalActivities           : 0,
                 totalInFlight             : 0,
                 totalRecentCompletions    : 0,
