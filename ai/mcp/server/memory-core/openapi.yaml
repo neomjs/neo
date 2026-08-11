@@ -2945,6 +2945,34 @@ components:
           type: string
           enum: [ok, partial, disabled, unavailable]
           description: Availability of the bounded provider-stage projection.
+        nativeAdmission:
+          type: object
+          description: >-
+            Live Neo-side admission demand per provider, derived from activity rows rather than a
+            second store: a row without a start boundary is waiting, a started row without a
+            completion is executing. This separates "the provider is slow" from "Neo made it wait" —
+            the two demand opposite responses, and only the second is fixed by raising a cap.
+            A provider with a declared cap is reported even at zero demand, so a configured-but-idle
+            queue stays distinguishable from one that does not exist.
+          additionalProperties:
+            type: object
+            required: [cap, executing, waiting]
+            properties:
+              cap:
+                type: [integer, "null"]
+                minimum: 0
+                description: >-
+                  Declared in-flight ceiling, injected by the reading process. `null` means the
+                  provenance was unavailable — NEVER fabricated as 0, which would read as
+                  "admission is closed" rather than "unknown".
+              executing:
+                type: integer
+                minimum: 0
+                description: Admitted rows past their start boundary and not yet completed.
+              waiting:
+                type: integer
+                minimum: 0
+                description: Rows opened before admission that have not yet acquired a slot.
         totalActivities:
           type: integer
           minimum: 0

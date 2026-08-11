@@ -347,7 +347,7 @@ export async function observeUnqueuedProviderActivity({task, recorder, activity 
  * @param {Object} options Observer bounds.
  * @returns {Object}
  */
-export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()} = {}) {
+export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now(), nativeAdmissionCaps = null} = {}) {
     const
         aggregates = db.prepare(`
             SELECT service, operation_stage, role, provider, model, priority, queue_disposition,
@@ -416,8 +416,45 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
         queueWaitMs     : row.queue_wait_ms ?? null
     });
 
+    // NATIVE ADMISSION DEMAND, derived from rows rather than from a second source of truth.
+    //
+    // Once the producer opens its row BEFORE admission and starts it only after acquiring a slot,
+    // the queue's live state is already in the table: a row with no `started_at` is waiting, a
+    // started row with no `completed_at` is executing. No separate admission store is needed, and a
+    // process-local getter could not have answered this anyway — the observer is a different OS
+    // process from the producer.
+    //
+    // `cap` is INJECTED by the caller, which reads the config leaf at its own use site. This module
+    // must not import AiConfig, and a fabricated `0` would read as "admission is closed" — the most
+    // alarming possible value — when the truth is only that provenance is unavailable. `null` means
+    // unknown and says so.
+    const nativeAdmission = {};
+
+    for (const row of db.prepare(`
+        SELECT provider,
+               SUM(CASE WHEN started_at IS NULL THEN 1 ELSE 0 END) AS waiting,
+               SUM(CASE WHEN started_at IS NOT NULL THEN 1 ELSE 0 END) AS executing
+          FROM provider_activity_log
+         WHERE completed_at IS NULL AND queue_disposition = 'neo-queued'
+         GROUP BY provider
+    `).all()) {
+        nativeAdmission[row.provider] = {
+            cap      : nativeAdmissionCaps?.[row.provider] ?? null,
+            executing: row.executing || 0,
+            waiting  : row.waiting   || 0
+        }
+    }
+
+    // A cap that was declared but has no live demand must still be reported. Omitting it makes a
+    // configured-but-idle queue indistinguishable from one that does not exist, and "no rows" is
+    // exactly what a wedged plane looks like from the wrong angle.
+    for (const [provider, cap] of Object.entries(nativeAdmissionCaps || {})) {
+        nativeAdmission[provider] ??= {cap, executing: 0, waiting: 0}
+    }
+
     return {
         status                    : 'ok',
+        nativeAdmission,
         totalActivities,
         totalInFlight,
         totalRecentCompletions,

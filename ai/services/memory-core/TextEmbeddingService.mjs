@@ -1464,10 +1464,15 @@ class TextEmbeddingService extends Base {
                 await this.#awaitOllamaEmbeddingSlot(signal, operationLabel, operation);
             }
         } catch (error) {
-            // A caller abandoned WHILE WAITING never reached the provider, so the row must settle at
-            // the admission stage. Without this the abort leaves an opened row with no completion —
-            // an in-flight figure that only grows, which is a worse instrument than none.
-            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'admission', success: false});
+            // `queue`, NOT an invented `admission`. The shared ledger admits only
+            // `provider | queue | unknown` and normalizes anything else to `unknown` — so a bespoke
+            // stage does not fail, it silently degrades to the least informative value. The
+            // openAiCompatible queued-abort at :649 already uses `queue`; one vocabulary, not two.
+            //
+            // A caller abandoned WHILE WAITING never reached the provider, so the row must settle
+            // here. Without this the abort leaves an opened row with no completion — an in-flight
+            // figure that only grows, which is a worse instrument than none.
+            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'queue', success: false});
             throw error;
         }
 
@@ -1481,7 +1486,7 @@ class TextEmbeddingService extends Base {
             // Already-aborted callers must return the slot they just took, or an abort storm walks
             // the cap down to zero and stalls the path.
             this.#releaseOllamaEmbeddingSlot();
-            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'admission', success: false});
+            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'queue', success: false});
             throw error;
         }
 

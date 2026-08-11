@@ -689,7 +689,12 @@ class MemoryCoreRecorderService extends Base {
             providerActivity = getProviderActivityMetrics(this.db, {
                 limit  : safeLimit,
                 now,
-                sinceTs
+                sinceTs,
+                // The cap is READ HERE, at the use site, and injected. The ledger is shared with the
+                // Knowledge Base and must not import a Memory Core config; and it must never
+                // fabricate a cap, because `0` reads as "admission is closed" — the most alarming
+                // value — when the truth would only be that provenance was unavailable.
+                nativeAdmissionCaps: {ollama: config.ollama.maxInFlightEmbeddings}
             });
         } catch (error) {
             logger.warn('[MemoryCoreRecorderService] Failed to read provider activity telemetry:', error.message);

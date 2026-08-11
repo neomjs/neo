@@ -377,6 +377,18 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         const
             activities = [],
             recorder   = {
+                // A double must REFUSE what the real one refuses. A permissive fake accepted
+                // `failureStage: 'admission'` — a value the shared ledger normalizes to `unknown`
+                // (`providerActivityLedger.mjs`: `FAILURE_STAGES = provider | queue | unknown`) — so
+                // the suite was green while the persisted stage was the least informative one
+                // available. @neo-gpt found it by replaying the production contract instead of the
+                // injected seam. Mirrored here so the double cannot bless an unsupported value again.
+                assertSupportedStage(outcome) {
+                    if (outcome?.failureStage !== undefined &&
+                        !['provider', 'queue', 'unknown'].includes(outcome.failureStage)) {
+                        throw new Error(`unsupported failureStage: ${outcome.failureStage}`)
+                    }
+                },
                 // The id counter is its OWN sequence. Deriving it from `activities.length` numbers
                 // `start` rows too, so the second BEGIN would be `activity-3` and every later lookup
                 // by id would silently miss.
@@ -388,7 +400,10 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
                     return id
                 },
                 startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
-                completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+                completeProviderActivity(id, outcome) {
+                    this.assertSupportedStage(outcome);
+                    activities.push({type: 'complete', id, outcome})
+                }
             },
             harness    = makeBlockingOllama();
 
@@ -447,6 +462,81 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
                 'contention must fully drain before the next spec runs'
             ).toEqual({cap: 1, inFlight: 0, waiting: 0})
+        } finally {
+            harness.releaseAll();
+            await Promise.allSettled([first, second])
+        }
+    });
+
+    /**
+     * @summary A caller abandoned WHILE QUEUED must CLOSE its row, at a stage the ledger supports.
+     *
+     * The arm that was missing, and its absence is why an invented `failureStage: 'admission'`
+     * shipped green: nothing drove the abort path, so nothing could observe the value. The shared
+     * ledger admits only `provider | queue | unknown` and silently normalizes anything else to
+     * `unknown` — a bespoke stage does not fail, it degrades to the least informative answer while
+     * the producer's own comment claims precision it never achieved.
+     *
+     * Two properties, and the row-closing one matters more. An abandoned caller that leaves its row
+     * OPEN makes in-flight a number that only grows, so the instrument built to show a stuck plane
+     * would itself report a permanent phantom backlog.
+     */
+    test('#16880: a caller abandoned WHILE QUEUED closes its row at a ledger-supported stage', async () => {
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            activities = [],
+            recorder   = {
+                assertSupportedStage(outcome) {
+                    if (outcome?.failureStage !== undefined &&
+                        !['provider', 'queue', 'unknown'].includes(outcome.failureStage)) {
+                        throw new Error(`unsupported failureStage: ${outcome.failureStage}`)
+                    }
+                },
+                nextId: 0,
+                beginProviderActivity(entry) {
+                    const id = `abort-${++this.nextId}`;
+
+                    activities.push({type: 'begin', id, ...entry});
+                    return id
+                },
+                startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) {
+                    this.assertSupportedStage(outcome);
+                    activities.push({type: 'complete', id, outcome})
+                }
+            },
+            harness    = makeBlockingOllama(),
+            controller = new AbortController();
+
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama', {providerActivityRecorder: recorder}),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama', {
+                  providerActivityRecorder: recorder,
+                  signal                  : controller.signal
+              }).then(() => 'fulfilled', error => error);
+
+        try {
+            await waitForCondition(
+                () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 1,
+                'the second caller to queue'
+            );
+
+            controller.abort(new Error('queued caller cancelled'));
+            await second;
+
+            const
+                queuedRow = activities.filter(item => item.type === 'begin').at(-1),
+                completed = activities.find(item => item.type === 'complete' && item.id === queuedRow.id);
+
+            expect(completed, 'an abandoned queued caller must CLOSE its row, never leave it open')
+                .toBeTruthy();
+            expect(completed.outcome.success, 'and it did not succeed').toBe(false);
+            expect(completed.outcome.failureStage,
+                'the stage must be one the shared ledger actually persists — `queue`, matching the ' +
+                'openAiCompatible queued-abort precedent in this same service'
+            ).toBe('queue')
         } finally {
             harness.releaseAll();
             await Promise.allSettled([first, second])
