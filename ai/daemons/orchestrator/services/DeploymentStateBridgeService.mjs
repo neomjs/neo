@@ -617,7 +617,11 @@ export class DeploymentStateBridgeService extends Base {
         }
 
         const statsSamples    = this.getStatsSamples(serviceKey);
-        const plannedRestarts = await this.countPlannedRestarts({serviceKey, observedAt: observationNow()});
+        const plannedRestarts = await this.collectPlannedRestarts({
+            serviceKey,
+            baseline  : churnBaseline,
+            observedAt: observationNow()
+        });
 
         // Query after every preceding async read and immediately before the synchronous diagnosis.
         // This is the safety boundary: a snapshot-start projection can claim idle even though a
@@ -641,7 +645,7 @@ export class DeploymentStateBridgeService extends Base {
                 providerActivity,
                 providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
                 churnBaseline            : churnBaseline?.unreadable ? undefined : churnBaseline,
-                plannedRestarts,
+                plannedRestarts          : plannedRestarts.count,
                 // `null` when `includeLogs` is off — which must surface as an UNAVAILABLE
                 // attribution, never as "not a heap death". A disabled channel is not evidence.
                 logs                 : logSummary,
@@ -657,14 +661,36 @@ export class DeploymentStateBridgeService extends Base {
         // reasoning ADR-0025 rejects in-memory anti-thrash state on. // ticket-ref-ok: names the decision this durability requirement inherits
         // An unjudgeable baseline must not be overwritten by a fresh anchor derived from it —
         // that is the silent-reset path. Leave it and let the ERROR log carry the degradation.
+        let baselineWrite = null;
+
         if (diagnosis?.churnBaseline && !churnBaseline?.unreadable) {
-            this.writeChurnBaseline(serviceKey, diagnosis.churnBaseline);
+            baselineWrite = this.writeChurnBaseline(serviceKey, diagnosis.churnBaseline) ? 'written' : 'failed';
         }
 
         // `churnBaseline` is INTERNAL scheduling state, not part of the published contract. The
         // decision carries it back so this service can persist it; publishing it would add an
         // undocumented field to `inspect_deployment` that no Contract Ledger row admits.
         const {churnBaseline: _internalBaseline, ...publishedDiagnosis} = diagnosis || {};
+
+        // Restart-churn is the one diagnosis whose FAILURE is shaped exactly like its healthy verdict:
+        // `collectRestartChurnFacts` emits nothing when there is no churn AND nothing when it cannot
+        // tell, so a plane whose detector was dead published a record indistinguishable from a quiet
+        // one. An unreadable baseline is never overwritten — deliberately, because re-anchoring on a
+        // damaged baseline is the silent-reset path — which means detection stays dead until a human
+        // removes the file, with only an ERROR log to say so. This section is what makes that sayable.
+        //
+        // It reports the detector's own health, never a churn verdict; the verdict remains the
+        // diagnosis service's non-authoritative `restart-churn` fact and no authority moves here.
+        const restartChurn = {
+            baseline       : churnBaseline?.unreadable ? 'unreadable' : churnBaseline ? 'available' : 'absent',
+            baselineWrite,
+            plannedRestarts: {reason: plannedRestarts.reason, status: plannedRestarts.status},
+            // The operator's actual question, answered directly rather than left to be inferred from
+            // the three fields above: can this service produce a churn verdict at all right now?
+            detecting      : !churnBaseline?.unreadable &&
+                plannedRestarts.status === 'available' &&
+                baselineWrite !== 'failed'
+        };
 
         return {
             schemaVersion : 1,
@@ -679,6 +705,7 @@ export class DeploymentStateBridgeService extends Base {
             providerResidency,
             providerActivity,
             heapObservation,
+            restartChurn,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
             // it, and the measured window state used to live only inside a sustained-saturation fact,
             // so a healthy store exposed none of them and no load-independent claim about the
@@ -1055,9 +1082,14 @@ export class DeploymentStateBridgeService extends Base {
 
     /**
      * @summary Persists the restart-churn baseline for one service.
+     *
+     * Returns the outcome rather than only logging it. The ERROR log below is written to a stream
+     * nothing on the published record reads, so a plane whose baseline could not be persisted looked
+     * exactly like one that never needed to persist it.
+     *
      * @param {String} serviceKey
      * @param {Object} baseline
-     * @returns {void}
+     * @returns {Boolean} `true` when the baseline reached disk.
      */
     writeChurnBaseline(serviceKey, baseline) {
         try {
@@ -1067,12 +1099,16 @@ export class DeploymentStateBridgeService extends Base {
             // baseline or the new one, never a fragment. The former `${target}.${pid}.tmp` scratch was
             // unique per process, but baselines are written per service key inside one.
             writeFileAtomicSync(this.churnBaselinePath(serviceKey), JSON.stringify(baseline, null, 2) + '\n')
+
+            return true
         } catch (error) {
             // ERROR, not WARN: a baseline that stops advancing means churn stops accumulating, and
             // the signal dies without the record ever going unhealthy.
             this.writeLog?.('ERROR', `[DeploymentStateBridge] churn baseline write FAILED for ${serviceKey}: ${error.message}. Churn detection is degraded until this succeeds.`);
             // The scratch cleanup that used to live here is the primitive's `finally`, which runs on
             // the failure path — there is no leaked sibling left for this block to remove.
+
+            return false
         }
     }
 
@@ -1086,55 +1122,97 @@ export class DeploymentStateBridgeService extends Base {
     }
 
     /**
-     * @summary Counts restarts this system itself initiated for one service inside the churn window.
+     * @summary Counts restarts this system itself initiated for one service inside the churn window,
+     * and reports whether that count is provably complete.
      *
-     * Subtracted from the observed delta so a deploy or an actuator restart cannot raise churn. The
-     * heal-event ledger is the record of what we did, which makes it the only honest source: this
-     * frame cannot otherwise distinguish an actuator restart from a crash, and guessing would fire
-     * the alarm on every deploy — after which it gets disabled and the blind spot returns with a
-     * dead alarm on top.
+     * Subtracted from the observed delta so a deploy or an actuator restart cannot raise churn. This
+     * frame cannot otherwise distinguish an actuator restart from a crash, and guessing would fire the
+     * alarm on every deploy — after which it gets disabled and the blind spot returns with a dead
+     * alarm on top.
+     *
+     * The source is the recovery-run ledger, which is the store the lifecycle actuator actually writes
+     * (`finishAction` → `appendRecoveryRunState`). The heal-event ledger this previously read serves
+     * the DATA-recovery actuator, whose action vocabulary contains no restart member at all — so the
+     * filter matched nothing any production plane had ever written, and every planned restart counted
+     * as unplanned churn on a live plane. It passed its unit test only because the fixture appended by
+     * hand the exact row the production path does not produce.
+     *
+     * The predicate is the lifecycle PROOF (`capabilityEnvelope: 'lifecycle-write'` +
+     * `operation: 'restart'`), never the recovery action's name, because the two disagree in both
+     * directions:
+     *
+     * - `reconfigure` restarts the container as part of the action — the knob overlay is read at boot,
+     *   so writing it without a restart is a no-op. Keying on the restart action alone would miss
+     *   these and raise the false churn this subtraction exists to prevent.
+     * - `raise-ceiling` deliberately does NOT restart; its proof carries `update-memory-limit`.
+     * - a supervised-task recycle restarts a PROCESS, so Docker's `RestartCount` never moves for it
+     *   and it must not be subtracted. It carries no lifecycle proof, so this predicate excludes it
+     *   without needing a second rule.
+     *
+     * The proof also stamps `observedAt` at the moment the restart was dispatched and carries its own
+     * `serviceKey` — the honest window bound and owner for this count, rather than the diagnosis time.
      *
      * @param {Object} options
      * @param {String} options.serviceKey
+     * @param {Object|null} options.baseline The already-read churn baseline. Passed in rather than
+     *     re-read, so the count and the diagnosis cannot compare against two different anchors.
      * @param {Number} options.observedAt
-     * @returns {Number}
+     * @returns {Promise<Object>} `{count, reason, status}`. `status: 'degraded'` means the count could
+     *     not be proven complete, and `count` then suppresses churn instead of asserting a number.
      */
-    async countPlannedRestarts({serviceKey, observedAt}) {
-        const baseline = this.readChurnBaseline(serviceKey);
+    async collectPlannedRestarts({serviceKey, baseline, observedAt}) {
+        // No usable anchor means no window to count inside — and `evaluateRestartChurn` reports
+        // nothing on a first look or an unjudgeable baseline either. Zero here is a measured zero.
+        if (!baseline || baseline.unreadable) {
+            return {count: 0, reason: null, status: 'available'};
+        }
 
-        if (!baseline) return 0;
+        // The store's OWN retention bound, not the snapshot's publication cap (`recoveryRunLimit`).
+        // Reading fewer entries than the store retains would silently under-subtract.
+        const limit = AiConfig.orchestrator.recoveryActuator.recoveryRunRetentionLimit;
+
+        // Checked before the read, because `readRecentRecoveryRunStates` answers a non-finite limit
+        // with an empty array — which is indistinguishable from "no planned restarts" and would raise
+        // false churn on a misconfigured plane rather than reporting that it cannot count.
+        if (!Number.isFinite(limit) || limit <= 0) {
+            return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-limit-invalid', status: 'degraded'};
+        }
 
         try {
-            // Same injection seam the snapshot fold uses (`healLedgerReader || readHealLedger`),
-            // rather than a second direct reader — one source of ledger truth, and testable.
-            // AWAITED: `readHealLedger` is async, and the snapshot fold awaits it too. An earlier
-            // revision did not, so `queryHealLedger` received a Promise, matched nothing, and planned
-            // restarts counted 0 — every deploy would have raised false churn.
-            const reader = this.healLedgerReader || readHealLedger,
-                  events = await reader({dir: this.healLedgerDir});
+            // Same injection seam `collectRecoveryRunSnapshot` uses, rather than a second direct
+            // reader — one source of recovery-run truth, and testable.
+            const reader  = this.recoveryRunStateReader || readRecentRecoveryRunStates,
+                  entries = await reader({dir: AiConfig.orchestrator.recoveryActuator.recoveryRunStateDir, limit});
 
-            return queryHealLedger(events, {collections: [serviceKey]})
-                // Filter on status too, or one recovery action counts TWICE: `recordRun` writes
-                // `status: 'attempt'` and `recordHealOutcome` writes a second row with the SAME
-                // type and collection. Double-counting over-subtracts, which suppresses genuine
-                // churn — a false negative on the whole signal, and one that only became reachable
-                // once the async/epoch defects above were fixed and real events started matching.
-                .filter(event => event?.type === 'restart' && event?.status === 'attempt')
-                .filter(event => {
-                    // `appendHealEvent` stamps `at` as EPOCH MS (healEventLedgerStore: `at:
-                    // Number.isFinite(entry.at) ? entry.at : now`). An earlier revision ran
-                    // `Date.parse(event.at)` — `Date.parse` of a number is NaN, so every REAL event
-                    // was filtered out, planned restarts counted 0, and a deploy would have raised
-                    // false churn. It passed its test only because the test fabricated ISO strings.
-                    const at = typeof event.at === 'number' ? event.at : Date.parse(event.at ?? '');
+            // Entries arrive newest-first, so the last one is the furthest back this read reached.
+            const oldest   = entries[entries.length - 1],
+                  oldestAt = [oldest?.updatedAt, oldest?.completedAt, oldest?.startedAt].find(Number.isFinite) ?? null;
 
-                    return Number.isFinite(at) && at >= baseline.observedAt && at <= observedAt;
-                })
-                .length
+            // A full read cannot prove it reached back to the baseline: retention prunes the far end.
+            // Publishing the truncated count would UNDER-subtract and raise churn for restarts we
+            // performed ourselves — the exact false positive that gets an alarm switched off.
+            if (entries.length >= limit && (oldestAt === null || oldestAt >= baseline.observedAt)) {
+                return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-window-truncated', status: 'degraded'};
+            }
+
+            const count = entries.filter(entry => {
+                const proof = entry?.details?.runtimeAccess;
+
+                return proof?.capabilityEnvelope === 'lifecycle-write' &&
+                    proof.operation  === 'restart'   &&
+                    proof.serviceKey === serviceKey  &&
+                    Number.isFinite(proof.observedAt) &&
+                    proof.observedAt >= baseline.observedAt &&
+                    proof.observedAt <= observedAt
+            }).length;
+
+            return {count, reason: null, status: 'available'};
         } catch {
             // Unknown provenance must not raise churn: an unreadable ledger means we cannot prove a
-            // restart was ours, and a false churn alarm costs more than a missed one.
-            return Number.MAX_SAFE_INTEGER
+            // restart was ours, and a false churn alarm costs more than a missed one. Suppressing the
+            // signal AND saying so is what makes the silence readable — the suppression alone is what
+            // left an operator unable to tell a quiet plane from a broken detector.
+            return {count: Number.MAX_SAFE_INTEGER, reason: 'recovery-run-read-failed', status: 'degraded'};
         }
     }
 

@@ -13,7 +13,11 @@ import {
     summarizeProbeReliability
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentStateBridgeService.mjs';
 import {ContainerHealthDiagnosisService} from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
-import {appendHealEvent, readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import {DeploymentRuntimeAccessService}  from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
+import {
+    createRecoveryDiagnosisEvent,
+    createRecoveryRunStateEntry
+} from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     TENANT_REPO_INGEST_CONTRACT_VERSION
 } from '../../../../../../../ai/daemons/orchestrator/services/tenantRepoCheckpointValidity.mjs';
@@ -2131,11 +2135,83 @@ test.describe('restart churn reaches the deployment record', () => {
         }
     });
 
-    const bridgeFor = (Id, RestartCount, healLedgerReader = null) => createService({
+    const bridgeFor = (Id, RestartCount, recoveryRunStateReader = null) => createService({
         diagnosisService    : Neo.create(ContainerHealthDiagnosisService, {}),
         healLedgerDir       : dir,
-        healLedgerReader,
+        recoveryRunStateReader,
         runtimeAccessService: churningRuntime(Id, RestartCount)
+    });
+
+    /**
+     * The real runtime-access service, stamped at a chosen instant. Only `nowFn` and the Docker seam
+     * are substituted, so the proof it emits is the production one.
+     */
+    const runtimeAccessAt = at => Neo.create(DeploymentRuntimeAccessService, {
+        runtimeAccessConfig: {
+            enabled                     : true,
+            mechanism                   : 'docker-socket',
+            socketPath                  : '/var/run/docker.sock',
+            composeProject              : 'neo',
+            allowedServices             : ['orchestrator', 'chroma'],
+            readOperations              : ['inspect'],
+            lifecycleOperations         : ['restart'],
+            timeoutMs                   : 5000,
+            responseMaxBytes            : 1024,
+            logTail                     : 10,
+            defaultRestartTimeoutSeconds: 10,
+            auditMode                   : 'metadata'
+        },
+        dockerRequestFn: async () => ({statusCode: 204, headers: {}, body: ''}),
+        nowFn          : () => at
+    });
+
+    const targetFor = serviceKey => ({
+        serviceKey,
+        containerId   : 'c1',
+        names         : [`/neo-${serviceKey}-1`],
+        image         : 'neo:test',
+        state         : 'running',
+        status        : 'Up',
+        composeProject: 'neo',
+        labels        : {}
+    });
+
+    /**
+     * Drives the REAL restart path end-to-end, so the specimen proves the lifecycle write actually
+     * stamps `operation: 'restart'`. Building the proof directly would still be production-shaped but
+     * could not notice the restart path changing the operation it declares.
+     */
+    const restartProof = async (serviceKey, at) =>
+        (await runtimeAccessAt(at).restartTarget(targetFor(serviceKey), {reason: 'test'})).proof;
+
+    /** The same production proof builder, for the operations that have no cheap end-to-end driver. */
+    const lifecycleProof = (operation, serviceKey, at) => runtimeAccessAt(at).createProofMetadata({
+        envelope: 'lifecycle-write',
+        operation,
+        target  : targetFor(serviceKey)
+    });
+
+    /**
+     * Wraps a proof in a recovery-run entry through the production constructor, which validates every
+     * field. The previous fixture hand-appended `{type: 'restart'}` heal-event rows — a shape NO
+     * production writer emits — so the suite agreed with itself while disagreeing with the plane.
+     */
+    const runEntry = (proof, at) => createRecoveryRunStateEntry({
+        recoveryRunId : `recovery-actuator:${proof.serviceKey}:${proof.operation}:${new Date(at).toISOString()}`,
+        diagnosisEvent: createRecoveryDiagnosisEvent({
+            diagnosisId   : `d-${proof.serviceKey}-${at}`,
+            recoveryClass : 'crash',
+            confidence    : 1,
+            targetIdentity: {kind: 'compose-service', id: proof.serviceKey},
+            observedAt    : at
+        }),
+        rung       : 'rung-2',
+        attempt    : 1,
+        status     : 'reobserve-requested',
+        startedAt  : at,
+        updatedAt  : at,
+        completedAt: at,
+        details    : {runtimeAccess: proof}
     });
 
     test.beforeEach(() => {dir = fs.mkdtempSync(path.join(os.tmpdir(), 'churn-bridge-'))});
@@ -2176,71 +2252,51 @@ test.describe('restart churn reaches the deployment record', () => {
     });
 
     /**
-     * The AC that is harder than the recreate case: restarts WE caused must not raise the alarm. The
-     * heal-event ledger is the record of what we did, and an alarm that fires on every deploy is
-     * disabled within a week — leaving the blind spot plus a dead alarm.
+     * The AC that is harder than the recreate case: restarts WE caused must not raise the alarm. An
+     * alarm that fires on every deploy is disabled within a week — leaving the blind spot plus a dead
+     * alarm.
+     *
+     * This is also the regression guard for the source itself. The count now reads the recovery-run
+     * ledger, which is what the lifecycle actuator writes; the heal-event ledger it read before serves
+     * the DATA-recovery actuator and has no restart member in its action vocabulary at all. Reverting
+     * the source turns this test red, because nothing here writes a heal event.
      */
-    test('restarts recorded as ours in the heal ledger are subtracted, so a deploy raises nothing', async () => {
+    test('restarts the lifecycle actuator recorded are subtracted, so a deploy raises nothing', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 
-        // Written through the REAL `appendHealEvent`, not hand-shaped. An earlier revision fabricated
-        // ISO-string `at` values; production stamps epoch ms, so the filter dropped every real event
-        // and the test passed against a specimen that could not occur. The specimen has to be
-        // production-shaped by construction, which means using the production writer.
-        // `status: 'attempt'` is what `recordRun` writes. The outcome row that follows carries the
-        // same type + collection, so both are appended here — counting them as two restarts would
-        // over-subtract and suppress genuine churn.
+        const ourRestarts = [];
+
         for (let i = 0; i < 5; i++) {
-            await appendHealEvent(
-                {type: 'restart', collection: 'orchestrator', status: 'attempt', detail: {}},
-                {dir, now: OBSERVED_AT + 30000}
-            );
-            await appendHealEvent(
-                {type: 'restart', collection: 'orchestrator', status: 'healed', detail: {}},
-                {dir, now: OBSERVED_AT + 30001}
-            );
+            ourRestarts.push(runEntry(await restartProof('orchestrator', OBSERVED_AT + 30000 + i), OBSERVED_AT + 30000 + i));
         }
 
-        const ourRestarts = await readHealLedger({dir});
+        // The specimen must carry the production marker, or this proves nothing about the predicate.
+        expect(ourRestarts[0].details.runtimeAccess.capabilityEnvelope).toBe('lifecycle-write');
+        expect(ourRestarts[0].details.runtimeAccess.operation).toBe('restart');
 
-        expect(ourRestarts.length).toBe(10);
-        expect(typeof ourRestarts[0].at).toBe('number');
-
-        const withLedger = await bridgeFor('c1', 5, () => ourRestarts)
+        const withLedger = await bridgeFor('c1', 5, async () => ourRestarts)
             .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
 
         expect(withLedger.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+        expect(withLedger.restartChurn.plannedRestarts.status).toBe('available');
     });
 
     /**
-     * The test above proves the alarm stays quiet; it does NOT prove the arithmetic, and cannot.
-     * With 5 observed and 5 planned it passes on a correct subtraction AND on the paired-row
-     * double-count that `9795dee622` repaired, because `Math.max(0, ...)` clamps 5 - 10 to the same
-     * 0. A suppression test is satisfied by over-suppression.
+     * The test above proves the alarm stays quiet; it does NOT prove the arithmetic, and cannot — a
+     * suppression test is satisfied by over-suppression, so it passes on a correct subtraction AND on
+     * one that subtracts too much.
      *
-     * This one is positioned so the two answers disagree. 4 observed restarts against ONE
-     * attempt/outcome pair leaves exactly the threshold and must FIRE. Count that pair as two
-     * restarts and the delta drops to 2, the alarm goes quiet, and this test goes red — which is the
-     * property the suppression test cannot have, since quiet is its passing state.
+     * This one is positioned where the two answers disagree: 4 observed restarts against exactly ONE
+     * planned restart leaves the threshold and must FIRE. Subtract one too many and the alarm goes
+     * quiet and this goes red — the property the suppression test cannot have, since quiet is its
+     * passing state.
      */
-    test('a single attempt/outcome pair subtracts ONE restart, not two — churn still fires at the boundary', async () => {
+    test('the subtraction is exact, not merely suppressive — churn still fires at the boundary', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 
-        await appendHealEvent(
-            {type: 'restart', collection: 'orchestrator', status: 'attempt', detail: {}},
-            {dir, now: OBSERVED_AT + 30000}
-        );
-        await appendHealEvent(
-            {type: 'restart', collection: 'orchestrator', status: 'healed', detail: {}},
-            {dir, now: OBSERVED_AT + 30001}
-        );
+        const one = [runEntry(await restartProof('orchestrator', OBSERVED_AT + 30000), OBSERVED_AT + 30000)];
 
-        const onePair = await readHealLedger({dir});
-
-        // The specimen must contain the over-counting hazard, or the test proves nothing about it.
-        expect(onePair.length).toBe(2);
-
-        const atBoundary = await bridgeFor('c1', 4, () => onePair)
+        const atBoundary = await bridgeFor('c1', 4, async () => one)
             .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
 
         expect(atBoundary.diagnosis.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
@@ -2256,14 +2312,107 @@ test.describe('restart churn reaches the deployment record', () => {
         expect(churnFact.details.threshold).toBe(3);
     });
 
-    /** Unknown provenance must not raise churn: we cannot prove those restarts were not ours. */
-    test('an unreadable ledger suppresses the alarm rather than guessing', async () => {
+    /**
+     * The cell where the action name and the lifecycle proof DISAGREE, which is the whole reason the
+     * predicate reads the proof.
+     *
+     * `reconfigure` restarts the container as part of the action — the knob overlay is read at boot,
+     * so writing it without a restart is a no-op. Its run is therefore a planned restart even though
+     * its action is not named `restart`. An implementation keyed on the action name misses it, fails
+     * to subtract, and raises churn for a restart we performed: this test goes red.
+     */
+    test('a reconfigure run counts as a planned restart — the proof decides, not the action name', async () => {
         await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 
-        const unreadable = await bridgeFor('c1', 9, () => {throw new Error('ledger unreadable')})
+        const at    = OBSERVED_AT + 30000,
+              proof = await restartProof('orchestrator', at),
+              // Exactly what `reconfigureComposeService` persists: it spreads the restart result, so
+              // the lifecycle proof rides along under a run whose id names the reconfigure action.
+              reconfigure = {
+                  ...runEntry(proof, at),
+                  recoveryRunId: `recovery-actuator:orchestrator:reconfigure:${new Date(at).toISOString()}`
+              };
+
+        const afterReconfigure = await bridgeFor('c1', 3, async () => [reconfigure])
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(afterReconfigure.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+    });
+
+    /**
+     * The same predicate from the other side, so it cannot be satisfied by "any lifecycle write".
+     * `raise-ceiling` moves the cgroup limit on the RUNNING container and deliberately does not
+     * restart it — its proof carries `update-memory-limit`. Subtracting it would hide real churn.
+     */
+    test('a raise-ceiling run is NOT a planned restart — churn still fires', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const at      = OBSERVED_AT + 30000,
+              ceiling = runEntry(lifecycleProof('update-memory-limit', 'orchestrator', at), at);
+
+        const afterRaise = await bridgeFor('c1', 3, async () => [ceiling])
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(afterRaise.diagnosis.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
+    });
+
+    /** One shared store serves every service, so the count has to be owned by its own service key. */
+    test("another service's restart is not subtracted from this one", async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const at       = OBSERVED_AT + 30000,
+              otherKey = runEntry(await restartProof('chroma', at), at);
+
+        const record = await bridgeFor('c1', 3, async () => [otherKey])
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(record.diagnosis.diagnosis.details.classificationReason).toBe('restart-churn-recorded');
+    });
+
+    /** Unknown provenance must not raise churn: we cannot prove those restarts were not ours. */
+    test('an unreadable ledger suppresses the alarm AND publishes that it could not count', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const unreadable = await bridgeFor('c1', 9, async () => {throw new Error('ledger unreadable')})
             .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
 
         expect(unreadable.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+
+        // Suppression alone is what made a broken detector look like a quiet plane. The suppression
+        // has to come with a statement that it happened.
+        expect(unreadable.restartChurn.plannedRestarts.status).toBe('degraded');
+        expect(unreadable.restartChurn.plannedRestarts.reason).toBe('recovery-run-read-failed');
+        expect(unreadable.restartChurn.detecting).toBe(false);
+    });
+
+    /**
+     * Retention prunes the far end of the store, so a read that comes back full cannot prove it
+     * reached the baseline. Reporting the truncated count would UNDER-subtract and raise churn for
+     * restarts we performed — the precise false positive that gets an alarm switched off.
+     */
+    test('a read that fills the retention window degrades instead of reporting a truncated count', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const limit = AiConfig.orchestrator.recoveryActuator.recoveryRunRetentionLimit,
+              at    = OBSERVED_AT + 30000,
+              proof = await restartProof('orchestrator', at),
+              // Every entry sits INSIDE the window, so nothing here reaches back past the baseline.
+              filled = Array.from({length: limit}, () => runEntry(proof, at));
+
+        const truncated = await bridgeFor('c1', 9, async () => filled)
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(truncated.restartChurn.plannedRestarts.status).toBe('degraded');
+        expect(truncated.restartChurn.plannedRestarts.reason).toBe('recovery-run-window-truncated');
+        expect(truncated.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+
+        // A read of the same size that DOES reach past the baseline is complete, not truncated —
+        // otherwise "degraded" would just mean "busy", and the marker would carry no information.
+        const reaching = [...filled.slice(0, limit - 1), runEntry(proof, OBSERVED_AT - 60000)];
+        const complete = await bridgeFor('c1', 9, async () => reaching)
+            .collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        expect(complete.restartChurn.plannedRestarts.status).toBe('available');
     });
 
     test('an unjudgeable baseline suppresses churn instead of silently re-anchoring', async () => {
@@ -2285,6 +2434,86 @@ test.describe('restart churn reaches the deployment record', () => {
         const record = await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
 
         expect(record.diagnosis === null || !Object.hasOwn(record.diagnosis, 'churnBaseline')).toBe(true);
+    });
+
+    /**
+     * The residual this section exists for, asserted as a DISAGREEMENT rather than as two separate
+     * readings. `collectRestartChurnFacts` emits nothing when there is no churn and nothing when it
+     * cannot tell, so both planes previously published byte-identical churn evidence: absence. A
+     * reader could not distinguish "quiet" from "the detector is dead", which is the state a corrupt
+     * baseline leaves a service in permanently — an unjudgeable baseline is deliberately never
+     * overwritten, so nothing recovers it until a human removes the file.
+     *
+     * Asserting the two records DIFFER is what makes this fail if the marker is ever reduced to a
+     * constant; two independent assertions could both pass against a field hardcoded either way.
+     */
+    test('a dead churn detector is distinguishable from a quiet plane', async () => {
+        await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        const quiet = await bridgeFor('c1', 1).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 60000});
+
+        fs.writeFileSync(path.join(dir, 'churn-baselines', 'orchestrator.json'), '{ truncated');
+
+        const dead = await bridgeFor('c1', 1).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT + 120000});
+
+        // Neither plane reports churn — that is precisely why the verdict cannot carry this fact.
+        expect(quiet.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+        expect(dead.diagnosis?.diagnosis?.details?.classificationReason).not.toBe('restart-churn-recorded');
+
+        expect(dead.restartChurn.detecting).not.toBe(quiet.restartChurn.detecting);
+        expect(quiet.restartChurn).toMatchObject({baseline: 'available',  detecting: true});
+        expect(dead.restartChurn).toMatchObject({baseline: 'unreadable', detecting: false});
+    });
+
+    /**
+     * A baseline that cannot be PERSISTED is the same failure one step later: the anchor never
+     * advances, so the counter cannot accumulate toward a threshold and the signal is dead. It was
+     * reported only to an ERROR log, which the published record does not read.
+     */
+    /**
+     * Split deliberately from the publication test below. The reader and the writer share one path, so
+     * any filesystem obstruction that breaks the write breaks the read FIRST and the service reports
+     * `unreadable` — a different residual. Driving the writer directly is what isolates this one.
+     */
+    test('writeChurnBaseline reports a real write failure instead of only logging it', () => {
+        const logs   = [],
+              bridge = bridgeFor('c1', 0);
+
+        bridge.writeLog = (level, message) => logs.push({level, message});
+
+        // A DIRECTORY where the baseline file belongs: the atomic rename onto it fails with a genuine
+        // filesystem error, so this cannot pass against a writer that never touches disk.
+        fs.mkdirSync(path.join(dir, 'churn-baselines'), {recursive: true});
+        fs.mkdirSync(bridge.churnBaselinePath('orchestrator'));
+
+        expect(bridge.writeChurnBaseline('orchestrator', {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0})).toBe(false);
+        expect(logs.some(entry => entry.level === 'ERROR' && entry.message.includes('churn baseline write FAILED'))).toBe(true);
+
+        // The positive control: the SAME call against an unobstructed path must return true, or
+        // `false` would just be this method's constant and the assertion above would prove nothing.
+        fs.rmdirSync(bridge.churnBaselinePath('orchestrator'));
+
+        expect(bridge.writeChurnBaseline('orchestrator', {containerId: 'c1', observedAt: OBSERVED_AT, restartCount: 0})).toBe(true);
+    });
+
+    test('a baseline that cannot be written degrades the published record, not just the log', async () => {
+        const bridge = bridgeFor('c1', 0);
+
+        // The write outcome is what this asserts on — the failure MODE is the test above. Stubbing the
+        // one seam keeps this from depending on a filesystem obstruction that would trip the reader.
+        bridge.writeChurnBaseline = () => false;
+
+        const record = await bridge.collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        expect(record.restartChurn.baselineWrite).toBe('failed');
+        expect(record.restartChurn.detecting).toBe(false);
+
+        // A plane whose baseline DOES persist publishes the other value, so `detecting` is reporting
+        // this outcome rather than being pinned false by something else on a first observation.
+        const healthy = await bridgeFor('c1', 0).collectServiceSnapshot({serviceKey: 'orchestrator', observedAt: OBSERVED_AT});
+
+        expect(healthy.restartChurn.baselineWrite).toBe('written');
+        expect(healthy.restartChurn.detecting).toBe(true);
     });
 
     test('a quiet container produces no churn diagnosis across two observations', async () => {
