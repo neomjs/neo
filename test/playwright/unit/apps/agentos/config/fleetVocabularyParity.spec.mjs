@@ -19,8 +19,46 @@ const
     twin      = {mcp: twinMcp, harness: twinHarness, wire: twinWire, sources: twinSources};
 
 test.describe('FM vocabulary parity — the realm boundary carries no imports, so the lint is the binding', () => {
-    test('the live twin mirrors the live authority: every constant, every shared helper outcome', () => {
+    test('the live twin mirrors the live authority: every export is dispositioned and every pair agrees', () => {
         expect(compareFleetVocabulary({authority, twin})).toEqual([])
+    });
+
+    test('an unclassified authority-only export fails closed with its namespace and name (#16805)', () => {
+        const expandedAuthority = {
+            ...authority,
+            mcp: {...authority.mcp, UNCLASSIFIED_AUTHORITY_PROBE: true}
+        };
+
+        expect(compareFleetVocabulary({authority: expandedAuthority, twin})).toContain(
+            'mcp.authority.UNCLASSIFIED_AUTHORITY_PROBE: export is unclassified'
+        )
+    });
+
+    test('an unclassified twin-only export fails closed with its namespace and name (#16805)', () => {
+        const expandedTwin = {
+            ...twin,
+            harness: {...twin.harness, UNCLASSIFIED_TWIN_PROBE: true}
+        };
+
+        expect(compareFleetVocabulary({authority, twin: expandedTwin})).toContain(
+            'harness.twin.UNCLASSIFIED_TWIN_PROBE: export is unclassified'
+        )
+    });
+
+    test('same-named exports on both realms are not silently treated as a registered pair (#16805)', () => {
+        const
+            expandedAuthority = {
+                ...authority,
+                wire: {...authority.wire, UNREGISTERED_PAIR_PROBE: {owner: 'authority'}}
+            },
+            expandedTwin = {
+                ...twin,
+                wire: {...twin.wire, UNREGISTERED_PAIR_PROBE: {owner: 'twin'}}
+            },
+            violations = compareFleetVocabulary({authority: expandedAuthority, twin: expandedTwin});
+
+        expect(violations).toContain('wire.authority.UNREGISTERED_PAIR_PROBE: export is unclassified');
+        expect(violations).toContain('wire.twin.UNREGISTERED_PAIR_PROBE: export is unclassified')
     });
 
     test('the comparator is not a rubber stamp: an induced data drift reddens with the surface named', () => {
@@ -190,11 +228,14 @@ test.describe('FM vocabulary parity — the realm boundary carries no imports, s
 
     test('the operable-cold app contract imports no ai or server trust authority', () => {
         const sources = [
-            ['fleetWireMethods', new URL('../../../../../../apps/agentos/config/fleetWireMethods.mjs', import.meta.url)],
-            ['installFleetBridge', new URL('../../../../../../apps/agentos/fleet/installFleetBridge.mjs', import.meta.url)]
+            ['mcpServers',         new URL('../../../../../../apps/agentos/config/mcpServers.mjs', import.meta.url),        []],
+            ['harnessTypes',       new URL('../../../../../../apps/agentos/config/harnessTypes.mjs', import.meta.url),      []],
+            ['fleetWireMethods',   new URL('../../../../../../apps/agentos/config/fleetWireMethods.mjs', import.meta.url),  []],
+            ['cockpitSources',     new URL('../../../../../../apps/agentos/config/cockpitSources.mjs', import.meta.url),    []],
+            ['installFleetBridge', new URL('../../../../../../apps/agentos/fleet/installFleetBridge.mjs', import.meta.url), ['../config/fleetWireMethods.mjs']]
         ];
 
-        for (const [label, url] of sources) {
+        for (const [label, url, expectedImports] of sources) {
             const
                 ast     = parse(readFileSync(url, 'utf8'), {ecmaVersion: 'latest', sourceType: 'module'}),
                 imports = ast.body
@@ -204,12 +245,7 @@ test.describe('FM vocabulary parity — the realm boundary carries no imports, s
             expect(imports.every(source => !source.includes('/ai/') &&
                 !/fleetIngressAuth|FleetControlBridge|localBearer|Identity|ownership|authorization/i.test(source)), label)
                 .toBe(true);
-
-            if (label === 'fleetWireMethods') {
-                expect(imports, 'the app vocabulary twin must remain operable-cold').toEqual([])
-            } else {
-                expect(imports).toEqual(['../config/fleetWireMethods.mjs'])
-            }
+            expect(imports, `${label} must retain its operable-cold import contract`).toEqual(expectedImports)
         }
     })
 });
