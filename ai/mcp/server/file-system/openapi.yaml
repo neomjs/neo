@@ -212,6 +212,10 @@ paths:
     post:
       summary: Executes a single Playwright spec.
       operationId: run_playwright_test
+      # `tools/list` is compacted on this server (max 120 chars) and reads this field, never the
+      # description below — so the warning has to exist in BOTH places or the ordinary discovery
+      # surface keeps describing runner isolation while the real limit lives one call away.
+      x-neo-tool-summary: "Executes one Playwright spec. EXECUTION IS NOT JAILED — the spec runs with this server's host trust."
       description: |
         Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
 
