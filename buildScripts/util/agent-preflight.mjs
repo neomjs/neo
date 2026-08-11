@@ -26,7 +26,6 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 ];
 
 const
-    POST_MERGE_VALIDATION_HEADING = '## Post-Merge Validation',
     // A REAL level-two heading on its own line. `indexOf` would anchor on the first substring, so a
     // body that merely quotes the heading in prose or a fenced block would have its section read
     // from the wrong offset.
@@ -220,18 +219,11 @@ export function validateChangeClass({
 }
 
 /**
- * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
- * @param {String} body
- * @param {Object} [options]
- * @param {Boolean} [options.draft=false]
- * @returns {Object}
- */
-/**
- * @summary Returns the body of the `## Post-Merge Validation` section, or `''` when absent.
+ * @summary Blanks fenced code blocks, preserving line structure so offsets stay comparable.
  *
- * The anchor check above proves the heading string appears SOMEWHERE; it says nothing about what
- * follows it. This reads the section itself — heading to the next `##` heading, or to end-of-body when
- * it is last.
+ * A heading inside a fence is an EXAMPLE, not a section this body owes work under. Replacing the
+ * fence with spaces rather than deleting it keeps every later line at its original index, which is
+ * what lets a caller map a match back onto the untouched body.
  * @param {String} body
  * @returns {String}
  * @private
@@ -243,6 +235,17 @@ function withoutFencedBlocks(body = '') {
     return body.replace(/^```[^\n]*\n[\s\S]*?^```[ \t]*$/gm, match => match.replace(/[^\n]/g, ' '));
 }
 
+/**
+ * @summary Returns the body of the `## Post-Merge Validation` section, or `''` when absent.
+ *
+ * The anchor check in `validatePrBody` proves the heading string appears SOMEWHERE; it says nothing
+ * about what follows it. This reads the section itself — heading to the next `##` heading, or to
+ * end-of-body when it is last — and reads it from a fenceless copy so a worked example in a fence
+ * cannot shadow the real section.
+ * @param {String} body
+ * @returns {String}
+ * @private
+ */
 function postMergeValidationSection(body = '') {
     body = withoutFencedBlocks(body);
 
@@ -273,6 +276,13 @@ function firstLiveObligation(section = '') {
     return line ? line.trim() : null
 }
 
+/**
+ * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
+ * @param {String} body
+ * @param {Object} [options]
+ * @param {Boolean} [options.draft=false]
+ * @returns {Object}
+ */
 export function validatePrBody(body, {draft = false} = {}) {
     const
         missingVisible         = VISIBLE_PR_BODY_ANCHORS.filter(anchor => !body.includes(anchor)),
