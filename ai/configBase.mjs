@@ -738,7 +738,10 @@ class ConfigBase extends ConfigProvider {
                 /**
                  * @summary Chat-model context limits in tokens — a WORKLOAD FLOOR, not a RAM-fit target.
                  *
-                 * Default is HALF of `gemma-4-31b-it`'s native 256K context (131072). This is a
+                 * Default is 131072 — half of the 256K native context the deployment's chat models
+                 * carry. The number was originally derived from `gemma-4-31b-it`; it is retained
+                 * under `google/gemma-4-26b-a4b` because it is a WORKLOAD floor, not a per-model
+                 * ceiling, so it does not move when the model does. This is a
                  * deliberate floor, NOT a value auto-shrunk to fit free host RAM: graph extraction
                  * (`SemanticGraphExtractor`, `TopologyInferenceEngine`) and session summaries
                  * (`SessionService`) read this via the AiConfig SSOT and degrade below ~half. The
@@ -1817,8 +1820,17 @@ class ConfigBase extends ConfigProvider {
                  */
                 mlx: {
                     enabled: leaf(false, 'NEO_ORCHESTRATOR_MLX_ENABLED', 'boolean'),
-                    model  : leaf('mlx-community/gemma-4-31b-it-bf16', 'NEO_ORCHESTRATOR_MLX_MODEL', 'string'),
-                    port   : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
+                    // The 26b MoE, matching `openAiCompatible.model` — one agreed chat model across
+                    // every runtime. A different id here does not merely disagree on paper: MLX and
+                    // LM Studio JIT-load whatever they are handed, so a second dense 31b would sit
+                    // resident (~20 GB) beside the 26b already serving traffic.
+                    // `-it` is load-bearing: the INSTRUCTION-TUNED weights, carried over from the
+                    // `gemma-4-31b-it-bf16` this replaces. Verified against the mlx-community
+                    // registry, where `gemma-4-26b-a4b-bf16` (no `-it`) ALSO exists — so dropping
+                    // the suffix swaps the BASE model into a chat/graph-parsing role with no 404 to
+                    // notice it, just quietly worse output.
+                    model: leaf('mlx-community/gemma-4-26b-a4b-it-bf16', 'NEO_ORCHESTRATOR_MLX_MODEL', 'string'),
+                    port : leaf('11435', 'NEO_ORCHESTRATOR_MLX_PORT', 'string')
                 },
                 /**
                  * Orchestrator-owned native Ollama server config. Operators tune via gitignored

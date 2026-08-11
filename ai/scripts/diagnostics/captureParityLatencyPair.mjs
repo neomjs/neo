@@ -1017,7 +1017,7 @@ export class ParityLatencyCaptureActor {
             NEO_HOOK_PROJECTION_ROOT                    : under('hook-projections'),
             NEO_KB_ASK_API_KEY                          : 'neo-parity-ci-key',
             NEO_KB_ASK_BASE_URL                         : `http://127.0.0.1:${this.embeddingPort}`,
-            NEO_KB_ASK_MODEL                            : 'gemma-4-31b-it',
+            NEO_KB_ASK_MODEL                            : 'google/gemma-4-26b-a4b',
             NEO_KB_ASK_PROVIDER                         : 'openAiCompatible',
             NEO_KB_AUTO_START_DATABASE                  : 'false',
             NEO_KB_LOG_PATH                             : under('logs'),

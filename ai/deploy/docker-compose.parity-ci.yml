@@ -67,7 +67,7 @@ services:
       # partial override could retain a workstation key or base URL even while the main
       # model path points at the mock.
       NEO_KB_ASK_PROVIDER: openAiCompatible
-      NEO_KB_ASK_MODEL: gemma-4-31b-it
+      NEO_KB_ASK_MODEL: google/gemma-4-26b-a4b
       NEO_KB_ASK_API_KEY: neo-parity-ci-key
       NEO_KB_ASK_BASE_URL: http://embedding-server:11434
     depends_on:

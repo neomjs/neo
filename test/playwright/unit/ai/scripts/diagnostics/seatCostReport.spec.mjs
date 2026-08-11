@@ -34,15 +34,43 @@ import {
 // synthetic pair.
 const
     repoRoot    = process.cwd(),
-    fixtureDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'seatcost-fixtures-')),
     scriptPath  = path.join(repoRoot, 'ai/scripts/diagnostics/seatCostReport.mjs'),
     wireFixture = syntheticWireContent(),
     rowsFixture = syntheticOpencodeRows();
 
-writeSyntheticFixtures(fixtureDir);
-test.afterAll(() => fs.rmSync(fixtureDir, {recursive: true, force: true}));
+/**
+ * The temp dir the CLI arms read through. Assigned in `beforeAll`, NOT at module scope.
+ *
+ * **The bug this shape fixes.** `fixtureDir` was a module-scope `mkdtempSync` with
+ * `writeSyntheticFixtures()` called beside it at import time, while cleanup was a top-level
+ * `test.afterAll`. Those are two different lifecycles: the fixtures were an IMPORT side effect and
+ * their removal a TEST-lifecycle hook, so nothing tied the directory's existence to the window in
+ * which the tests actually needed it. The two CLI arms then failed with
+ * `ENOENT … /seatcost-fixtures-XXXXXX/kimi-wire.jsonl` — a spawned child looking for a directory
+ * that had already been swept — and the same run leaked one uncleaned temp dir (52 had accumulated
+ * on this machine).
+ *
+ * It reproduced in EVERY full-suite run and passed in isolation, which is exactly why it was read as
+ * flake for weeks. It is not flake: it is deterministic, and it only needs enough sibling files in
+ * the worker to surface. That distinction matters beyond this file — a suite cannot be safely
+ * parallelized or path-scoped while failures like this are dismissed as noise.
+ * @type {String|null}
+ */
+let fixtureDir = null;
 
 test.describe('seatCostReport — harness ledger aggregation', () => {
+    test.beforeAll(() => {
+        fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'seatcost-fixtures-'));
+        writeSyntheticFixtures(fixtureDir)
+    });
+
+    test.afterAll(() => {
+        if (fixtureDir) {
+            fs.rmSync(fixtureDir, {recursive: true, force: true});
+            fixtureDir = null
+        }
+    });
+
     test('kimi wire parsing dedupes consecutive double-written lines, keeps model identity', () => {
         const line = JSON.stringify({
             type : 'usage.record',

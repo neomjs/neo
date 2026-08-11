@@ -189,23 +189,36 @@ class ConfigBase extends ConfigProvider {
              * global-provider coupling forced `ask` onto the slow local gemma (~287s measured), at or past
              * the MCP request-timeout ceiling.
              *
-             * Cost-safety (the scripted-runaway class — a real incident hammered a shared key at
-             * ~1,200 calls/min): (1) `maxCallsPerMinute` runaway breaker — interactive use sits far below
-             * the cap, a script trips it; (2) `apiKey` is a DEDICATED env-only key so the operator can
-             * hard-cap the cloud budget on just the ask path; (3) `gemini-2.5-flash` default — ~15-22x
-             * cheaper than 3.5-flash for no synthesis-quality loss here.
+             * Cost-safety, and why the DEFAULT is now local. The controls below are all bounds on a
+             * metered call: (1) `maxCallsPerMinute` runaway breaker — a real incident hammered a
+             * shared key at ~1,200 calls/min; (2) `apiKey` is a DEDICATED env-only key so the cloud
+             * budget can be hard-capped on just this path. Both assume the call happens and try to
+             * limit the damage. They did not prevent ~EUR 70/month of steady-state spend, and they
+             * cannot do anything at all about a key a peer has already exposed.
              *
-             * Local-option preserved: `provider: 'ollama' | 'openAiCompatible'` + `baseUrl` -> a local
-             * endpoint runs `ask` fully local (slower, no code leaves the box) for privacy-mandated
-             * deployments. A `deploymentMode` preset picks this (follow-up per-task-models architecture).
+             * So the default is the local model instead. Cost-bounding machinery beats an unbounded
+             * remote default, but no remote default beats both — an `ask` that never leaves the box
+             * has no meter to run and no key to leak. Remote synthesis is preserved and unchanged:
+             * `provider: 'gemini'` + `NEO_KB_ASK_API_KEY`, one deliberate env var, for anyone who
+             * wants cloud latency and is choosing to pay for it.
              * @type {Object}
              */
             askSynthesis: {
-                // Provider for the ask path: 'gemini' (remote, fast) | 'openAiCompatible' | 'ollama' (local).
-                provider: leaf('gemini', 'NEO_KB_ASK_PROVIDER', 'string'),
-                // Model name. Default 'gemini-2.5-flash' (cheaper + sufficient vs 3.5-flash). For a local
-                // provider, set NEO_KB_ASK_MODEL to the local model name.
-                model: leaf('gemini-2.5-flash', 'NEO_KB_ASK_MODEL', 'string'),
+                // Provider for the ask path: 'openAiCompatible' (local, DEFAULT) | 'ollama' (local) |
+                // 'gemini' (remote — opt-in, metered, and it must stay opt-in).
+                //
+                // The default moved remote -> LOCAL. A cloud default is a standing charge on every
+                // `ask`, and it billed ~EUR 70/month while a peer additionally EXPOSED the dedicated
+                // ask key. The cost-safety machinery below (runaway breaker, dedicated env-only key,
+                // budget cap) all presupposes a metered remote call; making the default local removes
+                // the meter instead of bounding it. Remote synthesis stays one env var away for
+                // anyone who wants it, and now costs a deliberate act rather than silence.
+                provider: leaf('openAiCompatible', 'NEO_KB_ASK_PROVIDER', 'string'),
+                // The deployment's agreed chat model, matching `openAiCompatible.model` in
+                // `ai/configBase.mjs`. 26b was chosen over 31b on measured performance grounds; ask
+                // does not get to pick a different one, or LM Studio JIT-loads a SECOND resident
+                // chat model beside the one already serving traffic.
+                model: leaf('google/gemma-4-26b-a4b', 'NEO_KB_ASK_MODEL', 'string'),
                 /**
                  * @summary SECURITY - the ask-synthesis API key. Read ONLY from `NEO_KB_ASK_API_KEY`.
                  *

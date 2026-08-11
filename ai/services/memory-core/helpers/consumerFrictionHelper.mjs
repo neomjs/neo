@@ -1,7 +1,7 @@
 /**
  * @summary Brain-Pillar Consumer-Friction Channel V1 — visibility-only.
  *
- * Local-model substrate consumers (e.g. Gemma 4-31b, Qwen3-8b) emit `ConsumerFriction` records
+ * Local-model substrate consumers (e.g. Gemma 4-26b, Qwen3-8b) emit `ConsumerFriction` records
  * when the substrate payload is the wrong shape for them: context overflow, parse failure,
  * pre-invocation size-precheck skip, etc. V1 is **visibility-only**: emitted frictions accumulate
  * in an in-memory aggregator and surface in the next `GoldenPathSynthesizer.synthesizeGoldenPath`
@@ -47,7 +47,7 @@ import {PROVIDER_TIMEOUT_CODE} from '../../../provider/createTimeoutError.mjs';
  * @typedef {Object} ConsumerFriction
  * @property {String} assetRef Graph node ID of the substrate causing friction (sessionId, documentId, etc.) — first member of aggregation tuple.
  * @property {String} consumer Service name (e.g. 'SemanticGraphExtractor', 'SessionService.summarizeSession') — second member of aggregation tuple.
- * @property {String} model Consumer model identifier (e.g. 'gemma4-31b', 'qwen3-8b').
+ * @property {String} model Consumer model identifier (e.g. 'google/gemma-4-26b-a4b', 'qwen3-8b').
  * @property {'context-overflow' | 'parse-failure' | 'token-budget-exceeded' | 'semantic-confusion' | 'timeout' | 'size-precheck-skip'} symptom Friction symptom enum — third member of aggregation tuple.
  * @property {'pre-invocation' | 'post-invocation-failure'} emissionPoint When the friction was detected.
  * @property {'split-document' | 'compress-payload' | 'extract-anchor' | 'reduce-review-cycle' | 'schema-repair' | 'unknown'} suggestionKind Enum-backed structured suggestion for substrate-evolution action.
