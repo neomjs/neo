@@ -210,8 +210,8 @@
             "kind": "retry-growth",
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",
-            "witness": "`retries < maxRetries` guard at the call site; throws on exhaustion",
-            "note": "Embedding batch retry inside one pass."
+            "witness": "`retries < maxRetries` bounds non-timeout failures; timeout-class provider failures throw after their first provider offer",
+            "note": "Embedding batch retry inside one pass. A provider timeout terminates the whole sweep so the outer scheduler, not this exponential ladder, owns the later attempt."
         },
         "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
             "kind": "retry-growth",
