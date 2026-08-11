@@ -239,9 +239,20 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         expect(matchDeferencePhrase('I can wire the KB probe too if you want me to.')).toBe('want me to');
     });
 
-    test('NON-VACUITY — a declarative lane claim is NOT deference', () => {
-        // Without this arm a matcher that flagged every sentence would pass the arm above. Announcing
-        // and taking a lane is the required behaviour, not the slip.
+    test('NON-VACUITY — a declarative lane claim carries no deference PHRASE', () => {
+        // Without this arm a matcher that flagged every sentence would pass the arms above.
+        //
+        // ⚠️ SCOPE, stated exactly, because the obvious phrasing of this comment is wrong: these
+        // sentences are clean **to this matcher**, which is not the same as correct behaviour. A
+        // declarative claim hands nothing back to the operator, so there is no deference phrase to
+        // find — but "Taking X now." at TURN-TERMINAL with nothing after it is the STRUCTURAL slip,
+        // and this matcher runs at exactly that position. Announcing a lane is required behaviour
+        // only when execution follows; at the moment the hook fires, the announcement is all there
+        // is. Saying is not acting.
+        //
+        // The module docstring already names the boundary: this is the PHRASED half, and the
+        // phraseless half belongs to the no-hold gate and the value floor. A future reader must not
+        // take a falsy result here as a verdict that the turn was fine.
         expect(matchDeferencePhrase('Taking the starved-record lane now.')).toBeFalsy();
         expect(matchDeferencePhrase('I will take FIX-2 next.')).toBeFalsy();
         expect(matchDeferencePhrase('Running ollama ps on that host now.')).toBeFalsy();
