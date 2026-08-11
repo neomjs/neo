@@ -2909,5 +2909,34 @@ test.describe('DeploymentStateBridgeService — a residency key the bridge never
         // from "asked and got nothing". Without this field both read identically from the artifact.
         expect(chroma.providerResidencyEligible).toBe(false);
         expect(chroma.providerResidency).toBeNull();
+
+        // `providerActivity` rides the SAME predicate (`isProviderResidencyServiceKey`), and its own
+        // JSDoc promises the two halves of the residual-load evidence pair travel together. Asserted
+        // relationally rather than as a fixed value: what must hold is that the eligible service can
+        // carry activity while an ineligible one never does, whatever the ledger happens to contain.
+        expect(chroma.providerActivity, 'an ineligible service never receives the other half either').toBeNull();
+    });
+
+    test('PARTIAL overlap is reported as partial — neither all-null nor all-populated', async () => {
+        // The mixed case, which is the one a reader actually meets: some configured residency keys
+        // are enumerated and some are not. A diagnostic that only distinguished "all fine" from
+        // "all broken" would leave this reading as one or the other, and the half that is silently
+        // unobservable is exactly the half nobody goes looking for.
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices             : ['chroma', 'local-model'],
+            providerResidencyServiceKeys: ['local-model', 'model']
+        });
+
+        const snapshot = await createService({
+            providerResidencyProbe: async () => ({ready: true, provider: 'ollama'})
+        }).collectSnapshot();
+
+        // `model` is configured but never enumerated; `local-model` is both.
+        expect(snapshot.bridgeDiagnostics.bridgeConfig.unobservableResidencyKeys).toEqual(['model']);
+
+        const model = snapshot.services.find(service => service.serviceKey === 'local-model');
+
+        expect(model.providerResidencyEligible, 'the enumerated key still observes normally').toBe(true);
+        expect(model.providerResidency, 'and a partial misconfiguration does not suppress it').not.toBeNull();
     });
 });
