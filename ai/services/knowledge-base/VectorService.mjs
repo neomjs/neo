@@ -1,4 +1,5 @@
-import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
+import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
+import {embedWithAdaptiveBatch} from './helpers/adaptiveEmbeddingBatch.mjs';
 import TextEmbeddingService, {
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
@@ -730,12 +731,22 @@ class VectorService extends Base {
 
             while (retries < maxRetries && !success) {
                 try {
-                    embeddings ??= await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
-                        operationLabel          : 'knowledge base tenant ingestion embedding',
-                        operationStage          : 'kb-tenant-ingestion-embedding',
-                        providerActivityRecorder: KBRecorderService,
-                        service                 : 'knowledge-base',
-                        shouldYield
+                    // Halves on a provider TIMEOUT instead of re-issuing the identical request. A
+                    // retry that changes nothing cannot succeed: measured on a client plane, one
+                    // batch exceeded a 30-minute deadline and was retried four more times at the
+                    // same size — ~2.5h of continuous work on a single-slot provider for a call
+                    // that could never complete. Only timeouts halve; other errors say nothing
+                    // about size. `??=` still guards the persistence path from re-buying.
+                    embeddings ??= await embedWithAdaptiveBatch({
+                        texts  : textsToEmbed,
+                        onSplit: ({attempted, next}) => logger.warn(`[VectorService] Embedding batch ${i / batchSize + 1}: ${attempted} chunk(s) exceeded the provider deadline; retrying at ${next}. Consider lowering NEO_KB_EMBEDDING_BATCH_SIZE for this deployment.`),
+                        embed  : slice => TextEmbeddingService.embedTexts(slice, mcConfig.embeddingProvider, {
+                            operationLabel          : 'knowledge base tenant ingestion embedding',
+                            operationStage          : 'kb-tenant-ingestion-embedding',
+                            providerActivityRecorder: KBRecorderService,
+                            service                 : 'knowledge-base',
+                            shouldYield
+                        })
                     });
 
                     const metadatas = batchToEmbed.map(buildChunkMetadata);
