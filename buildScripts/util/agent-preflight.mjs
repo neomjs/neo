@@ -236,7 +236,16 @@ export function validateChangeClass({
  * @returns {String}
  * @private
  */
+function withoutFencedBlocks(body = '') {
+    // A heading inside a fence is an EXAMPLE, not this body's section. Bodies that document the
+    // template — including this PR's own — carry `## Post-Merge Validation` inside ``` fences, and
+    // anchoring there reads a worked example as the real obligation.
+    return body.replace(/^```[^\n]*\n[\s\S]*?^```[ \t]*$/gm, match => match.replace(/[^\n]/g, ' '));
+}
+
 function postMergeValidationSection(body = '') {
+    body = withoutFencedBlocks(body);
+
     const match = body.match(POST_MERGE_VALIDATION_H2);
 
     if (!match) return '';
@@ -287,15 +296,27 @@ export function validatePrBody(body, {draft = false} = {}) {
     // four merged PRs whose close targets shut within a second of the merge, three of them keeping no
     // record at all. `Residual-Owner` names ownership that ALREADY exists; it is never a licence to
     // mint a ticket, which is why the message below prescribes finishing or dropping first.
+    // The owner must live in the SAME unit that owes the work. A `Residual-Owner` anywhere in the
+    // body — a prose mention, a quoted example, another section's deferral — would otherwise
+    // discharge an obligation it has no relationship to.
     const
-        inlineResidual = body.match(INLINE_RESIDUAL_PATTERN),
-        obligation     = firstLiveObligation(postMergeValidationSection(body))
+        fenceless         = withoutFencedBlocks(body),
+        pmvSection        = postMergeValidationSection(body),
+        sectionObligation = firstLiveObligation(pmvSection),
+        inlineResidual    = fenceless.match(INLINE_RESIDUAL_PATTERN),
+        inlineLine        = inlineResidual
+            ? fenceless.slice(0, inlineResidual.index).split('\n').length - 1
+            : -1,
+        ownerScope       = sectionObligation
+            ? pmvSection
+            : (inlineLine >= 0 ? fenceless.split('\n')[inlineLine] : ''),
+        obligation       = sectionObligation
             || (inlineResidual ? `Residual: ${inlineResidual[1].trim()}` : null);
 
     if (obligation) {
         const
             resolvesMatch = body.match(RESOLVES_PATTERN),
-            ownerMatch    = body.match(RESIDUAL_OWNER_PATTERN),
+            ownerMatch    = ownerScope.match(RESIDUAL_OWNER_PATTERN),
             closeTarget   = resolvesMatch ? resolvesMatch[0].match(/\d+/)[0] : null,
             owner         = ownerMatch ? ownerMatch[1] : null;
 

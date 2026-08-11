@@ -140,4 +140,52 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         expect(residualFindings(draftBody)).toHaveLength(0);
         expect(validatePrBody(draftBody, {draft: true}).valid).toBe(true);
     });
+
+    test('BYPASS 1 — a heading inside a FENCED block is an example, not this body\'s section', () => {
+        // @neo-gpt's falsifier. A body documenting the template carries the heading inside ```
+        // fences; anchoring there reads a worked example as the real obligation and lets the true
+        // section's unchecked work through unseen.
+        const body = [
+            base,
+            '',
+            '```md',
+            '## Post-Merge Validation',
+            'None deferred.',
+            '```',
+            '',
+            '## Post-Merge Validation',
+            '',
+            '- [ ] the REAL obligation',
+            ''
+        ].join('\n');
+
+        const findings = residualFindings(body);
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0]).toContain('the REAL obligation');
+    });
+
+    test('BYPASS 2 — an owner elsewhere in the body cannot discharge the section\'s obligation', () => {
+        // The owner must live in the SAME unit that owes the work. A Residual-Owner in an unrelated
+        // section, or quoted in prose, has no relationship to this deferral.
+        const body = [
+            base,
+            '',
+            'Historically we pointed these at `Residual-Owner: #200`, which was wrong.',
+            '',
+            '## Post-Merge Validation',
+            '',
+            '- [ ] run the container exit check',
+            ''
+        ].join('\n');
+
+        expect(residualFindings(body)).toHaveLength(1);
+    });
+
+    test('BYPASS 2 control — an owner INSIDE the section still discharges it', () => {
+        // Non-vacuity: scoping must not reject a correctly-placed owner.
+        const body = `${base}\n\n## Post-Merge Validation\n\n- [ ] run it\n\nResidual-Owner: #200\n`;
+
+        expect(residualFindings(body)).toHaveLength(0);
+    });
 });
