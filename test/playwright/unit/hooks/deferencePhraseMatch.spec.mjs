@@ -158,9 +158,35 @@ test.describe('ai/scripts/lifecycle/deferencePhraseMatch', () => {
         // one that survives a self-audit, because it reads as courtesy: the agent identifies the
         // highest-value action — there, the cheapest unrun probe of a seven-week outage — takes credit
         // for identifying it, and then does not do it. The work is named and not done.
-        expect(matchDeferencePhrase('The one thing I would still act on immediately if you want it: run ollama ps on that host.')).toBeTruthy();
-        expect(matchDeferencePhrase('I can wire the KB probe too if you want me to.')).toBeTruthy();
-        expect(matchDeferencePhrase('I will add it if you would like.')).toBeTruthy();
+        //
+        // Asserts the EXACT matched entry, never truthiness. An arm that only asserts truthiness passes
+        // through ANY neighbouring phrase, so it cannot prove the entry under test contributes
+        // anything. That is how a since-dropped `if you want me` arm "passed" while being satisfied
+        // entirely by the pre-existing `want me to`.
+        expect(matchDeferencePhrase('The one thing I would still act on immediately if you want it: run ollama ps on that host.'))
+            .toBe('if you want it');
+        expect(matchDeferencePhrase('I would still probe that host if you want it.'))
+            .toBe('if you want it');
+    });
+
+    test('the permission-gate entry does NOT reserve ordinary technical conditionals (#16966)', () => {
+        // The blocking finding of @neo-gpt's review, executed at exact head rather than argued: both
+        // sentences below are legitimate engineering prose, and an ENFORCING Stop hook that turns them
+        // into blocking directives taxes correct work on every autonomous turn. The discriminator is
+        // clause POSITION — once the pronoun carries a predicate (`it to reject …`) or the verb takes a
+        // noun object, the phrase governs that object rather than gating the agent's own action.
+        expect(matchDeferencePhrase('Set maxQueue to zero if you want it to reject excess work.')).toBeFalsy();
+        expect(matchDeferencePhrase('Keep the fixture local if you would like deterministic isolation.')).toBeFalsy();
+        expect(matchDeferencePhrase('Shrink the batch if you want it to complete on CPU-only hardware.')).toBeFalsy();
+    });
+
+    test('the two noisy variants are GONE, not merely untested (#16966)', () => {
+        // A dropped phrase has to be absent from the list, not just absent from the arms above —
+        // otherwise a later edit re-adds the false-positive surface and every test still passes.
+        expect(DEFERENCE_PHRASES).not.toContain('if you would like');
+        expect(DEFERENCE_PHRASES).not.toContain('if you want me');
+        // …while the form the redundant entry was supposed to cover is still caught by its neighbour.
+        expect(matchDeferencePhrase('I can wire the KB probe too if you want me to.')).toBe('want me to');
     });
 
     test('NON-VACUITY — a declarative lane claim is NOT deference', () => {

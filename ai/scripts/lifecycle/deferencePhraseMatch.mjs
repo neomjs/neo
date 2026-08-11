@@ -34,12 +34,45 @@ export const DEFERENCE_PHRASES = [
     // action, then attaches a permission gate that does not exist. It reads as deferential courtesy
     // and functions as a stop - the work is identified, credited, and not done. Operator-caught
     // 2026-08-11 on a live client incident, where the named action was the cheapest unrun probe of a
-    // seven-week outage. Listed as three surface forms because the trailing object varies and none
-    // of the neighbours above match any of them.
-    'if you want it',
-    'if you want me',
-    'if you would like'
+    // seven-week outage.
+    //
+    // ONE entry, not three. `if you want me` was dropped as redundant - the neighbouring `want me to`
+    // already matches its dominant form, and a test asserting truthiness could not tell the two apart.
+    // `if you would like` was dropped as noise: it reserves ordinary English ("keep the fixture local
+    // if you would like deterministic isolation") for no shape the survivors miss. Both were dropped
+    // after a reviewer EXECUTED those sentences against this matcher rather than arguing about them.
+    'if you want it'
 ];
+
+/**
+ * Phrases whose gate-forming reading depends on clause POSITION, not presence.
+ *
+ * `if you want it` closes a permission gate when it ends the clause - *"the one thing I would still
+ * act on immediately if you want it: `ollama ps`"* - and is ordinary English the moment the pronoun
+ * carries a predicate - *"set maxQueue to zero if you want it to reject excess work"*. Presence alone
+ * cannot separate those, and this matcher is consumed by an ENFORCING Stop hook, so a false positive
+ * blocks correct work. The neighbours above need no such test: their object is always the agent
+ * (`me`) or the lane itself, so they cannot attach to a third party's predicate.
+ * @type {Set<String>}
+ */
+const CLAUSE_TERMINAL_PHRASES = new Set(['if you want it']);
+
+/**
+ * @summary Reports whether a match ends its clause, allowing trailing whitespace and closers.
+ *
+ * Clause-terminal means end-of-text, sentence punctuation, or a delimiter that hands off to the named
+ * action (`:` in the originating specimen). A following word means the phrase governs that word rather
+ * than gating the agent's own action.
+ * @param {String} text
+ * @param {Number} endIndex Index one past the matched phrase.
+ * @returns {Boolean}
+ * @private
+ */
+function isClauseTerminal(text, endIndex) {
+    const rest = text.slice(endIndex).replace(/^[ \t]+/, '');
+
+    return rest === '' || /^[.,:;!?)\]}\n\r"'`’”]/.test(rest)
+}
 
 /**
  * The peer-identity reminder injected when a deference phrase matches on an autonomous turn-end.
@@ -173,7 +206,16 @@ export function matchDeferencePhrase(text = '', phrases = DEFERENCE_PHRASES) {
         let match;
 
         while ((match = matcher.exec(searchableText)) !== null) {
-            const startIndex = match.index + match[1].length;
+            const
+                startIndex = match.index + match[1].length,
+                // `match[0]` carries the leading boundary character in `match[1]`; the phrase itself
+                // ends that many characters later. Computed rather than using `phrase.length`, because
+                // the matcher collapses whitespace runs and the matched text can be longer.
+                endIndex   = startIndex + match[0].length - match[1].length;
+
+            if (CLAUSE_TERMINAL_PHRASES.has(phrase) && !isClauseTerminal(searchableText, endIndex)) {
+                continue;
+            }
 
             if (!isReportedMentionContext(searchableText, startIndex) &&
                 !isAttributiveCitationContext(phrase, searchableText, startIndex)) {
