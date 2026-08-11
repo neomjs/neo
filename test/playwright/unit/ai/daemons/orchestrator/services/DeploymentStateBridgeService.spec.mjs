@@ -2832,4 +2832,113 @@ test.describe('classifyDirectProbeOutcome — a probe fault is not a service fau
         expect(AiConfig.orchestrator.deploymentStateBridge.directProbeUrls).toEqual([]);
         expect(AiConfig.orchestrator.deploymentStateBridge.directProbeExpectedStatus).toBe('healthy,degraded');
     });
+
+});
+
+/**
+ * Residency observability: `null` must say WHICH null it is.
+ */
+test.describe('DeploymentStateBridgeService — a residency key the bridge never enumerates (#16949)', () => {
+    // Its OWN snapshot/restore. This block sits outside the describe whose `beforeEach` restores the
+    // bridge config, and both tests below write `allowedServices` and `providerResidencyServiceKeys`
+    // on the shared `AiConfig` singleton — without this pair they would leak those writes into every
+    // later spec in the worker, which is the order-dependent pollution class this repo has been
+    // burned by: a test that mutates the shared config singleton and does not put it back.
+    let restoreResidencyConfig;
+
+    test.beforeEach(() => {
+        restoreResidencyConfig = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+    });
+
+    test.afterEach(() => {
+        restoreResidencyConfig?.();
+    });
+
+    // ---- Residency observability: `null` must say WHICH null it is. --------------------------------
+    // `isProviderResidencyServiceKey()` is only ever evaluated against a serviceKey the bridge already
+    // ENUMERATES, so a residency key outside `allowedServices` is unreachable by construction — the
+    // predicate cannot return true FOR THAT KEY. The effect is per key: an enumerated peer keeps
+    // observing normally, which the partial-overlap case below proves. Only a ZERO intersection
+    // leaves `providerResidency` and `providerActivity` (same gate) `null` across every service for
+    // the life of the deployment. Nothing throws in either case. The pair simply reports the value a
+    // correctly-configured non-provider container reports, and a reader outside the process cannot
+    // tell a disabled instrument from a working one.
+    //
+    // Measured live before this fix: `allowedServices` was aliased to the orchestrator's
+    // runtime-access list, which has no reason to name the model container, while the residency
+    // default named exactly that container. Intersection empty; three maintainers spent a morning
+    // attributing a configured absence to a sick provider.
+
+    test('a residency key the bridge never enumerates is NAMED, not silently inert', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices             : ['chroma', 'kb-server'],
+            providerResidencyServiceKeys: ['local-model', 'model']
+        });
+
+        const snapshot = await createService().collectSnapshot();
+
+        // The misconfiguration is now a published fact rather than something a reader must derive by
+        // intersecting two lists themselves — which is exactly the derivation nobody performed.
+        expect(snapshot.bridgeDiagnostics.bridgeConfig.unobservableResidencyKeys)
+            .toEqual(['local-model', 'model']);
+
+        for (const service of snapshot.services) {
+            expect(service.providerResidencyEligible, service.serviceKey).toBe(false);
+            expect(service.providerResidency, service.serviceKey).toBeNull();
+        }
+    });
+
+    test('an ENUMERATED residency key is eligible, and eligibility separates the two nulls', async () => {
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices             : ['chroma', 'local-model'],
+            providerResidencyServiceKeys: ['local-model']
+        });
+
+        const snapshot = await createService({
+            providerResidencyProbe: async () => ({ready: true, provider: 'ollama'})
+        }).collectSnapshot();
+
+        expect(snapshot.bridgeDiagnostics.bridgeConfig.unobservableResidencyKeys).toEqual([]);
+
+        const model  = snapshot.services.find(service => service.serviceKey === 'local-model'),
+              chroma = snapshot.services.find(service => service.serviceKey === 'chroma');
+
+        expect(model.providerResidencyEligible).toBe(true);
+        expect(model.providerResidency).not.toBeNull();
+
+        // The discriminator earning its place: chroma reports the SAME `null` as the broken case
+        // above, and `eligible: false` is the only thing distinguishing "never asked, by design"
+        // from "asked and got nothing". Without this field both read identically from the artifact.
+        expect(chroma.providerResidencyEligible).toBe(false);
+        expect(chroma.providerResidency).toBeNull();
+
+        // `providerActivity` rides the SAME predicate (`isProviderResidencyServiceKey`), and its own
+        // JSDoc promises the two halves of the residual-load evidence pair travel together. Asserted
+        // relationally rather than as a fixed value: what must hold is that the eligible service can
+        // carry activity while an ineligible one never does, whatever the ledger happens to contain.
+        expect(chroma.providerActivity, 'an ineligible service never receives the other half either').toBeNull();
+    });
+
+    test('PARTIAL overlap is reported as partial — neither all-null nor all-populated', async () => {
+        // The mixed case, which is the one a reader actually meets: some configured residency keys
+        // are enumerated and some are not. A diagnostic that only distinguished "all fine" from
+        // "all broken" would leave this reading as one or the other, and the half that is silently
+        // unobservable is exactly the half nobody goes looking for.
+        Object.assign(AiConfig.orchestrator.deploymentStateBridge, {
+            allowedServices             : ['chroma', 'local-model'],
+            providerResidencyServiceKeys: ['local-model', 'model']
+        });
+
+        const snapshot = await createService({
+            providerResidencyProbe: async () => ({ready: true, provider: 'ollama'})
+        }).collectSnapshot();
+
+        // `model` is configured but never enumerated; `local-model` is both.
+        expect(snapshot.bridgeDiagnostics.bridgeConfig.unobservableResidencyKeys).toEqual(['model']);
+
+        const model = snapshot.services.find(service => service.serviceKey === 'local-model');
+
+        expect(model.providerResidencyEligible, 'the enumerated key still observes normally').toBe(true);
+        expect(model.providerResidency, 'and a partial misconfiguration does not suppress it').not.toBeNull();
+    });
 });
