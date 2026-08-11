@@ -70,6 +70,61 @@ export const DB_PATH_MUTATION = new RegExp(
 );
 
 /*
+ * The RESTORE-CAPTURE rule — deliberately NOT called "Class B", which this file already spends on
+ * config-VARYING leaves (retry / transport) that it holds out of scope. This is a third, orthogonal
+ * axis: Class-A asks WHICH LEAF a test writes, this asks WHETHER THE UNDO CAN WORK AT ALL.
+ *
+ * `Neo.clone` of an `AiConfig` node captures the leaf's
+ * UNRESOLVED default, not the value the provider resolves — so a save/restore pair built on it writes
+ * the default back over the resolved value and reports success. The write is not lost loudly; it is
+ * replaced quietly, which is why five call sites of careful-looking hygiene restored nothing at all
+ * and a worker stayed polluted for its entire life.
+ *
+ * The four-cell measurement that fixed the target — one direct leaf write, restored four ways:
+ *
+ *   spread `{...node}`  + `Object.assign`        -> restored
+ *   spread `{...node}`  + `restoreConfigObject`  -> restored
+ *   `Neo.clone(node)`   + `Object.assign`        -> NOT restored
+ *   `Neo.clone(node)`   + `restoreConfigObject`  -> NOT restored
+ *
+ * The restore idiom is innocent in both columns; the capture is the broken half. An earlier reading of
+ * this defect blamed the restore (`Object.assign` "cannot undo a leaf write") and a still earlier one
+ * blamed a zero-key clone. Both are retracted: the clone carries the key — it carries the WRONG VALUE.
+ * The pattern therefore anchors on the capture and stays indifferent to whatever restores from it.
+ *
+ * `snapshotAiConfig` is the by-construction answer and already the majority idiom; its contract exists
+ * precisely because it captures by RESOLVED value. This guard points at it rather than restating it.
+ *
+ * Deliberately NOT guarded — measured, not assumed: whole-SUBTREE replacement
+ * (`AiConfig.orchestrator.mlx = {...}`) restores correctly, on a node with 3 keys and on one with 16,
+ * and a bounded env re-resolution still reaches the replacement. The leaf binding is registry-keyed by
+ * dotted path, so swapping the node object does not remove it. Forbidding that shape would fail six
+ * working call sites, and a gate whose false positives dominate gets disabled rather than obeyed.
+ *
+ * Root shape and the false-positive posture are inherited from Class-A above: an unrelated `*Config`
+ * local passed to `Neo.clone` trips this and costs one escape marker plus a stated reason.
+ *
+ * **The grammar admits a qualified root and ordinary line breaks, and that is not cosmetic.** The
+ * first version required the config root IMMEDIATELY after `Neo.clone(`, and matched line by line.
+ * Three shapes walked through it:
+ *
+ *   Neo.clone(SDK.Memory_Config.data)     — member-qualified, and a REAL access shape in this tree
+ *   Neo.clone(context.AiConfig.data)      — namespaced
+ *   Neo.clone(\n    AiConfig.data)        — ordinary formatting
+ *
+ * A zero-population scan under that grammar could only ever have meant "none of the shapes I can
+ * express", never "none present" — the instrument's vocabulary reported as the world. Class-A already
+ * anchors its root ANYWHERE in the access path for exactly this reason; this now matches it.
+ */
+export const CLONE_CAPTURE = new RegExp(
+    // Optional member-chain prefix, so a qualified root (`SDK.Memory_Config`) is still a config root.
+    // The `\s*` separators span newlines on their own — `\s` matches `\n` with or without the `s`
+    // flag, which only governs `.` and this pattern has none. An earlier version passed `s` here with
+    // a comment claiming it enabled the multiline match; the mutation test proved the flag inert.
+    `(?<![\\w$])Neo\\s*\\.\\s*clone\\s*\\(\\s*(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*${CONFIG_ROOT}(?![\\w$])`
+);
+
+/*
  * Files whose Class-A mutation is load-bearing — NOT a grandfathering queue. Every entry whose write
  * duplicated isolation the harness already provides by construction has been removed; what survives
  * is here because by-construction isolation provably cannot serve it, and each entry states why. A new entry needs that same justification, not a migration promise: an unexplained
@@ -250,6 +305,110 @@ export function findDbPathMutations(content) {
     return hits
 }
 
+const CLONE_CAPTURE_GLOBAL = new RegExp(CLONE_CAPTURE.source, 'g');
+
+/**
+ * @summary Scans file content for `Neo.clone` restore-captures of an `AiConfig` node.
+ *
+ * Shares Class-A's code mask and escape marker — the same ground truth, not a second hand-rolled
+ * scan — but matches over a CODE-ONLY projection of the whole file rather than line by line, because
+ * a capture whose argument wraps across lines is ordinary formatting and was previously invisible.
+ *
+ * The projection preserves offsets exactly: every non-code character is replaced by a space, so a
+ * match index still maps to its real line, and a pair quoted inside a string or comment still cannot
+ * match. Masking per line and then joining keeps `codeMask` authoritative rather than re-deriving it.
+ * @param {String} content
+ * @returns {Object[]} `[{line, text}]` — one entry per offending line (1-based line numbers).
+ */
+export function findCloneCaptures(content) {
+    const lines = content.split('\n'),
+          state = {source: content};
+
+    // Offset-preserving code-only projection: same length, non-code blanked.
+    //
+    // Indexed by UTF-16 CODE UNIT, deliberately. `[...line]` iterates code POINTS, and acorn's token
+    // offsets, `line.length` and the `lineStarts` table below all count code units — so one astral
+    // character (an emoji in a comment is enough) made the projection SHORTER than its source and
+    // shifted every offset after it. Measured consequences of that version:
+    //
+    //   /*📐*/Neo.clone(AiConfig.data);   → blanked the `N` of executable `Neo`; no hit
+    //   an astral comment line above      → mapped the next line's hit onto the line above, where an
+    //                                       unrelated escape marker then suppressed it
+    //
+    // A silent bypass of a safety gate, reachable by typing an emoji in a comment. A surrogate pair
+    // is never split by this loop in practice: a token boundary cannot fall between its halves, so
+    // both units are always classified the same way.
+    const codeOnly = lines.map((line, index) => {
+        const mask = codeMask(line, state, index);
+        let   out  = '';
+
+        for (let unit = 0; unit < line.length; unit++) {
+            out += mask[unit] ? line[unit] : ' '
+        }
+
+        return out
+    }).join('\n');
+
+    const lineStarts = [];
+    let   cursor     = 0;
+
+    for (const line of lines) {
+        lineStarts.push(cursor);
+        cursor += line.length + 1
+    }
+
+    const lineOf = offset => {
+        let low = 0, high = lineStarts.length - 1;
+        while (low < high) {
+            const mid = Math.ceil((low + high) / 2);
+            if (lineStarts[mid] <= offset) low = mid; else high = mid - 1
+        }
+        return low
+    };
+
+    const hits = [],
+          seen = new Set();
+
+    for (const match of codeOnly.matchAll(CLONE_CAPTURE_GLOBAL)) {
+        const index = lineOf(match.index);
+
+        // The marker is read from the line the capture STARTS on — where an author would write it.
+        if (lines[index].includes(ESCAPE_MARKER)) continue;
+        if (seen.has(index)) continue;
+
+        seen.add(index);
+        hits.push({line: index + 1, text: lines[index].trim()})
+    }
+
+    return hits
+}
+
+/**
+ * @summary Scans one file's content for both rules, applying the allowlist to Class-A only.
+ *
+ * The allowlist is scoped to Class-A and stays that way. Every entry justifies a DB-PATH mutation
+ * specifically — a logger repointing `data.logPath`, a guard spec flipping its own selectors off —
+ * and not one of those reasons says anything about capture fidelity. Letting a narrow, stated
+ * exemption suppress an unrelated rule is how an allowlist becomes a blanket bypass, which is the
+ * failure this file's own header warns about.
+ *
+ * Exported with an injectable allowlist because that scoping is a real behaviour and the alternative
+ * ways to test it are all worse: asserting it through the CLI against a genuinely allowlisted file
+ * passes whether or not the scoping holds (no such file contains a restore-capture), and the honest
+ * version of that test would have to mutate a tracked spec mid-run.
+ * @param {String} file Repo-relative POSIX path.
+ * @param {String} content
+ * @param {Object} [options]
+ * @param {Set<String>} [options.allowlist=ALLOWLIST]
+ * @returns {{dbPathHits: Object[], cloneHits: Object[]}}
+ */
+export function scanFileContent(file, content, {allowlist = ALLOWLIST} = {}) {
+    return {
+        dbPathHits: allowlist.has(file) ? [] : findDbPathMutations(content),
+        cloneHits : findCloneCaptures(content)
+    }
+}
+
 /**
  * @summary Normalizes an input path (absolute from lint-staged, or relative) to a repo-relative POSIX path.
  * @param {String} file
@@ -300,12 +459,10 @@ function main() {
         process.exit(0);
     }
 
-    const violations = [];
-    for (const file of files) {
-        if (ALLOWLIST.has(file)) {
-            continue
-        }
+    const violations      = [],
+          cloneViolations = [];
 
+    for (const file of files) {
         let content;
         try {
             content = readFileSync(path.resolve(gitRoot, file), 'utf-8');
@@ -314,7 +471,21 @@ function main() {
             continue
         }
 
-        findDbPathMutations(content).forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        const {dbPathHits, cloneHits} = scanFileContent(file, content);
+
+        dbPathHits.forEach(({line, text}) => violations.push(`${file}:${line}: ${text}`));
+        cloneHits.forEach(({line, text}) => cloneViolations.push(`${file}:${line}: ${text}`));
+    }
+
+    if (cloneViolations.length > 0) {
+        console.error(`\x1b[31mcheck-aiconfig-test-mutation: ${cloneViolations.length} ineffective AiConfig restore capture(s) in tests:\x1b[0m`);
+        if (!quiet) {
+            cloneViolations.forEach(v => console.error('  ' + v));
+            console.error('\n`Neo.clone` of an AiConfig node captures the leaf DEFAULT, not the value the provider resolves,');
+            console.error('so restoring from it writes the default back over the resolved value and reports success. Capture');
+            console.error('by resolved value with `snapshotAiConfig(aiConfig, paths)` instead — or, only if genuinely');
+            console.error(`unavoidable, add an "${ESCAPE_MARKER}: <reason>" marker on the line.`);
+        }
     }
 
     if (violations.length > 0) {
@@ -325,6 +496,12 @@ function main() {
             console.error('#12335 orphan incident; ADR-0019 §4 B4). Isolate by construction (UNIT_TEST_MODE resolves the');
             console.error(`test DB), or — only if genuinely unavoidable — add an "${ESCAPE_MARKER}: <reason>" marker on the line.`);
         }
+    }
+
+    // ONE exit decision covering both classes. Reporting Class-B and then falling through to the
+    // success line would print violations and exit 0 — a gate that describes a problem instead of
+    // failing on it, which is the exact shape this lint exists to prevent elsewhere.
+    if (violations.length > 0 || cloneViolations.length > 0) {
         process.exit(1);
     }
 
