@@ -738,14 +738,36 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async spawnBridge({logPath = aiConfig.logPath, startupDelayMs = 2000} = {}) {
+        // `this.cwd || process.cwd()` was a hidden-default fallback, and it substituted the WRONG
+        // value silently. A GUI-launched MCP server has `process.cwd() === '/'`, so `npm run` looked
+        // for `/package.json`, the Bridge never started, and the resulting ECONNREFUSED took the whole
+        // server down — the seat lost every Neural Link tool for the session.
+        //
+        // The cwd is assigned by the entrypoint (`--cwd` → `Server.mjs`), but this singleton is
+        // constructed at module import, so an auto-connect can outrun that assignment. Failing loudly
+        // here is what makes the race legible: a named error names the missing input, where `/` named
+        // nothing and produced an ENOENT three layers away. A hidden default that substitutes a
+        // wrong value is worse than no default: it converts a missing input into a distant symptom.
         return new Promise(resolve => {
             const args    = ['run', 'ai:server-neural-link'];
             const file    = getBridgeStdioLogPath({logPath});
             const logFile = this.openBridgeLogFile(file);
             const port    = aiConfig.port;
 
+            // Checked AFTER argument validation and immediately before the spawn: a caller who passed
+            // a bad `logPath` should hear about their argument, not about instance state they did not
+            // supply. Both refusals still precede any process launch.
+            if (!this.cwd) {
+                throw new Error(
+                    'ConnectionService.spawnBridge: `cwd` is unresolved. It is supplied by the Neural ' +
+                    'Link MCP entrypoint (`--cwd`) and must be assigned before a spawn. Refusing to ' +
+                    'substitute process.cwd() — on a GUI-launched server that is `/`, and the Bridge ' +
+                    'cannot start there.'
+                );
+            }
+
             this.bridgeProcess = this.spawnBridgeProcess('npm', args, {
-                cwd     : this.cwd || process.cwd(),
+                cwd     : this.cwd,
                 detached: true,
                 env     : {...process.env, NEO_NL_PORT: String(port)},
                 stdio   : ['ignore', logFile, logFile]
@@ -753,8 +775,11 @@ class ConnectionService extends Base {
 
             this.bridgeProcess.unref();
 
-            // Give it a moment to start
-            setTimeout(resolve, 2000);
+            // Honors the PARAMETER it declares. The literal `2000` ignored `startupDelayMs` entirely,
+            // so every caller's value was silently discarded — a spec could pass 0 and still wait two
+            // seconds, which is how a contract stays untested. Measured bind is ~498ms; this is a
+            // correctness fix, not a latency one.
+            setTimeout(resolve, startupDelayMs);
         });
     }
 
