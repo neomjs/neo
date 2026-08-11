@@ -12,11 +12,18 @@ import StateDot, {stateLabel} from './StateDot.mjs';
  * @type {Object}
  */
 const PRESENCE_BAND_LABEL = Object.freeze({
-    online        : 'online',
-    idle          : 'idle',
+    // the graded recency vocabulary (the banded-presence contract: derived from the plane's
+    // verdicts + the vouched beacon horizons, never boolean online/offline)
+    'active-turn' : 'active turn',
+    fresh         : 'fresh',
+    recent        : 'recent',
     dark          : 'dark',
     benched       : 'benched',
-    neverConnected: 'never connected'
+    neverConnected: 'never connected',
+    // the plane's raw verdicts stay ACCEPTED for deployment skew (an older adapter emitting the
+    // ungraded vocabulary must not blank the band) — retire once every deployment grades
+    online: 'online',
+    idle  : 'idle'
 });
 
 import {normalizeFleetSources, resolveFleetDisplayState, summarizeAnsweredAbnormal} from './sourceHealth.mjs';
