@@ -522,4 +522,28 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(openAiCompatibleConfig.apiKey,
             'an un-displaced endpoint keeps its own credential').toBe('sk-remote')
     });
+
+    test('the DECLARED ask context budget reaches a consumer — the bound is not silently disabled', async () => {
+        // @neo-opus-ada's review asked the deciding question: does a newly added leaf resolve to
+        // `undefined` on an overlay that predates it, or does the declared default apply? If the
+        // default applies, a `|| 0` at the use site is dead code that can only disable the bound.
+        //
+        // It applies. The generated `config.mjs` is a thin singleton extending `ConfigBase` that
+        // declares no data of its own — "Defaults and formulas live in ConfigBase; this class only
+        // claims the runtime namespace" — so a leaf added to the tracked base reaches every overlay.
+        // This arm pins it: if declared defaults ever stop arriving at a consumer, the budget becomes
+        // a no-op that ships green, and nothing else in the suite would say so.
+        expect(aiConfig.askSynthesis.contextBudgetChars,
+            'the declared total budget resolves for a consumer').toBe(48000);
+        expect(aiConfig.askSynthesis.contextMaxCharsPerDocument,
+            'the declared per-document cap resolves for a consumer').toBe(12000);
+
+        // NON-VACUITY: `0` would satisfy "a number resolved" while disabling the feature, so the arm
+        // asserts usable bounds rather than mere presence — and that the per-document cap actually
+        // constrains something inside the total.
+        expect(aiConfig.askSynthesis.contextBudgetChars).toBeGreaterThan(0);
+        expect(aiConfig.askSynthesis.contextMaxCharsPerDocument).toBeGreaterThan(0);
+        expect(aiConfig.askSynthesis.contextMaxCharsPerDocument)
+            .toBeLessThan(aiConfig.askSynthesis.contextBudgetChars)
+    });
 });
