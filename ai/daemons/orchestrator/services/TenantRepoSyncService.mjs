@@ -707,14 +707,15 @@ class TenantRepoSyncService extends Base {
         concurrencyLimit_: 2,
         /**
          * Maximum time a per-repo task waits to acquire a concurrency slot before
-         * surfacing `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT`. Default `30000`
-         * (30s) accommodates a slow-clone tenant ahead in the queue without
-         * waiting indefinitely. Set to `0` to disable the timeout (slots wait
-         * indefinitely until a release).
-         * @member {Number} concurrencyGateTimeoutMs_=30000
+         * surfacing `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT`. Default `0`
+         * keeps ordinary work in the FIFO until a slot is released: timing out a
+         * waiter cannot bound `runTask` while the active holder is still pending,
+         * and recording that waiter as failed creates backoff without an attempt.
+         * A positive value remains an explicit fail-fast override.
+         * @member {Number} concurrencyGateTimeoutMs_=0
          * @reactive
          */
-        concurrencyGateTimeoutMs_: 30000
+        concurrencyGateTimeoutMs_: 0
     }
 
     /**
@@ -780,7 +781,7 @@ class TenantRepoSyncService extends Base {
      * @returns {Number}
      */
     beforeSetConcurrencyGateTimeoutMs(value, oldValue) {
-        if (!Number.isFinite(value) || value < 0) return oldValue ?? 30000;
+        if (!Number.isFinite(value) || value < 0) return oldValue ?? 0;
         return value;
     }
 
@@ -1847,8 +1848,8 @@ class TenantRepoSyncService extends Base {
                 repoLabel            = `${repo.tenantId}/${repo.repoSlug}`,
                 priorState           = persistedRevisions[repoLabel] || null,
                 checkpointStatus     = classifyTenantRepoCheckpoint(priorState),
-                revalidationRequired = requiresTenantRepoCheckpointRevalidation(priorState),
-                startedMs            = Date.now();
+                revalidationRequired = requiresTenantRepoCheckpointRevalidation(priorState);
+            let startedMs = Date.now();
 
             // Per-repo due check applies deterministic jitter + exponential backoff on
             // top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
@@ -1951,6 +1952,10 @@ class TenantRepoSyncService extends Base {
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
+                // The actual attempt begins when capacity is admitted, not when the repo joined
+                // the FIFO. Otherwise a long legitimate wait is persisted as work time and can
+                // make a just-completed repo immediately due again.
+                startedMs = Date.now();
 
                 // Work fence: do not START this repo's git phase without provable
                 // lease ownership. A run that lost its lease (renewal failure or
