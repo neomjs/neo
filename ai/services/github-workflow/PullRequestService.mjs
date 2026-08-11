@@ -704,8 +704,10 @@ async function buildMergeReadinessProjection({
         snapshot.checks.commitOid === snapshot.headRefOid;
     const checksGreen = checkSourceReady &&
         comparison.requiredStates.every(item => item.state === 'success');
+    const selectedChecksGreen = checkSourceReady &&
+        snapshot.checks.nodes.every(item => item.state === 'success');
     const checksVerdict = checkSourceReady
-        ? checksGreen ? 'green' : 'not-green'
+        ? selectedChecksGreen ? 'green' : 'not-green'
         : 'unknown';
     const reviewRequests = reviewSourceReady
         ? snapshot.reviewRequests.nodes.map(item => item.login)

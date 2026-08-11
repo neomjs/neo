@@ -564,6 +564,31 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(result.emittedContexts[0].workflow.runNumber).toBe(10);
     });
 
+    test('#16902: an optional latest failure makes the checks verdict non-green without changing B-prime', async () => {
+        const optionalWorkflow = workflowFixture({
+            id          : 288951422,
+            name        : 'Agent PR Body Lint',
+            resourcePath: '/neomjs/neo/actions/workflows/agent-pr-body-lint.yml',
+            runId       : 12,
+            runNumber   : 7355
+        });
+        const contexts = [
+            checkRun('success'),
+            checkRun('failing', {name: 'lint-pr-body', workflow: optionalWorkflow})
+        ];
+        const result = await project(dependencies({
+            snapshots: [pullRequest({contexts}), pullRequest({contexts})]
+        }));
+
+        expect(result.checksGreen).toBe(true);
+        expect(result.predicate.strictMergeReady).toBe(true);
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.emittedOnly).toEqual([
+            expect.objectContaining({name: 'lint-pr-body', state: 'failing'})
+        ]);
+        expect(result.checksVerdict).toBe('not-green');
+    });
+
     test('#16902: a newer attempt of one workflow run supersedes its earlier attempt', async () => {
         const oldAttempt = workflowFixture({runId: 20, runNumber: 12, runAttempt: 1});
         const newAttempt = workflowFixture({runId: 20, runNumber: 12, runAttempt: 2});
