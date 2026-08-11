@@ -421,8 +421,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         rules = [RULES, RULES],
         restError = null
     } = {}) => {
-        let queryCall = 0;
-        let restCall  = 0;
+        let   queryCall = 0;
+        let   restCall  = 0;
+        const restPaths = [];
 
         return {
             now  : () => new Date('2026-07-29T08:00:00.000Z'),
@@ -431,14 +432,17 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
                     pullRequest: snapshots[Math.min(queryCall++, snapshots.length - 1)]
                 }
             }),
-            rest: async () => {
+            rest: async (method, path) => {
                 if (restError) {
                     throw restError;
                 }
 
+                restPaths.push({method, path});
+
                 return rules[Math.min(restCall++, rules.length - 1)];
             },
-            calls: () => ({queryCall, restCall})
+            calls    : () => ({queryCall, restCall}),
+            restPaths: () => restPaths
         };
     };
 
@@ -713,6 +717,44 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — merge-read
         expect(unreadable.marker).toBeUndefined();
         expect(empty.verdict).toBe('merge-ready-observed');
         expect(empty.requiredSet.contexts).toEqual([]);
+    });
+
+    test('#16902: reads every branch-rule page before an empty required set can become green', async () => {
+        const fullPage = Array.from({length: 100}, (value, index) => ({
+            type      : 'deletion',
+            ruleset_id: index + 1
+        }));
+        const deps   = dependencies({rules: [fullPage, RULES, fullPage, RULES]});
+        const result = await project(deps);
+
+        expect(result.verdict).toBe('merge-ready-observed');
+        expect(result.requiredSet.contexts).toEqual([
+            {context: 'integration-parity', integrationId: 15368}
+        ]);
+        expect(deps.calls()).toEqual({queryCall: 2, restCall: 4});
+        expect(deps.restPaths()).toEqual([
+            {method: 'GET', path: '/repos/neomjs/neo/rules/branches/dev?per_page=100&page=1'},
+            {method: 'GET', path: '/repos/neomjs/neo/rules/branches/dev?per_page=100&page=2'},
+            {method: 'GET', path: '/repos/neomjs/neo/rules/branches/dev?per_page=100&page=1'},
+            {method: 'GET', path: '/repos/neomjs/neo/rules/branches/dev?per_page=100&page=2'}
+        ]);
+    });
+
+    test('#16902: fails closed when the bounded branch-rule read never reaches a terminal page', async () => {
+        const fullPage = Array.from({length: 100}, (value, index) => ({
+            type      : 'deletion',
+            ruleset_id: index + 1
+        }));
+        const deps   = dependencies({rules: Array.from({length: 10}, () => fullPage)});
+        const result = await project(deps);
+
+        expect(result.verdict).toBe('unavailable');
+        expect(result.blockers[0]).toEqual(expect.objectContaining({
+            code   : 'REQUIRED_SET_UNREADABLE',
+            message: 'Branch-rules response exceeded the bounded 10-page read.'
+        }));
+        expect(result.marker).toBeUndefined();
+        expect(deps.calls()).toEqual({queryCall: 1, restCall: 10});
     });
 
     test('fails closed when the PR source moves during the observation', async () => {

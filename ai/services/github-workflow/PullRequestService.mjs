@@ -52,9 +52,11 @@ const DROP_SUPERSEDE_CONTRACT_FIELDS = [
     'Successor map citation'
 ];
 
-const MERGE_READINESS_PROJECTION     = 'merge-readiness';
-const MERGE_READINESS_SCHEMA_VERSION = 'neo.merge-readiness/v1';
-const MAX_BELIEVED_OPEN              = 100;
+const MERGE_READINESS_PROJECTION      = 'merge-readiness';
+const MERGE_READINESS_SCHEMA_VERSION  = 'neo.merge-readiness/v1';
+const MERGE_READINESS_RULES_PAGE_SIZE = 100;
+const MERGE_READINESS_RULES_MAX_PAGES = 10;
+const MAX_BELIEVED_OPEN               = 100;
 
 function stableStringify(value) {
     if (Array.isArray(value)) {
@@ -471,6 +473,46 @@ function parseRequiredContexts(rules) {
     ])).values()].sort((a, b) => stableStringify(a).localeCompare(stableStringify(b)));
 }
 
+/**
+ * @summary Reads the complete effective branch-rule population before reducing required contexts.
+ *
+ * GitHub paginates the branch-rules endpoint. A single readable JSON array is therefore not proof
+ * that an empty required-context set is authoritative: a required-status-check rule may live on a
+ * later page. Every page uses GitHub's maximum supported page size and only a terminal short page
+ * proves completeness. The hard page ceiling fails closed instead of turning an unexpectedly large
+ * or non-advancing source into a vacuous green result.
+ *
+ * @param {Function} rest      GitHub REST reader.
+ * @param {String}   rulesPath Branch-rules endpoint without pagination parameters.
+ * @returns {Promise<Object[]>} Complete branch-rule population.
+ * @throws {Error} When a page is malformed or the bounded read cannot prove completeness.
+ */
+async function readCompleteBranchRules(rest, rulesPath) {
+    const rules = [];
+
+    for (let page = 1; page <= MERGE_READINESS_RULES_MAX_PAGES; page++) {
+        const pageRules = await rest(
+            'GET',
+            `${rulesPath}?per_page=${MERGE_READINESS_RULES_PAGE_SIZE}&page=${page}`
+        );
+
+        if (!Array.isArray(pageRules)) {
+            throw createCodedError('REQUIRED_SET_UNREADABLE', 'Branch-rules response is not an array.');
+        }
+
+        rules.push(...pageRules);
+
+        if (pageRules.length < MERGE_READINESS_RULES_PAGE_SIZE) {
+            return rules;
+        }
+    }
+
+    throw createCodedError(
+        'REQUIRED_SET_UNREADABLE',
+        `Branch-rules response exceeded the bounded ${MERGE_READINESS_RULES_MAX_PAGES}-page read.`
+    );
+}
+
 function compareRequiredAndEmittedContexts(requiredContexts, emittedContexts) {
     const requiredStates = requiredContexts.map(required => {
         const matches = emittedContexts.filter(emitted =>
@@ -584,7 +626,7 @@ async function buildMergeReadinessProjection({
     let firstRequiredContexts;
 
     try {
-        firstRequiredContexts = parseRequiredContexts(await rest('GET', rulesPath));
+        firstRequiredContexts = parseRequiredContexts(await readCompleteBranchRules(rest, rulesPath));
         audit.push({source: `github-rest:${rulesPath}`, call: 1, outcome: 'read'});
     } catch (error) {
         return fail({
@@ -613,7 +655,7 @@ async function buildMergeReadinessProjection({
     let finalRequiredContexts;
 
     try {
-        finalRequiredContexts = parseRequiredContexts(await rest('GET', rulesPath));
+        finalRequiredContexts = parseRequiredContexts(await readCompleteBranchRules(rest, rulesPath));
         audit.push({source: `github-rest:${rulesPath}`, call: 2, outcome: 'read'});
     } catch (error) {
         return fail({
