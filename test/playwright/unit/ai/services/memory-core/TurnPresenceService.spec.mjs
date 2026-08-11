@@ -136,6 +136,50 @@ test.describe('Neo.ai.services.memory-core.TurnPresenceService', () => {
         expect(node.properties.source).toBe('spec');
     });
 
+    test('getFreshTurnPresence vouches the beacon horizons verbatim; a legacy horizonless row vouches null', async () => {
+        await asAgent(() => TurnPresenceService.recordTurnPresence({
+            action: 'start',
+            turnId: 'turn-horizons',
+            source: 'spec',
+            now   : '2026-06-19T00:00:00.000Z'
+        }));
+
+        // the read runs inside the request context like every production caller (`who_is_online`'s
+        // projection) — `getNodeRecord` is context-scoped, so a contextless read answers null
+        const beacon = await asAgent(() => TurnPresenceService.getFreshTurnPresence('@agent-turn', '2026-06-19T00:10:00.000Z'));
+
+        expect(beacon.turnId).toBe('turn-horizons');
+        expect(beacon.fresh).toBe(true);
+        // the horizons are vouched VERBATIM from the beacon the service itself wrote — a banded
+        // consumer (active-turn / fresh / recent / dark) grades recency from these without
+        // minting a second clock authority; the derived boolean keeps its own contract beside them
+        expect(beacon.freshUntil).toBe('2026-06-19T00:30:00.000Z');
+        expect(beacon.expiresAt).toBe('2026-06-19T01:00:00.000Z');
+
+        // a legacy beacon written before the horizons existed: vouched as null, never a
+        // fabricated timestamp — and still discoverable (an expiresAt-less row stays active to
+        // the finder by design, so the fail-honest path is exercised on the REAL query)
+        GraphService.upsertNode({
+            id        : 'AGENT_TURN_PRESENCE:@agent-turn:turn-legacy',
+            type      : 'AGENT_TURN_PRESENCE',
+            name      : 'legacy beacon',
+            properties: {
+                agentIdentity : '@agent-turn',
+                lastProgressAt: '2026-06-19T00:20:00.000Z',
+                startedAt     : '2026-06-19T00:20:00.000Z',
+                status        : 'active',
+                turnId        : 'turn-legacy'
+            }
+        });
+
+        const legacy = await asAgent(() => TurnPresenceService.getFreshTurnPresence('@agent-turn', '2026-06-19T00:21:00.000Z'));
+
+        expect(legacy.turnId).toBe('turn-legacy');   // newest by lastProgressAt wins
+        expect(legacy.fresh).toBe(false);            // no freshUntil can never read fresh
+        expect(legacy.freshUntil).toBeNull();
+        expect(legacy.expiresAt).toBeNull()
+    });
+
     test('refreshes progress without changing startedAt', async () => {
         await asAgent(() => TurnPresenceService.recordTurnPresence({
             action: 'start',
