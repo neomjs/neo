@@ -386,6 +386,30 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingWriteCanaryTimeoutMs: leaf(30000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_TIMEOUT_MS', 'number'),
                 /**
+                 * Hard ceiling on the attempt budget in ms. The configured budget is clamped to this
+                 * at arm time, and the clamp is reported.
+                 *
+                 * **Why a ceiling exists at all.** A consumer timeout stops US waiting; it does not
+                 * stop the provider. Ollama runs an abandoned request to completion, and with one
+                 * parallel slot that request holds the embedder until it finishes on its own. So the
+                 * issued budget IS the worst-case time a single orphan can occupy the provider with
+                 * nobody waiting for it. Every lever that acts on our waiting is powerless here,
+                 * because the cost is entirely in the issuing — lowering the timeout does not shorten
+                 * the orphan at all, it just makes us abandon sooner and orphan more.
+                 *
+                 * **An absolute duration, deliberately not a multiple of the cadence.** Cadence is how
+                 * often we sample; orphan cost is how long one sample can hold the provider. Tying
+                 * them together would shrink the budget of any deployment that samples frequently,
+                 * which is a different question badly answered.
+                 *
+                 * The default sits above the shipped 30s budget, so it changes nothing by default and
+                 * bites only a deployment that has raised its timeout past what an orphan is worth.
+                 * `<= 0` disables the ceiling and restores pre-clamp behaviour, which is how a plane
+                 * ends up issuing 15-minute requests it cannot cancel.
+                 * @type {number}
+                 */
+                embeddingWriteCanaryMaxBudgetMs: leaf(60000, 'NEO_MEMORY_HEALTHCHECK_EMBEDDING_WRITE_CANARY_MAX_BUDGET_MS', 'number'),
+                /**
                  * The canary producer's attempt period. A liveness probe NEVER triggers a canary
                  * run — healthcheck is a cheap pure read of the gate's current truth, so a
                  * container probe interval is free to differ from this cadence. Guidance: sample

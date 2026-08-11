@@ -983,6 +983,90 @@ test.describe('HealthService #12382 — cached healthcheck freshness', () => {
         expect(result.details.some(d => d.includes('backing off 30000ms (streak 1)'))).toBe(true);
     });
 
+    /**
+     * @summary Never issue a request with a budget longer than one orphan is worth.
+     *
+     * A consumer timeout stops US waiting; it does not stop the provider. An abandoned request runs
+     * to completion upstream and, with one parallel slot, holds the embedder until it does. So the
+     * issued budget is the worst-case time a single orphan occupies the provider with nobody waiting
+     * for it — measured in production at 961s, 662s and 1010s, all of which SUCCEEDED long after
+     * their callers gave up, with fresh probes completing in 1.4s once the slot was free.
+     *
+     * Every lever that acts on our waiting is powerless here, because the cost is entirely in the
+     * issuing. Lowering the timeout does not shorten the orphan at all; it makes us abandon sooner,
+     * so we orphan more.
+     */
+    test('a budget over the ceiling is CLAMPED, and the clamp is reported', async () => {
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            timeoutMs    : 900000, // the value the affected deployment actually set
+            maxBudgetMs  : 60000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'budget-clamp'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.startsWith('Embedding write canary budget clamped')), 'silently overriding operator config is its own defect').toBe(true);
+        expect(result.details.some(d => d.includes('900000ms exceeds the 60000ms ceiling'))).toBe(true);
+    });
+
+    test('NON-VACUITY: a budget under the ceiling is untouched and reports nothing', async () => {
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            timeoutMs    : 30000, // the shipped default
+            maxBudgetMs  : 60000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'budget-within'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.startsWith('Embedding write canary budget clamped')), 'the default config must be unchanged by this').toBe(false);
+    });
+
+    test('the clamp changes the budget the attempt is ISSUED with, not just the report', async () => {
+        // The report alone would be diagnostics theatre: the orphan cost is set by the value handed
+        // to the attempt, so the clamp has to reach the issued budget or it has changed nothing.
+        const producer = HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            timeoutMs    : 900000,
+            maxBudgetMs  : 60000,
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'budget-clamp-issued'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // The default attempt body reads `producer.timeoutMs` at call time, so this IS the budget
+        // handed to the provider — asserted on the record the arm returns, not on a report about it.
+        expect(producer.timeoutMs, 'the attempt runs under the clamped budget, not the configured one').toBe(60000);
+    });
+
+    test('an explicit override disables the ceiling — the clamp is arguable, not absolute', async () => {
+        HealthService.startEmbeddingWriteCanary({
+            cadenceMs    : 60000,
+            timeoutMs    : 900000,
+            maxBudgetMs  : 0, // opt out
+            runCanary    : async () => ({status: 'healthy'}),
+            scheduler    : () => 0,
+            clearSchedule: () => {},
+            keyFor       : () => 'budget-opt-out'
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const result = await HealthService.healthcheck();
+
+        expect(result.details.some(d => d.startsWith('Embedding write canary budget clamped'))).toBe(false);
+    });
+
     test('a never-started producer projects a named non-degrading wiring gap', async () => {
         HealthService.clearEmbeddingWriteCanaryProducer(); // simulate a boot that never started it
 

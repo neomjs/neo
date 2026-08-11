@@ -122,6 +122,47 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
         expect(probeRuns).toBe(1);
     });
 
+    /**
+     * @summary Never issue a probe with a budget longer than one orphan is worth. Mirrors Memory Core.
+     *
+     * A consumer timeout stops US waiting; it does not stop the provider. An abandoned request runs
+     * to completion upstream and holds the single slot until it does, so the issued budget is the
+     * worst-case time one orphan occupies the embedder with nobody waiting for it.
+     */
+    test('a probe budget over the ceiling is CLAMPED, and the clamp reaches the ISSUED deadline', async () => {
+        await startHealthyEmbeddingProbe(HealthService, {
+            timeoutMs  : 300000,
+            maxBudgetMs: 60000,
+            keyFor     : () => 'kb-budget-clamp',
+            runProbe   : async () => ({
+                status             : 'failed',
+                error              : 'consumer-probe-timeout:EMBEDDING_PROBE_TIMEOUT',
+                errorClassification: 'consumer-probe-timeout',
+                errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+            })
+        });
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe budget clamped')), 'silently overriding operator config is its own defect').toBe(true);
+        expect(health.details.some(d => d.includes('300000ms exceeds the 60000ms ceiling'))).toBe(true);
+        // The ISSUED deadline, not a report about it: the failure projection names the budget the
+        // attempt actually ran under, so the clamp reaching this text is the clamp reaching the wire.
+        expect(health.details.some(d => d.includes('deadline 60000ms')), 'the clamp reaches the issued budget').toBe(true);
+    });
+
+    test('NON-VACUITY: a probe budget under the ceiling is untouched and reports nothing', async () => {
+        await startHealthyEmbeddingProbe(HealthService, {
+            timeoutMs  : 30000, // the shipped default
+            maxBudgetMs: 60000,
+            keyFor     : () => 'kb-budget-within'
+        });
+
+        const health = await HealthService.healthcheck();
+
+        expect(health.details.some(d => d.startsWith('Knowledge Base embedding probe budget clamped')), 'the default config must be unchanged by this').toBe(false);
+    });
+
     test('the first settled timeout degrades immediately and closes ensureHealthy()', async () => {
         await HealthService.startEmbeddingProbe({
             cadenceMs      : 1000,

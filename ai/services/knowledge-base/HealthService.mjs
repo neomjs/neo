@@ -354,6 +354,14 @@ class HealthService extends Base {
         let status = payload.status;
 
         const features = {...payload.features};
+        // Read from the producer directly rather than threaded through `probe`: a note that must be
+        // added to every return branch is a note that will be missing from one.
+        const clamped   = this.#embeddingProbeProducer?.budgetClamped,
+              clampNote = clamped ? `Knowledge Base embedding probe budget clamped: ${clamped}` : null;
+
+        if (clampNote) {
+            details = [...details.filter(d => !d.startsWith('Knowledge Base embedding probe budget clamped')), clampNote];
+        }
 
         if (probe.status === 'healthy') {
             features.embedding = true;
@@ -472,7 +480,8 @@ class HealthService extends Base {
             timeoutMs       = aiConfig.healthcheck.embeddingProbeTimeoutMs,
             healthyTtlMs    = aiConfig.healthcheck.embeddingProbeHealthyTtlMs,
             failureTtlMs    = aiConfig.healthcheck.embeddingProbeFailureTtlMs,
-            failureTtlMaxMs = aiConfig.healthcheck.embeddingProbeFailureTtlMaxMs,
+            failureTtlMaxMs   = aiConfig.healthcheck.embeddingProbeFailureTtlMaxMs,
+            maxBudgetMs       = aiConfig.healthcheck.embeddingProbeMaxBudgetMs,
             runProbe,
             keyFor,
             scheduler,
@@ -537,11 +546,22 @@ class HealthService extends Base {
             producer.clearSchedule = unschedule;
         }
 
+        // A consumer timeout stops US waiting; it does not stop the provider. An abandoned request
+        // runs to completion upstream and, with one parallel slot, holds the embedder until it does —
+        // so the issued budget is the worst-case time one orphan occupies the provider with nobody
+        // waiting for it. Clamped, and reported rather than silently overriding operator config.
+        const budgetCeilingMs  = maxBudgetMs > 0 ? maxBudgetMs : Infinity,
+              effectiveTimeout = Math.min(timeoutMs, budgetCeilingMs);
+
+        producer.budgetClamped = effectiveTimeout < timeoutMs
+            ? `configured probe budget ${timeoutMs}ms exceeds the ${budgetCeilingMs}ms ceiling and was clamped — an abandoned probe holds the provider for its FULL budget, so the configured value is the worst-case orphan`
+            : null;
+
         producer.cadenceMs    = cadenceMs;
         producer.disabled     = false;
         producer.healthyTtlMs = healthyTtlMs;
         producer.stopped      = false;
-        producer.timeoutMs    = timeoutMs;
+        producer.timeoutMs    = effectiveTimeout;
 
         const epoch = ++producer.epoch;
 

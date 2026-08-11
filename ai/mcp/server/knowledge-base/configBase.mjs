@@ -424,6 +424,19 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingProbeTimeoutMs: leaf(30000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_TIMEOUT_MS', 'number'),
                 /**
+                 * Hard ceiling on the probe budget in ms. Mirrors Memory Core's
+                 * `embeddingWriteCanaryMaxBudgetMs`.
+                 *
+                 * A consumer timeout stops US waiting; it does not stop the provider. An abandoned
+                 * request runs to completion upstream and, with one parallel slot, holds the embedder
+                 * until it does — so the issued budget is the worst-case time one orphan occupies the
+                 * provider with nobody waiting for it. An absolute duration rather than a multiple of
+                 * the cadence: cadence is how often we sample, orphan cost is how long one sample can
+                 * hold the provider. `<= 0` disables the ceiling.
+                 * @type {number}
+                 */
+                embeddingProbeMaxBudgetMs: leaf(60000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_MAX_BUDGET_MS', 'number'),
+                /**
                  * The probe producer's attempt period. A liveness check NEVER triggers a probe run —
                  * `healthcheck` is a cheap read of the gate's current truth — so a container probe
                  * interval is free to differ from this cadence. `<= 0` disables the producer.

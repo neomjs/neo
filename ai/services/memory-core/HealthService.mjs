@@ -1591,15 +1591,27 @@ class HealthService extends Base {
     #applyEmbeddingWriteCanary(payload) {
         const canary = this.#getEmbeddingWriteCanary();
 
+        // A clamped budget is reported on EVERY path, healthy included: it is a standing statement
+        // about what this deployment configured versus what it is getting, not an incident.
+        // Read from the producer directly rather than threaded through `canary`: the projection has
+        // six return branches, and a note that must be added to each is a note that will be missing
+        // from one. This is a standing property of the arm, not of any particular outcome.
+        const clamped   = this.#embeddingWriteCanaryProducer?.budgetClamped,
+              clampNote = clamped ? `Embedding write canary budget clamped: ${clamped}` : null;
+
         if (canary.status === 'healthy') {
             // A live healthy canary strips canary details projected onto an earlier copy of this
             // payload (e.g. a pending note cached before the flight settled healthy) — on a COPY,
             // never mutating the stored cache. Identity is preserved when there is nothing to strip.
-            if (payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
-                return {
-                    ...payload,
-                    details: payload.details.filter(detail => !detail.startsWith('Embedding write canary'))
-                };
+            if (clampNote || payload.details?.some(detail => detail.startsWith('Embedding write canary'))) {
+                const healthyDetails = (payload.details || [])
+                    .filter(detail => !detail.startsWith('Embedding write canary'));
+
+                if (clampNote) {
+                    healthyDetails.push(clampNote);
+                }
+
+                return {...payload, details: healthyDetails};
             }
 
             return payload;
@@ -1628,6 +1640,10 @@ class HealthService extends Base {
             // 'pending' / 'unavailable' / 'disabled': appended observability, never a degradation — the
             // payload's existing details (including 'All features are operational') survive.
             details.push(`Embedding write canary ${canary.status}: ${canary.reason}`);
+        }
+
+        if (clampNote) {
+            details.push(clampNote);
         }
 
         return {...payload, status, details};
@@ -1750,7 +1766,8 @@ class HealthService extends Base {
             timeoutMs       = aiConfig.healthcheck.embeddingWriteCanaryTimeoutMs,
             healthyTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryHealthyTtlMs,
             failureTtlMs    = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMs,
-            failureTtlMaxMs = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
+            failureTtlMaxMs   = aiConfig.healthcheck.embeddingWriteCanaryFailureTtlMaxMs,
+            maxBudgetMs       = aiConfig.healthcheck.embeddingWriteCanaryMaxBudgetMs,
             runCanary,
             keyFor,
             scheduler,
@@ -1823,11 +1840,27 @@ class HealthService extends Base {
             producer.clearSchedule = unschedule;
         }
 
+        // THE clamp. A consumer timeout stops US waiting; it does not stop the provider — an
+        // abandoned request runs to completion upstream and, with one parallel slot, holds the
+        // embedder until it does. So the issued budget is the worst-case time a single orphan can
+        // occupy the provider with nobody waiting for it, and every lever that acts on our WAITING is
+        // powerless because the cost is entirely in the ISSUING. Lowering the timeout does not
+        // shorten the orphan at all; it only makes us abandon sooner, so we orphan more.
+        //
+        // Reported, never silent: overriding an operator's configured value without saying so is its
+        // own defect, and a deployment that set 900s has to be able to see that it is getting 60s.
+        const budgetCeilingMs  = maxBudgetMs > 0 ? maxBudgetMs : Infinity,
+              effectiveTimeout = Math.min(timeoutMs, budgetCeilingMs);
+
+        producer.budgetClamped = effectiveTimeout < timeoutMs
+            ? `configured attempt budget ${timeoutMs}ms exceeds the ${budgetCeilingMs}ms ceiling and was clamped — an abandoned attempt holds the provider for its FULL budget, so the configured value is the worst-case orphan`
+            : null;
+
         producer.cadenceMs    = cadenceMs;
         producer.disabled     = false;
         producer.healthyTtlMs = healthyTtlMs;
         producer.stopped      = false;
-        producer.timeoutMs    = timeoutMs;
+        producer.timeoutMs    = effectiveTimeout;
 
         const epoch = ++producer.epoch;
 
