@@ -2,10 +2,21 @@ openapi: 3.0.3
 info:
   title: Neo File System MCP Server API
   description: |
-    This API provides baseline environment tools to autonomous agents.
-    It includes heavily sandboxed file system manipulation and strictly
-    limited execution capabilities (like syntax checking and testing) essential
-    for agent feedback loops.
+    This API provides baseline environment tools to autonomous agents:
+    path-jailed file system manipulation, and execution capabilities
+    (syntax checking, test running) essential for agent feedback loops.
+
+    CONTAINMENT, STATED PRECISELY. Every path argument is jailed to the project
+    root. That is a guarantee about ARGUMENTS, and it is not a sandbox.
+
+    `run_playwright_test` executes a spec, and a spec is arbitrary JavaScript,
+    so what it reads and writes is bounded by the process this server runs in
+    — not by the path guard. `write_file` plus `run_playwright_test` therefore
+    composes past the jail without either call violating it (#16481).
+
+    Real containment needs process or container isolation for the executor.
+    Until that exists, treat this surface as: jailed arguments, unjailed
+    execution. Do not grant it inputs you would not grant the host process.
   version: 1.0.0
   contact:
     name: Neo.mjs Project

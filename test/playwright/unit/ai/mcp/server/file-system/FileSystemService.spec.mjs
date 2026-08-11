@@ -49,6 +49,26 @@ test.describe('ai/mcp/server/file-system FileSystemService', () => {
             .rejects.toThrow(/403 Forbidden: Path traversal detected/);
     });
 
+    /**
+     * @summary The guard message must describe what it ENFORCES, not a containment we do not have.
+     *
+     * It read "Operation jailed to <root>". The jail binds this ARGUMENT; it does not bind the
+     * process. `run_playwright_test` executes a spec, a spec is arbitrary JavaScript, and its read
+     * set is the whole host — so `write_file` plus `run_playwright_test` reaches outside the root
+     * without either call violating a guard, reported externally and reproduced from source.
+     *
+     * A false boundary is worse than a stated absence of one, because it is trusted. This arm exists
+     * so the stronger wording cannot come back without someone deciding to bring it back.
+     */
+    test('#16481: the message scopes the jail to the ARGUMENT and names execution as unjailed', async () => {
+        const attempt = FileSystemService.readFile({absolutePath: '/tmp/OUTSIDE_SECRET.txt'});
+
+        await expect(attempt).rejects.toThrow(/This ARGUMENT is jailed to/);
+        await expect(attempt).rejects.toThrow(/execution tools are not/);
+        // The claim this ticket exists to remove: a promise of operation-wide containment.
+        await expect(attempt).rejects.not.toThrow(/Operation jailed to/);
+    });
+
     test('#15818 ordinary traversal is still rejected — no regression of the original guard', async () => {
         await expect(FileSystemService.readFile({absolutePath: path.join(root, '..', 'outside.txt')}))
             .rejects.toThrow(/403 Forbidden: Path traversal detected/);
