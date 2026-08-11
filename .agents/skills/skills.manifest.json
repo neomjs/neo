@@ -283,7 +283,7 @@
       "description": "Standardized guidelines and templates for structuring Pull Request reviews so feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure. Triggers: Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §10, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
-      "perFilePayloadBudget": 37000,
+      "perFilePayloadBudget": 33700,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
         "learn/agentos/ProgressiveDisclosureSkills.md",
