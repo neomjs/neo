@@ -2785,6 +2785,50 @@ test.describe('HealthService #16310 — wake subscription arming verdict', () =>
     });
 });
 
+/**
+ * @summary The arming verdict has to REACH a reader, or it is the defect it describes.
+ *
+ * `features.wake.subscription.armed` was computed and consumed by nobody, so a seat with no wake
+ * route published `All features are operational` and went silent. That silence is indistinguishable
+ * from a peer with nothing to say — which is how it survived weeks of the swarm noticing that peers
+ * were not responding, while the verdict's own docblock called it "a question nothing asks".
+ *
+ * These drive the PRODUCTION function. An earlier draft re-implemented the predicate beside the
+ * assertions, which proves only that the mirror matches itself.
+ */
+test.describe('HealthService #16310 — an unarmed seat says so', () => {
+    let applyWakeArmingDetail;
+
+    test.beforeAll(async () => {
+        ({applyWakeArmingDetail} = await import('../../../../../../ai/services/memory-core/HealthService.mjs'));
+    });
+
+    const payloadWith = subscription => ({status: 'healthy', details: [], features: {wake: {subscription}}});
+
+    test('armed:false publishes a detail naming the furthest gate reached', () => {
+        const payload = applyWakeArmingDetail(payloadWith({armed: false, reason: 'no active subscription'}));
+
+        expect(payload.details.some(d => d.startsWith('Wake route NOT armed')), 'silence IS the defect').toBe(true);
+        expect(payload.details.some(d => d.includes('no active subscription')), 'the reason points at the next repair').toBe(true);
+    });
+
+    test('NON-VACUITY: armed:true and armed:null stay quiet — null means unanswerable, not unarmed', () => {
+        for (const subscription of [{armed: true, reason: 'ok'}, {armed: null, reason: 'unbound identity'}]) {
+            const payload = applyWakeArmingDetail(payloadWith(subscription));
+
+            expect(payload.details.some(d => d.startsWith('Wake route NOT armed')),
+                `armed:${subscription.armed} must not be reported as unarmed`).toBe(false);
+        }
+    });
+
+    test('a payload with no wake block is left alone rather than throwing', () => {
+        // Health assembly must never fail on the absence of an optional block: an exception here
+        // would take out the whole healthcheck to report one seat's condition.
+        expect(() => applyWakeArmingDetail({status: 'healthy', details: []})).not.toThrow();
+        expect(() => applyWakeArmingDetail(undefined)).not.toThrow();
+    });
+});
+
 test.describe('HealthService — getTaskOutcome mutation boundary (#14492 review)', () => {
     let healthService;
 

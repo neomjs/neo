@@ -500,6 +500,39 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 }
 
 /**
+ * @summary Publishes the wake-arming verdict as a detail, so an unwakeable seat stops reading healthy.
+ *
+ * The verdict was already computed into `features.wake.subscription` and consumed by NOBODY — so a
+ * seat with no wake route published `All features are operational` and then went silent. That silence
+ * is indistinguishable from a peer who simply has nothing to say, which is how it survived weeks of
+ * the swarm noticing that peers were not responding. A fact that reaches no reader is the same defect
+ * as a fact never computed, and this one had its own docblock calling it "a question nothing asks".
+ *
+ * REPORTED, never degrading. The service is fine — it is THIS SEAT that is unreachable — and
+ * degrading would restart a container over an identity-scoped condition no restart can fix.
+ *
+ * `armed: null` stays quiet by design: it means the question could not be answered (unbound identity,
+ * unreadable graph), never "not armed". Reporting it would send someone to register a route for a
+ * seat whose state is merely unknown.
+ *
+ * Exported and called rather than inlined at its one call site, so a test can drive THIS function
+ * instead of re-implementing the predicate beside it — a spec that mirrors the rule proves only that
+ * the mirror matches itself.
+ *
+ * @param {Object} payload Health payload under construction; mutated in place.
+ * @returns {Object} The same payload.
+ */
+export function applyWakeArmingDetail(payload) {
+    if (payload?.features?.wake?.subscription?.armed === false) {
+        payload.details.push(
+            `Wake route NOT armed: ${payload.features.wake.subscription.reason} — this seat cannot receive wakes until a route is registered`
+        );
+    }
+
+    return payload;
+}
+
+/**
  * @summary Answers whether the CALLING identity holds a deliverable wake subscription — the
  * question nothing currently asks, so an unarmed seat reads healthy on every surface.
  *
@@ -2104,6 +2137,8 @@ class HealthService extends Base {
             }
             payload.details.push(`Startup dependency '${name}' is ${dependency.status}: ${dependency.error || 'see startup.dependencies'}`);
         }
+
+        applyWakeArmingDetail(payload);
 
         // If we made it here with no errors, report success
         if (payload.status === 'healthy') {
