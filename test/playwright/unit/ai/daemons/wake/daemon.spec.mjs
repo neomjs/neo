@@ -399,9 +399,9 @@ test.describe('Wake Daemon', () => {
         const output = await deliveryPromise;
         expect(output).toContain('[WAKE][priority:high]');
         expect(output).toContain(`2 events for ${agentId}`);
-        expect(output).toContain('2 new messages');
+        expect(output).toContain('2 message events');
         expect(output).toContain('High Priority Broadcast');
-        expect(output).not.toContain('4 new messages');
+        expect(output).not.toContain('4 message events');
         expect(output).not.toContain('Normal Priority Direct');
         expect(output).not.toContain('Normal Priority Broadcast');
     });
@@ -845,12 +845,12 @@ test.describe('Wake Daemon', () => {
             env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
-        // First flush ("1 new messages") fails + enqueues; the second flush coalesces; the RETRY
-        // rebuilds a digest over BOTH → "2 new messages". That string proves neither wake was lost.
+        // First flush ("1 message events") fails + enqueues; the second flush coalesces; the RETRY
+        // rebuilds a digest over BOTH → "2 message events". That string proves neither wake was lost.
         const coalescedPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Coalesced 2-message retry digest not observed within timeout')), 25000);
             const onData  = (data) => {
-                if (data.toString().includes('2 new messages')) {
+                if (data.toString().includes('2 message events')) {
                     clearTimeout(timeout);
                     resolve();
                 }
@@ -887,7 +887,7 @@ test.describe('Wake Daemon', () => {
         const logContents = fs.readFileSync(logFile, 'utf8');
         expect(logContents).toContain('[Wake Daemon Test-Fail Adapter] Attempted');
         expect(logContents).toContain(`2 events for ${agentId}`); // coalesced total count
-        expect(logContents).toContain('2 new messages');          // coalesced breakdown
+        expect(logContents).toContain('2 message events');          // coalesced breakdown
     });
 
     test('#13281: a retry drops a message read between the failed delivery and the re-attempt', async () => {
@@ -1099,7 +1099,7 @@ test.describe('Wake Daemon', () => {
 
         let logContents = fs.readFileSync(path.join(DAEMON_DIR, 'wake-daemon.log'), 'utf8');
         expect(logContents).toContain('[WAKE][priority:normal] 1 events');
-        expect(logContents).toContain('1 new messages (latest: "Current Peer Message"');
+        expect(logContents).toContain('1 message events (latest: "Current Peer Message"');
         expect(logContents).not.toContain('Four-Day Ghost Replay');
         expect(logContents).toContain(`Suppressed 1 stale/invalid message wake event(s) for ${agentId} at initial delivery`);
 
@@ -1172,7 +1172,7 @@ test.describe('Wake Daemon', () => {
         // generic directive — that unconditional placement was the dominant token cost (message wakes
         // far outnumber the heartbeat).
         const output = await deliveryPromise;
-        expect(output).toContain('new messages');          // the message digest still delivers normally
+        expect(output).toContain('message events');          // the message digest still delivers normally
         expect(output).not.toContain('lifecycle-first');   // ...but WITHOUT the lane directive (heartbeat-only)
         expect(output).not.toContain('verified-empty');
     });
@@ -1316,7 +1316,7 @@ test.describe('Wake Daemon', () => {
 
         const output = await deliveryPromise;
         expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
-        expect(output).toContain('1 new messages');         // only the unread one is counted
+        expect(output).toContain('1 message events');         // only the unread one is counted
         expect(output).toContain('Genuinely New Signal');    // ...and previewed as the latest
         expect(output).not.toContain('Already Read Noise');  // the already-read one is reconciled out
     });
@@ -1394,7 +1394,7 @@ test.describe('Wake Daemon', () => {
         expect(output).toContain('lifecycle-first');   // a pure-heartbeat digest DOES carry the lane directive (heartbeat-only placement)
         expect(output).toContain('latest GitHub mention: "Ping Euclid"');
         expect(output).toContain('[PR #13411: MERGED, mergedAt 2026-06-16T10:20:00Z, checkedAt 2026-06-16T10:21:00Z]');
-        expect(output).not.toContain('new messages');
+        expect(output).not.toContain('message events');
     });
 
     test('renders idle-out-nudge cycle-state in the heartbeat digest (#12612)', async () => {
@@ -1510,7 +1510,7 @@ test.describe('Wake Daemon', () => {
         expect(output).toContain('[Wake Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('heartbeat pulses');
-        expect(output).not.toContain('new messages');
+        expect(output).not.toContain('message events');
     });
 
     test('does not deliver wake events for wakeSuppressed mailbox-only messages', async () => {
@@ -1709,7 +1709,7 @@ test.describe('Wake Daemon', () => {
         await deliveryPromise;
 
         expect(deliveryCount).toBe(1);
-        expect(finalDigest).toContain('1 new messages');
+        expect(finalDigest).toContain('1 message events');
         expect(finalDigest).toContain('Test Dedup Event');
         expect(finalDigest).toContain('[WAKE][priority:normal]');
         expect(finalDigest).not.toContain('priority: normal');
@@ -2129,7 +2129,7 @@ test.describe('Wake Daemon', () => {
 
         const output = await deliveryPromise;
         expect(output).toContain('[WAKE][priority:high]');
-        expect(output).toContain('2 new messages');
+        expect(output).toContain('2 message events');
         expect(output).toContain('Low Priority Wake Event');
         expect(output).toContain('latest priority: low');
     });
@@ -4396,7 +4396,7 @@ test.describe('Wake Daemon', () => {
         expect(escapeIndex).toBeGreaterThan(pasteIndex);
         expect(enterIndex).toBeGreaterThan(escapeIndex);
         expect(digest).toContain('Codex Mixed Submit');
-        expect(digest).toContain('new messages');
+        expect(digest).toContain('message events');
         expect(digest).not.toContain('heartbeat pulses');
         expect(digest).not.toContain('lifecycle-first');
         expect(stdoutLog).toContain(`[Wake Daemon] Submit attempted ${subId} via osascript to Codex`);

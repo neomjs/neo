@@ -11,9 +11,15 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import StateProvider   from '../../../../../../src/state/Provider.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../');
 
 let CoalescingEngineService;
 let WebhookDeliveryService;
@@ -485,4 +491,203 @@ test.describe('CoalescingEngineService', () => {
         expect(b.sent_to_me.count).toBe(2);
         expect(b.sent_to_me.highestPriority).toBe('normal')
     });
+
+    // -----------------------------------------------------------------------------
+    // Read-state reconciliation
+    //
+    // The digest counted QUEUED EVENTS and never consulted read-state, so a message delivered, read
+    // and acted on hours ago still contributed to the count and could be named `latest`. These arms
+    // pin both the reconciliation and — more importantly — its FAIL-SAFE boundary: this is the whole
+    // swarm's wake path, and suppressing a wake on uncertainty is worse than the wrong count it
+    // replaces, because a wrong number is visible in the wake and a missing wake is visible to nobody.
+    // -----------------------------------------------------------------------------
+
+    test('an already-read message is excluded from the count and cannot be named latest', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: messageId => messageId === 'M-READ' ? {readAt: '2026-08-10T10:00:00.000Z'} : {}
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-READ',   subject: 'handled hours ago'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-UNREAD', subject: 'actually new'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const digest = deliverCalls[0].eventData;
+
+        expect(digest.payload.breakdown.sent_to_me.count).toBe(1);
+        expect(digest.payload.breakdown.sent_to_me.latest.messageId).toBe('M-UNREAD');
+    });
+
+    test('NON-VACUITY — the same two events both count when neither is read', async () => {
+        // Without this arm the assertion above passes against a resolver that suppresses everything.
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: () => ({})
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-READ'},   10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-UNREAD'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(2);
+    });
+
+    /**
+     * @summary AC-6 — a digest never names a `latest` the recipient cannot open.
+     *
+     * The consumer half of the two-shape repair. `missing` is a POSITIVE finding from the resolver
+     * (no MESSAGE row exists), deliberately distinct from `{}` (graph unavailable). The distinction
+     * carries the whole behaviour: the event still COUNTS, because something really was queued and
+     * hiding it is the suppression failure mode this feature exists to avoid — but it must not
+     * become the pointer, because a `latest` is an invitation to open something, and naming an
+     * absent row sends the recipient hunting for a message that is not there.
+     *
+     * Injecting the resolver is correct HERE and only here: this arm is about what the coalescer
+     * does with an answer. That the real resolver produces that answer against real graph rows is
+     * proven separately in `MailboxService.spec.mjs`, because a hand-injected fixture is
+     * structurally incapable of falsifying the producer — which is exactly how the broadcast-only
+     * reader survived review the first time.
+     */
+    test('AC-6 — a MISSING message counts but can never be named latest', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: messageId => messageId === 'M-GONE' ? {missing: true} : {present: true}
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+
+        // M-GONE is the NEWEST, so recency alone would elect it — the disqualification has to be
+        // what keeps it out, not ordering luck.
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-REAL', subject: 'openable'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-GONE', subject: 'row deleted'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        const digest = deliverCalls[0].eventData;
+
+        expect(digest.payload.breakdown.sent_to_me.count, 'a queued event still counts').toBe(2);
+        expect(digest.payload.breakdown.sent_to_me.latest.messageId,
+            'latest must fall back to the openable message').toBe('M-REAL')
+    });
+
+    test('FAIL-SAFE — a resolver that THROWS renders the event rather than dropping it', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: () => { throw new Error('graph unavailable') }
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}, 10));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length).toBe(1);
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(1);
+    });
+
+    test('FAIL-SAFE — no resolver injected renders exactly as before read-state existed', async () => {
+        CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        });
+
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}, 10));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M2'}, 11));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.count).toBe(2);
+    });
+
+    test('configure REFUSES a non-function resolver rather than silently ignoring it', () => {
+        expect(() => CoalescingEngineService.configure({
+            coalesceWindowSeconds : 30,
+            flushRefractorySeconds: 120,
+            flushHardCapSeconds   : 300
+        }, {
+            resolveDeliveryReadState: 'not-a-function'
+        })).toThrow(/resolveDeliveryReadState/);
+    });
+
+    /**
+     * @summary `configure` must accept the wake-dispatch config as a LIVE AiConfig node.
+     *
+     * **The production failure this exists to prevent, measured.** The first version of this feature
+     * added `resolveDeliveryReadState` as one more key on the config bag, which forced the Memory Core
+     * entrypoint to call `configure({...wakeDispatch, resolveDeliveryReadState})`. Every arm above
+     * stayed green because they all hand `configure` a plain object literal — and a plain object
+     * spreads perfectly. Production does not pass a plain object. It passes an `AiConfig` node, whose
+     * `get` trap resolves override-else-inherit up the parent chain while its `ownKeys` trap
+     * (`Provider#getTopLevelDataKeys`) enumerates **local `#dataConfigs` only**. The wake-dispatch
+     * leaves are declared on the Tier-1 root, so the spread produced `{}` — measured, not inferred —
+     * and mc-server died at boot on a validation error naming a leaf that was plainly set. Thirty-plus
+     * integration specs then failed with `ECONNREFUSED`, every one of them downstream of that.
+     *
+     * **Why a real two-Provider hierarchy and not a mock.** A hand-rolled proxy asserting
+     * "ownKeys returns []" would test my model of the trap rather than the trap. This builds the
+     * actual primitive — a parent holding the data, a child resolving through it — so the arm fails if
+     * `Provider`'s enumeration semantics ever diverge from what this repair assumes. The one
+     * substitution against production is the leaf VALUES (30/120/300 rather than the shipped
+     * 150/120/300); the parent/child resolution path, the proxy, and both traps are the real ones.
+     */
+    test('REGRESSION — configure accepts a live AiConfig node whose leaves are INHERITED, not local', () => {
+        const
+            parent = Neo.create(StateProvider, {
+                data: {wakeDispatch: {coalesceWindowSeconds: 30, flushRefractorySeconds: 120, flushHardCapSeconds: 300}}
+            }),
+            child  = Neo.create(StateProvider, {data: {unrelatedLocalLeaf: 1}});
+
+        child.getParent = () => parent;
+
+        const node = child.data.wakeDispatch;
+
+        // The trap itself, pinned first: this is WHY the spread failed, and if these two ever stop
+        // disagreeing the regression below would pass for the wrong reason.
+        expect(node.coalesceWindowSeconds, 'the named read must resolve up the parent chain').toBe(30);
+        expect(Object.keys(node), 'enumeration must NOT see inherited leaves — the trap under test').toEqual([]);
+        expect({...node}, 'spreading this node is measurably lossy').toEqual({});
+
+        // The repair: configure must survive the node itself, by reference.
+        expect(() => CoalescingEngineService.configure(node, {resolveDeliveryReadState: null})).not.toThrow();
+        expect(CoalescingEngineService.defaultWindowSeconds).toBe(30);
+        expect(CoalescingEngineService.refractoryMs).toBe(120000);
+        expect(CoalescingEngineService.hardCapMs).toBe(300000);
+
+        parent.destroy?.();
+        child.destroy?.()
+    });
+
+    test('REGRESSION — the Memory Core entrypoint hands the node over without materializing it', () => {
+        // The behavioural arm above proves `configure` CAN take a live node; it cannot prove the
+        // entrypoint actually does. This is the call site that broke, asserted directly — a future
+        // edit reintroducing the spread fails here even if it never runs a container.
+        const serverSource = fs.readFileSync(
+            path.join(repoRoot, 'ai/mcp/server/memory-core/Server.mjs'), 'utf8')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+
+        expect(serverSource, 'never spread an AiConfig node — `ownKeys` drops inherited leaves')
+            .not.toMatch(/configure\(\s*\{\s*\.\.\.\s*wakeDispatch/);
+        expect(serverSource, 'the node must still reach configure by reference')
+            .toMatch(/CoalescingEngineService\.configure\(\s*wakeDispatch\s*,/)
+    });
+
 });

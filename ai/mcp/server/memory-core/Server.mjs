@@ -24,8 +24,8 @@ import {
     Memory_CoalescingEngineService    as CoalescingEngineService,
     Memory_WebhookDeliveryService     as WebhookDeliveryService
 } from '../../../services.mjs';
-import {startDrainLoop}   from '../../../daemons/embed/drainCycle.mjs';
-import {acquireDrainLock} from '../../../daemons/embed/drainLock.mjs';
+import {startDrainLoop}          from '../../../daemons/embed/drainCycle.mjs';
+import {acquireDrainLock}        from '../../../daemons/embed/drainLock.mjs';
 import MemoryCoreRecorderService from '../../../services/memory-core/MemoryCoreRecorderService.mjs';
 import {
     createMessageGraphProjectionProcessor,
@@ -37,6 +37,7 @@ import {LOOPBACK_PROBE_HEALTH_KEY}      from '../../../services/memory-core/help
 import {TRUST_TIERS}                    from '../../../graph/identityRoots.mjs';
 import {normalizeAgentIdentityNodeId}   from '../../../graph/normalizeAgentIdentityNodeId.mjs';
 import ConfigBase, {PLANE_MEMBER_PATHS} from './configBase.mjs';
+import {readBackgroundDeliveryState}    from '../../../services/memory-core/MailboxService.mjs';
 
 // Security invariant, not deployment policy: graph ids must remain namespace/path/control safe.
 const AUTH_IDENTITY_USER_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/;
@@ -288,7 +289,14 @@ class Server extends BaseServer {
 
         const wakeDispatch = aiConfig.orchestrator.wakeDispatch;
 
-        CoalescingEngineService.configure(wakeDispatch);
+        // The digest reconciles against read-state through an INJECTED reader, so the coalescing
+        // engine never imports the mailbox. `readBackgroundDeliveryState` is the unpermissioned
+        // background variant; `inspectReadState` cannot be used here because it requires a bound
+        // request identity the flush path does not have.
+        // `wakeDispatch` is an AiConfig node and is handed over BY REFERENCE. Never `{...wakeDispatch}`:
+        // the proxy's `ownKeys` trap enumerates local `#dataConfigs` only, so spreading a node whose
+        // leaves live on the Tier-1 root yields `{}` — silently, with every named read still correct.
+        CoalescingEngineService.configure(wakeDispatch, {resolveDeliveryReadState: readBackgroundDeliveryState});
         WebhookDeliveryService.configure(wakeDispatch);
 
         this.mcpServer = this.createMcpServer();
