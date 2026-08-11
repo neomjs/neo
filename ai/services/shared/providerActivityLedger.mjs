@@ -121,8 +121,7 @@ export function ensureProviderActivitySchema(db) {
             queue_wait_ms     INTEGER,
             execution_ms      INTEGER,
             success           INTEGER,
-            failure_stage     TEXT,
-            process_epoch     TEXT
+            failure_stage     TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_provider_activity_enqueued
             ON provider_activity_log(enqueued_at);
@@ -131,37 +130,7 @@ export function ensureProviderActivitySchema(db) {
         CREATE INDEX IF NOT EXISTS idx_provider_activity_stage
             ON provider_activity_log(operation_stage);
     `);
-
-    // Guarded migration: tables created before the restart boundary existed carry no epoch. Their
-    // rows read as NULL, which the live-demand projection excludes — correct by construction, since
-    // a row from before this column existed is by definition from an earlier process generation.
-    const hasEpoch = db.prepare(`PRAGMA table_info(provider_activity_log)`).all()
-        .some(column => column.name === 'process_epoch');
-
-    if (!hasEpoch) {
-        db.prepare(`ALTER TABLE provider_activity_log ADD COLUMN process_epoch TEXT`).run();
-    }
 }
-
-/**
- * @summary This process's ledger epoch — a value that changes on every process start.
- *
- * **Why live demand needs it.** A started row with no `completed_at` is executing, and the row is
- * DURABLE while the limiter that admitted it is per-process and in-memory. So when a process dies
- * mid-flight, its rows survive with `completed_at IS NULL` forever — nothing is left to complete
- * them — and the next process reads them as its OWN live demand against a limiter holding zero
- * actual work. Measured shape: `{cap: 1, executing: 1}` immediately after a restart that admitted
- * nothing, and it never clears.
- *
- * That is a durable record outliving the thing it describes, which is the failure this whole
- * surface exists to avoid. The epoch is the boundary: rows are retained for history, and only rows
- * from THIS generation count as demand.
- *
- * Module-scope and read at use, never injected per call: a mid-process change would split one
- * generation in two and re-create the defect in miniature.
- * @type {String}
- */
-export const PROCESS_EPOCH = crypto.randomUUID();
 
 /**
  * @summary Persists one provider activity admission boundary without retaining payloads or identity.
@@ -183,11 +152,11 @@ export function beginProviderActivity(db, entry = {}) {
         INSERT INTO provider_activity_log (
             activity_id, service, operation_stage, role, provider, model, priority,
             enqueued_at, started_at, completed_at, queue_disposition, queue_wait_ms,
-            execution_ms, success, failure_stage, process_epoch
+            execution_ms, success, failure_stage
         ) VALUES (
             @activity_id, @service, @operation_stage, @role, @provider, @model, @priority,
             @enqueued_at, @started_at, NULL, @queue_disposition, @queue_wait_ms,
-            NULL, NULL, NULL, @process_epoch
+            NULL, NULL, NULL
         )
     `).run({
         activity_id      : activityId,
@@ -200,8 +169,7 @@ export function beginProviderActivity(db, entry = {}) {
         enqueued_at      : enqueuedAt,
         started_at       : startedAt,
         queue_disposition: queueDisposition,
-        queue_wait_ms    : queueWaitMs,
-        process_epoch    : PROCESS_EPOCH
+        queue_wait_ms    : queueWaitMs
     });
 
     return activityId;
@@ -479,9 +447,8 @@ export function getProviderActivityMetrics(db, {sinceTs, limit, now = Date.now()
                SUM(CASE WHEN started_at IS NOT NULL THEN 1 ELSE 0 END) AS executing
           FROM provider_activity_log
          WHERE completed_at IS NULL AND queue_disposition = 'neo-queued'
-           AND process_epoch = @process_epoch
          GROUP BY service, provider
-    `).all({process_epoch: PROCESS_EPOCH})) {
+    `).all()) {
         nativeAdmission[`${row.service}::${row.provider}`] = {
             service  : row.service,
             provider : row.provider,

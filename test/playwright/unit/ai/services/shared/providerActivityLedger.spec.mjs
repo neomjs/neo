@@ -123,11 +123,7 @@ test.describe('providerActivityLedger', () => {
             'queue_wait_ms',
             'execution_ms',
             'success',
-            'failure_stage',
-            // Bounded and non-identifying by construction: a per-process-start UUID that names a
-            // GENERATION, not a machine, a user, or a run's contents. Carried so live-demand reads
-            // can exclude rows whose owning process is gone — see PROCESS_EPOCH.
-            'process_epoch'
+            'failure_stage'
         ]);
         expect(JSON.stringify(rows)).not.toContain('secret prompt');
         expect(JSON.stringify(rows)).not.toContain('session-123');
@@ -288,67 +284,6 @@ test.describe('providerActivityLedger', () => {
         expect(nativeAdmission['memory-core::ollama'])
             .toEqual({service: 'memory-core', provider: 'ollama', cap: 1, executing: 1, waiting: 1});
         expect(waitingId, 'both rows exist').toBeTruthy()
-    });
-
-    /**
-     * @summary A row whose owning process is GONE is not this process's live demand.
-     *
-     * Found by @neo-gpt: the projection read `completed_at IS NULL` as "executing" with no notion of
-     * which process generation admitted the row. But the row is DURABLE while the limiter that
-     * admitted it is per-process and in-memory, so a process that dies mid-flight leaves rows nothing
-     * will ever complete — and the next process reads them as its own demand against a limiter
-     * holding zero actual work. `{cap: 1, executing: 1}` immediately after a restart that admitted
-     * nothing, and it never clears.
-     *
-     * This is the same failure the whole surface exists to prevent: a durable record outliving the
-     * thing it describes, read as current. The epoch is the boundary.
-     */
-    test('#16880: rows from a DEAD process generation are not live demand after a restart', () => {
-        // Simulate the pre-restart process: one admitted, one executing, neither completed.
-        const strandedWaiting = beginProviderActivity(db, {
-            service   : 'memory-core', provider: 'ollama', role: 'embedding',
-            enqueuedAt: 1000, queueDisposition: 'neo-queued'
-        });
-        const strandedExecuting = beginProviderActivity(db, {
-            service   : 'memory-core', provider: 'ollama', role: 'embedding',
-            enqueuedAt: 1000, queueDisposition: 'neo-queued'
-        });
-
-        startProviderActivity(db, strandedExecuting, 1200);
-
-        // The process dies. Its rows survive; nothing will ever complete them. Re-stamp them to a
-        // FOREIGN epoch, which is exactly what the durable table looks like to the next process.
-        db.prepare(`UPDATE provider_activity_log SET process_epoch = 'dead-generation'`).run();
-
-        const {nativeAdmission} = getProviderActivityMetrics(db, {
-            sinceTs            : 0, limit: 50, now: 2000,
-            nativeAdmissionCaps: {'memory-core::ollama': 1}
-        });
-
-        // The declared cap is still reported — an idle queue must not vanish — but demand is ZERO.
-        expect(nativeAdmission['memory-core::ollama'], 'a fresh limiter holds no work')
-            .toEqual({service: 'memory-core', provider: 'ollama', cap: 1, executing: 0, waiting: 0});
-
-        expect(strandedWaiting && strandedExecuting, 'the rows are RETAINED for history, only excluded from demand').toBeTruthy();
-        expect(db.prepare(`SELECT COUNT(*) AS n FROM provider_activity_log`).get().n).toBe(2);
-    });
-
-    test('#16880: NON-VACUITY — this generation\'s rows still count', () => {
-        // Without this, the epoch filter could exclude everything and the arm above would pass on a
-        // projection that reports zero demand always.
-        const executingId = beginProviderActivity(db, {
-            service   : 'memory-core', provider: 'ollama', role: 'embedding',
-            enqueuedAt: 1000, queueDisposition: 'neo-queued'
-        });
-
-        startProviderActivity(db, executingId, 1200);
-
-        const {nativeAdmission} = getProviderActivityMetrics(db, {
-            sinceTs            : 0, limit: 50, now: 2000,
-            nativeAdmissionCaps: {'memory-core::ollama': 1}
-        });
-
-        expect(nativeAdmission['memory-core::ollama'].executing).toBe(1);
     });
 
     test('#16880: an ABSENT cap is null, never a fabricated zero', () => {
