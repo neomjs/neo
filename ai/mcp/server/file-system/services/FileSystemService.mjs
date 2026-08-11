@@ -105,7 +105,16 @@ async function ensureSandboxed(absolutePath) {
     const relative = path.relative(rootPath, targetPath);
 
     if (relative !== '' && (path.isAbsolute(relative) || relative.split(path.sep)[0] === '..')) {
-        throw new Error(`403 Forbidden: Path traversal detected. Operation jailed to ${rootPath}`);
+        // "jailed to <root>" described a containment this surface does not have. The jail binds this
+        // ARGUMENT; it does not bind the process. `run_playwright_test` executes a spec, a spec is
+        // arbitrary JavaScript, and its read set is therefore the whole host — so `write_file` plus
+        // `run_playwright_test` reaches outside the root without either call violating a guard
+        // — reported externally and reproduced from source.
+        //
+        // The message now says what it enforces. A caller who reads "jailed" and infers containment
+        // is being misled by us, and a false boundary is worse than a stated absence of one: it is
+        // trusted. Real containment needs process isolation for the executor and does not exist yet.
+        throw new Error(`403 Forbidden: Path traversal detected. This ARGUMENT is jailed to ${rootPath}; execution tools are not.`);
     }
 
     return targetPath;
