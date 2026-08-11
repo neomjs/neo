@@ -164,6 +164,44 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         expect(findCloneCaptures('const saved = Neo.clone(Memory_Config.data);').map(h => h.line)).toEqual([1])
     });
 
+    /*
+     * @neo-gpt's falsifiers at e9b158d6bf. The first grammar required the config root IMMEDIATELY
+     * after `Neo.clone(` and matched line by line, so a member-qualified root and ordinary wrapped
+     * formatting both walked through. `SDK.Memory_Config` is a REAL access shape in this tree — the
+     * Class-A suite above pins it — so this was production-shaped, not hypothetical.
+     *
+     * The consequence worth remembering: the zero-population scan reported under that grammar could
+     * only ever mean "none of the shapes I can express", never "none present".
+     */
+    test('RESTORE-CAPTURE: a MEMBER-QUALIFIED config root is still a config root', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(SDK.Memory_Config.data);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(context.AiConfig.data);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(this.mailboxAiConfig.storagePaths);').map(h => h.line)).toEqual([1])
+    });
+
+    test('RESTORE-CAPTURE: MULTILINE arguments are formatting, not an escape hatch', () => {
+        expect(findCloneCaptures('const saved = Neo.clone(\n    AiConfig.data\n);').map(h => h.line)).toEqual([1]);
+        expect(findCloneCaptures('const saved = Neo.clone(\n    SDK.Memory_Config.data,\n    true\n);').map(h => h.line)).toEqual([1])
+    });
+
+    test('RESTORE-CAPTURE: the widened grammar keeps the string/comment negatives', () => {
+        // The widened pattern spans newlines, so the mask has to keep holding across them too. A
+        // TEMPLATE literal is the real multiline-string case — a single-quoted string cannot span
+        // lines at all, and an earlier draft of this control used one: invalid JS, which the mask
+        // correctly failed CLOSED on, so the fixture proved nothing about strings.
+        expect(findCloneCaptures([
+            'const doc = `Neo.clone(',
+            '    SDK.Memory_Config.data)`;'
+        ].join('\n'))).toEqual([]);
+
+        expect(findCloneCaptures([
+            '/*',
+            ' * Neo.clone(',
+            ' *     AiConfig.data)',
+            ' */'
+        ].join('\n'))).toEqual([])
+    });
+
     test('RESTORE-CAPTURE: does NOT flag a clone of a non-config value', () => {
         expect(findCloneCaptures('const copy = Neo.clone(plainThing);')).toEqual([]);
         expect(findCloneCaptures('const copy = Neo.clone(record, true, true);')).toEqual([])
@@ -209,6 +247,33 @@ test.describe('check-aiconfig-test-mutation guard', () => {
         const listed = scanFileContent(file, content, {allowlist: new Set([file])});
         expect(listed.dbPathHits).toEqual([]);
         expect(listed.cloneHits.map(h => h.line)).toEqual([1])
+    });
+
+    test('CLI: a NAMESPACED and a MULTILINE capture each fail the build end-to-end', () => {
+        const checker    = path.join(repoRoot, 'buildScripts/util/check-aiconfig-test-mutation.mjs'),
+              fixtureDir = path.join(repoRoot, `test/.tmp-clone-grammar-${process.pid}`);
+
+        mkdirSync(fixtureDir, {recursive: true});
+
+        try {
+            for (const [label, body] of [
+                ['namespaced', 'const saved = Neo.clone(SDK.Memory_Config.data);\n'],
+                ['multiline',  'const saved = Neo.clone(\n    AiConfig.data\n);\n']
+            ]) {
+                const fixture = path.join(fixtureDir, `${label}.mjs`),
+                      rel     = path.relative(repoRoot, fixture).split(path.sep).join('/');
+
+                writeFileSync(fixture, body);
+
+                const result = spawnSync(process.execPath, [checker, rel], {cwd: repoRoot, encoding: 'utf-8'});
+
+                expect(result.status, `${label} capture must fail the build`).toBe(1);
+                expect(result.stderr).toContain('restore capture');
+                expect(result.stdout).not.toContain('0 new violations')
+            }
+        } finally {
+            rmSync(fixtureDir, {recursive: true, force: true})
+        }
     });
 
     test('CLI: a restore-capture alone fails the build (a gate must fail, not merely describe)', () => {

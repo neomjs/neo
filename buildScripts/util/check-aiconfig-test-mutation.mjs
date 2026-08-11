@@ -102,11 +102,26 @@ export const DB_PATH_MUTATION = new RegExp(
  * working call sites, and a gate whose false positives dominate gets disabled rather than obeyed.
  *
  * Root shape and the false-positive posture are inherited from Class-A above: an unrelated `*Config`
- * local passed to `Neo.clone` trips this and costs one escape marker plus a stated reason. Current
- * measured cost of that trade across the whole test tree: zero occurrences, so zero false positives.
+ * local passed to `Neo.clone` trips this and costs one escape marker plus a stated reason.
+ *
+ * **The grammar admits a qualified root and ordinary line breaks, and that is not cosmetic.** The
+ * first version required the config root IMMEDIATELY after `Neo.clone(`, and matched line by line.
+ * Three shapes walked through it:
+ *
+ *   Neo.clone(SDK.Memory_Config.data)     — member-qualified, and a REAL access shape in this tree
+ *   Neo.clone(context.AiConfig.data)      — namespaced
+ *   Neo.clone(\n    AiConfig.data)        — ordinary formatting
+ *
+ * A zero-population scan under that grammar could only ever have meant "none of the shapes I can
+ * express", never "none present" — the instrument's vocabulary reported as the world. Class-A already
+ * anchors its root ANYWHERE in the access path for exactly this reason; this now matches it.
  */
 export const CLONE_CAPTURE = new RegExp(
-    `(?<![\\w$])Neo\\.clone\\s*\\(\\s*${CONFIG_ROOT}(?![\\w$])`
+    // Optional member-chain prefix, so a qualified root (`SDK.Memory_Config`) is still a config root.
+    // The `\s*` separators span newlines on their own — `\s` matches `\n` with or without the `s`
+    // flag, which only governs `.` and this pattern has none. An earlier version passed `s` here with
+    // a comment claiming it enabled the multiline match; the mutation test proved the flag inert.
+    `(?<![\\w$])Neo\\s*\\.\\s*clone\\s*\\(\\s*(?:[A-Za-z_$][\\w$]*\\s*\\.\\s*)*${CONFIG_ROOT}(?![\\w$])`
 );
 
 /*
@@ -295,31 +310,56 @@ const CLONE_CAPTURE_GLOBAL = new RegExp(CLONE_CAPTURE.source, 'g');
 /**
  * @summary Scans file content for `Neo.clone` restore-captures of an `AiConfig` node.
  *
- * Shares Class-A's code mask and escape marker, so a clone written inside a string literal, a comment
- * or a template quasi is not a hit — the same ground truth, not a second hand-rolled scan.
+ * Shares Class-A's code mask and escape marker — the same ground truth, not a second hand-rolled
+ * scan — but matches over a CODE-ONLY projection of the whole file rather than line by line, because
+ * a capture whose argument wraps across lines is ordinary formatting and was previously invisible.
+ *
+ * The projection preserves offsets exactly: every non-code character is replaced by a space, so a
+ * match index still maps to its real line, and a pair quoted inside a string or comment still cannot
+ * match. Masking per line and then joining keeps `codeMask` authoritative rather than re-deriving it.
  * @param {String} content
  * @returns {Object[]} `[{line, text}]` — one entry per offending line (1-based line numbers).
  */
 export function findCloneCaptures(content) {
     const lines = content.split('\n'),
-          state = {source: content},
-          hits  = [];
+          state = {source: content};
 
-    lines.forEach((line, index) => {
-        if (line.includes(ESCAPE_MARKER)) {
-            return
-        }
-
+    // Offset-preserving code-only projection: same length, non-code blanked.
+    const codeOnly = lines.map((line, index) => {
         const mask = codeMask(line, state, index);
+        return [...line].map((char, column) => (mask[column] ? char : ' ')).join('')
+    }).join('\n');
 
-        for (const match of line.matchAll(CLONE_CAPTURE_GLOBAL)) {
-            // The match starts at `Neo`; flag only when that token is real code.
-            if (mask[match.index]) {
-                hits.push({line: index + 1, text: line.trim()});
-                break
-            }
+    const lineStarts = [];
+    let   cursor     = 0;
+
+    for (const line of lines) {
+        lineStarts.push(cursor);
+        cursor += line.length + 1
+    }
+
+    const lineOf = offset => {
+        let low = 0, high = lineStarts.length - 1;
+        while (low < high) {
+            const mid = Math.ceil((low + high) / 2);
+            if (lineStarts[mid] <= offset) low = mid; else high = mid - 1
         }
-    });
+        return low
+    };
+
+    const hits = [],
+          seen = new Set();
+
+    for (const match of codeOnly.matchAll(CLONE_CAPTURE_GLOBAL)) {
+        const index = lineOf(match.index);
+
+        // The marker is read from the line the capture STARTS on — where an author would write it.
+        if (lines[index].includes(ESCAPE_MARKER)) continue;
+        if (seen.has(index)) continue;
+
+        seen.add(index);
+        hits.push({line: index + 1, text: lines[index].trim()})
+    }
 
     return hits
 }
