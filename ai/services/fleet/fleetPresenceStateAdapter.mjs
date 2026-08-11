@@ -36,6 +36,41 @@ import {redactCredentials} from './redactCredentials.mjs'
  */
 export const PRESENCE_STATES = Object.freeze(['online', 'idle', 'dark', 'benched', 'neverConnected'])
 
+/**
+ * The GRADED render vocabulary this adapter emits — the banded recency contract derived from the
+ * plane's verdicts plus the vouched beacon horizons: `active-turn` (a fresh turn-presence beacon —
+ * mid-turn RIGHT NOW, regardless of add_memory staleness: the 70-minute-turn flap falsifier) ·
+ * `fresh` (the plane says online: recent durable activity, no fresh beacon) · `recent` (the
+ * plane's idle window) · `dark` (rostered, not recently seen), with the membership facts
+ * (`benched` / `neverConnected`) passing through untouched — they are participation truth, not
+ * recency grades. The grade DERIVES; it never re-computes liveness (no second clock authority).
+ * @type {String[]}
+ */
+export const PRESENCE_BANDS = Object.freeze(['active-turn', 'fresh', 'recent', 'dark', 'benched', 'neverConnected'])
+
+/**
+ * @summary Grade one plane presence verdict + its vouched beacon signal onto the banded render
+ * vocabulary. Pure and total: an out-of-vocabulary input state passes through unchanged (the
+ * caller's own closed-set admission already refused it — this function never fabricates a grade).
+ * @param {Object} options
+ * @param {String} options.state The plane's own verdict (`online` · `idle` · `dark` · `benched` · `neverConnected`).
+ * @param {Boolean} [options.beaconFresh=false] Whether the row's vouched turn-presence beacon is fresh.
+ * @returns {String}
+ */
+export function gradePresenceBand({state, beaconFresh = false} = {}) {
+    // membership facts are never recency-graded — a fresh beacon cannot rescue a benched seat
+    // here any more than it may in the plane's own hard gate
+    if (state === 'benched' || state === 'neverConnected') {
+        return state
+    }
+
+    if (beaconFresh) {
+        return 'active-turn'
+    }
+
+    return state === 'online' ? 'fresh' : state === 'idle' ? 'recent' : state
+}
+
 export const PRESENCE_SOURCE_LABEL = 'fleet:presenceState'
 
 /**
@@ -100,9 +135,12 @@ export async function readFleetPresenceSnapshot({
                     if (typeof row?.identity !== 'string' || !PRESENCE_STATES.includes(row.state)) continue
 
                     byIdentity.set(row.identity, {
-                        state     : row.state,
-                        lastSeenAt: row.signals?.activityRecency?.lastActivityAt ?? null,
-                        reason    : typeof row.reason === 'string' ? redactReason(row.reason) : null
+                        state      : row.state,
+                        // the vouched beacon signal (the per-row turn-presence observation): the ONLY
+                        // input the recency grade adds over the plane's own verdict
+                        beaconFresh: row.signals?.turnPresence?.fresh === true,
+                        lastSeenAt : row.signals?.activityRecency?.lastActivityAt ?? null,
+                        reason     : typeof row.reason === 'string' ? redactReason(row.reason) : null
                     })
                 }
             }
@@ -124,7 +162,10 @@ export async function readFleetPresenceSnapshot({
             const row = byIdentity.get(presenceIdentityFor(agent))
 
             if (row) {
-                presence   = row.state
+                // the emitted band is the GRADED vocabulary: the plane's verdict refined by the
+                // vouched beacon (a fresh beacon grades active-turn even over stale add_memory —
+                // the long-turn flap falsifier), membership facts passing through untouched
+                presence   = gradePresenceBand({state: row.state, beaconFresh: row.beaconFresh})
                 lastSeenAt = row.lastSeenAt
                 rowReason  = row.reason
             } else {
