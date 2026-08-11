@@ -202,6 +202,9 @@ services:
       NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS: ${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS:-}
       NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE: ${NEO_KB_ASK_SYNTHESIS_TIMEOUT_MS_REMOTE:-}
       NEO_KB_ASK_MAX_RPM: ${NEO_KB_ASK_MAX_RPM:-}
+      # Provider-readiness coordinate. TextEmbeddingService (:845) reads
+      # orchestrator.providerReadiness.timeoutMs and runs inside THIS process.
+      NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
     volumes:
       - ../..:/app
       # The PLANE ROOT rides a project-scoped named volume, not the repo bind above. Docker applies
@@ -270,6 +273,10 @@ services:
       # Message WAL drain mirrors memory WAL topology; default dir derives from memoryWal.dir.
       NEO_MESSAGE_WAL_IN_PROCESS_DRAIN: "true"
       NEO_MESSAGE_WAL_POLL_INTERVAL_MS: "250"
+      # Provider-readiness coordinates. TextEmbeddingService (:845) reads timeoutMs and
+      # InferenceLifecycleService (:66) reads routineCacheTtlMs - both run in THIS process.
+      NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
+      NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS:-}
     volumes:
       - ../..:/app
       # The PLANE ROOT rides a project-scoped named volume, not the repo bind above. Docker applies
@@ -353,6 +360,12 @@ services:
       NEO_KB_EMBEDDING_BATCH_SIZE: ${NEO_KB_EMBEDDING_BATCH_SIZE:-}
       NEO_KB_EMBEDDING_BATCH_DELAY_MS: ${NEO_KB_EMBEDDING_BATCH_DELAY_MS:-}
       NEO_KB_EMBEDDING_MAX_RETRIES: ${NEO_KB_EMBEDDING_MAX_RETRIES:-}
+      # Provider-readiness coordinates, all four consumed here. NOT shipped: the three
+      # NEO_ORCHESTRATOR_STUCK_RUNNER_* leaves - reserved, zero consumers anywhere in ai/.
+      NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS: ${NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS:-}
+      NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS:-}
+      NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS:-}
+      NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS: ${NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS:-}
     volumes:
       - ../..:/app
       # The PLANE ROOT rides a project-scoped named volume, not the repo bind above. Docker applies
