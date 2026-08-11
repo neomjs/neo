@@ -609,8 +609,10 @@ class OllamaProvider extends Base {
               operationLabel = options.operationLabel || 'Ollama chat stream',
               controller     = new AbortController();
 
-        let idleTimer = null,
-            timedOut  = false;
+        let idleTimer  = null,
+            reader     = null,
+            readerDone = false,
+            timedOut   = false;
 
         const armIdleTimer = () => {
             clearTimeout(idleTimer);
@@ -645,12 +647,20 @@ class OllamaProvider extends Base {
                 throw new Error(`Ollama API error: ${response.status} - ${text}`);
             }
 
-            const reader  = response.body.getReader();
+            reader = response.body.getReader();
+
             const decoder = new TextDecoder('utf-8');
 
             while (true) {
                 const {done, value} = await reader.read();
-                if (done) break;
+
+                if (done) {
+                    // Natural end: the transport is already finished, so `finally` must NOT cancel or
+                    // abort. Without this flag the cleanup below cannot tell a completed stream from
+                    // an abandoned one.
+                    readerDone = true;
+                    break
+                }
 
                 // Progress re-arms the deadline: the timer measures SILENCE, not duration.
                 armIdleTimer();
@@ -689,7 +699,29 @@ class OllamaProvider extends Base {
             throw error;
         } finally {
             clearTimeout(idleTimer);
-            options.signal?.removeEventListener('abort', abortFromUpstream)
+            options.signal?.removeEventListener('abort', abortFromUpstream);
+
+            // **A consumer that simply stops iterating is an ordinary terminal, and it was the leak.**
+            // `break` out of a `for await`, an early `return`, or a throw in the loop body resumes this
+            // generator at its `yield` with a return completion — so this block runs while the HTTP
+            // request is still live and nobody is reading it. Clearing the idle timer alone therefore
+            // removed the only bound the request had left: measured against a real server as
+            // `{requestClosed: false, connections: 1}`, which is the same unbounded-request class the
+            // timer exists to prevent, reached by a path that never touches the timer.
+            //
+            // Cancelling the reader releases the body; aborting the controller closes the socket. Both
+            // are gated on `readerDone` so natural completion stays untouched — there the transport has
+            // already finished, and aborting it would turn a clean stream into a cancelled one.
+            if (reader && !readerDone) {
+                try {
+                    await reader.cancel()
+                } catch (error) {
+                    // The reader is discarded either way. A failing cancel must not replace the
+                    // caller's own error — or their clean early return — with one about cleanup.
+                }
+            }
+
+            !readerDone && !controller.signal.aborted && controller.abort()
         }
     }
 }

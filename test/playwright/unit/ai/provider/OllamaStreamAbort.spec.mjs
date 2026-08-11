@@ -118,6 +118,49 @@ test('an upstream abort propagates, and is NOT mislabelled as a timeout', async 
     expect(caught.code, 'a cancellation is not a timeout').not.toBe('PROVIDER_TIMEOUT')
 });
 
+test('a consumer that STOPS ITERATING releases the request — the terminal that had no cleanup', async () => {
+    // The three controls above all end the stream through an ERROR path: a timeout, an upstream
+    // abort, a pre-aborted signal. This one ends it the ordinary way — `break` — with no signal, no
+    // timeout and no error. The generator resumes at its `yield` with a return completion and runs
+    // `finally` while the request is still live, so a `finally` that cleared only the idle timer
+    // removed the request's last bound instead of releasing it: `{requestClosed: false,
+    // connections: 1}` against this same server.
+    let requestClosed = false,
+        writer        = null;
+
+    const server = await serve((request, response) => {
+        request.on('close', () => {requestClosed = true});
+
+        response.writeHead(200, {'Content-Type': 'application/x-ndjson'});
+
+        // Never ends on its own. The consumer stopping is the only thing that can end this.
+        let index = 0;
+
+        writer = setInterval(() => response.write(chunk(`c${++index}`)), 20)
+    });
+
+    const received = [];
+
+    for await (const text of provider(server).stream('x', {timeoutMs: 60_000})) {
+        received.push(text);
+        break
+    }
+
+    // `for await` awaits the generator's return completion, so cleanup has already run by here; this
+    // only allows the close to travel back to the server.
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    const connections = await new Promise(resolve => server.getConnections((error, count) => resolve(count)));
+
+    clearInterval(writer);
+    server.closeAllConnections?.();
+    server.close();
+
+    expect(received, 'the chunk consumed before the break is still delivered').toEqual(['c1']);
+    expect(requestClosed, 'breaking out of the loop must close the request socket').toBe(true);
+    expect(connections, 'no live connection may outlive the consumer').toBe(0)
+});
+
 test('an already-aborted signal stops the request before it is issued', async () => {
     let reached = false;
 
