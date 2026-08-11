@@ -1,4 +1,6 @@
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import path           from 'path';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
@@ -15,6 +17,7 @@ import {
     recordDeferral,
     resolveHeavyMaintenanceLeasePath
 } from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
+import {TaskStateService} from '../../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 // A non-heavy task name (must NOT be in DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES) for
 // passthrough tests of `acquireLeaseAndExecute`.
@@ -316,6 +319,69 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         expect(outcomeCalls[0].payload.deferredSince).toBe(inMemorySince);
+    });
+
+    test('PRODUCTION SEAM — durable deferral continuity survives service recreation and blocker change (#16904)', async () => {
+        const
+            dataDir         = `/tmp/maintenance-backpressure-deferral-${Date.now()}-${Math.random()}`,
+            stateFile       = path.join(dataDir, 'task-state.json'),
+            taskDefinitions = {
+                kbSync : {name: 'kbSync',  label: 'KB sync', scriptPath: '/mock/kb-sync.mjs'},
+                summary: {name: 'summary', label: 'Summary', scriptPath: '/mock/summary.mjs'},
+                backup : {name: 'backup',  label: 'Backup', scriptPath: '/mock/backup.mjs'}
+            },
+            bootTaskState = () => {
+                const service = Neo.create(TaskStateService, {stateFile, taskDefinitions, writeLogFn: () => {}});
+
+                service.configure({stateFile, taskDefinitions, writeLogFn: () => {}});
+                return service
+            },
+            recordThroughProduction = ({taskStateService, blockingTaskName}) => {
+                const outcomes = [];
+                const service  = buildService({
+                    taskDefinitions,
+                    taskStateService,
+                    healthService: {
+                        recordTaskOutcome(taskName, status, payload) {
+                            outcomes.push({taskName, status, payload});
+                        }
+                    }
+                });
+
+                service.recordDeferral({
+                    taskName  : 'kbSync',
+                    reasonCode: 'heavy-maintenance-backpressure',
+                    reasonText: 'periodic-sync',
+                    blockingTaskName
+                });
+
+                return outcomes[0].payload.deferredSince
+            };
+
+        fs.ensureDirSync(dataDir);
+
+        try {
+            const first  = bootTaskState();
+            const opened = recordThroughProduction({taskStateService: first, blockingTaskName: 'summary'});
+
+            const reborn    = bootTaskState();
+            const preserved = recordThroughProduction({taskStateService: reborn, blockingTaskName: 'backup'});
+
+            expect(preserved, 'changing the blocker after restart must not slide the starved task anchor')
+                .toBe(opened);
+
+            reborn.markStarted('kbSync', 'scheduled');
+            expect(reborn.getTaskState('kbSync').deferralStreakStartedAt).toBeNull();
+
+            await new Promise(resolve => setTimeout(resolve, 5));
+
+            const reopened = recordThroughProduction({taskStateService: reborn, blockingTaskName: 'summary'});
+
+            expect(reopened, 'a real start closes the episode; a later deferral opens a fresh one')
+                .not.toBe(opened);
+        } finally {
+            fs.removeSync(dataDir);
+        }
     });
 
     test('recordDeferral (intra-process heavy backpressure) dedupes + emits skipped outcome', () => {
