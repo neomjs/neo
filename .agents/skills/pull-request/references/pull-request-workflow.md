@@ -313,7 +313,7 @@ Resolves #N
 
 <one-paragraph outcome summary — what actually shipped, not restating ticket>
 
-Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
+Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N>, Residual-Owner: #<an EXISTING open ticket that is NOT the close target>.
 
 ## Deltas from ticket
 <scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>

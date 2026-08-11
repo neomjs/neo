@@ -93,6 +93,43 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         expect(message.toLowerCase()).not.toContain('file a follow-up');
     });
 
+    test("the Evidence Ladder's CANONICAL inline residual is a live obligation", () => {
+        // The documented declaration puts the residual INLINE on the Evidence line, outside the
+        // Post-Merge Validation section entirely. A gate scanning only that section reports success
+        // on the exact grammar the template teaches — the quietest possible failure.
+        const body = base.replace(
+            'Evidence: L1 (static) → L1 required. No residuals.',
+            'Evidence: L2 (mock dispatch) → L4 required (AC5 live handoff). Residual: AC5.'
+        );
+
+        const findings = residualFindings(`${body}\n\n## Post-Merge Validation\n\nNone deferred.\n`);
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0]).toContain('AC5');
+    });
+
+    test('an inline residual naming a distinct owner passes', () => {
+        // NON-VACUITY for the arm above: the inline form is not rejected wholesale, only unowned.
+        const body = base.replace(
+            'Evidence: L1 (static) → L1 required. No residuals.',
+            'Evidence: L2 → L4 required. Residual: AC5, Residual-Owner: #200.'
+        );
+
+        expect(residualFindings(`${body}\n\n## Post-Merge Validation\n\nNone deferred.\n`)).toHaveLength(0);
+    });
+
+    test('a PROSE mention of the heading does not become the section', () => {
+        // `indexOf` anchored on the first substring, so a body that merely quotes the heading — in
+        // prose or a fenced block — had its section read from the wrong offset, and the real
+        // section's live obligation went unseen.
+        const body = `${base}\n\nEvery PR needs a \`## Post-Merge Validation\` section, which is where deferrals live.\n\n## Post-Merge Validation\n\n- [ ] run the container exit check\n`;
+
+        const findings = residualFindings(body);
+
+        expect(findings).toHaveLength(1);
+        expect(findings[0]).toContain('run the container exit check');
+    });
+
     test('an absent section is unchanged — the anchor check owns that failure, not this gate', () => {
         expect(residualFindings(base)).toHaveLength(0);
     });

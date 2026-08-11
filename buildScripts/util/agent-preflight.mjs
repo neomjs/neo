@@ -27,8 +27,17 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 
 const
     POST_MERGE_VALIDATION_HEADING = '## Post-Merge Validation',
+    // A REAL level-two heading on its own line. `indexOf` would anchor on the first substring, so a
+    // body that merely quotes the heading in prose or a fenced block would have its section read
+    // from the wrong offset.
+    POST_MERGE_VALIDATION_H2      = /^##[ \t]+Post-Merge Validation[ \t]*$/m,
     // An unchecked task box, or an explicit residual marker. Checked boxes owe nothing.
     LIVE_OBLIGATION_PATTERN       = /^\s*[-*]\s*\[ \]|NOT_YET_MEASURED|^\s*Residual:/m,
+    // The Evidence Ladder's CANONICAL residual form is inline on the `Evidence:` line — outside the
+    // Post-Merge Validation section entirely. Scanning only that section leaves the documented shape
+    // undetected, which is the quiet failure: the guard reports success on the exact grammar the
+    // template teaches. `Residual-Owner:` cannot match it — the colon must follow `Residual`.
+    INLINE_RESIDUAL_PATTERN       = /\bResidual:[ \t]*(AC\s*\d+[^\n.]*)/i,
     RESIDUAL_OWNER_PATTERN        = /\bResidual-Owner:?\s+#(\d+)/i,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
@@ -228,12 +237,12 @@ export function validateChangeClass({
  * @private
  */
 function postMergeValidationSection(body = '') {
-    const start = body.indexOf(POST_MERGE_VALIDATION_HEADING);
+    const match = body.match(POST_MERGE_VALIDATION_H2);
 
-    if (start === -1) return '';
+    if (!match) return '';
 
     const
-        after = body.slice(start + POST_MERGE_VALIDATION_HEADING.length),
+        after = body.slice(match.index + match[0].length),
         next  = after.search(/^##\s/m);
 
     return next === -1 ? after : after.slice(0, next)
@@ -278,7 +287,10 @@ export function validatePrBody(body, {draft = false} = {}) {
     // four merged PRs whose close targets shut within a second of the merge, three of them keeping no
     // record at all. `Residual-Owner` names ownership that ALREADY exists; it is never a licence to
     // mint a ticket, which is why the message below prescribes finishing or dropping first.
-    const obligation = firstLiveObligation(postMergeValidationSection(body));
+    const
+        inlineResidual = body.match(INLINE_RESIDUAL_PATTERN),
+        obligation     = firstLiveObligation(postMergeValidationSection(body))
+            || (inlineResidual ? `Residual: ${inlineResidual[1].trim()}` : null);
 
     if (obligation) {
         const
@@ -288,7 +300,7 @@ export function validatePrBody(body, {draft = false} = {}) {
             owner         = ownerMatch ? ownerMatch[1] : null;
 
         if (!owner) {
-            missingVisible.push(`\`## Post-Merge Validation\` still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
+            missingVisible.push(`This PR still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
         } else if (owner === closeTarget) {
             missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
         }
