@@ -920,13 +920,20 @@ export class DeploymentStateBridgeService extends Base {
      */
     async collectProviderActivity({observedAt}) {
         const unavailable = reason => ({
-            schemaVersion             : 1,
-            recordType                : 'deployment-provider-activity',
-            source                    : 'provider-activity-ledger',
-            status                    : 'unavailable',
-            unavailableReason         : reason,
+            schemaVersion    : 1,
+            recordType       : 'deployment-provider-activity',
+            source           : 'provider-activity-ledger',
+            status           : 'unavailable',
+            unavailableReason: reason,
             observedAt,
-            sinceMs                   : Number.isFinite(this.providerActivityWindowMs) ? this.providerActivityWindowMs : null,
+            sinceMs          : Number.isFinite(this.providerActivityWindowMs) ? this.providerActivityWindowMs : null,
+            // Present-and-empty, matching the projection's own contract. The success arm spreads
+            // the projection so this field flows through automatically; omitting it HERE would make
+            // the degraded arm the only one where a consumer reads `undefined` — and `undefined`
+            // reads as zero demand, the one reassuring answer an unavailable read must not give.
+            // This is the surface an EXTERNAL plane is observed through, which is exactly the plane
+            // that was burning cores with nothing visible.
+            nativeAdmission           : {},
             totalActivities           : null,
             totalInFlight             : null,
             totalRecentCompletions    : null,

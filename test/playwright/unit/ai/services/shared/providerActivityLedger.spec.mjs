@@ -252,4 +252,128 @@ test.describe('providerActivityLedger', () => {
             {id: 'retry-activity', activity: {model: 'unknown'}}
         ]);
     });
+    /**
+     * @summary Live admission demand is DERIVED from the rows, not stored a second time.
+     *
+     * Once a producer opens its row before admission and starts it only after acquiring a slot, the
+     * queue's live state is already in this table: no `started_at` means waiting, started without a
+     * completion means executing. The alternative — a process-local getter on the producing service —
+     * cannot answer at all, because the observer runs in a different OS process.
+     *
+     * Driven through the REAL ledger against a real database. The producer-side arms for this feature
+     * used injected recorder doubles, and a permissive double is exactly what let an unsupported
+     * `failureStage` persist as `unknown` while the suite stayed green.
+     */
+    test('#16880: waiting and executing are derived from the row boundaries', () => {
+        const waitingId = beginProviderActivity(db, {
+            service   : 'memory-core', provider: 'ollama', role: 'embedding',
+            enqueuedAt: 1000, queueDisposition: 'neo-queued'
+        });
+        const executingId = beginProviderActivity(db, {
+            service   : 'memory-core', provider: 'ollama', role: 'embedding',
+            enqueuedAt: 1000, queueDisposition: 'neo-queued'
+        });
+
+        startProviderActivity(db, executingId, 1200);
+
+        const {nativeAdmission} = getProviderActivityMetrics(db, {
+            sinceTs            : 0, limit: 50, now: 2000,
+            nativeAdmissionCaps: {'memory-core::ollama': 1}
+        });
+
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 1, executing: 1, waiting: 1});
+        expect(waitingId, 'both rows exist').toBeTruthy()
+    });
+
+    test('#16880: an ABSENT cap is null, never a fabricated zero', () => {
+        // `0` is the most alarming possible value — it reads as "admission is closed". Reporting it
+        // when the truth is only "provenance unavailable" would send an operator to fix a queue that
+        // is not shut. Unknown must look unknown.
+        beginProviderActivity(db, {
+            service   : 'memory-core', provider: 'ollama', role: 'embedding',
+            enqueuedAt: 1000, queueDisposition: 'neo-queued'
+        });
+
+        const {nativeAdmission} = getProviderActivityMetrics(db, {sinceTs: 0, limit: 50, now: 2000});
+
+        expect(nativeAdmission['memory-core::ollama'].cap).toBeNull();
+        expect(nativeAdmission['memory-core::ollama'].waiting,
+            'demand is still counted without a cap').toBe(1)
+    });
+
+    test('#16880: a declared cap with ZERO demand is still reported', () => {
+        // Omitting it makes a configured-but-idle queue indistinguishable from one that does not
+        // exist — and "no rows at all" is what a wedged plane looks like from the wrong angle.
+        const {nativeAdmission} = getProviderActivityMetrics(db, {
+            sinceTs            : 0, limit: 50, now: 2000,
+            nativeAdmissionCaps: {'memory-core::ollama': 4}
+        });
+
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 4, executing: 0, waiting: 0})
+    });
+
+    test('#16880 NON-VACUITY: a COMPLETED row is neither waiting nor executing', () => {
+        // Without this the counts pass against an implementation that never subtracts, which would
+        // report a permanently growing phantom backlog — the exact instrument failure this feature
+        // exists to prevent.
+        const id = beginProviderActivity(db, {
+            service   : 'memory-core', provider: 'ollama', role: 'embedding',
+            enqueuedAt: 1000, queueDisposition: 'neo-queued'
+        });
+
+        startProviderActivity(db, id, 1100);
+        completeProviderActivity(db, id, {completedAt: 1500, success: true});
+
+        const {nativeAdmission} = getProviderActivityMetrics(db, {
+            sinceTs            : 0, limit: 50, now: 2000,
+            nativeAdmissionCaps: {'memory-core::ollama': 2}
+        });
+
+        expect(nativeAdmission['memory-core::ollama'])
+            .toEqual({service: 'memory-core', provider: 'ollama', cap: 2, executing: 0, waiting: 0})
+    });
+
+    /**
+     * @summary THE finding: two processes at their own caps must not project as one cap violation.
+     *
+     * @neo-gpt constructed this from the deployment topology rather than the row shape. The Knowledge
+     * Base and Memory Core are separate OS processes sharing this table, each with its OWN static
+     * limiter. Grouping by provider alone sums them, so two perfectly-behaved processes at cap 4
+     * project as `{cap: 4, executing: 8}` — an alarm for a violation that never happened, which
+     * sends an operator to fix a limiter that is working.
+     *
+     * My previous arms could not see it: every one used a single service, so the aggregation error
+     * was unreachable. Same shape as the permissive double a review earlier — the fixture could not
+     * express the condition it needed to falsify.
+     */
+    test('#16880: two SERVICES at their own caps never project as one shared violation', () => {
+        for (const service of ['memory-core', 'knowledge-base']) {
+            for (const n of [1, 2, 3, 4]) {
+                const id = beginProviderActivity(db, {
+                    service, provider: 'ollama', role: 'embedding',
+                    enqueuedAt: 1000 + n, queueDisposition: 'neo-queued'
+                });
+
+                startProviderActivity(db, id, 1100 + n)
+            }
+        }
+
+        const {nativeAdmission} = getProviderActivityMetrics(db, {
+            sinceTs: 0, limit: 50, now: 2000,
+            // The Memory Core reader declares a cap for ITS OWN service only. It has no authority
+            // over the Knowledge Base's limiter, and borrowing this ceiling to label those rows
+            // would be a guess presented as a measurement.
+            nativeAdmissionCaps: {'memory-core::ollama': 4}
+        });
+
+        expect(nativeAdmission['memory-core::ollama'],
+            'each process is measured against its own ceiling'
+        ).toEqual({service: 'memory-core', provider: 'ollama', cap: 4, executing: 4, waiting: 0});
+
+        expect(nativeAdmission['knowledge-base::ollama'],
+            "another process's demand is visible, but its cap is unknown to this reader"
+        ).toEqual({service: 'knowledge-base', provider: 'ollama', cap: null, executing: 4, waiting: 0})
+    });
 });

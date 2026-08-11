@@ -1433,16 +1433,51 @@ class TextEmbeddingService extends Base {
             requestTimeoutMs = this.#getOllamaEmbeddingTimeoutMs(),
             providerOutcome  = {state: 'pending'};
 
+        // The activity row opens BEFORE admission, because the wait is part of what happened.
+        //
+        // This path used to reach the provider through `observeUnqueuedProviderActivity`, which
+        // stamps `queueDisposition: 'not-applicable'` and `enqueuedAt === startedAt`. Once native
+        // admission landed the queue became real, and the observation kept describing it as absent —
+        // so a caller that waited behind the cap published a null wait, and an operator staring at
+        // provider metrics could not separate "the provider is slow" from "Neo made it wait". Those
+        // demand opposite responses: raise the model's resources, or raise the cap. That is the
+        // discrimination a starved external plane needed and did not have.
+        //
+        // `neo-queued` for BOTH branches, including the uncontended one, on purpose: a disposition
+        // that only appears under contention makes the queue look like it materializes at load,
+        // rather than being a property of the path. The uncontended call records a measured ~zero
+        // wait, which is a fact, not an absence.
+        const lifecycle = createProviderActivityLifecycle({
+            recorder        : providerActivityRecorder,
+            activity        : {...providerActivity, model: dispatchModel},
+            queueDisposition: 'neo-queued'
+        });
+
+        lifecycle.onEnqueued({enqueuedAt: Date.now()});
+
         // Admission before the provider call. The uncontended path takes the synchronous branch and
         // does NOT await — see `#awaitOllamaEmbeddingSlot` for why an unconditional await silently
         // re-times every caller's cancellation.
-        //
-        // Waiting for a slot is its own phase: without it, a request queued behind the cap is
-        // indistinguishable from one the provider is slow to answer.
-        if (!this.#tryAcquireOllamaEmbeddingSlot()) {
-            operation.phase = 'awaiting-admission';
-            await this.#awaitOllamaEmbeddingSlot(signal, operationLabel, operation);
+        try {
+            if (!this.#tryAcquireOllamaEmbeddingSlot()) {
+                operation.phase = 'awaiting-admission';
+                await this.#awaitOllamaEmbeddingSlot(signal, operationLabel, operation);
+            }
+        } catch (error) {
+            // `queue`, NOT an invented `admission`. The shared ledger admits only
+            // `provider | queue | unknown` and normalizes anything else to `unknown` — so a bespoke
+            // stage does not fail, it silently degrades to the least informative value. The
+            // openAiCompatible queued-abort at :649 already uses `queue`; one vocabulary, not two.
+            //
+            // A caller abandoned WHILE WAITING never reached the provider, so the row must settle
+            // here. Without this the abort leaves an opened row with no completion — an in-flight
+            // figure that only grows, which is a worse instrument than none.
+            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'queue', success: false});
+            throw error;
         }
+
+        // The slot is held from here. Start stamps the boundary between waiting and executing.
+        lifecycle.onStarted({startedAt: Date.now()});
 
         try {
             operation.phase = 'in-flight';
@@ -1451,6 +1486,7 @@ class TextEmbeddingService extends Base {
             // Already-aborted callers must return the slot they just took, or an abort storm walks
             // the cap down to zero and stalls the path.
             this.#releaseOllamaEmbeddingSlot();
+            lifecycle.onSettled({completedAt: Date.now(), failureStage: 'queue', success: false});
             throw error;
         }
 
@@ -1464,35 +1500,39 @@ class TextEmbeddingService extends Base {
                 this.#emitOllamaEmbeddingTimeoutFriction(inputData, requestTimeoutMs, error);
             }
         };
-        const providerPromise = observeUnqueuedProviderActivity({
-            recorder: providerActivityRecorder,
-            activity: {
-                ...providerActivity,
-                model: dispatchModel
-            },
-            task    : () => {
-                let rawProviderPromise;
+        // Same task shape `observeUnqueuedProviderActivity` ran, settled against the lifecycle opened
+        // above so the row carries the admission wait it actually incurred.
+        const providerPromise = (async () => {
+            let rawProviderPromise;
 
-                try {
-                    rawProviderPromise = Promise.resolve(provider.embed(inputData, {
-                        num_ctx  : aiConfig.localModels.embedding.contextLimitTokens,
-                        operationLabel,
-                        timeoutMs: requestTimeoutMs,
-                        truncate : false
-                    }));
-                } catch (error) {
-                    recordProviderFailure(error);
-                    throw error;
-                }
-
-                rawProviderPromise.then(
-                    () => providerOutcome.state = 'fulfilled',
-                    recordProviderFailure
-                );
-
-                return rawProviderPromise;
+            try {
+                rawProviderPromise = Promise.resolve(provider.embed(inputData, {
+                    num_ctx  : aiConfig.localModels.embedding.contextLimitTokens,
+                    operationLabel,
+                    timeoutMs: requestTimeoutMs,
+                    truncate : false
+                }));
+            } catch (error) {
+                recordProviderFailure(error);
+                lifecycle.onSettled({completedAt: Date.now(), success: false});
+                throw error;
             }
-        });
+
+            rawProviderPromise.then(
+                () => providerOutcome.state = 'fulfilled',
+                recordProviderFailure
+            );
+
+            try {
+                const result = await rawProviderPromise;
+
+                lifecycle.onSettled({completedAt: Date.now(), success: true});
+                return result
+            } catch (error) {
+                lifecycle.onSettled({completedAt: Date.now(), success: false});
+                throw error
+            }
+        })();
 
         // Release when the PROVIDER settles, NOT when the caller does. This path deliberately lets a
         // caller settle on abort while its provider request keeps running — so releasing on caller
@@ -1513,23 +1553,6 @@ class TextEmbeddingService extends Base {
         });
     }
 
-    /**
-     * @summary Reports native Ollama embedding admission: the declared cap and what is using it.
-     *
-     * A concurrency must be declared AND reported to be worth anything. A cap nothing can observe
-     * is only half the repair: an operator seeing sustained provider load still cannot tell whether
-     * this process is at its limit or nowhere near it, which is the disproportion the whole ticket
-     * is about. `waiting` is the load-bearing field — in-flight at the cap with a queue behind it is
-     * a saturated path, while in-flight at the cap with nothing waiting is simply a busy one.
-     * @returns {{cap: Number, inFlight: Number, waiting: Number}}
-     */
-    getOllamaEmbeddingAdmission() {
-        return {
-            cap     : aiConfig.ollama.maxInFlightEmbeddings,
-            inFlight: this.#ollamaInFlightEmbeddings,
-            waiting : this.#ollamaEmbeddingWaiters.length
-        }
-    }
 
     /**
      * @summary Embeds a text array through OpenAI-compatible chunked batch requests.

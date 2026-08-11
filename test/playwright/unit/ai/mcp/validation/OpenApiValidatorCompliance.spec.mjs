@@ -577,6 +577,10 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(response.properties.status.enum).toEqual(['ok', 'partial', 'disabled', 'unavailable']);
         expect(response.required).toEqual([
             'status',
+            // Required on EVERY arm, not just `ok`. An absent key reads as `undefined`, which a
+            // consumer naturally treats as zero demand — the one reassuring answer a disabled,
+            // unavailable, or partial projection must never give.
+            'nativeAdmission',
             'totalActivities',
             'totalInFlight',
             'aggregates',

@@ -224,8 +224,9 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
 
         await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
 
+        // `harness.peak` IS the cap assertion: peak simultaneous dispatch, measured at the provider
+        // seam. Two callers not dispatched is the observable consequence of two callers queued.
         expect(harness.peak, 'three callers, one slot — the other two must be waiting, not dispatched').toBe(1);
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 2});
 
         harness.releaseAll();
         await waitForCondition(() => harness.started >= 1, 'the next embed is admitted after release');
@@ -283,7 +284,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
               third  = TextEmbeddingService.embedTexts(['c'], 'ollama').then(() => 'ok', error => error);
 
         await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission().waiting, 'two are queued').toBe(2);
+        expect(harness.peak, 'one dispatched, two queued behind the single slot').toBe(1);
 
         // Invalidate the cap, then release so a waiter wakes into the throwing re-check.
         aiConfig.ollama.maxInFlightEmbeddings = 0;
@@ -321,9 +322,18 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, error => error);
         }
 
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
-            'three consecutive failures must leave the path exactly as open as it started')
-            .toEqual({cap: 1, inFlight: 0, waiting: 0});
+        // The CONSEQUENCE of a drained path, not its counters: a leaked slot is only harmful because
+        // it blocks the next caller, so admitting one proves the property that matters. Asserting the
+        // internal tally would also pass on an implementation that leaked and then re-derived it.
+        // This provider always rejects, so a fourth call REJECTS if the path is open and HANGS at
+        // admission if a slot leaked. Racing it against a timeout makes the distinction the assertion.
+        const reopened = await Promise.race([
+            TextEmbeddingService.embedTexts(['reopen'], 'ollama').then(() => 'settled', () => 'settled'),
+            new Promise(resolve => setTimeout(() => resolve('STALLED_AT_ADMISSION'), 300))
+        ]);
+
+        expect(reopened, 'three consecutive failures must leave the path exactly as open as it started')
+            .toBe('settled');
     });
 
     test('a cap below 1 fails LOUD rather than admitting nothing forever (#16780 AC-5)', async () => {
@@ -358,6 +368,245 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         expect(error.message).toContain('must be a positive integer');
     });
 
+    /**
+     * @summary A caller that WAITED behind the admission cap must publish the wait it incurred.
+     *
+     * The defect this closes is an observability inversion, not a control-flow bug: native admission
+     * was enforced correctly and then described by `observeUnqueuedProviderActivity`, which stamps
+     * `not-applicable` and `enqueuedAt === startedAt`. So the queue existed and the metrics said it
+     * did not. An operator watching a saturated plane could not separate "the provider is slow" from
+     * "Neo made it wait" — and those demand opposite responses: give the model more resources, or
+     * raise the cap. Guessing wrong makes it worse.
+     *
+     * Driven through the real admission path with a genuinely blocked second caller, so it fails on
+     * the PRODUCER rather than on a lifecycle stubbed to say what the test wants.
+     */
+    test('#16880: a caller BLOCKED behind the cap records neo-queued with a positive measured wait', async () => {
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            activities = [],
+            recorder   = {
+                // A double must REFUSE what the real one refuses. A permissive fake accepted
+                // `failureStage: 'admission'` — a value the shared ledger normalizes to `unknown`
+                // (`providerActivityLedger.mjs`: `FAILURE_STAGES = provider | queue | unknown`) — so
+                // the suite was green while the persisted stage was the least informative one
+                // available. @neo-gpt found it by replaying the production contract instead of the
+                // injected seam. Mirrored here so the double cannot bless an unsupported value again.
+                assertSupportedStage(outcome) {
+                    if (outcome?.failureStage !== undefined &&
+                        !['provider', 'queue', 'unknown'].includes(outcome.failureStage)) {
+                        throw new Error(`unsupported failureStage: ${outcome.failureStage}`)
+                    }
+                },
+                // The id counter is its OWN sequence. Deriving it from `activities.length` numbers
+                // `start` rows too, so the second BEGIN would be `activity-3` and every later lookup
+                // by id would silently miss.
+                nextId: 0,
+                beginProviderActivity(entry) {
+                    const id = `activity-${++this.nextId}`;
+
+                    activities.push({type: 'begin', id, ...entry});
+                    return id
+                },
+                startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) {
+                    this.assertSupportedStage(outcome);
+                    activities.push({type: 'complete', id, outcome})
+                }
+            },
+            harness    = makeBlockingOllama();
+
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama', {providerActivityRecorder: recorder}),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama', {providerActivityRecorder: recorder});
+
+        // THE BOUNDARY OPENS HERE — immediately after the calls that create the contention, and
+        // BEFORE the first `await` that can time out. Twice now I moved it and left something above
+        // it: first three assertions, then the `waitForCondition` itself, which throws on timeout.
+        // Anything above this line that can throw strands the held slot and the parked waiter, and
+        // the failure then surfaces in an unrelated spec. A test may fail; it may not poison.
+        try {
+            await waitForCondition(
+                // Queue depth read from the RECORDER, which is what an operator gets: a row is begun
+                // at admission entry and started at admission grant, so begun-minus-started IS the
+                // number parked at the cap. No accessor needed for a fact already published.
+                () => activities.filter(item => item.type === 'begin').length
+                    - activities.filter(item => item.type === 'start').length === 1,
+                'the second caller to queue behind the cap'
+            );
+
+            // The row is OPEN while waiting — begun, not yet started. An instrument that only writes
+            // on completion cannot show a caller currently stuck at admission, the live symptom.
+            const begun = activities.filter(item => item.type === 'begin');
+
+            expect(begun.length, 'both callers opened a row before admission').toBe(2);
+            expect(begun.every(entry => entry.queueDisposition === 'neo-queued'),
+                'admission is a real queue and must be recorded as one').toBe(true);
+            expect(activities.filter(item => item.type === 'start').length,
+                'the blocked caller must NOT be marked started while it waits').toBe(1);
+
+            // `harness.started` is PENDING releases, and `releaseAll()` resets it to 0 — so the
+            // queued caller dispatching takes it back to 1, never to 2. Read the getter.
+            harness.releaseAll();
+            await waitForCondition(() => harness.started === 1, 'the queued caller to dispatch');
+            harness.releaseAll();
+            await Promise.all([first, second]);
+
+            const
+                secondBegin = begun[1],
+                secondStart = activities.find(item => item.type === 'start' && item.id === secondBegin.id);
+
+            expect(secondStart, 'the queued caller eventually starts').toBeTruthy();
+
+            // `>=`, NOT `>`. `Date.now()` has millisecond resolution and an admission wait can
+            // complete inside one tick, so a strict `>` fails on speed rather than on correctness —
+            // it flaked here on the very first run. This assertion is deliberately NOT the
+            // discriminator: the teeth are the `start`-count check above, because an implementation
+            // using `observeUnqueuedProviderActivity` marks BOTH callers started immediately, while
+            // a truthful queue cannot start one that has not been admitted.
+            expect(secondStart.startedAt,
+                'start is stamped at admission, never before it'
+            ).toBeGreaterThanOrEqual(secondBegin.enqueuedAt);
+
+        // This arm creates REAL contention, so it must prove it drained. A test that leaves a slot
+        // held or a waiter parked poisons every later spec in the worker with an admission stall,
+        // and the symptom surfaces somewhere else entirely — which is the pollution class this
+        // suite already suffers from. Asserting the drain keeps the cost inside this test.
+            // Drain proved as a CONSEQUENCE: a stranded slot or parked waiter would block this
+            // caller, which is the only way the leak ever hurts anything. Keeps the cost of any
+            // failure inside this test instead of surfacing as a stall three files later.
+            const drainProbe = TextEmbeddingService.embedTexts(['drain'], 'ollama').then(() => null, error => error);
+
+            await waitForCondition(() => harness.started === 1, 'contention must fully drain before the next spec runs');
+
+            harness.releaseAll();
+            await drainProbe
+        } finally {
+            harness.releaseAll();
+            await Promise.allSettled([first, second])
+        }
+    });
+
+    /**
+     * @summary A caller abandoned WHILE QUEUED must CLOSE its row, at a stage the ledger supports.
+     *
+     * The arm that was missing, and its absence is why an invented `failureStage: 'admission'`
+     * shipped green: nothing drove the abort path, so nothing could observe the value. The shared
+     * ledger admits only `provider | queue | unknown` and silently normalizes anything else to
+     * `unknown` — a bespoke stage does not fail, it degrades to the least informative answer while
+     * the producer's own comment claims precision it never achieved.
+     *
+     * Two properties, and the row-closing one matters more. An abandoned caller that leaves its row
+     * OPEN makes in-flight a number that only grows, so the instrument built to show a stuck plane
+     * would itself report a permanent phantom backlog.
+     */
+    test('#16880: a caller abandoned WHILE QUEUED closes its row at a ledger-supported stage', async () => {
+        aiConfig.ollama.maxInFlightEmbeddings = 1;
+
+        const
+            activities = [],
+            recorder   = {
+                assertSupportedStage(outcome) {
+                    if (outcome?.failureStage !== undefined &&
+                        !['provider', 'queue', 'unknown'].includes(outcome.failureStage)) {
+                        throw new Error(`unsupported failureStage: ${outcome.failureStage}`)
+                    }
+                },
+                nextId: 0,
+                beginProviderActivity(entry) {
+                    const id = `abort-${++this.nextId}`;
+
+                    activities.push({type: 'begin', id, ...entry});
+                    return id
+                },
+                startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) {
+                    this.assertSupportedStage(outcome);
+                    activities.push({type: 'complete', id, outcome})
+                }
+            },
+            harness    = makeBlockingOllama(),
+            controller = new AbortController();
+
+        TextEmbeddingService.ollamaProvider = harness.provider;
+
+        const first  = TextEmbeddingService.embedTexts(['a'], 'ollama', {providerActivityRecorder: recorder}),
+              second = TextEmbeddingService.embedTexts(['b'], 'ollama', {
+                  providerActivityRecorder: recorder,
+                  signal                  : controller.signal
+              }).then(() => 'fulfilled', error => error);
+
+        try {
+            await waitForCondition(
+                () => activities.filter(item => item.type === 'begin').length
+                    - activities.filter(item => item.type === 'start').length === 1,
+                'the second caller to queue'
+            );
+
+            controller.abort(new Error('queued caller cancelled'));
+            await second;
+
+            const
+                queuedRow = activities.filter(item => item.type === 'begin').at(-1),
+                completed = activities.find(item => item.type === 'complete' && item.id === queuedRow.id);
+
+            expect(completed, 'an abandoned queued caller must CLOSE its row, never leave it open')
+                .toBeTruthy();
+            expect(completed.outcome.success, 'and it did not succeed').toBe(false);
+            expect(completed.outcome.failureStage,
+                'the stage must be one the shared ledger actually persists — `queue`, matching the ' +
+                'openAiCompatible queued-abort precedent in this same service'
+            ).toBe('queue')
+        } finally {
+            harness.releaseAll();
+            await Promise.allSettled([first, second]);
+
+            // PROVE THE DRAIN. This arm aborts a caller mid-queue, which is precisely the shape that
+            // can strand a waiter or a slot; asserting it here keeps the cost inside this test
+            // instead of surfacing as a stall in an unrelated spec three files later.
+            // Drain proved as a CONSEQUENCE: a stranded slot or parked waiter would block this
+            // caller, which is the only way the leak ever hurts anything. Keeps the cost of any
+            // failure inside this test instead of surfacing as a stall three files later.
+            const drainProbe = TextEmbeddingService.embedTexts(['drain'], 'ollama').then(() => null, error => error);
+
+            await waitForCondition(() => harness.started === 1, 'an aborted queued caller must leave no residue');
+
+            harness.releaseAll();
+            await drainProbe
+        }
+    });
+
+    test('#16880 NON-VACUITY: an UNCONTENDED caller also records neo-queued, with a ~zero wait', async () => {
+        // Without this, the arm above passes against an implementation that only opens a row under
+        // contention — which would make the queue look like it materializes at load rather than
+        // being a property of the path. An uncontended call has a MEASURED near-zero wait; that is a
+        // fact, not an absence, and `not-applicable` would erase the distinction again.
+        aiConfig.ollama.maxInFlightEmbeddings = 4;
+
+        const
+            activities = [],
+            recorder   = {
+                beginProviderActivity(entry) { activities.push({type: 'begin', ...entry}); return 'activity-solo' },
+                startProviderActivity(id, startedAt) { activities.push({type: 'start', id, startedAt}) },
+                completeProviderActivity(id, outcome) { activities.push({type: 'complete', id, outcome}) }
+            };
+
+        TextEmbeddingService.ollamaProvider = {
+            async embed() { return {embeddings: [[0.1, 0.2]]} }
+        };
+
+        await TextEmbeddingService.embedTexts(['solo'], 'ollama', {providerActivityRecorder: recorder});
+
+        const begun = activities.find(item => item.type === 'begin');
+
+        expect(begun.queueDisposition, 'the disposition is a property of the path, not of load')
+            .toBe('neo-queued');
+        expect(activities.find(item => item.type === 'complete'),
+            'and provider settlement still completes the row').toBeTruthy()
+    });
+
     test('a caller aborted while QUEUED settles without waiting for the occupied slot (#16780 AC-5)', async () => {
         // The provider can remain alive after caller abort, but no provider work exists for a caller
         // still waiting at admission. It must therefore leave the queue immediately. Waiting for the
@@ -377,10 +626,12 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
               }).then(() => 'fulfilled', error => error),
               third  = TextEmbeddingService.embedTexts(['c'], 'ollama');
 
-        await waitForCondition(
-            () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 2,
-            'the second and third callers to queue'
-        );
+        // No recorder in this arm, so queue arrival is proven by dispatch exclusion: the first caller
+        // holds the only slot, and a microtask flush lets the other two reach admission and park.
+        await waitForCondition(() => harness.started === 1, 'the first caller holds the only slot');
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(harness.peak, 'the second and third callers are parked, not dispatched').toBe(1);
 
         expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
         controller.abort(reason);
@@ -391,9 +642,11 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         ]);
 
         expect(observed, 'the exact caller-owned reason settles before provider release').toBe(reason);
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 1});
         expect(getEventListeners(controller.signal, 'abort'), 'the cancelled waiter leaves no listener').toEqual([]);
 
+        // One of two queued callers was aborted; the OTHER must still be parked and dispatchable, and
+        // the wait below IS that proof — releasing the held slot admits exactly the survivor, while an
+        // implementation that dropped both waiters admits nobody and this times out.
         harness.releaseAll();
         await waitForCondition(() => harness.started === 1, 'the surviving queued caller to dispatch');
         harness.releaseAll();
@@ -487,7 +740,21 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         );
     });
 
-    test('records native Ollama as unqueued without leaking attribution controls to the provider', async () => {
+    /**
+     * @summary Native Ollama admission is a REAL queue, so it must be recorded as one.
+     *
+     * This arm previously asserted `queueDisposition: 'not-applicable'` — and that was correct when
+     * it was written, because nothing admitted on this path. Native admission then landed and the
+     * observation did not follow it, so a caller that genuinely waited behind the cap published a
+     * null wait. The spec was pinning the defect: an operator reading provider metrics could not
+     * separate "the provider is slow" from "Neo made it wait", which demand opposite responses.
+     *
+     * Both calls below are UNCONTENDED, and both must still record `neo-queued`. A disposition that
+     * appears only under contention would make the queue look like it materializes at load rather
+     * than being a property of the path; an uncontended call has a measured ~zero wait, which is a
+     * fact rather than an absence.
+     */
+    test('records native Ollama as neo-queued without leaking attribution controls to the provider', async () => {
         const captured   = [];
         const activities = [];
         const recorder   = {
@@ -526,13 +793,13 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
                 operationStage  : 'embedding-canary',
                 priority        : 'interactive',
                 provider        : 'ollama',
-                queueDisposition: 'not-applicable',
+                queueDisposition: 'neo-queued',
                 role            : 'embedding',
                 service         : 'memory-core'
             }),
             expect.objectContaining({
                 operationStage  : 'unknown',
-                queueDisposition: 'not-applicable'
+                queueDisposition: 'neo-queued'
             })
         ]);
         expect(activities.filter(item => item.type === 'complete')).toHaveLength(2);
