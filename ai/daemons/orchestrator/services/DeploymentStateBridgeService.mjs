@@ -677,6 +677,16 @@ export class DeploymentStateBridgeService extends Base {
             stats         : summarizeStats(stats),
             logs          : logSummary,
             providerResidency,
+            // WAS COMPUTED AND DISCARDED. Without it, `providerResidency: null` is unreadable from
+            // the artifact: a reader cannot tell "this service was never eligible for residency
+            // observation" from "we asked and got nothing back". Those are opposite facts — the
+            // first is the configured normal for every non-provider container, the second is a
+            // broken instrument — and collapsing them cost an incident three maintainers and a
+            // morning, each attributing a configured absence to a sick provider.
+            //
+            // The flag was already passed into `diagnose()` and simply never reached the record, so
+            // every reader outside this process had strictly less information than the producer.
+            providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
             providerActivity,
             heapObservation,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
@@ -740,7 +750,14 @@ export class DeploymentStateBridgeService extends Base {
                 logTail                     : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.logTail) ? AiConfig.orchestrator.deploymentStateBridge.logTail : null,
                 logMaxBytes                 : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.logMaxBytes) ? AiConfig.orchestrator.deploymentStateBridge.logMaxBytes : null,
                 statsSampleWindow           : Number.isFinite(AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow) ? AiConfig.orchestrator.deploymentStateBridge.statsSampleWindow : null,
-                providerResidencyServiceKeys: Array.isArray(AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys) ? [...AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys] : []
+                providerResidencyServiceKeys: Array.isArray(AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys) ? [...AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys] : [],
+                // Residency keys the bridge will never evaluate, because it only ever tests the
+                // predicate against a service it ENUMERATES. A non-empty list here means residency
+                // and provider-activity are silently `null` on every service, forever — a control
+                // that cannot fire. Published rather than logged: the reader diagnosing an absent
+                // residency reading is outside this process, and a warning in our logs is not
+                // reachable from the snapshot they are holding.
+                unobservableResidencyKeys   : this.collectUnobservableResidencyKeys()
             },
             serviceResolution: {
                 serviceCount        : serviceList.length,
@@ -789,6 +806,17 @@ export class DeploymentStateBridgeService extends Base {
                       observedAt
                   });
 
+            // Reachable ONLY through the injected seam. `probeProviderParallelModelCapacity` has
+            // five exits — three `throw`s and two object literals — so the SHIPPED probe cannot
+            // return a falsy value; even the degenerate case returns
+            // `{ready: true, skipped: true, reason: 'missing-host'|'unsupported-provider'}`. A test
+            // double can and does return `null`, and without this guard the spread below would emit
+            // a degenerate `{targetIdentity}` record that claims an observation nobody made.
+            //
+            // So `null` from this method carries TWO meanings, and only one of them can occur in
+            // production: not eligible (the check above), or an injected probe declining. That is
+            // why `providerResidencyEligible` is now on the record — it separates them for a reader
+            // who cannot see which probe was installed.
             if (!result) {
                 return null;
             }
@@ -818,6 +846,29 @@ export class DeploymentStateBridgeService extends Base {
      */
     isProviderResidencyServiceKey(serviceKey) {
         return AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey);
+    }
+
+    /**
+     * @summary Residency keys this bridge can never evaluate, because it does not enumerate them.
+     *
+     * `isProviderResidencyServiceKey()` is only ever called with a serviceKey the bridge already
+     * enumerates, so a residency key outside `allowedServices` is unreachable by construction. The
+     * predicate cannot return `true` for it, `collectProviderResidency()` returns `null` on every
+     * service, and `providerActivity` — gated by the same predicate — is absent too. Nothing fails;
+     * the pair simply reports the same value a correctly-configured non-provider container reports.
+     *
+     * Measured on a live plane: `allowedServices` was aliased to the orchestrator's runtime-access
+     * list, which has no reason to name the model container, while the residency default named
+     * exactly that container. Intersection empty, both fields `null` for the life of the deployment,
+     * and the reader concluded the provider was unobservable rather than unasked.
+     *
+     * @returns {String[]} Configured residency keys the enumeration does not cover.
+     */
+    collectUnobservableResidencyKeys() {
+        const configured = AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys,
+              enumerated = new Set(this.getServiceKeys());
+
+        return Array.isArray(configured) ? configured.filter(key => !enumerated.has(key)) : []
     }
 
     /**
