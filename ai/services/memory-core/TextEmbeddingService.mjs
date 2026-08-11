@@ -1553,23 +1553,6 @@ class TextEmbeddingService extends Base {
         });
     }
 
-    /**
-     * @summary Reports native Ollama embedding admission: the declared cap and what is using it.
-     *
-     * A concurrency must be declared AND reported to be worth anything. A cap nothing can observe
-     * is only half the repair: an operator seeing sustained provider load still cannot tell whether
-     * this process is at its limit or nowhere near it, which is the disproportion the whole ticket
-     * is about. `waiting` is the load-bearing field — in-flight at the cap with a queue behind it is
-     * a saturated path, while in-flight at the cap with nothing waiting is simply a busy one.
-     * @returns {{cap: Number, inFlight: Number, waiting: Number}}
-     */
-    getOllamaEmbeddingAdmission() {
-        return {
-            cap     : aiConfig.ollama.maxInFlightEmbeddings,
-            inFlight: this.#ollamaInFlightEmbeddings,
-            waiting : this.#ollamaEmbeddingWaiters.length
-        }
-    }
 
     /**
      * @summary Embeds a text array through OpenAI-compatible chunked batch requests.

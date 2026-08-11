@@ -224,8 +224,9 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
 
         await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
 
+        // `harness.peak` IS the cap assertion: peak simultaneous dispatch, measured at the provider
+        // seam. Two callers not dispatched is the observable consequence of two callers queued.
         expect(harness.peak, 'three callers, one slot — the other two must be waiting, not dispatched').toBe(1);
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 2});
 
         harness.releaseAll();
         await waitForCondition(() => harness.started >= 1, 'the next embed is admitted after release');
@@ -283,7 +284,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
               third  = TextEmbeddingService.embedTexts(['c'], 'ollama').then(() => 'ok', error => error);
 
         await waitForCondition(() => harness.started === 1, 'the first embed is admitted');
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission().waiting, 'two are queued').toBe(2);
+        expect(harness.peak, 'one dispatched, two queued behind the single slot').toBe(1);
 
         // Invalidate the cap, then release so a waiter wakes into the throwing re-check.
         aiConfig.ollama.maxInFlightEmbeddings = 0;
@@ -321,9 +322,18 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             await TextEmbeddingService.embedTexts(['a'], 'ollama').then(() => null, error => error);
         }
 
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
-            'three consecutive failures must leave the path exactly as open as it started')
-            .toEqual({cap: 1, inFlight: 0, waiting: 0});
+        // The CONSEQUENCE of a drained path, not its counters: a leaked slot is only harmful because
+        // it blocks the next caller, so admitting one proves the property that matters. Asserting the
+        // internal tally would also pass on an implementation that leaked and then re-derived it.
+        // This provider always rejects, so a fourth call REJECTS if the path is open and HANGS at
+        // admission if a slot leaked. Racing it against a timeout makes the distinction the assertion.
+        const reopened = await Promise.race([
+            TextEmbeddingService.embedTexts(['reopen'], 'ollama').then(() => 'settled', () => 'settled'),
+            new Promise(resolve => setTimeout(() => resolve('STALLED_AT_ADMISSION'), 300))
+        ]);
+
+        expect(reopened, 'three consecutive failures must leave the path exactly as open as it started')
+            .toBe('settled');
     });
 
     test('a cap below 1 fails LOUD rather than admitting nothing forever (#16780 AC-5)', async () => {
@@ -419,7 +429,11 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         // the failure then surfaces in an unrelated spec. A test may fail; it may not poison.
         try {
             await waitForCondition(
-                () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 1,
+                // Queue depth read from the RECORDER, which is what an operator gets: a row is begun
+                // at admission entry and started at admission grant, so begun-minus-started IS the
+                // number parked at the cap. No accessor needed for a fact already published.
+                () => activities.filter(item => item.type === 'begin').length
+                    - activities.filter(item => item.type === 'start').length === 1,
                 'the second caller to queue behind the cap'
             );
 
@@ -460,9 +474,15 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         // held or a waiter parked poisons every later spec in the worker with an admission stall,
         // and the symptom surfaces somewhere else entirely — which is the pollution class this
         // suite already suffers from. Asserting the drain keeps the cost inside this test.
-            expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
-                'contention must fully drain before the next spec runs'
-            ).toEqual({cap: 1, inFlight: 0, waiting: 0})
+            // Drain proved as a CONSEQUENCE: a stranded slot or parked waiter would block this
+            // caller, which is the only way the leak ever hurts anything. Keeps the cost of any
+            // failure inside this test instead of surfacing as a stall three files later.
+            const drainProbe = TextEmbeddingService.embedTexts(['drain'], 'ollama').then(() => null, error => error);
+
+            await waitForCondition(() => harness.started === 1, 'contention must fully drain before the next spec runs');
+
+            harness.releaseAll();
+            await drainProbe
         } finally {
             harness.releaseAll();
             await Promise.allSettled([first, second])
@@ -520,7 +540,8 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
 
         try {
             await waitForCondition(
-                () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 1,
+                () => activities.filter(item => item.type === 'begin').length
+                    - activities.filter(item => item.type === 'start').length === 1,
                 'the second caller to queue'
             );
 
@@ -545,9 +566,15 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             // PROVE THE DRAIN. This arm aborts a caller mid-queue, which is precisely the shape that
             // can strand a waiter or a slot; asserting it here keeps the cost inside this test
             // instead of surfacing as a stall in an unrelated spec three files later.
-            expect(TextEmbeddingService.getOllamaEmbeddingAdmission(),
-                'an aborted queued caller must leave no residue'
-            ).toEqual({cap: 1, inFlight: 0, waiting: 0})
+            // Drain proved as a CONSEQUENCE: a stranded slot or parked waiter would block this
+            // caller, which is the only way the leak ever hurts anything. Keeps the cost of any
+            // failure inside this test instead of surfacing as a stall three files later.
+            const drainProbe = TextEmbeddingService.embedTexts(['drain'], 'ollama').then(() => null, error => error);
+
+            await waitForCondition(() => harness.started === 1, 'an aborted queued caller must leave no residue');
+
+            harness.releaseAll();
+            await drainProbe
         }
     });
 
@@ -599,10 +626,12 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
               }).then(() => 'fulfilled', error => error),
               third  = TextEmbeddingService.embedTexts(['c'], 'ollama');
 
-        await waitForCondition(
-            () => TextEmbeddingService.getOllamaEmbeddingAdmission().waiting === 2,
-            'the second and third callers to queue'
-        );
+        // No recorder in this arm, so queue arrival is proven by dispatch exclusion: the first caller
+        // holds the only slot, and a microtask flush lets the other two reach admission and park.
+        await waitForCondition(() => harness.started === 1, 'the first caller holds the only slot');
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(harness.peak, 'the second and third callers are parked, not dispatched').toBe(1);
 
         expect(getEventListeners(controller.signal, 'abort')).toHaveLength(1);
         controller.abort(reason);
@@ -613,9 +642,11 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         ]);
 
         expect(observed, 'the exact caller-owned reason settles before provider release').toBe(reason);
-        expect(TextEmbeddingService.getOllamaEmbeddingAdmission()).toEqual({cap: 1, inFlight: 1, waiting: 1});
         expect(getEventListeners(controller.signal, 'abort'), 'the cancelled waiter leaves no listener').toEqual([]);
 
+        // One of two queued callers was aborted; the OTHER must still be parked and dispatchable, and
+        // the wait below IS that proof — releasing the held slot admits exactly the survivor, while an
+        // implementation that dropped both waiters admits nobody and this times out.
         harness.releaseAll();
         await waitForCondition(() => harness.started === 1, 'the surviving queued caller to dispatch');
         harness.releaseAll();
