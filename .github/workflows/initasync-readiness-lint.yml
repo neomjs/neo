@@ -1,0 +1,44 @@
+name: InitAsync Readiness Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-init-async-readiness.mjs'
+      - '.github/workflows/initasync-readiness-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'buildScripts/util/check-init-async-readiness.mjs'
+      - '.github/workflows/initasync-readiness-lint.yml'
+
+concurrency:
+  group: initasync-readiness-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # Parses with acorn rather than scanning lines. The regex predecessor was dropped after two
+      # review cycles because each closed its named fixtures while the next found a shape it could
+      # not reach — multiline declarations, aliases, compound guards. Hence the install.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      - name: Install dependencies (acorn)
+        run: npm ci --ignore-scripts
+
+      - name: Require a readiness discipline for initAsync-assigned members
+        run: node ./buildScripts/util/check-init-async-readiness.mjs

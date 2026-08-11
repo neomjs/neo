@@ -61,6 +61,11 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : ['test/**/*.mjs']
     },
+    'initasync-readiness-lint.yml': {
+        scriptRel: 'buildScripts/util/check-init-async-readiness.mjs',
+        source   : 'declared',
+        surface  : ['ai/**/*.mjs']
+    },
     'atomic-write-shape-lint.yml': {
         scriptRel: 'buildScripts/util/check-atomic-write-shape.mjs',
         source   : 'declared',

@@ -263,7 +263,8 @@
             "node ./buildScripts/util/check-derived-domain.mjs"
         ],
         "ai/**/*.mjs": [
-            "node ./buildScripts/util/check-atomic-write-shape.mjs"
+            "node ./buildScripts/util/check-atomic-write-shape.mjs",
+            "node ./buildScripts/util/check-init-async-readiness.mjs"
         ],
         "{package.json,.husky/pre-commit,.github/workflows/*.yml,.github/workflows/*.yaml,ai/scripts/lint/lint-guard-ci-parity.mjs,ai/scripts/lint/guard-ci-parity-registry.json}": [
             "node ./ai/scripts/lint/lint-guard-ci-parity.mjs"

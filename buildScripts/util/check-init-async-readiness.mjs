@@ -59,8 +59,47 @@ const READY_CALL = 'ready';
  */
 export const REGISTRY = new Map([
     ['ai/services/memory-core/SessionService.mjs::findSessionsToSummarize::memoryCollection',
-     'The read this guard was written to catch. Left unfixed ON PURPOSE for one commit so the lint is ' +
-     'observed failing on the real tree; the repair follows and this entry goes with it.']
+     'The read this guard was written to catch, kept here so the lint has a named in-tree witness. ' +
+     'The paired spec asserts the predicate FIRES on it against the tree as it stands, so the guard is ' +
+     'observed failing without CI going permanently red.'],
+    ["ai/daemons/orchestrator/services/DreamService.mjs::findUndigestedSessions::sessionsCollection",
+     "Daemon-side collection read. The daemon awaits its own boot before scheduling, so the risk is a direct call from a test or a future caller rather than the scheduled path — which is exactly the class an unwritten guarantee cannot survive."],
+    ["ai/daemons/orchestrator/services/DreamService.mjs::processUndigestedSessions::sessionsCollection",
+     "Daemon-side collection read. The daemon awaits its own boot before scheduling, so the risk is a direct call from a test or a future caller rather than the scheduled path — which is exactly the class an unwritten guarantee cannot survive."],
+    ["ai/agent/Loop.mjs::processEvent::tools",
+     "Agent loop reads its tool surface with no readiness discipline. Lowest blast radius of the set and the natural first burndown candidate."],
+    ["ai/agent/Loop.mjs::executeTools::toolRegistry",
+     "Agent loop reads its tool surface with no readiness discipline. Lowest blast radius of the set and the natural first burndown candidate."],
+    ["ai/services/memory-core/MemoryCoreRecorderService.mjs::getReembedRatioProjection::db",
+     "The one read in this class still uncovered: the projection passes this.db straight to a helper, where its siblings all guard with an early return. The narrowest fix is the same early return."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::registerForTenant::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::getRegistrationForTenant::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::resolveRegistration::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::transitionLifecycleForTenant::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::listAuditForTenant::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/SourceRegistryService.mjs::recordAudit::db",
+     "Tenant-scoped registry read with no readiness discipline present. Candidate fix is one require-style accessor mirroring GraphService.requireDb(), which would cover every read in this class at once rather than six separate awaits."],
+    ["ai/services/memory-core/CommunityBatchAdmissionService.mjs::getHostedSourceHealth::db",
+     "Guards its tenantId but not its db. Same candidate fix as its SourceRegistry sibling, and the two should adopt it together since they share the store."],
+    ["ai/services/memory-core/CommunityBatchAdmissionService.mjs::listObservations::db",
+     "Guards its tenantId but not its db. Same candidate fix as its SourceRegistry sibling, and the two should adopt it together since they share the store."],
+    ["ai/services/memory-core/CommunityBatchAdmissionService.mjs::readCheckpoint::db",
+     "Guards its tenantId but not its db. Same candidate fix as its SourceRegistry sibling, and the two should adopt it together since they share the store."],
+    ["ai/services/memory-core/SessionService.mjs::findSessionsToSummarize::sessionsCollection",
+     "The class this guard was written for. Its collections are assigned in initAsync and read across the summarization surface with neither discipline; the repair is its own lane because the call graph reaches these from both daemon and MCP entry points."],
+    ["ai/services/memory-core/SessionService.mjs::summarizeSession::memoryCollection",
+     "The class this guard was written for. Its collections are assigned in initAsync and read across the summarization surface with neither discipline; the repair is its own lane because the call graph reaches these from both daemon and MCP entry points."],
+    ["ai/services/memory-core/SessionService.mjs::summarizeSession::sessionsCollection",
+     "The class this guard was written for. Its collections are assigned in initAsync and read across the summarization surface with neither discipline; the repair is its own lane because the call graph reaches these from both daemon and MCP entry points."],
+    ["ai/services/memory-core/SessionService.mjs::ingestAntigravityArtifacts::memoryCollection",
+     "The class this guard was written for. Its collections are assigned in initAsync and read across the summarization surface with neither discipline; the repair is its own lane because the call graph reaches these from both daemon and MCP entry points."],
+    ["ai/services/memory-core/SessionService.mjs::recoverSessionSummaryReceipts::sessionsCollection",
+     "The class this guard was written for. Its collections are assigned in initAsync and read across the summarization surface with neither discipline; the repair is its own lane because the call graph reaches these from both daemon and MCP entry points."]
 ]);
 
 /**
@@ -153,16 +192,36 @@ function inMethodTruthinessGuards(methodNode) {
     const guardedFrom = new Map(),
           testSpans   = [];
 
+    /**
+     * `this.x` members whose ABSENCE makes the test true, so passing the test proves them present.
+     *
+     * `!this.db` alone, and every `!this.x` operand of an `||` chain — `if (!enabled || !this.db)
+     * return` is a real and common guard, and reading only a bare test misses it. COMPOUND GUARDS
+     * are named in this ticket's own history as one of the classes that defeated the regex
+     * predecessor, and the first version of this parse had exactly the same hole.
+     *
+     * `&&` deliberately does NOT credit: passing `if (!this.db && other)` proves nothing about
+     * `this.db` on its own.
+     */
+    const absenceOperands = node => {
+        if (node?.type === 'UnaryExpression' && node.operator === '!') {
+            const arg = node.argument;
+            return arg?.type === 'MemberExpression' &&
+                   arg.object?.type === 'ThisExpression' &&
+                   arg.property?.type === 'Identifier' ? [arg.property.name] : []
+        }
+
+        if (node?.type === 'LogicalExpression' && node.operator === '||') {
+            return [...absenceOperands(node.left), ...absenceOperands(node.right)]
+        }
+
+        return []
+    };
+
     walk(methodNode, node => {
         if (node.type !== 'IfStatement') return;
 
-        const test    = node.test,
-              negated = test?.type === 'UnaryExpression' && test.operator === '!' ? test.argument : null,
-              subject = negated ?? test;
-
-        if (subject?.type !== 'MemberExpression' ||
-            subject.object?.type !== 'ThisExpression' ||
-            subject.property?.type !== 'Identifier') return;
+        const test = node.test;
 
         // `if (!this.x) { return/throw }` guards what follows; `if (this.x) { … }` guards its own body.
         let exits = false;
@@ -170,15 +229,24 @@ function inMethodTruthinessGuards(methodNode) {
             if (inner.type === 'ReturnStatement' || inner.type === 'ThrowStatement') exits = true
         });
 
-        const name = subject.property.name,
-              from = negated && exits ? node.end : node.start;
-
         // The guard's OWN test reads the member it protects. Without this the lint reports every
         // correctly-guarded method for the act of checking — `ensureSchema()`'s `if (!this.db) return`
         // was flagged at the `if` line itself.
         testSpans.push([test.start, test.end]);
 
-        guardedFrom.set(name, Math.min(guardedFrom.get(name) ?? Infinity, from))
+        const absent = exits ? absenceOperands(test) : [];
+
+        for (const name of absent) {
+            guardedFrom.set(name, Math.min(guardedFrom.get(name) ?? Infinity, node.end))
+        }
+
+        // The positive form `if (this.x) { … }` guards only its own body, which the offset covers.
+        if (test?.type === 'MemberExpression' &&
+            test.object?.type === 'ThisExpression' &&
+            test.property?.type === 'Identifier') {
+            const name = test.property.name;
+            guardedFrom.set(name, Math.min(guardedFrom.get(name) ?? Infinity, node.start))
+        }
     });
 
     return {guardedFrom, testSpans}
