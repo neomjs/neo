@@ -431,6 +431,25 @@ class ConfigBase extends ConfigProvider {
                  */
                 embeddingProbeCadenceMs: leaf(60000, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_CADENCE_MS', 'number'),
                 /**
+                 * The share of wall-clock time this probe may occupy its provider. After each attempt
+                 * the producer stays idle for `cost · (1 - d) / d`, so the effective period becomes
+                 * `max(cadence, cost + floor)`.
+                 *
+                 * Cadence alone cannot bound this: a probe whose duration approaches its cadence runs
+                 * back-to-back at ANY cadence value. Only a cost-derived floor closes it, and it
+                 * self-scales — a fast probe never reaches the floor and keeps sampling on cadence.
+                 *
+                 * **This bounds THIS producer, not the provider.** Memory Core runs its own write
+                 * canary against the same embedder, so a deployment running both puts up to
+                 * `2 · d` on it, plus ingestion. The default is deliberately HALF Memory Core's,
+                 * because the Knowledge Base additionally drives tenant ingestion through the same
+                 * provider and its probe is the more expendable of the two. Size this for the number of
+                 * producers a deployment actually runs; a provider-wide bound would need coordination
+                 * these processes do not have. `<= 0` or `>= 1` disables the floor.
+                 * @type {number}
+                 */
+                embeddingProbeMaxDutyCycle: leaf(0.1, 'NEO_KB_HEALTHCHECK_EMBEDDING_PROBE_MAX_DUTY_CYCLE', 'number'),
+                /**
                  * Staleness floor for the last healthy result: how long a success stays authoritative
                  * before the gate re-probes.
                  * @type {number}

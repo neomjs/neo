@@ -5,6 +5,7 @@ import Base                       from '../../../src/core/Base.mjs';
 import ChromaManager              from './ChromaManager.mjs';
 import DatabaseLifecycleService   from './DatabaseLifecycleService.mjs';
 import {createBoundedRetryGate}   from '../shared/boundedRetryGate.mjs';
+import {createProbeDutyCycle}     from '../shared/probeDutyCycle.mjs';
 import {buildEmbeddingProbeBlock} from '../shared/embeddingProbe.mjs';
 import {readDeployedRevision}     from '../shared/deployedRevision.mjs';
 import logger                     from '../../mcp/server/knowledge-base/logger.mjs';
@@ -419,10 +420,15 @@ class HealthService extends Base {
             };
         }
 
-        const snapshot = producer.gate.snapshot();
+        const snapshot = producer.gate.snapshot(),
+              probe    = producer.dutyCycle.describe();
 
         if (snapshot.status === 'healthy') {
-            const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs),
+            // Measured against the EFFECTIVE period, not the configured cadence: under the duty-cycle
+            // floor a slow-but-alive probe legitimately waits longer than its cadence, and measuring
+            // against cadence alone would report a working loop as stale — the dead-loop guard firing
+            // precisely on the deployments the floor exists to protect.
+            const staleAfter = 3 * Math.max(producer.cadenceMs, producer.healthyTtlMs, probe.effectivePeriodMs),
                   age        = producer.clock() - snapshot.cached.checkedAt;
 
             if (age > staleAfter) {
@@ -454,11 +460,12 @@ class HealthService extends Base {
 
                 return {
                     status: 'stale',
-                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (cadence ${producer.cadenceMs}ms, deadline ${producer.timeoutMs}ms, no attempt in flight)`
+                    reason: `is stale: last healthy vector is ${Math.round(age / 1000)}s old (effective period ${probe.effectivePeriodMs}ms, deadline ${producer.timeoutMs}ms, no attempt in flight)`,
+                    probe
                 };
             }
 
-            return {status: 'healthy'};
+            return {status: 'healthy', probe};
         }
 
         if (snapshot.cached) {
@@ -469,7 +476,8 @@ class HealthService extends Base {
                 backoffMs    : snapshot.backoffMs,
                 nextAttemptAt: snapshot.nextAttemptAt,
                 stopReason   : snapshot.stopReason,
-                timeoutMs    : producer.timeoutMs
+                timeoutMs    : producer.timeoutMs,
+                probe
             };
         }
 
@@ -510,6 +518,7 @@ class HealthService extends Base {
             healthyTtlMs    = aiConfig.healthcheck.embeddingProbeHealthyTtlMs,
             failureTtlMs    = aiConfig.healthcheck.embeddingProbeFailureTtlMs,
             failureTtlMaxMs = aiConfig.healthcheck.embeddingProbeFailureTtlMaxMs,
+            maxDutyCycle    = aiConfig.healthcheck.embeddingProbeMaxDutyCycle,
             runProbe,
             keyFor,
             scheduler,
@@ -540,23 +549,31 @@ class HealthService extends Base {
             producer = this.#embeddingProbeProducer = {
                 epoch: 0,
                 gate : createBoundedRetryGate({
-                    // Captures the attempt's ISSUED basis. `producer.timeoutMs` is mutable and every
-                    // re-arm overwrites it while this gate and any in-flight attempt are preserved, so
-                    // judging a live flight against the CURRENT config compares it to a deadline it
-                    // was never issued under.
+                    // Two wrappers, composed outside-in: the ISSUED basis is recorded first so it
+                    // spans the whole attempt, and the duty charge sits inside so an injected
+                    // `runProbe` cannot opt out of the bound that protects the shared provider.
+                    // `producer.timeoutMs` is mutable and every re-arm overwrites it while this gate
+                    // and any in-flight attempt are preserved, so judging a live flight against the
+                    // CURRENT config compares it to a deadline it was never issued under.
                     run: async context => {
                         producer.activeAttempt = {startedAt: producer.clock(), timeoutMs: producer.timeoutMs};
 
                         try {
-                            return await producer.runProbe(context);
-                        } catch {
-                            return {
-                                status             : 'failed',
-                                error              : 'probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR',
-                                errorClassification: 'probe-could-not-run',
-                                errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
-                            };
+                            return await producer.dutyCycle.run(async () => {
+                                try {
+                                    return await producer.runProbe(context);
+                                } catch {
+                                    return {
+                                        status             : 'failed',
+                                        error              : 'probe-could-not-run:EMBEDDING_PROBE_EXECUTION_ERROR',
+                                        errorClassification: 'probe-could-not-run',
+                                        errorCode          : 'EMBEDDING_PROBE_EXECUTION_ERROR'
+                                    };
+                                }
+                            });
                         } finally {
+                            // Cleared AFTER the charge settles, so the issued basis outlives every
+                            // inner frame that might still read it.
                             producer.activeAttempt = null;
                         }
                     },
@@ -576,17 +593,29 @@ class HealthService extends Base {
                 stopped      : false,
                 timer        : null
             };
+
+            // Numerics are read through the record, so a re-arm's re-resolved cadence, timeout and
+            // duty flow into the floor without replacing it — the same delegation the gate uses.
+            producer.dutyCycle = createProbeDutyCycle({
+                clock       : () => producer.clock(),
+                maxDutyCycle: () => producer.maxDutyCycle,
+                timeoutMs   : () => producer.timeoutMs,
+                cadenceMs   : () => producer.cadenceMs
+            });
         } else {
             if (clock) {
-                // Carry the in-flight attempt's ELAPSED time across the swap; `startedAt` is only
-                // meaningful in the clock that produced it.
+                // TWO absolute instants must survive a clock swap, and they re-base differently.
+                // Both readings are taken BEFORE the swap.
+                const previousNow = producer.clock();
+
                 if (producer.activeAttempt) {
-                    const elapsedMs = Math.max(0, producer.clock() - producer.activeAttempt.startedAt);
+                    const elapsedMs = Math.max(0, previousNow - producer.activeAttempt.startedAt);
 
                     producer.activeAttempt.startedAt = clock() - elapsedMs;
                 }
 
                 producer.clock = clock;
+                producer.dutyCycle.rebaseClock(previousNow, clock());
             }
 
             if (keyFor)   producer.keyFor   = keyFor;
@@ -599,6 +628,7 @@ class HealthService extends Base {
         producer.cadenceMs    = cadenceMs;
         producer.disabled     = false;
         producer.healthyTtlMs = healthyTtlMs;
+        producer.maxDutyCycle = maxDutyCycle;
         producer.stopped      = false;
         producer.timeoutMs    = timeoutMs;
 
@@ -606,11 +636,24 @@ class HealthService extends Base {
 
         producer.timer = producer.schedule(() => {
             if (producer.epoch === epoch && !producer.stopped) {
+                if (!producer.dutyCycle.eligible()) {
+                    // Inside the duty-cycle floor: the provider is still owed idle for the LAST
+                    // attempt. Counted, not silent — a suppressed tick is reported truth.
+                    producer.dutyCycle.noteSkipped();
+                    return undefined;
+                }
+
                 return producer.gate.tick({key: producer.keyFor()});
             }
         }, cadenceMs);
 
-        return producer.gate.tick({key: producer.keyFor()});
+        // Joining an active flight is free (no new provider work), so it always proceeds; STARTING
+        // one inside the floor is not, so a re-arm cannot be used to bypass the bound.
+        if (producer.gate.snapshot().inFlight || producer.dutyCycle.eligible()) {
+            return producer.gate.tick({key: producer.keyFor()});
+        }
+
+        return undefined;
     }
 
     /**
