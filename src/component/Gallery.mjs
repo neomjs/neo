@@ -30,7 +30,7 @@ class Gallery extends Component {
         amountRows_: 3,
         /**
          * The background color of the gallery container
-         * @member {String} backgroundColor_='#000000' ticket-ref-ok: hex colour, not an issue ref
+         * @member {String} backgroundColor_='#000000'
          * @reactive
          */
         backgroundColor_: '#000000',

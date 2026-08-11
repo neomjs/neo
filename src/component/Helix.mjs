@@ -26,7 +26,7 @@ class Helix extends Component {
         ntype: 'helix',
         /**
          * The background color of the helix container
-         * @member {String} backgroundColor_='#000000' ticket-ref-ok: hex colour, not an issue ref
+         * @member {String} backgroundColor_='#000000'
          * @reactive
          */
         backgroundColor_: '#000000',

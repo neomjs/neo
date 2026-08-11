@@ -71,6 +71,34 @@ test.describe('check-ticket-archaeology guard', () => {
         expect(hits.map(h => h.line)).toEqual([1, 2, 3])
     });
 
+    test('does NOT flag an ALL-NUMERIC hex colour in value position', () => {
+        // The reported defect. `#1234ff` passed only because its letters stop the `\d{4,}` run before
+        // the word boundary — an accident of that example, not a rule. An all-numeric colour has
+        // nothing to stop it, so `#000000` matched and every edit to a file holding one failed the
+        // pre-commit hook on a line the change never touched.
+        const hits = findTicketRefs([
+            "     * @member {String} backgroundColor_='#000000'",
+            '// the badge renders `#123456` on hover',
+            '// default is "#332211" until themed'
+        ].join('\n'));
+
+        expect(hits).toEqual([])
+    });
+
+    test('STILL flags a real ref that merely sits inside a string literal', () => {
+        // The control that keeps the repair honest. The fix keys on VALUE POSITION, not on quotes:
+        // a `#` immediately after a delimiter is a literal, one preceded by a space is prose that
+        // happens to live in a string — and prose refs decay exactly like unquoted ones. A repair
+        // that excluded everything inside quotes would pass the test above and silently stop
+        // guarding the case the guard exists for.
+        const hits = findTicketRefs([
+            "// see 'the note in #16538' before touching this",
+            '// TODO per #16553 — bare prose ref'
+        ].join('\n'));
+
+        expect(hits).toHaveLength(2)
+    });
+
     test('does NOT flag a 6-hex-with-letters color or a markdown-style "# 12345" heading in a comment', () => {
         const hits = findTicketRefs([
             '// fallback color #1234ff for the badge',

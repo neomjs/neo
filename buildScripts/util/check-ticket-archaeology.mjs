@@ -19,11 +19,31 @@ export const DEFAULT_IGNORES    = ['.claude', '.codex', 'dist', 'node_modules'];
 // Inline relief valve for a genuinely load-bearing comment ref (judgment-call escape, not a blanket bypass).
 export const ESCAPE_MARKER = 'ticket-ref-ok';
 
-// Decay-prone tracking anchors that must not live in durable source comments. `#\d{4,}\b` targets
-// issue/PR numbers (Neo tickets are 5 digits) while a trailing word boundary avoids matching hex colors
-// like `#1234ff`; the named forms catch the prose variants.
+// Decay-prone tracking anchors that must not live in durable source comments. The first pattern
+// targets issue/PR numbers (Neo tickets are 5 digits); the named forms catch the prose variants.
+//
+// **The trailing `\b` alone was a guarantee about one example, not a rule.** The superseded comment
+// claimed it "avoids matching hex colors like `#1234ff`" — true, and only because that example has
+// letters the `\d{4,}` run cannot consume. An ALL-NUMERIC colour has nothing to stop it: `#000000`
+// is six digits, `\d{4,}` takes all six, `\b` succeeds at the end, and the guard fires on a colour.
+// `#000000`, `#111111`, `#123456` and `#332211` were all reported as ticket refs.
+//
+// The lookbehind keys on VALUE POSITION rather than digit count: a colour literal is introduced by
+// a quote, backtick, or `=`, while a tracking ref is a bare word in prose. Digit-count numerology
+// (`exactly 3 or 6`) was the alternative and was rejected — it breaks the day a six-digit ticket
+// exists, and this guard's whole failure mode is a rule that was really a claim about one shape.
+//
+// Deliberately NOT "inside quotes": a real ref that merely sits inside a string literal — prose of
+// the form `'see #<number>'` — is still decay-prone and must still fire. Only a `#` IMMEDIATELY
+// after the delimiter is a value; one preceded by a space is prose that happens to sit in a string.
+// A bare unquoted all-numeric colour still fires too — outside value position this pattern cannot
+// tell it from a ref, and firing is the safe direction for a guard whose escape hatch is one
+// `ticket-ref-ok` marker away.
+//
+// (This paragraph originally carried a literal example ref and the guard rejected the commit. The
+// rule caught its own documentation, which is the correct outcome and worth leaving on the record.)
 export const TICKET_PATTERNS = [
-    /#\d{4,}\b/,
+    /(?<!['"`=])#\d{4,}\b/,
     /\bEpic\s+#?\d+\b/i,
     /\bDiscussion\s+#?\d+\b/i,
     /\bADR[-\s]?\d{3,4}\b/i
