@@ -291,6 +291,14 @@ function withoutFencedBlocks(body = '') {
  * @returns {String}
  * @private
  */
+function withoutHtmlComments(text = '') {
+    // An HTML comment is INVISIBLE in rendered Markdown, so a declaration inside one is not a
+    // declaration — a reader of the PR sees unowned work while the gate reports success. Same class as
+    // a fenced example: text that is present in the source and absent from the artifact. Blanked per
+    // character so every later line keeps its index.
+    return text.replace(/<!--[\s\S]*?-->/g, match => match.replace(/[^\n]/g, ' '))
+}
+
 function withoutInlineCode(text = '') {
     return text
         // Longest backtick runs FIRST: a ``double`` span is not two single spans, and a single-backtick
@@ -321,7 +329,7 @@ function postMergeValidationSections(body = '') {
     // section that genuinely owed work. A body owes work if ANY of its sections does, so the caller
     // needs the whole set and picks the owing one.
     const
-        fenceless = withoutFencedBlocks(body),
+        fenceless = withoutHtmlComments(withoutFencedBlocks(body)),
         matcher   = new RegExp(POST_MERGE_VALIDATION_H2.source, 'gm'),
         sections  = [];
 
@@ -388,7 +396,7 @@ export function validatePrBody(body, {draft = false} = {}) {
     // body — a prose mention, a quoted example, another section's deferral — would otherwise
     // discharge an obligation it has no relationship to.
     const
-        fenceless         = withoutFencedBlocks(body),
+        fenceless         = withoutHtmlComments(withoutFencedBlocks(body)),
         // The OWING section, not the first one. A body owes work if any of its Post-Merge Validation
         // sections does, and the owner must appear in THAT section — so an earlier discharged duplicate
         // can no longer stand in for a later live one.

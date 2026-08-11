@@ -280,6 +280,31 @@ test.describe('validatePrBody — Residual-Owner gate (#16906)', () => {
         expect(residualFindings(bothOwned)).toHaveLength(0);
     });
 
+    test('BYPASS 10 — an HTML comment is INVISIBLE in the rendered artifact', () => {
+        // The last of the rendered-authority set, and the cleanest statement of what the whole family
+        // has been about: the gate must judge what a READER SEES, not what the source contains. An owner
+        // inside `<!-- … -->` renders as nothing, so the reviewer sees unowned work while the lint
+        // reports success — the exact inversion the gate exists to prevent.
+        const multiLine = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work', '',
+            '<!--', 'Residual-Owner: #200', '-->'
+        ].join('\n');
+
+        expect(residualFindings(multiLine)).toHaveLength(1);
+
+        const singleLine = `${base}\n\n## Post-Merge Validation\n- [ ] do real work\n<!-- Residual-Owner: #200 -->`;
+
+        expect(residualFindings(singleLine)).toHaveLength(1);
+
+        // Control: blanking comments must not blank the document around them.
+        const commentThenRealOwner = [
+            base, '', '## Post-Merge Validation', '- [ ] do real work',
+            '<!-- an aside about ownership -->', 'Residual-Owner: #16853'
+        ].join('\n');
+
+        expect(residualFindings(commentThenRealOwner)).toHaveLength(0);
+    });
+
     test('TWO declaration shapes — and anchoring the wrong one breaks the documented template', () => {
         // This arm exists because I broke it in both directions in consecutive rounds. `evidence-ladder.md`
         // prescribes a **1-line** declaration whose owner is MID-LINE:
