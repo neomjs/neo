@@ -217,9 +217,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
     test.afterEach(async () => {
         await fs.remove(tmpDir);
         // Restore the singleton's reactive config to default values so
-        // concurrency tests cannot leak short timeouts / serial-limit to siblings.
+        // concurrency tests cannot leak opt-in timeouts / serial-limit to siblings.
         TenantRepoSyncService.concurrencyLimit         = 2;
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 0;
         TenantRepoSyncService.clearTenantRepoAccessReadiness();
         TenantRepoSyncService.clearEmbeddingRecoveryProbeState();
     });
@@ -3614,19 +3614,14 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(TenantRepoSyncService.concurrencyLimit).toBe(10);
     });
 
-    test('concurrency-gate: beforeSetConcurrencyGateTimeoutMs rejects NaN/Infinity/negative; accepts 0 as no-timeout sentinel (#11942 AC2)', () => {
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
-        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+    test('concurrency-gate: beforeSetConcurrencyGateTimeoutMs defaults to FIFO waiting and accepts an opt-in timeout (#11942 AC2)', () => {
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
 
         // Invalid values fall back to the previous valid value.
         for (const invalid of [-1, -100, NaN, Infinity, -Infinity, '5000', null, undefined]) {
             TenantRepoSyncService.concurrencyGateTimeoutMs = invalid;
-            expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+            expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
         }
-
-        // 0 is a valid sentinel (no timeout — slots wait indefinitely).
-        TenantRepoSyncService.concurrencyGateTimeoutMs = 0;
-        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
 
         // Positive finite values are accepted.
         TenantRepoSyncService.concurrencyGateTimeoutMs = 60000;
@@ -4061,7 +4056,101 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(ingestCalls).toHaveLength(1);
     });
 
-    test('concurrency-gate: queued slot acquisition surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
+    test('concurrency-gate: queued repos wait for the default FIFO slot instead of acquiring failure backoff (#16780 O3)', async () => {
+        TenantRepoSyncService.concurrencyLimit = 1;
+
+        const
+            nativeSetTimeout = globalThis.setTimeout,
+            ingestOrder      = [];
+        let releaseSlowRepo,
+            signalSlowStarted,
+            resultPromise;
+
+        const
+            slowRepoGate = new Promise(resolve => { releaseSlowRepo = resolve; }),
+            slowStarted  = new Promise(resolve => { signalSlowStarted = resolve; });
+
+        for (const slug of ['org/slow', 'org/queued']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        // Compress only the retired shipped 30s default. On the pre-repair source this makes the
+        // queued repo fail in 10ms; with the FIFO default no slot timer is scheduled at all.
+        globalThis.setTimeout = (callback, delay, ...args) => nativeSetTimeout(
+            callback,
+            delay === 30000 ? 10 : delay,
+            ...args
+        );
+
+        try {
+            resultPromise = TenantRepoSyncService.runTask({
+                reason           : 'periodic',
+                taskStateService : createInMemoryTaskStateService(),
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
+                    {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
+                ]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService({
+                    summaryFactory: async payload => {
+                        ingestOrder.push(payload.repoSlug);
+
+                        if (payload.repoSlug === 'org/slow') {
+                            signalSlowStarted();
+                            await slowRepoGate;
+                        }
+
+                        return {
+                            ingested           : 1,
+                            deleted            : 0,
+                            embeddingsGenerated: 1,
+                            errors             : [],
+                            tenantId           : payload.tenantId,
+                            durationMs         : 1
+                        }
+                    }
+                }),
+                revisionsFilePath: revisionsFile,
+                seedBootstrap    : false
+            });
+
+            await slowStarted;
+            await new Promise(resolve => nativeSetTimeout(resolve, 40));
+
+            expect(ingestOrder).toEqual(['org/slow']);
+
+            const queuedAdmittedAfter = Date.now();
+            releaseSlowRepo();
+
+            const result = await resultPromise;
+
+            expect(result).toMatchObject({
+                status : 'completed',
+                details: {
+                    completedCount: 2,
+                    failedCount   : 0
+                }
+            });
+            expect(result.details.repos.map(repo => [repo.repoSlug, repo.status])).toEqual([
+                ['org/slow', 'active'],
+                ['org/queued', 'active']
+            ]);
+            expect(ingestOrder).toEqual(['org/slow', 'org/queued']);
+            expect(result.details.repos.some(repo =>
+                repo.lastErrorCode === 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT'
+            )).toBe(false);
+
+            const persisted = await fs.readJson(revisionsFile);
+            expect(persisted.revisions['t1/org/queued'].lastRunAttemptAt).toBeGreaterThanOrEqual(queuedAdmittedAfter);
+        } finally {
+            releaseSlowRepo?.();
+            await resultPromise?.catch(() => {});
+            globalThis.setTimeout = nativeSetTimeout;
+        }
+    });
+
+    test('concurrency-gate: explicit queued slot timeout surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
         TenantRepoSyncService.concurrencyLimit         = 1;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
 
