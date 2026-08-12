@@ -1790,6 +1790,45 @@ function getArchivedAtForMessage(messageNode, deliveryEdge=null) {
 }
 
 /**
+ * @summary Resolves a message's receipt state (`readAt`/`archivedAt`) with storage as the final
+ * authority.
+ *
+ * The cached delivery edge is a PROJECTION of the SQLite row, and on a long-lived plane the two
+ * can diverge durably: the source index can shadow or lose the fresh edge object, and the cached
+ * copy then reads `readAt: null` forever — while every write path (`mark_read`'s durable persist,
+ * the repair pass's re-link merge) treats the storage row as the truth. Both permissioned readers
+ * (`listMessages`, `get_message`) resolve through this one helper so they cannot disagree: when
+ * the cache claims "unread" for a receipt-shaped message, the committed storage row is consulted
+ * before it is believed. Gated on a cache-null `readAt`, so fresh rows never pay the query;
+ * direct DMs short-circuit (their receipt rides the shared MESSAGE node — one map object per id,
+ * no index resolution in play).
+ *
+ * READ-ONLY by contract: a read path must not write the cache (the load-echo pollution `autoSave`
+ * exists to suppress); a diverged cache converges through invalidation + this merge, never
+ * through a mutation here.
+ *
+ * @param {Object}      messageNode   MESSAGE node record (cache-resolved).
+ * @param {Object|null} deliveryEdge  Per-recipient DELIVERED_TO edge (cache-resolved), when found.
+ * @param {String}      target        Normalized recipient identity.
+ * @param {Boolean}     receiptShaped Whether the message can carry per-recipient receipts
+ *     (broadcast or visible delivery edges); other shapes skip the storage probe.
+ * @returns {{readAt: String|null, archivedAt: String|null}}
+ */
+function resolveReceiptState(messageNode, deliveryEdge, target, receiptShaped) {
+    let readAt     = getReadAtForMessage(messageNode, deliveryEdge),
+        archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
+
+    if (!readAt && receiptShaped) {
+        const storageReceipt = getStorageDeliveryMutableState(getRecordField(messageNode, 'id'), target);
+
+        if (storageReceipt.readAt)     readAt     = storageReceipt.readAt;
+        if (storageReceipt.archivedAt) archivedAt = storageReceipt.archivedAt;
+    }
+
+    return {readAt, archivedAt}
+}
+
+/**
  * Durably persists a receipt mutation (read or archive) already applied to a per-recipient
  * `DELIVERED_TO` edge, and reports whether the durable write actually ran.
  *
@@ -3041,7 +3080,14 @@ class MailboxService extends Base {
                             : isOutboxMatch;
 
                 if (isMatch) {
-                    const readAt   = getReadAtForMessage(messageNode, deliveryEdge);
+                    // Receipt state is storage-owned, never cache-owned — one resolver shared with
+                    // `getMessage`, so the two permissioned readers cannot disagree (see
+                    // resolveReceiptState for the doctrine and the read-only contract).
+                    const {readAt, archivedAt} = resolveReceiptState(
+                        messageNode, deliveryEdge, target,
+                        Boolean(deliveryEdge) || hasDeliveryEdges || isBroadcastRecipient
+                    );
+
                     const isUnread = !readAt;
                     if (status === 'unread' && !isUnread) continue;
                     if (status === 'read' && isUnread) continue;
@@ -3051,7 +3097,6 @@ class MailboxService extends Base {
                     // includeArchived: true surfaces them. Retracted messages are intentionally
                     // NOT filtered — they show with the placeholder subject so thread context
                     // remains coherent.
-                    const archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
                     if (!includeArchived && archivedAt) continue;
 
                     if (normalizedFromIdentity && !sameMailboxIdentity(sentByNodeId, normalizedFromIdentity)) continue;
@@ -3211,8 +3256,10 @@ class MailboxService extends Base {
             subject           : messageNode.properties.subject,
             body              : messageNode.properties.bodyText,
             sentAt            : messageNode.properties.sentAt,
-            readAt            : getReadAtForMessage(messageNode, deliveryEdge),
-            from              : sentBy,
+            // One resolver shared with `listMessages` — storage is the receipt authority when the
+            // cache claims unread (see resolveReceiptState).
+            readAt: resolveReceiptState(messageNode, deliveryEdge, me, Boolean(deliveryEdge) || sentTo === 'AGENT:*').readAt,
+            from  : sentBy,
             // Same stamp-or-unclassified contract as the listMessages rows — one read-path rule.
             senderPrincipalClass: messageNode.properties.senderPrincipalClass ?? 'unclassified',
             to                  : sentTo
