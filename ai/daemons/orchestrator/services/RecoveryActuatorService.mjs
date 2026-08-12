@@ -537,8 +537,12 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status        : 'failed',
-                    reasonCode    : 'executor-failed',
+                    status    : 'failed',
+                    reasonCode: error?.reason === 'runtime-effect-partially-applied'
+                        ? 'effect-no-longer-admitted-after-partial'
+                        : error?.reason === 'runtime-effect-disposition-uncertain'
+                            ? 'effect-no-longer-admitted-after-uncertain-attempt'
+                            : 'executor-failed',
                     serviceKey,
                     action,
                     targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
@@ -546,7 +550,9 @@ export class RecoveryActuatorService extends Base {
                     // `not-applied` is a claim; `uncertain` is the absence of one. A reader that
                     // cannot tell them apart will assume the effect did not happen, which is the
                     // assumption that makes a duplicate restart look safe.
-                    effectDisposition         : authorityLostAfterDispatch ? 'uncertain' : 'not-applied',
+                    effectDisposition         : error?.effectDisposition ||
+                        (authorityLostAfterDispatch ? 'uncertain' : 'not-applied'),
+                    ...(error?.providerResidency ? {providerResidency: error.providerResidency} : {}),
                     authorityLostAfterDispatch
                 },
                 recoveryRunId,
@@ -966,7 +972,12 @@ export class RecoveryActuatorService extends Base {
         this.assertAuthorityHeld({isAuthorityHeld, action, target});
 
         if (action === 'warm-provider') {
-            return this.warmProviderResidency({target, reason, isAuthorityHeld});
+            return this.warmProviderResidency({
+                target,
+                reason,
+                isAuthorityHeld,
+                ...(typeof isEffectStillAdmitted === 'function' ? {isEffectStillAdmitted} : {})
+            });
         }
 
         if (action === 'reconfigure') {
@@ -1050,14 +1061,26 @@ export class RecoveryActuatorService extends Base {
     /**
      * @summary Warms the configured chat + embedding provider role set without restarting a service.
      * @param {Object} options
+     * @param {Object} options.target Resolved recovery target.
+     * @param {String|null} [options.reason=null] Recovery reason.
+     * @param {Function|null} [options.isAuthorityHeld=null] Live recovery-authority oracle.
+     * @param {Function|null} [options.isEffectStillAdmitted=null] Live heavy-demand admission oracle.
      * @returns {Promise<Object>}
      */
-    async warmProviderResidency({target, reason, isAuthorityHeld = null}) {
+    async warmProviderResidency({target, reason, isAuthorityHeld = null, isEffectStillAdmitted = null}) {
         // Asserted immediately before the repair dispatches. The repair itself performs awaited
         // provider work, so this is the last point Neo owns before a privileged effect leaves the
         // process; loss DURING the repair is post-dispatch uncertainty, which the catch path records
         // rather than fences.
         this.assertAuthorityHeld({isAuthorityHeld, action: 'warm-provider', target});
+
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            const error = new Error(`Provider residency repair is no longer admitted for '${target.id}'; refusing.`);
+
+            error.reason = 'runtime-effect-not-admitted';
+
+            throw error;
+        }
 
         const repair = this.providerResidencyRepair || repairProviderRoleSetResidency,
               result = await repair({
@@ -1067,6 +1090,10 @@ export class RecoveryActuatorService extends Base {
                   // Carried INTO the repair so the assertion sits after its read-only role
                   // resolution and immediately before the unload/load/warm leaves the process.
                   isAuthorityHeld,
+                  // Same shape, different authority: active heavy-maintenance demand may appear
+                  // after the controller decision or an awaited readiness probe. The provider helper
+                  // re-checks this immediately before each native warm.
+                  ...(typeof isEffectStillAdmitted === 'function' ? {isEffectStillAdmitted} : {}),
                   log      : {
                       info: message => this.writeLog?.('INFO', message),
                       warn: message => this.writeLog?.('WARN', message)

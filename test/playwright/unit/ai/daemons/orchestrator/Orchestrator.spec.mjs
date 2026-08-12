@@ -23,6 +23,7 @@ import {
     ORCHESTRATOR_AUTHORITY_PROFILE
 } from '../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
+import {CONTAINER_HEALTH_ACTION_CLASSES}            from '../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import os                                           from 'os';
 import {createBootIdentityReadSource}               from '../../../../../../ai/services/fleet/createBootIdentityReadSource.mjs';
 import {BOOT_FRESHNESS_CLASS}                       from '../../../../../../ai/daemons/orchestrator/services/bootIdentityFreshness.mjs';
@@ -834,11 +835,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }
     });
 
-    test('effect-boundary provider admission veto applies only to residual Ollama restarts', () => {
+    test('effect-boundary admission routes residual restarts and provider warms to their own live gates', () => {
         const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
 
         orchestrator.containerHealthControllerService = {};
         orchestrator.isOllamaResidualRestartStillAdmitted = () => false;
+        orchestrator.isProviderWarmStillAdmitted = () => false;
 
         const isEffectStillAdmitted = orchestrator.containerHealthControllerService.isEffectStillAdmitted;
 
@@ -846,8 +848,50 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             diagnosis: {details: {classificationReason: 'ollama-residual-load-restart'}}
         })).toBe(false);
         expect(isEffectStillAdmitted({
+            actionClass: CONTAINER_HEALTH_ACTION_CLASSES.warmProvider,
+            diagnosis  : {details: {classificationReason: 'missing-required-model'}}
+        })).toBe(false);
+        expect(isEffectStillAdmitted({
             diagnosis: {details: {classificationReason: 'container-unhealthy-restart'}}
         })).toBe(true);
+    });
+
+    test('provider warm admission yields to task, lease or inspection uncertainty', () => {
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+        let   activeTask   = 'tenant-repo-sync',
+              leaseInspection = {status: 'missing', active: false},
+              inspectError  = null;
+        const logs = [];
+
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+        orchestrator.maintenanceBackpressureService.getActiveHeavyMaintenanceTask = () => {
+            if (inspectError) throw inspectError;
+            return activeTask;
+        };
+        orchestrator.inspectHeavyMaintenanceLeaseFn = () => leaseInspection;
+
+        expect(orchestrator.isProviderWarmStillAdmitted(10_000)).toBe(false);
+
+        activeTask      = null;
+        leaseInspection = {status: 'active', active: true};
+        expect(orchestrator.isProviderWarmStillAdmitted(10_001)).toBe(false);
+
+        leaseInspection = {status: 'missing', active: false};
+        expect(orchestrator.isProviderWarmStillAdmitted(10_002)).toBe(true);
+
+        leaseInspection = {status: 'unreadable', active: false, error: 'EACCES'};
+        expect(orchestrator.isProviderWarmStillAdmitted(10_003)).toBe(false);
+
+        leaseInspection = {status: 'malformed', active: false, error: 'invalid JSON'};
+        expect(orchestrator.isProviderWarmStillAdmitted(10_004)).toBe(false);
+
+        leaseInspection = {status: 'missing', active: false};
+        inspectError = new Error('task-state unreadable');
+        expect(orchestrator.isProviderWarmStillAdmitted(10_005)).toBe(false);
+        expect(logs).toContainEqual(expect.objectContaining({
+            level  : 'ERROR',
+            message: expect.stringContaining('task-state unreadable')
+        }));
     });
 
     test('effect-boundary provider admission follows the real shared-ledger transition', () => {
@@ -2525,7 +2569,7 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
             reason      : 'scheduled',
             pid         : process.pid,
             token       : 'test-token',
-            acquiredAt  : new Date(now - 1000).toISOString(),
+            acquiredAt  : new Date(now).toISOString(),
             staleAfterMs: 600000,
             expiresAt   : new Date(now + 600000).toISOString()
         });
@@ -2610,7 +2654,7 @@ test.describe('Neo.ai.daemons.Orchestrator — chroma max-runtime recycle (#1213
             reason      : 'scheduled',
             pid         : process.pid,
             token       : 'test-token',
-            acquiredAt  : new Date(now - 1000).toISOString(),
+            acquiredAt  : new Date(now).toISOString(),
             staleAfterMs: 600000,
             expiresAt   : new Date(now + 600000).toISOString()
         });

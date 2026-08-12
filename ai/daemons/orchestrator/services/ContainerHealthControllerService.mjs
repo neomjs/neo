@@ -281,8 +281,10 @@ export class ContainerHealthControllerService extends Base {
         const {actionClass, diagnosis, serviceKey} = decision,
               classificationReason                 = diagnosis.details?.classificationReason,
               reason                               = `container-health-controller:${classificationReason || route.reasonCode}`,
-              needsLiveAdmission                   = classificationReason === 'ollama-residual-load-restart',
-              residualEvidence                     = needsLiveAdmission
+              needsLiveAdmission                   = classificationReason === 'ollama-residual-load-restart' ||
+                  route.actuatorAction === 'warm-provider',
+              needsResidualIdentity                = classificationReason === 'ollama-residual-load-restart',
+              residualEvidence                     = needsResidualIdentity
                   ? diagnosis.evidenceFacts?.find(fact => fact?.type === 'ollama-residual-load')
                   : null,
               expectedContainerId                   = residualEvidence?.details?.runtimeContainerId;
@@ -308,7 +310,7 @@ export class ContainerHealthControllerService extends Base {
                 ...(needsLiveAdmission && typeof this.isEffectStillAdmitted === 'function'
                     ? {isEffectStillAdmitted: () => this.isEffectStillAdmitted(decision)}
                     : {}),
-                ...(needsLiveAdmission && typeof expectedContainerId === 'string'
+                ...(needsResidualIdentity && typeof expectedContainerId === 'string'
                     ? {expectedContainerId}
                     : {})
             });
