@@ -250,6 +250,33 @@ services:
       embedding-model:
         condition: service_healthy
 
+  # Disposable benchmark worker (#17024). This service deliberately does not extend any resident
+  # Agent OS service: Compose inheritance would otherwise carry the orchestrator's Docker socket and
+  # host-backup bind into an evidence process. The controller starts it only via `compose run` under
+  # the dedicated profile, on the internal network, with one read-only candidate receipt mount.
+  provider-lane-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_ENTRYPOINT: ai/scripts/benchmark/provider-lane-election.mjs
+        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
+    environment:
+      <<: *provider-lane-env
+      GEMINI_API_KEY: ""
+      NEO_KB_ASK_PROVIDER: ollama
+      NEO_KB_ASK_MODEL: gemma4:26b
+      NEO_KB_ASK_API_KEY: ""
+      NEO_KB_ASK_BASE_URL: http://chat-model:11434
+      NEO_OPENAI_COMPATIBLE_API_KEY: ""
+      NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: "5"
+    volumes: []
+    networks:
+      - neo-mcp-network
+    profiles:
+      - provider-lane-election
+
 volumes:
   chat-model-data:
   embedding-model-data:

@@ -23,6 +23,7 @@ const
     EMBED_SOURCES          = Object.freeze(['knowledge-base', 'memory-core', 'orchestrator']),
     LANE_NAMES             = Object.freeze(['chat', 'embedding']),
     OUTCOMES               = Object.freeze(['completed', 'error', 'unexpected-refusal']),
+    PROVIDER_OUTCOMES      = Object.freeze(['completed', 'error']),
     PROBE_RESPONSE_CLASSES = Object.freeze(['completed', 'context-limit-refusal', 'provider-error']),
     QUEUE_DISPOSITIONS     = Object.freeze(['not-applicable', 'queued']),
     SAFE_PUBLIC_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/,
@@ -123,18 +124,22 @@ export function createProviderLanePlanDigest(plan) {
  *
  * @param {Object} options
  * @param {Object} options.plan Immutable candidate profiles, workload, SLO, and sampling.
+ * @param {Object[]} options.contextEvidence One runtime context/refusal receipt per candidate.
  * @param {Object[]} options.trials Chronological raw operation/resource receipts.
  * @returns {Object} Bounded election receipt.
  */
-export function evaluateProviderLaneElection({plan, trials} = {}) {
+export function evaluateProviderLaneElection({contextEvidence, plan, trials} = {}) {
     const schedule   = validatePlan(plan),
           planDigest = deriveProviderLanePlanDigest(plan),
-          derived    = validateAndDeriveTrials({plan, schedule, trials});
+          ids        = new Set(),
+          contexts   = validateContextEvidence({evidence: contextEvidence, ids, plan}),
+          derived    = validateAndDeriveTrials({ids, plan, schedule, trials});
 
     const candidates = CANDIDATES.map(candidate => evaluateCandidate({
               candidate,
+              contextEvidence: contexts.find(receipt => receipt.candidate === candidate),
               plan,
-              trials: derived.filter(trial => trial.candidate === candidate)
+              trials         : derived.filter(trial => trial.candidate === candidate)
           })),
           winner = candidates.find(candidate => candidate.status === 'PASS') ?? null;
 
@@ -514,13 +519,12 @@ function validateResourceSampling(sampling) {
  * @param {Object} options
  * @returns {Object[]}
  */
-function validateAndDeriveTrials({plan, schedule, trials}) {
+function validateAndDeriveTrials({ids, plan, schedule, trials}) {
     if (!Array.isArray(trials) || trials.length !== schedule.length) {
         throw new Error(`provider-lane matrix requires ${schedule.length} chronological trials`)
     }
 
-    const ids     = new Set(),
-          derived = [];
+    const derived = [];
 
     trials.forEach((trial, index) => {
         const slot    = schedule[index],
@@ -580,21 +584,21 @@ function validateAndDeriveTrials({plan, schedule, trials}) {
  * @returns {Object}
  */
 function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
-    if (!lane || !Array.isArray(lane.operations) || !Array.isArray(lane.resourceSamples) || lane.resourceSamples.length < 2) {
-        throw new Error(`trial ${trial.executionIndex} lane ${laneName} requires operations and at least two resource samples`)
+    if (!lane || !Array.isArray(lane.operations) || !Array.isArray(lane.sourceCalls) ||
+        !Array.isArray(lane.resourceSamples) || lane.resourceSamples.length < 2) {
+        throw new Error(`trial ${trial.executionIndex} lane ${laneName} requires provider operations, source calls, and resource samples`)
     }
-
-    const overLimitProbe = validateContextReceipt({
-        ids,
-        lane,
-        laneName,
-        profile,
-        trial
-    });
 
     validateRuntimeProfile(lane.runtimeProfile, profile.lanes[laneName], laneName, trial.executionIndex);
 
-    const operations = lane.operations.map(operation => validateOperation({
+    const sourceCalls = lane.sourceCalls.map(call => validateSourceCall({
+              call,
+              ids,
+              laneName,
+              trial
+          })),
+          sourceCallById = new Map(sourceCalls.map(call => [call.id, call])),
+          operations = lane.operations.map(operation => validateOperation({
               ids,
               laneName,
               operation,
@@ -608,9 +612,23 @@ function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
           }),
           queueWaits = operations.filter(operation => operation.queueWaitMs !== null).map(operation => operation.queueWaitMs),
           providerDurations = operations.map(operation => operation.providerDurationMs),
-          completions = operations.filter(operation => operation.outcome === 'completed').map(operation => operation.completedAtMs),
+          completions = sourceCalls.filter(call => call.outcome === 'completed').map(call => call.completedAtMs),
           windowMs = trial.completedAtMs - trial.startedAtMs,
           maxResourceSamples = Math.ceil(windowMs / plan.resourceSampling.expectedIntervalMs) + 2;
+
+    for (const call of sourceCalls) {
+        const linked = operations.filter(operation => operation.callId === call.id);
+
+        if (linked.length === 0 || linked.some(operation => operation.completedAtMs > call.completedAtMs ||
+            operation.demandAtMs < call.demandAtMs) ||
+            (call.outcome === 'completed' && linked.some(operation => operation.outcome !== 'completed')) ||
+            (call.outcome === 'unexpected-refusal' && linked.every(operation => operation.outcome !== 'error'))) {
+            throw new Error(`trial ${trial.executionIndex} lane ${laneName} has an incoherent source-call lifecycle`)
+        }
+    }
+    if (operations.some(operation => !sourceCallById.has(operation.callId))) {
+        throw new Error(`trial ${trial.executionIndex} lane ${laneName} has an unbound provider operation`)
+    }
 
     if (lane.resourceSamples.length > maxResourceSamples) {
         throw new Error(`trial ${trial.executionIndex} lane ${laneName} exceeds the bounded raw resource sample count`)
@@ -637,29 +655,38 @@ function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
     }
 
     return {
-        completedOperations         : completions.length,
-        cpuHighWaterPercent         : Math.max(...lane.resourceSamples.map(sample => sample.cpuPercent)),
-        errorCount                  : operations.filter(operation => operation.outcome === 'error').length,
-        maxNeoQueueWaitMs           : queueWaits.length > 0 ? Math.max(...queueWaits) : null,
-        maxProgressGapMs            : deriveMaxProgressGap(trial.startedAtMs, trial.completedAtMs, completions),
-        maxProviderDurationMs       : Math.max(...providerDurations),
-        observedContextTokensPerSlot: lane.observedContextTokensPerSlot,
+        completedOperations  : completions.length,
+        cpuHighWaterPercent  : Math.max(...lane.resourceSamples.map(sample => sample.cpuPercent)),
+        errorCount           : sourceCalls.filter(call => call.outcome === 'error').length,
+        maxNeoQueueWaitMs    : queueWaits.length > 0 ? Math.max(...queueWaits) : null,
+        maxProgressGapMs     : deriveMaxProgressGap(trial.startedAtMs, trial.completedAtMs, completions),
+        maxProviderDurationMs: Math.max(...providerDurations),
         observedMaxProviderConcurrency,
-        offeredOperations           : operations.length,
-        operations,
-        overLimitProbe,
-        queueDispositionCounts      : {
+        offeredOperations    : sourceCalls.length,
+        operations           : operations.map(operation => ({
+            ...operation,
+            callId: projectOpaqueId(operation.callId)
+        })),
+        providerOperationCount: operations.length,
+        queueDispositionCounts: {
             'not-applicable': operations.filter(operation => operation.queueDisposition === 'not-applicable').length,
             queued          : operations.filter(operation => operation.queueDisposition === 'queued').length
         },
-        resourceCoverageRatio : resource.coverageRatio,
-        resourceGapCount      : resource.gapCount,
-        resourceSampleCount   : resource.sampleCount,
-        resourceSamples       : lane.resourceSamples.map(({atMs, cpuPercent, rssBytes}) => ({atMs, cpuPercent, rssBytes})),
-        rssHighWaterBytes     : resource.rssHighWaterBytes,
-        runtimeProfile        : projectRuntimeProfile(lane.runtimeProfile),
+        resourceCoverageRatio: resource.coverageRatio,
+        resourceGapCount     : resource.gapCount,
+        resourceSampleCount  : resource.sampleCount,
+        resourceSamples      : lane.resourceSamples.map(({atMs, cpuPercent, rssBytes}) => ({atMs, cpuPercent, rssBytes})),
+        rssHighWaterBytes    : resource.rssHighWaterBytes,
+        runtimeProfile       : projectRuntimeProfile(lane.runtimeProfile),
+        sourceCalls          : sourceCalls.map(call => ({
+            completedAtMs: call.completedAtMs,
+            demandAtMs   : call.demandAtMs,
+            id           : projectOpaqueId(call.id),
+            outcome      : call.outcome,
+            source       : call.source
+        })),
         throughputPerSecond   : completions.length / (windowMs / 1000),
-        unexpectedRefusalCount: operations.filter(operation => operation.outcome === 'unexpected-refusal').length
+        unexpectedRefusalCount: sourceCalls.filter(call => call.outcome === 'unexpected-refusal').length
     }
 }
 
@@ -680,15 +707,56 @@ function projectRuntimeProfile(runtime) {
 }
 
 /**
- * @summary Validates runtime-observed context and an independent over-limit probe.
+ * @summary Validates exactly one runtime context/refusal receipt per candidate and lane.
  * @param {Object} options Validation inputs.
- * @returns {Object} Bounded, identity-bound probe receipt.
+ * @returns {Object[]} Bounded candidate receipts.
  */
-function validateContextReceipt({ids, lane, laneName, profile, trial}) {
-    const label = `trial ${trial.executionIndex} ${laneName}`,
-          probe = lane.overLimitProbe;
+function validateContextEvidence({evidence, ids, plan}) {
+    if (!Array.isArray(evidence) || evidence.length !== CANDIDATES.length) {
+        throw new Error('provider-lane election requires one context receipt for each candidate 1, 2, and 4')
+    }
 
-    assertPositiveInteger(lane.observedContextTokensPerSlot, `${label}.observedContextTokensPerSlot`);
+    const sorted = [...evidence].sort((left, right) => left?.candidate - right?.candidate);
+
+    if (sorted.some((receipt, index) => receipt?.candidate !== CANDIDATES[index])) {
+        throw new Error('provider-lane context receipts require each candidate 1, 2, and 4 exactly once')
+    }
+
+    return sorted.map(receipt => {
+        const profile = getProfile(plan, receipt.candidate);
+
+        if (!Number.isFinite(receipt.startedAtMs) || !Number.isFinite(receipt.completedAtMs) ||
+            receipt.completedAtMs <= receipt.startedAtMs ||
+            receipt.compositionReceiptDigest !== profile.compositionReceiptDigest) {
+            throw new Error(`candidate ${receipt.candidate} requires a receipt-bound context evidence window`)
+        }
+
+        return {
+            candidate               : receipt.candidate,
+            completedAtMs           : receipt.completedAtMs,
+            compositionReceiptDigest: receipt.compositionReceiptDigest,
+            lanes                   : Object.fromEntries(LANE_NAMES.map(laneName => [laneName, validateContextLane({
+                ids,
+                lane    : receipt.lanes?.[laneName],
+                laneName,
+                profile,
+                receipt
+            })])),
+            startedAtMs: receipt.startedAtMs
+        }
+    })
+}
+
+/**
+ * @summary Validates one runtime-observed context value and its independent over-limit probe.
+ * @param {Object} options Validation inputs.
+ * @returns {Object} Bounded, identity-bound lane evidence.
+ */
+function validateContextLane({ids, lane, laneName, profile, receipt}) {
+    const label = `candidate ${receipt.candidate} ${laneName}`,
+          probe = lane?.overLimitProbe;
+
+    assertPositiveInteger(lane?.observedContextTokensPerSlot, `${label}.observedContextTokensPerSlot`);
     assertPositiveInteger(probe?.requestedContextTokens, `${label}.overLimitProbe.requestedContextTokens`);
 
     if (!probe || typeof probe.id !== 'string' || probe.id.length === 0 || probe.id.length > 1024 || ids.has(probe.id)) {
@@ -697,7 +765,7 @@ function validateContextReceipt({ids, lane, laneName, profile, trial}) {
     ids.add(probe.id);
 
     if (!Number.isFinite(probe.startedAtMs) || !Number.isFinite(probe.completedAtMs) ||
-        probe.startedAtMs < trial.startedAtMs || probe.completedAtMs > trial.completedAtMs ||
+        probe.startedAtMs < receipt.startedAtMs || probe.completedAtMs > receipt.completedAtMs ||
         probe.completedAtMs <= probe.startedAtMs ||
         probe.requestedContextTokens <= lane.observedContextTokensPerSlot ||
         probe.serviceKey !== profile.lanes[laneName].serviceKey ||
@@ -707,27 +775,30 @@ function validateContextReceipt({ids, lane, laneName, profile, trial}) {
         !DIGEST_PATTERN.test(probe.responseBodyDigest ?? '') ||
         !Number.isInteger(probe.observedOutputTokens) || probe.observedOutputTokens < 0 ||
         !Number.isInteger(probe.transportStatus) || probe.transportStatus < 100 || probe.transportStatus > 599) {
-        throw new Error(`trial ${trial.executionIndex} lane ${laneName} requires a truthful identity-bound over-limit probe`)
+        throw new Error(`candidate ${receipt.candidate} lane ${laneName} requires truthful identity-bound context evidence`)
     }
 
     if (probe.responseClass === 'completed' && probe.transportStatus >= 400 ||
         probe.responseClass !== 'completed' && probe.transportStatus < 400 ||
         probe.responseClass === 'context-limit-refusal' && probe.observedOutputTokens !== 0) {
-        throw new Error(`trial ${trial.executionIndex} lane ${laneName} has an inconsistent over-limit provider response`)
+        throw new Error(`candidate ${receipt.candidate} lane ${laneName} has an inconsistent over-limit provider response`)
     }
 
     return {
-        completedAtMs         : probe.completedAtMs,
-        id                    : projectOpaqueId(probe.id),
-        modelDigest           : probe.modelDigest,
-        observedOutputTokens  : probe.observedOutputTokens,
-        protocolAdapter       : probe.protocolAdapter,
-        requestedContextTokens: probe.requestedContextTokens,
-        responseBodyDigest    : probe.responseBodyDigest,
-        responseClass         : probe.responseClass,
-        serviceKey            : probe.serviceKey,
-        startedAtMs           : probe.startedAtMs,
-        transportStatus       : probe.transportStatus
+        observedContextTokensPerSlot: lane.observedContextTokensPerSlot,
+        overLimitProbe              : {
+            completedAtMs         : probe.completedAtMs,
+            id                    : projectOpaqueId(probe.id),
+            modelDigest           : probe.modelDigest,
+            observedOutputTokens  : probe.observedOutputTokens,
+            protocolAdapter       : probe.protocolAdapter,
+            requestedContextTokens: probe.requestedContextTokens,
+            responseBodyDigest    : probe.responseBodyDigest,
+            responseClass         : probe.responseClass,
+            serviceKey            : probe.serviceKey,
+            startedAtMs           : probe.startedAtMs,
+            transportStatus       : probe.transportStatus
+        }
     }
 }
 
@@ -763,7 +834,36 @@ function validateRuntimeProfile(runtime, allocation, laneName, trialIndex) {
 }
 
 /**
- * @summary Validates one operation timeline and derives queue/provider durations.
+ * @summary Validates one caller-visible source-call timeline used for durable progress.
+ * @param {Object} options
+ * @returns {Object}
+ */
+function validateSourceCall({call, ids, laneName, trial}) {
+    const allowedSources = laneName === 'chat' ? ['chat'] : EMBED_SOURCES;
+
+    if (typeof call?.id !== 'string' || call.id.length === 0 || call.id.length > 1024 || ids.has(call.id)) {
+        throw new Error(`trial ${trial.executionIndex} contains a missing or duplicate source-call id`)
+    }
+    ids.add(call.id);
+
+    if (!allowedSources.includes(call.source) || !OUTCOMES.includes(call.outcome) ||
+        !Number.isFinite(call.demandAtMs) || !Number.isFinite(call.completedAtMs) ||
+        call.demandAtMs < trial.startedAtMs || call.completedAtMs <= call.demandAtMs ||
+        call.completedAtMs > trial.completedAtMs) {
+        throw new Error(`trial ${trial.executionIndex} lane ${laneName} contains an invalid source-call contract`)
+    }
+
+    return {
+        completedAtMs: call.completedAtMs,
+        demandAtMs   : call.demandAtMs,
+        id           : call.id,
+        outcome      : call.outcome,
+        source       : call.source
+    }
+}
+
+/**
+ * @summary Validates one provider-operation timeline and derives queue/provider durations.
  * @param {Object} options
  * @returns {Object}
  */
@@ -775,8 +875,9 @@ function validateOperation({ids, laneName, operation, trial}) {
     }
     ids.add(operation.id);
 
-    if (!allowedSources.includes(operation.source) || !QUEUE_DISPOSITIONS.includes(operation.queueDisposition) ||
-        !OUTCOMES.includes(operation.outcome)) {
+    if (typeof operation.callId !== 'string' || operation.callId.length === 0 || operation.callId.length > 1024 ||
+        !allowedSources.includes(operation.source) || !QUEUE_DISPOSITIONS.includes(operation.queueDisposition) ||
+        !PROVIDER_OUTCOMES.includes(operation.outcome)) {
         throw new Error(`trial ${trial.executionIndex} lane ${laneName} contains an invalid operation contract`)
     }
     if (!Number.isFinite(operation.providerStartedAtMs) || !Number.isFinite(operation.completedAtMs) ||
@@ -804,6 +905,7 @@ function validateOperation({ids, laneName, operation, trial}) {
     }
 
     return {
+        callId             : operation.callId,
         completedAtMs      : operation.completedAtMs,
         demandAtMs,
         id                 : projectOpaqueId(operation.id),
@@ -823,10 +925,10 @@ function validateOperation({ids, laneName, operation, trial}) {
  * @param {Number} trialIndex Trial index.
  */
 function validateSourceCardinality(lanes, expected, trialIndex) {
-    const operations = [...lanes.chat.operations, ...lanes.embedding.operations];
+    const sourceCalls = [...lanes.chat.sourceCalls, ...lanes.embedding.sourceCalls];
 
     for (const source of SOURCE_NAMES) {
-        const count = operations.filter(operation => operation.source === source).length;
+        const count = sourceCalls.filter(call => call.source === source).length;
 
         if (count !== expected[source]) {
             throw new Error(`trial ${trialIndex} source ${source} offered ${count}; fixed workload requires ${expected[source]}`)
@@ -840,15 +942,15 @@ function validateSourceCardinality(lanes, expected, trialIndex) {
  * @returns {Boolean}
  */
 function hasCommonDemandOverlap(lanes) {
-    const operations = [...lanes.chat.operations, ...lanes.embedding.operations],
-          boundaries = [...new Set(operations.flatMap(operation => [operation.demandAtMs, operation.completedAtMs]))]
+    const sourceCalls = [...lanes.chat.sourceCalls, ...lanes.embedding.sourceCalls],
+          boundaries  = [...new Set(sourceCalls.flatMap(call => [call.demandAtMs, call.completedAtMs]))]
               .sort((a, b) => a - b);
 
     return boundaries.slice(0, -1).some((startMs, index) => {
         const probeAtMs = (startMs + boundaries[index + 1]) / 2;
 
-        return SOURCE_NAMES.every(source => operations.some(operation =>
-            operation.source === source && operation.demandAtMs <= probeAtMs && operation.completedAtMs > probeAtMs
+        return SOURCE_NAMES.every(source => sourceCalls.some(call =>
+            call.source === source && call.demandAtMs <= probeAtMs && call.completedAtMs > probeAtMs
         ))
     })
 }
@@ -887,9 +989,19 @@ function validateResidencyReceipt(receipt, trial, trialIndex, priorCompletedAtMs
  * @param {Object} options
  * @returns {Object}
  */
-function evaluateCandidate({candidate, plan, trials}) {
+function evaluateCandidate({candidate, contextEvidence, plan, trials}) {
     const failures = [],
           profile  = getProfile(plan, candidate);
+
+    for (const laneName of LANE_NAMES) {
+        const evidence = contextEvidence.lanes[laneName],
+              fail     = code => failures.push({code, lane: laneName, runId: 'context-evidence'});
+
+        evidence.observedContextTokensPerSlot < plan.slo.lanes[laneName].minContextTokensPerSlot &&
+            fail('CONTEXT_BELOW_SLO');
+        evidence.overLimitProbe.responseClass !== 'context-limit-refusal' &&
+            fail('OVER_LIMIT_NOT_REFUSED')
+    }
 
     for (const trial of trials) {
         if (!trial.workload.concurrent) {
@@ -910,6 +1022,7 @@ function evaluateCandidate({candidate, plan, trials}) {
 
     return {
         candidate,
+        contextEvidence,
         failures,
         sampleCount: trials.length,
         status     : failures.length === 0 ? 'PASS' : 'FAIL',
@@ -929,9 +1042,7 @@ function evaluateLane({allocation, failures, lane, laneName, runId, slo}) {
     const fail          = code => failures.push({code, lane: laneName, runId}),
           requiredCount = lane.queueDispositionCounts[slo.requiredQueueDisposition];
 
-    lane.observedContextTokensPerSlot < slo.minContextTokensPerSlot && fail('CONTEXT_BELOW_SLO');
-    lane.overLimitProbe.responseClass !== 'context-limit-refusal' && fail('OVER_LIMIT_NOT_REFUSED');
-    requiredCount !== lane.offeredOperations && fail('QUEUE_DISPOSITION_MISMATCH');
+    requiredCount !== lane.providerOperationCount && fail('QUEUE_DISPOSITION_MISMATCH');
     lane.maxNeoQueueWaitMs !== null && lane.maxNeoQueueWaitMs > slo.maxNeoQueueWaitMs && fail('QUEUE_WAIT_EXCEEDED');
     lane.maxProviderDurationMs > slo.maxProviderDurationMs && fail('PROVIDER_DURATION_EXCEEDED');
     lane.throughputPerSecond < slo.minThroughputPerSecond && fail('THROUGHPUT_BELOW_SLO');

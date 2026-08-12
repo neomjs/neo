@@ -55,10 +55,11 @@ function buildFixture() {
         }
     };
 
-    const schedule = buildProviderLaneCandidateSchedule({blocks: plan.blocks}),
-          trials   = schedule.map(slot => buildTrial({plan, slot}));
+    const schedule        = buildProviderLaneCandidateSchedule({blocks: plan.blocks}),
+          contextEvidence = [1, 2, 4].map(candidate => buildContextEvidence({candidate, plan})),
+          trials          = schedule.map(slot => buildTrial({plan, slot}));
 
-    return {plan, schedule, trials}
+    return {contextEvidence, plan, schedule, trials}
 }
 
 /**
@@ -146,9 +147,26 @@ function buildLaneSlo({
  * resource samples.
  */
 function buildTrial({plan, slot}) {
-    const startedAtMs   = 10_000 + slot.executionIndex * 10_000,
-          completedAtMs = startedAtMs + 5000,
-          profile       = plan.candidateProfiles.find(item => item.embeddingSlots === slot.candidate);
+    const startedAtMs    = 10_000 + slot.executionIndex * 10_000,
+          completedAtMs  = startedAtMs + 5000,
+          profile        = plan.candidateProfiles.find(item => item.embeddingSlots === slot.candidate),
+          chatOperations = [
+              buildOperation({
+                  completedAtMs      : startedAtMs + 1500,
+                  enqueuedAtMs       : startedAtMs + 100,
+                  id                 : `${slot.id}:chat:0`,
+                  providerStartedAtMs: startedAtMs + 200,
+                  source             : 'chat'
+              }),
+              buildOperation({
+                  completedAtMs      : startedAtMs + 2500,
+                  enqueuedAtMs       : startedAtMs + 200,
+                  id                 : `${slot.id}:chat:1`,
+                  providerStartedAtMs: startedAtMs + 1500,
+                  source             : 'chat'
+              })
+          ],
+          embeddingOperations = buildEmbeddingOperations({slot, startedAtMs});
 
     return {
         candidate               : slot.candidate,
@@ -157,45 +175,16 @@ function buildTrial({plan, slot}) {
         executionIndex          : slot.executionIndex,
         lanes                   : {
             chat: {
-                observedContextTokensPerSlot: 131_072,
-                operations                  : [
-                    buildOperation({
-                        completedAtMs      : startedAtMs + 1500,
-                        enqueuedAtMs       : startedAtMs + 100,
-                        id                 : `${slot.id}:chat:0`,
-                        providerStartedAtMs: startedAtMs + 200,
-                        source             : 'chat'
-                    }),
-                    buildOperation({
-                        completedAtMs      : startedAtMs + 2500,
-                        enqueuedAtMs       : startedAtMs + 200,
-                        id                 : `${slot.id}:chat:1`,
-                        providerStartedAtMs: startedAtMs + 1500,
-                        source             : 'chat'
-                    })
-                ],
-                overLimitProbe : buildOverLimitProbe({
-                    laneName             : 'chat',
-                    observedContextTokens: 131_072,
-                    profile,
-                    slot,
-                    startedAtMs
-                }),
+                operations     : chatOperations,
                 resourceSamples: buildResourceSamples({cpuPercent: 180, rssBytes: 2_500_000_000, startedAtMs}),
-                runtimeProfile : {...profile.lanes.chat}
+                runtimeProfile : {...profile.lanes.chat},
+                sourceCalls    : buildSourceCalls(chatOperations)
             },
             embedding: {
-                observedContextTokensPerSlot: 8192,
-                operations                  : buildEmbeddingOperations({slot, startedAtMs}),
-                overLimitProbe              : buildOverLimitProbe({
-                    laneName             : 'embedding',
-                    observedContextTokens: 8192,
-                    profile,
-                    slot,
-                    startedAtMs
-                }),
+                operations     : embeddingOperations,
                 resourceSamples: buildResourceSamples({cpuPercent: 190, rssBytes: 4_000_000_000, startedAtMs}),
-                runtimeProfile : {...profile.lanes.embedding}
+                runtimeProfile : {...profile.lanes.embedding},
+                sourceCalls    : buildSourceCalls(embeddingOperations)
             }
         },
         residencyBefore: {
@@ -212,12 +201,52 @@ function buildTrial({plan, slot}) {
 }
 
 /**
+ * @summary Shapes one candidate-level context observation and refusal pair outside workload timing.
+ */
+function buildContextEvidence({candidate, plan}) {
+    const profile       = plan.candidateProfiles.find(item => item.embeddingSlots === candidate),
+          startedAtMs   = candidate * 1000,
+          completedAtMs = startedAtMs + 500;
+
+    return {
+        candidate,
+        completedAtMs,
+        compositionReceiptDigest: profile.compositionReceiptDigest,
+        lanes                   : {
+            chat: {
+                observedContextTokensPerSlot: 131_072,
+                overLimitProbe              : buildOverLimitProbe({
+                    candidate,
+                    completedAtMs,
+                    laneName             : 'chat',
+                    observedContextTokens: 131_072,
+                    profile,
+                    startedAtMs
+                })
+            },
+            embedding: {
+                observedContextTokensPerSlot: 8192,
+                overLimitProbe              : buildOverLimitProbe({
+                    candidate,
+                    completedAtMs,
+                    laneName             : 'embedding',
+                    observedContextTokens: 8192,
+                    profile,
+                    startedAtMs
+                })
+            }
+        },
+        startedAtMs
+    }
+}
+
+/**
  * @summary Shapes a raw, identity-bound provider refusal receipt for one over-limit request.
  */
-function buildOverLimitProbe({laneName, observedContextTokens, profile, slot, startedAtMs}) {
+function buildOverLimitProbe({candidate, completedAtMs, laneName, observedContextTokens, profile, startedAtMs}) {
     return {
-        completedAtMs         : startedAtMs + 4400,
-        id                    : `${slot.id}:${laneName}:over-limit`,
+        completedAtMs         : completedAtMs - 10,
+        id                    : `candidate-${candidate}:${laneName}:over-limit`,
         modelDigest           : profile.lanes[laneName].modelDigest,
         observedOutputTokens  : 0,
         protocolAdapter       : profile.lanes[laneName].protocolAdapter,
@@ -225,7 +254,7 @@ function buildOverLimitProbe({laneName, observedContextTokens, profile, slot, st
         responseBodyDigest    : `sha256:${'8'.repeat(64)}`,
         responseClass         : 'context-limit-refusal',
         serviceKey            : profile.lanes[laneName].serviceKey,
-        startedAtMs           : startedAtMs + 4300,
+        startedAtMs           : completedAtMs - 100,
         transportStatus       : 400
     }
 }
@@ -259,6 +288,7 @@ function buildEmbeddingOperations({slot, startedAtMs}) {
  */
 function buildOperation({completedAtMs, enqueuedAtMs, id, providerStartedAtMs, source}) {
     return {
+        callId          : `${id}:call`,
         completedAtMs,
         enqueuedAtMs,
         id,
@@ -267,6 +297,19 @@ function buildOperation({completedAtMs, enqueuedAtMs, id, providerStartedAtMs, s
         queueDisposition: 'queued',
         source
     }
+}
+
+/**
+ * @summary Projects caller-visible progress separately from provider-operation timing.
+ */
+function buildSourceCalls(operations) {
+    return operations.map(operation => ({
+        completedAtMs: operation.completedAtMs,
+        demandAtMs   : operation.enqueuedAtMs ?? operation.providerStartedAtMs,
+        id           : operation.callId,
+        outcome      : operation.outcome,
+        source       : operation.source
+    }))
 }
 
 /**
@@ -305,11 +348,11 @@ test.describe('providerLaneElectionCore', () => {
     });
 
     test('computes the smallest measured winner without minting deployment authority', () => {
-        const fixture                 = buildFixture(),
-              firstCandidateOperation = fixture.trials.find(trial => trial.candidate === 1)
-                  .lanes.embedding.operations[0];
+        const fixture            = buildFixture(),
+              firstCandidateCall = fixture.trials.find(trial => trial.candidate === 1)
+                  .lanes.embedding.sourceCalls[0];
 
-        firstCandidateOperation.outcome = 'error';
+        firstCandidateCall.outcome = 'error';
 
         const result = evaluateProviderLaneElection(fixture);
 
@@ -333,10 +376,10 @@ test.describe('providerLaneElectionCore', () => {
     });
 
     test('does not accept or echo caller-supplied authority and deployment-input envelopes', () => {
-        const fixture   = buildFixture(),
-              operation = fixture.trials.find(trial => trial.candidate === 1).lanes.embedding.operations[0];
+        const fixture = buildFixture(),
+              call    = fixture.trials.find(trial => trial.candidate === 1).lanes.embedding.sourceCalls[0];
 
-        operation.outcome = 'error';
+        call.outcome = 'error';
         fixture.plan.evidence = {canonicalPlane: true, token: 'AUTHORITY_SECRET'};
         fixture.plan.candidateProfiles[1].deploymentInputs = {
             embeddingParallelSlots: {
@@ -359,7 +402,7 @@ test.describe('providerLaneElectionCore', () => {
         const fixture = buildFixture();
 
         for (const candidate of [1, 2, 4]) {
-            fixture.trials.find(trial => trial.candidate === candidate).lanes.chat.operations[0].outcome = 'error'
+            fixture.trials.find(trial => trial.candidate === candidate).lanes.chat.sourceCalls[0].outcome = 'error'
         }
 
         const result = evaluateProviderLaneElection(fixture);
@@ -387,6 +430,44 @@ test.describe('providerLaneElectionCore', () => {
         expect(trial.maxProviderDurationMs).toBe(900);
         expect(trial.throughputPerSecond).toBe(0.8);
         expect(queue).toEqual({max: null, median: null, min: null, n: 0, observedRange: null, p95: null})
+    });
+
+    test('derives durable progress from source calls while retaining every provider chunk', () => {
+        const fixture    = buildFixture(),
+              trial      = fixture.trials.find(item => item.candidate === 4),
+              lane       = trial.lanes.embedding,
+              memoryCall = lane.sourceCalls.find(call => call.source === 'memory-core');
+
+        const memoryOperation = lane.operations.find(operation => operation.source === 'memory-core');
+        lane.operations.push(
+            {...memoryOperation, completedAtMs: trial.startedAtMs + 2100, id: `${memoryOperation.id}:chunk-2`, providerStartedAtMs: trial.startedAtMs + 1300},
+            {...memoryOperation, completedAtMs: trial.startedAtMs + 3000, id: `${memoryOperation.id}:chunk-3`, providerStartedAtMs: trial.startedAtMs + 2200},
+            {...memoryOperation, completedAtMs: trial.startedAtMs + 3900, id: `${memoryOperation.id}:chunk-4`, providerStartedAtMs: trial.startedAtMs + 3100}
+        );
+        memoryCall.completedAtMs = trial.startedAtMs + 4000;
+
+        const result    = evaluateProviderLaneElection(fixture),
+              candidate = result.candidates.find(item => item.candidate === 4),
+              observed  = candidate.trials[0].lanes.embedding;
+
+        expect(observed.providerOperationCount).toBe(7);
+        expect(observed.completedOperations).toBe(4);
+        expect(observed.throughputPerSecond).toBe(0.8);
+        expect(observed.sourceCalls.filter(call => call.source === 'memory-core')).toHaveLength(1);
+
+        const failedFixture = buildFixture(),
+              failedTrial   = failedFixture.trials.find(item => item.candidate === 4),
+              failedCall    = failedTrial.lanes.embedding.sourceCalls.find(call => call.source === 'memory-core');
+
+        failedCall.outcome = 'error';
+
+        const failedCandidate = evaluateProviderLaneElection(failedFixture).candidates.find(item => item.candidate === 4),
+              failedObserved  = failedCandidate.trials[0].lanes.embedding;
+
+        expect(failedObserved.providerOperationCount).toBe(4);
+        expect(failedObserved.completedOperations).toBe(3);
+        expect(failedObserved.errorCount).toBe(1);
+        expect(failedCandidate.failures.map(failure => failure.code)).toContain('ERROR_BUDGET_EXCEEDED')
     });
 
     test('derives CPU/RSS coverage from raw chronological samples and fails real coverage gaps', () => {
@@ -435,7 +516,9 @@ test.describe('providerLaneElectionCore', () => {
         expect(() => evaluateProviderLaneElection(digestDrift)).toThrow(/changed the immutable workload digest/);
 
         const missingSource = buildFixture();
-        missingSource.trials[0].lanes.embedding.operations.pop();
+        const removedCall   = missingSource.trials[0].lanes.embedding.sourceCalls.pop();
+        missingSource.trials[0].lanes.embedding.operations = missingSource.trials[0].lanes.embedding.operations
+            .filter(operation => operation.callId !== removedCall.id);
         expect(() => evaluateProviderLaneElection(missingSource)).toThrow(/source orchestrator offered 1; fixed workload requires 2/);
 
         const sequential = buildFixture(),
@@ -445,7 +528,12 @@ test.describe('providerLaneElectionCore', () => {
         operations.forEach((operation, index) => {
             operation.enqueuedAtMs = trial.startedAtMs + 2600 + index * 900;
             operation.providerStartedAtMs = trial.startedAtMs + 2700 + index * 900;
-            operation.completedAtMs = trial.startedAtMs + 3500 + index * 900
+            operation.completedAtMs = trial.startedAtMs + 3500 + index * 900;
+
+            const sourceCall = trial.lanes.embedding.sourceCalls.find(item => item.id === operation.callId);
+
+            sourceCall.completedAtMs = operation.completedAtMs;
+            sourceCall.demandAtMs = operation.enqueuedAtMs
         });
 
         const result = evaluateProviderLaneElection(sequential),
@@ -488,16 +576,17 @@ test.describe('providerLaneElectionCore', () => {
 
     test('fails context/refusal/progress from derived receipts rather than configured knobs', () => {
         const fixture = buildFixture(),
+              context = fixture.contextEvidence.find(item => item.candidate === 2),
               trial   = fixture.trials.find(item => item.candidate === 2);
 
-        trial.lanes.embedding.observedContextTokensPerSlot = 4096;
-        Object.assign(trial.lanes.embedding.overLimitProbe, {
+        context.lanes.embedding.observedContextTokensPerSlot = 4096;
+        Object.assign(context.lanes.embedding.overLimitProbe, {
             observedOutputTokens: 32,
             responseClass       : 'completed',
             transportStatus     : 200
         });
-        trial.lanes.embedding.operations.forEach(operation => {
-            operation.outcome = 'error'
+        trial.lanes.embedding.sourceCalls.forEach(call => {
+            call.outcome = 'error'
         });
 
         const result = evaluateProviderLaneElection(fixture),
@@ -515,9 +604,9 @@ test.describe('providerLaneElectionCore', () => {
         const fixture = buildFixture();
 
         fixture.plan.slo.lanes.embedding.minContextTokensPerSlot = 4096;
-        for (const trial of fixture.trials) {
-            trial.lanes.embedding.observedContextTokensPerSlot = 4096;
-            trial.lanes.embedding.overLimitProbe.requestedContextTokens = 4097
+        for (const context of fixture.contextEvidence) {
+            context.lanes.embedding.observedContextTokensPerSlot = 4096;
+            context.lanes.embedding.overLimitProbe.requestedContextTokens = 4097
         }
 
         expect(() => evaluateProviderLaneElection(fixture)).toThrow(
@@ -559,6 +648,8 @@ test.describe('providerLaneElectionCore', () => {
               trial   = fixture.trials.find(item => item.candidate === 2);
 
         fixture.plan.candidateProfiles[1].compositionReceiptDigest = `sha256:${'9'.repeat(64)}`;
+        fixture.contextEvidence.find(item => item.candidate === 2).compositionReceiptDigest =
+            fixture.plan.candidateProfiles[1].compositionReceiptDigest;
 
         expect(() => evaluateProviderLaneElection(fixture)).toThrow(
             /does not match candidate 2's composition receipt/
@@ -584,19 +675,19 @@ test.describe('providerLaneElectionCore', () => {
 
     test('requires a normalized identity-bound refusal receipt instead of an asserted boolean', () => {
         const fixture = buildFixture(),
-              probe   = fixture.trials[0].lanes.embedding.overLimitProbe;
+              probe   = fixture.contextEvidence[0].lanes.embedding.overLimitProbe;
 
         probe.serviceKey = 'wrong-provider';
-        expect(() => evaluateProviderLaneElection(fixture)).toThrow(/truthful identity-bound over-limit probe/);
+        expect(() => evaluateProviderLaneElection(fixture)).toThrow(/truthful identity-bound context evidence/);
 
         const inconsistent = buildFixture();
-        inconsistent.trials[0].lanes.embedding.overLimitProbe.transportStatus = 200;
+        inconsistent.contextEvidence[0].lanes.embedding.overLimitProbe.transportStatus = 200;
         expect(() => evaluateProviderLaneElection(inconsistent)).toThrow(/inconsistent over-limit provider response/)
     });
 
     test('treats a runner-normalized provider error as a failed over-limit probe', () => {
         const fixture = buildFixture(),
-              probe   = fixture.trials.find(item => item.candidate === 2).lanes.embedding.overLimitProbe;
+              probe   = fixture.contextEvidence.find(item => item.candidate === 2).lanes.embedding.overLimitProbe;
 
         Object.assign(probe, {
             responseClass  : 'provider-error',
@@ -604,7 +695,7 @@ test.describe('providerLaneElectionCore', () => {
         });
 
         const result = evaluateProviderLaneElection(fixture),
-              lane   = result.candidates.find(item => item.candidate === 2).trials[0].lanes.embedding,
+              lane   = result.candidates.find(item => item.candidate === 2).contextEvidence.lanes.embedding,
               codes  = result.candidates.find(item => item.candidate === 2).failures.map(failure => failure.code);
 
         expect(lane.overLimitProbe.responseClass).toBe('provider-error');
@@ -629,11 +720,12 @@ test.describe('providerLaneElectionCore', () => {
         fixture.plan.resourceSampling.token = 'SAMPLER_SECRET';
         trial.lanes.embedding.runtimeProfile.token = 'RUNTIME_SECRET';
         trial.lanes.embedding.operations[0].id = '/tenant/private/corpus/row';
-        trial.lanes.embedding.overLimitProbe.id = 'sk-private-provider-token';
+        fixture.contextEvidence[0].lanes.embedding.overLimitProbe.id = 'sk-private-provider-token';
 
         const result     = evaluateProviderLaneElection(fixture),
               serialized = JSON.stringify(result),
-              lane       = result.candidates[0].trials[0].lanes.embedding;
+              lane       = result.candidates[0].trials[0].lanes.embedding,
+              context    = result.candidates[0].contextEvidence.lanes.embedding;
 
         expect(serialized).not.toContain('SECRET');
         expect(serialized).not.toContain('/tenant/private/corpus/row');
@@ -642,6 +734,6 @@ test.describe('providerLaneElectionCore', () => {
         expect(result.planCoordinates.resourceSampling.token).toBeUndefined();
         expect(lane.runtimeProfile.token).toBeUndefined();
         expect(lane.operations[0].id).toMatch(/^sha256:[0-9a-f]{64}$/);
-        expect(lane.overLimitProbe.id).toMatch(/^sha256:[0-9a-f]{64}$/)
+        expect(context.overLimitProbe.id).toMatch(/^sha256:[0-9a-f]{64}$/)
     });
 });
