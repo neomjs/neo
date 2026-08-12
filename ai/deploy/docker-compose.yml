@@ -35,10 +35,10 @@ services:
     volumes:
       - chroma-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
+      test        : ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
+      interval    : 10s
+      timeout     : 5s
+      retries     : 12
       start_period: 60s
     networks:
       - neo-mcp-network
@@ -64,11 +64,11 @@ services:
         # every stored vector.
         limits:
           memory: "${NEO_CHROMA_MEMORY_LIMIT:-8g}"
-          cpus: "2.0"
+          cpus  : "2.0"
 
   kb-server:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: knowledge-base
@@ -76,7 +76,7 @@ services:
         # Compose maps it to both internal Docker arguments so source acquisition and
         # the OCI revision assertion cannot disagree. The `:-dev` default preserves
         # the unpinned path without passing an empty ref to `git fetch`.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -167,6 +167,10 @@ services:
       # A dedicated volume keeps this graph-independent receipt visible without
       # granting the KB container Docker/runtime authority.
       - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
+      # The vector-generation election record is a plane SINGLETON: identical absolute paths inside
+      # separate writable layers are separate authorities, and a split record inverts the election
+      # fence's legacy fail-safe into a bypass. Every producer/consumer shares this one mount.
+      - shared-vector-generation-data:/app/.neo-ai-data/vector-generation
       # WRITE half of the heap-observation channel: this service reports its own V8 heap and the
       # orchestrator reads it. Without a shared mount the reporter writes into the container's own
       # layer and the orchestrator reads its own empty one, so every observation surfaces as
@@ -184,10 +188,10 @@ services:
     # self-probe must authenticate too. Ensure NEO_MCP_HEALTHCHECK_TOKEN is present
     # in the container environment; mcpHealthcheck.mjs sends it as a bearer token.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      test        : ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
+      interval    : 10s
+      timeout     : 10s
+      retries     : 12
       start_period: 45s
     deploy:
       resources:
@@ -198,16 +202,16 @@ services:
           # constant — a constant goes stale the moment this moves. A YAML literal is reachable by
           # neither config nor the overlay, so it cannot serve as the bound at all.
           memory: "${NEO_KB_SERVER_MEMORY_LIMIT:-1g}"
-          cpus: "1.0"
+          cpus  : "1.0"
 
   mc-server:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         TARGET_SERVER: memory-core
         # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - NEO_TRANSPORT=streamable-http
@@ -304,6 +308,9 @@ services:
       # Read-only half of the orchestrator -> public MCP deployment-state bridge, and the mount the
       # recovery actuator publishes its config overlay onto.
       - shared-deployment-state-data:/app/.neo-ai-data/deployment-state:ro
+      # Plane-singleton vector-generation election record — one shared mount for every
+      # producer/consumer; see the kb-server mount comment for the split-authority rationale.
+      - shared-vector-generation-data:/app/.neo-ai-data/vector-generation
       # WRITE half of the heap-observation channel: this service reports its own V8 heap and the
       # orchestrator reads it. Without a shared mount the reporter writes into the container's own
       # layer and the orchestrator reads its own empty one, so every observation surfaces as
@@ -334,10 +341,10 @@ services:
     # `unhealthy` is still failing, and is still the only failing verdict. The point is to
     # distinguish the two, not to erase both.
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck", "--expected-status", "healthy,degraded"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      test        : ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck", "--expected-status", "healthy,degraded"]
+      interval    : 10s
+      timeout     : 10s
+      retries     : 12
       start_period: 45s
     deploy:
       resources:
@@ -346,7 +353,7 @@ services:
           # strictly-below bound on the heap ceiling is a relationship against this leaf, so this
           # value must be reachable by something other than a YAML literal.
           memory: "${NEO_MC_SERVER_MEMORY_LIMIT:-1g}"
-          cpus: "1.0"
+          cpus  : "1.0"
 
   # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
   # image via the generalized `SERVICE_ENTRYPOINT` arg. AiConfig defaults to the
@@ -356,12 +363,12 @@ services:
   # `cloud` profile — started by `docker compose --profile cloud up`.
   orchestrator:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         SERVICE_ENTRYPOINT: ai/daemons/orchestrator/daemon.mjs
         # Cohort invariant (#15774/#16087): every Neo service uses the SAME resolved pin.
-        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REF     : ${NEO_REVISION:-dev}
         NEO_REVISION: ${NEO_REVISION:-}
     environment:
       - *handoff-file-env
@@ -459,6 +466,9 @@ services:
       # `provenance: self-reported`, so the bridge must never be able to author an observation it
       # then publishes as the service's own claim.
       - shared-heap-observation-data:/app/.neo-ai-data/heap-observation:ro
+      # Plane-singleton vector-generation election record — the restore seam and the rebuild runner
+      # mutate it from this container; one shared mount with the KB/MC readers of the same record.
+      - shared-vector-generation-data:/app/.neo-ai-data/vector-generation
       - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
       # The `golden-path` scheduler lane writes the handoff and its derived
       # route artifacts here; mc-server mounts the same directory read-side.
@@ -513,10 +523,10 @@ services:
     # minutes; task progress stays observable there without making Docker report daemon
     # death. 90s start_period covers the first-poll latency on cold container boot.
     healthcheck:
-      test: ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const{inspectAuthorityLease}=await import('./ai/daemons/orchestrator/authorityLease.mjs');try{const{fresh}=inspectAuthorityLease({dir:AiConfig.orchestrator.dataDir,profile:AiConfig.orchestrator.authorityProfile});process.exit(fresh?0:1)}catch{process.exit(1)}"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
+      test        : ["CMD", "node", "--input-type=module", "-e", "await import('./src/Neo.mjs');await import('./src/core/_export.mjs');const{default:AiConfig}=await import('./ai/config.mjs');const{inspectAuthorityLease}=await import('./ai/daemons/orchestrator/authorityLease.mjs');try{const{fresh}=inspectAuthorityLease({dir:AiConfig.orchestrator.dataDir,profile:AiConfig.orchestrator.authorityProfile});process.exit(fresh?0:1)}catch{process.exit(1)}"]
+      interval    : 60s
+      timeout     : 5s
+      retries     : 3
       start_period: 90s
     # Heap ceilings are PER PROCESS, so they are set on the command rather than in `environment`.
     # `ProcessSupervisorService` spawns supervised tasks with `{...process.env}`, so a service-level
@@ -567,7 +577,7 @@ services:
         # measurement and now, for the first time, has a plane that can produce it.
         limits:
           memory: 12g
-          cpus: "1.0"
+          cpus  : "1.0"
 
   # Optional Fleet control service (#16735). It is a regular authenticated HTTP service, not a
   # sixth MCP server: AuthService owns bearer/provider verification while the Fleet entrypoint owns
@@ -575,12 +585,12 @@ services:
   # is profile-gated so a headless KB/MC deployment remains valid.
   fleet-server:
     build:
-      context: .
+      context   : .
       dockerfile: Dockerfile
       args:
         SERVICE_ENTRYPOINT: ai/services/fleet/fleetServer.mjs
-        NEO_REF: ${NEO_REVISION:-dev}
-        NEO_REVISION: ${NEO_REVISION:-}
+        NEO_REF           : ${NEO_REVISION:-dev}
+        NEO_REVISION      : ${NEO_REVISION:-}
     environment:
       # Caddy reaches Fleet over the compose network. Standalone `ai:fleet-server` remains the
       # loopback-only transitional dev transport; only this composed entrypoint binds all interfaces.
@@ -622,16 +632,16 @@ services:
     profiles:
       - fleet
     healthcheck:
-      test: ["CMD", "node", "./ai/scripts/diagnostics/fleetHealthcheck.mjs", "--url", "http://127.0.0.1:8083/fleet/probe", "--expected-data-dir", "/app/.neo-ai-data/fleet"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
+      test        : ["CMD", "node", "./ai/scripts/diagnostics/fleetHealthcheck.mjs", "--url", "http://127.0.0.1:8083/fleet/probe", "--expected-data-dir", "/app/.neo-ai-data/fleet"]
+      interval    : 10s
+      timeout     : 10s
+      retries     : 12
       start_period: 30s
     deploy:
       resources:
         limits:
           memory: "${NEO_FLEET_SERVER_MEMORY_LIMIT:-512m}"
-          cpus: "0.5"
+          cpus  : "0.5"
 
   # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
   # deployment (Sub C #11724). `ingress` profile — `docker compose --profile
@@ -660,16 +670,16 @@ services:
     # TCP connection, non-zero = caddy crashed. Avoids the wget --quiet + grep
     # silent-success-empty-output failure mode (#11939 cycle-1 review per @neo-gpt).
     healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 443"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      test        : ["CMD-SHELL", "nc -z 127.0.0.1 443"]
+      interval    : 30s
+      timeout     : 5s
+      retries     : 3
       start_period: 30s
     deploy:
       resources:
         limits:
           memory: 256m
-          cpus: "0.5"
+          cpus  : "0.5"
 
   # Optional self-hosted model-provider runtime (Post-MVP residual #11734).
   # The service is disabled unless the operator starts `--profile local-model`.
@@ -693,10 +703,10 @@ services:
     expose:
       - "11434"
     healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+      test        : ["CMD", "ollama", "list"]
+      interval    : 30s
+      timeout     : 10s
+      retries     : 10
       start_period: 60s
     profiles:
       - local-model
@@ -704,7 +714,7 @@ services:
       resources:
         limits:
           memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-32g}"
-          cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
+          cpus  : "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
 
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
 # `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
@@ -724,6 +734,9 @@ volumes:
   # Heap-observation channel: written by every MCP server declaring a heap-observation service
   # key, read by the orchestrator's deployment-state bridge.
   shared-heap-observation-data:
+  # Plane-singleton vector-generation election record; mounted by kb-server, mc-server, and the
+  # orchestrator so the authority cannot split across container writable layers.
+  shared-vector-generation-data:
   tenant-repo-mirrors:
   caddy-data:
   caddy-config:

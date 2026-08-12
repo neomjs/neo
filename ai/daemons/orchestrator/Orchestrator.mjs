@@ -25,6 +25,7 @@ import {getDueTask as goldenPathGetDueTaskImport}                               
 import {getDueTask as dreamGetDueTaskImport}                                      from './scheduling/dream.mjs';
 import {getDueTask as embedDrainLivenessWatchdogGetDueTaskImport}                 from './scheduling/embedDrainLivenessWatchdog.mjs';
 import memoryCoreConfig                                                           from '../../mcp/server/memory-core/config.mjs';
+import {resolveVectorGenerationElectionDir}                                       from '../../services/shared/vector/generationElectionStore.mjs';
 import MailboxService                                                             from '../../services/memory-core/MailboxService.mjs';
 import WakeSubscriptionService                                                    from '../../services/memory-core/WakeSubscriptionService.mjs';
 import RequestContextService                                                      from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -679,6 +680,7 @@ export class Orchestrator extends Base {
                             graph    : memoryCoreConfig.storagePaths.graph
                         },
                         stagingRoot              : restoreStagingRoot,
+                        electionDir              : resolveVectorGenerationElectionDir({planeDataRoot: memoryCoreConfig.plane.dataRoot}),
                         invalidateCollectionCache: type => ChromaManager.invalidateCollectionCache(type),
                         syncGraphCache           : () => GraphService.db?.syncCache?.()
                     })
