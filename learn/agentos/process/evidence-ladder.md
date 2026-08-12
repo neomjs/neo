@@ -59,17 +59,21 @@ The ladder applies to any PR where:
 PRs whose close-target hits the trigger MUST include a 1-line evidence declaration in the body:
 
 ```md
-Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
+Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N>, Residual-Owner: #<an EXISTING open ticket that is NOT the close target>.
 ```
+
+⛔**The residual's owner must survive the merge.** Naming the close target there is the one destination guaranteed to be unreachable the moment the residual becomes actionable — the merge closes it. Measured on four merged PRs: three close targets shut within a second of the merge and two kept no record at all, so the deferral and its own invalidation were the same event. `agent-preflight` now fails a body whose Post-Merge Validation section owes work without a `Residual-Owner` distinct from `Resolves`.
+
+**`Residual-Owner` points at ownership that ALREADY exists.** It is never a licence to open a ticket — if no owner exists, finish the work before merge or drop the obligation.
 
 **Examples:**
 
 ```md
-Evidence: L2 (mock-bin dispatch + real SIGTERM on spawned node child) → L4 required (AC5 sessionId distinctness via MCP from spawned session). Residual: AC5 [#10677].
+Evidence: L2 (mock-bin dispatch + real SIGTERM on spawned node child) → L4 required (AC5 sessionId distinctness via MCP from spawned session). Residual: AC5, Residual-Owner: #10677.
 ```
 
 ```md
-Evidence: L3 (browser-rendered visual confirmation on local Chromium) → L4 required (AC2 cross-browser parity on Safari). Residual: AC2 [#NNNN].
+Evidence: L3 (browser-rendered visual confirmation on local Chromium) → L4 required (AC2 cross-browser parity on Safari). Residual: AC2, Residual-Owner: #NNNN.
 ```
 
 ```md

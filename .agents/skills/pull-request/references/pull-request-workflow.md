@@ -311,9 +311,9 @@ authorization before amend/rebase/force-push cleanup.
 ```markdown
 Resolves #N
 
-<one-paragraph outcome summary — what actually shipped, not restating ticket>
+<one-paragraph outcome — what shipped, not a restatement of the ticket>
 
-Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
+Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N>, Residual-Owner: #<EXISTING open ticket, NOT the close target>.
 
 ## Deltas from ticket
 <scope additions, better solutions, edge cases — "None substantive" when empty; heading is a lint anchor>
