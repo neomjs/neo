@@ -486,11 +486,19 @@ export class Orchestrator extends Base {
             // this sweep act"; this answers "may THIS service be acted on now", which is a different
             // question once a snapshot carries several unhealthy services and each actuation takes time.
             isAuthorityHeld    : () => !this.authorityLeaseLost && this.pulseAuthorityLease() === 'held',
-            // Only the residual-Ollama route consumes this. It is carried through the actuator to
-            // the runtime's last-owned boundary, where a newly admitted provider request vetoes the
-            // restart after every intervening cooldown/target-resolution await.
-            isEffectStillAdmitted: decision => decision?.diagnosis?.details?.classificationReason !==
-                'ollama-residual-load-restart' || this.isOllamaResidualRestartStillAdmitted(),
+            // Recovery effects that compete with provider work consume this at their own last-owned
+            // boundary. Residual restart refuses newly-admitted provider work; residency repair
+            // refuses to join a declared heavy-maintenance lane after every intervening readiness await.
+            isEffectStillAdmitted: decision => {
+                if (decision?.diagnosis?.details?.classificationReason === 'ollama-residual-load-restart') {
+                    return this.isOllamaResidualRestartStillAdmitted();
+                }
+                if (decision?.actionClass === 'warm-provider') {
+                    return this.isProviderWarmStillAdmitted();
+                }
+
+                return true;
+            },
             healLedgerDir      : path.join(this.dataDir, HEAL_LEDGER_DIR_NAME),
             healLedgerRetention: validateHealLedgerRetention(healLedger.maxEvents, healLedger.pruneTriggerBytes),
             writeLog           : this.containerHealthControllerWriteLog
@@ -565,6 +573,40 @@ export class Orchestrator extends Base {
         return projection.status === 'ok' && projection.totalInFlight === 0 &&
             projection.inFlightTruncated === false && Array.isArray(projection.inFlight) &&
             projection.inFlight.length === 0;
+    }
+
+    /**
+     * @summary Revalidates that provider residency repair will not join an active heavy lane.
+     *
+     * The task-state check covers a running lane even between its provider calls; the shared lease
+     * covers a cross-daemon holder and survives process boundaries. Lease inspection already fails
+     * closed in {@link isHeavyMaintenanceLeaseActive}, so an unreadable authority artifact cannot be
+     * interpreted as spare inference capacity.
+     *
+     * @param {Number} [now=Date.now()] Observation epoch.
+     * @returns {Boolean}
+     */
+    isProviderWarmStillAdmitted(now = Date.now()) {
+        let activeTask;
+
+        try {
+            activeTask = this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask();
+        } catch (error) {
+            this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance task inspection failed; deferring provider residency repair: ${error.message}`);
+            return false;
+        }
+
+        if (activeTask) {
+            this.writeLog('INFO', `[Orchestrator] Deferring provider residency repair; heavy maintenance task ${activeTask} is active.`);
+            return false;
+        }
+
+        if (this.isHeavyMaintenanceLeaseActive(now)) {
+            this.writeLog('INFO', '[Orchestrator] Deferring provider residency repair; the shared heavy-maintenance lease is active or could not be inspected.');
+            return false;
+        }
+
+        return true;
     }
 
     beforeSetMaintenanceBackpressureService(value) {
@@ -1634,15 +1676,22 @@ export class Orchestrator extends Base {
         return Boolean(state?.running) && maxRuntimeMs > 0 && lastRunAt > 0 && (now - lastRunAt) > maxRuntimeMs;
     }
 
-    /** @summary Returns true while an active heavy-maintenance lease owns the shared Chroma substrate. */
+    /** @summary Returns true while an active or uninspectable heavy-maintenance lease blocks shared heavy-resource work. */
     isHeavyMaintenanceLeaseActive(now) {
         try {
-            return Boolean(this.inspectHeavyMaintenanceLeaseFn({
+            const inspection = this.inspectHeavyMaintenanceLeaseFn({
                 leasePath: this.maintenanceBackpressureService.resolveHeavyMaintenanceLeasePath(),
                 now
-            }).active);
+            });
+
+            if (inspection.status === 'unreadable' || inspection.status === 'malformed') {
+                this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease is ${inspection.status}; deferring heavy-resource work.`);
+                return true;
+            }
+
+            return Boolean(inspection.active);
         } catch (e) {
-            this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease inspection failed; deferring Chroma recycle: ${e.message}`);
+            this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease inspection failed; deferring heavy-resource work: ${e.message}`);
             return true;
         }
     }

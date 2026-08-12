@@ -676,6 +676,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             model        : 'qwen3-embedding:latest',
             contextLength: 32768
         }]);
+        expect(repairOptions).not.toHaveProperty('isEffectStillAdmitted');
     });
 
     test('provider role-set builders fail loud on missing AiConfig localModels leaves (#13948)', () => {

@@ -431,6 +431,125 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(runtimeCalls).toEqual([]);
     });
 
+    test('warm-provider live-admission refusal dispatches no repair and charges no recovery attempt', async () => {
+        const {service, actuatorConfig, providerResidencyRepairCalls, runtimeCalls} = createService();
+
+        const result = await service.apply('local-model', 'warm-provider', {
+            now                  : 20_000,
+            isAuthorityHeld      : () => true,
+            isEffectStillAdmitted: () => false,
+            targetIdentity       : {kind: 'compose-service', id: 'local-model'}
+        });
+
+        expect(result).toMatchObject({
+            status    : 'declined',
+            reasonCode: 'effect-no-longer-admitted',
+            serviceKey: 'local-model',
+            action    : 'warm-provider'
+        });
+        expect(providerResidencyRepairCalls).toEqual([]);
+        expect(runtimeCalls).toEqual([]);
+        expect(existsSync(actuatorConfig.healAttemptsPath)).toBe(false);
+        expect(existsSync(actuatorConfig.recoveryRunStateDir)).toBe(false);
+    });
+
+    test('warm-provider preserves a post-first-role denial as a charged partial failure', async () => {
+        const partialError = Object.assign(
+            new Error('Provider demand changed before the embedding warm; refusing.'),
+            {
+                reason           : 'runtime-effect-partially-applied',
+                effectDisposition: 'partial',
+                providerResidency: {
+                    action         : 'warm-provider',
+                    provider       : 'ollama',
+                    ready          : false,
+                    admission      : 'refused-after-partial',
+                    attemptedModels: [{role: 'chat', model: 'gemma4:26b'}],
+                    warmedModels   : [{role: 'chat', model: 'gemma4:26b'}],
+                    pendingModels  : [],
+                    failedModels   : []
+                }
+            }
+        );
+        const {service, actuatorConfig, runtimeCalls} = createService({
+            serviceConfig: {
+                async providerResidencyRepair() {
+                    throw partialError;
+                }
+            }
+        });
+
+        const result = await service.apply('local-model', 'warm-provider', {
+            now                  : 30_000,
+            isEffectStillAdmitted: () => true,
+            targetIdentity       : {kind: 'compose-service', id: 'local-model'}
+        });
+
+        expect(result).toMatchObject({
+            status           : 'failed',
+            reasonCode       : 'effect-no-longer-admitted-after-partial',
+            effectDisposition: 'partial',
+            providerResidency: {
+                admission   : 'refused-after-partial',
+                warmedModels: [{role: 'chat', model: 'gemma4:26b'}]
+            }
+        });
+        expect(runtimeCalls).toEqual([]);
+        expect((await readAttempts())['local-model:warm-provider']).toMatchObject({
+            attemptCount: 1,
+            lastStatus  : 'failed'
+        });
+        expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBeGreaterThan(0);
+    });
+
+    test('warm-provider preserves a failed prior attempt as charged uncertainty', async () => {
+        const uncertainError = Object.assign(
+            new Error('Provider demand changed after an earlier warm attempt; refusing.'),
+            {
+                reason           : 'runtime-effect-disposition-uncertain',
+                effectDisposition: 'uncertain',
+                providerResidency: {
+                    action         : 'warm-provider',
+                    provider       : 'ollama',
+                    ready          : false,
+                    admission      : 'refused-after-uncertain-attempt',
+                    attemptedModels: [{role: 'chat', model: 'gemma4:26b'}],
+                    warmedModels   : [],
+                    pendingModels  : [],
+                    failedModels   : [{role: 'chat', model: 'gemma4:26b'}]
+                }
+            }
+        );
+        const {service, actuatorConfig} = createService({
+            serviceConfig: {
+                async providerResidencyRepair() {
+                    throw uncertainError;
+                }
+            }
+        });
+
+        const result = await service.apply('local-model', 'warm-provider', {
+            now                  : 31_000,
+            isEffectStillAdmitted: () => true,
+            targetIdentity       : {kind: 'compose-service', id: 'local-model'}
+        });
+
+        expect(result).toMatchObject({
+            status           : 'failed',
+            reasonCode       : 'effect-no-longer-admitted-after-uncertain-attempt',
+            effectDisposition: 'uncertain',
+            providerResidency: {
+                admission   : 'refused-after-uncertain-attempt',
+                failedModels: [{role: 'chat', model: 'gemma4:26b'}]
+            }
+        });
+        expect((await readAttempts())['local-model:warm-provider']).toMatchObject({
+            attemptCount: 1,
+            lastStatus  : 'failed'
+        });
+        expect((await readdir(actuatorConfig.recoveryRunStateDir)).length).toBeGreaterThan(0);
+    });
+
     test('warm-provider restores provider role-set residency through the bounded actuator envelope', async () => {
         const {service, runtimeCalls, providerResidencyRepairCalls, taskOutcomes} = createService();
 
@@ -443,6 +562,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         expect(result.status).toBe('actioned');
         expect(runtimeCalls).toEqual([]);
         expect(providerResidencyRepairCalls).toHaveLength(1);
+        expect(providerResidencyRepairCalls[0]).not.toHaveProperty('isEffectStillAdmitted');
         expect(result.targetIdentity).toEqual({kind: 'compose-service', id: 'local-model'});
         expect(result.reobserveRequest).toMatchObject({
             recoveryClass : 'provider-role-residency',
