@@ -355,6 +355,64 @@ as their example lane. The container-as-checkout premise is what (a) and (b) res
 mortal as the one it replaced; (c) is the quieter one, because it disables the lanes while
 contradicting nothing.
 
+### 2026-08-12 — role-isolated two-lane provider profile (#17019, epic #17018, D#17015)
+
+Graduated from Discussion #17015 (§6.2 family-keyed quorum: Claude `AUTHOR_SIGNAL` + GPT
+`GRADUATION_APPROVED`, both at body-r6) after the 2026-08-12 external-plane incident evidence
+(epic #16706). ADR successor-risk verdict: `adr-amendment-required` — the D0 decision is **not**
+invalidated. **Two of its decisions are load-bearing and are explicitly preserved:**
+
+1. **The model runtime is a provider endpoint the `Orchestrator` consumes — never co-located with
+   the control plane** (§2.2 model-provider row; §3's rejected co-location option). Unchanged.
+2. **Multi-container topology exists for per-service resource isolation** (§2.2; §3's rejected
+   mono-container option). Unchanged — this amendment is that decision applied to the provider
+   itself.
+
+**What changes: the provider profile splits into two role-isolated lanes.** §2.2's single
+"model provider" row read the provider as one swappable endpoint profile (external API MVP
+default; a self-hosted container as the D1 variant). Measured production evidence falsified the
+one-endpoint shape for constrained CPU planes: a single ollama server serving both models
+serializes embeddings behind its per-model `parallel=1` force (embedding-only models are forced to
+one slot at pinned `v0.23.1` — `server/sched.go#L412-L417` — AND at current stable `v0.32.9` —
+`server/sched.go#L497-L503`), and a 131k chat warm collapsed embedding throughput to 3
+completions per 17 minutes on a 4-CPU envelope (receipts: epic #16706, D#17015 r6).
+
+The provider profile is now **two lanes under one declared resource envelope**:
+
+| Lane | Engine class | Roles routed to it | Contract |
+|---|---|---|---|
+| **Chat** | native Ollama (self-hosted container) | `modelProvider` (MC session/mini summaries), `graphProvider` (REM Tri-Vector, topology inference, Golden Path synthesis), KB `askSynthesis.{provider,model,baseUrl}` | large context (131k-class), parallelism 1 |
+| **Embedding** | OpenAI-compatible (llama.cpp-server class; `learn/agentos/cloud-deployment/LlamaCppProfile.md` is its doc home) | `embeddingProvider` (KB + MC, every embedding collection) | hard model ceiling enforced **per-slot** (slot truth: `--ctx-size` is TOTAL across `-np` slots; the startup receipt, not the knob, is verified), parallelism elected empirically from {1,2,4} under the preserved envelope |
+
+Binding rules recorded with the profile (authoritative AC text: D#17015 r6, implemented by epic
+#17018's subs):
+
+- **Resource axis:** one explicitly declared total CPU/memory envelope with per-lane allocation.
+  An engine split without a resource policy preserves the contention class it exists to remove.
+- **Four-route consumer map:** the three chat selectors and the embedding selector above are the
+  complete routing contract; a consumer constructing a provider directly (bypassing the
+  selectors) is a defect, not a variant.
+- **Elected values are immutable declarative deployment inputs** after canonical-plane election —
+  not runtime adaptation knobs.
+- **Version currency:** engine images are pinned to explicit versions with a named
+  bump-and-revalidate ritual; version-anchored scheduler/source claims are dated facts and
+  re-verify on bump.
+- **Embedding-generation identity:** changing any load-bearing embedding-generation coordinate
+  creates a new corpus generation, elected through the coordinated vector-plane contract
+  (D#17015 AC-C/AC-E) — never mixed generations in a live collection.
+
+**Rejected alternatives** (full falsifiers in D#17015's divergence matrix): two ollama containers
+(the per-model `parallel=1` force holds at both audited versions; re-entry gate = an exact runner
+receipt showing the embedding model loaded with `parallel=4`); a tuned single ollama (no role
+controls, keeps the abandoned-embedding-work class); LM Studio headless on Linux (partial parity
+by construction; no credibility inheritance from the macOS mixed-engine stack).
+
+**Revalidation trigger:** re-derive the lane split if (a) the audited ollama scheduler force is
+lifted in a pinned-and-verified version, (b) the constrained plane gains a GPU-class provider
+whose single-server per-model controls satisfy both lanes' contracts, or (c) role-scoped
+same-type host leaves land (D#17015 fallback topology A), which changes the config surface this
+profile routes through.
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.
