@@ -75,7 +75,7 @@ import {
 import {
     computeFlushDelayMs,
     computeFlushHoldMs,
-    isMessageWakeFresh,
+    partitionMessageWakesByFreshness,
     resolveCoalesceWindowMs
 } from '../../services/memory-core/wakeCoalescePolicy.mjs';
 import {
@@ -861,42 +861,6 @@ function isMessageReadFor(db, messageId, recipient) {
     ).get(messageId);
 
     return node ? node.readAt != null : false;
-}
-
-/**
- * @summary Partitions message events by canonical mailbox age at the delivery boundary.
- *
- * The event's `sentAt` comes from the immutable MESSAGE node through the shared `SENT_TO_ME`
- * evaluator. GraphLog position is intentionally not consulted: projection replay can append a new
- * position for an old message. Suppressed events are returned to the caller so it can still advance
- * durable consumption state without exposing their subjects or mutating mailbox read state.
- *
- * @param {Object[]} messages Coalesced message wake events.
- * @param {Number}   [now=Date.now()] Current epoch ms, shared across one partition pass.
- * @returns {{eligible: Object[], suppressed: Object[], oldestAgeMs: Number|null}}
- * @private
- */
-function partitionMessageWakesByFreshness(messages, now = Date.now()) {
-    const eligible    = [], suppressed = [];
-    let   oldestAgeMs = null;
-
-    for (const message of messages) {
-        if (isMessageWakeFresh({sentAt: message.sentAt, now})) {
-            eligible.push(message);
-            continue;
-        }
-
-        suppressed.push(message);
-
-        const sentAtMs = typeof message.sentAt === 'string' ? Date.parse(message.sentAt) : NaN,
-              ageMs    = now - sentAtMs;
-
-        if (Number.isFinite(ageMs) && ageMs >= 0) {
-            oldestAgeMs = Math.max(oldestAgeMs ?? 0, ageMs);
-        }
-    }
-
-    return {eligible, suppressed, oldestAgeMs}
 }
 
 /**

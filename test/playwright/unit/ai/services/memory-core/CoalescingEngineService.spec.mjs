@@ -19,6 +19,9 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
+// Pure policy module (no Neo dependency) — safe as a static import ahead of the dynamic service loads.
+import {MESSAGE_WAKE_MAX_AGE_MS} from '../../../../../../ai/services/memory-core/wakeCoalescePolicy.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../');
 
 let CoalescingEngineService;
@@ -31,7 +34,12 @@ const buildEnvelope = (eventType, payload, logId = 1) => ({
     logId,
     agentIdentity : '@alice',
     subscriptionId: 'WAKE_SUB:test',
-    payload,
+    // Production `SENT_TO_ME` payloads always carry the MESSAGE node's canonical `sentAt`
+    // (`buildSentToMeInner`); fixtures default to a FRESH stamp so the flush-time age gate
+    // admits them. Pass `sentAt: undefined` explicitly to keep a timestamp-less payload.
+    payload       : eventType === 'wake/sent_to_me' && !('sentAt' in payload)
+        ? {sentAt: new Date().toISOString(), ...payload}
+        : payload,
     emittedAt     : new Date().toISOString()
 });
 
@@ -390,7 +398,7 @@ test.describe('CoalescingEngineService', () => {
 
     test('timestamp-less payloads fall back to last-write-wins, never re-ordered by guesswork', () => {
         const noTs = subject => {
-            const env = buildEnvelope('wake/sent_to_me', {subject});
+            const env = buildEnvelope('wake/sent_to_me', {subject, sentAt: undefined});
             delete env.emittedAt;
             return env;
         };
@@ -405,7 +413,7 @@ test.describe('CoalescingEngineService', () => {
 
     test('the envelope emittedAt is the recency fallback when the payload carries no sentAt', () => {
         const noSentAt = (subject, emittedAt) => {
-            const env = buildEnvelope('wake/sent_to_me', {subject});
+            const env = buildEnvelope('wake/sent_to_me', {subject, sentAt: undefined});
             env.emittedAt = emittedAt;
             return env;
         };
@@ -688,6 +696,113 @@ test.describe('CoalescingEngineService', () => {
             .not.toMatch(/configure\(\s*\{\s*\.\.\.\s*wakeDispatch/);
         expect(serverSource, 'the node must still reach configure by reference')
             .toMatch(/CoalescingEngineService\.configure\(\s*wakeDispatch\s*,/)
+    });
+
+    // -----------------------------------------------------------------------------
+    // Flush-time age admission
+    //
+    // The daemon gated replayed backlog by canonical `sentAt` from the start; the engine's Shape
+    // A/B flush did not — so a replayed GraphLog `DELIVERED_TO` edge surfaced a 25-hour-old
+    // lane-claim as the digest `latest`, the highest-cost payload class there is (one peer nearly
+    // pointed at another over territory both were correctly building inside). These arms pin the
+    // gate, the surviving-set derivation (count / latest / priority / sourceEventIds / logId all
+    // describe the SAME read), and the fail-closed boundary. The daemon sibling pins the shared
+    // partition policy in `daemon.spec.mjs`; the pure boundary lives in `coalescePolicy.spec.mjs`.
+    // -----------------------------------------------------------------------------
+
+    test('AC-1 — a message older than MESSAGE_WAKE_MAX_AGE_MS produces NO wake; the queue is consumed', async () => {
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+            messageId: 'M-STALE',
+            subject  : 'replayed backlog',
+            sentAt   : new Date(Date.now() - MESSAGE_WAKE_MAX_AGE_MS - 1).toISOString()
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length, 'an expired message must consume its queue without a zero-event wake').toBe(0);
+        expect(CoalescingEngineService.coalesceState.size, 'the queue is consumed, not re-armed').toBe(0);
+        expect(CoalescingEngineService.lastFlushAtBySub.has(sub.id),
+            'nothing was delivered, so no refractory may be claimed').toBe(false);
+        // Mailbox state is structurally untouched: the engine holds no mailbox handle, so
+        // suppression is digest-only — the old unread row remains listable via `list_messages`.
+    });
+
+    test('AC-5 — a 25-hour-old replayed lane-claim is never named latest, counted, or priority-shaping', async () => {
+        const staleSubject = '[lane-claim][#16906] orphaned Post-Merge Validation guard';
+        const sub          = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        // Instance 2's exact shape: receipt appended at fresh GraphLog position 5829858 for a
+        // message authored 2026-08-10T20:09:25Z — position fresh, authored age ~25h.
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+            messageId: 'M-STALE',
+            subject  : staleSubject,
+            priority : 'high',
+            sentAt   : new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString()
+        }, 5829858));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+            messageId: 'M-FRESH',
+            subject  : 'actually new'
+        }, 5829859));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // The fresh sibling delivering IS the non-vacuity witness: a suppress-everything gate reds here.
+        expect(deliverCalls.length).toBe(1);
+        const digest = deliverCalls[0].eventData;
+        expect(digest.payload.totalEvents, 'the count describes the surviving read only').toBe(1);
+        expect(digest.payload.sourceEventIds).toEqual(['M-FRESH']);
+        expect(digest.logId, 'logId anchors to the last SURVIVING event, not the stale queue tail').toBe(5829859);
+        expect(digest.payload.breakdown.sent_to_me.count).toBe(1);
+        expect(digest.payload.breakdown.sent_to_me.latest.messageId).toBe('M-FRESH');
+        expect(digest.payload.breakdown.sent_to_me.highestPriority,
+            'a dead lane’s HIGH must not spoof the digest priority').toBe('normal');
+        expect(JSON.stringify(digest)).not.toContain('M-STALE');
+        expect(JSON.stringify(digest)).not.toContain(staleSubject);
+    });
+
+    test('non-message events are never age-gated — a fresh task transition survives a stale queue-mate', async () => {
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+            messageId: 'M-STALE',
+            sentAt   : new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        }));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/task_state_changed', {
+            taskId: 'T1', newState: 'Working', lastModifiedAt: new Date().toISOString()
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length).toBe(1);
+        const digest = deliverCalls[0].eventData;
+        expect(digest.payload.totalEvents).toBe(1);
+        expect(digest.payload.breakdown.task_state_changed.count).toBe(1);
+        expect(digest.payload.breakdown.task_state_changed.latest.newState).toBe('Working');
+        expect(digest.payload.breakdown.sent_to_me.count).toBe(0);
+    });
+
+    test('fail-closed — a missing or malformed sentAt cannot manufacture a live wake', async () => {
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-NO-TS',  sentAt: undefined}));
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M-BAD-TS', sentAt: 'not-a-date'}));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length,
+            'unverifiable age fails closed, daemon-symmetric — mailbox data, never a wake').toBe(0);
+    });
+
+    test('the admission boundary itself is unchanged — a message inside the horizon still wakes', async () => {
+        const sub = buildSubscription({harnessTargetMetadata: {url: 'https://example.com/wake', coalesceWindow: 0.05}});
+        CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {
+            messageId: 'M-EDGE',
+            // 5s inside the horizon: pins the boundary semantics without a flush-timing flake.
+            sentAt   : new Date(Date.now() - MESSAGE_WAKE_MAX_AGE_MS + 5000).toISOString()
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        expect(deliverCalls.length, 'inside the one-hour horizon the wake must still fire').toBe(1);
+        expect(deliverCalls[0].eventData.payload.breakdown.sent_to_me.latest.messageId).toBe('M-EDGE');
     });
 
 });
