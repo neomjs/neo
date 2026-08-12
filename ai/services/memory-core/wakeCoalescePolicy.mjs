@@ -25,6 +25,8 @@
  * - **Canonical message age:** a MESSAGE may create live interruption urgency for one hour after
  *   its server-stamped `sentAt`. Older, future, missing, or malformed timestamps stay mailbox data
  *   but fail closed for wake delivery; replay GraphLog position never substitutes for authored age.
+ *   Admission itself ({@link isMessageWakeFresh}) and the flush-time partition
+ *   ({@link partitionMessageWakesByFreshness}) both live here, consumed by every wake producer.
  *
  * Kept pure (no timers, DB, config, or daemon state) so the policy is unit-testable in isolation,
  * mirroring the daemon's other focused modules (`flushDeferPolicy.mjs`, `queries.mjs`,
@@ -91,6 +93,53 @@ export function isMessageWakeFresh({sentAt, now = Date.now(), maxAgeMs = MESSAGE
     const ageMs = now - sentAtMs;
 
     return ageMs >= 0 && ageMs <= maxAgeMs
+}
+
+/**
+ * @summary Partitions message wake events by canonical mailbox age at the flush / delivery boundary.
+ *
+ * The single age-admission pass shared by BOTH wake producers — the standalone daemon (Shape C)
+ * and `CoalescingEngineService` (Shapes A/B) — so the turn-priced wake contract cannot fork across
+ * the cutover: the engine once shipped without the daemon's gate, and a replayed day-old
+ * lane-claim surfaced as a digest `latest`.
+ *
+ * The event's `sentAt` comes from the immutable MESSAGE node through the shared `SENT_TO_ME`
+ * evaluator (`buildSentToMeInner`). GraphLog position and envelope arrival time are intentionally
+ * not consulted: projection replay can append a new position for an old message. The daemon's
+ * events carry `sentAt` at the top level; the engine's envelopes carry it at `payload.sentAt` —
+ * both resolve here, and a missing or malformed value fails closed via {@link isMessageWakeFresh}.
+ *
+ * Suppressed events are returned to the caller so it can still advance durable consumption state
+ * without exposing their subjects or mutating mailbox read state.
+ *
+ * @param {Object[]} messages Coalesced message-class wake events (message events only — task,
+ *     permission, and heartbeat events carry their own clocks and are never age-gated).
+ * @param {Number}   [now=Date.now()] Current epoch ms, shared across one partition pass.
+ * @returns {{eligible: Object[], suppressed: Object[], oldestAgeMs: Number|null}}
+ */
+export function partitionMessageWakesByFreshness(messages, now = Date.now()) {
+    const eligible    = [], suppressed = [];
+    let   oldestAgeMs = null;
+
+    for (const event of messages) {
+        const sentAt = event?.sentAt ?? event?.payload?.sentAt;
+
+        if (isMessageWakeFresh({sentAt, now})) {
+            eligible.push(event);
+            continue;
+        }
+
+        suppressed.push(event);
+
+        const sentAtMs = typeof sentAt === 'string' ? Date.parse(sentAt) : NaN,
+              ageMs    = now - sentAtMs;
+
+        if (Number.isFinite(ageMs) && ageMs >= 0) {
+            oldestAgeMs = Math.max(oldestAgeMs ?? 0, ageMs);
+        }
+    }
+
+    return {eligible, suppressed, oldestAgeMs}
 }
 
 /**

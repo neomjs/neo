@@ -5,6 +5,7 @@ import logger                 from '../../mcp/server/memory-core/logger.mjs';
 import {
     computeFlushDelayMs,
     computeFlushHoldMs,
+    partitionMessageWakesByFreshness,
     resolveCoalesceWindowMs
 } from './wakeCoalescePolicy.mjs';
 
@@ -432,7 +433,24 @@ class CoalescingEngineService extends Base {
 
         this.coalesceState.delete(subscriptionId);
 
-        const digest          = this._buildDigestEnvelope(subscription, queue, firstQueuedAt);
+        // Canonical mailbox-age admission, applied BEFORE any digest field is derived — the Shape
+        // A/B twin of the daemon's flush-time gate. A replayed GraphLog `DELIVERED_TO` edge
+        // re-surfaces an old unread MESSAGE as a fresh delta; without this gate the digest counts
+        // it, names it `latest`, and lets a dead lane's HIGH priority spoof an interruption — a
+        // replayed lane-claim is the highest-cost shape, since it points one peer at another over
+        // territory both already hold correctly. Mailbox state stays untouched — old unread mail
+        // remains listable; it simply cannot manufacture live interruption urgency.
+        const surviving = this._partitionExpiredMessageWakes(subscription, queue);
+
+        if (surviving.length === 0) {
+            // Every queued message event was past the admission horizon (or carried no verifiable
+            // `sentAt` — fail-closed, daemon-symmetric): consume the queue WITHOUT dispatching a
+            // zero-event wake. No `lastFlushAtBySub` arming — nothing was delivered, so no
+            // refractory may be claimed.
+            return;
+        }
+
+        const digest          = this._buildDigestEnvelope(subscription, surviving, firstQueuedAt);
         const dispatchPromise = this._dispatchDigest(subscription, digest)
             .then(outcome => {
                 if (outcome === 'delivered') {
@@ -448,6 +466,42 @@ class CoalescingEngineService extends Base {
 
         this.dispatchInFlight.set(subscriptionId, dispatchPromise);
         await dispatchPromise;
+    }
+
+    /**
+     * @summary Drops expired `wake/sent_to_me` events before ANY digest field is derived.
+     *
+     * Only message events are age-gated — task transitions, permission grants, and heartbeat pulses
+     * carry their own clocks and contracts and pass through untouched. The partition itself is the
+     * shared policy in `wakeCoalescePolicy.mjs` (one admission pass for daemon + engine, so the two
+     * producers cannot drift); this wrapper only routes the mixed queue through it while preserving
+     * arrival order, and emits bounded observability — count and oldest age, never mailbox content.
+     *
+     * Because the filter runs ahead of `_buildDigestEnvelope`, `totalEvents`, `sourceEventIds`, the
+     * digest identity hash, `logId`, every bucket `count` / `latest`, and `highestPriority` all
+     * describe the SAME surviving read: the preview can never name a message outside the set the
+     * count describes.
+     *
+     * @protected
+     * @param {Object}   subscription Owning cached subscription (observability only).
+     * @param {Object[]} events       Raw queued wake-event envelopes, in arrival order.
+     * @returns {Object[]} Surviving envelopes in arrival order (the SAME array when nothing expired).
+     */
+    _partitionExpiredMessageWakes(subscription, events) {
+        const messageEvents = events.filter(event => event?.eventType === 'wake/sent_to_me');
+
+        if (messageEvents.length === 0) return events;
+
+        const {suppressed, oldestAgeMs} = partitionMessageWakesByFreshness(messageEvents);
+
+        if (suppressed.length === 0) return events;
+
+        logger.info(`[CoalescingEngine] Suppressed ${suppressed.length} stale/invalid message wake event(s) for ` +
+            `${subscription.agentIdentity || subscription.id} at flush; oldestAgeMs=${oldestAgeMs ?? 'unknown'}.`);
+
+        const suppressedSet = new Set(suppressed);
+
+        return events.filter(event => !suppressedSet.has(event))
     }
 
     /**

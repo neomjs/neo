@@ -2179,7 +2179,9 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             GraphService.upsertNode({
                 id        : 'MSG:COLD-WEBHOOK-ROUTE',
                 type      : 'MESSAGE',
-                properties: {from: '@bob', subject: 'first post-restart webhook'}
+                // Production MESSAGE rows always carry the canonical `sentAt` (MailboxService
+                // stamps it); the digest path age-gates on it, so the fixture must too.
+                properties: {from: '@bob', subject: 'first post-restart webhook', sentAt: new Date().toISOString()}
             });
             GraphService.linkNodes('MSG:COLD-WEBHOOK-ROUTE', '@alice', 'SENT_TO', 1.0);
 
@@ -2339,7 +2341,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'disabled'});
             });
 
-            GraphService.upsertNode({id: 'MSG:6', type: 'MESSAGE', properties: {from: '@bob'}});
+            GraphService.upsertNode({id: 'MSG:6', type: 'MESSAGE', properties: {from: '@bob', sentAt: new Date().toISOString()}});
             GraphService.linkNodes('MSG:6', '@alice', 'SENT_TO', 1.0);
 
             await WakeSubscriptionService.pump();
