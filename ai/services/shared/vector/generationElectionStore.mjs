@@ -8,13 +8,16 @@
  * independently, but GENERATION VISIBILITY commits through this one plane-singleton record — never
  * through per-collection flags that can disagree.
  *
- * **The barrier gates PROMOTES, not reads.** Readers only ever resolve canonical collection names;
- * a generation becomes visible at exactly one moment per collection — the promote rename performed
- * by one of the two seams (KB `VectorService.embedViaShadowSwap`, MC `restoreTargetSetStorage`).
- * Each seam calls {@link assertVectorPromoteAdmissible} immediately before its renames and refuses
- * unless the generation it built is the ELECTED one at the CURRENT epoch. An uncommitted election
- * therefore never advertises: no admissible promote exists, so no rename has happened, so every
- * reader still resolves the prior generation. No read-path generation filter exists anywhere.
+ * **The barrier gates PROMOTES, not reads — and transition renames are QUIESCE-BOUNDED.** Readers
+ * only ever resolve canonical collection names, so per-collection renames are individually visible
+ * the moment they happen. Two mechanisms therefore compose: (1) BEFORE commit, no promote of the
+ * candidate is admissible anywhere, so an uncommitted election never advertises; (2) the commit
+ * (and any rollback) REQUIRES a declared quiesce window `{scope, startedAt, boundMs}`, and every
+ * transition rename — promote after commit, un-park after rollback — refuses to run outside that
+ * active window. The mixed-generation interval between the first and last rename exists ONLY inside
+ * a declared, bounded window in which the operator has quiesced readers; the record enforces the
+ * declaration and the bound, the deployment enforces the quiet. Steady-state same-generation
+ * refresh promotes need no window — both sides of their rename are the elected generation.
  *
  * **Fail-safe polarity** (deliberately opposite to `kbEmbeddingPoisonStore`): a MISSING record means
  * the plane pre-dates the election contract — promotes stay admissible in declared legacy mode, and
@@ -57,12 +60,14 @@ export const VECTOR_GENERATION_ELECTION_SCHEMA_VERSION = 1;
 /**
  * @summary The vector-plane collection census — every live embedding collection the election governs.
  *
- * KB serves one unified collection; MC serves memories, session summaries, and temporal summaries
- * (the graph's Chroma usage rides the MC collections — no separate graph collection creator exists).
- * A promote for a key outside this census is a caller bug, not a new collection.
+ * KB serves one unified collection; MC serves memories, session summaries, temporal summaries, and
+ * the graph-node embedding collection (`StorageRouter.getGraphCollection()` — resolved through the
+ * accessor layer, which an earlier creator-layer sweep missed). A promote for a key outside this
+ * census is a caller bug, not a new collection.
  */
 export const VECTOR_PLANE_COLLECTION_KEYS = Object.freeze([
     'kb.unified',
+    'mc.graph',
     'mc.memory',
     'mc.session',
     'mc.temporalSummary'
@@ -86,6 +91,7 @@ const SAFE_COORDINATE_KEYS  = Object.freeze([
 const SAFE_GENERATION_KEYS = Object.freeze(['coordinates', 'declaredAt', 'embeddingGenerationId', 'generationId']);
 const SAFE_COLLECTION_KEYS = Object.freeze(['promotedAt', 'receipt', 'unparkedAt']);
 const SAFE_RECEIPT_KEYS    = Object.freeze(['candidateCollection', 'rowCount', 'validatedAt']);
+const SAFE_QUIESCE_KEYS    = Object.freeze(['boundMs', 'declaredAt', 'scope', 'startedAt']);
 const SAFE_RECORD_KEYS     = Object.freeze([
     'acceptedAt',
     'candidate',
@@ -95,6 +101,7 @@ const SAFE_RECORD_KEYS     = Object.freeze([
     'elected',
     'epoch',
     'parked',
+    'quiesce',
     'retired',
     'retiredAt',
     'rolledBack',
@@ -103,6 +110,14 @@ const SAFE_RECORD_KEYS     = Object.freeze([
     'status',
     'updatedAt'
 ]);
+
+// A transition window longer than a day is a configuration error, not a long migration — the
+// canonical-scale REBUILD happens before commit; only the bounded rename window sits inside quiesce.
+const QUIESCE_MAX_BOUND_MS = 24 * 60 * 60 * 1000;
+
+// Identity coordinates that carry no identifying power. Accepting them silently would forfeit the
+// exact invalidation guarantee the tuple exists for, so they throw at declaration time.
+const PLACEHOLDER_COORDINATE_VALUES = Object.freeze(new Set(['n/a', 'na', 'placeholder', 'tbd', 'todo', 'unknown']));
 
 // Atomic rename prevents torn reads; this queue additionally preserves call order inside one process.
 // The lifecycle guard below protects each read-verify-mutate across KB/MC processes and container PID
@@ -144,12 +159,14 @@ export function createEmbeddingGenerationId({provider, model, vectorDimension, s
  * what makes a lane/engine switch a new corpus generation by construction. `quantization`,
  * `pooling`, and `distance` are explicit because the live `model` value is a config tag, not an
  * immutable digest — a quantization or pooling change with an unchanged tag must still invalidate.
- * Placeholder values ('unknown', 'n/a') are accepted mechanically but forfeit exactly that
- * invalidation guarantee; callers own declaring real coordinates.
+ * Placeholder values ('unknown', 'n/a', 'tbd', …) THROW: a placeholder coordinate forfeits exactly
+ * the invalidation guarantee the tuple exists for. The `model` value must be digest-bearing
+ * (contain `@` or a `sha256:` digest), so the identity binds to the immutable selected artifact —
+ * the elected coordinate from the envelope election, not a mutable tag.
  *
  * @param {Object} coordinates
  * @param {String} coordinates.provider Embedding provider/engine identity (e.g. 'openAiCompatible').
- * @param {String} coordinates.model Model reference; prefer a digest-qualified immutable form.
+ * @param {String} coordinates.model Digest-bearing immutable model reference (coordinate or `sha256:` form).
  * @param {String} coordinates.quantization Model quantization (e.g. 'q4_K_M', or 'none').
  * @param {Number} coordinates.vectorDimension Output vector dimension.
  * @param {String} coordinates.pooling Pooling/normalization semantics (e.g. 'last-token-normalized').
@@ -166,12 +183,16 @@ export function createVectorGenerationIdentity({
     distance,
     strategyVersion
 } = {}) {
-    assertHashInput(provider, 'createVectorGenerationIdentity: provider');
-    assertHashInput(model, 'createVectorGenerationIdentity: model');
-    assertHashInput(quantization, 'createVectorGenerationIdentity: quantization');
-    assertHashInput(pooling, 'createVectorGenerationIdentity: pooling');
-    assertHashInput(distance, 'createVectorGenerationIdentity: distance');
-    assertHashInput(strategyVersion, 'createVectorGenerationIdentity: strategyVersion');
+    assertCoordinateValue(provider, 'createVectorGenerationIdentity: provider');
+    assertCoordinateValue(model, 'createVectorGenerationIdentity: model');
+    assertCoordinateValue(quantization, 'createVectorGenerationIdentity: quantization');
+    assertCoordinateValue(pooling, 'createVectorGenerationIdentity: pooling');
+    assertCoordinateValue(distance, 'createVectorGenerationIdentity: distance');
+    assertCoordinateValue(strategyVersion, 'createVectorGenerationIdentity: strategyVersion');
+
+    if (!/@|sha256:/.test(model)) {
+        throw new TypeError('createVectorGenerationIdentity: model must be digest-bearing (a coordinate containing "@" or a "sha256:" digest); a mutable tag cannot anchor a generation identity')
+    }
 
     if (!Number.isInteger(vectorDimension) || vectorDimension <= 0) {
         throw new TypeError('createVectorGenerationIdentity: vectorDimension must be a positive integer')
@@ -302,6 +323,7 @@ export async function declareBaselineVectorGeneration({dir, identity, now = Date
             elected,
             candidate    : null,
             parked       : null,
+            quiesce      : null,
             rolledBack   : null,
             retired      : null,
             collections  : emptyCollectionsState()
@@ -352,6 +374,7 @@ export async function declareCandidateVectorGeneration({dir, identity, expectedE
             acceptedAt  : null,
             rolledBackAt: null,
             candidate,
+            quiesce     : null,
             rolledBack  : null,
             collections : emptyCollectionsState()
         });
@@ -392,22 +415,25 @@ export async function recordCandidateValidationReceipt({dir, collectionKey, rece
 }
 
 /**
- * @summary Commits the election — the single durable visibility transition.
+ * @summary Commits the election — the single durable authority transition, inside a declared quiesce.
  *
- * Refuses unless every census collection carries a validation receipt. The elected generation
- * parks (full-set rollback authority), the candidate becomes elected, and the epoch increments —
- * from this moment the seams' promotes for the new generation are admissible and stale writers are
- * fenced out. No rename has happened yet; the promotes themselves remain per-collection actions
- * whose completion {@link recordPromoteCompletion} tracks.
+ * Refuses unless every census collection carries a validation receipt AND the caller declares the
+ * quiesce window the transition renames will run inside. The elected generation parks (full-set
+ * rollback authority), the candidate becomes elected, and the epoch increments. No rename has
+ * happened yet — the per-collection promotes follow, each refusing to run outside the declared
+ * window, and readers must be quiesced by the deployment for exactly that window: the record
+ * enforces the declaration and the bound, not the quiet itself.
  *
  * @param {Object} options
  * @param {String} options.dir Declared plane-state directory.
  * @param {Number} options.expectedEpoch The epoch the caller read.
+ * @param {Object} options.quiesce `{scope, startedAt?, boundMs}` — the declared reader-quiesce window.
  * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam.
  * @returns {Promise<Object>} The persisted record.
  */
-export async function commitVectorGenerationElection({dir, expectedEpoch, now = Date.now()} = {}) {
+export async function commitVectorGenerationElection({dir, expectedEpoch, quiesce, now = Date.now()} = {}) {
     const committedAt = normalizeTimestamp(now, 'commitVectorGenerationElection: now');
+    const window      = normalizeQuiesce(quiesce, committedAt, 'commitVectorGenerationElection');
     const filePath    = getVectorGenerationElectionFilePath({dir});
 
     return await serializeMutation(filePath, async guard => {
@@ -430,7 +456,8 @@ export async function commitVectorGenerationElection({dir, expectedEpoch, now = 
             committedAt,
             parked   : record.elected,
             elected  : record.candidate,
-            candidate: null
+            candidate: null,
+            quiesce  : window
         });
 
         return await persistRecord({filePath, record, guard, label: 'commitVectorGenerationElection'})
@@ -438,21 +465,62 @@ export async function commitVectorGenerationElection({dir, expectedEpoch, now = 
 }
 
 /**
+ * @summary Renews the declared quiesce window of a running transition — the stall remediation.
+ *
+ * A committed or rolled-back transition whose window expired with renames incomplete is stuck by
+ * design (renames refuse outside the window). The operator renews with a fresh declared window —
+ * an explicit, receipted act — rather than the record silently tolerating late renames.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Declared plane-state directory.
+ * @param {Number} options.expectedEpoch The epoch the caller read.
+ * @param {Object} options.quiesce `{scope, startedAt?, boundMs}` — the fresh reader-quiesce window.
+ * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam.
+ * @returns {Promise<Object>} The persisted record.
+ */
+export async function renewTransitionQuiesce({dir, expectedEpoch, quiesce, now = Date.now()} = {}) {
+    const declaredAt = normalizeTimestamp(now, 'renewTransitionQuiesce: now');
+    const window     = normalizeQuiesce(quiesce, declaredAt, 'renewTransitionQuiesce');
+    const filePath   = getVectorGenerationElectionFilePath({dir});
+
+    return await serializeMutation(filePath, async guard => {
+        const record = await requireRecord({dir, expectedEpoch, label: 'renewTransitionQuiesce'});
+
+        if (record.status !== 'committed' && record.status !== 'rolled-back') {
+            throw new Error(`renewTransitionQuiesce: refused from status "${record.status}"; only a running transition carries a quiesce window`)
+        }
+
+        Object.assign(record, {
+            updatedAt: declaredAt,
+            quiesce  : window
+        });
+
+        return await persistRecord({filePath, record, guard, label: 'renewTransitionQuiesce'})
+    })
+}
+
+/**
  * @summary The stale-writer fence — every seam calls this immediately before its promote renames.
  *
- * One rule for every status: the generation being promoted must be the ELECTED one and the caller's
- * epoch must be the CURRENT one. A writer holding a pre-election view fails both. Un-park renames
- * during a rollback pass the same fence, because rollback re-elects the prior generation first.
+ * Two rules compose. IDENTITY, for every status: the generation being promoted must be the ELECTED
+ * one and the caller's epoch must be the CURRENT one — a writer holding a pre-election view fails
+ * both. WINDOW, for transitions only: while the record is `committed` or `rolled-back`, the rename
+ * this call admits is a TRANSITION rename (it changes which generation a canonical name serves), so
+ * it must additionally fall inside the declared quiesce window; outside the window it refuses, and
+ * the remediation is {@link renewTransitionQuiesce}. Steady-state refresh promotes on an `accepted`
+ * record need no window — both sides of that rename are the same generation.
  *
  * @param {Object} options
  * @param {String} options.dir Declared plane-state directory.
  * @param {String} options.collectionKey One of {@link VECTOR_PLANE_COLLECTION_KEYS}.
  * @param {String} options.generationId The full election generation id the writer built against.
  * @param {Number} options.epoch The epoch the writer read before building.
+ * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam for the window check.
  * @returns {Promise<{mode: 'legacy'}|{mode: 'elected', epoch: Number, generationId: String}>}
- * @throws {Error} When the record is unprovable or the writer is stale — the promote must not run.
+ * @throws {Error} When the record is unprovable, the writer is stale, or a transition rename falls
+ * outside the declared quiesce window — the promote must not run.
  */
-export async function assertVectorPromoteAdmissible({dir, collectionKey, generationId, epoch} = {}) {
+export async function assertVectorPromoteAdmissible({dir, collectionKey, generationId, epoch, now = Date.now()} = {}) {
     assertCollectionKey(collectionKey, 'assertVectorPromoteAdmissible');
 
     const state = await readVectorGenerationElection({dir});
@@ -475,6 +543,14 @@ export async function assertVectorPromoteAdmissible({dir, collectionKey, generat
 
     if (generationId !== record.elected.generationId) {
         throw new Error(`assertVectorPromoteAdmissible: generation ${generationId.slice(0, 12)}… is not the elected generation at epoch ${record.epoch}`)
+    }
+
+    if (record.status === 'committed' || record.status === 'rolled-back') {
+        const at = normalizeTimestamp(now, 'assertVectorPromoteAdmissible: now');
+
+        if (!isWithinQuiesceWindow(record.quiesce, at)) {
+            throw new Error(`assertVectorPromoteAdmissible: transition rename refused outside the declared quiesce window (scope "${record.quiesce.scope}", ${record.quiesce.startedAt} + ${record.quiesce.boundMs}ms); renew the window explicitly to continue`)
+        }
     }
 
     return {mode: 'elected', epoch: record.epoch, generationId: record.elected.generationId, electionStatus: record.status}
@@ -579,17 +655,20 @@ export async function recordPromoteCompletion({dir, collectionKey, expectedEpoch
  *
  * A code-only rollback without the generation restore is impossible by construction: this is the
  * only rollback, it flips the whole plane, and the epoch increments so every writer that built
- * against the abandoned generation is fenced out. Seams then un-park the restored generation's
- * collections and report via {@link recordUnparkCompletion}.
+ * against the abandoned generation is fenced out. The un-park renames that restore the prior
+ * generation are transition renames, so rollback carries the SAME quiesce obligation as commit —
+ * the caller declares the window the un-parks will run inside, and each un-park refuses outside it.
  *
  * @param {Object} options
  * @param {String} options.dir Declared plane-state directory.
  * @param {Number} options.expectedEpoch The epoch the caller read.
+ * @param {Object} options.quiesce `{scope, startedAt?, boundMs}` — the declared reader-quiesce window.
  * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam.
  * @returns {Promise<Object>} The persisted record.
  */
-export async function rollbackVectorGenerationElection({dir, expectedEpoch, now = Date.now()} = {}) {
+export async function rollbackVectorGenerationElection({dir, expectedEpoch, quiesce, now = Date.now()} = {}) {
     const rolledBackAt = normalizeTimestamp(now, 'rollbackVectorGenerationElection: now');
+    const window       = normalizeQuiesce(quiesce, rolledBackAt, 'rollbackVectorGenerationElection');
     const filePath     = getVectorGenerationElectionFilePath({dir});
 
     return await serializeMutation(filePath, async guard => {
@@ -608,6 +687,7 @@ export async function rollbackVectorGenerationElection({dir, expectedEpoch, now 
             rolledBack : record.elected,
             elected    : record.parked,
             parked     : null,
+            quiesce    : window,
             collections: resetPromotesKeepReceipts(record.collections)
         });
 
@@ -680,7 +760,8 @@ export async function acceptVectorGenerationElection({dir, expectedEpoch, now = 
             acceptedAt,
             retiredAt: acceptedAt,
             retired  : record.parked,
-            parked   : null
+            parked   : null,
+            quiesce  : null
         });
 
         return await persistRecord({filePath, record, guard, label: 'acceptVectorGenerationElection'})
@@ -712,6 +793,7 @@ export async function projectVectorGenerationHealth({dir} = {}) {
         elected    : projectGeneration(record.elected),
         parked     : projectGeneration(record.parked),
         candidate  : projectGeneration(record.candidate),
+        quiesce    : record.quiesce === null ? null : {...record.quiesce},
         collections: Object.fromEntries(VECTOR_PLANE_COLLECTION_KEYS.map(key => [key, {
             validated : record.collections[key].receipt !== null,
             promotedAt: record.collections[key].promotedAt,
@@ -806,6 +888,7 @@ function isValidRecord(record) {
     if (!nullOr(record.acceptedAt, isCanonicalTimestamp) || (record.acceptedAt !== null) !== (status === 'accepted')) return false;
     if (!nullOr(record.rolledBackAt, isCanonicalTimestamp) || (record.rolledBackAt !== null) !== (status === 'rolled-back')) return false;
     if (!nullOr(record.retiredAt, isCanonicalTimestamp) || (record.retiredAt !== null) !== (record.retired !== null)) return false;
+    if (!nullOr(record.quiesce, isValidQuiesce) || (record.quiesce !== null) !== (status === 'committed' || status === 'rolled-back')) return false;
 
     if (!isExactObject(record.collections, VECTOR_PLANE_COLLECTION_KEYS)) return false;
 
@@ -971,6 +1054,70 @@ function assertHash(value, label) {
     if (typeof value !== 'string' || !HASH_PATTERN.test(value)) {
         throw new TypeError(`${label} must be a lowercase SHA-256 hex string`)
     }
+}
+
+function assertCoordinateValue(value, label) {
+    assertHashInput(value, label);
+
+    if (PLACEHOLDER_COORDINATE_VALUES.has(value.trim().toLowerCase())) {
+        throw new TypeError(`${label} is a placeholder ("${value}") — a placeholder coordinate forfeits the invalidation guarantee; declare the real value`)
+    }
+}
+
+/**
+ * @summary Validates one stored quiesce window declaration.
+ * @param {*} quiesce Candidate window.
+ * @returns {Boolean}
+ * @private
+ */
+function isValidQuiesce(quiesce) {
+    return isExactObject(quiesce, SAFE_QUIESCE_KEYS)
+        && typeof quiesce.scope === 'string'
+        && quiesce.scope.length > 0
+        && quiesce.scope.length <= MAX_HASH_INPUT_LENGTH
+        && isCanonicalTimestamp(quiesce.startedAt)
+        && isCanonicalTimestamp(quiesce.declaredAt)
+        && Number.isInteger(quiesce.boundMs)
+        && quiesce.boundMs > 0
+        && quiesce.boundMs <= QUIESCE_MAX_BOUND_MS
+}
+
+/**
+ * @summary Normalizes a caller quiesce declaration into the persistable window.
+ * @param {*} quiesce `{scope, startedAt?, boundMs}`.
+ * @param {String} declaredAt Canonical declaration timestamp; also the default window start.
+ * @param {String} label Error-message prefix.
+ * @returns {Object}
+ * @private
+ */
+function normalizeQuiesce(quiesce, declaredAt, label) {
+    const keys = quiesce && typeof quiesce === 'object' && !Array.isArray(quiesce)
+        ? Object.keys(quiesce).sort()
+        : [];
+
+    if (!sameKeys(keys, ['boundMs', 'scope']) && !sameKeys(keys, ['boundMs', 'scope', 'startedAt'])) {
+        throw new TypeError(`${label}: quiesce must declare exactly {scope, boundMs, startedAt?} — a transition without a declared reader-quiesce window is refused`)
+    }
+
+    const normalized = {
+        boundMs  : quiesce.boundMs,
+        declaredAt,
+        scope    : quiesce.scope,
+        startedAt: quiesce.startedAt === undefined
+            ? declaredAt
+            : normalizeTimestamp(quiesce.startedAt, `${label}: quiesce.startedAt`)
+    };
+
+    if (!isValidQuiesce(normalized)) {
+        throw new TypeError(`${label}: quiesce failed validation (bounded scope string, positive integer boundMs ≤ ${QUIESCE_MAX_BOUND_MS})`)
+    }
+
+    return normalized
+}
+
+function isWithinQuiesceWindow(quiesce, at) {
+    return at >= quiesce.startedAt
+        && Date.parse(at) <= Date.parse(quiesce.startedAt) + quiesce.boundMs
 }
 
 function assertHashInput(value, label) {

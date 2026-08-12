@@ -18,10 +18,11 @@ import {
     getVectorGenerationElectionFilePath,
     projectVectorGenerationHealth,
     readVectorGenerationElection,
-    resolveVectorGenerationElectionDir,
     recordCandidateValidationReceipt,
     recordPromoteCompletion,
     recordUnparkCompletion,
+    renewTransitionQuiesce,
+    resolveVectorGenerationElectionDir,
     rollbackVectorGenerationElection
 } from '../../../../../../../ai/services/shared/vector/generationElectionStore.mjs';
 import {createEmbeddingGenerationId as poisonStoreGenerationId}
@@ -30,11 +31,17 @@ import {createEmbeddingGenerationId as poisonStoreGenerationId}
 const T0 = new Date('2026-08-12T12:00:00.000Z');
 const T1 = new Date('2026-08-12T12:05:00.000Z');
 const T2 = new Date('2026-08-12T12:10:00.000Z');
+const T3 = new Date('2026-08-12T12:20:00.000Z');
+
+// One hour from T2 — transition fixtures pass explicit `now` values inside/outside this window.
+const QUIESCE = Object.freeze({scope: 'fixture-plane-quiesce', boundMs: 60 * 60 * 1000});
+
+const DIGEST_MODEL = 'hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf';
 
 function coordinates(overrides = {}) {
     return {
         provider       : 'ollama',
-        model          : 'qwen3-embedding:8b',
+        model          : DIGEST_MODEL,
         quantization   : 'q4_K_M',
         vectorDimension: 4096,
         pooling        : 'last-token',
@@ -54,7 +61,7 @@ async function makeDir() {
 
 /**
  * Drives a fresh plane to a committed election of `next` over a baseline of `base`.
- * Returns the committed record (epoch 2, status 'committed').
+ * Returns the committed record (epoch 2, status 'committed', quiesce window open from T2).
  */
 async function commitTransition(dir, base, next) {
     await declareBaselineVectorGeneration({dir, identity: base, now: T0});
@@ -64,7 +71,7 @@ async function commitTransition(dir, base, next) {
         await recordCandidateValidationReceipt({dir, collectionKey: key, receipt: receiptFor(key), expectedEpoch: 1, now: T1})
     }
 
-    return await commitVectorGenerationElection({dir, expectedEpoch: 1, now: T2})
+    return await commitVectorGenerationElection({dir, expectedEpoch: 1, quiesce: QUIESCE, now: T2})
 }
 
 test.describe('generationElectionStore — one durable authority for vector-plane generation visibility', () => {
@@ -89,7 +96,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
 
             for (const [key, value] of Object.entries({
                 provider       : 'openAiCompatible',
-                model          : 'other-model:1b',
+                model          : 'ollama://registry.ollama.ai/library/other:1b@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
                 quantization   : 'q8_0',
                 vectorDimension: 1024,
                 pooling        : 'mean',
@@ -102,10 +109,17 @@ test.describe('generationElectionStore — one durable authority for vector-plan
         });
 
         test('the embedding join key is one id-space with the poison store re-export', () => {
-            const tuple = {provider: 'ollama', model: 'qwen3-embedding:8b', vectorDimension: 4096, strategyVersion: 'v1'};
+            const tuple = {provider: 'ollama', model: DIGEST_MODEL, vectorDimension: 4096, strategyVersion: 'v1'};
 
             expect(createEmbeddingGenerationId(tuple)).toBe(poisonStoreGenerationId(tuple));
             expect(base.embeddingGenerationId).toBe(poisonStoreGenerationId(tuple))
+        });
+
+        test('placeholder coordinates and mutable model tags are refused at declaration time', () => {
+            expect(() => createVectorGenerationIdentity(coordinates({pooling: 'unknown'}))).toThrow(/placeholder/);
+            expect(() => createVectorGenerationIdentity(coordinates({quantization: 'TBD'}))).toThrow(/placeholder/);
+            expect(() => createVectorGenerationIdentity(coordinates({distance: 'n/a'}))).toThrow(/placeholder/);
+            expect(() => createVectorGenerationIdentity(coordinates({model: 'qwen3-embedding:8b'}))).toThrow(/digest-bearing/)
         });
 
         test('incomplete or invalid coordinates are refused', () => {
@@ -118,7 +132,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
     test.describe('fail-safe polarity', () => {
         test('a plane with no record grandfathers promotes in declared legacy mode', async () => {
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 1
+                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 1, now: T0
             })).resolves.toEqual({mode: 'legacy'})
         });
 
@@ -131,7 +145,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
 
             for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
                 await expect(assertVectorPromoteAdmissible({
-                    dir, collectionKey: key, generationId: base.generationId, epoch: 1
+                    dir, collectionKey: key, generationId: base.generationId, epoch: 1, now: T0
                 })).rejects.toThrow(/unprovable/)
             }
         });
@@ -142,7 +156,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             const filePath = getVectorGenerationElectionFilePath({dir});
             const record   = JSON.parse(await fs.readFile(filePath, 'utf8'));
 
-            record.elected.coordinates.model = 'tampered-model';
+            record.elected.coordinates.model = 'tampered@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
             await fs.writeFile(filePath, JSON.stringify(record, null, 2));
 
             expect((await readVectorGenerationElection({dir})).status).toBe('unavailable')
@@ -160,7 +174,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
     });
 
     test.describe('the election lifecycle', () => {
-        test('baseline records reality at epoch 1, already accepted', async () => {
+        test('baseline records reality at epoch 1, already accepted, with no quiesce window', async () => {
             const record = await declareBaselineVectorGeneration({dir, identity: base, now: T0});
 
             expect(record).toMatchObject({
@@ -169,9 +183,11 @@ test.describe('generationElectionStore — one durable authority for vector-plan
                 status       : 'accepted',
                 parked       : null,
                 candidate    : null,
-                retired      : null
+                retired      : null,
+                quiesce      : null
             });
-            expect(record.elected.generationId).toBe(base.generationId)
+            expect(record.elected.generationId).toBe(base.generationId);
+            expect(Object.keys(record.collections).sort()).toEqual([...VECTOR_PLANE_COLLECTION_KEYS].sort())
         });
 
         test('a no-op candidate equal to the elected generation is refused as a caller bug', async () => {
@@ -189,8 +205,22 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             }
 
             const missing = VECTOR_PLANE_COLLECTION_KEYS.at(-1);
-            await expect(commitVectorGenerationElection({dir, expectedEpoch: 1, now: T2}))
+            await expect(commitVectorGenerationElection({dir, expectedEpoch: 1, quiesce: QUIESCE, now: T2}))
                 .rejects.toThrow(new RegExp(missing.replace('.', '\\.')))
+        });
+
+        test('commit refuses without a declared quiesce window', async () => {
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+            await declareCandidateVectorGeneration({dir, identity: next, expectedEpoch: 1, now: T1});
+
+            for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
+                await recordCandidateValidationReceipt({dir, collectionKey: key, receipt: receiptFor(key), expectedEpoch: 1, now: T1})
+            }
+
+            await expect(commitVectorGenerationElection({dir, expectedEpoch: 1, now: T2}))
+                .rejects.toThrow(/quiesce must declare/);
+            await expect(commitVectorGenerationElection({dir, expectedEpoch: 1, quiesce: {scope: 'x', boundMs: 0}, now: T2}))
+                .rejects.toThrow(/quiesce failed validation/)
         });
 
         test('a receipt with unknown keys or an unknown collection is refused', async () => {
@@ -208,12 +238,13 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             })).rejects.toThrow(/collectionKey/)
         });
 
-        test('commit parks the prior generation, elects the candidate, and bumps the epoch', async () => {
+        test('commit parks the prior generation, elects the candidate, bumps the epoch, and stores the window', async () => {
             const record = await commitTransition(dir, base, next);
 
             expect(record).toMatchObject({epoch: 2, status: 'committed', candidate: null});
             expect(record.elected.generationId).toBe(next.generationId);
             expect(record.parked.generationId).toBe(base.generationId);
+            expect(record.quiesce).toMatchObject({scope: QUIESCE.scope, boundMs: QUIESCE.boundMs, startedAt: T2.toISOString()});
 
             for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
                 expect(record.collections[key].receipt).not.toBeNull();
@@ -221,7 +252,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             }
         });
 
-        test('acceptance refuses until every collection reports its promote, then retires the parked set', async () => {
+        test('acceptance refuses until every collection reports its promote, then retires the parked set and clears the window', async () => {
             await commitTransition(dir, base, next);
 
             await recordPromoteCompletion({dir, collectionKey: 'kb.unified', expectedEpoch: 2, now: T2});
@@ -234,7 +265,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
 
             const record = await acceptVectorGenerationElection({dir, expectedEpoch: 2, now: T2});
 
-            expect(record).toMatchObject({status: 'accepted', epoch: 2, parked: null});
+            expect(record).toMatchObject({status: 'accepted', epoch: 2, parked: null, quiesce: null});
             expect(record.retired.generationId).toBe(base.generationId);
             expect(record.retiredAt).toBe(T2.toISOString())
         });
@@ -254,41 +285,34 @@ test.describe('generationElectionStore — one durable authority for vector-plan
 
     test.describe('the stale-writer fence (mixed-generation mutation coverage)', () => {
         test('an uncommitted election never advertises: candidate promotes are refused on every collection', async () => {
-            // The mid-promotion-halt semantics at store level: candidate declared, receipts present,
-            // commit NOT reached — a writer that built the new generation cannot rename anywhere,
-            // so every reader still resolves the prior generation by construction.
             await declareBaselineVectorGeneration({dir, identity: base, now: T0});
             await declareCandidateVectorGeneration({dir, identity: next, expectedEpoch: 1, now: T1});
 
             for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
                 await recordCandidateValidationReceipt({dir, collectionKey: key, receipt: receiptFor(key), expectedEpoch: 1, now: T1});
                 await expect(assertVectorPromoteAdmissible({
-                    dir, collectionKey: key, generationId: next.generationId, epoch: 1
+                    dir, collectionKey: key, generationId: next.generationId, epoch: 1, now: T1
                 })).rejects.toThrow(/not the elected generation/)
             }
 
-            // Same-generation refresh promotes stay admissible during the build window.
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 1
+                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 1, now: T1
             })).resolves.toMatchObject({mode: 'elected', epoch: 1})
         });
 
         test('after commit, a writer holding the pre-election view is fenced on both coordinates', async () => {
             await commitTransition(dir, base, next);
 
-            // Stale epoch (the pre-commit view).
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'mc.memory', generationId: base.generationId, epoch: 1
+                dir, collectionKey: 'mc.memory', generationId: base.generationId, epoch: 1, now: T2
             })).rejects.toThrow(/stale writer fenced/);
 
-            // Current epoch but the abandoned generation.
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'mc.memory', generationId: base.generationId, epoch: 2
+                dir, collectionKey: 'mc.memory', generationId: base.generationId, epoch: 2, now: T2
             })).rejects.toThrow(/not the elected generation/);
 
-            // The elected generation at the current epoch promotes.
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'mc.memory', generationId: next.generationId, epoch: 2
+                dir, collectionKey: 'mc.memory', generationId: next.generationId, epoch: 2, now: T2
             })).resolves.toMatchObject({mode: 'elected', epoch: 2, generationId: next.generationId})
         });
 
@@ -306,28 +330,77 @@ test.describe('generationElectionStore — one durable authority for vector-plan
         })
     });
 
+    test.describe('the quiesce window bounds every transition rename', () => {
+        test('a transition promote refuses outside the declared window and resumes after an explicit renewal', async () => {
+            await commitTransition(dir, base, next);
+
+            // Inside the T2 + 1h window: admissible.
+            await expect(assertVectorPromoteAdmissible({
+                dir, collectionKey: 'kb.unified', generationId: next.generationId, epoch: 2, now: T2
+            })).resolves.toMatchObject({mode: 'elected'});
+
+            // Beyond the window (T2 + 2h): the rename refuses with the renewal remediation named.
+            const late = new Date(T2.getTime() + 2 * 60 * 60 * 1000);
+            await expect(assertVectorPromoteAdmissible({
+                dir, collectionKey: 'kb.unified', generationId: next.generationId, epoch: 2, now: late
+            })).rejects.toThrow(/outside the declared quiesce window/);
+
+            // Renewal is explicit and receipted; the same rename is admissible again.
+            await renewTransitionQuiesce({dir, expectedEpoch: 2, quiesce: {scope: 'renewed-window', boundMs: QUIESCE.boundMs, startedAt: late}, now: late});
+            await expect(assertVectorPromoteAdmissible({
+                dir, collectionKey: 'kb.unified', generationId: next.generationId, epoch: 2, now: late
+            })).resolves.toMatchObject({mode: 'elected'})
+        });
+
+        test('renewal is only reachable for a running transition', async () => {
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+            await expect(renewTransitionQuiesce({dir, expectedEpoch: 1, quiesce: QUIESCE, now: T1}))
+                .rejects.toThrow(/only a running transition/)
+        });
+
+        test('steady-state refresh promotes need no window', async () => {
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+
+            // Years later, no transition running — a same-generation refresh promote is admissible.
+            const muchLater = new Date('2027-01-01T00:00:00.000Z');
+            await expect(assertVectorPromoteAdmissible({
+                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 1, now: muchLater
+            })).resolves.toMatchObject({mode: 'elected', electionStatus: 'accepted'})
+        })
+    });
+
     test.describe('rollback restores the full prior set', () => {
-        test('rollback re-elects the parked generation, bumps the epoch, and fences the abandoned writers', async () => {
+        test('rollback re-elects the parked generation under its own declared window and fences the abandoned writers', async () => {
             await commitTransition(dir, base, next);
             await recordPromoteCompletion({dir, collectionKey: 'kb.unified', expectedEpoch: 2, now: T2});
 
-            const record = await rollbackVectorGenerationElection({dir, expectedEpoch: 2, now: T2});
+            await expect(rollbackVectorGenerationElection({dir, expectedEpoch: 2, now: T3}))
+                .rejects.toThrow(/quiesce must declare/);
+
+            const record = await rollbackVectorGenerationElection({dir, expectedEpoch: 2, quiesce: {scope: 'rollback-window', boundMs: QUIESCE.boundMs}, now: T3});
 
             expect(record).toMatchObject({epoch: 3, status: 'rolled-back', parked: null, committedAt: null});
             expect(record.elected.generationId).toBe(base.generationId);
             expect(record.rolledBack.generationId).toBe(next.generationId);
+            expect(record.quiesce).toMatchObject({scope: 'rollback-window', startedAt: T3.toISOString()});
 
             for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
                 expect(record.collections[key].promotedAt, `${key} promote is void after rollback`).toBeNull()
             }
 
-            // The abandoned generation cannot promote at any epoch; the restored one can (un-park renames).
+            // The abandoned generation cannot rename at any epoch; the restored one can, inside the window.
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'kb.unified', generationId: next.generationId, epoch: 3
+                dir, collectionKey: 'kb.unified', generationId: next.generationId, epoch: 3, now: T3
             })).rejects.toThrow(/not the elected generation/);
             await expect(assertVectorPromoteAdmissible({
-                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 3
-            })).resolves.toMatchObject({mode: 'elected', epoch: 3})
+                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 3, now: T3
+            })).resolves.toMatchObject({mode: 'elected', epoch: 3});
+
+            // Un-park renames refuse outside the rollback window too — the defect cannot recur in reverse.
+            const late = new Date(T3.getTime() + 2 * 60 * 60 * 1000);
+            await expect(assertVectorPromoteAdmissible({
+                dir, collectionKey: 'kb.unified', generationId: base.generationId, epoch: 3, now: late
+            })).rejects.toThrow(/outside the declared quiesce window/)
         });
 
         test('rollback is only reachable before acceptance — a code-only rollback without the generation restore cannot exist', async () => {
@@ -338,13 +411,13 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             }
             await acceptVectorGenerationElection({dir, expectedEpoch: 2, now: T2});
 
-            await expect(rollbackVectorGenerationElection({dir, expectedEpoch: 2, now: T2}))
+            await expect(rollbackVectorGenerationElection({dir, expectedEpoch: 2, quiesce: QUIESCE, now: T2}))
                 .rejects.toThrow(/only a committed, unaccepted election rolls back/)
         });
 
         test('a new candidate is refused until every collection reports its un-park', async () => {
             await commitTransition(dir, base, next);
-            await rollbackVectorGenerationElection({dir, expectedEpoch: 2, now: T2});
+            await rollbackVectorGenerationElection({dir, expectedEpoch: 2, quiesce: QUIESCE, now: T2});
 
             const third = createVectorGenerationIdentity(coordinates({strategyVersion: 'v3'}));
 
@@ -357,12 +430,13 @@ test.describe('generationElectionStore — one durable authority for vector-plan
 
             const record = await declareCandidateVectorGeneration({dir, identity: third, expectedEpoch: 3, now: T2});
             expect(record.status).toBe('candidate');
-            expect(record.rolledBack).toBeNull()
+            expect(record.rolledBack).toBeNull();
+            expect(record.quiesce).toBeNull()
         })
     });
 
     test.describe('health projection', () => {
-        test('health reports elected + parked identities and per-collection state without throwing', async () => {
+        test('health reports elected + parked identities, the window, and per-collection state without throwing', async () => {
             expect((await projectVectorGenerationHealth({dir})).status).toBe('missing');
 
             await commitTransition(dir, base, next);
@@ -374,25 +448,12 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             expect(health.epoch).toBe(2);
             expect(health.elected.generationId).toBe(next.generationId);
             expect(health.parked.generationId).toBe(base.generationId);
+            expect(health.quiesce).toMatchObject({scope: QUIESCE.scope});
             expect(health.elected.coordinates.provider).toBe('openAiCompatible');
             expect(health.collections['kb.unified']).toMatchObject({validated: true});
             expect(health.collections['kb.unified'].promotedAt).not.toBeNull();
+            expect(health.collections['mc.graph'].promotedAt).toBeNull();
             expect(health.collections['mc.session'].promotedAt).toBeNull()
-        })
-    });
-
-    test.describe('durability shape', () => {
-        test('the record round-trips through disk and revalidates on every read', async () => {
-            await commitTransition(dir, base, next);
-
-            const reread = await readVectorGenerationElection({dir});
-
-            expect(reread.status).toBe('available');
-            expect(reread.record.elected.generationId).toBe(next.generationId);
-
-            const raw = JSON.parse(await fs.readFile(getVectorGenerationElectionFilePath({dir}), 'utf8'));
-            expect(raw.schemaVersion).toBe(VECTOR_GENERATION_ELECTION_SCHEMA_VERSION);
-            expect(Object.keys(raw.collections).sort()).toEqual([...VECTOR_PLANE_COLLECTION_KEYS].sort())
         })
     });
 
@@ -428,7 +489,7 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
                 await recordCandidateValidationReceipt({dir, collectionKey: key, receipt: receiptFor(key), expectedEpoch: 1, now: T1})
             }
-            await commitVectorGenerationElection({dir, expectedEpoch: 1, now: T2});
+            await commitVectorGenerationElection({dir, expectedEpoch: 1, quiesce: QUIESCE, now: T2});
 
             await expect(assertCapturedPromoteView({dir, collectionKey: 'mc.memory', view}))
                 .rejects.toThrow(/stale writer fenced/)
@@ -441,6 +502,22 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             await expect(captureVectorPromoteView({dir})).rejects.toThrow(/unprovable/);
             await expect(assertCapturedPromoteView({dir, collectionKey: 'kb.unified', view: {mode: 'legacy'}}))
                 .rejects.toThrow(/unprovable/)
+        })
+    });
+
+    test.describe('durability shape', () => {
+        test('the record round-trips through disk and revalidates on every read', async () => {
+            await commitTransition(dir, base, next);
+
+            const reread = await readVectorGenerationElection({dir});
+
+            expect(reread.status).toBe('available');
+            expect(reread.record.elected.generationId).toBe(next.generationId);
+
+            const raw = JSON.parse(await fs.readFile(getVectorGenerationElectionFilePath({dir}), 'utf8'));
+            expect(raw.schemaVersion).toBe(VECTOR_GENERATION_ELECTION_SCHEMA_VERSION);
+            expect(Object.keys(raw.collections).sort()).toEqual([...VECTOR_PLANE_COLLECTION_KEYS].sort());
+            expect(raw.quiesce.scope).toBe(QUIESCE.scope)
         })
     })
 });
