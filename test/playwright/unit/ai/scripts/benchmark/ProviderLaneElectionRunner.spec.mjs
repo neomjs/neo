@@ -118,7 +118,6 @@ function buildLaneSlo({context, cpu, memory, operations}) {
         minCompletedOperations  : operations,
         minContextTokensPerSlot : context,
         minResourceCoverageRatio: 0.9,
-        minThroughputPerSecond  : 0.001,
         requiredQueueDisposition: 'queued'
     }
 }
