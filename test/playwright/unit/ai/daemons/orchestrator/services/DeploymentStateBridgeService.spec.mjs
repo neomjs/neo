@@ -3043,7 +3043,10 @@ test.describe('classifyDirectProbeOutcome — a probe fault is not a service fau
         // Asserted ACROSS the two artifacts rather than as a magic number, so moving either one without
         // the other fails here instead of on a live plane.
         const compose = readFileSync(new URL('../../../../../../../ai/deploy/docker-compose.yml', import.meta.url), 'utf8'),
-              seconds = [...compose.matchAll(/mcpHealthcheck\.mjs[\s\S]{0,400}?timeout:\s*(\d+)s/g)].map(match => Number(match[1]));
+              // `timeout\s*:` — the block-alignment gate pads compose keys to the house style
+              // (`timeout     : 5s`), so any compose-touching commit re-aligns these blocks; the
+              // extraction must accept both the padded and unpadded forms.
+              seconds = [...compose.matchAll(/mcpHealthcheck\.mjs[\s\S]{0,400}?timeout\s*:\s*(\d+)s/g)].map(match => Number(match[1]));
 
         expect(seconds.length).toBeGreaterThan(0);   // the probe blocks were actually found
 
