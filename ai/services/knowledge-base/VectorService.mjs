@@ -22,6 +22,12 @@ import readline                                                        from 'rea
 import DestructiveOperationGuard                                       from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
 import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
+import {
+    assertCapturedPromoteView,
+    captureVectorPromoteView,
+    recordPromoteCompletion,
+    resolveVectorGenerationElectionDir
+}                                                                      from '../shared/vector/generationElectionStore.mjs';
 import KBRecorderService                                               from './KBRecorderService.mjs';
 import {
     clearEmbeddingPoisonState,
@@ -1342,6 +1348,11 @@ class VectorService extends Base {
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
         const resumeState = await readResumeState({dir: stateDir});
         const decision    = decideResume({resumeState, currentFingerprint: fingerprint});
+        // Captured BEFORE any shadow work: the election fence compares this view at the promote
+        // moment, so a generation commit or rollback landing mid-build fences this writer out
+        // instead of letting a corpus built under the old view advertise into the new generation.
+        const electionDir = resolveVectorGenerationElectionDir({planeDataRoot: aiConfig.plane.dataRoot});
+        const promoteView = await captureVectorPromoteView({dir: electionDir});
 
         let shadowCollection  = null;
         let shadowName        = null;
@@ -1470,6 +1481,14 @@ class VectorService extends Base {
                 }
             }
 
+            // The stale-writer fence, immediately before the renames: refuses unless the view this
+            // corpus was built under is still the elected generation at the current epoch.
+            const promoteAdmission = await assertCapturedPromoteView({
+                dir          : electionDir,
+                collectionKey: 'kb.unified',
+                view         : promoteView
+            });
+
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
             await liveCollection.modify({name: parkingName});
             liveParked = true;
@@ -1478,6 +1497,16 @@ class VectorService extends Base {
 
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
             await clearResumeState({dir: stateDir}); // promoted → nothing to resume
+
+            if (promoteAdmission.mode === 'elected' && promoteAdmission.electionStatus === 'committed') {
+                try {
+                    await recordPromoteCompletion({dir: electionDir, collectionKey: 'kb.unified', expectedEpoch: promoteAdmission.epoch})
+                } catch (completionError) {
+                    // The renames landed; a lost completion mark only keeps acceptance blocked
+                    // (rollback authority retained) — never unwind a successful promote for bookkeeping.
+                    logger.error('[VectorService] Promote landed but the election completion mark failed; acceptance stays blocked until repaired:', completionError.message);
+                }
+            }
 
             const collection = await ChromaManager.getKnowledgeBaseCollection();
             const count      = await collection.count();

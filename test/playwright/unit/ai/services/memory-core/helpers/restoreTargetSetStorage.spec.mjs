@@ -148,6 +148,82 @@ test.describe('restoreTargetSetStorage — fake Chroma + disposable SQLite targe
         expect(proof.reason).toContain('persisted graph differs from boot seed')
     });
 
+    test('an election landing during staging fences every vector promote of that attempt (#17035)', async () => {
+        const {
+            VECTOR_PLANE_COLLECTION_KEYS,
+            commitVectorGenerationElection,
+            createVectorGenerationIdentity,
+            declareBaselineVectorGeneration,
+            declareCandidateVectorGeneration,
+            recordCandidateValidationReceipt
+        } = await import('../../../../../../../ai/services/shared/vector/generationElectionStore.mjs');
+
+        const electionDir = path.join(fixture.root, 'election');
+        const identityFor = model => createVectorGenerationIdentity({
+            provider       : 'openAiCompatible',
+            model,
+            quantization   : 'q4_K_M',
+            vectorDimension: 8,
+            pooling        : 'last-token',
+            distance       : 'cosine',
+            strategyVersion: 'v1'
+        });
+
+        await declareBaselineVectorGeneration({
+            dir     : electionDir,
+            identity: identityFor('hf://fixture/G1@sha256:1111111111111111111111111111111111111111111111111111111111111111')
+        });
+
+        const
+            storage = createRestoreTargetSetStorage({
+                chromaClient          : fixture.client,
+                dummyEmbeddingFunction: fixture.dummyEmbeddingFunction,
+                graphDb               : fixture.graphDb,
+                expectedDestinations  : fixture.destinations,
+                stagingRoot           : fixture.stagingRoot,
+                electionDir
+            }),
+            identity = deriveRestoreTargetSetIdentity(fixture.targetSet),
+            context  = {
+                targetSet : fixture.targetSet,
+                descriptor: identity.descriptor,
+                ...identity
+            };
+
+        // A promote before any staging refuses loudly — the view must exist for the attempt.
+        await expect(storage.promoteComponent({...context, role: 'memories'}))
+            .rejects.toThrow(/stage before promoting/);
+
+        // Staging captures the attempt's election view (elected G1 at epoch 1).
+        const staging = await storage.stageTargetSet(context);
+        await storage.validateStagedTargetSet({...context, staging});
+
+        // An election commits WHILE the attempt is between staging and promotion.
+        await declareCandidateVectorGeneration({
+            dir          : electionDir,
+            identity     : identityFor('hf://fixture/G2@sha256:2222222222222222222222222222222222222222222222222222222222222222'),
+            expectedEpoch: 1
+        });
+        for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
+            await recordCandidateValidationReceipt({
+                dir          : electionDir, collectionKey: key,
+                receipt      : {candidateCollection: `shadow-${key}`, rowCount: 1},
+                expectedEpoch: 1
+            })
+        }
+        await commitVectorGenerationElection({
+            dir    : electionDir, expectedEpoch: 1,
+            quiesce: {scope: 'staging-race-window', boundMs: 60 * 60 * 1000}
+        });
+
+        // The attempt's staged content was built under the pre-election view: every vector-role
+        // promote is fenced as stale, and the graph promote (outside the vector election) is not.
+        await expect(storage.promoteComponent({...context, staging, role: 'memories'}))
+            .rejects.toThrow(/stale writer fenced/);
+        await expect(storage.promoteComponent({...context, staging, role: 'summaries'}))
+            .rejects.toThrow(/stale writer fenced/)
+    });
+
     test('detects a live component that advanced without its strict transition', async () => {
         const
             storage  = createStorage(fixture),

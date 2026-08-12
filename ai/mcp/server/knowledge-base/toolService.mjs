@@ -10,6 +10,10 @@ import AiConfig                      from '../../../config.mjs';
 import kbConfig                      from './config.mjs';
 import {readDeploymentStateSnapshot} from '../../../services/memory-core/helpers/deploymentStateBridgeStore.mjs';
 import {
+    projectVectorGenerationHealth,
+    resolveVectorGenerationElectionDir
+}                                    from '../../../services/shared/vector/generationElectionStore.mjs';
+import {
     assertToolTransportAllowed,
     ingestSourceFilesViaMcp,
     ingestToolName,
@@ -64,7 +68,12 @@ const serviceMapping = {
     // child overlay can never verify one identity and report another.
     healthcheck                  : async () => ({
         ...await HealthService.healthcheck(),
-        plane: {id: kbConfig.plane.id, dataRoot: kbConfig.plane.dataRoot}
+        plane           : {id: kbConfig.plane.id, dataRoot: kbConfig.plane.dataRoot},
+        // Elected + parked vector-generation identities (never throws; `missing` on a plane that
+        // has not declared an election) — acceptance for a generation cutover reads this block.
+        vectorGeneration: await projectVectorGenerationHealth({
+            dir: resolveVectorGenerationElectionDir({planeDataRoot: kbConfig.plane.dataRoot})
+        })
     }),
     get_deployment_state_snapshot: readDeploymentInspection,
     inspect_deployment           : readDeploymentInspection,
