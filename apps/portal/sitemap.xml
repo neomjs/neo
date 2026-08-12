@@ -911,7 +911,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-08-12T13:43:41Z</lastmod>
+    <lastmod>2026-08-12T15:24:16Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -931,7 +931,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-12T13:43:45Z</lastmod>
+    <lastmod>2026-08-12T15:24:18Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2292,7 +2292,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17023</loc>
-    <lastmod>2026-08-12T13:38:14Z</lastmod>
+    <lastmod>2026-08-12T15:18:56Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17022</loc>
@@ -2308,7 +2308,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17018</loc>
-    <lastmod>2026-08-12T13:38:14Z</lastmod>
+    <lastmod>2026-08-12T15:18:59Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17017</loc>
@@ -4128,7 +4128,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16167</loc>
-    <lastmod>2026-08-08T11:46:36Z</lastmod>
+    <lastmod>2026-08-12T15:18:58Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/16166</loc>
@@ -4860,7 +4860,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15798</loc>
-    <lastmod>2026-08-08T18:03:02Z</lastmod>
+    <lastmod>2026-08-12T15:19:03Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/15795</loc>
@@ -47241,6 +47241,16 @@
   <url>
     <loc>https://neomjs.com/news/tickets/1</loc>
     <lastmod>2026-05-30T17:22:01+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/17029</loc>
+    <lastmod>2026-08-12T15:19:07Z</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/pulls/17028</loc>
+    <lastmod>2026-08-12T15:19:07Z</lastmod>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17027</loc>
