@@ -54,21 +54,20 @@ import {CONTAINER_HEALTH_ACTION_CLASSES} from './ContainerHealthDiagnosisService
  * the second is a decision, and a controller that expressed both as a fall-through could not tell an
  * operator which one they were looking at.
  *
- * The two non-actuated rows are not oversights:
+ * The non-actuated rows are not oversights:
  *
  * - **`throttle-shed` is admitted by nothing.** The actuator's closed set is `reconfigure` / `restart`
  *   / `redeploy` / `warm-provider` / `raise-ceiling`, and shed is in none of them, while
  *   `exhaustion`-non-store and `contention` both emit it. Inventing an action to carry it here is
  *   exactly what ADR-0026 AC-9 forbids. That gap is real and is someone's ticket; it is not this // ticket-ref-ok: the ADR clause is what makes inventing an action illegal here
  *   controller's licence.
- * - **`raise-ceiling` is admitted but not addressable from a decision alone.** The actuator's
- *   `raiseComposeServiceCeiling` is a KNOB transaction: it needs a knob name plus the values to write,
- *   and `recoveryKnobRegistry` deliberately declares the ceiling's derived BAND (8–16 GiB) without
- *   declaring the step within it. A controller that picked one would be composing a config transaction
- *   from a diagnosis, which is precisely the authority the knob boundary exists to withhold from
- *   controllers. Verified rather than assumed: `deploy.chroma.memoryCeilingBytes` has zero producers
- *   anywhere in `ai/`, so no existing derivation is being ignored here — the intent-producer does not
- *   exist yet, and recording says so instead of guessing.
+ * - **`record` is already the terminal.** Routing it back through an actuator action would turn a
+ *   diagnosis whose policy is "observe only" into a privileged effect.
+ *
+ * `raise-ceiling` is the contrasting actuated row. The controller names only the semantic
+ * `container-memory-ceiling` knob; it never names the `deploy.*` leaf or its value. The closed registry
+ * owns the 8 → 16 GiB step policy and the actuator resolves it against the live Docker limit, preserving
+ * the knob boundary while closing the former record-only gap.
  *
  * @type {Object}
  */
@@ -82,8 +81,9 @@ export const CONTAINER_HEALTH_ACTION_ROUTES = Object.freeze({
         reasonCode    : 'container-health-warm-provider'
     }),
     [CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling]: Object.freeze({
-        actuatorAction: null,
-        reasonCode    : 'raise-ceiling-requires-a-knob-transaction'
+        actuatorAction: 'raise-ceiling',
+        knob          : 'container-memory-ceiling',
+        reasonCode    : 'container-health-raise-ceiling'
     }),
     [CONTAINER_HEALTH_ACTION_CLASSES.throttleShed]: Object.freeze({
         actuatorAction: null,
@@ -251,9 +251,8 @@ export class ContainerHealthControllerService extends Base {
 
         // Re-asked HERE, immediately before the privileged write, not once for the batch. A snapshot is
         // consumed one service at a time and each actuation is its own effect, so authority lost while
-        // an earlier service was restarting must stop every later one. The recording terminals above are
-        // deliberately not fenced: writing a durable record of a diagnosis is not a plane mutation, and
-        // losing the record would remove the evidence that this instance stopped acting.
+        // an earlier service was restarting must stop every later one. The recording terminals above
+        // carry the same fence because their shared durable ledger is successor-owned state too.
         return this.declineIfAuthorityLost({decision, now, actionClass}) ||
             await this.actuate({decision, now, route});
     }
@@ -300,6 +299,7 @@ export class ContainerHealthControllerService extends Base {
                 targetIdentity: diagnosis.targetIdentity || decision.targetIdentity || null,
                 now,
                 reason,
+                ...(route.knob ? {knob: route.knob} : {}),
                 // Carried INTO the actuator so it is revalidated after its own awaited preparation,
                 // immediately before the privileged effect. A check made out here is separated from
                 // the effect by `readHealAttempts`, which is I/O — and an authority check with an
@@ -341,10 +341,10 @@ export class ContainerHealthControllerService extends Base {
      * record-with-diagnosis terminal.
      *
      * The actuator's `recordDiagnosis` accepts only events whose `details.actionClass` is `record`, so
-     * a `throttle-shed` or `raise-ceiling` diagnosis is re-shaped rather than passed through — and the
-     * original class travels along as `unactuatedActionClass` so the ledger never loses WHICH heal was
-     * declined. Re-labelling it to `record` without carrying the original would turn a decision not to
-     * act into a diagnosis that never wanted an action, which are different facts about the deployment.
+     * an unactuated diagnosis such as `throttle-shed` is re-shaped rather than passed through — and
+     * the original class travels along as `unactuatedActionClass` so the ledger never loses WHICH heal
+     * was declined. Re-labelling it to `record` without carrying the original would turn a decision not
+     * to act into a diagnosis that never wanted an action, which are different facts about the deployment.
      *
      * @param {Object} options
      * @param {Object} options.decision The diagnosed decision.

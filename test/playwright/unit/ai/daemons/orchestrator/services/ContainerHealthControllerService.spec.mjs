@@ -1,7 +1,7 @@
-import {test, expect} from '@playwright/test';
-import {mkdtemp, rm}  from 'fs/promises';
-import os             from 'os';
-import path           from 'path';
+import {test, expect}          from '@playwright/test';
+import {mkdtemp, readFile, rm} from 'fs/promises';
+import os                      from 'os';
+import path                    from 'path';
 
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
@@ -15,15 +15,19 @@ import {
     CONTAINER_HEALTH_ACTION_CLASSES,
     ContainerHealthDiagnosisService
 } from '../../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
-import {RecoveryActuatorService}              from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
+import {RecoveryActuatorService} from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
 import {
     appendHealEvent,
     HEAL_LEDGER_DIR_NAME,
     readHealLedger
 } from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import {createRecoveryDiagnosisEvent}         from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {
+    createRecoveryDiagnosisEvent,
+    readRecentRecoveryRunStates
+} from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 
 const OBSERVED_AT = 1710000000000;
+const GIB         = 1024 ** 3;
 
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
@@ -47,12 +51,14 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
      * and the real ledger paths — the parts that decide whether anything actually heals — unexercised.
      * Only the Docker socket boundary is faked, because that is the one thing a unit test cannot hold.
      */
-    function createStack({actuatorConfig = {}, controllerConfig = {}} = {}) {
+    function createStack({actuatorConfig = {}, controllerConfig = {}, liveLimitBytes = 2 * GIB} = {}) {
         const runtimeCalls = [],
+              runtimeReads = [],
               taskOutcomes = [],
               actuator     = Neo.create(RecoveryActuatorService, {
-                  dataDir       : tmpDir,
-                  actuatorConfig: {
+                  dataDir            : tmpDir,
+                  recoveryOverrideDir: path.join(tmpDir, 'deployment-state'),
+                  actuatorConfig     : {
                       enabled                    : true,
                       blockedComposeServices     : [],
                       blockedDeployTargets       : [],
@@ -76,6 +82,19 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
                   },
                   deploymentRuntimeAccessService: {
                       runtimeAccessConfig: DEFAULT_RUNTIME_ACCESS_CONFIG,
+                      async readObserve(options) {
+                          runtimeReads.push(options);
+
+                          return {
+                              ok   : true,
+                              data : {HostConfig: {Memory: liveLimitBytes}},
+                              proof: {
+                                  capabilityEnvelope: 'read-observe',
+                                  operation         : options.operation,
+                                  serviceKey        : options.serviceKey
+                              }
+                          };
+                      },
                       async applyLifecycle(options) {
                           runtimeCalls.push(options);
 
@@ -106,7 +125,7 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
                   ...controllerConfig
               });
 
-        return {actuator, controller, runtimeCalls, taskOutcomes};
+        return {actuator, controller, runtimeCalls, runtimeReads, taskOutcomes};
     }
 
     /** The real diagnosis service, so the decision under test is the one production would produce. */
@@ -427,15 +446,69 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
         expect(events[0].detail.reasonCode).toBe('throttle-shed-has-no-admitted-action');
     });
 
-    test('raise-ceiling records, because its knob values are a derivation no decision carries', async () => {
-        const {controller, runtimeCalls} = createStack(),
-              outcome                    = await controller.consume({
-                  decision: decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling, {serviceKey: 'chroma'})
+    test('a store crossing 80% reaches a registry-selected raise with a durable reason (#16596)', async () => {
+        const {controller, runtimeCalls, runtimeReads} = createStack({liveLimitBytes: 2 * GIB}),
+              decision                                 = diagnose({
+                  serviceKey  : 'chroma',
+                  nodeCommand : false,
+                  statsSamples: [
+                      statsSample({cpuPercent: 5, memoryPercent: 85, observedAtMs: 1_000_000}),
+                      statsSample({cpuPercent: 6, memoryPercent: 83, observedAtMs: 1_030_000})
+                  ]
               });
 
-        expect(outcome.status).toBe('recorded');
-        expect(outcome.reasonCode).toBe('raise-ceiling-requires-a-knob-transaction');
-        expect(runtimeCalls).toEqual([]);
+        expect(decision.status).toBe('diagnosed');
+        expect(decision.actionClass).toBe(CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling);
+
+        const outcome = await controller.consume({decision});
+
+        expect(outcome.status).toBe('actuated');
+        expect(outcome.actuatorAction).toBe('raise-ceiling');
+        expect(outcome.reasonCode).toBe('container-health-raise-ceiling');
+        expect(outcome.actuatorOutcome).toMatchObject({
+            status      : 'actioned',
+            ceilingRaise: {previousLimitBytes: 2 * GIB, memoryLimitBytes: 8 * GIB}
+        });
+        expect(runtimeReads).toEqual([expect.objectContaining({serviceKey: 'chroma', operation: 'inspect'})]);
+        expect(runtimeCalls).toHaveLength(1);
+        expect(runtimeCalls[0]).toMatchObject({
+            serviceKey      : 'chroma',
+            operation       : 'update-memory-limit',
+            memoryLimitBytes: 8 * GIB,
+            reason          : 'container-health-controller:store-ceiling-exhaustion'
+        });
+
+        // The controller named neither a config leaf nor its value. The real actuator selected and
+        // persisted the transaction, and the only runtime write was the live update — never restart.
+        expect(JSON.parse(await readFile(
+            path.join(tmpDir, 'deployment-state', 'recovery-actuator-overrides.json'),
+            'utf8'
+        ))).toEqual({deploy: {chroma: {memoryCeilingBytes: 8 * GIB}}});
+
+        const events = await readLedger(),
+              runs   = await readRecentRecoveryRunStates({
+                  dir  : path.join(tmpDir, 'recovery-runs'),
+                  limit: 1
+              });
+
+        expect(events).toHaveLength(1);
+        expect(events[0]).toMatchObject({
+            collection: 'chroma',
+            status    : 'actioned',
+            detail    : {
+                action     : 'raise-ceiling',
+                actionClass: CONTAINER_HEALTH_ACTION_CLASSES.raiseCeiling,
+                reasonCode : 'container-health-raise-ceiling'
+            }
+        });
+        expect(runs[0]).toMatchObject({
+            recoveryClass: 'exhaustion',
+            status       : 'reobserve-requested',
+            details      : {
+                action      : 'raise-ceiling',
+                ceilingRaise: {previousLimitBytes: 2 * GIB, memoryLimitBytes: 8 * GIB}
+            }
+        });
     });
 
     test('FAIL-CLOSED — an action class with no route records rather than inheriting an action', async () => {
