@@ -16,7 +16,13 @@ import {createTenantRepoMaterializationDigest}
                             from './helpers/tenantRepoIngestEnvelopeBuilder.mjs';
 import {isChromaConnectionError}
                             from '../shared/vector/chromaClientPrimitives.mjs';
-import {classifyEmbedFailureCode}
+import {
+    KB_VECTOR_EMBED_UNCLASSIFIED,
+    classifyEmbedFailureCode,
+    classifyEmbedFailureError,
+    classifyEmbedResidencyDisposition,
+    isEmbedFailureCode
+}
                             from './helpers/embedFailureClassification.mjs';
 import VectorService   from './VectorService.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
@@ -250,12 +256,13 @@ class IngestionService extends Base {
             if (embeddableChunks.length > 0) {
                 this.updateIngestionProgress({phase: 'embedding'});
                 await this.embedChunkGroups({
-                    chunks: embeddableChunks,
-                    onProviderTimeout: controls.onProviderTimeout,
-                    signal           : controls.signal,
+                    chunks               : embeddableChunks,
+                    onProviderTimeout    : controls.onProviderTimeout,
+                    replayEmbeddingPoison: controls.replayEmbeddingPoison === true,
+                    signal               : controls.signal,
                     tenantContext,
                     summary,
-                    viaMcp: payload.viaMcp !== false
+                    viaMcp               : payload.viaMcp !== false
                 });
             }
 
@@ -380,13 +387,22 @@ class IngestionService extends Base {
      * @param {Object}  options
      * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
      * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
+     * @param {Boolean} [options.replayEmbeddingPoison=false] Process-local operator replay control.
      * @param {Boolean} [options.viaMcp=true] Forwarded to `VectorService.embed`; `true` keeps
      *                                        the MCP work-volume gate, `false` (bulk CLI)
      *                                        bypasses it.
      * @returns {Promise<void>}
      * @protected
      */
-    async embedChunkGroups({chunks, tenantContext, summary, viaMcp = true, signal, onProviderTimeout}) {
+    async embedChunkGroups({
+        chunks,
+        tenantContext,
+        summary,
+        viaMcp = true,
+        signal,
+        onProviderTimeout,
+        replayEmbeddingPoison = false
+    }) {
         const groups = new Map();
 
         for (const chunk of chunks) {
@@ -404,6 +420,7 @@ class IngestionService extends Base {
                 const result = await this.vectorService.embed(tempFile, {
                     deleteStale  : false,
                     onProviderTimeout,
+                    replayEmbeddingPoison,
                     signal,
                     tenantContext: {...tenantContext, repoSlug},
                     viaMcp
@@ -439,17 +456,36 @@ class IngestionService extends Base {
                     }));
                 }
 
+                for (const poison of result?.poisonedChunks || []) {
+                    const reasonCode = isEmbedFailureCode(poison.reasonCode)
+                        ? poison.reasonCode
+                        : KB_VECTOR_EMBED_UNCLASSIFIED;
+
+                    summary.errors.push(this.createError({
+                        code   : reasonCode,
+                        message: 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
+                        details: {
+                            chunkId    : poison.chunkId,
+                            reasonCode,
+                            observedAt : poison.observedAt,
+                            disposition: 'proven-content-poison'
+                        }
+                    }));
+                }
+
                 summary.embeddingsGenerated += result?.embedded ?? group.length;
                 this.updateIngestionProgress({
                     embeddedChunks: summary.embeddingsGenerated,
                     errorCount    : summary.errors.length
                 });
             } catch (error) {
+                const residencyDisposition = classifyEmbedResidencyDisposition(error);
+
                 summary.errors.push(this.createError({
                     // The throw path carries the provider's code most often — a consumer-deadline
                     // timeout or an upstream abort — so this is the site where the inversion bit
                     // hardest: the better-classified the failure, the emptier the receipt.
-                    code   : classifyEmbedFailureCode(error.code),
+                    code   : classifyEmbedFailureError(error),
                     message: error.message,
                     // `residencyDisposition` is the difference between "re-check the model identifier"
                     // and "something took the model's slot" — opposite remediations behind one code.
@@ -459,7 +495,7 @@ class IngestionService extends Base {
                     // that reads like a measured one.
                     details: {
                         repoSlug,
-                        ...(error.residencyDisposition && {residencyDisposition: error.residencyDisposition})
+                        ...(residencyDisposition && {residencyDisposition})
                     }
                 }));
                 this.updateIngestionProgress({

@@ -14,6 +14,8 @@ import {
     KB_VECTOR_EMBED_UNCLASSIFIED,
     classifyEmbedDisposition,
     classifyEmbedFailureCode,
+    classifyEmbedFailureError,
+    classifyEmbedResidencyDisposition,
     isEmbedFailureCode
 } from '../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import {normalizeTenantRepoCheckpointState}
@@ -42,6 +44,38 @@ import {normalizeTenantRepoCheckpointState}
  * here. A local copy would keep passing after a drift that breaks production.
  */
 test.describe('embed failure classification (#16647)', () => {
+    test('a bounded provider code survives an unclassified wrapper cause', () => {
+        const provider = Object.assign(new Error('provider detail must not be projected'), {
+                  code: 'EMBEDDING_MODEL_NOT_RESIDENT'
+              }),
+              wrapper  = new Error('Failed to process batch 1', {cause: provider});
+
+        expect(classifyEmbedFailureError(wrapper)).toBe('KB_VECTOR_EMBED_MODEL_NOT_RESIDENT');
+    });
+
+    test('a cyclic codeless cause chain remains honestly unclassified', () => {
+        const outer = new Error('outer'),
+              inner = new Error('inner');
+
+        outer.cause = inner;
+        inner.cause = outer;
+
+        expect(classifyEmbedFailureError(outer)).toBe(KB_VECTOR_EMBED_UNCLASSIFIED);
+    });
+
+    test('only a declared residency disposition survives a bounded wrapper chain', () => {
+        const provider = Object.assign(new Error('provider'), {
+            residencyDisposition: 'evicted-mid-batch'
+        });
+
+        expect(classifyEmbedResidencyDisposition(new Error('wrapper', {cause: provider})))
+            .toBe('evicted-mid-batch');
+
+        provider.residencyDisposition = 'provider-authored-secret';
+        expect(classifyEmbedResidencyDisposition(new Error('wrapper', {cause: provider})))
+            .toBeUndefined();
+    });
+
     test('two distinct provider faults surface as two distinct bounded codes', () => {
         const
             timeout = classifyEmbedFailureCode('EMBEDDING_PROBE_TIMEOUT'),
@@ -261,6 +295,24 @@ test.describe('embed failure classification — production path', () => {
             repoSlug            : 'org/witness',
             residencyDisposition: 'evicted-mid-batch'
         });
+    });
+
+    test('#17017 a wrapper preserves both the bounded cause code and declared disposition', async () => {
+        const provider = Object.assign(new Error('provider detail'), {
+                  code                : 'EMBEDDING_MODEL_NOT_RESIDENT',
+                  residencyDisposition: 'evicted-mid-batch'
+              }),
+              wrapper  = new Error('outer batch abort', {cause: provider}),
+              run      = await runEmbedWithFailure(async () => { throw wrapper });
+
+        expect(run.errors).toEqual([{
+            code   : 'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
+            message: 'outer batch abort',
+            details: {
+                repoSlug            : 'org/witness',
+                residencyDisposition: 'evicted-mid-batch'
+            }
+        }]);
     });
 
     test('an unobserved residency state stays absent from the final ingestion receipt (#16859)', async () => {

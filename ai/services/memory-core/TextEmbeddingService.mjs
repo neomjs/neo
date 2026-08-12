@@ -221,7 +221,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
  * @param {String} provider Explicit embedding provider.
  * @returns {String}
  */
-function getEmbeddingModel(provider) {
+export function getEmbeddingModel(provider) {
     if (provider === 'openAiCompatible') return aiConfig.openAiCompatible.embeddingModel;
     if (provider === 'ollama') return aiConfig.ollama.embeddingModel || aiConfig.ollama.model;
     if (provider === 'gemini') return aiConfig.embeddingModel;
