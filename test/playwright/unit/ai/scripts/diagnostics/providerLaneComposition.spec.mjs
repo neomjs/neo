@@ -103,12 +103,14 @@ test.describe('provider-lane composition receipt (#17021)', () => {
             dnsName      : 'chat-model',
             provider     : 'ollama',
             parallelSlots: 1,
+            model        : {contextTokensMax: 262144},
             endpoints    : {workload: {kind: 'ollamaChat', url: 'http://chat-model:11434/api/chat'}}
         });
         expect(receipt.lanes.embedding).toMatchObject({
             serviceKey: 'embedding-model',
             dnsName   : 'embedding-model',
             provider  : 'openAiCompatible',
+            model     : {contextTokensMax: 32768},
             endpoints : {slotContext: {
                 kind              : 'llamaCppSlots',
                 url               : 'http://embedding-model:8080/slots',
@@ -168,6 +170,20 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         expect(errorCodes(collapseReceipt)).toContain('lane-collapse')
     });
 
+    test('chat-model warm-cache boot checks local presence before any registry pull', () => {
+        const composition = loadComposition();
+        const guardedPull = '/bin/ollama show "$$NEO_PROVIDER_LANE_MODEL" >/dev/null 2>&1 || ' +
+            '/bin/ollama pull "$$NEO_PROVIDER_LANE_MODEL"';
+        const command = composition.services['chat-model'].command.join('\n');
+
+        expect(command).toContain(guardedPull);
+
+        composition.services['chat-model'].command = composition.services['chat-model'].command.map(value =>
+            value.replace(guardedPull, '/bin/ollama pull "$$NEO_PROVIDER_LANE_MODEL"'));
+
+        expect(errorCodes(analyzeProviderLaneComposition(composition))).toContain('chat-model-warm-cache-boot')
+    });
+
     test('the fixed envelope and service limits must agree exactly', () => {
         const envelopeMutation = loadComposition();
         envelopeMutation['x-provider-lane-contract'].envelope.cpus = 5;
@@ -202,6 +218,60 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         contextMutation.services['embedding-model'].environment.LLAMA_ARG_N_PARALLEL = '2';
         const contextReceipt = analyzeProviderLaneComposition(contextMutation);
         expect(errorCodes(contextReceipt)).toContain('context-allocation')
+    });
+
+    test('the pure receipt cannot exceed or forge either pinned model context ceiling', () => {
+        const good = analyzeProviderLaneComposition(loadComposition());
+
+        const perSlotMutation = clone(good);
+        perSlotMutation.lanes.embedding.contextTokensPerSlotRequired = 32769;
+        perSlotMutation.lanes.embedding.totalContextTokens = 32769;
+        perSlotMutation.deploymentInputs.embeddingContextTokensPerSlotRequired.value = 32769;
+        perSlotMutation.deploymentInputs.embeddingTotalContextTokens.value = 32769;
+        expect(validateProviderLaneCompositionReceipt(perSlotMutation).errors.map(error => error.code)).toContain('model-context-ceiling');
+
+        const totalMutation = clone(good);
+        totalMutation.lanes.embedding.totalContextTokens = 32769;
+        totalMutation.deploymentInputs.embeddingTotalContextTokens.value = 32769;
+        expect(validateProviderLaneCompositionReceipt(totalMutation).errors.map(error => error.code)).toContain('model-total-context-ceiling');
+
+        const forgedCeiling = clone(good);
+        forgedCeiling.lanes.embedding.model.contextTokensMax = 40960;
+        forgedCeiling.lanes.embedding.contextTokensPerSlotRequired = 40960;
+        forgedCeiling.lanes.embedding.totalContextTokens = 40960;
+        forgedCeiling.deploymentInputs.embeddingContextTokensPerSlotRequired.value = 40960;
+        forgedCeiling.deploymentInputs.embeddingTotalContextTokens.value = 40960;
+        expect(validateProviderLaneCompositionReceipt(forgedCeiling).errors.map(error => error.code)).toContain('model-contract');
+
+        const chatMutation = clone(good);
+        chatMutation.lanes.chat.contextTokensPerSlotRequired = 262145;
+        chatMutation.lanes.chat.totalContextTokens = 262145;
+        chatMutation.deploymentInputs.chatContextTokens.value = 262145;
+        expect(validateProviderLaneCompositionReceipt(chatMutation).errors.map(error => error.code)).toContain('model-context-ceiling')
+    });
+
+    test('the pure validator binds every deployment input name and value to receipt authority', () => {
+        const good = analyzeProviderLaneComposition(loadComposition());
+
+        const wrongEnv = clone(good);
+        wrongEnv.deploymentInputs.embeddingParallelSlots.env = 'NEO_FOREIGN_SLOTS';
+        expect(validateProviderLaneCompositionReceipt(wrongEnv).errors.map(error => error.code)).toContain('deployment-input-env');
+
+        const wrongValue = clone(good);
+        wrongValue.deploymentInputs.chatCpuCores.value += 1;
+        expect(validateProviderLaneCompositionReceipt(wrongValue).errors.map(error => error.code)).toContain('deployment-input-value');
+
+        const missingInput = clone(good);
+        delete missingInput.deploymentInputs.totalMemoryBytes;
+        expect(validateProviderLaneCompositionReceipt(missingInput).errors.map(error => error.code)).toContain('deployment-input-set');
+
+        const extraInput = clone(good);
+        extraInput.deploymentInputs.foreign = {env: 'NEO_FOREIGN', value: 1};
+        expect(validateProviderLaneCompositionReceipt(extraInput).errors.map(error => error.code)).toContain('deployment-input-set');
+
+        const extraField = clone(good);
+        extraField.deploymentInputs.totalCpuCores.source = 'untrusted';
+        expect(validateProviderLaneCompositionReceipt(extraField).errors.map(error => error.code)).toContain('deployment-input-field-set')
     });
 
     test('the llama.cpp slot oracle is required and cannot be description-only', () => {

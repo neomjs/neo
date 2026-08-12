@@ -24,6 +24,36 @@ export const PROVIDER_LANE_KEYS                        = Object.freeze(['chat', 
 export const PROVIDER_LANE_ROLE_KEYS                   = Object.freeze(['model', 'graph', 'kbAskSynthesis', 'embedding']);
 export const PROVIDER_LANE_SERVICE_KEYS                = Object.freeze({chat: 'chat-model', embedding: 'embedding-model'});
 export const PROVIDER_LANE_BASE_URLS                   = Object.freeze({chat: 'http://chat-model:11434', embedding: 'http://embedding-model:8080'});
+export const PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS       = Object.freeze({
+    totalCpuCores                        : 'NEO_PROVIDER_LANES_CPU_TOTAL',
+    totalMemoryBytes                     : 'NEO_PROVIDER_LANES_MEMORY_BYTES_TOTAL',
+    chatCpuCores                         : 'NEO_PROVIDER_LANE_CHAT_CPUS',
+    chatMemoryBytes                      : 'NEO_PROVIDER_LANE_CHAT_MEMORY_BYTES',
+    chatContextTokens                    : 'NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS',
+    embeddingCpuCores                    : 'NEO_PROVIDER_LANE_EMBEDDING_CPUS',
+    embeddingMemoryBytes                 : 'NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES',
+    embeddingParallelSlots               : 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS',
+    embeddingTotalContextTokens          : 'NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS',
+    embeddingContextTokensPerSlotRequired: 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED'
+});
+export const PROVIDER_LANE_MODEL_CONTRACT               = Object.freeze({
+    chat: Object.freeze({
+        id              : 'gemma4:26b',
+        coordinate      : 'ollama://registry.ollama.ai/library/gemma4:26b@sha256:5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251',
+        digest          : 'sha256:7121486771cbfe218851513210c40b35dbdee93ab1ef43fe36283c883980f0df',
+        digestKind      : 'ollama-model-weights',
+        contextTokensMax: 262144
+    }),
+    embedding: Object.freeze({
+        // Supported sequence ceiling from the exact pinned model card. The raw GGUF positional
+        // metadata is 40960; receipt consumers must not reinterpret that as a supported workload.
+        id              : 'qwen3-embedding-8b',
+        coordinate      : 'hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf',
+        digest          : 'sha256:3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85',
+        digestKind      : 'gguf-file',
+        contextTokensMax: 32768
+    })
+});
 export const PROVIDER_LANE_ROLE_CONTRACT               = Object.freeze({
     model         : Object.freeze({configPath: 'modelProvider', lane: 'chat'}),
     graph         : Object.freeze({configPath: 'graphProvider', lane: 'chat'}),
@@ -208,10 +238,11 @@ function laneReceipt(name, declaration = {}) {
         provider  : declaration.provider || null,
         image     : imageIdentity(declaration.image),
         model     : {
-            id        : declaration.model?.id || null,
-            coordinate: declaration.model?.coordinate || null,
-            digest    : declaration.model?.digest || null,
-            digestKind: name === 'chat' ? 'ollama-model-weights' : 'gguf-file'
+            id              : declaration.model?.id || null,
+            coordinate      : declaration.model?.coordinate || null,
+            digest          : declaration.model?.digest || null,
+            digestKind      : name === 'chat' ? 'ollama-model-weights' : 'gguf-file',
+            contextTokensMax: integerAboveZero(declaration.model?.contextTokensMax)
         },
         cpuCores                    : numberAboveZero(declaration.cpus),
         memoryBytes                 : bytes(declaration.memoryBytes),
@@ -257,12 +288,17 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
     fail(sameSet(Object.keys(lanes), PROVIDER_LANE_KEYS), 'lane-set', 'lanes', PROVIDER_LANE_KEYS, Object.keys(lanes));
 
     for (const laneName of PROVIDER_LANE_KEYS) {
-        const lane = lanes[laneName] || {};
+        const lane          = lanes[laneName] || {};
+        const expectedModel = PROVIDER_LANE_MODEL_CONTRACT[laneName];
         fail(lane.serviceKey === PROVIDER_LANE_SERVICE_KEYS[laneName], 'service-key', `lanes.${laneName}.serviceKey`, PROVIDER_LANE_SERVICE_KEYS[laneName], lane.serviceKey);
         fail(lane.dnsName === lane.serviceKey, 'lane-dns', `lanes.${laneName}.dnsName`, lane.serviceKey, lane.dnsName);
         fail(isSha256(lane.image?.digest), 'image-digest', `lanes.${laneName}.image.digest`, 'sha256:<64hex>', lane.image?.digest);
         fail(isSha256(lane.model?.digest), 'model-digest', `lanes.${laneName}.model.digest`, 'sha256:<64hex>', lane.model?.digest);
         fail(typeof lane.model?.coordinate === 'string' && lane.model.coordinate.includes('@'), 'model-coordinate', `lanes.${laneName}.model.coordinate`, 'immutable coordinate containing @', lane.model?.coordinate);
+        fail(sameSet(Object.keys(lane.model || {}), Object.keys(expectedModel)), 'model-field-set', `lanes.${laneName}.model`, Object.keys(expectedModel), Object.keys(lane.model || {}));
+        for (const [field, expectedValue] of Object.entries(expectedModel)) {
+            fail(lane.model?.[field] === expectedValue, 'model-contract', `lanes.${laneName}.model.${field}`, expectedValue, lane.model?.[field]);
+        }
         fail(numberAboveZero(lane.cpuCores) !== null, 'lane-cpus', `lanes.${laneName}.cpuCores`, 'positive number', lane.cpuCores);
         fail(bytes(lane.memoryBytes) !== null, 'lane-memory', `lanes.${laneName}.memoryBytes`, 'positive integer bytes', lane.memoryBytes);
         fail(integerAboveZero(lane.parallelSlots) !== null, 'lane-slots', `lanes.${laneName}.parallelSlots`, 'positive integer', lane.parallelSlots);
@@ -270,6 +306,10 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         fail(integerAboveZero(lane.contextTokensPerSlotRequired) !== null, 'lane-slot-context', `lanes.${laneName}.contextTokensPerSlotRequired`, 'positive integer', lane.contextTokensPerSlotRequired);
         fail(lane.totalContextTokens >= lane.parallelSlots * lane.contextTokensPerSlotRequired,
             'context-allocation', `lanes.${laneName}.totalContextTokens`, `>= parallelSlots * contextTokensPerSlotRequired (${lane.parallelSlots * lane.contextTokensPerSlotRequired})`, lane.totalContextTokens);
+        fail(lane.contextTokensPerSlotRequired <= expectedModel.contextTokensMax,
+            'model-context-ceiling', `lanes.${laneName}.contextTokensPerSlotRequired`, `<= model.contextTokensMax (${expectedModel.contextTokensMax})`, lane.contextTokensPerSlotRequired);
+        fail(lane.totalContextTokens <= lane.parallelSlots * expectedModel.contextTokensMax,
+            'model-total-context-ceiling', `lanes.${laneName}.totalContextTokens`, `<= parallelSlots * model.contextTokensMax (${lane.parallelSlots * expectedModel.contextTokensMax})`, lane.totalContextTokens);
 
         const endpointContract  = PROVIDER_LANE_ENDPOINT_CONTRACT[laneName];
         const receiptEndpoints  = lane.endpoints || {};
@@ -305,6 +345,29 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
     for (const laneName of PROVIDER_LANE_KEYS) {
         fail(allocations[laneName]?.cpuCores === lanes[laneName]?.cpuCores, 'allocation-cpu-drift', `envelope.allocations.${laneName}.cpuCores`, lanes[laneName]?.cpuCores, allocations[laneName]?.cpuCores);
         fail(allocations[laneName]?.memoryBytes === lanes[laneName]?.memoryBytes, 'allocation-memory-drift', `envelope.allocations.${laneName}.memoryBytes`, lanes[laneName]?.memoryBytes, allocations[laneName]?.memoryBytes);
+    }
+
+    const deploymentInputs         = receipt?.deploymentInputs || {};
+    const expectedDeploymentInputs = {
+        totalCpuCores                        : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.totalCpuCores, value: total.cpuCores},
+        totalMemoryBytes                     : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.totalMemoryBytes, value: total.memoryBytes},
+        chatCpuCores                         : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.chatCpuCores, value: lanes.chat?.cpuCores},
+        chatMemoryBytes                      : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.chatMemoryBytes, value: lanes.chat?.memoryBytes},
+        chatContextTokens                    : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.chatContextTokens, value: lanes.chat?.totalContextTokens},
+        embeddingCpuCores                    : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingCpuCores, value: lanes.embedding?.cpuCores},
+        embeddingMemoryBytes                 : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingMemoryBytes, value: lanes.embedding?.memoryBytes},
+        embeddingParallelSlots               : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingParallelSlots, value: lanes.embedding?.parallelSlots},
+        embeddingTotalContextTokens          : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingTotalContextTokens, value: lanes.embedding?.totalContextTokens},
+        embeddingContextTokensPerSlotRequired: {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingContextTokensPerSlotRequired, value: lanes.embedding?.contextTokensPerSlotRequired}
+    };
+
+    fail(sameSet(Object.keys(deploymentInputs), Object.keys(expectedDeploymentInputs)), 'deployment-input-set',
+        'deploymentInputs', Object.keys(expectedDeploymentInputs), Object.keys(deploymentInputs));
+    for (const [key, expected] of Object.entries(expectedDeploymentInputs)) {
+        const actual = deploymentInputs[key] || {};
+        fail(sameSet(Object.keys(actual), ['env', 'value']), 'deployment-input-field-set', `deploymentInputs.${key}`, ['env', 'value'], Object.keys(actual));
+        fail(actual.env === expected.env, 'deployment-input-env', `deploymentInputs.${key}.env`, expected.env, actual.env);
+        fail(actual.value === expected.value, 'deployment-input-value', `deploymentInputs.${key}.value`, expected.value, actual.value);
     }
 
     const roles = receipt?.roles || {};
@@ -362,18 +425,18 @@ export function analyzeProviderLaneComposition(composition, {
         memoryBytes: bytes(declaration?.envelope?.memoryBytes)
     };
 
-    const input            = (env, value) => ({env, value});
+    const input            = (key, value) => ({env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS[key], value});
     const deploymentInputs = {
-        totalCpuCores                        : input('NEO_PROVIDER_LANES_CPU_TOTAL', total.cpuCores),
-        totalMemoryBytes                     : input('NEO_PROVIDER_LANES_MEMORY_BYTES_TOTAL', total.memoryBytes),
-        chatCpuCores                         : input('NEO_PROVIDER_LANE_CHAT_CPUS', lanes.chat.cpuCores),
-        chatMemoryBytes                      : input('NEO_PROVIDER_LANE_CHAT_MEMORY_BYTES', lanes.chat.memoryBytes),
-        chatContextTokens                    : input('NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS', lanes.chat.totalContextTokens),
-        embeddingCpuCores                    : input('NEO_PROVIDER_LANE_EMBEDDING_CPUS', lanes.embedding.cpuCores),
-        embeddingMemoryBytes                 : input('NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES', lanes.embedding.memoryBytes),
-        embeddingParallelSlots               : input('NEO_PROVIDER_LANE_EMBEDDING_SLOTS', lanes.embedding.parallelSlots),
-        embeddingTotalContextTokens          : input('NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS', lanes.embedding.totalContextTokens),
-        embeddingContextTokensPerSlotRequired: input('NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED', lanes.embedding.contextTokensPerSlotRequired)
+        totalCpuCores                        : input('totalCpuCores', total.cpuCores),
+        totalMemoryBytes                     : input('totalMemoryBytes', total.memoryBytes),
+        chatCpuCores                         : input('chatCpuCores', lanes.chat.cpuCores),
+        chatMemoryBytes                      : input('chatMemoryBytes', lanes.chat.memoryBytes),
+        chatContextTokens                    : input('chatContextTokens', lanes.chat.totalContextTokens),
+        embeddingCpuCores                    : input('embeddingCpuCores', lanes.embedding.cpuCores),
+        embeddingMemoryBytes                 : input('embeddingMemoryBytes', lanes.embedding.memoryBytes),
+        embeddingParallelSlots               : input('embeddingParallelSlots', lanes.embedding.parallelSlots),
+        embeddingTotalContextTokens          : input('embeddingTotalContextTokens', lanes.embedding.totalContextTokens),
+        embeddingContextTokensPerSlotRequired: input('embeddingContextTokensPerSlotRequired', lanes.embedding.contextTokensPerSlotRequired)
     };
 
     const receipt = {
@@ -416,8 +479,11 @@ export function analyzeProviderLaneComposition(composition, {
     const chatEnv          = normalizeEnvironment(chatService);
     const embeddingService = services[lanes.embedding.serviceKey];
     const embeddingEnv     = normalizeEnvironment(embeddingService);
+    const chatBootCommand  = commandText(chatService);
     fail(chatEnv.OLLAMA_NUM_PARALLEL === '1', 'chat-parallelism', 'services.chat-model.environment.OLLAMA_NUM_PARALLEL', '1', chatEnv.OLLAMA_NUM_PARALLEL);
-    fail(commandText(chatService).includes('sha256sum -c'), 'chat-model-verification', 'services.chat-model.command', 'sha256sum -c', commandText(chatService));
+    fail(/\/bin\/ollama show "\${1,2}NEO_PROVIDER_LANE_MODEL" >\/dev\/null 2>&1 \|\| \/bin\/ollama pull "\${1,2}NEO_PROVIDER_LANE_MODEL"/.test(chatBootCommand),
+        'chat-model-warm-cache-boot', 'services.chat-model.command', 'local show before pull', chatBootCommand);
+    fail(chatBootCommand.includes('sha256sum -c'), 'chat-model-verification', 'services.chat-model.command', 'sha256sum -c', chatBootCommand);
     fail(chatEnv.NEO_PROVIDER_LANE_WEIGHTS_BLOB === lanes.chat.model.digest.replace(':', '-'), 'chat-model-digest-drift', 'services.chat-model.environment.NEO_PROVIDER_LANE_WEIGHTS_BLOB', lanes.chat.model.digest.replace(':', '-'), chatEnv.NEO_PROVIDER_LANE_WEIGHTS_BLOB);
     fail(embeddingEnv.LLAMA_ARG_ENDPOINT_SLOTS === 'true', 'slots-endpoint-disabled', 'services.embedding-model.environment.LLAMA_ARG_ENDPOINT_SLOTS', 'true', embeddingEnv.LLAMA_ARG_ENDPOINT_SLOTS);
     fail(commandText(embeddingService).includes('sha256sum -c'), 'embedding-model-verification', 'services.embedding-model.command', 'sha256sum -c', commandText(embeddingService));

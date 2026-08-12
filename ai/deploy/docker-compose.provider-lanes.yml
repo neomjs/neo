@@ -28,6 +28,7 @@ x-provider-lane-contract:
         id: gemma4:26b
         coordinate: ollama://registry.ollama.ai/library/gemma4:26b@sha256:5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251
         digest: sha256:7121486771cbfe218851513210c40b35dbdee93ab1ef43fe36283c883980f0df
+        contextTokensMax: 262144
       endpoints:
         workload:
           kind: ollamaChat
@@ -59,6 +60,9 @@ x-provider-lane-contract:
         id: qwen3-embedding-8b
         coordinate: hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
         digest: sha256:3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85
+        # Supported sequence ceiling from the exact pinned model card. The GGUF metadata advertises
+        # a larger raw positional window; election must stay within the model's supported workload.
+        contextTokensMax: 32768
       endpoints:
         workload:
           kind: openAiEmbeddings
@@ -139,7 +143,7 @@ services:
         server_pid=$$!
         trap 'kill "$$server_pid" 2>/dev/null || true' INT TERM EXIT
         until /bin/ollama list >/dev/null 2>&1; do sleep 1; done
-        /bin/ollama pull "$$NEO_PROVIDER_LANE_MODEL"
+        /bin/ollama show "$$NEO_PROVIDER_LANE_MODEL" >/dev/null 2>&1 || /bin/ollama pull "$$NEO_PROVIDER_LANE_MODEL"
         echo "$$NEO_PROVIDER_LANE_MANIFEST_SHA256  /root/.ollama/models/manifests/registry.ollama.ai/library/gemma4/26b" | sha256sum -c -
         test -f "/root/.ollama/models/blobs/$$NEO_PROVIDER_LANE_WEIGHTS_BLOB"
         wait "$$server_pid"

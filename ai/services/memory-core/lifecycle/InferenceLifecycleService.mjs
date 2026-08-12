@@ -41,7 +41,7 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Asynchronously initializes the InferenceLifecycleService, bootstrapping daemon startup.
+     * @summary Initializes lifecycle reporting under orchestrator-owned provider supervision.
      */
     async initAsync() {
         await super.initAsync();
@@ -94,14 +94,14 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Binds SIGINT and SIGTERM handlers to gracefully tear down the assigned inference group.
+     * @summary Retains the legacy cleanup-registration hook as a no-op because Memory Core owns no provider process.
      */
     registerCleanup() {
         // No-op
     }
 
     /**
-     * @summary Intercepts OS signals to aggressively force teardown of the MLX/Ollama child engine group.
+     * @summary Completes signal-shaped lifecycle calls without tearing down an orchestrator-owned provider process.
      * @param {String|Number} signalOrCode
      */
     async cleanup(signalOrCode) {
@@ -111,7 +111,7 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Intentionally drops the ongoing LLM daemon process when transitioning to offline.
+     * @summary Reports that Memory Core owns no provider process to stop.
      * @returns {Promise<Object>}
      */
     async stopInferenceServer() {
@@ -119,7 +119,7 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Resolves the current internal status and PID tracking for the explicit LLM daemon process.
+     * @summary Reports the provider process as externally managed, without local PID ownership.
      * @returns {Object}
      */
     getStatus() {
@@ -127,7 +127,7 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Router mapping for explicit manual startup and teardown orchestrations of the Inference backend.
+     * @summary Routes legacy lifecycle actions to readiness classification and unmanaged-stop reporting.
      * @param {Object} args
      * @returns {Promise<Object>}
      */
