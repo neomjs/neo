@@ -154,4 +154,160 @@ test.describe('Neo.ai.provider.InteractiveBatchQueue', () => {
         await expect(second).rejects.toThrow('task failed');
         await expect(third).resolves.toBe('after');
     });
+
+    test.describe('admission capacity', () => {
+        test('DEFAULT capacity is 1 and still serializes — the pre-capacity behaviour', () => {
+            // The control for every arm below. If this drifts, the shared chat queue silently gained
+            // concurrency against a SHARED endpoint, which moves contention into the model server
+            // instead of removing it.
+            const queue = new InteractiveBatchQueue(),
+                  ran   = [],
+                  gate  = deferred();
+
+            expect(queue.capacity).toBe(1);
+
+            queue.enqueue(async () => { ran.push('A'); await gate.promise });
+            queue.enqueue(async () => { ran.push('B') });
+
+            expect(ran).toEqual(['A']);
+            gate.resolve();
+        });
+
+        test('capacity 2 admits BOTH tasks in the same tick — the whole point of the bound', async () => {
+            // Two asks arriving seconds apart must both be served. A single-lane queue serializes
+            // them no matter how much idle capacity the endpoint has, so this arm is the one that
+            // distinguishes "the endpoint is busy" from "the queue admitted one".
+            const queue = new InteractiveBatchQueue({capacity: 2}),
+                  ran   = [],
+                  gateA = deferred(),
+                  gateB = deferred();
+
+            const pA = queue.enqueue(async () => { ran.push('A'); await gateA.promise; return 'A' });
+            const pB = queue.enqueue(async () => { ran.push('B'); await gateB.promise; return 'B' });
+
+            // Synchronously after both enqueues: BOTH are in flight. Not "eventually" — an async gap
+            // in slot-filling would reintroduce serialization while still reporting capacity 2.
+            expect(ran).toEqual(['A', 'B']);
+
+            gateA.resolve();
+            gateB.resolve();
+
+            await expect(pA).resolves.toBe('A');
+            await expect(pB).resolves.toBe('B');
+        });
+
+        test('capacity is an upper BOUND — a third task waits for a freed slot', async () => {
+            const queue = new InteractiveBatchQueue({capacity: 2}),
+                  ran   = [],
+                  gates = [deferred(), deferred(), deferred()];
+
+            const promises = gates.map((gate, i) => queue.enqueue(async () => {
+                ran.push(i);
+                await gate.promise;
+                return i
+            }));
+
+            // Bounded at 2 even though 3 are queued.
+            expect(ran).toEqual([0, 1]);
+
+            // Freeing ONE slot admits exactly one more, not the remainder.
+            gates[0].resolve();
+            await promises[0];
+
+            expect(ran).toEqual([0, 1, 2]);
+
+            gates[1].resolve();
+            gates[2].resolve();
+            await Promise.all(promises);
+        });
+
+        test('a THROWING task releases its slot — capacity does not leak', async () => {
+            // A leaked slot is the worst failure mode here: it degrades silently, one task per
+            // failure, until the queue is permanently narrower than configured. Nothing in a latency
+            // measurement would name it, so it gets an arm rather than trust.
+            const queue = new InteractiveBatchQueue({capacity: 2}),
+                  ran   = [];
+
+            const failing = Promise.all([
+                queue.enqueue(async () => { ran.push('x'); throw new Error('boom') }),
+                queue.enqueue(async () => { ran.push('y'); throw new Error('boom') })
+            ].map(p => p.catch(() => 'handled')));
+
+            await failing;
+
+            const gateC = deferred(),
+                  gateD = deferred(),
+                  pC    = queue.enqueue(async () => { ran.push('C'); await gateC.promise; return 'C' }),
+                  pD    = queue.enqueue(async () => { ran.push('D'); await gateD.promise; return 'D' });
+
+            // Full capacity is still available after two failures.
+            expect(ran).toEqual(['x', 'y', 'C', 'D']);
+
+            gateC.resolve();
+            gateD.resolve();
+            await Promise.all([pC, pD]);
+        });
+
+        test('interactive is still preferred when a slot frees under capacity > 1', async () => {
+            // Selection happens when a slot FREES, not when the queue was built. Without that, the
+            // documented lane preference would quietly stop holding above capacity 1 — the contract
+            // regressing in exactly the configuration that is new.
+            const queue = new InteractiveBatchQueue({capacity: 2}),
+                  ran   = [],
+                  gates = [deferred(), deferred()];
+
+            queue.enqueue(async () => { ran.push('B1'); await gates[0].promise }, 'batch');
+            queue.enqueue(async () => { ran.push('B2'); await gates[1].promise }, 'batch');
+
+            const pBatch       = queue.enqueue(async () => { ran.push('B3') }, 'batch'),
+                  pInteractive = queue.enqueue(async () => { ran.push('I1') }, 'interactive');
+
+            expect(ran).toEqual(['B1', 'B2']);
+
+            gates[0].resolve();
+            gates[1].resolve();
+            await Promise.all([pBatch, pInteractive]);
+
+            // I1 was enqueued AFTER B3 and still ran first.
+            expect(ran.indexOf('I1')).toBeLessThan(ran.indexOf('B3'));
+        });
+
+        test('an unusable capacity is REFUSED at construction, not at admission', () => {
+            // A 0 or negative capacity makes `#running < #capacity` false forever: every task sits
+            // queued and the caller sees a hung provider, with nothing in the logs naming the cause.
+            // Fractional is refused too — 1.5 would round somewhere and the operator's number would
+            // not be the behaviour.
+            expect(() => new InteractiveBatchQueue({capacity: 0})).toThrow(/capacity must be an integer >= 1/);
+            expect(() => new InteractiveBatchQueue({capacity: -1})).toThrow(/capacity must be an integer >= 1/);
+            expect(() => new InteractiveBatchQueue({capacity: 1.5})).toThrow(/capacity must be an integer >= 1/);
+            expect(() => new InteractiveBatchQueue({capacity: '2'})).toThrow(/capacity must be an integer >= 1/);
+
+            // Control: a valid capacity constructs, so the guard is not simply rejecting everything.
+            expect(new InteractiveBatchQueue({capacity: 4}).capacity).toBe(4);
+        });
+
+        test('queueWaitMs distinguishes an ADMITTED task from a QUEUED one', async () => {
+            // The witness for the dedicated-endpoint work is judged on persisted queue wait, so the
+            // number this queue reports has to mean what that judgement assumes: ~0 for a task that
+            // was admitted immediately, and the wait actually served for one that queued.
+            let clock = 1000;
+
+            const queue   = new InteractiveBatchQueue({capacity: 1, now: () => clock}),
+                  waits   = [],
+                  gate    = deferred(),
+                  observe = {onStarted: ({queueWaitMs}) => waits.push(queueWaitMs)};
+
+            const pA = queue.enqueue(async () => { await gate.promise }, 'interactive', observe);
+
+            queue.enqueue(async () => {}, 'interactive', observe);
+
+            expect(waits).toEqual([0]);
+
+            clock = 1750;
+            gate.resolve();
+            await pA;
+
+            expect(waits).toEqual([0, 750]);
+        });
+    });
 });

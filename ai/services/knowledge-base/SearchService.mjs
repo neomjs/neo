@@ -8,6 +8,7 @@ import logger                                                                   
 import path                                                                          from 'path';
 import QueryService                                                                  from './QueryService.mjs';
 import {assembleAskContext}                                                          from './helpers/askContextBudget.mjs';
+import InteractiveBatchQueue                                                         from '../../provider/InteractiveBatchQueue.mjs';
 import {checkAskRateLimit}                                                           from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment}                                             from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves}                                                from './helpers/askSynthesisGuard.mjs';
@@ -67,6 +68,74 @@ export function buildAskProviderConfigs(config) {
     }
 }
 
+/**
+ * @summary Builds the ask path's OWN admission queue, sized by the `askSynthesis.maxParallel` leaf.
+ *
+ * Ask needs its own queue instance rather than a raised capacity on the shared one: capacity belongs
+ * to the consumer that has its own serving endpoint, and raising it on the process-wide queue would
+ * hand concurrency to every other local chat consumer in the process as a side effect.
+ *
+ * The capacity is READ HERE, at the use site. It is never threaded into `buildChatModel` as a value,
+ * and `buildChatModel` must not read `AiConfig` itself — Neo/AiConfig imports belong only in
+ * thread-entrypoints and the provider layer is not one. Per ADR 0019 B5 + C1 (ticket-ref-ok: the ADR
+ * clauses are the authority for this shape; without naming them, "pass maxParallel through" reads
+ * like the simpler option instead of a zero-tolerance violation). So the config-derived object is
+ * constructed on this side and injected; an injected collaborator is not a threaded config value,
+ * which is what keeps this inside B5.
+ *
+ * Exported as a pure function for the same reason as {@link buildAskProviderConfigs}: the capacity
+ * wiring is then assertable without booting a service or reaching into a private member.
+ *
+ * @param {Object} config The Knowledge Base AiConfig node.
+ * @returns {InteractiveBatchQueue} A queue owned by the ask path.
+ */
+export function buildAskRequestQueue(config) {
+    // Read with NO fallback, for the reason measured on the budget leaves: the generated `config.mjs`
+    // is a thin singleton extending the tracked base and declaring no data, so a leaf added there
+    // reaches every overlay and cannot resolve absent. A `|| 1` here would be dead code that could
+    // only mask a real config break — and masking it as "serialized" is the quiet failure, since a
+    // deployment that meant to run parallel asks would silently keep serializing them.
+    return new InteractiveBatchQueue({capacity: config.askSynthesis.maxParallel})
+}
+
+/**
+ * @summary Assembles the EXACT options object `SearchService` hands to `buildChatModel`.
+ *
+ * Extracted as a pure function because a review showed the gap it closes: the
+ * spec asserted `buildAskRequestQueue(...).capacity` directly, so **deleting the injection from the
+ * call site left the whole suite green.** A helper-capacity assertion proves the helper builds a
+ * queue; it proves nothing about asks USING that queue. With the composition itself returned, a spec
+ * asserts what the provider layer actually receives, and removing the injection fails an arm.
+ *
+ * Same precedent and same reason as {@link buildAskProviderConfigs}: the alternative is asserting
+ * through a constructed singleton, which cannot observe what was passed.
+ *
+ * @param {Object} config The Knowledge Base AiConfig node.
+ * @param {Object} providerConfigs Output of {@link buildAskProviderConfigs}.
+ * @param {Object} providerConfigs.openAiCompatibleConfig
+ * @param {Object} providerConfigs.ollamaConfig
+ * @returns {Object} The `buildChatModel` options, including the ask-owned admission queue.
+ */
+export function buildAskChatModelOptions(config, {openAiCompatibleConfig, ollamaConfig}) {
+    const ask = config.askSynthesis;
+
+    return {
+        modelProvider         : ask.provider,
+        openAiCompatibleConfig,
+        ollamaConfig,
+        // Ask owns its admission queue so its parallelism is configurable without handing concurrency
+        // to any other consumer. No contention changes hands: the two `buildChatModel` callers are
+        // SearchService and memory-core's `SessionService`, which runs in a DIFFERENT process — so the
+        // "process-wide" shared queue never serialized them against each other, and ask is the only
+        // chat consumer in this process.
+        chatRequestQueue        : buildAskRequestQueue(config),
+        geminiApiKey            : ask.apiKey,
+        geminiModelName         : ask.model,
+        providerActivityRecorder: KBRecorderService,
+        providerActivityService : 'knowledge-base'
+    }
+}
+
 const LOCAL_EMPTY_COLLECTION_ANSWER  = "The knowledge base collection is empty. Populate it with the release artifact via 'npm run ai:download-kb' (or build locally with 'npm run ai:sync-kb').";
 const REMOTE_EMPTY_COLLECTION_ANSWER = "The knowledge base collection is empty. In a cloud or remote tenant-ingestion deployment, inspect ingestion state first: call get_ingestion_progress(), then inspect_deployment or get_deployment_state_snapshot for tenantRepoSync / deployment-state details. For push-mode tenants, run the configured ingest_source_files or bulk tenant-ingest path before retrying the query.";
 
@@ -123,6 +192,14 @@ class SearchService extends Base {
      * @protected
      */
     askCallTimestamps = []
+    /**
+     * The admission queue this service handed to `buildChatModel`, published as a receipt of the
+     * composition. Read off the same options object the provider layer received — a spec that rebuilds
+     * a queue proves the builder, never that THIS service composed one.
+     * @member {InteractiveBatchQueue|null} askRequestQueue=null
+     * @protected
+     */
+    askRequestQueue = null
 
     /**
      * Builds the synthesis model via the configured provider (`gemini` / `openAiCompatible` / `ollama`)
@@ -172,17 +249,17 @@ class SearchService extends Base {
         // not a chat endpoint. It went unnoticed because the ask path defaulted to `gemini`, which
         // ignores this object entirely; pointing the default at a local provider is exactly what
         // would have surfaced it, as a chat request POSTed at a vector database.
-        const {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig);
+        const
+            {openAiCompatibleConfig, ollamaConfig} = buildAskProviderConfigs(aiConfig),
+            chatModelOptions                       = buildAskChatModelOptions(aiConfig, {openAiCompatibleConfig, ollamaConfig});
 
-        this.model = buildChatModel({
-            modelProvider         : ask.provider,
-            openAiCompatibleConfig,
-            ollamaConfig,
-            geminiApiKey            : ask.apiKey,
-            geminiModelName         : ask.model,
-            providerActivityRecorder: KBRecorderService,
-            providerActivityService : 'knowledge-base'
-        });
+        this.model = buildChatModel(chatModelOptions);
+        // Published from the SAME options object the provider layer received, so it is a receipt of
+        // what was composed rather than a second construction. A spec asserting a rebuilt queue proves
+        // the builder; this proves THIS SERVICE handed one over. Two review rounds were lost to that
+        // distinction — each fix asserted the newly-extracted pure function while the unwitnessed edge
+        // moved up to its caller, so the receipt has to come off the value that actually travelled.
+        this.askRequestQueue = chatModelOptions.chatRequestQueue
     }
 
     /**

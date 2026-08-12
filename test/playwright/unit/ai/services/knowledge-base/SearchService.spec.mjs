@@ -595,4 +595,66 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(aiConfig.askSynthesis.contextMaxCharsPerDocument)
             .toBeLessThan(aiConfig.askSynthesis.contextBudgetChars)
     });
+
+    test('the CONSTRUCTED service published the queue it handed over — the production edge', async () => {
+        // Third round on one defect, and the shape is the lesson: each previous fix asserted the
+        // newly-extracted pure function while the unwitnessed edge moved UP to its caller.
+        //   round 1: asserted buildAskRequestQueue().capacity  -> removing the injection stayed green
+        //   round 2: asserted buildAskChatModelOptions()       -> removing the CALL from construct stayed green
+        // Both proved a builder. Neither proved THIS SERVICE composed anything.
+        //
+        // `askRequestQueue` is published off the SAME options object handed to `buildChatModel`, so it
+        // is a receipt of what actually travelled rather than a second construction. Bypass the call in
+        // `construct` and this is `null` — which no rebuilt-in-the-spec assertion can detect.
+        expect(SearchService.askRequestQueue, 'construct composed and handed over a queue').toBeTruthy();
+        expect(SearchService.askRequestQueue.capacity,
+            'and its capacity came from the config leaf, not a literal')
+            .toBe(aiConfig.askSynthesis.maxParallel);
+    });
+
+    test('the queue is actually HANDED to buildChatModel — not merely constructible', async () => {
+        // The arm below asserts `buildAskRequestQueue(...).capacity`, which proves the
+        // helper builds a queue and says NOTHING about asks using it. Deleting the injection from the
+        // call site left the entire suite green — testing the proxy and calling it the delivery, the same
+        // class as testing a helper's output instead of the production path that consumes it.
+        //
+        // This asserts the COMPOSITION: the exact options object the provider layer receives.
+        const {buildAskChatModelOptions} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs'),
+              providerConfigs            = {openAiCompatibleConfig: {}, ollamaConfig: {}},
+              options                    = buildAskChatModelOptions(
+                  {askSynthesis: {provider: 'openAiCompatible', model: 'm', maxParallel: 4}},
+                  providerConfigs
+              );
+
+        expect(options.chatRequestQueue, 'an admission queue reaches buildChatModel').toBeTruthy();
+        expect(options.chatRequestQueue.capacity, 'and it carries the operator-set parallelism').toBe(4);
+
+        // NON-VACUITY: the queue handed over must be the ASK-OWNED one, not whatever the provider layer
+        // would have defaulted to. A different capacity than the shared queue's 1 is what proves it.
+        expect(options.chatRequestQueue.capacity).not.toBe(1);
+    });
+
+    test('ask owns an admission queue sized by maxParallel, defaulting to serialized', async () => {
+        const {buildAskRequestQueue} = await import('../../../../../../ai/services/knowledge-base/SearchService.mjs');
+
+        expect(buildAskRequestQueue({askSynthesis: {maxParallel: 3}}).capacity,
+            'the operator-set parallelism reaches the queue').toBe(3);
+
+        // NON-VACUITY: a second, different value — otherwise the arm would pass against a hardcoded
+        // constant and prove nothing about the leaf being read at all.
+        expect(buildAskRequestQueue({askSynthesis: {maxParallel: 1}}).capacity,
+            'the serialized default is read, not assumed').toBe(1);
+
+        // A missing leaf lands on the QUEUE PRIMITIVE's own documented default of 1, not on a second
+        // fallback inside this builder — which is the distinction worth pinning. It cannot happen in
+        // production anyway, since the declared default inherits to every overlay; the arm exists so
+        // that a future `|| N` added here would fail rather than pass silently.
+        expect(buildAskRequestQueue({askSynthesis: {}}).capacity,
+            'no builder-local fallback — the primitive default applies').toBe(1);
+
+        // An UNUSABLE capacity is refused at construction rather than clamped, so an operator typo
+        // fails loudly instead of quietly serializing a deployment that asked for parallelism.
+        expect(() => buildAskRequestQueue({askSynthesis: {maxParallel: 0}}))
+            .toThrow(/capacity must be an integer >= 1/)
+    });
 });
