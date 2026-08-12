@@ -4,6 +4,7 @@ import os             from 'node:os';
 import path           from 'node:path';
 import {
     promoteCollectionUnderElection,
+    reconcileInterruptedPromote,
     unparkCollectionUnderElection
 } from '../../../../../../../ai/services/shared/vector/electionGatedPromote.mjs';
 import {
@@ -251,6 +252,94 @@ test.describe('electionGatedPromote — the physical halt/crash matrix (#17023)'
         expect(result.completionRecorded).toBe(false);
         expect(client.readMarker(canonicalName('kb.unified'))).toBe('G2');
         expect((await readVectorGenerationElection({dir})).status).toBe('missing')
+    });
+
+    test('an expiry between the two renames refuses at the second fence and restores the canonical name', async () => {
+        await commitTransition(dir);
+
+        const view = await captureVectorPromoteView({dir});
+        // Stepping clock: the first fence reads inside the window, the second reads beyond it —
+        // the exact interruption class no single-timestamp check can observe.
+        let   calls = 0;
+        const clock = () => (calls++ === 0 ? T2 : AFTER_CLOSE);
+
+        await expect(promoteCollectionUnderElection(promoteArgs(client, dir, 'kb.unified', view, clock)))
+            .rejects.toThrow(/outside the declared quiesce window/);
+
+        // The first rename happened and was rolled back: canonical serves G1, no parking residue.
+        expect(client.readMarker(canonicalName('kb.unified'))).toBe('G1');
+        expect(await client.getCollection('parking-kb.unified')).toBeNull()
+    });
+
+    test('reconcile resumes a promote killed between its renames — or restores the prior when the candidate is gone', async () => {
+        await commitTransition(dir);
+
+        const view = await captureVectorPromoteView({dir});
+
+        // Manufacture the SIGKILL state: the first rename ran (canonical → parking), the process
+        // died before the second — no in-process finally ever saw it.
+        const live = await client.getCollection(canonicalName('kb.unified'));
+        await live.modify({name: 'parking-kb.unified'});
+        expect(client.readMarker(canonicalName('kb.unified'))).toBeNull();
+
+        // A blind promote retry refuses and names the remediation.
+        await expect(promoteCollectionUnderElection(promoteArgs(client, dir, 'kb.unified', view, T2)))
+            .rejects.toThrow(/run reconcileInterruptedPromote/);
+
+        // The reconcile completes the interrupted second rename under the fence.
+        const resumed = await reconcileInterruptedPromote({
+            getCollection: client.getCollection,
+            canonicalName: canonicalName('kb.unified'),
+            shadowName   : 'shadow-kb.unified',
+            parkingName  : 'parking-kb.unified',
+            dir,
+            collectionKey: 'kb.unified',
+            view,
+            now          : T2
+        });
+
+        expect(resumed.status).toBe('resumed-promote');
+        expect(resumed.completionRecorded).toBe(true);
+        expect(client.readMarker(canonicalName('kb.unified'))).toBe('G2');
+
+        // Second flavor on another collection: the interrupted state with the CANDIDATE gone —
+        // reconcile restores the prior corpus and reports nothing (transition stays incomplete).
+        const live2 = await client.getCollection(canonicalName('mc.memory'));
+        await live2.modify({name: 'parking-mc.memory'});
+        const deadShadow = await client.getCollection('shadow-mc.memory');
+        await deadShadow.modify({name: 'discarded-mc.memory'});
+
+        const restored = await reconcileInterruptedPromote({
+            getCollection: client.getCollection,
+            canonicalName: canonicalName('mc.memory'),
+            shadowName   : 'shadow-mc.memory',
+            parkingName  : 'parking-mc.memory',
+            dir,
+            collectionKey: 'mc.memory',
+            view,
+            now          : T2
+        });
+
+        expect(restored.status).toBe('restored-prior');
+        expect(restored.completionRecorded).toBe(false);
+        expect(client.readMarker(canonicalName('mc.memory'))).toBe('G1');
+
+        // Clean state is a no-op; a name with no source anywhere is loud.
+        expect((await reconcileInterruptedPromote({
+            getCollection: client.getCollection,
+            canonicalName: canonicalName('mc.session'),
+            shadowName   : 'shadow-mc.session',
+            parkingName  : 'parking-mc.session',
+            dir, collectionKey: 'mc.session', view, now: T2
+        })).status).toBe('clean');
+
+        await expect(reconcileInterruptedPromote({
+            getCollection: client.getCollection,
+            canonicalName: 'canonical-ghost',
+            shadowName   : 'shadow-ghost',
+            parkingName  : 'parking-ghost',
+            dir, collectionKey: 'mc.graph', view, now: T2
+        })).rejects.toThrow(/unrecoverable from names alone/)
     });
 
     test('preconditions refuse before any rename', async () => {

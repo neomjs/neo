@@ -15,6 +15,15 @@
  *
  * A collection whose promote never ran has nothing to un-park after a rollback; the runner records
  * that collection's un-park completion directly instead of calling {@link unparkCollectionUnderElection}.
+ *
+ * Two hard-interruption truths shape the surface: the fence is re-asserted immediately before the
+ * SECOND rename as well (a window expiring between the renames refuses, and the crash-rollback
+ * restores the canonical name), and a process death between the renames — which no `finally` can
+ * catch — leaves parking present with the canonical name absent; {@link reconcileInterruptedPromote}
+ * is the restart path that resumes or restores instead of dead-ending on the parking precondition.
+ *
+ * `now` accepts a value or a CLOCK FUNCTION: interruption semantics are about time passing between
+ * the two renames, so fixtures inject a stepping clock while production defaults to `Date.now`.
  */
 
 import {
@@ -22,6 +31,10 @@ import {
     recordPromoteCompletion,
     recordUnparkCompletion
 } from './generationElectionStore.mjs';
+
+function toClock(now) {
+    return typeof now === 'function' ? now : () => now
+}
 
 /**
  * @summary Promotes one shadow collection to its canonical name under the election fence.
@@ -38,9 +51,10 @@ import {
  * @param {String} options.dir Declared plane-state directory.
  * @param {String} options.collectionKey Census key this promote serves.
  * @param {Object} options.view Result of `captureVectorPromoteView` taken before the build.
- * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam for the window check.
+ * @param {Number|Date|Function} [options.now=Date.now] Clock seam — value or function; the window
+ * is checked before EACH of the two renames, so a function lets fixtures step time between them.
  * @returns {Promise<Object>} `{admission, parkingName, completionRecorded, completionError}`.
- * @throws {Error} When the fence refuses, or a collection precondition fails — before any rename.
+ * @throws {Error} When the fence refuses (before either rename), or a collection precondition fails.
  */
 export async function promoteCollectionUnderElection({
     getCollection,
@@ -50,11 +64,12 @@ export async function promoteCollectionUnderElection({
     dir,
     collectionKey,
     view,
-    now = Date.now()
+    now = Date.now
 } = {}) {
     assertNames({canonicalName, shadowName, parkingName}, 'promoteCollectionUnderElection');
 
-    const admission = await assertCapturedPromoteView({dir, collectionKey, view, now});
+    const clock     = toClock(now);
+    const admission = await assertCapturedPromoteView({dir, collectionKey, view, now: clock()});
     const live      = await getCollection(canonicalName);
     const shadow    = await getCollection(shadowName);
 
@@ -63,11 +78,11 @@ export async function promoteCollectionUnderElection({
     }
 
     if (!live) {
-        throw new Error(`promoteCollectionUnderElection: canonical collection '${canonicalName}' is missing; a promote replaces a live corpus, it does not create one`)
+        throw new Error(`promoteCollectionUnderElection: canonical collection '${canonicalName}' is missing; a promote replaces a live corpus, it does not create one — if a prior promote was interrupted between its renames, run reconcileInterruptedPromote`)
     }
 
     if (await getCollection(parkingName)) {
-        throw new Error(`promoteCollectionUnderElection: parking collection '${parkingName}' already exists`)
+        throw new Error(`promoteCollectionUnderElection: parking collection '${parkingName}' already exists; if a prior promote was interrupted between its renames, run reconcileInterruptedPromote instead of retrying blind`)
     }
 
     await live.modify({name: parkingName});
@@ -75,6 +90,9 @@ export async function promoteCollectionUnderElection({
     let promoted = false;
 
     try {
+        // The window is re-asserted with a fresh clock reading: an expiry between the two renames
+        // refuses HERE, and the finally-rollback below restores the canonical name.
+        await assertCapturedPromoteView({dir, collectionKey, view, now: clock()});
         await shadow.modify({name: canonicalName});
         promoted = true
     } finally {
@@ -90,7 +108,7 @@ export async function promoteCollectionUnderElection({
     const completion = await maybeRecordCompletion({
         admission,
         expectStatus: 'committed',
-        record      : () => recordPromoteCompletion({dir, collectionKey, expectedEpoch: admission.epoch, now})
+        record      : () => recordPromoteCompletion({dir, collectionKey, expectedEpoch: admission.epoch, now: clock()})
     });
 
     return {admission, parkingName, ...completion}
@@ -111,9 +129,10 @@ export async function promoteCollectionUnderElection({
  * @param {String} options.dir Declared plane-state directory.
  * @param {String} options.collectionKey Census key this un-park serves.
  * @param {Object} options.view Result of `captureVectorPromoteView` taken after the rollback.
- * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam for the window check.
+ * @param {Number|Date|Function} [options.now=Date.now] Clock seam — value or function; the window
+ * is checked before EACH rename.
  * @returns {Promise<Object>} `{admission, movedAbandonedTo, completionRecorded, completionError}`.
- * @throws {Error} When the fence refuses, or a collection precondition fails — before any rename.
+ * @throws {Error} When the fence refuses (before either rename), or a collection precondition fails.
  */
 export async function unparkCollectionUnderElection({
     getCollection,
@@ -123,11 +142,12 @@ export async function unparkCollectionUnderElection({
     dir,
     collectionKey,
     view,
-    now = Date.now()
+    now = Date.now
 } = {}) {
     assertNames({canonicalName, parkingName}, 'unparkCollectionUnderElection');
 
-    const admission = await assertCapturedPromoteView({dir, collectionKey, view, now});
+    const clock     = toClock(now);
+    const admission = await assertCapturedPromoteView({dir, collectionKey, view, now: clock()});
     const parked    = await getCollection(parkingName);
     const current   = await getCollection(canonicalName);
 
@@ -150,6 +170,9 @@ export async function unparkCollectionUnderElection({
     let restored = false;
 
     try {
+        // Same double-check discipline as the promote: expiry between the two renames refuses
+        // here, and the finally-rollback restores the abandoned generation to the canonical name.
+        await assertCapturedPromoteView({dir, collectionKey, view, now: clock()});
         await parked.modify({name: canonicalName});
         restored = true
     } finally {
@@ -163,10 +186,86 @@ export async function unparkCollectionUnderElection({
     const completion = await maybeRecordCompletion({
         admission,
         expectStatus: 'rolled-back',
-        record      : () => recordUnparkCompletion({dir, collectionKey, expectedEpoch: admission.epoch, now})
+        record      : () => recordUnparkCompletion({dir, collectionKey, expectedEpoch: admission.epoch, now: clock()})
     });
 
     return {admission, movedAbandonedTo: current ? abandonedName : null, ...completion}
+}
+
+/**
+ * @summary Restart path for a promote interrupted between its two renames — resume or restore.
+ *
+ * A process death after `live → parking` but before `shadow → canonical` escapes every in-process
+ * `finally`: the plane restarts with the parking collection present and the canonical name absent,
+ * and a blind promote retry refuses on the parking precondition. This reconcile inspects the
+ * physical state and takes exactly one action:
+ *
+ * - canonical present → `clean` (nothing was interrupted; parking is a completed promote's artifact);
+ * - canonical absent + shadow present → fence, complete `shadow → canonical`, report completion (`resumed-promote`);
+ * - canonical absent + shadow absent + parking present → `parking → canonical` (`restored-prior`;
+ *   the candidate is gone, so the prior corpus resumes serving — no completion is reported, the
+ *   transition remains incomplete and rollback authority intact);
+ * - all three absent → throw; the collection is unrecoverable from names alone and needs operator
+ *   forensics.
+ *
+ * @param {Object} options
+ * @param {Function} options.getCollection Async `name => collection|null` client seam.
+ * @param {String} options.canonicalName Reader-visible collection name.
+ * @param {String} options.shadowName The interrupted promote's candidate collection.
+ * @param {String} options.parkingName The interrupted promote's parking name.
+ * @param {String} options.dir Declared plane-state directory.
+ * @param {String} options.collectionKey Census key this promote serves.
+ * @param {Object} options.view Result of `captureVectorPromoteView` on the RESTARTED process.
+ * @param {Number|Date|Function} [options.now=Date.now] Clock seam.
+ * @returns {Promise<Object>} `{status: 'clean'|'resumed-promote'|'restored-prior', completionRecorded, completionError}`.
+ * @throws {Error} When the fence refuses a resume, or no source collection exists to serve the name.
+ */
+export async function reconcileInterruptedPromote({
+    getCollection,
+    canonicalName,
+    shadowName,
+    parkingName,
+    dir,
+    collectionKey,
+    view,
+    now = Date.now
+} = {}) {
+    assertNames({canonicalName, shadowName, parkingName}, 'reconcileInterruptedPromote');
+
+    const clock = toClock(now);
+
+    if (await getCollection(canonicalName)) {
+        return {status: 'clean', completionRecorded: false, completionError: null}
+    }
+
+    const shadow = await getCollection(shadowName);
+    const parked = await getCollection(parkingName);
+
+    if (shadow) {
+        // Resuming the SECOND rename is still a transition rename: it passes the fence (window
+        // included) exactly as the original promote would have.
+        const admission = await assertCapturedPromoteView({dir, collectionKey, view, now: clock()});
+
+        await shadow.modify({name: canonicalName});
+
+        const completion = await maybeRecordCompletion({
+            admission,
+            expectStatus: 'committed',
+            record      : () => recordPromoteCompletion({dir, collectionKey, expectedEpoch: admission.epoch, now: clock()})
+        });
+
+        return {status: 'resumed-promote', ...completion}
+    }
+
+    if (parked) {
+        // The candidate is gone; restoring the prior corpus keeps the canonical name served and the
+        // transition honestly incomplete — acceptance stays blocked, rollback authority intact.
+        await parked.modify({name: canonicalName});
+
+        return {status: 'restored-prior', completionRecorded: false, completionError: null}
+    }
+
+    throw new Error(`reconcileInterruptedPromote: '${canonicalName}' has no canonical, shadow, or parking collection; unrecoverable from names alone — operator forensics required`)
 }
 
 /**

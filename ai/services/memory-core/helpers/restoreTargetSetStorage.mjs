@@ -83,20 +83,29 @@ export function createRestoreTargetSetStorage({
         onPhase
     });
 
-    // One captured view per restore ATTEMPT: every role's promote inside one attempt validates
-    // against the SAME view (a commit landing between two role promotes cannot split the attempt
-    // across generations), while a NEW attempt captures fresh — the storage object outlives
-    // attempts at its call site, so a per-factory memo would leak a stale view across an
-    // intervening election.
+    // One captured view per restore ATTEMPT, taken at STAGING start: every role's promote inside
+    // one attempt validates against the SAME view captured when the attempt's content generation
+    // was decided (a commit landing during staging, validation, or between two role promotes fences
+    // the whole attempt), while a NEW attempt captures fresh — the storage object outlives attempts
+    // at its call site, so a per-factory memo would leak a stale view across an intervening election.
     const promoteViewByAttempt = new Map();
 
     function capturePromoteViewForAttempt(attemptFingerprint) {
         if (typeof attemptFingerprint !== 'string' || attemptFingerprint.length === 0) {
-            throw new Error('restoreTargetSetStorage: promoteComponent requires context.attemptFingerprint for election-view capture')
+            throw new Error('restoreTargetSetStorage: election-view capture requires context.attemptFingerprint')
         }
 
         if (!promoteViewByAttempt.has(attemptFingerprint)) {
             promoteViewByAttempt.set(attemptFingerprint, captureVectorPromoteView({dir: electionDir}))
+        }
+
+        return promoteViewByAttempt.get(attemptFingerprint)
+    }
+
+    function requirePromoteViewForAttempt(attemptFingerprint) {
+        if (typeof attemptFingerprint !== 'string' || attemptFingerprint.length === 0 ||
+            !promoteViewByAttempt.has(attemptFingerprint)) {
+            throw new Error('restoreTargetSetStorage: no election view was captured for this attempt at staging; stage before promoting')
         }
 
         return promoteViewByAttempt.get(attemptFingerprint)
@@ -168,6 +177,14 @@ export function createRestoreTargetSetStorage({
                 expectedDestinations,
                 stagingRoot
             });
+
+        // The election view is captured at STAGING start — the moment this attempt's content
+        // generation is decided — not at first promote. An election that lands while staging or
+        // validation runs must fence the stale build at promote time; a promote-time capture would
+        // read the NEW election as current and admit content built under the old view.
+        if (electionDir) {
+            capturePromoteViewForAttempt(context.attemptFingerprint)
+        }
 
         await fs.mkdir(stagingRoot, {recursive: true});
 
@@ -257,7 +274,7 @@ export function createRestoreTargetSetStorage({
             promoteAdmission = await assertCapturedPromoteView({
                 dir          : electionDir,
                 collectionKey: electionKey,
-                view         : await capturePromoteViewForAttempt(context.attemptFingerprint)
+                view         : await requirePromoteViewForAttempt(context.attemptFingerprint)
             })
         }
 
