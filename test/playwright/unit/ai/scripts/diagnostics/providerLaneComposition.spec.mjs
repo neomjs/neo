@@ -224,6 +224,71 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         expect(validateProviderLaneCompositionReceipt(unready).errors.map(error => error.code)).toContain('receipt-not-ready')
     });
 
+    test('the pure validator binds every endpoint to its lane identity and exact protocol contract', () => {
+        const good      = analyzeProviderLaneComposition(loadComposition());
+        const endpoints = [
+            {lane: 'chat', endpoint: 'workload', path: '/api/chat', kind: 'ollamaChat', metadata: {inputField: 'messages', modelField: 'model'}},
+            {lane: 'chat', endpoint: 'modelContext', path: '/api/ps', kind: 'ollamaRunningModels', metadata: {modelIdField: 'name', contextTokensField: 'context_length'}},
+            {lane: 'embedding', endpoint: 'workload', path: '/v1/embeddings', kind: 'openAiEmbeddings', metadata: {inputField: 'input', modelField: 'model'}},
+            {lane: 'embedding', endpoint: 'readiness', path: '/health'},
+            {lane: 'embedding', endpoint: 'models', path: '/v1/models'},
+            {lane: 'embedding', endpoint: 'slotContext', path: '/slots', kind: 'llamaCppSlots', metadata: {slotIdField: 'id', contextTokensField: 'n_ctx', processingField: 'is_processing'}}
+        ];
+
+        for (const {lane, endpoint, path: pathName, kind, metadata = {}} of endpoints) {
+            const foreignHost = clone(good);
+            foreignHost.lanes[lane].endpoints[endpoint].url = `https://external.example${pathName}`;
+            expect(validateProviderLaneCompositionReceipt(foreignHost).errors.map(error => error.code), `${lane}.${endpoint} host`).toContain('endpoint-host');
+
+            const wrongPath = clone(good);
+            wrongPath.lanes[lane].endpoints[endpoint].url = `${good.lanes[lane].baseUrl}/wrong-path`;
+            expect(validateProviderLaneCompositionReceipt(wrongPath).errors.map(error => error.code), `${lane}.${endpoint} path`).toContain('endpoint-url');
+
+            const wrongMethod = clone(good);
+            wrongMethod.lanes[lane].endpoints[endpoint].method = wrongMethod.lanes[lane].endpoints[endpoint].method === 'GET' ? 'POST' : 'GET';
+            expect(validateProviderLaneCompositionReceipt(wrongMethod).errors.map(error => error.code), `${lane}.${endpoint} method`).toContain('endpoint-contract');
+
+            if (kind) {
+                const wrongKind = clone(good);
+                wrongKind.lanes[lane].endpoints[endpoint].kind = `${kind}-mutated`;
+                expect(validateProviderLaneCompositionReceipt(wrongKind).errors.map(error => error.code), `${lane}.${endpoint} kind`).toContain('endpoint-contract')
+            }
+
+            for (const [field, value] of Object.entries(metadata)) {
+                const wrongMetadata = clone(good);
+                wrongMetadata.lanes[lane].endpoints[endpoint][field] = `${value}-mutated`;
+                expect(validateProviderLaneCompositionReceipt(wrongMetadata).errors.map(error => error.code), `${lane}.${endpoint}.${field}`).toContain('endpoint-contract')
+            }
+        }
+
+        for (const laneName of ['chat', 'embedding']) {
+            const wrongOrigin = clone(good);
+            const baseUrl     = `http://${wrongOrigin.lanes[laneName].serviceKey}:9999`;
+
+            wrongOrigin.lanes[laneName].baseUrl = baseUrl;
+            for (const endpoint of Object.values(wrongOrigin.lanes[laneName].endpoints)) {
+                endpoint.url = `${baseUrl}${new URL(endpoint.url).pathname}`
+            }
+            for (const role of Object.values(wrongOrigin.roles)) {
+                if (role.lane === laneName) role.baseUrl = baseUrl
+            }
+
+            expect(validateProviderLaneCompositionReceipt(wrongOrigin).errors.map(error => error.code), `${laneName} origin`).toContain('lane-base-url')
+        }
+
+        const missingEndpoint = clone(good);
+        delete missingEndpoint.lanes.chat.endpoints.modelContext;
+        expect(validateProviderLaneCompositionReceipt(missingEndpoint).errors.map(error => error.code)).toContain('endpoint-set');
+
+        const extraEndpoint = clone(good);
+        extraEndpoint.lanes.embedding.endpoints.foreign = {method: 'GET', url: 'http://embedding-model:8080/foreign'};
+        expect(validateProviderLaneCompositionReceipt(extraEndpoint).errors.map(error => error.code)).toContain('endpoint-set');
+
+        const missingField = clone(good);
+        delete missingField.lanes.embedding.endpoints.workload.inputField;
+        expect(validateProviderLaneCompositionReceipt(missingField).errors.map(error => error.code)).toContain('endpoint-field-set')
+    });
+
     test('every existing Compose owner declares model, graph, and embedding selectors together', () => {
         const files = [
             'docker-compose.yml',

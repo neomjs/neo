@@ -23,11 +23,60 @@ export const PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION = 'provider-lane-compositi
 export const PROVIDER_LANE_KEYS                        = Object.freeze(['chat', 'embedding']);
 export const PROVIDER_LANE_ROLE_KEYS                   = Object.freeze(['model', 'graph', 'kbAskSynthesis', 'embedding']);
 export const PROVIDER_LANE_SERVICE_KEYS                = Object.freeze({chat: 'chat-model', embedding: 'embedding-model'});
+export const PROVIDER_LANE_BASE_URLS                   = Object.freeze({chat: 'http://chat-model:11434', embedding: 'http://embedding-model:8080'});
 export const PROVIDER_LANE_ROLE_CONTRACT               = Object.freeze({
     model         : Object.freeze({configPath: 'modelProvider', lane: 'chat'}),
     graph         : Object.freeze({configPath: 'graphProvider', lane: 'chat'}),
     kbAskSynthesis: Object.freeze({configPath: 'knowledgeBase.askSynthesis.provider', lane: 'chat'}),
     embedding     : Object.freeze({configPath: 'embeddingProvider', lane: 'embedding'})
+});
+
+/**
+ * @summary Immutable endpoint protocol consumed by the receipt-only election boundary.
+ * @type {Object}
+ */
+export const PROVIDER_LANE_ENDPOINT_CONTRACT = Object.freeze({
+    chat: Object.freeze({
+        workload: Object.freeze({
+            kind      : 'ollamaChat',
+            method    : 'POST',
+            path      : '/api/chat',
+            inputField: 'messages',
+            modelField: 'model'
+        }),
+        modelContext: Object.freeze({
+            kind              : 'ollamaRunningModels',
+            method            : 'GET',
+            path              : '/api/ps',
+            modelIdField      : 'name',
+            contextTokensField: 'context_length'
+        })
+    }),
+    embedding: Object.freeze({
+        workload: Object.freeze({
+            kind      : 'openAiEmbeddings',
+            method    : 'POST',
+            path      : '/v1/embeddings',
+            inputField: 'input',
+            modelField: 'model'
+        }),
+        readiness: Object.freeze({
+            method: 'GET',
+            path  : '/health'
+        }),
+        models: Object.freeze({
+            method: 'GET',
+            path  : '/v1/models'
+        }),
+        slotContext: Object.freeze({
+            kind              : 'llamaCppSlots',
+            method            : 'GET',
+            path              : '/slots',
+            slotIdField       : 'id',
+            contextTokensField: 'n_ctx',
+            processingField   : 'is_processing'
+        })
+    })
 });
 
 /**
@@ -113,6 +162,19 @@ function endpointReceipt(endpoint = {}) {
 function endpointHost(endpoint) {
     try {
         return new URL(endpoint?.url).hostname
+    } catch {
+        return null
+    }
+}
+
+/**
+ * @summary Parses a receipt URL without throwing so malformed evidence becomes a validation error.
+ * @param {*} value Candidate URL.
+ * @returns {URL|null}
+ */
+function parsedUrl(value) {
+    try {
+        return new URL(value)
     } catch {
         return null
     }
@@ -208,19 +270,34 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         fail(integerAboveZero(lane.contextTokensPerSlotRequired) !== null, 'lane-slot-context', `lanes.${laneName}.contextTokensPerSlotRequired`, 'positive integer', lane.contextTokensPerSlotRequired);
         fail(lane.totalContextTokens >= lane.parallelSlots * lane.contextTokensPerSlotRequired,
             'context-allocation', `lanes.${laneName}.totalContextTokens`, `>= parallelSlots * contextTokensPerSlotRequired (${lane.parallelSlots * lane.contextTokensPerSlotRequired})`, lane.totalContextTokens);
+
+        const endpointContract  = PROVIDER_LANE_ENDPOINT_CONTRACT[laneName];
+        const receiptEndpoints  = lane.endpoints || {};
+        const expectedEndpoints = Object.keys(endpointContract);
+        const expectedBaseUrl   = PROVIDER_LANE_BASE_URLS[laneName];
+
+        fail(lane.baseUrl === expectedBaseUrl, 'lane-base-url', `lanes.${laneName}.baseUrl`, expectedBaseUrl, lane.baseUrl);
+        fail(sameSet(Object.keys(receiptEndpoints), expectedEndpoints), 'endpoint-set', `lanes.${laneName}.endpoints`, expectedEndpoints, Object.keys(receiptEndpoints));
+
+        for (const [endpointName, expected] of Object.entries(endpointContract)) {
+            const endpoint       = receiptEndpoints[endpointName] || {};
+            const endpointUrl    = parsedUrl(endpoint.url);
+            const expectedUrl    = joinUrl(expectedBaseUrl, expected.path);
+            const expectedFields = Object.fromEntries(Object.entries(expected).filter(([key]) => key !== 'path'));
+
+            fail(endpointUrl?.hostname === lane.serviceKey, 'endpoint-host', `lanes.${laneName}.endpoints.${endpointName}.url`, lane.serviceKey, endpointUrl?.hostname || endpoint.url);
+            fail(endpoint.url === expectedUrl, 'endpoint-url', `lanes.${laneName}.endpoints.${endpointName}.url`, expectedUrl, endpoint.url);
+            fail(sameSet(Object.keys(endpoint), ['url', ...Object.keys(expectedFields)]), 'endpoint-field-set', `lanes.${laneName}.endpoints.${endpointName}`, ['url', ...Object.keys(expectedFields)], Object.keys(endpoint));
+
+            for (const [field, expectedValue] of Object.entries(expectedFields)) {
+                fail(endpoint[field] === expectedValue, 'endpoint-contract', `lanes.${laneName}.endpoints.${endpointName}.${field}`, expectedValue, endpoint[field]);
+            }
+        }
     }
 
     fail(lanes.chat?.parallelSlots === 1, 'chat-parallelism', 'lanes.chat.parallelSlots', 1, lanes.chat?.parallelSlots);
     fail(lanes.chat?.serviceKey !== lanes.embedding?.serviceKey, 'lane-collapse', 'lanes', 'distinct service keys', lanes.chat?.serviceKey);
     fail(lanes.chat?.provider !== lanes.embedding?.provider, 'provider-collapse', 'lanes', 'distinct provider families', lanes.chat?.provider);
-    fail(lanes.chat?.endpoints?.workload?.kind === 'ollamaChat' && lanes.chat?.endpoints?.workload?.url?.endsWith('/api/chat'),
-        'chat-workload-endpoint', 'lanes.chat.endpoints.workload', 'ollamaChat /api/chat', lanes.chat?.endpoints?.workload);
-    fail(lanes.embedding?.endpoints?.slotContext?.kind === 'llamaCppSlots' && lanes.embedding?.endpoints?.slotContext?.url?.endsWith('/slots'),
-        'embedding-slot-endpoint', 'lanes.embedding.endpoints.slotContext', 'llamaCppSlots /slots', lanes.embedding?.endpoints?.slotContext);
-    for (const field of ['slotIdField', 'contextTokensField', 'processingField']) {
-        fail(typeof lanes.embedding?.endpoints?.slotContext?.[field] === 'string', 'embedding-slot-field', `lanes.embedding.endpoints.slotContext.${field}`, 'string', lanes.embedding?.endpoints?.slotContext?.[field]);
-    }
-
     const total       = receipt?.envelope?.total || {};
     const allocations = receipt?.envelope?.allocations || {};
     fail(total.cpuCores === lanes.chat?.cpuCores + lanes.embedding?.cpuCores, 'cpu-envelope-sum', 'envelope.total.cpuCores', lanes.chat?.cpuCores + lanes.embedding?.cpuCores, total.cpuCores);
