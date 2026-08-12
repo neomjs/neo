@@ -594,10 +594,11 @@ export async function captureVectorPromoteView({dir} = {}) {
  * @param {String} options.dir Declared plane-state directory.
  * @param {String} options.collectionKey One of {@link VECTOR_PLANE_COLLECTION_KEYS}.
  * @param {Object} options.view Result of {@link captureVectorPromoteView}.
+ * @param {Number|Date} [options.now=Date.now()] Deterministic clock seam for the window check.
  * @returns {Promise<Object>} The admissible view, with `electionStatus` refreshed for elected mode.
  * @throws {Error} When the writer is stale or the record is unprovable — the promote must not run.
  */
-export async function assertCapturedPromoteView({dir, collectionKey, view} = {}) {
+export async function assertCapturedPromoteView({dir, collectionKey, view, now = Date.now()} = {}) {
     assertCollectionKey(collectionKey, 'assertCapturedPromoteView');
 
     if (view === null || typeof view !== 'object' || (view.mode !== 'legacy' && view.mode !== 'elected')) {
@@ -618,7 +619,7 @@ export async function assertCapturedPromoteView({dir, collectionKey, view} = {})
         throw new Error('assertCapturedPromoteView: an election was declared after this writer began; re-run the build against the elected view')
     }
 
-    return await assertVectorPromoteAdmissible({dir, collectionKey, generationId: view.generationId, epoch: view.epoch})
+    return await assertVectorPromoteAdmissible({dir, collectionKey, generationId: view.generationId, epoch: view.epoch, now})
 }
 
 /**
