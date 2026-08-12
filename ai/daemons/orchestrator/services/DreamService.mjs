@@ -422,8 +422,12 @@ class DreamService extends Base {
      * overwrite or hide a concurrently published B. The legacy `graphDigested` marker remains a
      * compatibility overlay and is only written after every required phase completes without
      * reported errors.
+     * @param {Object} [options]
+     * @param {Function} [options.fetchProviderModelIds=fetchOpenAiCompatibleModelIds] Provider-model discovery seam.
      */
-    async processUndigestedSessions() {
+    async processUndigestedSessions({
+        fetchProviderModelIds = fetchOpenAiCompatibleModelIds
+    } = {}) {
         if (this.isProcessing) {
             logger.debug('[DreamService] REM pipeline is already running. Skipping trigger.');
             return {
@@ -439,7 +443,7 @@ class DreamService extends Base {
         if (aiConfig.graphProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                await fetchOpenAiCompatibleModelIds({
+                await fetchProviderModelIds({
                     host      : aiConfig.openAiCompatible.host,
                     timeoutMs : AiConfig.orchestrator.providerReadiness.timeoutMs,
                     freshness : 'routine',

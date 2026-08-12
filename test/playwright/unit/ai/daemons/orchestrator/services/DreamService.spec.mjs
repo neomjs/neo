@@ -1124,7 +1124,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let conceptGapCalledAfterNlDigest          = false;
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1142,7 +1141,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => mockSessions;
@@ -1176,7 +1174,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
             TopologyInferenceEngine.extractTopology = async () => {};
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(testGapCalls).toBe(sessionCount);
             expect(nlActionDigestCalls).toBe(1);
@@ -1185,7 +1185,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(conceptGapCalledAfterLastSessionUpdate).toBe(true);
             expect(conceptGapCalledAfterNlDigest).toBe(true);
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1243,7 +1242,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let sessionUpdate;
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1263,7 +1261,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
@@ -1297,7 +1294,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             };
             TopologyInferenceEngine.getTopologyConflictCount = async () => 0;
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(triVectorDocument).toBe(rawTurns.join('\n\n---\n\n'));
             expect(topologyArgs).toMatchObject({
@@ -1327,7 +1326,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             ingestedSnapshot   = null;
             triVectorDocument  = null;
 
-            const mismatch      = await DreamService.processUndigestedSessions();
+            const mismatch = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
             const mismatchState = mismatch.perSessionStates.find(item =>
                 item.sessionId === 'agent-session-raw-turns'
             );
@@ -1337,7 +1338,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(triVectorDocument).toBeNull();
             expect(sessionUpdate).toBeNull()
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1519,7 +1519,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const warnMessages          = [];
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1539,7 +1538,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
@@ -1568,7 +1566,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             logger.info = (...args) => { infoMessages.push(args.join(' ')); };
             logger.warn = (...args) => { warnMessages.push(args.join(' ')); };
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(testGapCalls).toBe(1);
             expect(conceptGapCalls).toBe(1);
@@ -1585,7 +1585,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(infoMessages.some(msg => msg.includes('2 upserted, 1 skipped, 1 errors'))).toBe(true);
             expect(warnMessages.some(msg => msg.includes('agent-session-partial') && msg.includes('graphDigested will NOT be set'))).toBe(true);
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1684,7 +1683,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         const sessionUpdatePayloads = [];
         const orig                  = {
-            provider          : aiConfig.modelProvider,
             safeProcessing    : aiConfig.localModels.chat.safeProcessingLimitTokens,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
@@ -1703,7 +1701,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider                                  = 'mock-provider';
             aiConfig.localModels.chat.safeProcessingLimitTokens      = 100_000;
             DreamService.isProcessing = false;
 
@@ -1730,7 +1727,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             TopologyInferenceEngine.extractTopology = async () => {};
             StorageRouter.getMemoryCollection       = async () => null;
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(sessionUpdatePayloads.length).toBe(1);
             const meta = sessionUpdatePayloads[0].metadatas[0];
@@ -1739,7 +1738,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.digestAttempts).toBe(1);
             expect(meta.deferReason).toBe('skip-over-band');
         } finally {
-            aiConfig.modelProvider                                  = orig.provider;
             aiConfig.localModels.chat.safeProcessingLimitTokens      = orig.safeProcessing;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
@@ -1775,7 +1773,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         const sessionUpdatePayloads = [];
         const orig                  = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1793,7 +1790,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
@@ -1819,7 +1815,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             TopologyInferenceEngine.extractTopology = async () => {};
             StorageRouter.getMemoryCollection       = async () => null;
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(sessionUpdatePayloads.length).toBe(1);
             const meta = sessionUpdatePayloads[0].metadatas[0];
@@ -1828,7 +1826,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
             expect(meta.digestState).toBe('undigestible');  // typed terminal descriptor → bounded out
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1866,7 +1863,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         const sessionUpdatePayloads = [];
         const orig                  = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1884,7 +1880,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [mockSession];
@@ -1905,7 +1900,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             TopologyInferenceEngine.extractTopology = async () => {};
             StorageRouter.getMemoryCollection       = async () => null;
 
-            await DreamService.processUndigestedSessions();
+            await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             expect(sessionUpdatePayloads.length).toBe(1);
             const meta = sessionUpdatePayloads[0].metadatas[0];
@@ -1914,7 +1911,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(meta.digestAttempts).toBe(6);            // 5 prior + this one
             expect(meta.digestState).toBe('undigested');    // TRANSIENT → keeps retrying, NOT bounded to `deferred`
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -1958,7 +1954,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let   garbageCalls          = 0;
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -1978,7 +1973,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => mockSessions;
@@ -2006,7 +2000,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 return {session_artifact: {graph: {nodes: [], edges: []}}};
             };
 
-            const result = await DreamService.processUndigestedSessions();
+            const result = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             const poisonState = result.perSessionStates.find(item => item.sessionId === 'agent-session-poison'),
                   goodState   = result.perSessionStates.find(item => item.sessionId === 'agent-session-good');
@@ -2030,7 +2026,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(conceptGapCalls).toBe(1);
             expect(garbageCalls).toBe(1);
         } finally {
-            aiConfig.modelProvider                            = orig.provider;
             DreamService.findUndigestedSessions               = orig.findUndigested;
             DreamService.sessionsCollection                   = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession             = orig.inferTest;
@@ -2077,7 +2072,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let sessionUpdates = 0;
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -2098,7 +2092,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         try {
             clearAggregatedFrictions();
 
-            aiConfig.modelProvider    = 'mock-provider'; // skip the openAiCompatible legacy provider ping
             DreamService.isProcessing = false;
 
             // Storage backend (in-memory) — NOT the choreography under test.
@@ -2125,7 +2118,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             // this as context-overflow + return a typed under-band-choke descriptor (no retry amplification).
             OpenAiCompatible.prototype.generate = async function() { return {content: ''}; };
 
-            const result = await DreamService.processUndigestedSessions();
+            const result = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             // The REAL extractor returned a typed descriptor; assert DreamService propagated it.
             const sessionState = result.perSessionStates.find(s => s.sessionId === 'agent-session-empty-overflow');
@@ -2148,7 +2143,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             expect(friction).toBeDefined();
             expect(friction.symptom).toBe('context-overflow');
         } finally {
-            aiConfig.modelProvider                           = orig.provider;
             DreamService.findUndigestedSessions              = orig.findUndigested;
             DreamService.sessionsCollection                  = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession            = orig.inferTest;
@@ -2192,7 +2186,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         let invocationCount = 0;
 
         const orig = {
-            provider          : aiConfig.modelProvider,
             findUndigested    : DreamService.findUndigestedSessions,
             sessionsCollection: DreamService.sessionsCollection,
             inferTest         : DreamService.inferTestGapsFromSession,
@@ -2211,7 +2204,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         };
 
         try {
-            aiConfig.modelProvider    = 'mock-provider'; // skip the openAiCompatible legacy provider ping
             DreamService.isProcessing = false;
 
             // Storage backend (in-memory) — NOT the choreography under test.
@@ -2240,7 +2232,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 return {content: '```json\n{ "a2a_version": "1.0", "agent_id": "Antigravity" '}; // truncated, never valid
             };
 
-            const result = await DreamService.processUndigestedSessions();
+            const result = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            });
 
             // The real retry loop ran to exhaustion through the real choreography.
             expect(invocationCount).toBeGreaterThan(1);
@@ -2261,7 +2255,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             // deferReason) — but graphDigested stays unset, so the session is never falsely-digested.
             expect(sessionUpdates).toBe(1);
         } finally {
-            aiConfig.modelProvider                           = orig.provider;
             DreamService.findUndigestedSessions              = orig.findUndigested;
             DreamService.sessionsCollection                  = orig.sessionsCollection;
             DreamService.inferTestGapsFromSession            = orig.inferTest;
@@ -2284,7 +2277,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
 
         const orig = {
-            provider      : aiConfig.modelProvider,
             findUndigested: DreamService.findUndigestedSessions,
             runGarbageCol : DreamService.runGarbageCollection,
             loggerError   : logger.error,
@@ -2294,7 +2286,6 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const errors = [];
 
         try {
-            aiConfig.modelProvider    = 'mock-provider';
             DreamService.isProcessing = false;
 
             DreamService.findUndigestedSessions = async () => [];
@@ -2303,12 +2294,13 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             };
             logger.error = (...args) => { errors.push(args); };
 
-            await expect(DreamService.processUndigestedSessions()).rejects.toThrow('simulated apoptosis failure');
+            await expect(DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => []
+            })).rejects.toThrow('simulated apoptosis failure');
 
             expect(DreamService.isProcessing).toBe(false);
             expect(errors.some(args => args[0] === '[DreamService] Failed to process undigested sessions:')).toBe(true);
         } finally {
-            aiConfig.modelProvider              = orig.provider;
             DreamService.findUndigestedSessions = orig.findUndigested;
             DreamService.runGarbageCollection   = orig.runGarbageCol;
             logger.error                        = orig.loggerError;
