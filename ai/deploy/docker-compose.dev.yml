@@ -99,6 +99,18 @@ x-plane-env: &plane-env
   # boot failure names one cause. This explicit placement is retained deliberately — it pins the
   # parity plane's location independently of any default.
   NEO_MEMORY_DB_PATH: /app/.neo-ai-data-parity/sqlite/memory-core-graph.sqlite
+  # Provider-role selectors are independent coordinates. The parity overlays may pin all three to
+  # one deterministic fixture, while a real profile can place graph/chat and embeddings on distinct
+  # lanes without relying on undeclared process defaults.
+  NEO_MODEL_PROVIDER: ${NEO_MODEL_PROVIDER:-}
+  NEO_GRAPH_PROVIDER: ${NEO_GRAPH_PROVIDER:-}
+  NEO_EMBEDDING_PROVIDER: ${NEO_EMBEDDING_PROVIDER:-}
+  NEO_OPENAI_COMPATIBLE_HOST: ${NEO_OPENAI_COMPATIBLE_HOST:-}
+  NEO_OPENAI_COMPATIBLE_MODEL: ${NEO_OPENAI_COMPATIBLE_MODEL:-}
+  NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: ${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+  NEO_OLLAMA_HOST: ${NEO_OLLAMA_HOST:-}
+  NEO_OLLAMA_MODEL: ${NEO_OLLAMA_MODEL:-}
+  NEO_OLLAMA_EMBEDDING_MODEL: ${NEO_OLLAMA_EMBEDDING_MODEL:-}
 
 # Canonical direct-local authentication profile. Ordinary forks have no generated roster, so the
 # bounded fallback is explicit rather than overloading an empty `allowedUsers`: publish MCP only

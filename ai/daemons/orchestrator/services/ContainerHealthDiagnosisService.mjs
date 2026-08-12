@@ -97,10 +97,12 @@ export const HEAP_FATAL_LINE = /FATAL ERROR:[^\n]*JavaScript heap out of memory/
 export const SERVICE_CLASS_BY_KEY = Object.freeze({
     // The corpus IS the workload: resident memory tracks rows already persisted, so nothing can be
     // shed and a restart frees nothing durable.
-    'chroma'     : SERVICE_CLASSES.store,
-    'kb-server'  : SERVICE_CLASSES.transient,
-    'mc-server'  : SERVICE_CLASSES.transient,
-    'local-model': SERVICE_CLASSES.transient
+    'chroma'         : SERVICE_CLASSES.store,
+    'chat-model'     : SERVICE_CLASSES.transient,
+    'embedding-model': SERVICE_CLASSES.transient,
+    'kb-server'      : SERVICE_CLASSES.transient,
+    'mc-server'      : SERVICE_CLASSES.transient,
+    'local-model'    : SERVICE_CLASSES.transient
 });
 
 /**

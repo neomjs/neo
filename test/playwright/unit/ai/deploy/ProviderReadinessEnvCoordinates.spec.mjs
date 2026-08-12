@@ -83,7 +83,7 @@ const REQUIRED = [{
     service : 'mc-server',
     env     : 'NEO_ORCHESTRATOR_PROVIDER_READY_ROUTINE_CACHE_TTL_MS',
     consumer: ILS,
-    anchors : ['cacheTtlMs: aiConfig.orchestrator.providerReadiness.routineCacheTtlMs'],
+    anchors : ['modelDiscoveryCacheTtlMs: aiConfig.orchestrator.providerReadiness.routineCacheTtlMs'],
     why     : 'InferenceLifecycleService is an mc-server STARTUP DEPENDENCY (confirmed at runtime in ' +
               'the healthcheck dependency map), and it caches model discovery on this TTL'
 }, {

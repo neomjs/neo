@@ -61,6 +61,7 @@
         "ai:probe-business-metrics"            : "node ./ai/scripts/maintenance/probeBusinessMetrics.mjs",
         "ai:probe-community-activity-shadow"   : "node ./ai/scripts/maintenance/probeCommunityActivityShadow.mjs",
         "ai:probe-keep-alive"                  : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
+        "ai:provider-lane-composition"         : "node ./ai/scripts/diagnostics/providerLaneComposition.mjs",
         "ai:prune-worktrees"                   : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:prune-worktrees:dry-run"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run",
         "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000",

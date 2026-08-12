@@ -1,23 +1,18 @@
-import { spawn }                       from 'child_process';
-import aiConfig                        from '../../../mcp/server/memory-core/config.mjs';
-import logger                          from '../../../mcp/server/memory-core/logger.mjs';
-import Base                            from '../../../../src/core/Base.mjs';
-import path                            from 'path';
-import fs                              from 'fs';
-import { fileURLToPath }               from 'url';
-import {fetchOpenAiCompatibleModelIds} from '../../graph/providerReadinessHelper.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const memCoreDir = path.resolve(__dirname, '../../../mcp/server/memory-core');
+import aiConfig from '../../../mcp/server/memory-core/config.mjs';
+import logger   from '../../../mcp/server/memory-core/logger.mjs';
+import Base     from '../../../../src/core/Base.mjs';
+import {
+    checkProvider,
+    getGraphProviderReadinessTarget
+} from '../../graph/providerReadinessHelper.mjs';
 
 /**
- * @summary Orchestrates the daemon lifecycle completely dedicated to local LLM Inference Backends (Ollama/MLX).
+ * @summary Reports lifecycle readiness for the declared graph-provider endpoint without owning it.
  *
- * Following the architectural decoupling of the monolithic database service, this class isolates the cross-platform
- * auto-startup resolution path for underlying machine learning daemons required by the Memory Core embeddings.
- * It natively identifies Apple Silicon contexts (`/opt/homebrew`), Intel architectures (`/usr/local/`), and
- * Microsoft Windows fallback locations (`%LOCALAPPDATA%`).
+ * The Agent Orchestrator owns provider processes. Memory Core consumes the graph-role provider and
+ * therefore probes that declared role rather than assuming the OpenAI-compatible endpoint also owns
+ * graph work or embeddings. Local endpoints are reported offline for the orchestrator to recover;
+ * remote endpoints are classified external and never spawned by this service.
  *
  * Future AI sessions should search for `inference routing`, `ollama daemon`, `mlx python environment`, or `llm orchestrator`.
  *
@@ -54,30 +49,35 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Probes the active local LLM inference background port, implicitly verifying backend readiness.
+     * @summary Probes the declared graph-provider endpoint, implicitly verifying backend readiness.
      * @returns {Promise<Boolean>}
      */
     async isInferenceRunning() {
         try {
-            await fetchOpenAiCompatibleModelIds({
-                host      : aiConfig.openAiCompatible.host,
-                timeoutMs : aiConfig.orchestrator.providerReadiness.timeoutMs,
-                freshness : 'routine',
-                cacheTtlMs: aiConfig.orchestrator.providerReadiness.routineCacheTtlMs
+            return await checkProvider({
+                config                  : aiConfig,
+                timeoutMs               : aiConfig.orchestrator.providerReadiness.timeoutMs,
+                modelDiscoveryFreshness : 'routine',
+                modelDiscoveryCacheTtlMs: aiConfig.orchestrator.providerReadiness.routineCacheTtlMs
             });
-            return true;
         } catch (e) {
             return false;
         }
     }
 
     /**
-     * @summary Spawns the required standalone LLM inference process by mapping seamlessly to the correct binary paths.
+     * @summary Classifies the declared graph-provider endpoint for orchestrator-owned recovery.
      * @returns {Promise<Object>}
      */
     async startInferenceServer() {
         try {
-            if (!aiConfig.openAiCompatible.host.includes('127.0.0.1') && !aiConfig.openAiCompatible.host.includes('localhost')) {
+            const target = getGraphProviderReadinessTarget(aiConfig);
+
+            if (!target.supported || !target.host) {
+                return { status: 'failed', detail: 'Declared graph-provider endpoint is unavailable.' };
+            }
+
+            if (!target.host.includes('127.0.0.1') && !target.host.includes('localhost')) {
                 return { status: 'external', detail: 'External inference server configured.' };
             }
 

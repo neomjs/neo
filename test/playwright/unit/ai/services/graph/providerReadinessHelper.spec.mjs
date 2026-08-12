@@ -408,3 +408,53 @@ test.describe('provider residency helpers — production mutation authority fenc
         expect(warmCount).toBe(0);
     });
 });
+
+test.describe('provider readiness follows declared lane ownership (#17021)', () => {
+    let getGraphProviderReadinessTarget, probeProviderParallelModelCapacity;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
+
+        getGraphProviderReadinessTarget  = mod.getGraphProviderReadinessTarget;
+        probeProviderParallelModelCapacity = mod.probeProviderParallelModelCapacity;
+    });
+
+    test('an Ollama graph lane does not require the OpenAI-compatible embedding model', async () => {
+        const config = {
+            modelProvider    : 'ollama',
+            graphProvider    : 'ollama',
+            embeddingProvider: 'openAiCompatible',
+            ollama           : {
+                host                 : 'http://chat-model:11434',
+                model                : 'gemma4:26b',
+                embeddingModel       : 'must-not-cross-lanes',
+                requireParallelModels: 1
+            },
+            openAiCompatible: {
+                host          : 'http://embedding-model:1234',
+                embeddingModel: 'qwen3-embedding'
+            }
+        };
+
+        expect(getGraphProviderReadinessTarget(config)).toMatchObject({
+            provider      : 'ollama',
+            model         : 'gemma4:26b',
+            embeddingModel: null,
+            roles         : [{providerRole: 'graphProvider', role: 'chat', model: 'gemma4:26b'}, {
+                providerRole: 'modelProvider', role: 'chat', model: 'gemma4:26b'
+            }]
+        });
+
+        const result = await probeProviderParallelModelCapacity({
+            config,
+            timeoutMs        : 100,
+            fetchOllamaModels: async () => ['gemma4:26b']
+        });
+
+        expect(result).toMatchObject({
+            ready         : true,
+            requiredModels: ['gemma4:26b'],
+            missingModels : []
+        });
+    });
+});

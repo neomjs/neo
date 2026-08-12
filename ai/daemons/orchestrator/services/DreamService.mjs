@@ -436,7 +436,7 @@ class DreamService extends Base {
         const perPhaseStates   = [];
         const perSessionStates = [];
 
-        if (aiConfig.modelProvider === 'openAiCompatible') {
+        if (aiConfig.graphProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
                 await fetchOpenAiCompatibleModelIds({
@@ -446,13 +446,13 @@ class DreamService extends Base {
                     cacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
                 });
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
-                    provider: aiConfig.modelProvider
+                    provider: aiConfig.graphProvider
                 }));
             } catch (e) {
                 logger.error('[DreamService] API provider service is unreachable. Aborting REM pipeline to prevent queue failures.');
                 this.isProcessing = false;
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'failed', {
-                    provider: aiConfig.modelProvider,
+                    provider: aiConfig.graphProvider,
                     error   : toErrorMessage(e)
                 }));
                 return {perPhaseStates, perSessionStates};
