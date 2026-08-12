@@ -56,6 +56,8 @@ x-provider-lane-contract:
       slots: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding lane slot allocation required}
       totalContextTokens: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context allocation required}
       contextTokensPerSlotRequired: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context requirement required}
+      batchTokens: ${NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS:?embedding logical batch required}
+      ubatchTokens: ${NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS:?embedding physical ubatch required}
       model:
         id: qwen3-embedding-8b
         coordinate: hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
@@ -88,9 +90,11 @@ x-provider-lane-contract:
           contextTokensField: n_ctx
           processingField: is_processing
       controls:
+        batchEnv: LLAMA_ARG_BATCH
         contextEnv: LLAMA_ARG_CTX_SIZE
         slotsEnv: LLAMA_ARG_N_PARALLEL
         slotsEndpointEnv: LLAMA_ARG_ENDPOINT_SLOTS
+        ubatchEnv: LLAMA_ARG_UBATCH
   roles:
     model:
       configPath: modelProvider
@@ -196,6 +200,8 @@ services:
       LLAMA_ARG_PORT: "8080"
       LLAMA_ARG_CTX_SIZE: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context required}
       LLAMA_ARG_N_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+      LLAMA_ARG_BATCH: ${NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS:?embedding logical batch required}
+      LLAMA_ARG_UBATCH: ${NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS:?embedding physical ubatch required}
       LLAMA_ARG_ENDPOINT_SLOTS: "true"
       NEO_PROVIDER_LANE_MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF/resolve/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
       NEO_PROVIDER_LANE_MODEL_SHA256: 3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85
@@ -249,6 +255,34 @@ services:
         condition: service_healthy
       embedding-model:
         condition: service_healthy
+
+  # Disposable benchmark worker (#17034; outcome #17024). It deliberately does not extend a resident
+  # Agent OS service: Compose inheritance would otherwise carry the orchestrator's Docker socket and
+  # host-backup bind into an evidence process. The service therefore declares no static volumes.
+  # The controller starts it only via `compose run` under the dedicated profile and injects exactly
+  # one validated candidate receipt as a per-run read-only mount on the internal network.
+  provider-lane-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_ENTRYPOINT: ai/scripts/benchmark/provider-lane-election.mjs
+        NEO_REF: ${NEO_REVISION:-dev}
+        NEO_REVISION: ${NEO_REVISION:-}
+    environment:
+      <<: *provider-lane-env
+      GEMINI_API_KEY: ""
+      NEO_KB_ASK_PROVIDER: ollama
+      NEO_KB_ASK_MODEL: gemma4:26b
+      NEO_KB_ASK_API_KEY: ""
+      NEO_KB_ASK_BASE_URL: http://chat-model:11434
+      NEO_OPENAI_COMPATIBLE_API_KEY: ""
+      NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: "5"
+    volumes: []
+    networks:
+      - neo-mcp-network
+    profiles:
+      - provider-lane-election
 
 volumes:
   chat-model-data:

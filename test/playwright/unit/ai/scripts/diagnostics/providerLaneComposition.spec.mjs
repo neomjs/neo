@@ -22,7 +22,9 @@ const FIXTURE_ENV = Object.freeze({
     NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES                    : '17179869184',
     NEO_PROVIDER_LANE_EMBEDDING_SLOTS                           : '1',
     NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : '32768',
-    NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768'
+    NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
+    NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : '32768',
+    NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768'
 });
 
 function renderRequiredInputs(source) {
@@ -215,9 +217,42 @@ test.describe('provider-lane composition receipt (#17021)', () => {
 
         const contextMutation = loadComposition();
         contextMutation['x-provider-lane-contract'].lanes.embedding.slots = 2;
+        contextMutation['x-provider-lane-contract'].lanes.embedding.contextTokensPerSlotRequired = 32768;
         contextMutation.services['embedding-model'].environment.LLAMA_ARG_N_PARALLEL = '2';
         const contextReceipt = analyzeProviderLaneComposition(contextMutation);
         expect(errorCodes(contextReceipt)).toContain('context-allocation')
+    });
+
+    test('the pinned embedding runtime declares logical and physical batch authority', () => {
+        const good = analyzeProviderLaneComposition(loadComposition());
+
+        expect(good.lanes.embedding).toMatchObject({batchTokens: 32768, ubatchTokens: 32768});
+        expect(good.deploymentInputs).toMatchObject({
+            embeddingBatchTokens : {env: 'NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS', value: 32768},
+            embeddingUbatchTokens: {env: 'NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS', value: 32768}
+        });
+
+        const missingBatch = loadComposition();
+        delete missingBatch.services['embedding-model'].environment.LLAMA_ARG_BATCH;
+        expect(errorCodes(analyzeProviderLaneComposition(missingBatch))).toContain('service-batch-drift');
+
+        const driftedUbatch = loadComposition();
+        driftedUbatch.services['embedding-model'].environment.LLAMA_ARG_UBATCH = '512';
+        expect(errorCodes(analyzeProviderLaneComposition(driftedUbatch))).toContain('service-ubatch-drift');
+
+        const decoupled = clone(good);
+        decoupled.lanes.embedding.batchTokens = 65536;
+        decoupled.deploymentInputs.embeddingBatchTokens.value = 65536;
+        expect(validateProviderLaneCompositionReceipt(decoupled).errors.map(error => error.code))
+            .toContain('embedding-batch-ubatch-coupling');
+
+        const insufficient = clone(good);
+        insufficient.lanes.embedding.batchTokens = 8192;
+        insufficient.lanes.embedding.ubatchTokens = 8192;
+        insufficient.deploymentInputs.embeddingBatchTokens.value = 8192;
+        insufficient.deploymentInputs.embeddingUbatchTokens.value = 8192;
+        expect(validateProviderLaneCompositionReceipt(insufficient).errors.map(error => error.code))
+            .toContain('embedding-batch-context-coupling')
     });
 
     test('the pure receipt cannot exceed or forge either pinned model context ceiling', () => {
@@ -271,7 +306,17 @@ test.describe('provider-lane composition receipt (#17021)', () => {
 
         const extraField = clone(good);
         extraField.deploymentInputs.totalCpuCores.source = 'untrusted';
-        expect(validateProviderLaneCompositionReceipt(extraField).errors.map(error => error.code)).toContain('deployment-input-field-set')
+        expect(validateProviderLaneCompositionReceipt(extraField).errors.map(error => error.code)).toContain('deployment-input-field-set');
+
+        const extraReceiptField = clone(good);
+        extraReceiptField.selfAttested = true;
+        expect(validateProviderLaneCompositionReceipt(extraReceiptField).errors.map(error => error.code))
+            .toContain('receipt-field-set');
+
+        const extraLaneField = clone(good);
+        extraLaneField.lanes.embedding.token = 'SECRET';
+        expect(validateProviderLaneCompositionReceipt(extraLaneField).errors.map(error => error.code))
+            .toContain('lane-field-set')
     });
 
     test('the llama.cpp slot oracle is required and cannot be description-only', () => {
