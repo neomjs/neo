@@ -32,15 +32,13 @@ function buildFixture() {
                     maxCpuHighWaterPercent : 200,
                     maxRssHighWaterBytes   : 3_000_000_000,
                     minCompletedOperations : 2,
-                    minContextTokensPerSlot: 131_072,
-                    minThroughputPerSecond : 0.3
+                    minContextTokensPerSlot: 131_072
                 }),
                 embedding: buildLaneSlo({
                     maxCpuHighWaterPercent : 400,
                     maxRssHighWaterBytes   : 5_000_000_000,
                     minCompletedOperations : 4,
-                    minContextTokensPerSlot: 8192,
-                    minThroughputPerSecond : 0.5
+                    minContextTokensPerSlot: 8192
                 })
             }
         },
@@ -122,8 +120,7 @@ function buildLaneSlo({
     maxCpuHighWaterPercent,
     maxRssHighWaterBytes,
     minCompletedOperations,
-    minContextTokensPerSlot,
-    minThroughputPerSecond
+    minContextTokensPerSlot
 }) {
     return {
         maxCpuHighWaterPercent,
@@ -137,7 +134,6 @@ function buildLaneSlo({
         minCompletedOperations,
         minContextTokensPerSlot,
         minResourceCoverageRatio: 0.95,
-        minThroughputPerSecond,
         requiredQueueDisposition: 'queued'
     }
 }
@@ -453,7 +449,7 @@ test.describe('providerLaneElectionCore', () => {
 
         expect(trial.maxNeoQueueWaitMs).toBeNull();
         expect(trial.maxProviderDurationMs).toBe(900);
-        expect(trial.throughputPerSecond).toBe(0.8);
+        expect(trial.throughputPerSecond).toBeCloseTo(4 / 4.05);
         expect(queue).toEqual({max: null, median: null, min: null, n: 0, observedRange: null, p95: null})
     });
 
@@ -477,7 +473,7 @@ test.describe('providerLaneElectionCore', () => {
 
         expect(observed.providerOperationCount).toBe(7);
         expect(observed.completedOperations).toBe(4);
-        expect(observed.throughputPerSecond).toBe(0.8);
+        expect(observed.throughputPerSecond).toBeCloseTo(4 / 3.85);
         expect(observed.sourceCalls.filter(call => call.source === 'memory-core')).toHaveLength(1);
 
         const failedFixture = buildFixture(),
@@ -493,6 +489,74 @@ test.describe('providerLaneElectionCore', () => {
         expect(failedObserved.completedOperations).toBe(3);
         expect(failedObserved.errorCount).toBe(1);
         expect(failedCandidate.failures.map(failure => failure.code)).toContain('ERROR_BUDGET_EXCEEDED')
+    });
+
+    test('measures progress gaps only while the lane has outstanding demand', () => {
+        const fixture = buildFixture(),
+              trial   = fixture.trials.find(item => item.candidate === 1),
+              lane    = trial.lanes.chat,
+              timings = [
+                  {completedAtMs: trial.startedAtMs + 500, demandAtMs: trial.startedAtMs + 100},
+                  {completedAtMs: trial.startedAtMs + 800, demandAtMs: trial.startedAtMs + 200}
+              ];
+
+        lane.sourceCalls.forEach((call, index) => {
+            const operation = lane.operations[index],
+                  timing    = timings[index];
+
+            call.demandAtMs = operation.enqueuedAtMs = timing.demandAtMs;
+            operation.providerStartedAtMs = index === 0 ? timing.demandAtMs + 100 : timings[index - 1].completedAtMs;
+            call.completedAtMs = operation.completedAtMs = timing.completedAtMs
+        });
+
+        const result    = evaluateProviderLaneElection(fixture),
+              candidate = result.candidates.find(item => item.candidate === 1),
+              observed  = candidate.trials[0].lanes.chat;
+
+        expect(observed.maxProgressGapMs).toBe(400);
+        expect(observed.throughputPerSecond).toBeCloseTo(2 / 0.7);
+        expect(candidate.failures.map(failure => failure.code)).not.toContain('PROGRESS_GAP_EXCEEDED')
+    });
+
+    test('excludes idle demand gaps and does not count errors or refusals as progress', () => {
+        const fixture = buildFixture(),
+              trial   = fixture.trials.find(item => item.candidate === 4),
+              lane    = trial.lanes.embedding,
+              timings = [
+                  {completedAtMs: 1000, demandAtMs: 100, outcome: 'error'},
+                  {completedAtMs: 900, demandAtMs: 200, outcome: 'error'},
+                  {completedAtMs: 1100, demandAtMs: 300, outcome: 'unexpected-refusal'},
+                  {completedAtMs: 3400, demandAtMs: 3000, outcome: 'completed'}
+              ];
+
+        lane.sourceCalls.forEach((call, index) => {
+            const operation = lane.operations[index],
+                  timing    = timings[index];
+
+            call.demandAtMs = operation.enqueuedAtMs = trial.startedAtMs + timing.demandAtMs;
+            operation.providerStartedAtMs = call.demandAtMs + 100;
+            call.completedAtMs = operation.completedAtMs = trial.startedAtMs + timing.completedAtMs;
+            call.outcome = timing.outcome;
+            operation.outcome = timing.outcome === 'completed' ? 'completed' : 'error'
+        });
+
+        const result    = evaluateProviderLaneElection(fixture),
+              candidate = result.candidates.find(item => item.candidate === 4),
+              observed  = candidate.trials[0].lanes.embedding;
+
+        expect(observed.completedOperations).toBe(1);
+        expect(observed.maxProgressGapMs).toBe(1000);
+        expect(observed.throughputPerSecond).toBeCloseTo(1 / 1.4);
+        expect(observed.errorCount).toBe(2);
+        expect(observed.unexpectedRefusalCount).toBe(1)
+    });
+
+    test('rejects obsolete throughput gates instead of silently omitting them', () => {
+        const fixture = buildFixture();
+
+        fixture.plan.slo.lanes.chat.minThroughputPerSecond = Number.MAX_SAFE_INTEGER;
+
+        expect(() => evaluateProviderLaneElection(fixture)).toThrow(/requires exact fields/)
     });
 
     test('derives CPU/RSS coverage from raw chronological samples and fails real coverage gaps', () => {
@@ -781,7 +845,6 @@ test.describe('providerLaneElectionCore', () => {
         const fixture = buildFixture(),
               trial   = fixture.trials[0];
 
-        fixture.plan.slo.lanes.embedding.token = 'SLO_SECRET';
         fixture.plan.resourceSampling.token = 'SAMPLER_SECRET';
         trial.lanes.embedding.runtimeProfile.token = 'RUNTIME_SECRET';
         trial.lanes.embedding.operations[0].id = '/tenant/private/corpus/row';
@@ -796,7 +859,6 @@ test.describe('providerLaneElectionCore', () => {
         expect(serialized).not.toContain('SECRET');
         expect(serialized).not.toContain('/tenant/private/corpus/row');
         expect(serialized).not.toContain('sk-private-provider-token');
-        expect(result.jointSlo.lanes.embedding.token).toBeUndefined();
         expect(result.planCoordinates.resourceSampling.token).toBeUndefined();
         expect(lane.runtimeProfile.token).toBeUndefined();
         expect(lane.operations[0].id).toMatch(/^sha256:[0-9a-f]{64}$/);
