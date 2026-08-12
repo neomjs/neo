@@ -501,6 +501,9 @@ class VectorService extends Base {
 
     /**
      * Splits text on stable line boundaries, falling back to character slices for huge lines.
+     * Tracks each line's byte size once: re-measuring the growing output prefix makes a large
+     * minified/generated source file quadratic and can starve every writer on the shared
+     * orchestrator event loop.
      *
      * @param {String} text Source text.
      * @param {Number} maxBytes Maximum byte size per returned part.
@@ -511,57 +514,73 @@ class VectorService extends Base {
             return [text];
         }
 
-        const parts   = [];
-        let   current = '';
+        const parts        = [];
+        let   currentLines = [],
+              currentBytes = 0;
+
+        const flushCurrent = () => {
+            if (currentLines.length === 0) return;
+
+            parts.push(currentLines.join(''));
+            currentLines = [];
+            currentBytes = 0
+        };
 
         for (const line of text.match(/[^\n]*\n?|[^\n]+$/g).filter(Boolean)) {
-            if (Buffer.byteLength(line, 'utf8') > maxBytes) {
-                if (current) {
-                    parts.push(current);
-                    current = '';
-                }
+            const lineBytes = Buffer.byteLength(line, 'utf8');
+
+            if (lineBytes > maxBytes) {
+                flushCurrent();
                 parts.push(...this.splitLongStringByByteBudget(line, maxBytes));
                 continue;
             }
 
-            if (current && Buffer.byteLength(current + line, 'utf8') > maxBytes) {
-                parts.push(current);
-                current = line;
-            } else {
-                current += line;
+            if (currentLines.length > 0 && currentBytes + lineBytes > maxBytes) {
+                flushCurrent()
             }
+
+            currentLines.push(line);
+            currentBytes += lineBytes
         }
 
-        if (current) {
-            parts.push(current);
-        }
+        flushCurrent();
 
         return parts.filter(part => part.length > 0);
     }
 
     /**
      * Splits one oversized line without breaking JavaScript surrogate pairs.
+     * The byte accumulator is linear in code points; each character is measured exactly once.
      *
      * @param {String} value Source string.
      * @param {Number} maxBytes Maximum byte size per part.
      * @returns {String[]} Split text parts.
      */
     splitLongStringByByteBudget(value, maxBytes) {
-        const parts   = [];
-        let   current = '';
+        const parts        = [];
+        let   currentChars = [],
+              currentBytes = 0;
+
+        const flushCurrent = () => {
+            if (currentChars.length === 0) return;
+
+            parts.push(currentChars.join(''));
+            currentChars = [];
+            currentBytes = 0
+        };
 
         for (const char of value) {
-            if (current && Buffer.byteLength(current + char, 'utf8') > maxBytes) {
-                parts.push(current);
-                current = char;
-            } else {
-                current += char;
+            const charBytes = Buffer.byteLength(char, 'utf8');
+
+            if (currentChars.length > 0 && currentBytes + charBytes > maxBytes) {
+                flushCurrent()
             }
+
+            currentChars.push(char);
+            currentBytes += charBytes
         }
 
-        if (current) {
-            parts.push(current);
-        }
+        flushCurrent();
 
         return parts;
     }
@@ -989,7 +1008,7 @@ class VectorService extends Base {
 
         try {
             const embedResult = await this.embedChunks({
-                collection: shadowCollection,
+                collection     : shadowCollection,
                 chunksToProcess: chunksToEmbed,
                 shouldYield,
                 signal,
