@@ -58,26 +58,9 @@ export function createEmbeddingPoisonScopeId({tenantId, repoSlug} = {}) {
     return sha256(JSON.stringify({tenantId, repoSlug}))
 }
 
-/**
- * @summary Hashes every coordinate whose change must make poisoned content eligible again.
- * @param {Object} options
- * @param {String} options.provider Embedding provider identity (never persisted verbatim).
- * @param {String} options.model Embedding model identity (never persisted verbatim).
- * @param {Number} options.vectorDimension Expected vector dimension.
- * @param {String} options.strategyVersion Input/chunking strategy version.
- * @returns {String} Lowercase SHA-256 generation id.
- */
-export function createEmbeddingGenerationId({provider, model, vectorDimension, strategyVersion} = {}) {
-    assertHashInput(provider, 'createEmbeddingGenerationId: provider');
-    assertHashInput(model, 'createEmbeddingGenerationId: model');
-    assertHashInput(strategyVersion, 'createEmbeddingGenerationId: strategyVersion');
-
-    if (!Number.isInteger(vectorDimension) || vectorDimension <= 0) {
-        throw new TypeError('createEmbeddingGenerationId: vectorDimension must be a positive integer')
-    }
-
-    return sha256(JSON.stringify({provider, model, vectorDimension, strategyVersion}))
-}
+// One id-space with the plane's generation election: the implementation lives with the election
+// authority so the same coordinate tuple can never hash differently in the two stores.
+export {createEmbeddingGenerationId} from '../../shared/vector/generationElectionStore.mjs';
 
 /**
  * @summary Resolves the per-scope poison marker path without exposing the raw scope tuple.
