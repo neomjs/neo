@@ -25,6 +25,10 @@ import {
     createRecoveryDiagnosisEvent,
     readRecentRecoveryRunStates
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
+import {
+    ensureOllamaModelsReady,
+    repairProviderRoleSetResidency
+} from '../../../../../../../ai/services/graph/providerReadinessHelper.mjs';
 
 const OBSERVED_AT = 1710000000000;
 const GIB         = 1024 ** 3;
@@ -268,6 +272,125 @@ test.describe('Neo.ai.daemons.services.ContainerHealthControllerService', () => 
 
         admitted = false;
         expect(runtimeCalls[0].isEffectStillAdmitted()).toBe(false);
+    });
+
+    test('a running heavy task declines a warm-provider decision before provider repair', async () => {
+        const {Orchestrator} = await import('../../../../../../../ai/daemons/orchestrator/Orchestrator.mjs'),
+              demandOwner    = Object.create(Orchestrator.prototype);
+
+        Object.defineProperties(demandOwner, {
+            maintenanceBackpressureService: {
+                value: {getActiveHeavyMaintenanceTask: () => 'tenant-repo-sync'}
+            },
+            isHeavyMaintenanceLeaseActive: {value: () => false},
+            writeLog                     : {value: () => {}}
+        });
+
+        const {actuator, controller} = createStack({
+                  controllerConfig: {
+                      isEffectStillAdmitted: () => demandOwner.isProviderWarmStillAdmitted(OBSERVED_AT)
+                  }
+              }),
+              decision = decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.warmProvider, {
+                  serviceKey   : 'local-model',
+                  recoveryClass: 'provider-role-residency'
+              });
+        let repairCalled = false;
+
+        actuator.providerResidencyRepair = async () => {
+            repairCalled = true;
+            return {ready: true};
+        };
+
+        const outcome = await controller.consume({decision});
+
+        expect(outcome.actuatorOutcome).toMatchObject({
+            status    : 'declined',
+            reasonCode: 'effect-no-longer-admitted'
+        });
+        expect(repairCalled).toBe(false);
+    });
+
+    test('provider residency recovery composes controller → actuator → native warm admission', async () => {
+        let   admitted = true;
+        const warms    = [];
+
+        const {actuator, controller} = createStack({
+                  controllerConfig: {isEffectStillAdmitted: () => admitted}
+              }),
+              decision = decisionWithActionClass(CONTAINER_HEALTH_ACTION_CLASSES.warmProvider, {
+                  serviceKey   : 'local-model',
+                  recoveryClass: 'provider-role-residency'
+              });
+        const originalApply = actuator.apply.bind(actuator);
+        let   applyOptions;
+
+        decision.diagnosis.evidenceFacts = [{
+            type   : 'ollama-residual-load',
+            details: {runtimeContainerId: 'must-not-cross-the-warm-envelope'}
+        }];
+        actuator.apply = (serviceKey, action, options) => {
+            applyOptions = options;
+            return originalApply(serviceKey, action, options);
+        };
+
+        actuator.providerResidencyRepair = options => repairProviderRoleSetResidency({
+            ...options,
+            config: {
+                modelProvider    : 'ollama',
+                graphProvider    : 'ollama',
+                embeddingProvider: 'ollama',
+                ollama           : {
+                    host                 : 'http://127.0.0.1:11434',
+                    model                : 'chat-model',
+                    embeddingModel       : 'embed-model',
+                    requireParallelModels: 2,
+                    keep_alive           : '-1'
+                },
+                localModels: {
+                    chat     : {contextLimitTokens: 131072},
+                    embedding: {contextLimitTokens: 32768}
+                }
+            },
+            ollamaRepairFn: helperOptions => ensureOllamaModelsReady({
+                ...helperOptions,
+                fetchModelIds: async () => [],
+                async warmModel(role, warmOptions) {
+                    warms.push({role, warmOptions});
+                    admitted = false;
+                    return {};
+                }
+            })
+        });
+
+        const outcome = await controller.consume({decision});
+
+        expect(outcome.actuatorOutcome).toMatchObject({
+            status           : 'failed',
+            reasonCode       : 'effect-no-longer-admitted-after-partial',
+            effectDisposition: 'partial',
+            providerResidency: {
+                admission   : 'refused-after-partial',
+                refusedModel: {role: 'embedding', model: 'embed-model', contextLength: 32768},
+                warmedModels: [{role: 'chat', model: 'chat-model', contextLength: 131072}]
+            }
+        });
+        expect(warms).toEqual([{
+            role: {
+                provider     : 'ollama',
+                providerRole : 'modelProvider',
+                role         : 'chat',
+                model        : 'chat-model',
+                contextLength: 131072
+            },
+            warmOptions: {
+                host         : 'http://127.0.0.1:11434',
+                keepAlive    : '-1',
+                timeoutMs    : expect.any(Number),
+                contextLength: 131072
+            }
+        }]);
+        expect(applyOptions).not.toHaveProperty('expectedContainerId');
     });
 
     test('SAFETY — an ANSWERING service is not restarted even with a SECOND authoritative fact', async () => {

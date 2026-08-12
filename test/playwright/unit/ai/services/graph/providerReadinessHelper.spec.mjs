@@ -232,4 +232,179 @@ test.describe('provider residency helpers — production mutation authority fenc
         await expect(repair).rejects.toMatchObject({reason: 'runtime-authority-lost'});
         expect(warms).toEqual(['chat']);
     });
+
+    test('Ollama preserves allowPartial authority degradation when the demand oracle is omitted', async () => {
+        let held = true;
+
+        const result = await ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat',      providerRole: 'chat',      model: 'chat-model'},
+                {role: 'embedding', providerRole: 'embedding', model: 'embed-model'}
+            ],
+            requireParallelModels: 2,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            allowPartial         : true,
+            fetchModelIds        : async () => [],
+            async warmModel() {
+                held = false;
+                return {};
+            },
+            isAuthorityHeld: () => held,
+            log            : {info() {}, warn() {}}
+        });
+
+        expect(result).toMatchObject({
+            ready          : false,
+            degraded       : true,
+            attemptedModels: [
+                {role: 'chat', providerRole: 'chat', model: 'chat-model'},
+                {role: 'embedding', providerRole: 'embedding', model: 'embed-model'}
+            ],
+            warmedModels: [{role: 'chat', providerRole: 'chat', model: 'chat-model'}],
+            failedModels: [{role: 'embedding', providerRole: 'embedding', model: 'embed-model'}]
+        });
+    });
+
+    test('Ollama refuses changed demand after the readiness probe before any role warm', async () => {
+        let   admitted = true;
+        const warms    = [];
+
+        const repair = ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}
+            ],
+            requireParallelModels: 1,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            allowPartial         : true,
+            async fetchModelIds() {
+                admitted = false;
+                return [];
+            },
+            async warmModel(role, options) {
+                warms.push({role, options});
+                return {};
+            },
+            isEffectStillAdmitted: () => admitted,
+            log                  : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({
+            reason: 'runtime-effect-not-admitted'
+        });
+        expect(warms).toEqual([]);
+    });
+
+    test('Ollama preserves an earlier role as partial when demand changes before the next warm', async () => {
+        let   admitted = true;
+        const warms    = [];
+
+        const repair = ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat',      providerRole: 'chat',      model: 'chat-model',  contextLength: 131072},
+                {role: 'embedding', providerRole: 'embedding', model: 'embed-model', contextLength: 32768}
+            ],
+            requireParallelModels: 2,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            allowPartial         : true,
+            fetchModelIds        : async () => [],
+            async warmModel(role, options) {
+                warms.push({role, options});
+                admitted = false;
+                return {};
+            },
+            isEffectStillAdmitted: () => admitted,
+            log                  : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({
+            reason           : 'runtime-effect-partially-applied',
+            effectDisposition: 'partial',
+            providerResidency: {
+                admission      : 'refused-after-partial',
+                refusedModel   : {role: 'embedding', providerRole: 'embedding', model: 'embed-model', contextLength: 32768},
+                attemptedModels: [{role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}],
+                warmedModels   : [{role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}]
+            }
+        });
+        expect(warms).toEqual([{
+            role   : {role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072},
+            options: {host: 'http://127.0.0.1:11434', keepAlive: undefined, timeoutMs: 10, contextLength: 131072}
+        }]);
+    });
+
+    test('Ollama records a failed earlier attempt as uncertain when demand changes before the next warm', async () => {
+        let   admitted = true;
+        const warms    = [];
+
+        const repair = ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat',      providerRole: 'chat',      model: 'chat-model',  contextLength: 131072},
+                {role: 'embedding', providerRole: 'embedding', model: 'embed-model', contextLength: 32768}
+            ],
+            requireParallelModels: 2,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            allowPartial         : true,
+            fetchModelIds        : async () => [],
+            async warmModel(role) {
+                warms.push(role);
+                admitted = false;
+                throw new TypeError('pre-dispatch validation');
+            },
+            isEffectStillAdmitted: () => admitted,
+            log                  : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({
+            reason           : 'runtime-effect-disposition-uncertain',
+            effectDisposition: 'uncertain',
+            providerResidency: {
+                admission      : 'refused-after-uncertain-attempt',
+                refusedModel   : {role: 'embedding', providerRole: 'embedding', model: 'embed-model', contextLength: 32768},
+                attemptedModels: [{role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}],
+                warmedModels   : [],
+                pendingModels  : [],
+                failedModels   : [{role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}]
+            }
+        });
+        expect(warms).toEqual([
+            {role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}
+        ]);
+    });
+
+    test('Ollama preserves the no-admission-oracle logger failure boundary', async () => {
+        let warmCount = 0;
+
+        await expect(ensureOllamaModelsReady({
+            host : 'http://127.0.0.1:11434',
+            roles: [
+                {role: 'chat', providerRole: 'chat', model: 'chat-model', contextLength: 131072}
+            ],
+            requireParallelModels: 1,
+            attempts             : 1,
+            delayMs              : 0,
+            timeoutMs            : 10,
+            allowPartial         : true,
+            fetchModelIds        : async () => [],
+            warmModel            : async () => { warmCount += 1; },
+            log                  : {
+                info() {
+                    throw new Error('logger exploded');
+                },
+                warn() {}
+            }
+        })).rejects.toThrow('logger exploded');
+        expect(warmCount).toBe(0);
+    });
 });

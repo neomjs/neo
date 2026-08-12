@@ -1819,6 +1819,7 @@ export async function ensureLmsModelsLoaded({
  * @param {Function} [options.fetchModelIds] Injectable `/api/ps` probe. May return model ids or `{id, contextLength}` entries.
  * @param {Function} [options.warmModel] Injectable warm-up function.
  * @param {Object|null} [options.providerActivityRecorder] Best-effort native warm lifecycle sink.
+ * @param {Function|null} [options.isEffectStillAdmitted=null] Live provider-demand admission oracle.
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
@@ -1835,7 +1836,8 @@ export async function ensureOllamaModelsReady({
     warmModel     = (role, options) => warmOllamaRoleModel({...role, ...options}),
     providerActivityRecorder = null,
     log           = logger,
-    isAuthorityHeld = null
+    isAuthorityHeld = null,
+    isEffectStillAdmitted = null
 } = {}) {
     if (!Array.isArray(roles) || roles.length === 0) {
         throw new TypeError('ensureOllamaModelsReady: roles must contain at least one configured Ollama role');
@@ -1853,6 +1855,39 @@ export async function ensureOllamaModelsReady({
             const error = new Error('Authority moved before an Ollama model warm; refusing.');
 
             error.reason = 'runtime-authority-lost';
+
+            throw error;
+        }
+    };
+    const assertEffectAdmitted = ({attemptedModels, failedModels, pendingModels, refusedModel, warmedModels}) => {
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            const error = new Error('Provider demand changed before an Ollama model warm; refusing.');
+
+            const priorProviderEffect   = warmedModels.length > 0 || pendingModels.length > 0,
+                  priorAttemptUncertain = !priorProviderEffect && failedModels.length > 0;
+
+            if (priorProviderEffect) {
+                error.reason = 'runtime-effect-partially-applied';
+            } else if (priorAttemptUncertain) {
+                error.reason = 'runtime-effect-disposition-uncertain';
+            } else {
+                error.reason = 'runtime-effect-not-admitted';
+            }
+
+            if (priorProviderEffect || priorAttemptUncertain) {
+                error.effectDisposition = priorProviderEffect ? 'partial' : 'uncertain';
+                error.providerResidency = {
+                    action         : 'warm-provider',
+                    provider       : 'ollama',
+                    ready          : false,
+                    admission      : priorProviderEffect ? 'refused-after-partial' : 'refused-after-uncertain-attempt',
+                    refusedModel,
+                    attemptedModels: attemptedModels.map(toRoleEnvelope),
+                    warmedModels   : warmedModels.map(toRoleEnvelope),
+                    pendingModels  : pendingModels.map(toRoleEnvelope),
+                    failedModels   : failedModels.map(toRoleEnvelope)
+                };
+            }
 
             throw error;
         }
@@ -2008,10 +2043,18 @@ export async function ensureOllamaModelsReady({
 
     for (const role of rolesToWarm) {
         const roleEnvelope = toRoleEnvelope(role);
+        const announceWarm = () => {
+            attemptedModels.push(roleEnvelope);
 
-        attemptedModels.push(roleEnvelope);
-        const contextSuffix = Neo.isNumber(role.contextLength) ? ` with num_ctx ${role.contextLength}` : '';
-        log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}'${contextSuffix} via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
+            const contextSuffix = Neo.isNumber(role.contextLength) ? ` with num_ctx ${role.contextLength}` : '';
+            log.info?.(`[ProviderReadinessHelper] Warming native Ollama ${role.role} model '${role.model}'${contextSuffix} via ${role.role === 'embedding' ? '/api/embed' : '/api/chat'}.`);
+        };
+
+        // Preserve the existing caller contract byte-for-byte when there is no live-demand oracle:
+        // attempted accounting and logger failures remain outside the provider-result catch.
+        if (typeof isEffectStillAdmitted !== 'function') {
+            announceWarm();
+        }
 
         try {
             const warmOptions = {host, keepAlive, timeoutMs};
@@ -2025,6 +2068,17 @@ export async function ensureOllamaModelsReady({
             // Last point owned before this specific warm leaves the process. The readiness poll and
             // the previous role's warm are both awaited above, so the entry check is stale here.
             assertHeld();
+            assertEffectAdmitted({
+                attemptedModels,
+                failedModels,
+                pendingModels,
+                refusedModel: roleEnvelope,
+                warmedModels
+            });
+
+            if (typeof isEffectStillAdmitted === 'function') {
+                announceWarm();
+            }
 
             const warmResult = await warmModel(role, warmOptions);
 
@@ -2047,6 +2101,15 @@ export async function ensureOllamaModelsReady({
                 ...(warmResult?.evalSample ? {evalSample: warmResult.evalSample} : {})
             });
         } catch (error) {
+            // These are admission terminals, not degraded provider results. A refusal before the
+            // The first refusal stays zero-effect. A confirmed prior warm is partial; a failed
+            // prior attempt is uncertain because the provider-dispatch boundary is not proven.
+            if ((error?.reason === 'runtime-authority-lost' && typeof isEffectStillAdmitted === 'function') ||
+                error?.reason === 'runtime-effect-not-admitted' || error?.reason === 'runtime-effect-partially-applied' ||
+                error?.reason === 'runtime-effect-disposition-uncertain') {
+                throw error;
+            }
+
             failedModels.push({
                 ...roleEnvelope,
                 error: error.message
@@ -2207,6 +2270,8 @@ export async function ensureOllamaModelsReady({
  * @param {Object} [options.log=logger] Logger seam.
  * @param {Function} [options.lmsRepairFn=ensureLmsModelsLoaded] Test seam for LM Studio repair.
  * @param {Function} [options.ollamaRepairFn=ensureOllamaModelsReady] Test seam for native Ollama repair.
+ * @param {Function|null} [options.isAuthorityHeld=null] Live recovery-authority oracle.
+ * @param {Function|null} [options.isEffectStillAdmitted=null] Live provider-demand admission oracle.
  * @returns {Promise<Object>} Provider readiness repair result.
  */
 export async function repairProviderRoleSetResidency({
@@ -2217,7 +2282,8 @@ export async function repairProviderRoleSetResidency({
     log = logger,
     lmsRepairFn = ensureLmsModelsLoaded,
     ollamaRepairFn = ensureOllamaModelsReady,
-    isAuthorityHeld = null
+    isAuthorityHeld = null,
+    isEffectStillAdmitted = null
 } = {}) {
     /**
      * Re-asserted immediately before the repair dispatches, after the read-only config resolution
@@ -2276,7 +2342,8 @@ export async function repairProviderRoleSetResidency({
             log,
             // Into the helper, not merely before it: the default helper polls and warms per role,
             // so each warm sits behind its own await and only a per-mutation check binds them.
-            isAuthorityHeld
+            isAuthorityHeld,
+            ...(typeof isEffectStillAdmitted === 'function' ? {isEffectStillAdmitted} : {})
         });
 
         return {
