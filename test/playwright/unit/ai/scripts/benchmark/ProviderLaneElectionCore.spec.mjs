@@ -11,43 +11,17 @@ const
     CHAT_MODEL_DIGEST      = `sha256:${'b'.repeat(64)}`,
     EMBEDDING_IMAGE_DIGEST = `sha256:${'c'.repeat(64)}`,
     EMBEDDING_MODEL_DIGEST = `sha256:${'d'.repeat(64)}`,
+    ROLE_MAP_DIGEST        = `sha256:${'f'.repeat(64)}`,
     WORKLOAD_DIGEST        = `sha256:${'e'.repeat(64)}`;
 
 /**
- * @summary Builds a complete synthetic matrix. Synthetic controls intentionally cannot emit
- * deployment inputs; tests mutate causal coordinates and inspect the provisional evaluation.
+ * @summary Builds a complete synthetic matrix for pure measurement and election tests.
  */
-function buildFixture({evidenceClass = 'synthetic-control'} = {}) {
+function buildFixture() {
     const plan = {
         blocks           : 1,
-        candidateProfiles: [1, 2, 4].map(embeddingSlots => ({
-            embeddingSlots,
-            lanes: {
-                chat: {
-                    contextLimitCode  : 'CONTEXT_LIMIT_EXCEEDED',
-                    contextLimitStatus: 400,
-                    cpuCores          : 2,
-                    imageDigest       : CHAT_IMAGE_DIGEST,
-                    memoryBytes       : 3_000_000_000,
-                    modelDigest       : CHAT_MODEL_DIGEST,
-                    parallelism       : 1,
-                    serviceKey        : 'chat-model'
-                },
-                embedding: {
-                    contextLimitCode  : 'CONTEXT_LIMIT_EXCEEDED',
-                    contextLimitStatus: 400,
-                    cpuCores          : 2,
-                    imageDigest       : EMBEDDING_IMAGE_DIGEST,
-                    memoryBytes       : 5_000_000_000,
-                    modelDigest       : EMBEDDING_MODEL_DIGEST,
-                    parallelism       : embeddingSlots,
-                    serviceKey        : 'embedding-model'
-                }
-            },
-            totalResources: {cpuCores: 4, memoryBytes: 8_000_000_000}
-        })),
-        evidence        : {evidenceClass: 'synthetic-control'},
-        resourceSampling: {
+        candidateProfiles: [1, 2, 4].map(buildCandidateProfile),
+        resourceSampling : {
             activeCpuThreshold: 1,
             expectedIntervalMs: 1000,
             gapFactor         : 2
@@ -81,21 +55,63 @@ function buildFixture({evidenceClass = 'synthetic-control'} = {}) {
         }
     };
 
-    if (evidenceClass === 'exact-head-candidate') {
-        plan.evidence = {
-            canonicalPlane: true,
-            evidenceClass,
-            hardwareId    : 'canonical-cpu-plane',
-            profileDigest : createProviderLanePlanDigest(plan),
-            repositoryHead: '1'.repeat(40),
-            runnerDigest  : `sha256:${'2'.repeat(64)}`
-        }
-    }
-
     const schedule = buildProviderLaneCandidateSchedule({blocks: plan.blocks}),
           trials   = schedule.map(slot => buildTrial({plan, slot}));
 
     return {plan, schedule, trials}
+}
+
+/**
+ * @summary Shapes one composition-derived candidate profile.
+ */
+function buildCandidateProfile(embeddingSlots) {
+    const profile = {
+        compositionReceiptDigest: `sha256:${String(embeddingSlots).repeat(64)}`,
+        compositionSchemaVersion: 'provider-lane-composition.v1',
+        embeddingSlots,
+        lanes                   : {
+            chat: {
+                baseUrl                     : 'http://chat-model:11434',
+                contextTokensPerSlotRequired: 131_072,
+                cpuCores                    : 2,
+                endpointDigest              : `sha256:${'6'.repeat(64)}`,
+                imageDigest                 : CHAT_IMAGE_DIGEST,
+                imageReference              : 'ollama/ollama:0.32.9',
+                memoryBytes                 : 3_000_000_000,
+                modelCoordinate             : 'ollama://gemma4:26b@immutable',
+                modelDigest                 : CHAT_MODEL_DIGEST,
+                modelDigestKind             : 'ollama-model-weights',
+                modelId                     : 'gemma4:26b',
+                parallelism                 : 1,
+                protocolAdapter             : 'ollama-chat-v0.32.9',
+                provider                    : 'ollama',
+                serviceKey                  : 'chat-model',
+                totalContextTokens          : 131_072
+            },
+            embedding: {
+                baseUrl                     : 'http://embedding-model:8080',
+                contextTokensPerSlotRequired: 8192,
+                cpuCores                    : 2,
+                endpointDigest              : `sha256:${'7'.repeat(64)}`,
+                imageDigest                 : EMBEDDING_IMAGE_DIGEST,
+                imageReference              : 'ghcr.io/ggml-org/llama.cpp:server-b10380',
+                memoryBytes                 : 5_000_000_000,
+                modelCoordinate             : 'hf://Qwen/Qwen3-Embedding-8B-GGUF@immutable/model.gguf',
+                modelDigest                 : EMBEDDING_MODEL_DIGEST,
+                modelDigestKind             : 'gguf-file',
+                modelId                     : 'qwen3-embedding-8b',
+                parallelism                 : embeddingSlots,
+                protocolAdapter             : 'llama-cpp-openai-embeddings-b10380',
+                provider                    : 'openAiCompatible',
+                serviceKey                  : 'embedding-model',
+                totalContextTokens          : embeddingSlots * 8192
+            }
+        },
+        roleMapDigest : ROLE_MAP_DIGEST,
+        totalResources: {cpuCores: 4, memoryBytes: 8_000_000_000}
+    };
+
+    return profile
 }
 
 /**
@@ -135,10 +151,11 @@ function buildTrial({plan, slot}) {
           profile       = plan.candidateProfiles.find(item => item.embeddingSlots === slot.candidate);
 
     return {
-        candidate     : slot.candidate,
+        candidate               : slot.candidate,
         completedAtMs,
-        executionIndex: slot.executionIndex,
-        lanes         : {
+        compositionReceiptDigest: profile.compositionReceiptDigest,
+        executionIndex          : slot.executionIndex,
+        lanes                   : {
             chat: {
                 observedContextTokensPerSlot: 131_072,
                 operations                  : [
@@ -203,9 +220,10 @@ function buildOverLimitProbe({laneName, observedContextTokens, profile, slot, st
         id                    : `${slot.id}:${laneName}:over-limit`,
         modelDigest           : profile.lanes[laneName].modelDigest,
         observedOutputTokens  : 0,
-        providerErrorCode     : 'CONTEXT_LIMIT_EXCEEDED',
+        protocolAdapter       : profile.lanes[laneName].protocolAdapter,
         requestedContextTokens: observedContextTokens + 1,
-        responseClass         : 'provider-error',
+        responseBodyDigest    : `sha256:${'8'.repeat(64)}`,
+        responseClass         : 'context-limit-refusal',
         serviceKey            : profile.lanes[laneName].serviceKey,
         startedAtMs           : startedAtMs + 4300,
         transportStatus       : 400
@@ -220,7 +238,7 @@ function buildEmbeddingOperations({slot, startedAtMs}) {
           startsByCandidate = {
               1: [300, 1300, 2300, 3300],
               2: [300, 300, 1300, 1300],
-              4: [300, 300, 300, 300]
+              4: [300, 300, 300, 1300]
           };
 
     return sources.map((source, index) => {
@@ -286,7 +304,7 @@ test.describe('providerLaneElectionCore', () => {
         expect(Math.max(...pairCounts) - Math.min(...pairCounts)).toBe(1)
     });
 
-    test('synthetic evidence computes the smallest provisional candidate but cannot mint deployment inputs', () => {
+    test('computes the smallest measured winner without minting deployment authority', () => {
         const fixture                 = buildFixture(),
               firstCandidateOperation = fixture.trials.find(trial => trial.candidate === 1)
                   .lanes.embedding.operations[0];
@@ -295,14 +313,15 @@ test.describe('providerLaneElectionCore', () => {
 
         const result = evaluateProviderLaneElection(fixture);
 
-        expect(result.status).toBe('NON_AUTHORITATIVE');
-        expect(result.computedOutcome).toBe('ELECTED');
-        expect(result.provisionalCandidate).toBe(2);
-        expect(result.electedCandidate).toBeNull();
-        expect(result.immutableInputs).toBeNull();
-        expect(result.authority).toEqual({authoritative: false, evidenceClass: 'synthetic-control'});
+        expect(result.winnerCandidate).toBe(2);
+        expect(result.authority).toBeUndefined();
+        expect(result.electedCandidate).toBeUndefined();
+        expect(result.immutableInputs).toBeUndefined();
         expect(result.planCoordinates.workloadOfferedOperations).toEqual(fixture.plan.workload.offeredOperations);
         expect(result.jointSlo.lanes.embedding.minContextTokensPerSlot).toBe(8192);
+        expect(result.candidates[0].trials[0].compositionReceiptDigest).toBe(
+            fixture.trials[0].compositionReceiptDigest
+        );
         expect(result.candidates[0].trials[0].lanes.embedding.resourceSamples).toEqual(
             fixture.trials[0].lanes.embedding.resourceSamples
         );
@@ -313,45 +332,31 @@ test.describe('providerLaneElectionCore', () => {
         ])
     });
 
-    test('exact-head canonical evidence emits immutable inputs for the smallest passing candidate', () => {
-        const fixture   = buildFixture({evidenceClass: 'exact-head-candidate'}),
+    test('does not accept or echo caller-supplied authority and deployment-input envelopes', () => {
+        const fixture   = buildFixture(),
               operation = fixture.trials.find(trial => trial.candidate === 1).lanes.embedding.operations[0];
 
         operation.outcome = 'error';
+        fixture.plan.evidence = {canonicalPlane: true, token: 'AUTHORITY_SECRET'};
+        fixture.plan.candidateProfiles[1].deploymentInputs = {
+            embeddingParallelSlots: {
+                env  : 'NEO_PROVIDER_LANE_EMBEDDING_SLOT_COUNT',
+                value: 2
+            }
+        };
 
-        const result = evaluateProviderLaneElection(fixture);
+        const result     = evaluateProviderLaneElection(fixture),
+              serialized = JSON.stringify(result);
 
-        expect(result.status).toBe('ELECTED');
-        expect(result.electedCandidate).toBe(2);
-        expect(result.immutableInputs).toEqual({
-            chatParallelism: 1,
-            embeddingSlots : 2,
-            laneIdentities : {
-                chat     : {imageDigest: CHAT_IMAGE_DIGEST, modelDigest: CHAT_MODEL_DIGEST, serviceKey: 'chat-model'},
-                embedding: {
-                    imageDigest: EMBEDDING_IMAGE_DIGEST,
-                    modelDigest: EMBEDDING_MODEL_DIGEST,
-                    serviceKey : 'embedding-model'
-                }
-            },
-            laneResources: {
-                chat     : {cpuCores: 2, memoryBytes: 3_000_000_000},
-                embedding: {cpuCores: 2, memoryBytes: 5_000_000_000}
-            },
-            perSlotContextTarget: {chat: 131_072, embedding: 8192},
-            totalResources      : {cpuCores: 4, memoryBytes: 8_000_000_000}
-        });
-        expect(result.authority).toMatchObject({
-            authoritative : true,
-            canonicalPlane: true,
-            evidenceClass : 'exact-head-candidate',
-            profileDigest : result.planCoordinates.planDigest,
-            repositoryHead: '1'.repeat(40)
-        })
+        expect(result.winnerCandidate).toBe(2);
+        expect(serialized).not.toContain('AUTHORITY_SECRET');
+        expect(serialized).not.toContain('NEO_PROVIDER_LANE_EMBEDDING_SLOT_COUNT');
+        expect(result.authority).toBeUndefined();
+        expect(result.immutableInputs).toBeUndefined()
     });
 
-    test('returns exact-head NO_ELECTION without fallback or clamp when every candidate fails', () => {
-        const fixture = buildFixture({evidenceClass: 'exact-head-candidate'});
+    test('returns no measured winner without fallback or clamp when every candidate fails', () => {
+        const fixture = buildFixture();
 
         for (const candidate of [1, 2, 4]) {
             fixture.trials.find(trial => trial.candidate === candidate).lanes.chat.operations[0].outcome = 'error'
@@ -359,9 +364,8 @@ test.describe('providerLaneElectionCore', () => {
 
         const result = evaluateProviderLaneElection(fixture);
 
-        expect(result.status).toBe('NO_ELECTION');
-        expect(result.electedCandidate).toBeNull();
-        expect(result.immutableInputs).toBeNull()
+        expect(result.winnerCandidate).toBeNull();
+        expect(result.candidates.every(candidate => candidate.status === 'FAIL')).toBe(true)
     });
 
     test('derives queue/provider/throughput/progress and preserves not-applicable queue wait as null', () => {
@@ -469,21 +473,17 @@ test.describe('providerLaneElectionCore', () => {
         expect(() => evaluateProviderLaneElection(fixture)).toThrow(/exceeds its runtime parallelism/)
     });
 
-    test('fails a candidate whose declared embedding slots were never observed concurrently', () => {
+    test('separates provisioned slots from the three-process workload concurrency ceiling', () => {
         const fixture = buildFixture(),
               trial   = fixture.trials.find(item => item.candidate === 4);
 
-        trial.lanes.embedding.operations.forEach((operation, index) => {
-            operation.providerStartedAtMs = trial.startedAtMs + 300 + index * 1000;
-            operation.completedAtMs = operation.providerStartedAtMs + 900
-        });
+        const result    = evaluateProviderLaneElection(fixture),
+              candidate = result.candidates.find(item => item.candidate === 4),
+              lane      = candidate.trials[0].lanes.embedding;
 
-        const result = evaluateProviderLaneElection(fixture),
-              codes  = result.candidates.find(item => item.candidate === 4).failures.map(failure => failure.code);
-
-        expect(codes).toContain('CANDIDATE_CONCURRENCY_NOT_OBSERVED');
-        expect(result.candidates.find(item => item.candidate === 4).trials[0]
-            .lanes.embedding.observedMaxProviderConcurrency).toBe(1)
+        expect(candidate.status).toBe('PASS');
+        expect(lane.runtimeProfile.parallelism).toBe(4);
+        expect(lane.observedMaxProviderConcurrency).toBe(3)
     });
 
     test('fails context/refusal/progress from derived receipts rather than configured knobs', () => {
@@ -493,7 +493,6 @@ test.describe('providerLaneElectionCore', () => {
         trial.lanes.embedding.observedContextTokensPerSlot = 4096;
         Object.assign(trial.lanes.embedding.overLimitProbe, {
             observedOutputTokens: 32,
-            providerErrorCode   : null,
             responseClass       : 'completed',
             transportStatus     : 200
         });
@@ -512,6 +511,20 @@ test.describe('providerLaneElectionCore', () => {
         ]))
     });
 
+    test('cannot lower the joint SLO beneath the composition-required per-slot context', () => {
+        const fixture = buildFixture();
+
+        fixture.plan.slo.lanes.embedding.minContextTokensPerSlot = 4096;
+        for (const trial of fixture.trials) {
+            trial.lanes.embedding.observedContextTokensPerSlot = 4096;
+            trial.lanes.embedding.overLimitProbe.requestedContextTokens = 4097
+        }
+
+        expect(() => evaluateProviderLaneElection(fixture)).toThrow(
+            /embedding context floor must equal the composition-required per-slot context/
+        )
+    });
+
     test('aborts on fixed-envelope, identity, service-separation, or allocation drift', () => {
         const envelope = buildFixture();
         envelope.plan.candidateProfiles[2].totalResources.cpuCores = 5;
@@ -524,6 +537,7 @@ test.describe('providerLaneElectionCore', () => {
 
         const sameService = buildFixture();
         sameService.plan.candidateProfiles[0].lanes.embedding.serviceKey = 'chat-model';
+        sameService.plan.candidateProfiles[0].lanes.embedding.baseUrl = 'http://chat-model:8080';
         expect(() => evaluateProviderLaneElection(sameService)).toThrow(/distinct chat and embedding service identities/);
 
         const allocation = buildFixture();
@@ -531,22 +545,44 @@ test.describe('providerLaneElectionCore', () => {
         expect(() => evaluateProviderLaneElection(allocation)).toThrow(/must exactly consume/)
     });
 
-    test('requires complete exact-head provenance before any authoritative verdict', () => {
-        const fixture = buildFixture({evidenceClass: 'exact-head-candidate'});
-        delete fixture.plan.evidence.runnerDigest;
-
-        expect(() => evaluateProviderLaneElection(fixture)).toThrow(/requires runnerDigest/)
-    });
-
-    test('binds exact-head provenance to the complete canonical plan coordinates', () => {
-        const fixture = buildFixture({evidenceClass: 'exact-head-candidate'});
+    test('binds the canonical plan digest to complete measurement coordinates', () => {
+        const fixture = buildFixture(),
+              before  = createProviderLanePlanDigest(fixture.plan);
 
         fixture.plan.slo.lanes.embedding.maxProviderDurationMs++;
 
-        expect(() => evaluateProviderLaneElection(fixture)).toThrow(/profileDigest does not match the canonical election plan digest/)
+        expect(createProviderLanePlanDigest(fixture.plan)).not.toBe(before)
     });
 
-    test('requires a raw identity-bound refusal receipt instead of an asserted refusal boolean', () => {
+    test('binds each captured trial to its exact candidate composition receipt', () => {
+        const fixture = buildFixture(),
+              trial   = fixture.trials.find(item => item.candidate === 2);
+
+        fixture.plan.candidateProfiles[1].compositionReceiptDigest = `sha256:${'9'.repeat(64)}`;
+
+        expect(() => evaluateProviderLaneElection(fixture)).toThrow(
+            /does not match candidate 2's composition receipt/
+        );
+        expect(trial.compositionReceiptDigest).not.toBe(
+            fixture.plan.candidateProfiles[1].compositionReceiptDigest
+        )
+    });
+
+    test('rejects alternate spellings of canonical sha256 digests', () => {
+        const missingPrefix = buildFixture();
+        missingPrefix.plan.candidateProfiles[0].compositionReceiptDigest = '1'.repeat(64);
+        expect(() => createProviderLanePlanDigest(missingPrefix.plan)).toThrow(
+            /requires immutable validated composition provenance/
+        );
+
+        const uppercase = buildFixture();
+        uppercase.plan.candidateProfiles[0].compositionReceiptDigest = `sha256:${'A'.repeat(64)}`;
+        expect(() => createProviderLanePlanDigest(uppercase.plan)).toThrow(
+            /requires immutable validated composition provenance/
+        )
+    });
+
+    test('requires a normalized identity-bound refusal receipt instead of an asserted boolean', () => {
         const fixture = buildFixture(),
               probe   = fixture.trials[0].lanes.embedding.overLimitProbe;
 
@@ -558,13 +594,13 @@ test.describe('providerLaneElectionCore', () => {
         expect(() => evaluateProviderLaneElection(inconsistent)).toThrow(/inconsistent over-limit provider response/)
     });
 
-    test('does not let a caller relabel rate limits or provider failures as context refusals', () => {
+    test('treats a runner-normalized provider error as a failed over-limit probe', () => {
         const fixture = buildFixture(),
               probe   = fixture.trials.find(item => item.candidate === 2).lanes.embedding.overLimitProbe;
 
         Object.assign(probe, {
-            providerErrorCode: 'RATE_LIMIT',
-            transportStatus  : 429
+            responseClass  : 'provider-error',
+            transportStatus: 429
         });
 
         const result = evaluateProviderLaneElection(fixture),
@@ -573,6 +609,16 @@ test.describe('providerLaneElectionCore', () => {
 
         expect(lane.overLimitProbe.responseClass).toBe('provider-error');
         expect(codes).toContain('OVER_LIMIT_NOT_REFUSED')
+    });
+
+    test('binds immutable composition coordinates without owning deployment inputs', () => {
+        const endpointDrift = buildFixture();
+        endpointDrift.plan.candidateProfiles[2].lanes.embedding.endpointDigest = `sha256:${'9'.repeat(64)}`;
+        expect(() => evaluateProviderLaneElection(endpointDrift)).toThrow(/changed embedding\.endpointDigest/);
+
+        const receiptDrift = buildFixture();
+        receiptDrift.plan.candidateProfiles[2].compositionReceiptDigest = `sha256:${'9'.repeat(64)}`;
+        expect(createProviderLanePlanDigest(receiptDrift.plan)).not.toBe(createProviderLanePlanDigest(buildFixture().plan))
     });
 
     test('projects allowlisted fields and hashes caller-owned request identifiers', () => {

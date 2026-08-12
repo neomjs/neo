@@ -4,8 +4,8 @@
  *
  * The live runner owns composition, workload dispatch, resource sampling, and artifact
  * authority. This module owns only a deterministic counterbalanced schedule plus pure
- * validation/aggregation over injected receipts. Synthetic controls can exercise every branch,
- * but they can never emit authoritative deployment inputs.
+ * validation/aggregation over injected, already-normalized receipts. It selects the smallest
+ * passing measured candidate, but never emits deployment inputs or an authoritative verdict.
  *
  * @see https://github.com/neomjs/neo/issues/17024
  * @see learn/agentos/decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md
@@ -18,12 +18,12 @@ import {median, percentile} from './stats.mjs';
 
 const
     CANDIDATES             = Object.freeze([1, 2, 4]),
-    DIGEST_PATTERN         = /^(?:sha256:)?[0-9a-f]{64}$/i,
-    EVIDENCE_CLASSES       = Object.freeze(['exact-head-candidate', 'synthetic-control']),
+    COMPOSITION_SCHEMA     = 'provider-lane-composition.v1',
+    DIGEST_PATTERN         = /^sha256:[0-9a-f]{64}$/,
     EMBED_SOURCES          = Object.freeze(['knowledge-base', 'memory-core', 'orchestrator']),
     LANE_NAMES             = Object.freeze(['chat', 'embedding']),
     OUTCOMES               = Object.freeze(['completed', 'error', 'unexpected-refusal']),
-    PROBE_RESPONSE_CLASSES = Object.freeze(['completed', 'provider-error']),
+    PROBE_RESPONSE_CLASSES = Object.freeze(['completed', 'context-limit-refusal', 'provider-error']),
     QUEUE_DISPOSITIONS     = Object.freeze(['not-applicable', 'queued']),
     SAFE_PUBLIC_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/,
     SOURCE_NAMES           = Object.freeze(['chat', ...EMBED_SOURCES]),
@@ -117,20 +117,18 @@ export function createProviderLanePlanDigest(plan) {
  * candidate.
  *
  * Evidence-integrity failures throw because an incomplete or incomparable matrix cannot
- * support any verdict. Measured SLO failures remain in candidate receipts. Synthetic controls
- * return `NON_AUTHORITATIVE` with a provisional outcome and no deployment inputs; only an
- * exact-head candidate carrying the live runner's complete provenance may return `ELECTED` or
- * `NO_ELECTION`.
+ * support even a measured comparison. Measured SLO failures remain in candidate receipts. The
+ * returned winner is deliberately non-authoritative: the live runner owns exact composition
+ * validation, protocol adaptation, artifact provenance, and deployment-input publication.
  *
  * @param {Object} options
- * @param {Object} options.plan Immutable candidate profiles, workload, SLO, sampling, and provenance.
+ * @param {Object} options.plan Immutable candidate profiles, workload, SLO, and sampling.
  * @param {Object[]} options.trials Chronological raw operation/resource receipts.
  * @returns {Object} Bounded election receipt.
  */
 export function evaluateProviderLaneElection({plan, trials} = {}) {
     const schedule   = validatePlan(plan),
           planDigest = deriveProviderLanePlanDigest(plan),
-          authority  = validateEvidence(plan.evidence, planDigest),
           derived    = validateAndDeriveTrials({plan, schedule, trials});
 
     const candidates = CANDIDATES.map(candidate => evaluateCandidate({
@@ -138,13 +136,10 @@ export function evaluateProviderLaneElection({plan, trials} = {}) {
               plan,
               trials: derived.filter(trial => trial.candidate === candidate)
           })),
-          winner = candidates.find(candidate => candidate.status === 'PASS') ?? null,
-          computedOutcome = winner ? 'ELECTED' : 'NO_ELECTION';
+          winner = candidates.find(candidate => candidate.status === 'PASS') ?? null;
 
-    const base = {
-        authority,
+    return {
         candidates,
-        computedOutcome,
         jointSlo: {
             lanes: Object.fromEntries(LANE_NAMES.map(laneName => [laneName, projectLaneSlo(plan.slo.lanes[laneName])]))
         },
@@ -157,25 +152,8 @@ export function evaluateProviderLaneElection({plan, trials} = {}) {
             uncertaintyMethod        : 'observed-range-and-nearest-rank-p95',
             workloadDigest           : plan.workload.digest,
             workloadOfferedOperations: {...plan.workload.offeredOperations}
-        }
-    };
-
-    if (!authority.authoritative) {
-        return {
-            ...base,
-            electedCandidate    : null,
-            immutableInputs     : null,
-            provisionalCandidate: winner?.candidate ?? null,
-            status              : 'NON_AUTHORITATIVE'
-        }
-    }
-
-    return {
-        ...base,
-        electedCandidate    : winner?.candidate ?? null,
-        immutableInputs     : winner ? buildImmutableInputs(plan, winner.candidate) : null,
-        provisionalCandidate: null,
-        status              : computedOutcome
+        },
+        winnerCandidate: winner?.candidate ?? null
     }
 }
 
@@ -239,17 +217,28 @@ function deriveProviderLanePlanDigest(plan) {
  */
 function projectCandidateProfile(profile) {
     return {
-        embeddingSlots: profile.embeddingSlots,
-        lanes         : Object.fromEntries(LANE_NAMES.map(laneName => [laneName, {
-            contextLimitCode  : profile.lanes[laneName].contextLimitCode,
-            contextLimitStatus: profile.lanes[laneName].contextLimitStatus,
-            cpuCores          : profile.lanes[laneName].cpuCores,
-            imageDigest       : profile.lanes[laneName].imageDigest,
-            memoryBytes       : profile.lanes[laneName].memoryBytes,
-            modelDigest       : profile.lanes[laneName].modelDigest,
-            parallelism       : profile.lanes[laneName].parallelism,
-            serviceKey        : profile.lanes[laneName].serviceKey
+        compositionReceiptDigest: profile.compositionReceiptDigest,
+        compositionSchemaVersion: profile.compositionSchemaVersion,
+        embeddingSlots          : profile.embeddingSlots,
+        lanes                   : Object.fromEntries(LANE_NAMES.map(laneName => [laneName, {
+            baseUrl                     : profile.lanes[laneName].baseUrl,
+            contextTokensPerSlotRequired: profile.lanes[laneName].contextTokensPerSlotRequired,
+            cpuCores                    : profile.lanes[laneName].cpuCores,
+            endpointDigest              : profile.lanes[laneName].endpointDigest,
+            imageDigest                 : profile.lanes[laneName].imageDigest,
+            imageReference              : profile.lanes[laneName].imageReference,
+            memoryBytes                 : profile.lanes[laneName].memoryBytes,
+            modelCoordinate             : profile.lanes[laneName].modelCoordinate,
+            modelDigest                 : profile.lanes[laneName].modelDigest,
+            modelDigestKind             : profile.lanes[laneName].modelDigestKind,
+            modelId                     : profile.lanes[laneName].modelId,
+            parallelism                 : profile.lanes[laneName].parallelism,
+            protocolAdapter             : profile.lanes[laneName].protocolAdapter,
+            provider                    : profile.lanes[laneName].provider,
+            serviceKey                  : profile.lanes[laneName].serviceKey,
+            totalContextTokens          : profile.lanes[laneName].totalContextTokens
         }])),
+        roleMapDigest : profile.roleMapDigest,
         totalResources: {
             cpuCores   : profile.totalResources.cpuCores,
             memoryBytes: profile.totalResources.memoryBytes
@@ -292,10 +281,26 @@ function validatePlan(plan) {
 
     validateCandidateProfiles(plan.candidateProfiles);
     validateSlo(plan.slo);
+    validateContextContract(plan);
     validateWorkload(plan.workload);
     validateResourceSampling(plan.resourceSampling);
 
     return schedule
+}
+
+/**
+ * @summary Binds the joint-SLO context floor to the canonical composition requirement.
+ * @param {Object} plan Validated election plan.
+ */
+function validateContextContract(plan) {
+    const baseline = getProfile(plan, CANDIDATES[0]);
+
+    for (const laneName of LANE_NAMES) {
+        if (plan.slo.lanes[laneName].minContextTokensPerSlot !==
+            baseline.lanes[laneName].contextTokensPerSlotRequired) {
+            throw new Error(`provider-lane SLO ${laneName} context floor must equal the composition-required per-slot context`)
+        }
+    }
 }
 
 /**
@@ -325,12 +330,38 @@ function validateCandidateProfiles(profiles) {
             throw new Error(`candidate ${profile.embeddingSlots} changed the fixed total CPU/memory envelope`)
         }
 
+        if (profile.compositionSchemaVersion !== baseline.compositionSchemaVersion ||
+            profile.roleMapDigest !== baseline.roleMapDigest) {
+            throw new Error(`candidate ${profile.embeddingSlots} changed the composition schema or role map`)
+        }
+
         for (const laneName of LANE_NAMES) {
-            for (const field of ['serviceKey', 'imageDigest', 'modelDigest', 'contextLimitCode', 'contextLimitStatus']) {
+            for (const field of [
+                'baseUrl',
+                'endpointDigest',
+                'imageDigest',
+                'imageReference',
+                'modelCoordinate',
+                'modelDigest',
+                'modelDigestKind',
+                'modelId',
+                'protocolAdapter',
+                'provider',
+                'serviceKey'
+            ]) {
                 if (profile.lanes[laneName][field] !== baseline.lanes[laneName][field]) {
                     throw new Error(`candidate ${profile.embeddingSlots} changed ${laneName}.${field}; profile mismatch aborts the election`)
                 }
             }
+
+            if (profile.lanes[laneName].contextTokensPerSlotRequired !==
+                baseline.lanes[laneName].contextTokensPerSlotRequired) {
+                throw new Error(`candidate ${profile.embeddingSlots} changed ${laneName}.contextTokensPerSlotRequired`)
+            }
+        }
+
+        if (profile.lanes.chat.totalContextTokens !== baseline.lanes.chat.totalContextTokens) {
+            throw new Error(`candidate ${profile.embeddingSlots} changed chat.totalContextTokens`)
         }
     }
 }
@@ -340,6 +371,12 @@ function validateCandidateProfiles(profiles) {
  * @param {Object} profile Candidate profile.
  */
 function validateCandidateProfile(profile) {
+    if (profile?.compositionSchemaVersion !== COMPOSITION_SCHEMA ||
+        !DIGEST_PATTERN.test(profile?.compositionReceiptDigest ?? '') ||
+        !DIGEST_PATTERN.test(profile?.roleMapDigest ?? '')) {
+        throw new Error(`candidate ${profile?.embeddingSlots} requires immutable validated composition provenance`)
+    }
+
     assertPositiveFinite(profile?.totalResources?.cpuCores, `candidate ${profile?.embeddingSlots} totalResources.cpuCores`);
     assertPositiveInteger(profile?.totalResources?.memoryBytes, `candidate ${profile?.embeddingSlots} totalResources.memoryBytes`);
 
@@ -349,19 +386,36 @@ function validateCandidateProfile(profile) {
     for (const laneName of LANE_NAMES) {
         const lane = profile?.lanes?.[laneName];
 
-        if (!lane || !SAFE_PUBLIC_ID_PATTERN.test(lane.serviceKey ?? '')) {
+        if (!lane || !SAFE_PUBLIC_ID_PATTERN.test(lane.serviceKey ?? '') ||
+            !SAFE_PUBLIC_ID_PATTERN.test(lane.provider ?? '') ||
+            !SAFE_PUBLIC_ID_PATTERN.test(lane.modelId ?? '') ||
+            !SAFE_PUBLIC_ID_PATTERN.test(lane.modelDigestKind ?? '')) {
             throw new Error(`candidate ${profile?.embeddingSlots} lanes.${laneName}.serviceKey is required`)
         }
-        if (!DIGEST_PATTERN.test(lane.imageDigest ?? '') || !DIGEST_PATTERN.test(lane.modelDigest ?? '')) {
+        if (!DIGEST_PATTERN.test(lane.imageDigest ?? '') || !DIGEST_PATTERN.test(lane.modelDigest ?? '') ||
+            !DIGEST_PATTERN.test(lane.endpointDigest ?? '') || typeof lane.imageReference !== 'string' ||
+            lane.imageReference.length === 0 || lane.imageReference.length > 512 ||
+            typeof lane.modelCoordinate !== 'string' || lane.modelCoordinate.length === 0 ||
+            lane.modelCoordinate.length > 512) {
             throw new Error(`candidate ${profile?.embeddingSlots} lanes.${laneName} requires immutable image and model digests`)
         }
-        if (!Number.isInteger(lane.contextLimitStatus) || lane.contextLimitStatus < 400 || lane.contextLimitStatus > 599 ||
-            typeof lane.contextLimitCode !== 'string' || !/^[A-Z][A-Z0-9_.-]{0,63}$/.test(lane.contextLimitCode)) {
-            throw new Error(`candidate ${profile?.embeddingSlots} lanes.${laneName} requires a closed context-limit code/status pair`)
+        try {
+            const url = new URL(lane.baseUrl);
+
+            if (url.protocol !== 'http:' || url.hostname !== lane.serviceKey || url.pathname !== '/' || url.search || url.hash) {
+                throw new Error()
+            }
+        } catch {
+            throw new Error(`candidate ${profile?.embeddingSlots} lanes.${laneName} requires an internal receipt-bound base URL`)
+        }
+        if (!SAFE_PUBLIC_ID_PATTERN.test(lane.protocolAdapter ?? '')) {
+            throw new Error(`candidate ${profile?.embeddingSlots} lanes.${laneName} requires a bounded provider protocol adapter identity`)
         }
 
         assertPositiveFinite(lane.cpuCores, `candidate ${profile.embeddingSlots} lanes.${laneName}.cpuCores`);
         assertPositiveInteger(lane.memoryBytes, `candidate ${profile.embeddingSlots} lanes.${laneName}.memoryBytes`);
+        assertPositiveInteger(lane.totalContextTokens, `candidate ${profile.embeddingSlots} lanes.${laneName}.totalContextTokens`);
+        assertPositiveInteger(lane.contextTokensPerSlotRequired, `candidate ${profile.embeddingSlots} lanes.${laneName}.contextTokensPerSlotRequired`);
 
         allocatedCpu    += lane.cpuCores;
         allocatedMemory += lane.memoryBytes
@@ -376,6 +430,11 @@ function validateCandidateProfile(profile) {
     }
     if (profile.lanes.chat.parallelism !== 1 || profile.lanes.embedding.parallelism !== profile.embeddingSlots) {
         throw new Error(`candidate ${profile.embeddingSlots} must keep chat parallelism 1 and embedding parallelism equal to the candidate`)
+    }
+    if (profile.lanes.chat.totalContextTokens !== profile.lanes.chat.contextTokensPerSlotRequired ||
+        profile.lanes.embedding.totalContextTokens <
+            profile.lanes.embedding.parallelism * profile.lanes.embedding.contextTokensPerSlotRequired) {
+        throw new Error(`candidate ${profile.embeddingSlots} has incoherent total and per-slot context coordinates`)
     }
 }
 
@@ -451,46 +510,6 @@ function validateResourceSampling(sampling) {
 }
 
 /**
- * @summary Validates provenance and distinguishes evidence integrity from evidence authority.
- * @param {Object} evidence Evidence provenance.
- * @param {String} planDigest Canonical digest derived from the evaluated plan.
- * @returns {Object}
- */
-function validateEvidence(evidence, planDigest) {
-    if (!EVIDENCE_CLASSES.includes(evidence?.evidenceClass)) {
-        throw new Error(`provider-lane evidenceClass must be one of: ${EVIDENCE_CLASSES.join(', ')}`)
-    }
-
-    if (evidence.evidenceClass === 'synthetic-control') {
-        return {authoritative: false, evidenceClass: evidence.evidenceClass}
-    }
-
-    for (const field of ['hardwareId', 'profileDigest', 'repositoryHead', 'runnerDigest']) {
-        if (typeof evidence[field] !== 'string' || evidence[field].length === 0) {
-            throw new Error(`exact-head provider-lane evidence requires ${field}`)
-        }
-    }
-    if (!/^[0-9a-f]{40}$/i.test(evidence.repositoryHead) || !DIGEST_PATTERN.test(evidence.profileDigest) ||
-        !DIGEST_PATTERN.test(evidence.runnerDigest) || !SAFE_PUBLIC_ID_PATTERN.test(evidence.hardwareId) ||
-        evidence.canonicalPlane !== true) {
-        throw new Error('exact-head provider-lane evidence requires canonical-plane and immutable head/profile/runner provenance')
-    }
-    if (evidence.profileDigest !== planDigest) {
-        throw new Error('exact-head provider-lane profileDigest does not match the canonical election plan digest')
-    }
-
-    return {
-        authoritative : true,
-        canonicalPlane: true,
-        evidenceClass : evidence.evidenceClass,
-        hardwareId    : evidence.hardwareId,
-        profileDigest : evidence.profileDigest,
-        repositoryHead: evidence.repositoryHead,
-        runnerDigest  : evidence.runnerDigest
-    }
-}
-
-/**
  * @summary Validates chronological trial receipts and derives all election metrics.
  * @param {Object} options
  * @returns {Object[]}
@@ -504,7 +523,8 @@ function validateAndDeriveTrials({plan, schedule, trials}) {
           derived = [];
 
     trials.forEach((trial, index) => {
-        const slot = schedule[index];
+        const slot    = schedule[index],
+              profile = getProfile(plan, slot.candidate);
 
         if (trial?.scheduleId !== slot.id || trial?.candidate !== slot.candidate || trial?.executionIndex !== index) {
             throw new Error(`trial ${index} does not match counterbalanced slot ${slot.id} candidate ${slot.candidate}`)
@@ -518,21 +538,24 @@ function validateAndDeriveTrials({plan, schedule, trials}) {
         if (trial.workloadDigest !== plan.workload.digest) {
             throw new Error(`trial ${index} changed the immutable workload digest`)
         }
+        if (trial.compositionReceiptDigest !== profile.compositionReceiptDigest) {
+            throw new Error(`trial ${index} does not match candidate ${slot.candidate}'s composition receipt`)
+        }
 
-        const profile = getProfile(plan, trial.candidate),
-              lanes   = Object.fromEntries(LANE_NAMES.map(laneName => [
-                  laneName,
-                  deriveLaneReceipt({ids, lane: trial.lanes?.[laneName], laneName, plan, profile, trial})
-              ]));
+        const lanes = Object.fromEntries(LANE_NAMES.map(laneName => [
+            laneName,
+            deriveLaneReceipt({ids, lane: trial.lanes?.[laneName], laneName, plan, profile, trial})
+        ]));
 
         validateSourceCardinality(lanes, plan.workload.offeredOperations, index);
 
         derived.push({
-            candidate      : trial.candidate,
-            completedAtMs  : trial.completedAtMs,
-            executionIndex : index,
+            candidate               : trial.candidate,
+            completedAtMs           : trial.completedAtMs,
+            compositionReceiptDigest: trial.compositionReceiptDigest,
+            executionIndex          : index,
             lanes,
-            residencyBefore: validateResidencyReceipt(
+            residencyBefore         : validateResidencyReceipt(
                 trial.residencyBefore,
                 trial,
                 index,
@@ -679,33 +702,29 @@ function validateContextReceipt({ids, lane, laneName, profile, trial}) {
         probe.requestedContextTokens <= lane.observedContextTokensPerSlot ||
         probe.serviceKey !== profile.lanes[laneName].serviceKey ||
         probe.modelDigest !== profile.lanes[laneName].modelDigest ||
+        probe.protocolAdapter !== profile.lanes[laneName].protocolAdapter ||
         !PROBE_RESPONSE_CLASSES.includes(probe.responseClass) ||
+        !DIGEST_PATTERN.test(probe.responseBodyDigest ?? '') ||
         !Number.isInteger(probe.observedOutputTokens) || probe.observedOutputTokens < 0 ||
         !Number.isInteger(probe.transportStatus) || probe.transportStatus < 100 || probe.transportStatus > 599) {
         throw new Error(`trial ${trial.executionIndex} lane ${laneName} requires a truthful identity-bound over-limit probe`)
     }
 
-    const hasErrorCode = typeof probe.providerErrorCode === 'string' &&
-        /^[A-Z][A-Z0-9_.-]{0,63}$/.test(probe.providerErrorCode);
-
-    if (probe.responseClass === 'completed' && (probe.providerErrorCode !== null || probe.transportStatus >= 400) ||
-        probe.responseClass === 'provider-error' && (!hasErrorCode || probe.transportStatus < 400)) {
+    if (probe.responseClass === 'completed' && probe.transportStatus >= 400 ||
+        probe.responseClass !== 'completed' && probe.transportStatus < 400 ||
+        probe.responseClass === 'context-limit-refusal' && probe.observedOutputTokens !== 0) {
         throw new Error(`trial ${trial.executionIndex} lane ${laneName} has an inconsistent over-limit provider response`)
     }
-
-    const responseClass = probe.responseClass === 'provider-error' &&
-        probe.providerErrorCode === profile.lanes[laneName].contextLimitCode &&
-        probe.transportStatus === profile.lanes[laneName].contextLimitStatus &&
-        probe.observedOutputTokens === 0 ? 'context-limit-refusal' : probe.responseClass;
 
     return {
         completedAtMs         : probe.completedAtMs,
         id                    : projectOpaqueId(probe.id),
         modelDigest           : probe.modelDigest,
         observedOutputTokens  : probe.observedOutputTokens,
-        providerErrorCode     : probe.providerErrorCode,
+        protocolAdapter       : probe.protocolAdapter,
         requestedContextTokens: probe.requestedContextTokens,
-        responseClass,
+        responseBodyDigest    : probe.responseBodyDigest,
+        responseClass         : probe.responseClass,
         serviceKey            : probe.serviceKey,
         startedAtMs           : probe.startedAtMs,
         transportStatus       : probe.transportStatus
@@ -891,12 +910,11 @@ function evaluateCandidate({candidate, plan, trials}) {
 
     return {
         candidate,
-        declaredInputs: buildImmutableInputs(plan, candidate),
         failures,
-        sampleCount   : trials.length,
-        status        : failures.length === 0 ? 'PASS' : 'FAIL',
+        sampleCount: trials.length,
+        status     : failures.length === 0 ? 'PASS' : 'FAIL',
         trials,
-        uncertainty   : Object.fromEntries(LANE_NAMES.map(laneName => [
+        uncertainty: Object.fromEntries(LANE_NAMES.map(laneName => [
             laneName,
             summarizeLaneTrials(trials.map(trial => trial.lanes[laneName]))
         ]))
@@ -912,7 +930,6 @@ function evaluateLane({allocation, failures, lane, laneName, runId, slo}) {
           requiredCount = lane.queueDispositionCounts[slo.requiredQueueDisposition];
 
     lane.observedContextTokensPerSlot < slo.minContextTokensPerSlot && fail('CONTEXT_BELOW_SLO');
-    lane.observedMaxProviderConcurrency !== allocation.parallelism && fail('CANDIDATE_CONCURRENCY_NOT_OBSERVED');
     lane.overLimitProbe.responseClass !== 'context-limit-refusal' && fail('OVER_LIMIT_NOT_REFUSED');
     requiredCount !== lane.offeredOperations && fail('QUEUE_DISPOSITION_MISMATCH');
     lane.maxNeoQueueWaitMs !== null && lane.maxNeoQueueWaitMs > slo.maxNeoQueueWaitMs && fail('QUEUE_WAIT_EXCEEDED');
@@ -964,35 +981,6 @@ function summarizeValues(values) {
         n            : finite.length,
         observedRange: max - min,
         p95          : finite.length >= 5 ? percentile(finite, 0.95) : null
-    }
-}
-
-/**
- * @summary Projects exact immutable inputs for the winning candidate.
- * @param {Object} plan Election plan.
- * @param {Number} candidate Candidate value.
- * @returns {Object}
- */
-function buildImmutableInputs(plan, candidate) {
-    const profile = getProfile(plan, candidate);
-
-    return {
-        chatParallelism: 1,
-        embeddingSlots : candidate,
-        laneIdentities : Object.fromEntries(LANE_NAMES.map(laneName => [laneName, {
-            imageDigest: profile.lanes[laneName].imageDigest,
-            modelDigest: profile.lanes[laneName].modelDigest,
-            serviceKey : profile.lanes[laneName].serviceKey
-        }])),
-        laneResources: Object.fromEntries(LANE_NAMES.map(laneName => [laneName, {
-            cpuCores   : profile.lanes[laneName].cpuCores,
-            memoryBytes: profile.lanes[laneName].memoryBytes
-        }])),
-        perSlotContextTarget: Object.fromEntries(LANE_NAMES.map(laneName => [
-            laneName,
-            plan.slo.lanes[laneName].minContextTokensPerSlot
-        ])),
-        totalResources: {...profile.totalResources}
     }
 }
 
