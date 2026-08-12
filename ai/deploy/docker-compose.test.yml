@@ -67,6 +67,7 @@ services:
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
       - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_GRAPH_PROVIDER=openAiCompatible
       - NEO_EMBEDDING_PROVIDER=openAiCompatible
       - NEO_OPENAI_COMPATIBLE_HOST=http://embedding-server:11434
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
@@ -108,6 +109,7 @@ services:
       - MCP_HTTP_PORT=3003
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/kb-recorder-oidc.sqlite
       - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_GRAPH_PROVIDER=openAiCompatible
       - NEO_EMBEDDING_PROVIDER=openAiCompatible
       - NEO_OPENAI_COMPATIBLE_HOST=http://embedding-server:11434
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
@@ -149,6 +151,7 @@ services:
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
       - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_GRAPH_PROVIDER=openAiCompatible
       - NEO_EMBEDDING_PROVIDER=openAiCompatible
       - NEO_OPENAI_COMPATIBLE_HOST=http://embedding-server:11434
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
@@ -215,6 +218,7 @@ services:
       - MCP_HTTP_PORT=3002
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph-oidc.sqlite
       - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_GRAPH_PROVIDER=openAiCompatible
       - NEO_EMBEDDING_PROVIDER=openAiCompatible
       - NEO_OPENAI_COMPATIBLE_HOST=http://embedding-server:11434
       - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b

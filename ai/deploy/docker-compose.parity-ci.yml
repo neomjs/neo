@@ -57,6 +57,7 @@ services:
     environment:
       <<: *parity-auth-env
       NEO_MODEL_PROVIDER: openAiCompatible
+      NEO_GRAPH_PROVIDER: openAiCompatible
       NEO_EMBEDDING_PROVIDER: openAiCompatible
       NEO_OPENAI_COMPATIBLE_HOST: http://embedding-server:11434
       NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: text-embedding-qwen3-embedding-8b
@@ -78,6 +79,7 @@ services:
     environment:
       <<: *parity-auth-env
       NEO_MODEL_PROVIDER: openAiCompatible
+      NEO_GRAPH_PROVIDER: openAiCompatible
       NEO_EMBEDDING_PROVIDER: openAiCompatible
       NEO_OPENAI_COMPATIBLE_HOST: http://embedding-server:11434
       NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: text-embedding-qwen3-embedding-8b
@@ -92,6 +94,7 @@ services:
       # initializes a generation model at boot, and the CI contract is NO real-model
       # calls anywhere in the profile, not only on the servers the specs call.
       NEO_MODEL_PROVIDER: openAiCompatible
+      NEO_GRAPH_PROVIDER: openAiCompatible
       NEO_EMBEDDING_PROVIDER: openAiCompatible
       NEO_OPENAI_COMPATIBLE_HOST: http://embedding-server:11434
       NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: text-embedding-qwen3-embedding-8b

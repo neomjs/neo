@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import fs             from 'node:fs';
 import path           from 'node:path';
 import process        from 'node:process';
+import {load as loadYaml} from 'js-yaml';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 // The COMMITTED declarative config, imported statically. Tests resolve committed config templates
@@ -1906,8 +1907,16 @@ test.describe('sustained window is measured, not asserted', () => {
  * classifying it fails here rather than silently inheriting a threshold it may not survive.
  */
 test.describe('service classification is exhaustive over the real roster and genuinely immutable', () => {
-    test('every allowedServices key has a DECLARED classification', () => {
-        const roster = aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices;
+    const providerProfile = loadYaml(fs.readFileSync(
+        path.resolve(process.cwd(), 'ai/deploy/docker-compose.provider-lanes.yml'),
+        'utf8'
+    ));
+    const roster = [...new Set([
+        ...aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices,
+        ...Object.values(providerProfile['x-provider-lane-contract'].lanes).map(lane => lane.service)
+    ])];
+
+    test('every shipped profile service key has a DECLARED classification', () => {
 
         expect(Array.isArray(roster)).toBe(true);
         expect(roster.length).toBeGreaterThan(0);
@@ -1917,11 +1926,11 @@ test.describe('service classification is exhaustive over the real roster and gen
         expect(undeclared, `unclassified roster services: ${undeclared.join(', ')}`).toEqual([]);
     });
 
-    test('the declared map does not classify keys that are NOT on the roster', () => {
+    test('the declared map does not classify keys outside every shipped profile roster', () => {
         // Totality runs both ways: a stale entry for a removed service is drift too, and it would
         // keep asserting a policy for something the deployment no longer runs.
-        const roster   = new Set(aiConfigTemplate.orchestrator.deploymentRuntimeAccess.allowedServices);
-        const orphaned = Object.keys(SERVICE_CLASS_BY_KEY).filter(key => !roster.has(key));
+        const rosterSet = new Set(roster);
+        const orphaned  = Object.keys(SERVICE_CLASS_BY_KEY).filter(key => !rosterSet.has(key));
 
         expect(orphaned, `classified but not on the roster: ${orphaned.join(', ')}`).toEqual([]);
     });

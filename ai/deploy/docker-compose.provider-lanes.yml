@@ -1,0 +1,255 @@
+# Canonical role-isolated provider composition (#17021, ADR 0014 §2.8).
+#
+# Merge after docker-compose.yml. This file owns one chat/graph/Ask lane (native Ollama) and one
+# embedding lane (llama.cpp's OpenAI-compatible endpoint). Every resource value is required because
+# #17024 elects the fixed-envelope allocation; this profile consumes that result and never guesses it.
+#
+# Render + validate without starting containers:
+#   docker compose -f ai/deploy/docker-compose.yml \
+#     -f ai/deploy/docker-compose.provider-lanes.yml --profile cloud config --format json \
+#   | node ai/scripts/diagnostics/providerLaneComposition.mjs
+
+x-provider-lane-contract:
+  schemaVersion: provider-lane-composition.v1
+  envelope:
+    cpus: ${NEO_PROVIDER_LANES_CPU_TOTAL:?total provider CPU envelope required}
+    memoryBytes: ${NEO_PROVIDER_LANES_MEMORY_BYTES_TOTAL:?total provider memory envelope required}
+  lanes:
+    chat:
+      service: chat-model
+      provider: ollama
+      image: ollama/ollama:0.32.9@sha256:1685741456770df6e3cceb2a945a5f75e020f658d1701509668d6f4688f1dd3f
+      cpus: ${NEO_PROVIDER_LANE_CHAT_CPUS:?chat lane CPU allocation required}
+      memoryBytes: ${NEO_PROVIDER_LANE_CHAT_MEMORY_BYTES:?chat lane memory allocation required}
+      slots: 1
+      totalContextTokens: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat lane context allocation required}
+      contextTokensPerSlotRequired: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat lane context allocation required}
+      model:
+        id: gemma4:26b
+        coordinate: ollama://registry.ollama.ai/library/gemma4:26b@sha256:5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251
+        digest: sha256:7121486771cbfe218851513210c40b35dbdee93ab1ef43fe36283c883980f0df
+        contextTokensMax: 262144
+      endpoints:
+        workload:
+          kind: ollamaChat
+          method: POST
+          baseUrl: http://chat-model:11434
+          path: /api/chat
+          inputField: messages
+          modelField: model
+        modelContext:
+          kind: ollamaRunningModels
+          method: GET
+          baseUrl: http://chat-model:11434
+          path: /api/ps
+          modelIdField: name
+          contextTokensField: context_length
+      controls:
+        contextEnv: OLLAMA_CONTEXT_LENGTH
+        slotsEnv: OLLAMA_NUM_PARALLEL
+    embedding:
+      service: embedding-model
+      provider: openAiCompatible
+      image: ghcr.io/ggml-org/llama.cpp:server-b10380@sha256:9b518883e8faab479650ec802e02c9e37c6bb21d36168509efd8fb3c87fc1648
+      cpus: ${NEO_PROVIDER_LANE_EMBEDDING_CPUS:?embedding lane CPU allocation required}
+      memoryBytes: ${NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES:?embedding lane memory allocation required}
+      slots: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding lane slot allocation required}
+      totalContextTokens: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context allocation required}
+      contextTokensPerSlotRequired: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context requirement required}
+      model:
+        id: qwen3-embedding-8b
+        coordinate: hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
+        digest: sha256:3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85
+        # Supported sequence ceiling from the exact pinned model card. The GGUF metadata advertises
+        # a larger raw positional window; election must stay within the model's supported workload.
+        contextTokensMax: 32768
+      endpoints:
+        workload:
+          kind: openAiEmbeddings
+          method: POST
+          baseUrl: http://embedding-model:8080
+          path: /v1/embeddings
+          inputField: input
+          modelField: model
+        readiness:
+          method: GET
+          baseUrl: http://embedding-model:8080
+          path: /health
+        models:
+          method: GET
+          baseUrl: http://embedding-model:8080
+          path: /v1/models
+        slotContext:
+          kind: llamaCppSlots
+          method: GET
+          baseUrl: http://embedding-model:8080
+          path: /slots
+          slotIdField: id
+          contextTokensField: n_ctx
+          processingField: is_processing
+      controls:
+        contextEnv: LLAMA_ARG_CTX_SIZE
+        slotsEnv: LLAMA_ARG_N_PARALLEL
+        slotsEndpointEnv: LLAMA_ARG_ENDPOINT_SLOTS
+  roles:
+    model:
+      configPath: modelProvider
+      lane: chat
+      provider: ollama
+      model: gemma4:26b
+      consumers: [memory-session-summary, memory-mini-summary]
+    graph:
+      configPath: graphProvider
+      lane: chat
+      provider: ollama
+      model: gemma4:26b
+      consumers: [concept-discovery, semantic-graph, topology-inference, golden-path-brief, dream-readiness, inference-lifecycle-readiness]
+    kbAskSynthesis:
+      configPath: knowledgeBase.askSynthesis.provider
+      lane: chat
+      provider: ollama
+      model: gemma4:26b
+      consumers: [knowledge-base-ask]
+    embedding:
+      configPath: embeddingProvider
+      lane: embedding
+      provider: openAiCompatible
+      model: qwen3-embedding-8b
+      consumers: [kb-query, kb-tenant-ingestion, kb-health-canary, mc-vector-collections, mc-health-canary, golden-path-frontier, orchestrator-recovery, tenant-repo-recovery, vector-maintenance]
+
+x-provider-lane-env: &provider-lane-env
+  NEO_MODEL_PROVIDER: ollama
+  NEO_GRAPH_PROVIDER: ollama
+  NEO_EMBEDDING_PROVIDER: openAiCompatible
+  NEO_OLLAMA_HOST: http://chat-model:11434
+  NEO_OLLAMA_MODEL: gemma4:26b
+  NEO_OLLAMA_KEEP_ALIVE: "-1"
+  NEO_OLLAMA_REQUIRE_PARALLEL_MODELS: "1"
+  NEO_OPENAI_COMPATIBLE_HOST: http://embedding-model:8080
+  NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: qwen3-embedding-8b
+  NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS: "1"
+  NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat context required}
+  NEO_LOCAL_MODELS_CHAT_PARALLEL: "1"
+  NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context required}
+  NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+
+services:
+  chat-model:
+    image: ollama/ollama:0.32.9@sha256:1685741456770df6e3cceb2a945a5f75e020f658d1701509668d6f4688f1dd3f
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        /bin/ollama serve &
+        server_pid=$$!
+        trap 'kill "$$server_pid" 2>/dev/null || true' INT TERM EXIT
+        until /bin/ollama list >/dev/null 2>&1; do sleep 1; done
+        /bin/ollama show "$$NEO_PROVIDER_LANE_MODEL" >/dev/null 2>&1 || /bin/ollama pull "$$NEO_PROVIDER_LANE_MODEL"
+        echo "$$NEO_PROVIDER_LANE_MANIFEST_SHA256  /root/.ollama/models/manifests/registry.ollama.ai/library/gemma4/26b" | sha256sum -c -
+        test -f "/root/.ollama/models/blobs/$$NEO_PROVIDER_LANE_WEIGHTS_BLOB"
+        wait "$$server_pid"
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MODELS: /root/.ollama
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat context required}
+      NEO_PROVIDER_LANE_MODEL: gemma4:26b
+      NEO_PROVIDER_LANE_MANIFEST_SHA256: 5571076f3d70050487b26b341705799e0ab29b808164f90d20d4cf84f699d251
+      NEO_PROVIDER_LANE_WEIGHTS_BLOB: sha256-7121486771cbfe218851513210c40b35dbdee93ab1ef43fe36283c883980f0df
+    volumes:
+      - chat-model-data:/root/.ollama
+    networks:
+      - neo-mcp-network
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama show \"$$NEO_PROVIDER_LANE_MODEL\" >/dev/null && echo \"$$NEO_PROVIDER_LANE_MANIFEST_SHA256  /root/.ollama/models/manifests/registry.ollama.ai/library/gemma4/26b\" | sha256sum -c - >/dev/null && test -f \"/root/.ollama/models/blobs/$$NEO_PROVIDER_LANE_WEIGHTS_BLOB\""]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: ${NEO_PROVIDER_LANE_CHAT_CPUS:?chat lane CPU allocation required}
+          memory: ${NEO_PROVIDER_LANE_CHAT_MEMORY_BYTES:?chat lane memory allocation required}
+
+  embedding-model:
+    image: ghcr.io/ggml-org/llama.cpp:server-b10380@sha256:9b518883e8faab479650ec802e02c9e37c6bb21d36168509efd8fb3c87fc1648
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        model="/models/Qwen3-Embedding-8B-Q4_K_M.gguf"
+        if ! echo "$$NEO_PROVIDER_LANE_MODEL_SHA256  $$model" | sha256sum -c - >/dev/null 2>&1; then
+          rm -f "$$model.part"
+          curl --fail --location --retry 3 --output "$$model.part" "$$NEO_PROVIDER_LANE_MODEL_URL"
+          echo "$$NEO_PROVIDER_LANE_MODEL_SHA256  $$model.part" | sha256sum -c -
+          mv "$$model.part" "$$model"
+        fi
+        exec /app/llama-server
+    environment:
+      LLAMA_ARG_MODEL: /models/Qwen3-Embedding-8B-Q4_K_M.gguf
+      LLAMA_ARG_ALIAS: qwen3-embedding-8b
+      LLAMA_ARG_EMBEDDINGS: "true"
+      LLAMA_ARG_HOST: 0.0.0.0
+      LLAMA_ARG_PORT: "8080"
+      LLAMA_ARG_CTX_SIZE: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context required}
+      LLAMA_ARG_N_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+      LLAMA_ARG_ENDPOINT_SLOTS: "true"
+      NEO_PROVIDER_LANE_MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF/resolve/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
+      NEO_PROVIDER_LANE_MODEL_SHA256: 3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85
+    volumes:
+      - embedding-model-data:/models
+    networks:
+      - neo-mcp-network
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:8080/health >/dev/null && echo \"$$NEO_PROVIDER_LANE_MODEL_SHA256  /models/Qwen3-Embedding-8B-Q4_K_M.gguf\" | sha256sum -c - >/dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: ${NEO_PROVIDER_LANE_EMBEDDING_CPUS:?embedding lane CPU allocation required}
+          memory: ${NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES:?embedding lane memory allocation required}
+
+  kb-server:
+    environment:
+      <<: *provider-lane-env
+      NEO_KB_ASK_PROVIDER: ollama
+      NEO_KB_ASK_MODEL: gemma4:26b
+      NEO_KB_ASK_API_KEY: ""
+      NEO_KB_ASK_BASE_URL: http://chat-model:11434
+    depends_on:
+      chat-model:
+        condition: service_healthy
+      embedding-model:
+        condition: service_healthy
+
+  mc-server:
+    environment:
+      <<: *provider-lane-env
+    depends_on:
+      chat-model:
+        condition: service_healthy
+      embedding-model:
+        condition: service_healthy
+
+  orchestrator:
+    environment:
+      <<: *provider-lane-env
+      NEO_ORCHESTRATOR_RUNTIME_ACCESS_ALLOWED_SERVICES: chroma,kb-server,mc-server,chat-model,embedding-model
+      NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS: chat-model
+    depends_on:
+      chat-model:
+        condition: service_healthy
+      embedding-model:
+        condition: service_healthy
+
+volumes:
+  chat-model-data:
+  embedding-model-data:

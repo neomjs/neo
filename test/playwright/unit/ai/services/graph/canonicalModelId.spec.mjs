@@ -94,8 +94,9 @@ test.describe('model identity — satisfiesRequiredModelId', () => {
 
 test.describe('model identity — the production seams that drive recovery', () => {
     const ollamaConfig = {
-        graphProvider: 'ollama',
-        ollama       : {
+        graphProvider    : 'ollama',
+        embeddingProvider: 'ollama',
+        ollama           : {
             host                 : 'http://127.0.0.1:11434',
             model                : 'gemma4:26b',
             embeddingModel       : 'qwen3-embedding', // untagged, as every deployment configures it
@@ -136,8 +137,9 @@ test.describe('model identity — the production seams that drive recovery', () 
     test('probeProviderParallelModelCapacity keeps LM Studio EXACT — no tag folding off-Ollama', async () => {
         const result = await probeProviderParallelModelCapacity({
             config: {
-                graphProvider   : 'openAiCompatible',
-                openAiCompatible: {
+                graphProvider    : 'openAiCompatible',
+                embeddingProvider: 'openAiCompatible',
+                openAiCompatible : {
                     host                 : 'http://127.0.0.1:1234',
                     model                : 'google/gemma-4-26b-a4b',
                     embeddingModel       : 'text-embedding-qwen3',
