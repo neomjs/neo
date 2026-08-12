@@ -138,18 +138,76 @@ test.describe('Neo.ai.services.neural-link.ConnectionService — bridge freshnes
             return {
                 unref() {
                     unrefCalled = true
-                }
+                },
+                // A real `spawn()` returns a ChildProcess, which IS an EventEmitter — the production
+                // path subscribes to 'error' because a spawn failure arrives as an event rather than
+                // a throw. A double without `once` models a boundary that cannot fail the way the
+                // real one does, so it stayed green while production had no failure path at all.
+                once() {}
             }
         };
 
+        // A real caller's cwd comes from the MCP entrypoint's `--cwd`. This arm previously supplied
+        // none and still spawned, because `this.cwd || process.cwd()` invented one — the test relied
+        // on the very fallback that put `/` in front of `npm run`.
+        ConnectionService.cwd = '/real-seat';
+
         await ConnectionService.spawnBridge({logPath: logDir, startupDelayMs: 0});
 
+        expect(spawnCall.options.cwd, 'the entrypoint-supplied cwd reaches the spawn').toBe('/real-seat');
         expect(openedPath).toBe(path.join(logDir, 'neural-link-bridge-stdio.log'));
         expect(path.basename(openedPath)).not.toBe('bridge.log');
         expect(spawnCall.command).toBe('npm');
         expect(spawnCall.args).toEqual(['run', 'ai:server-neural-link']);
         expect(spawnCall.options.stdio).toEqual(['ignore', 42, 42]);
         expect(unrefCalled).toBe(true);
+    });
+
+    /**
+     * @summary An unresolved working directory must fail loudly, never substitute one.
+     *
+     * `this.cwd || process.cwd()` looked like a sensible default and was a wrong-value substitution.
+     * A GUI-launched MCP server has `process.cwd() === '/'`, so `npm run` looked for `/package.json`,
+     * the Bridge never started, and the resulting ECONNREFUSED took the whole server down — the seat
+     * lost every Neural Link tool for the session. The cwd IS supplied, by the entrypoint's `--cwd`;
+     * the singleton is just constructed at import and an auto-connect can outrun that assignment.
+     *
+     * The error names the missing input, where `/` named nothing and
+     * surfaced as an ENOENT three layers away.
+     */
+    test('#16429: an unresolved cwd fails with a named error and spawns nothing', async () => {
+        const logDir = path.resolve(os.tmpdir(), `nl-bridge-nocwd-${process.pid}-${Date.now()}`);
+
+        let spawned = false;
+
+        ConnectionService.openBridgeLogFile   = () => 42;
+        ConnectionService.spawnBridgeProcess  = () => { spawned = true };
+        ConnectionService.cwd                 = null;
+
+        await expect(ConnectionService.spawnBridge({logPath: logDir, startupDelayMs: 0}))
+            .rejects.toThrow(/`cwd` is unresolved/);
+
+        expect(spawned, 'no process is launched against an invented directory').toBe(false);
+    });
+
+    test('#16429: spawnBridge HONORS startupDelayMs instead of a hardcoded wait', async () => {
+        // The body ignored its own parameter and always waited 2000ms, so every caller's value was
+        // silently discarded and the contract could not be tested. Measured Bridge bind is ~498ms —
+        // this is a correctness fix, not a latency one.
+        const logDir = path.resolve(os.tmpdir(), `nl-bridge-delay-${process.pid}-${Date.now()}`);
+
+        ConnectionService.openBridgeLogFile  = () => 42;
+        // `once` is part of the real boundary: spawn returns an EventEmitter and the production path
+        // subscribes to 'error'. See the fuller note on the double above.
+        ConnectionService.spawnBridgeProcess = () => ({unref() {}, once() {}});
+        ConnectionService.cwd                = '/real-seat';
+
+        const startedAt = Date.now();
+
+        await ConnectionService.spawnBridge({logPath: logDir, startupDelayMs: 0});
+
+        // Generous bound: the point is that it does not wait the discarded 2000ms literal.
+        expect(Date.now() - startedAt, 'a 0ms delay must not wait two seconds').toBeLessThan(500);
     });
 
     test('logs bridge receives as bounded metadata when debug is disabled (#13473)', () => {
