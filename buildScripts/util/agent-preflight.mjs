@@ -26,6 +26,31 @@ export const INVISIBLE_PR_BODY_ANCHORS = [
 ];
 
 const
+    // A REAL level-two heading on its own line. `indexOf` would anchor on the first substring, so a
+    // body that merely quotes the heading in prose or a fenced block would have its section read
+    // from the wrong offset.
+    POST_MERGE_VALIDATION_H2      = /^##[ \t]+Post-Merge Validation[ \t]*$/m,
+    // An unchecked task box, or an explicit residual marker. Checked boxes owe nothing.
+    LIVE_OBLIGATION_PATTERN       = /^\s*[-*]\s*\[ \]|NOT_YET_MEASURED|^\s*Residual:/m,
+    // The Evidence Ladder's CANONICAL residual form is inline on the `Evidence:` line — outside the
+    // Post-Merge Validation section entirely. Scanning only that section leaves the documented shape
+    // undetected, which is the quiet failure: the guard reports success on the exact grammar the
+    // template teaches. `Residual-Owner:` cannot match it — the colon must follow `Residual`.
+    INLINE_RESIDUAL_PATTERN       = /\bResidual:[ \t]*(AC\s*\d+[^\n.]*)/i,
+    // TWO legitimate declaration shapes, because the substrate teaches two — conflating them is what
+    // produced a bypass in one direction and a broken canonical form in the other.
+    //
+    // 1. SECTION shape: the owner is the LINE's content, after optional blockquote / list markers. The
+    //    ticket says line — *"an explicit `Residual-Owner: #N` line"*. Anchoring matters here because a
+    //    section is prose: `We considered Residual-Owner: #200 but rejected that owner.` discharged work
+    //    while SAYING it rejected the owner.
+    RESIDUAL_OWNER_LINE_PATTERN   = /^[ \t]*(?:>[ \t]*)*(?:[-*+][ \t]+)?Residual-Owner:[ \t]+#(\d+)[ \t]*$/im,
+    // 2. INLINE shape: `evidence-ladder.md` prescribes a **1-line** declaration whose owner is mid-line —
+    //    `Evidence: L2 (…) → L4 required (AC5 …). Residual: AC5, Residual-Owner: #<an existing open ticket>.` Anchoring THIS
+    //    would refuse the documented template, which is what my first attempt did; a spec arm written the
+    //    round before caught it. The owner must follow the `Residual:` clause on that same line, so a
+    //    bare mid-line mention still cannot qualify.
+    RESIDUAL_OWNER_INLINE_PATTERN = /Residual:[^\n]*?,[ \t]*Residual-Owner:[ \t]+#(\d+)/i,
     RESOLVES_PATTERN              = /\bResolves:?\s+#\d+/i,
     NON_CLOSING_REFERENCE_PATTERN = /\b(Refs|Related):?\s+#\d+/i,
     FORBIDDEN_CLOSE_PATTERN       = /\b(Closes|Fixes):?\s+#\d+/i,
@@ -207,6 +232,146 @@ export function validateChangeClass({
 }
 
 /**
+ * @summary Blanks fenced code blocks, preserving line structure so offsets stay comparable.
+ *
+ * A heading inside a fence is an EXAMPLE, not a section this body owes work under. Replacing the
+ * fence with spaces rather than deleting it keeps every later line at its original index, which is
+ * what lets a caller map a match back onto the untouched body.
+ * @param {String} body
+ * @returns {String}
+ * @private
+ */
+function withoutFencedBlocks(body = '') {
+    // A heading inside a fence is an EXAMPLE, not this body's section. Bodies that document the
+    // template — including this PR's own — carry `## Post-Merge Validation` inside fences, and
+    // anchoring there reads a worked example as the real obligation.
+    //
+    // Line-scanned rather than regex-matched, because GFM fences are not one spelling: an opener is
+    // three-or-more BACKTICKS **or** three-or-more TILDES, indentable up to three spaces, and a closer
+    // must use the same character and be at least as long. A single ```-only pattern let `~~~~md` and
+    // ````markdown` shadow the real section — two live bypasses at review. Blanked (not deleted) so
+    // every later line keeps its index.
+    let fenceChar = null,
+        fenceLen  = 0;
+
+    return body.split('\n').map(line => {
+        const marker = line.match(/^[ \t]{0,3}(`{3,}|~{3,})/),
+              blank  = () => line.replace(/[^\n]/g, ' ');
+
+        if (fenceChar === null) {
+            if (!marker) {
+                return line;
+            }
+            fenceChar = marker[1][0];
+            fenceLen  = marker[1].length;
+
+            return blank();
+        }
+
+        // A closer carries nothing but its own run; an info string means a new opener, never a close.
+        const closer = line.match(/^[ \t]{0,3}(`{3,}|~{3,})[ \t]*$/);
+
+        if (closer && closer[1][0] === fenceChar && closer[1].length >= fenceLen) {
+            fenceChar = null;
+            fenceLen  = 0;
+        }
+
+        return blank();
+    }).join('\n')
+}
+
+/**
+ * @summary Blanks inline code spans, preserving length so offsets stay comparable.
+ *
+ * A backticked `Residual-Owner: #200` inside a Post-Merge Validation section DOCUMENTS the spelling; it
+ * does not declare ownership. Reading it as a declaration let a section satisfy its own live obligation
+ * by quoting the syntax that would have satisfied it — the same class as a fenced heading standing in
+ * for a real one, one grain finer.
+ * @param {String} text
+ * @returns {String}
+ * @private
+ */
+function withoutHtmlComments(text = '') {
+    // An HTML comment is INVISIBLE in rendered Markdown, so a declaration inside one is not a
+    // declaration — a reader of the PR sees unowned work while the gate reports success. Same class as
+    // a fenced example: text that is present in the source and absent from the artifact. Blanked per
+    // character so every later line keeps its index.
+    //
+    // `(?:-->|$)` — an UNTERMINATED comment runs to end-of-body and must blank too. Requiring the
+    // closing delimiter made the gate's notion of "commented out" stricter than the renderer's:
+    // GitHub swallows everything from `<!--` to EOF, so `## Post-Merge Validation / - [ ] do real
+    // work / <!-- / Residual-Owner: #200` renders as an unowned obligation while the gate read the
+    // owner and passed. Verified against the real renderer (`POST /markdown`): the response carries
+    // the heading and the list item and NO owner. The rule is the same one every arm here restates —
+    // judge what a READER SEES — and the closing delimiter was an assumption about how the evasion
+    // would be spelled.
+    return text.replace(/<!--[\s\S]*?(?:-->|$)/g, match => match.replace(/[^\n]/g, ' '))
+}
+
+function withoutInlineCode(text = '') {
+    return text
+        // Longest backtick runs FIRST: a ``double`` span is not two single spans, and a single-backtick
+        // pattern applied first would consume the opening pair and leave the token exposed.
+        .replace(/(`{2,})[\s\S]*?\1/g, match => match.replace(/[^\n]/g, ' '))
+        .replace(/`[^`\n]*`/g, match => match.replace(/[^\n]/g, ' '))
+        // GFM indented code: four spaces (or a tab) at line start is a code block, so a token there is
+        // rendered example text, not a declaration. Blanked per line to keep offsets stable.
+        .split('\n')
+        .map(line => (/^(?: {4,}|\t)/.test(line) ? line.replace(/[^\n]/g, ' ') : line))
+        .join('\n')
+}
+
+/**
+ * @summary Returns the body of the `## Post-Merge Validation` section, or `''` when absent.
+ *
+ * The anchor check in `validatePrBody` proves the heading string appears SOMEWHERE; it says nothing
+ * about what follows it. This reads the section itself — heading to the next `##` heading, or to
+ * end-of-body when it is last — and reads it from a fenceless copy so a worked example in a fence
+ * cannot shadow the real section.
+ * @param {String} body
+ * @returns {String}
+ * @private
+ */
+function postMergeValidationSections(body = '') {
+    // EVERY matching section, not the first. `body.match()` returns one hit, so a duplicate — even an
+    // empty `## Post-Merge Validation / None deferred.` earlier in the document — shadowed a later
+    // section that genuinely owed work. A body owes work if ANY of its sections does, so the caller
+    // needs the whole set and picks the owing one.
+    const
+        fenceless = withoutHtmlComments(withoutFencedBlocks(body)),
+        matcher   = new RegExp(POST_MERGE_VALIDATION_H2.source, 'gm'),
+        sections  = [];
+
+    let match;
+
+    while ((match = matcher.exec(fenceless)) !== null) {
+        const
+            after = fenceless.slice(match.index + match[0].length),
+            next  = after.search(/^##\s/m);
+
+        sections.push(next === -1 ? after : after.slice(0, next))
+    }
+
+    return sections
+}
+
+/**
+ * @summary Reports whether a Post-Merge Validation section still owes work.
+ *
+ * A live obligation is an unchecked task box, or an explicit residual marker. A section of checked
+ * boxes, or one that says the work is done, owes nothing — which is why presence of the section is
+ * never itself the trigger.
+ * @param {String} section
+ * @returns {String|null} The first live obligation, for the failure message, or `null`.
+ * @private
+ */
+function firstLiveObligation(section = '') {
+    const line = section.split('\n').find(entry => LIVE_OBLIGATION_PATTERN.test(entry));
+
+    return line ? line.trim() : null
+}
+
+/**
  * @summary Mirrors the Agent PR Body Lint workflow's local body-shape checks.
  * @param {String} body
  * @param {Object} [options]
@@ -229,6 +394,59 @@ export function validatePrBody(body, {draft = false} = {}) {
         missingVisible.push(draft
             ? 'Draft PR bodies without `Resolves #N` require `Refs #N` or `Related: #N`'
             : '`Resolves #N` is required')
+    }
+
+    // Deferred work must name a home that SURVIVES the merge. Parking it on the close target is the
+    // one destination guaranteed to be unreachable the moment it becomes actionable — measured across
+    // four merged PRs whose close targets shut within a second of the merge, three of them keeping no
+    // record at all. `Residual-Owner` names ownership that ALREADY exists; it is never a licence to
+    // mint a ticket, which is why the message below prescribes finishing or dropping first.
+    // The owner must live in the SAME unit that owes the work. A `Residual-Owner` anywhere in the
+    // body — a prose mention, a quoted example, another section's deferral — would otherwise
+    // discharge an obligation it has no relationship to.
+    const
+        fenceless         = withoutHtmlComments(withoutFencedBlocks(body)),
+        // The OWING section, not the first one. A body owes work if any of its Post-Merge Validation
+        // sections does, and the owner must appear in THAT section — so an earlier discharged duplicate
+        // can no longer stand in for a later live one.
+        pmvSections       = postMergeValidationSections(body),
+        // EVERY owing section is checked, not the first. `find()` validated one and let a second owing
+        // section ride on the first's owner — the same shadowing defect one level along, where the fix
+        // for duplicate sections introduced its own blind spot. The first UNOWNED owing section is the
+        // one reported, so the message names work that is genuinely orphaned.
+        owingSections     = pmvSections.filter(section => firstLiveObligation(section)),
+        pmvSection        = owingSections.find(section => !withoutInlineCode(section).match(RESIDUAL_OWNER_LINE_PATTERN))
+            ?? owingSections[0] ?? pmvSections[0] ?? '',
+        sectionObligation = firstLiveObligation(pmvSection),
+        inlineResidual    = fenceless.match(INLINE_RESIDUAL_PATTERN),
+        inlineLine        = inlineResidual
+            ? fenceless.slice(0, inlineResidual.index).split('\n').length - 1
+            : -1,
+        // Inline code is blanked in the scope: a backticked `Residual-Owner: #200` documents the spelling
+        // rather than declaring an owner, and reading it as a declaration let a section discharge its own
+        // obligation by quoting the syntax that would have discharged it.
+        ownerScope       = withoutInlineCode(sectionObligation
+            ? pmvSection
+            : (inlineLine >= 0 ? fenceless.split('\n')[inlineLine] : '')),
+        obligation       = sectionObligation
+            || (inlineResidual ? `Residual: ${inlineResidual[1].trim()}` : null);
+
+    if (obligation) {
+        const
+            resolvesMatch = body.match(RESOLVES_PATTERN),
+            // The shape is chosen by which obligation is being discharged: a section obligation needs a
+            // declaration LINE, the Evidence Ladder's 1-line form needs its mid-line owner.
+            ownerMatch    = sectionObligation
+                ? ownerScope.match(RESIDUAL_OWNER_LINE_PATTERN)
+                : ownerScope.match(RESIDUAL_OWNER_INLINE_PATTERN),
+            closeTarget   = resolvesMatch ? resolvesMatch[0].match(/\d+/)[0] : null,
+            owner         = ownerMatch ? ownerMatch[1] : null;
+
+        if (!owner) {
+            missingVisible.push(`This PR still owes work — "${obligation}" — with no \`Residual-Owner: #N\`. Finish it before merge, or name an EXISTING open ticket that owns it, or drop the obligation. Do not open a ticket to satisfy this.`)
+        } else if (owner === closeTarget) {
+            missingVisible.push(`\`Residual-Owner: #${owner}\` is this PR's own close target, so the owner disappears when the merge closes it. Name an EXISTING open ticket, or finish the work, or drop it.`)
+        }
     }
 
     return {
