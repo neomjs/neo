@@ -61,10 +61,48 @@ Do not hide two unrelated llama.cpp hosts behind one Neo config by manually
 switching `NEO_OPENAI_COMPATIBLE_HOST` between calls. That recreates the
 model-swap failure this profile is meant to prevent.
 
-If your only safe llama.cpp topology requires separate chat and embedding hosts
-with no shared OpenAI-compatible router, current Neo config cannot express that
-cleanly. Keep that topology out of production until Neo supports role-specific
-OpenAI-compatible hosts instead of documenting a manual operator workaround.
+If the deployment needs separate chat and embedding hosts, do not hand-switch
+one shared base URL between calls. Use the role-isolated two-lane profile below,
+which expresses exactly that topology declaratively.
+
+## Role-isolated two-lane profile
+
+The 2026-08-12 amendment of
+[ADR-0014](../decisions/0014-cloud-plane-local-model-provider.md) adds a second
+supported topology for constrained cloud planes: two role-isolated provider
+lanes composed by `ai/deploy/docker-compose.provider-lanes.yml` on top of the
+base deployment. Each model role resolves through its declared lane — the chat
+lane serves the `model`, `graph`, and `kbAskSynthesis` roles; the embedding
+lane (a dedicated `llama-server`) serves the `embedding` role. Neither lane can
+evict the other, which discharges the residency invariant structurally instead
+of by operator discipline.
+
+Three rules govern the profile; their source of truth is code, not this guide:
+
+- **No defaults, elected inputs only.** The profile requires every
+  `NEO_PROVIDER_LANE*` value at compose time and fails fast when one is
+  missing. The exact input set is `PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS` in
+  `ai/scripts/diagnostics/providerLaneComposition.mjs`; the values come from
+  the resource election (`ai/scripts/benchmark/provider-lane-election.mjs`),
+  which measures candidate envelopes on a disposable canonical plane and emits
+  one validated report. Operators never hand-tune these numbers.
+- **Slot truth.** For the embedding lane, `/slots` is the admission and
+  settlement truth. The per-slot context figure is a guaranteed floor per
+  parallel slot; the lane's context ceiling applies per request. Do not
+  reinterpret one as the other when sizing ingestion batches.
+- **Immutable cutover coordinates.** A deployment consumes the elected values
+  through the cutover manifest
+  (`ai/scripts/diagnostics/providerLaneCutoverManifest.mjs`), which copies
+  every coordinate from validated receipts and refuses partial or mismatched
+  evidence. Copying values from an older template recreates the incident class
+  this profile removes.
+
+**Bump-and-revalidate ritual:** when an engine image or model pin changes,
+re-render the composition receipt, re-run the election on the canonical plane,
+and regenerate the cutover manifest from the new receipts. The manifest is
+timestamp-free by design — if regenerating it from the same cut declaration
+does not reproduce it byte-for-byte, a coordinate moved and the package must
+not ship.
 
 ## Environment example
 
