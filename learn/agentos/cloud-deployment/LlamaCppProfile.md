@@ -104,6 +104,15 @@ timestamp-free by design — if regenerating it from the same cut declaration
 does not reproduce it byte-for-byte, a coordinate moved and the package must
 not ship.
 
+**Cutover and rollback:** a cutover applies exactly one declarative revision —
+the packaged compose/profile files plus the manifest's deployment inputs — with
+no external-plane experiments and no staged partial applies. Post-cutover
+acceptance verifies both lane healthchecks, durable corpus visibility on the
+ingesting plane, and the elected-generation identity reported by the
+vector-generation health surface. Rollback restores the prior code revision and
+the full prior vector generation together — the previous manifest names both
+coordinates — and a code-only or collection-partial rollback is invalid.
+
 ## Environment example
 
 Pin model names and context bands to the actually loaded GGUF models. The values
