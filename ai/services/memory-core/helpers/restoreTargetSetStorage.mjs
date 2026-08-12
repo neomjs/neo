@@ -17,6 +17,11 @@ import {
     importVectorJsonlToEmptyCollection,
     validateVectorCollectionFromJsonl
 } from './vectorJsonlImport.mjs';
+import {
+    assertCapturedPromoteView,
+    captureVectorPromoteView,
+    recordPromoteCompletion
+} from '../../shared/vector/generationElectionStore.mjs';
 
 /**
  * @module ai/services/memory-core/helpers/restoreTargetSetStorage
@@ -31,6 +36,12 @@ import {
 
 const VECTOR_ROLES = Object.freeze(['memories', 'summaries']);
 
+// Election census keys for the vector roles this seam promotes. The graph component is SQLite,
+// not an embedding collection, so it is deliberately outside the vector-generation election; the
+// temporal-summary collection has no restore seam here — its promote path belongs to the
+// resumable rebuild runner, which calls the election fence directly.
+const ELECTION_KEY_BY_ROLE = Object.freeze({memories: 'mc.memory', summaries: 'mc.session'});
+
 /**
  * @summary Creates store collaborators consumed by
  * `createRestoreEmptyTargetOperation`.
@@ -41,6 +52,10 @@ const VECTOR_ROLES = Object.freeze(['memories', 'summaries']);
  * @param {Object} options.graphDb Open production better-sqlite3 graph DB.
  * @param {Object} options.expectedDestinations `{memories,summaries,graph}`.
  * @param {String} options.stagingRoot Gitignored run-owned staging directory.
+ * @param {String} [options.electionDir=null] Shared vector-generation election directory (resolved
+ * by the entrypoint from its per-server config). When set, every vector-role promote passes the
+ * stale-writer fence and reports completion; `null` means a plane without election gating
+ * (tests / pre-adoption planes).
  * @param {Function} [options.invalidateCollectionCache=()=>{}] Cache invalidator.
  * @param {Function} [options.syncGraphCache=()=>{}] Native graph cache sync.
  * @param {Function} [options.onPhase=()=>{}] Measurement/diagnostic observer.
@@ -52,6 +67,7 @@ export function createRestoreTargetSetStorage({
     graphDb,
     expectedDestinations,
     stagingRoot,
+    electionDir = null,
     invalidateCollectionCache = () => {},
     syncGraphCache = () => {},
     onPhase = () => {}
@@ -66,6 +82,15 @@ export function createRestoreTargetSetStorage({
         syncGraphCache,
         onPhase
     });
+
+    // One captured view per restore run: every role's promote validates against the SAME view, so
+    // a generation commit landing between two role promotes cannot split one run across generations.
+    let promoteViewPromise = null;
+
+    function capturePromoteViewOnce() {
+        promoteViewPromise ??= captureVectorPromoteView({dir: electionDir});
+        return promoteViewPromise
+    }
 
     return {
         inspectFreshTargetSet,
@@ -215,6 +240,17 @@ export function createRestoreTargetSetStorage({
 
         onPhase({phase: `promote-${role}`, event: 'start'});
 
+        const electionKey      = ELECTION_KEY_BY_ROLE[role];
+        let   promoteAdmission = null;
+
+        if (electionDir && electionKey) {
+            promoteAdmission = await assertCapturedPromoteView({
+                dir          : electionDir,
+                collectionKey: electionKey,
+                view         : await capturePromoteViewOnce()
+            })
+        }
+
         const result = role === 'graph'
             ? await promoteGraph({
                 graphPath: staging.graphPath,
@@ -226,6 +262,16 @@ export function createRestoreTargetSetStorage({
                 expectedDimension: admission.expectedDimension,
                 names            : staging.collections[role]
             });
+
+        if (promoteAdmission?.mode === 'elected' && promoteAdmission.electionStatus === 'committed') {
+            try {
+                await recordPromoteCompletion({dir: electionDir, collectionKey: electionKey, expectedEpoch: promoteAdmission.epoch})
+            } catch (completionError) {
+                // The promote landed; a lost completion mark only keeps acceptance blocked
+                // (rollback authority retained) — never unwind a successful promote for bookkeeping.
+                onPhase({phase: `promote-${role}`, event: 'election-completion-failed', error: completionError.message})
+            }
+        }
 
         onPhase({phase: `promote-${role}`, event: 'complete', result});
         return result
@@ -290,8 +336,8 @@ export function createRestoreTargetSetStorage({
             observed[role] = {
                 canonical: Boolean(canonical),
                 liveCount,
-                shadow : Boolean(shadow),
-                parking: Boolean(parking)
+                shadow   : Boolean(shadow),
+                parking  : Boolean(parking)
             };
 
             if (!canonical) {

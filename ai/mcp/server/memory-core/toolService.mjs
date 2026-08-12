@@ -23,8 +23,12 @@ import {makeChatModelGenerate}       from '../../../services/memory-core/helpers
 import {makeLandscapeCensusSource}   from '../../../services/graph/laneLandscapeCensusSource.mjs';
 import {makeOpenWorkCensusReader}    from '../../../services/github-workflow/openWorkCensusReader.mjs';
 import {synthesizeTemporalBirdView}  from '../../../services/memory-core/helpers/temporalBirdViewSynthesizer.mjs';
-import GitHubWorkflowConfig          from '../github-workflow/config.mjs';
-import MemoryCoreConfig              from './config.mjs';
+import {
+    projectVectorGenerationHealth,
+    resolveVectorGenerationElectionDir
+}                                    from '../../../services/shared/vector/generationElectionStore.mjs';
+import GitHubWorkflowConfig from '../github-workflow/config.mjs';
+import MemoryCoreConfig     from './config.mjs';
 import {
     admitCommunityBatch,
     areHostedCommunityToolsVisible,
@@ -194,8 +198,8 @@ const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
  * @param {Object} options.plane Observed Memory Core plane identity.
  * @returns {Object}
  */
-export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane}) {
-    const response = {...health, memoryWalDrain, plane};
+export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane, vectorGeneration = null}) {
+    const response = {...health, memoryWalDrain, plane, vectorGeneration};
 
     if (memoryWalDrain.state !== 'stalled') {
         return response
@@ -254,7 +258,12 @@ const serviceMapping = {
     healthcheck                 : async args => composeMemoryCoreHealthcheck({
         health        : await HealthService.healthcheck(args),
         memoryWalDrain: await MemoryService.describeDrainState(),
-        plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot}
+        plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot},
+        // Elected + parked vector-generation identities (never throws; `missing` on a plane that
+        // has not declared an election) — acceptance for a generation cutover reads this block.
+        vectorGeneration: await projectVectorGenerationHealth({
+            dir: resolveVectorGenerationElectionDir({planeDataRoot: mcConfig.plane.dataRoot})
+        })
     }),
     mutate_frontier             : MemoryService          .mutateFrontier          .bind(MemoryService),
     pre_brief_session           : MemoryService          .preBriefSession         .bind(MemoryService),

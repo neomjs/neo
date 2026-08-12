@@ -209,6 +209,27 @@ export function getVectorGenerationElectionFilePath({dir} = {}) {
     return path.resolve(dir, ELECTION_FILE_NAME)
 }
 
+export const VECTOR_GENERATION_ELECTION_SUBDIR = 'vector-generation';
+
+/**
+ * @summary Resolves the shared election directory beneath the resolved plane data root.
+ *
+ * `plane.dataRoot` is the one anchor every KB/MC process of a plane already resolves — which is
+ * exactly the shared-mount invariant this record requires. Callers read their per-server config at
+ * the use site and pass the RESOLVED root; the subpath constant lives here so two entrypoints
+ * cannot drift it.
+ * @param {Object} options
+ * @param {String} options.planeDataRoot Resolved `plane.dataRoot` of the calling process.
+ * @returns {String} Absolute election directory.
+ */
+export function resolveVectorGenerationElectionDir({planeDataRoot} = {}) {
+    if (typeof planeDataRoot !== 'string' || planeDataRoot.length === 0) {
+        throw new TypeError('resolveVectorGenerationElectionDir: planeDataRoot is required')
+    }
+
+    return path.resolve(planeDataRoot, VECTOR_GENERATION_ELECTION_SUBDIR)
+}
+
 /**
  * @summary Reads and strictly validates the election record.
  *
@@ -456,7 +477,72 @@ export async function assertVectorPromoteAdmissible({dir, collectionKey, generat
         throw new Error(`assertVectorPromoteAdmissible: generation ${generationId.slice(0, 12)}… is not the elected generation at epoch ${record.epoch}`)
     }
 
-    return {mode: 'elected', epoch: record.epoch, generationId: record.elected.generationId}
+    return {mode: 'elected', epoch: record.epoch, generationId: record.elected.generationId, electionStatus: record.status}
+}
+
+/**
+ * @summary Captures the election view a writer builds against — taken BEFORE the build starts.
+ *
+ * The stale-writer fence compares this captured view to the live record at the promote moment, so
+ * a commit or rollback landing mid-build fences the writer out instead of letting content whose
+ * generation was decided under the old view advertise itself into the new one.
+ * @param {Object} options
+ * @param {String} options.dir Declared plane-state directory.
+ * @returns {Promise<Object>} `{mode: 'legacy'}` or `{mode: 'elected', generationId, epoch, electionStatus}`.
+ * @throws {Error} When a record exists but cannot be proven — a build must not start on unprovable state.
+ */
+export async function captureVectorPromoteView({dir} = {}) {
+    const state = await readVectorGenerationElection({dir});
+
+    if (state.status === 'missing') {
+        return {mode: 'legacy'}
+    }
+
+    if (state.status === 'unavailable') {
+        throw new Error('captureVectorPromoteView: the election record exists but cannot be proven; refusing to start a build on unprovable state')
+    }
+
+    const {record} = state;
+
+    return {mode: 'elected', generationId: record.elected.generationId, epoch: record.epoch, electionStatus: record.status}
+}
+
+/**
+ * @summary Validates a captured writer view at the promote moment — the seam-facing fence form.
+ *
+ * A legacy view stays admissible only while the plane still has no record; an election declared
+ * after the writer began refuses the promote, because the writer cannot prove which generation it
+ * built — the remediation is re-running the build against the elected view. An elected view
+ * delegates to {@link assertVectorPromoteAdmissible}.
+ * @param {Object} options
+ * @param {String} options.dir Declared plane-state directory.
+ * @param {String} options.collectionKey One of {@link VECTOR_PLANE_COLLECTION_KEYS}.
+ * @param {Object} options.view Result of {@link captureVectorPromoteView}.
+ * @returns {Promise<Object>} The admissible view, with `electionStatus` refreshed for elected mode.
+ * @throws {Error} When the writer is stale or the record is unprovable — the promote must not run.
+ */
+export async function assertCapturedPromoteView({dir, collectionKey, view} = {}) {
+    assertCollectionKey(collectionKey, 'assertCapturedPromoteView');
+
+    if (view === null || typeof view !== 'object' || (view.mode !== 'legacy' && view.mode !== 'elected')) {
+        throw new TypeError('assertCapturedPromoteView: view must come from captureVectorPromoteView')
+    }
+
+    if (view.mode === 'legacy') {
+        const state = await readVectorGenerationElection({dir});
+
+        if (state.status === 'missing') {
+            return {mode: 'legacy'}
+        }
+
+        if (state.status === 'unavailable') {
+            throw new Error('assertCapturedPromoteView: the election record exists but cannot be proven; refusing to promote on unprovable state')
+        }
+
+        throw new Error('assertCapturedPromoteView: an election was declared after this writer began; re-run the build against the elected view')
+    }
+
+    return await assertVectorPromoteAdmissible({dir, collectionKey, generationId: view.generationId, epoch: view.epoch})
 }
 
 /**

@@ -4,9 +4,12 @@ import os             from 'node:os';
 import path           from 'node:path';
 import {
     VECTOR_GENERATION_ELECTION_SCHEMA_VERSION,
+    VECTOR_GENERATION_ELECTION_SUBDIR,
     VECTOR_PLANE_COLLECTION_KEYS,
     acceptVectorGenerationElection,
+    assertCapturedPromoteView,
     assertVectorPromoteAdmissible,
+    captureVectorPromoteView,
     commitVectorGenerationElection,
     createEmbeddingGenerationId,
     createVectorGenerationIdentity,
@@ -15,6 +18,7 @@ import {
     getVectorGenerationElectionFilePath,
     projectVectorGenerationHealth,
     readVectorGenerationElection,
+    resolveVectorGenerationElectionDir,
     recordCandidateValidationReceipt,
     recordPromoteCompletion,
     recordUnparkCompletion,
@@ -389,6 +393,54 @@ test.describe('generationElectionStore — one durable authority for vector-plan
             const raw = JSON.parse(await fs.readFile(getVectorGenerationElectionFilePath({dir}), 'utf8'));
             expect(raw.schemaVersion).toBe(VECTOR_GENERATION_ELECTION_SCHEMA_VERSION);
             expect(Object.keys(raw.collections).sort()).toEqual([...VECTOR_PLANE_COLLECTION_KEYS].sort())
+        })
+    });
+
+    test.describe('the seam-facing captured view', () => {
+        test('the election dir resolves beneath the plane data root with the shared subpath', () => {
+            expect(resolveVectorGenerationElectionDir({planeDataRoot: '/plane'}))
+                .toBe(path.resolve('/plane', VECTOR_GENERATION_ELECTION_SUBDIR));
+            expect(() => resolveVectorGenerationElectionDir({})).toThrow(/planeDataRoot/)
+        });
+
+        test('a legacy view stays admissible only while the plane still has no record', async () => {
+            const view = await captureVectorPromoteView({dir});
+
+            expect(view).toEqual({mode: 'legacy'});
+            await expect(assertCapturedPromoteView({dir, collectionKey: 'kb.unified', view}))
+                .resolves.toEqual({mode: 'legacy'});
+
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+            await expect(assertCapturedPromoteView({dir, collectionKey: 'kb.unified', view}))
+                .rejects.toThrow(/declared after this writer began/)
+        });
+
+        test('an elected view delegates to the fence and goes stale the moment a transition commits', async () => {
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+
+            const view = await captureVectorPromoteView({dir});
+
+            expect(view).toMatchObject({mode: 'elected', generationId: base.generationId, epoch: 1, electionStatus: 'accepted'});
+            await expect(assertCapturedPromoteView({dir, collectionKey: 'mc.memory', view}))
+                .resolves.toMatchObject({mode: 'elected', epoch: 1, electionStatus: 'accepted'});
+
+            await declareCandidateVectorGeneration({dir, identity: next, expectedEpoch: 1, now: T1});
+            for (const key of VECTOR_PLANE_COLLECTION_KEYS) {
+                await recordCandidateValidationReceipt({dir, collectionKey: key, receipt: receiptFor(key), expectedEpoch: 1, now: T1})
+            }
+            await commitVectorGenerationElection({dir, expectedEpoch: 1, now: T2});
+
+            await expect(assertCapturedPromoteView({dir, collectionKey: 'mc.memory', view}))
+                .rejects.toThrow(/stale writer fenced/)
+        });
+
+        test('capture refuses to start a build on an unprovable record', async () => {
+            await declareBaselineVectorGeneration({dir, identity: base, now: T0});
+            await fs.writeFile(getVectorGenerationElectionFilePath({dir}), '{broken');
+
+            await expect(captureVectorPromoteView({dir})).rejects.toThrow(/unprovable/);
+            await expect(assertCapturedPromoteView({dir, collectionKey: 'kb.unified', view: {mode: 'legacy'}}))
+                .rejects.toThrow(/unprovable/)
         })
     })
 });
