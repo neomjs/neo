@@ -63,6 +63,7 @@
         "ai:probe-keep-alive"                  : "node ./ai/scripts/benchmark/keep-alive-probe.mjs",
         "ai:provider-lane-composition"         : "node ./ai/scripts/diagnostics/providerLaneComposition.mjs",
         "ai:provider-lane-election"            : "node ./ai/scripts/benchmark/provider-lane-election.mjs",
+        "ai:provider-lane-runtime-proof"       : "node ./ai/scripts/diagnostics/providerLaneRuntimeProof.mjs",
         "ai:prune-worktrees"                   : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale",
         "ai:prune-worktrees:dry-run"           : "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --dry-run",
         "ai:prune-worktrees:schedule-dangerous": "node ./ai/scripts/migrations/bootstrapWorktree.mjs --prune-stale --schedule-local --include-dirty --interval-ms 21600000",
