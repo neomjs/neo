@@ -133,7 +133,14 @@ class HealthService extends Base {
                 bridge   : {
                     connected: status.bridgeConnected,
                     agentId  : status.agentId,
-                    port     : ConnectionService.port
+                    // From the status projection, which resolves the port the connection actually
+                    // uses. Reading `ConnectionService.port` reported a class-field default, so a
+                    // server on a configured port still answered 8081 and sent operators to the
+                    // wrong socket.
+                    port     : status.port,
+                    // Present only when a spawn failed, so "unhealthy" carries its cause instead of
+                    // leaving the operator to guess whether the Bridge is down, slow, or unspawnable.
+                    ...(status.lastSpawnFailure ? {spawnFailure: status.lastSpawnFailure} : {})
                 },
                 sessions : status.sessions,
                 windows  : status.windows,

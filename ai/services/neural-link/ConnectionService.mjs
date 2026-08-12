@@ -6,6 +6,30 @@ import path      from 'path';
 import WebSocket from 'ws';
 import Base      from '../../../src/core/Base.mjs';
 import logger    from '../../mcp/server/neural-link/logger.mjs';
+
+/**
+ * @summary Decides what `initAsync()` may do about the Bridge at construction time.
+ *
+ * Exported as a plain function so specs drive the production decision rather than a mirror of it:
+ * the live branch sits behind `Neo.config.unitTestMode`, which is exactly false in every unit run,
+ * so the interesting cases are otherwise unreachable without mutating the config singleton.
+ *
+ * `'defer'` is the answer whenever the working directory is still unknown. The singleton is
+ * constructed by its own import inside the Neural Link entrypoint, several steps before that
+ * entrypoint assigns `--cwd`, so an unresolved cwd at this moment is the ORDINARY boot path and
+ * not a misconfiguration. Treating it as one is what made a correctly-launched server fail.
+ *
+ * @param {Object} options
+ * @param {Boolean} options.unitTestMode Whether the hermetic unit harness is active.
+ * @param {Boolean} options.autoConnect  The resolved `autoConnect` config leaf.
+ * @param {String|null} options.cwd      The entrypoint-supplied working directory, if assigned yet.
+ * @returns {'connect'|'defer'|'disabled'}
+ */
+export function resolveBridgeAutoConnect({unitTestMode, autoConnect, cwd}) {
+    if (unitTestMode || !autoConnect) return 'disabled';
+
+    return cwd ? 'connect' : 'defer'
+}
 import {
     BRIDGE_INFO_TYPE,
     STALE_BRIDGE_ERROR_CODE,
@@ -159,11 +183,13 @@ class ConnectionService extends Base {
          */
         cwd: null,
         /**
-         * @member {Number} port=8081
-         * Legacy prototype default; connection/spawn reads `aiConfig.port` at the use site.
+         * @member {String|null} lastSpawnFailure=null
+         * Sanitized reason the most recent Bridge spawn failed (error `code`, or a short message
+         * with no paths/argv), surfaced through `getStatus()` so healthcheck can attribute an
+         * unconnected Bridge instead of only reporting that it is down.
          * @protected
          */
-        port: 8081,
+        lastSpawnFailure: null,
         /**
          * @member {Number} bridgeInfoTimeout=1000
          * @protected
@@ -216,8 +242,23 @@ class ConnectionService extends Base {
         // Skip the Bridge auto-connect under unitTestMode: unit specs that import this singleton (e.g. via
         // HealthService) must stay hermetic and must not reach or spawn the live Bridge. The e2e harness
         // connects explicitly via manageConnection(); production (non-unitTestMode) auto-connects as before.
-        if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
+        // Defer when `cwd` is still unresolved. This singleton is constructed by its own import
+        // (`Server.mjs:4`), which runs BEFORE the entrypoint assigns `ConnectionService.cwd` from
+        // `--cwd`. Spawning here therefore races the assignment and loses: a server launched
+        // perfectly with `--cwd` would still spawn its Bridge from the wrong directory — or, once
+        // the hidden `process.cwd()` default is gone, fail outright on the good path.
+        //
+        // The entrypoint owns connection startup because it is the only participant that knows the
+        // real working directory. `spawnBridge()` keeps its loud refusal for the case where nothing
+        // ever supplies one, which is a genuine misconfiguration rather than a boot ordering artifact.
+        if (resolveBridgeAutoConnect({
+            unitTestMode: Neo.config.unitTestMode,
+            autoConnect : aiConfig.autoConnect,
+            cwd         : this.cwd
+        }) === 'connect') {
             await this.ensureBridgeAndConnect();
+        } else if (!Neo.config.unitTestMode && aiConfig.autoConnect) {
+            logger.fileDebug('[ConnectionService] Bridge auto-connect deferred: awaiting entrypoint-supplied cwd.');
         }
     }
 
@@ -322,7 +363,7 @@ class ConnectionService extends Base {
                 settled = true;
                 clearTimeout(handshakeTimeout);
 
-                this.bridgeSocket = ws;
+                this.markBridgeConnected(ws);
                 resolve();
             };
 
@@ -461,6 +502,27 @@ class ConnectionService extends Base {
      * Returns the current status.
      * @returns {Object}
      */
+    /**
+     * @summary Commits the connected-Bridge state transition: the live socket, and the retirement of
+     * any prior spawn failure.
+     *
+     * A named method rather than two inline assignments because the retirement is the half that is
+     * hard to witness — the failure-to-recovery path needs a CONNECTED state, and a spec that only
+     * starts another spawn clears at attempt-start instead and passes with this deleted. Driving the
+     * same method production drives is what makes the recovery assertion able to fail.
+     *
+     * @param {Object} ws The live Bridge WebSocket.
+     * @returns {void}
+     */
+    markBridgeConnected(ws) {
+        this.bridgeSocket = ws;
+
+        // A live connection is proof the previous failure no longer describes reality. Leaving it set
+        // reports `{connected: true, spawnFailure: 'ENOENT'}` — internally contradictory, and it sends
+        // an operator hunting a problem that is already resolved.
+        this.lastSpawnFailure = null
+    }
+
     getStatus() {
         const
             sessions = [],
@@ -492,7 +554,14 @@ class ConnectionService extends Base {
             windows,
             bridgeConnected: !!this.bridgeSocket,
             agentId        : this.agentId,
-            agents         : Array.from(this.activeAgents)
+            agents         : Array.from(this.activeAgents),
+            // Resolved at the use site from the SSOT, exactly like `createBridgeUrl()` and the spawn
+            // path. Reporting a class-field default here is how healthcheck came to answer 8081 for
+            // a server configured on another port — the operator then debugs the wrong socket.
+            port           : aiConfig.port,
+            // Sanitized on capture, not here: an operator needs to know the Bridge failed to spawn
+            // and why, without the payload carrying host paths or argv.
+            lastSpawnFailure: this.lastSpawnFailure
         }
     }
 
@@ -738,23 +807,81 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async spawnBridge({logPath = aiConfig.logPath, startupDelayMs = 2000} = {}) {
-        return new Promise(resolve => {
+        // `this.cwd || process.cwd()` was a hidden-default fallback, and it substituted the WRONG
+        // value silently. A GUI-launched MCP server has `process.cwd() === '/'`, so `npm run` looked
+        // for `/package.json`, the Bridge never started, and the resulting ECONNREFUSED took the whole
+        // server down — the seat lost every Neural Link tool for the session.
+        //
+        // The cwd is assigned by the entrypoint (`--cwd` → `Server.mjs`), but this singleton is
+        // constructed at module import, so an auto-connect can outrun that assignment. Failing loudly
+        // here is what makes the race legible: a named error names the missing input, where `/` named
+        // nothing and produced an ENOENT three layers away. A hidden default that substitutes a
+        // wrong value is worse than no default: it converts a missing input into a distant symptom.
+        return new Promise((resolve, reject) => {
             const args    = ['run', 'ai:server-neural-link'];
             const file    = getBridgeStdioLogPath({logPath});
             const logFile = this.openBridgeLogFile(file);
             const port    = aiConfig.port;
 
+            // Checked AFTER argument validation and immediately before the spawn: a caller who passed
+            // a bad `logPath` should hear about their argument, not about instance state they did not
+            // supply. Both refusals still precede any process launch.
+            if (!this.cwd) {
+                throw new Error(
+                    'ConnectionService.spawnBridge: `cwd` is unresolved. It is supplied by the Neural ' +
+                    'Link MCP entrypoint (`--cwd`) and must be assigned before a spawn. Refusing to ' +
+                    'substitute process.cwd() — on a GUI-launched server that is `/`, and the Bridge ' +
+                    'cannot start there.'
+                );
+            }
+
             this.bridgeProcess = this.spawnBridgeProcess('npm', args, {
-                cwd     : this.cwd || process.cwd(),
+                cwd     : this.cwd,
                 detached: true,
                 env     : {...process.env, NEO_NL_PORT: String(port)},
                 stdio   : ['ignore', logFile, logFile]
             });
 
+            // A spawn failure arrives as an asynchronous 'error' EVENT, not a throw and not a
+            // rejection — so `boot()`'s try/catch cannot see it, and an unhandled 'error' on an
+            // EventEmitter is fatal to the process. Without this listener a Bridge that cannot be
+            // spawned (missing cwd, npm not on PATH) takes the whole MCP server down with it —
+            // the opposite of the survivability this boot path exists to provide. Rejecting instead
+            // routes the failure back into the caller's existing non-fatal handling.
+            // This attempt owns the reported state from here on. Without the reset, a failure from a
+            // previous attempt outlives it and is still reported after a later attempt succeeds.
+            this.lastSpawnFailure = null;
+
+            this.bridgeProcess.once('error', error => {
+                // Sanitized deliberately: `error.message` carries the spawn path and argv, and this
+                // value travels to any healthcheck caller. The code (ENOENT, EACCES) is what an
+                // operator acts on; the path is what leaks.
+                this.lastSpawnFailure = error.code || 'BRIDGE_SPAWN_FAILED';
+                logger.error(`[ConnectionService] Bridge spawn failed: ${error.message}`);
+                reject(error)
+            });
+
+            // `error` fires only when the process could not be CREATED. The failure that actually
+            // shows up in production is the opposite: `npm` starts fine and its script exits
+            // non-zero a moment later. That path emits `exit`, never `error`, so it was invisible —
+            // the spawn resolved, the Bridge was dead, and healthcheck had nothing to attribute.
+            this.bridgeProcess.once('exit', (code, signal) => {
+                if (code) {
+                    this.lastSpawnFailure = `BRIDGE_EXIT_${code}`;
+                    logger.error(`[ConnectionService] Bridge exited with code ${code}`)
+                } else if (signal) {
+                    this.lastSpawnFailure = `BRIDGE_SIGNAL_${signal}`;
+                    logger.error(`[ConnectionService] Bridge terminated on ${signal}`)
+                }
+            });
+
             this.bridgeProcess.unref();
 
-            // Give it a moment to start
-            setTimeout(resolve, 2000);
+            // Honors the PARAMETER it declares. The literal `2000` ignored `startupDelayMs` entirely,
+            // so every caller's value was silently discarded — a spec could pass 0 and still wait two
+            // seconds, which is how a contract stays untested. Measured bind is ~498ms; this is a
+            // correctness fix, not a latency one.
+            setTimeout(resolve, startupDelayMs);
         });
     }
 
