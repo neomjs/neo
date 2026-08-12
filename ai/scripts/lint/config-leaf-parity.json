@@ -499,6 +499,8 @@
         "askSynthesis",
         "askSynthesis.apiKey",
         "askSynthesis.baseUrl",
+        "askSynthesis.contextBudgetChars",
+        "askSynthesis.contextMaxCharsPerDocument",
         "askSynthesis.maxCallsPerMinute",
         "askSynthesis.model",
         "askSynthesis.provider",

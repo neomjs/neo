@@ -7,6 +7,7 @@ import fs                                                                       
 import logger                                                                        from '../../mcp/server/knowledge-base/logger.mjs';
 import path                                                                          from 'path';
 import QueryService                                                                  from './QueryService.mjs';
+import {assembleAskContext}                                                          from './helpers/askContextBudget.mjs';
 import {checkAskRateLimit}                                                           from './helpers/askRateLimit.mjs';
 import {isRemoteKnowledgeBaseDeployment}                                             from './helpers/deploymentMode.mjs';
 import {getMissingAskSynthesisLeaves}                                                from './helpers/askSynthesisGuard.mjs';
@@ -487,13 +488,35 @@ class SearchService extends Base {
         // avoiding server-mirror infrastructure. Non-local tenants may use the same
         // relative `source` strings as Neo itself, so those references hydrate from
         // metadata.content and never fall through to the host checkout.
-        const contextPromises = contextReferences.map(async (ref, index) => {
-            const content = await this.hydrateReferenceContent(ref);
+        const contextPromises = contextReferences.map(async ref => ({
+            name   : ref.name,
+            source : ref.source,
+            content: await this.hydrateReferenceContent(ref)
+        }));
 
-            return `--- DOCUMENT ${index + 1} (${ref.name} from ${ref.source}) ---\n${content}`;
-        });
-
-        const contextDocs = (await Promise.all(contextPromises)).join('\n\n');
+        // The budget leaves are read HERE, at the use site, with NO local fallback.
+        //
+        // An earlier revision wrote `|| 0`, reasoning that an overlay predating the leaves should keep
+        // today's unbounded behaviour. @neo-opus-ada's review showed that is a silent no-op on exactly
+        // the deployments this bound exists for, and the resolution settles it: the generated
+        // `config.mjs` is a THIN SINGLETON that `extends ConfigBase` and declares no data of its own —
+        // "Defaults and formulas live in ConfigBase; this class only claims the runtime namespace."
+        // Our own overlay is three weeks old, contains zero occurrences of `askSynthesis`, and ask
+        // synthesis works, so a newly declared leaf reaches every overlay through the tracked base.
+        // The fallback could therefore never fire for its stated purpose and could only disable the
+        // bound if something else went wrong — a hazard with no upside. A genuinely missing block is
+        // already handled loudly upstream by `getMissingAskSynthesisLeaves` in `construct`, which
+        // degrades to references before this line runs.
+        //
+        // `0` remains the operator's explicit disable knob, and now it means only that.
+        const
+            askBudget = aiConfig.askSynthesis,
+            assembled = assembleAskContext({
+                documents          : await Promise.all(contextPromises),
+                budgetChars        : askBudget.contextBudgetChars,
+                maxCharsPerDocument: askBudget.contextMaxCharsPerDocument
+            }),
+            contextDocs = assembled.context;
 
         const prompt = `
 You are an expert Neo.mjs architect.
@@ -562,8 +585,12 @@ Instructions:
             return withWalk(degraded);
         }
 
+        // The truncation notice is appended by US, never requested of the model in the prompt. An
+        // instruction to "say if context was truncated" is advisory — the model may drop it, and a
+        // caller would then read a confidently-scoped answer built from material it never saw. The
+        // guarantee has to live on this side of the provider call.
         return withWalk({
-            answer,
+            answer    : assembled.truncated ? `${answer}\n\n${assembled.notice}` : answer,
             references: responseReferences
         });
     }
