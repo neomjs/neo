@@ -106,6 +106,13 @@ export async function loadClassHierarchy({hierarchyPath, sourcePathCount}) {
  * on growth. A ratio fails only when resolution genuinely degrades. Each floor sits just below its
  * measured value, so ordinary churn passes and a real drop does not.
  *
+ * **Deliberate `ai` floor adjustments (the valve the error message prescribes):** 2026-08-12,
+ * 0.74 → 0.73 — the provider-lane runtime proof added two plain script-actor classes (an `Error`
+ * subclass and a standalone actor), growing the declared universe to 128/173 = 73.99%. Script
+ * actors intentionally do not extend framework bases, so the drop is composition, not degraded
+ * resolution. The new floor keeps refusal power at roughly two further unresolved classes of
+ * headroom at the current universe size.
+ *
  * **Sunset — this constant is designed to be deleted.** When hierarchy derivation moves to the
  * consumer (the source that walks these roots derives its own map, making coverage total by
  * construction), three things retire together: the tracked `docs/output/class-hierarchy.json`, the
@@ -119,7 +126,7 @@ export const INTERIM_COVERAGE_BASELINE = Object.freeze({
     'apps'    : 0.93,
     'examples': 0,
     'docs/app': 0.23,
-    'ai'      : 0.74
+    'ai'      : 0.73
 });
 
 /**
