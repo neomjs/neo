@@ -56,8 +56,7 @@ const
         'maxUnexpectedRefusals',
         'minCompletedOperations',
         'minContextTokensPerSlot',
-        'minResourceCoverageRatio',
-        'minThroughputPerSecond'
+        'minResourceCoverageRatio'
     ]),
 
     SUMMARY_FIELDS = Object.freeze([
@@ -453,8 +452,14 @@ function validateCandidateProfile(profile) {
  * @param {Object} slo Joint SLO.
  */
 function validateSlo(slo) {
+    requireExactKeys(slo, ['lanes'], 'provider-lane SLO');
+    requireExactKeys(slo.lanes, LANE_NAMES, 'provider-lane SLO lanes');
+
     for (const laneName of LANE_NAMES) {
-        const lane = slo?.lanes?.[laneName];
+        const lane = slo.lanes[laneName];
+
+        requireExactKeys(lane, [...SLO_FIELDS, 'requiredQueueDisposition'],
+            `provider-lane SLO lanes.${laneName}`);
 
         if (!lane || !QUEUE_DISPOSITIONS.includes(lane.requiredQueueDisposition)) {
             throw new Error(`provider-lane SLO requires lanes.${laneName} with an explicit queue disposition`)
@@ -478,10 +483,27 @@ function validateSlo(slo) {
             }
         }
 
-        if (lane.minCompletedOperations <= 0 || lane.minContextTokensPerSlot <= 0 || lane.minThroughputPerSecond <= 0 ||
+        if (lane.minCompletedOperations <= 0 || lane.minContextTokensPerSlot <= 0 ||
             lane.minResourceCoverageRatio <= 0 || lane.minResourceCoverageRatio > 1) {
-            throw new Error(`provider-lane SLO lanes.${laneName} requires positive progress, context, throughput, and coverage targets`)
+            throw new Error(`provider-lane SLO lanes.${laneName} requires positive progress, context, and coverage targets`)
         }
+    }
+}
+
+/**
+ * @summary Requires one exact enumerable key set at a plan-owned authority boundary.
+ * @param {*} value Candidate object.
+ * @param {String[]} keys Expected keys.
+ * @param {String} label Error label.
+ */
+function requireExactKeys(value, keys, label) {
+    const actual = value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.keys(value).sort()
+        : [];
+    const expected = [...keys].sort();
+
+    if (stableSerialize(actual) !== stableSerialize(expected)) {
+        throw new Error(`${label} requires exact fields ${expected.join(', ')}`)
     }
 }
 
@@ -618,6 +640,7 @@ function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
           queueWaits = operations.filter(operation => operation.queueWaitMs !== null).map(operation => operation.queueWaitMs),
           providerDurations = operations.map(operation => operation.providerDurationMs),
           completions = sourceCalls.filter(call => call.outcome === 'completed').map(call => call.completedAtMs),
+          progress = deriveLaneProgress(sourceCalls),
           windowMs = trial.completedAtMs - trial.startedAtMs,
           maxResourceSamples = Math.ceil(windowMs / plan.resourceSampling.expectedIntervalMs) + 2;
 
@@ -664,7 +687,7 @@ function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
         cpuHighWaterPercent  : Math.max(...lane.resourceSamples.map(sample => sample.cpuPercent)),
         errorCount           : sourceCalls.filter(call => call.outcome === 'error').length,
         maxNeoQueueWaitMs    : queueWaits.length > 0 ? Math.max(...queueWaits) : null,
-        maxProgressGapMs     : deriveMaxProgressGap(trial.startedAtMs, trial.completedAtMs, completions),
+        maxProgressGapMs     : progress.maxProgressGapMs,
         maxProviderDurationMs: Math.max(...providerDurations),
         observedMaxProviderConcurrency,
         offeredOperations    : sourceCalls.length,
@@ -690,7 +713,7 @@ function deriveLaneReceipt({ids, lane, laneName, plan, profile, trial}) {
             outcome      : call.outcome,
             source       : call.source
         })),
-        throughputPerSecond   : completions.length / (windowMs / 1000),
+        throughputPerSecond   : completions.length / (progress.activeDurationMs / 1000),
         unexpectedRefusalCount: sourceCalls.filter(call => call.outcome === 'unexpected-refusal').length
     }
 }
@@ -1097,7 +1120,6 @@ function evaluateLane({allocation, failures, lane, laneName, runId, slo}) {
     requiredCount !== lane.providerOperationCount && fail('QUEUE_DISPOSITION_MISMATCH');
     lane.maxNeoQueueWaitMs !== null && lane.maxNeoQueueWaitMs > slo.maxNeoQueueWaitMs && fail('QUEUE_WAIT_EXCEEDED');
     lane.maxProviderDurationMs > slo.maxProviderDurationMs && fail('PROVIDER_DURATION_EXCEEDED');
-    lane.throughputPerSecond < slo.minThroughputPerSecond && fail('THROUGHPUT_BELOW_SLO');
     lane.cpuHighWaterPercent > slo.maxCpuHighWaterPercent && fail('CPU_HIGH_WATER_EXCEEDED');
     lane.rssHighWaterBytes > slo.maxRssHighWaterBytes && fail('RSS_HIGH_WATER_EXCEEDED');
     lane.cpuHighWaterPercent > allocation.cpuCores * 100 && fail('CPU_ALLOCATION_EXCEEDED');
@@ -1158,16 +1180,74 @@ function getProfile(plan, candidate) {
 }
 
 /**
- * @summary Derives the largest no-completion interval across one measured trial.
- * @param {Number} startedAtMs Trial start.
- * @param {Number} completedAtMs Trial completion.
- * @param {Number[]} completions Durable completion timestamps.
- * @returns {Number}
+ * @summary Derives demand-active duration and the largest lane-local no-progress interval.
+ *
+ * Idle time before, after, or between lane-local demand waves is not starvation. Timestamp
+ * groups make adjacent demand/completion transitions deterministic: successful source-call
+ * completion resets the progress clock, while errors and refusals only close their outstanding
+ * call. An all-failure demand wave therefore retains its full active duration as the gap.
+ *
+ * @param {Object[]} sourceCalls Validated lane-local source-call lifecycles.
+ * @returns {{activeDurationMs: Number, maxProgressGapMs: Number}}
  */
-function deriveMaxProgressGap(startedAtMs, completedAtMs, completions) {
-    const points = [startedAtMs, ...completions.sort((a, b) => a - b), completedAtMs];
+function deriveLaneProgress(sourceCalls) {
+    const events = new Map();
 
-    return Math.max(...points.slice(1).map((point, index) => point - points[index]))
+    for (const call of sourceCalls) {
+        const demand = events.get(call.demandAtMs) ?? {
+                  atMs                 : call.demandAtMs,
+                  completions          : 0,
+                  demands              : 0,
+                  successfulCompletions: 0
+              },
+              completion = events.get(call.completedAtMs) ?? {
+                  atMs                 : call.completedAtMs,
+                  completions          : 0,
+                  demands              : 0,
+                  successfulCompletions: 0
+              };
+
+        demand.demands++;
+        completion.completions++;
+        call.outcome === 'completed' && completion.successfulCompletions++;
+
+        events.set(call.demandAtMs, demand);
+        events.set(call.completedAtMs, completion)
+    }
+
+    let activeDurationMs = 0,
+        gapStartedAtMs   = null,
+        maxGapMs         = 0,
+        outstanding      = 0,
+        priorAtMs        = null;
+
+    for (const event of [...events.values()].sort((a, b) => a.atMs - b.atMs)) {
+        if (outstanding > 0) {
+            activeDurationMs += event.atMs - priorAtMs
+        }
+
+        if (outstanding === 0 && event.demands > 0) {
+            gapStartedAtMs = event.atMs
+        }
+
+        outstanding += event.demands;
+
+        if (event.successfulCompletions > 0) {
+            maxGapMs = Math.max(maxGapMs, event.atMs - gapStartedAtMs);
+            gapStartedAtMs = event.atMs
+        }
+
+        outstanding -= event.completions;
+
+        if (outstanding === 0) {
+            maxGapMs = Math.max(maxGapMs, event.atMs - gapStartedAtMs);
+            gapStartedAtMs = null
+        }
+
+        priorAtMs = event.atMs
+    }
+
+    return {activeDurationMs, maxProgressGapMs: maxGapMs}
 }
 
 /**
