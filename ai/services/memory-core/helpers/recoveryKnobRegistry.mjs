@@ -80,6 +80,33 @@ export const RECOVERY_KNOBS = Object.freeze({
          * that channel couples the mutation to a restart this knob exists to avoid.
          */
         requires: Object.freeze(['runtime.chroma.liveMemoryLimitBytes']),
+        /**
+         * Selects the next automatic raise from the live runtime bound. The finite ladder has exactly
+         * two declared boundaries: any positive live value below the 8 GiB floor reaches the floor;
+         * any value below the 16 GiB cap reaches the cap. This matters for operator-shaped 6/12 GiB
+         * limits too — autonomy must not stop before the cap merely because the live value is not one
+         * of its own prior steps.
+         *
+         * Deliberately no clamp at or above the cap: the selector proposes a value beyond it and
+         * validation refuses, turning the cap into an observable terminal instead of an endless
+         * stream of fake-success 16 GiB "raises".
+         *
+         * The policy lives beside the band and invariants rather than in a controller. A controller
+         * names the semantic knob; it never learns which config leaf moves or manufactures its value.
+         * @param {Object} context Runtime-resolved knob context.
+         * @returns {Object} Proposed values keyed by the registry leaf path.
+         */
+        selectAutomaticValues: (context = {}) => {
+            const live = context['runtime.chroma.liveMemoryLimitBytes'];
+
+            const selected = live < CONTAINER_MEMORY_CEILING_MIN_BYTES
+                ? CONTAINER_MEMORY_CEILING_MIN_BYTES
+                : (live < CONTAINER_MEMORY_CEILING_MAX_BYTES
+                    ? CONTAINER_MEMORY_CEILING_MAX_BYTES
+                    : live * 2);
+
+            return {'deploy.chroma.memoryCeilingBytes': selected}
+        },
         leaves  : Object.freeze([
             // `resource` is load-bearing rather than descriptive. `role: 'ceiling'` says a leaf is an
             // upper bound; it does not say of WHAT. The envelope boundary in
@@ -236,6 +263,47 @@ export function knobEnvBindings(knob) {
  */
 export function knobRequiredContext(knob) {
     return isKnownKnob(knob) ? [...(RECOVERY_KNOBS[knob].requires ?? [])] : []
+}
+
+/**
+ * @summary Selects and validates the registry-owned automatic transaction for one semantic knob.
+ *
+ * This is intentionally narrower than accepting a caller-supplied formula. Automatic selection is
+ * authority: every selectable policy is declared on its closed knob descriptor, next to the bounds
+ * and invariants that can refuse it. Knobs without such a policy remain operator-authored only.
+ *
+ * The invalid candidate is returned alongside violations rather than clamped or discarded. That
+ * makes the terminating proposal at a bound inspectable and lets the actuator record the exact reason
+ * autonomy stopped without inventing a second validation vocabulary.
+ *
+ * @param {Object} options
+ * @param {String} options.knob Knob name.
+ * @param {Object} [options.context] Runtime-resolved knob context.
+ * @returns {{valid: Boolean, values: Object|null, violations: String[]}}
+ */
+export function selectAutomaticKnobTransaction({knob, context} = {}) {
+    if (!isKnownKnob(knob)) {
+        return {
+            valid     : false,
+            values    : null,
+            violations: [`unknown knob '${knob}' — no automatic transaction can be selected`]
+        }
+    }
+
+    const selector = RECOVERY_KNOBS[knob].selectAutomaticValues;
+
+    if (typeof selector !== 'function') {
+        return {
+            valid     : false,
+            values    : null,
+            violations: [`knob '${knob}' has no automatic value-selection policy`]
+        }
+    }
+
+    const values     = selector(context),
+          validation = validateKnobTransaction({knob, values, context});
+
+    return {...validation, values}
 }
 
 /**

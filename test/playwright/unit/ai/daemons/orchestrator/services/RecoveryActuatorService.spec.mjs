@@ -17,7 +17,6 @@ import {
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {RECOVERY_OVERRIDE_FILENAME} from '../../../../../../../ai/services/memory-core/helpers/recoveryOverrideStore.mjs';
 import {readHealLedger}             from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import AiConfig                     from '../../../../../../../ai/config.template.mjs';
 
 const DEFAULT_RUNTIME_ACCESS_CONFIG = {
     allowedServices: ['chroma', 'kb-server', 'mc-server', 'local-model']
@@ -57,8 +56,9 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               },
               service = Neo.create(RecoveryActuatorService, {
                   actuatorConfig,
-                  dataDir      : tmpDir,
-                  healthService: {
+                  dataDir            : tmpDir,
+                  recoveryOverrideDir: path.join(tmpDir, 'deployment-state'),
+                  healthService      : {
                       recordTaskOutcome(taskName, status, details) {
                           taskOutcomes.push({taskName, status, details});
                       }
@@ -831,50 +831,36 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
         });
 
         test('the full reconfigure action carries authority through its durable overlay into the restart', async () => {
-            const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
-            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(tmpDir, 'reconfigure-state', 'snapshot.json');
+            const {service, runtimeCalls} = createService();
+            const result                  = await service.apply('mc-server', 'reconfigure', {
+                knob           : KNOB,
+                knobValues     : VALUES,
+                now            : 100_000,
+                isAuthorityHeld: () => true
+            });
 
-            try {
-                const {service, runtimeCalls} = createService();
-                const result                  = await service.apply('mc-server', 'reconfigure', {
-                    knob           : KNOB,
-                    knobValues     : VALUES,
-                    now            : 100_000,
-                    isAuthorityHeld: () => true
-                });
-
-                expect(result.status).toBe('actioned');
-                expect(runtimeCalls).toHaveLength(1);
-                expect(runtimeCalls[0]).toMatchObject({serviceKey: 'mc-server', operation: 'restart'});
-                expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
-            } finally {
-                AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
-            }
+            expect(result.status).toBe('actioned');
+            expect(runtimeCalls).toHaveLength(1);
+            expect(runtimeCalls[0]).toMatchObject({serviceKey: 'mc-server', operation: 'restart'});
+            expect(typeof runtimeCalls[0].isAuthorityHeld).toBe('function');
         });
 
         test('the full reconfigure action refuses takeover after its scratch write and before overlay publication', async () => {
-            const originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath,
-                  overrideDir          = path.join(tmpDir, 'reconfigure-takeover');
-            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(overrideDir, 'snapshot.json');
+            const overrideDir             = path.join(tmpDir, 'reconfigure-takeover'),
+                  {service, runtimeCalls} = createService({serviceConfig: {recoveryOverrideDir: overrideDir}}),
+                  result                  = await service.apply('mc-server', 'reconfigure', {
+                      knob      : KNOB,
+                      knobValues: VALUES,
+                      now       : 100_000,
+                      // This stays held through every caller-side sample and flips only when the real
+                      // override writer has created its UUID scratch file. Omitting the oracle from
+                      // `writeKnobOverride()` therefore makes this control action the target.
+                      isAuthorityHeld : createScratchSensitiveAuthorityOracle(overrideDir)
+                  });
 
-            try {
-                const {service, runtimeCalls} = createService();
-                const result                  = await service.apply('mc-server', 'reconfigure', {
-                    knob      : KNOB,
-                    knobValues: VALUES,
-                    now       : 100_000,
-                    // This stays held through every caller-side sample and flips only when the real
-                    // override writer has created its UUID scratch file. Omitting the oracle from
-                    // `writeKnobOverride()` therefore makes this control action the target.
-                    isAuthorityHeld : createScratchSensitiveAuthorityOracle(overrideDir)
-                });
-
-                expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
-                expect(runtimeCalls).toEqual([]);
-                expect(await readdir(overrideDir)).toEqual([]);
-            } finally {
-                AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
-            }
+            expect(result).toMatchObject({status: 'declined', reasonCode: 'authority-lost'});
+            expect(runtimeCalls).toEqual([]);
+            expect(await readdir(overrideDir)).toEqual([]);
         });
 
         test('a refused transaction costs the target NO restart', async () => {
@@ -941,20 +927,6 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
               // bare serviceKey is ambiguous by construction; the typed identity is how a real
               // controller disambiguates, and these specs exercise that same path.
               CHROMA_TARGET = {kind: 'compose-service', id: 'chroma'};
-
-        let originalSnapshotPath;
-
-        test.beforeEach(() => {
-            // The overlay lands in the snapshot leaf's directory. Redirected into this test's tmpdir so
-            // the `deploy.*` subtree cannot leak into the overlay file the reconfigure suite asserts
-            // with exact equality — and restored so no other suite inherits the redirection.
-            originalSnapshotPath = AiConfig.orchestrator.deploymentStateBridge.snapshotPath;
-            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = path.join(tmpDir, 'deployment-state', 'snapshot.json');
-        });
-
-        test.afterEach(() => {
-            AiConfig.orchestrator.deploymentStateBridge.snapshotPath = originalSnapshotPath;
-        });
 
         function createRaiseService({liveLimitBytes = 2 * GIB, inspectData, ...overrides} = {}) {
             const readCalls = [],
@@ -1123,12 +1095,12 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
             const result = await service.apply('chroma', 'raise-ceiling', {
                 knob          : CEILING_KNOB,
-                knobValues    : {[CEIL_LEAF]: 32 * GIB},
                 now           : 100_000,
                 targetIdentity: CHROMA_TARGET
             });
 
             expect(result).toMatchObject({status: 'failed', reasonCode: 'executor-failed'});
+            expect(result.error).toContain('Automatic knob transaction refused');
             expect(result.error).toContain(`${8 * GIB}..${16 * GIB}`);
             expect(runtimeCalls).toEqual([]);
 
