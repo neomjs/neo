@@ -23,6 +23,7 @@ import os             from 'os';
 test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
     let ConceptDiscoveryService;
     let ConceptService;
+    let aiConfig;
     let OpenAiCompatible;
     let logger;
 
@@ -44,6 +45,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
     test.beforeAll(async () => {
         ConceptDiscoveryService = (await import('../../../../../../ai/services/ingestion/ConceptDiscoveryService.mjs')).default;
         ConceptService          = (await import('../../../../../../ai/services/ConceptService.mjs')).default;
+        aiConfig                = (await import('../../../../../../ai/services.mjs')).Memory_Config;
         OpenAiCompatible        = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         logger                  = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
     });
@@ -69,8 +71,8 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         ConceptDiscoveryService.pullsDir  = tmpPullsDir;
 
         // Stub LLM provider — each call returns the next queued response
-        llmResponses = [];
-        llmCallCount = 0;
+        llmResponses    = [];
+        llmCallCount    = 0;
         originalGenerate = OpenAiCompatible.prototype.generate;
         OpenAiCompatible.prototype.generate = async function(prompt) {
             const idx = Math.min(llmCallCount, llmResponses.length - 1);
@@ -142,6 +144,44 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         const body = fm + '## Summary\n\n' + 'Some description text. '.repeat(15) + bodyExtra + '\n\n## Comments\n\n### @agent - 2026-04-19T10:00:00Z\n\nReview comment with architectural discussion. '.repeat(10);
         fs.writeFileSync(path.join(tmpPullsDir, filename), body, 'utf8');
     }
+
+    test('extractConceptsFromSource hands the declared graph role to the dispatch seam (#17021)', async () => {
+        writeEmptyConceptGraph();
+        ConceptService.loadGraph();
+
+        const providerCalls = [];
+        const payload       = {
+            candidates: [{
+                id         : 'declared-graph-provider',
+                name       : 'Declared Graph Provider',
+                description: 'Graph work follows its declared provider lane.',
+                reasoning  : 'The selector owns dispatch rather than a hard-coded transport.',
+                aliases    : []
+            }]
+        };
+
+        const body       = 'Enough content to exceed MIN_SOURCE_LENGTH. '.repeat(20);
+        const candidates = await ConceptDiscoveryService.extractConceptsFromSource('declared-graph-source', body, {
+            buildProvider(options) {
+                providerCalls.push(options);
+                return {generate: async () => ({content: JSON.stringify(payload)})}
+            }
+        });
+
+        expect(candidates).toHaveLength(1);
+        expect(providerCalls).toHaveLength(1);
+        expect(providerCalls[0]).toMatchObject({
+            modelProvider: aiConfig.graphProvider,
+            ollamaConfig : {
+                host : aiConfig.ollama.host,
+                model: aiConfig.ollama.model
+            },
+            openAiCompatibleConfig: {
+                host : aiConfig.openAiCompatible.host,
+                model: aiConfig.openAiCompatible.model
+            }
+        });
+    });
 
     test('mineFromEpics should only process epic-labeled issues and emit LLM candidates', async () => {
         writeEmptyConceptGraph();

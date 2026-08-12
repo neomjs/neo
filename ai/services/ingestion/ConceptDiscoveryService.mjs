@@ -10,7 +10,7 @@ import {
 } from '../../services.mjs';
 import Json                      from '../../../src/util/Json.mjs';
 import logger                    from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible          from '../../provider/OpenAiCompatible.mjs';
+import {buildGraphProvider, resolveGraphModelProvider} from '../graph/providerDispatch.mjs';
 import {assertTestWriteIsolated} from '../shared/storeWriteGuard.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -156,8 +156,8 @@ function getMessageSortTimestamp(message) {
 /**
  * @summary Service for LLM-driven discovery of "unknown unknowns" in the concept ontology.
  *
- * Scans two high-signal corpora via `OpenAiCompatible.generate` (gemma4 or configured
- * provider — same substrate used by `SemanticGraphExtractor` and `GoldenPathSynthesizer`):
+ * Scans two high-signal corpora through the declared graph-provider role (the same dispatch
+ * seam used by `SemanticGraphExtractor` and `GoldenPathSynthesizer`):
  *
  * 1. **Epics** — issue markdown files labeled `epic` in `resources/content/issues/`. Epic
  *    bodies are curated distilled architecture — high signal-to-noise, stable reference
@@ -358,25 +358,38 @@ class ConceptDiscoveryService extends Base {
      * @param {Object} [options]
      * @param {Object} [options.candidateDefaults=CANDIDATE_DEFAULTS] Metadata defaults for accepted candidates.
      * @param {Boolean} [options.failOnError=false] Rethrow provider / parse failures for scheduled drainers.
+     * @param {Function} [options.buildProvider=buildGraphProvider] Provider-construction test seam.
      * @returns {Promise<Object[]>} Candidate records ready for `appendCandidates`
      * @protected
      */
     async extractConceptsFromSource(sourceRef, text, {
         candidateDefaults = CANDIDATE_DEFAULTS,
-        failOnError       = false
+        failOnError       = false,
+        buildProvider     = buildGraphProvider
     } = {}) {
         const minSourceLength = aiConfig.conceptDiscovery.minSourceLength;
         if (!text || text.trim().length < minSourceLength) return [];
 
+        const graphProvider = resolveGraphModelProvider(aiConfig);
         let provider;
         try {
-            provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible.model,
-                host     : aiConfig.openAiCompatible.host,
-                keepAlive: aiConfig.openAiCompatible.keep_alive
+            provider = buildProvider({
+                modelProvider: graphProvider,
+                ollamaConfig : {
+                    host          : aiConfig.ollama.host,
+                    model         : aiConfig.ollama.model,
+                    embeddingModel: aiConfig.ollama.embeddingModel,
+                    keep_alive    : aiConfig.ollama.keep_alive
+                },
+                openAiCompatibleConfig: {
+                    apiKey    : aiConfig.openAiCompatible.apiKey,
+                    host      : aiConfig.openAiCompatible.host,
+                    keep_alive: aiConfig.openAiCompatible.keep_alive,
+                    model     : aiConfig.openAiCompatible.model
+                }
             });
         } catch (e) {
-            logger.warn(`[ConceptDiscoveryService] OpenAiCompatible provider could not be constructed; skipping ${sourceRef}:`, e.message);
+            logger.warn(`[ConceptDiscoveryService] Declared graph provider '${graphProvider}' could not be constructed; skipping ${sourceRef}:`, e.message);
             if (failOnError) throw e;
             return [];
         }

@@ -431,9 +431,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const warnings = [];
         const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
-                graphProvider: 'ollama',
-                modelProvider: 'openAiCompatible',
-                ollama       : {
+                graphProvider    : 'ollama',
+                modelProvider    : 'openAiCompatible',
+                embeddingProvider: 'ollama',
+                ollama           : {
                     host                 : 'http://ollama.test',
                     model                : 'gemma4:26b',
                     embeddingModel       : 'qwen3-embedding',
@@ -459,9 +460,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         const warnings = [];
         const result   = await providerReadinessHelper.warnProviderParallelModelCapacity({
             config: {
-                graphProvider   : 'openAiCompatible',
-                modelProvider   : 'gemini',
-                openAiCompatible: {
+                graphProvider    : 'openAiCompatible',
+                modelProvider    : 'gemini',
+                embeddingProvider: 'openAiCompatible',
+                openAiCompatible : {
                     host                 : 'http://oai.test',
                     model                : 'google/gemma-4-26b-a4b',
                     embeddingModel       : 'text-embedding-qwen3-embedding-8b',

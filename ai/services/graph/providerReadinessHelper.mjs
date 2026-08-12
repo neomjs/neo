@@ -2429,6 +2429,7 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
             host          : null,
             model         : null,
             embeddingModel: null,
+            roles         : [],
             url           : null
         };
     }
@@ -2439,9 +2440,17 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
         : getOpenAiCompatibleHost(config);
     const endpoint       = isOllama ? '/api/tags' : '/v1/models';
     const model          = isOllama ? config.ollama?.model : config.openAiCompatible?.model;
-    const embeddingModel = isOllama
-        ? config.ollama?.embeddingModel
-        : config.openAiCompatible?.embeddingModel;
+    const embeddingModel = config.embeddingProvider === provider
+        ? (isOllama ? config.ollama?.embeddingModel : config.openAiCompatible?.embeddingModel)
+        : null;
+    const roles = [{providerRole: 'graphProvider', role: 'chat', model}];
+
+    if (config.modelProvider === provider) {
+        roles.push({providerRole: 'modelProvider', role: 'chat', model});
+    }
+    if (embeddingModel) {
+        roles.push({providerRole: 'embeddingProvider', role: 'embedding', model: embeddingModel});
+    }
     const url = host ? `${host.replace(/\/+$/, '')}${endpoint}` : null;
 
     return {
@@ -2451,6 +2460,7 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
         host,
         model,
         embeddingModel,
+        roles,
         url
     };
 }
@@ -2461,7 +2471,11 @@ export function getGraphProviderReadinessTarget(config = aiConfig) {
  * @returns {String[]}
  */
 export function getRequiredProviderModels(target) {
-    return [...new Set([target?.model, target?.embeddingModel].filter(Boolean))];
+    const roleModels = Array.isArray(target?.roles)
+        ? target.roles.map(role => role?.model)
+        : [target?.model, target?.embeddingModel];
+
+    return [...new Set(roleModels.filter(Boolean))];
 }
 
 /**
@@ -2496,11 +2510,11 @@ export function createParallelModelCapacityWarning({
 
     return provider === 'ollama'
         ? `${base} set OLLAMA_MAX_LOADED_MODELS=${requireParallelModels} in the Ollama server environment.`
-        : `${base} raise the OpenAI-compatible server loaded-model cap to ${requireParallelModels} and pre-load both models.`;
+        : `${base} raise the OpenAI-compatible server loaded-model cap to ${requireParallelModels} and pre-load the required model set.`;
 }
 
 /**
- * @summary Probes whether the configured graph provider has chat + embedding models resident together.
+ * @summary Probes whether the configured graph provider has its active role models resident together.
  *
  * This is an observability check only. It never mutates provider state and it does
  * not substitute defaults for missing config leaves; callers decide whether to warn

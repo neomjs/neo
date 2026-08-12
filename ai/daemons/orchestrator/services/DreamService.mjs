@@ -422,8 +422,12 @@ class DreamService extends Base {
      * overwrite or hide a concurrently published B. The legacy `graphDigested` marker remains a
      * compatibility overlay and is only written after every required phase completes without
      * reported errors.
+     * @param {Object} [options]
+     * @param {Function} [options.fetchProviderModelIds=fetchOpenAiCompatibleModelIds] Provider-model discovery seam.
      */
-    async processUndigestedSessions() {
+    async processUndigestedSessions({
+        fetchProviderModelIds = fetchOpenAiCompatibleModelIds
+    } = {}) {
         if (this.isProcessing) {
             logger.debug('[DreamService] REM pipeline is already running. Skipping trigger.');
             return {
@@ -436,23 +440,23 @@ class DreamService extends Base {
         const perPhaseStates   = [];
         const perSessionStates = [];
 
-        if (aiConfig.modelProvider === 'openAiCompatible') {
+        if (aiConfig.graphProvider === 'openAiCompatible') {
             const providerStart = Date.now();
             try {
-                await fetchOpenAiCompatibleModelIds({
+                await fetchProviderModelIds({
                     host      : aiConfig.openAiCompatible.host,
                     timeoutMs : AiConfig.orchestrator.providerReadiness.timeoutMs,
                     freshness : 'routine',
                     cacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
                 });
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'completed', {
-                    provider: aiConfig.modelProvider
+                    provider: aiConfig.graphProvider
                 }));
             } catch (e) {
                 logger.error('[DreamService] API provider service is unreachable. Aborting REM pipeline to prevent queue failures.');
                 this.isProcessing = false;
                 perPhaseStates.push(finishPhase('legacyProviderProbe', providerStart, 'failed', {
-                    provider: aiConfig.modelProvider,
+                    provider: aiConfig.graphProvider,
                     error   : toErrorMessage(e)
                 }));
                 return {perPhaseStates, perSessionStates};

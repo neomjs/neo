@@ -16,6 +16,7 @@ x-local-auth: &local-auth
 
 x-local-provider: &local-provider
   NEO_MODEL_PROVIDER: openAiCompatible
+  NEO_GRAPH_PROVIDER: openAiCompatible
   NEO_EMBEDDING_PROVIDER: openAiCompatible
   NEO_OPENAI_COMPATIBLE_HOST: ${NEO_LOCAL_AGENT_OS_PROVIDER_HOST:-http://host.docker.internal:1234}
   NEO_OPENAI_COMPATIBLE_MODEL: ${NEO_LOCAL_AGENT_OS_MODEL:-google/gemma-4-26b-a4b}
