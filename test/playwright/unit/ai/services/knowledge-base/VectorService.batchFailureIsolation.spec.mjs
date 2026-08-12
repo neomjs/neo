@@ -168,6 +168,140 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         expect(result.failedBatches[0].reason).toContain('provider rejected this payload');
     });
 
+    test('#17017: paired first-batch isolation fences one poison and lands every recoverable chunk', async () => {
+        Object.assign(KB_Config.data, {batchSize: 2, batchDelay: 0, maxRetries: 1});
+
+        const spy           = createSpyCollection();
+        const chunks        = makeChunks(4);
+        const persisted     = [];
+        let   providerCalls = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            providerCalls++;
+
+            if (texts.some(text => text.includes('for chunk 0'))) {
+                throw new Error('raw provider rejection must not enter the poison receipt')
+            }
+
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            onPoisonEntries: async entries => persisted.push(...entries),
+            now            : () => Date.UTC(2026, 7, 12, 12, 0, 0)
+        });
+
+        expect(providerCalls).toBe(7);
+        expect(result.embedded).toBe(3);
+        expect(spy.upsertedIds.sort()).toEqual(['chunk-1', 'chunk-2', 'chunk-3']);
+        expect(result.failedBatches).toEqual([]);
+        expect(result.poisonedChunks).toEqual([{
+            chunkId   : 'chunk-0',
+            reasonCode: 'KB_VECTOR_EMBED_FAILED',
+            observedAt: '2026-08-12T12:00:00.000Z'
+        }]);
+        expect(persisted).toEqual(result.poisonedChunks);
+        expect(JSON.stringify(result.poisonedChunks)).not.toContain('raw provider rejection');
+    });
+
+    test('#17017: a dead provider costs one bounded control after first-batch retries, never a corpus walk', async () => {
+        Object.assign(KB_Config.data, {batchSize: 2, batchDelay: 0, maxRetries: 1});
+
+        const spy           = createSpyCollection();
+        const chunks        = makeChunks(8);
+        let   providerCalls = 0,
+            poisonWrites = 0;
+
+        TextEmbeddingService.embedTexts = async () => {
+            providerCalls++;
+            throw new Error('provider is down')
+        };
+
+        await expect(KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            onPoisonEntries: async () => poisonWrites++
+        })).rejects.toThrow(/Failed to process batch 1/);
+
+        expect(providerCalls, 'one failed batch offer plus one failed provider-wide control').toBe(2);
+        expect(poisonWrites).toBe(0);
+        expect(spy.upsertedIds).toEqual([]);
+    });
+
+    test('#17017: A-B-A recovers a one-off first-input failure instead of minting poison', async () => {
+        Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 1});
+
+        const spy           = createSpyCollection();
+        const chunks        = makeChunks(2);
+        let   providerCalls = 0,
+            poisonWrites = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            providerCalls++;
+
+            if (providerCalls === 1) throw new Error('one-off admission failure');
+
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            onPoisonEntries: async () => poisonWrites++
+        });
+
+        expect(providerCalls).toBe(3);
+        expect(result.embedded).toBe(2);
+        expect(result.poisonedChunks).toEqual([]);
+        expect(poisonWrites).toBe(0);
+        expect(spy.upsertedIds.sort()).toEqual(['chunk-0', 'chunk-1']);
+    });
+
+    test('#17017: persistence exhaustion never enters poison isolation or re-buys vectors', async () => {
+        const originalSetTimeout = globalThis.setTimeout;
+        const originalIsolate    = KB_VectorService.isolateFirstFailedBatch.bind(KB_VectorService);
+
+        globalThis.setTimeout = (fn, ms, ...args) => originalSetTimeout(fn, 0, ...args);
+        Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 2});
+
+        let providerCalls  = 0,
+            isolationCalls = 0,
+            poisonWrites   = 0,
+            upsertCalls    = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            providerCalls++;
+            return texts.map(() => new Array(384).fill(0))
+        };
+        KB_VectorService.isolateFirstFailedBatch = async (...args) => {
+            isolationCalls++;
+            return originalIsolate(...args)
+        };
+
+        try {
+            await expect(KB_VectorService.embedChunks({
+                collection: {
+                    async upsert() {
+                        upsertCalls++;
+                        throw new Error('Chroma write rejected')
+                    }
+                },
+                chunksToProcess: makeChunks(2),
+                onPoisonEntries: async () => poisonWrites++
+            })).rejects.toThrow(/Failed to process batch 1/);
+
+            expect(providerCalls).toBe(1);
+            expect(upsertCalls).toBe(2);
+            expect(isolationCalls).toBe(0);
+            expect(poisonWrites).toBe(0);
+        } finally {
+            KB_VectorService.isolateFirstFailedBatch = originalIsolate;
+            globalThis.setTimeout = originalSetTimeout
+        }
+    });
+
     test('CROSS-SWEEP: a second sweep embeds the chunks that follow the poisoned batch', async () => {
         // The spec that actually convicts the defect. Against the pre-fix tree sweep 1 aborts at batch 2, and
         // sweep 2 re-selects from batch 2 and aborts there again — so chunks 100-149 are never embedded by any
@@ -242,8 +376,8 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
             KB_VectorService.embedChunks({collection: spy, chunksToProcess: chunks})
         ).rejects.toThrow(/Failed to process batch 1/);
 
-        // One batch, one attempt (maxRetries: 1) — NOT one per batch in the corpus.
-        expect(providerCalls).toBe(1);
+        // One failed batch offer plus one provider-wide control — NOT one offer per corpus batch.
+        expect(providerCalls).toBe(2);
         expect(spy.calls.upsert).toBe(0);
     });
 
@@ -385,7 +519,7 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         const thrown = await KB_VectorService.embedChunks({
             collection     : spy,
             chunksToProcess: makeChunks(2),
-            signal          : controller.signal,
+            signal         : controller.signal,
             onProviderTimeout
         }).then(() => null, error => error);
 
@@ -430,12 +564,17 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
         };
         ChromaManager.invalidateKnowledgeBaseCollectionCache = () => {};
 
-        const runWith = async embedOutcome => {
-            KB_VectorService.embedChunks = async () => embedOutcome;
+        let observedKnownPoisonEntries;
+        const runWith = async (embedOutcome, knownPoisonEntries = []) => {
+            KB_VectorService.embedChunks = async options => {
+                observedKnownPoisonEntries = options.knownPoisonEntries;
+                return embedOutcome
+            };
             return KB_VectorService.embedViaShadowSwap({
                 liveCollection  : collectionStub('live'),
                 knowledgeBase   : makeChunks(3),
-                idsToDeleteCount: 0
+                idsToDeleteCount: 0,
+                knownPoisonEntries
             })
         };
 
@@ -448,6 +587,41 @@ test.describe('VectorService.embedChunks — one failing batch must not strand t
             })).rejects.toThrow(/KB_EMBEDDING_BATCH_FAILED/);
 
             expect(renames, 'neither collection may be renamed when the shadow is incomplete').toEqual([]);
+
+            const poisonResult = await runWith({
+                embedded      : 2,
+                skipped       : 0,
+                yielded       : false,
+                failedBatches : [],
+                poisonedChunks: [{
+                    chunkId   : 'a'.repeat(64),
+                    reasonCode: 'KB_VECTOR_EMBED_FAILED',
+                    observedAt: '2026-08-12T12:00:00.000Z'
+                }]
+            });
+
+            expect(poisonResult.poisonedChunks).toHaveLength(1);
+            expect(poisonResult.message).toContain('preserved without promotion');
+            expect(renames, 'poison-bearing shadow remains preserved and never promotes').toEqual([]);
+
+            const restoredPoison = {
+                chunkId   : 'chunk-0',
+                reasonCode: 'KB_VECTOR_EMBED_FAILED',
+                observedAt: '2026-08-12T12:00:00.000Z'
+            };
+            shadow.get = async () => ({ids: [restoredPoison.chunkId]});
+
+            await runWith({
+                embedded      : 2,
+                skipped       : 0,
+                yielded       : false,
+                failedBatches : [],
+                poisonedChunks: []
+            }, [restoredPoison]);
+
+            expect(observedKnownPoisonEntries,
+                'a vector already restored in the resumable shadow is not an unresolved poison hole')
+                .toEqual([]);
         } finally {
             KB_VectorService.embedChunks                        = originalEmbedChunks;
             ChromaManager.client                                = originalClient;

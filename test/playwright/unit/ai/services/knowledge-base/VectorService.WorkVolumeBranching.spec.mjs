@@ -330,6 +330,68 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
     });
 
+    test('#17017 unchanged poison is skipped across sweeps while changed content and replay re-enter', async () => {
+        const originalBatch = {
+            batchSize : KB_Config.data.batchSize,
+            batchDelay: KB_Config.data.batchDelay,
+            maxRetries: KB_Config.data.maxRetries
+        };
+        const spy           = createSpyCollection({existingIds: []});
+        let   providerCalls = 0;
+
+        Object.assign(KB_Config.data, {batchSize: 1, batchDelay: 0, maxRetries: 1});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            providerCalls++;
+
+            if (texts.some(text => text.includes('method0'))) {
+                throw new Error('private provider detail')
+            }
+
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        try {
+            writeFixtureJsonl(fixturePath, 3);
+
+            const first         = await KB_VectorService.embed(fixturePath);
+            const firstPoisonId = first.poisonedChunks[0].chunkId;
+
+            expect(first.embedded).toBe(2);
+            expect(first.poisonedChunks).toHaveLength(1);
+            expect(providerCalls).toBe(4);
+            expect(JSON.stringify(first.poisonedChunks)).not.toContain('private provider detail');
+
+            const beforeSecondSweep = providerCalls;
+            const second            = await KB_VectorService.embed(fixturePath);
+
+            expect(providerCalls, 'unchanged poison is never re-offered').toBe(beforeSecondSweep);
+            expect(second.embedded).toBe(0);
+            expect(second.poisonedChunks).toEqual(first.poisonedChunks);
+            expect(second.message).toContain('proven poison');
+
+            const rows = fs.readFileSync(fixturePath, 'utf8').split('\n').map(line => JSON.parse(line));
+            rows[0].hash = 'changed-poison-content-id';
+            fs.writeFileSync(fixturePath, rows.map(row => JSON.stringify(row)).join('\n'), 'utf8');
+
+            const beforeChangedContent = providerCalls;
+            const changed              = await KB_VectorService.embed(fixturePath);
+
+            expect(providerCalls - beforeChangedContent, 'changed content re-enters A-B-A proof').toBe(3);
+            expect(changed.poisonedChunks).toHaveLength(1);
+            expect(changed.poisonedChunks[0].chunkId).not.toBe(firstPoisonId);
+
+            const beforeReplay = providerCalls;
+            const replayed     = await KB_VectorService.embed(fixturePath, {replayEmbeddingPoison: true});
+
+            expect(providerCalls - beforeReplay, 'explicit replay clears and re-offers the current poison').toBe(3);
+            expect(replayed.poisonedChunks).toHaveLength(1);
+        } finally {
+            Object.assign(KB_Config.data, originalBatch)
+        }
+    });
+
     test('splits over-budget full-sync chunks before provider invocation while embedding the safe remainder', async () => {
         const originalResolveEmbeddingGuardrail = KB_VectorService.resolveEmbeddingGuardrail.bind(KB_VectorService);
 

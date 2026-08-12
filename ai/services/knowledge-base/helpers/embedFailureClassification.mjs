@@ -142,6 +142,62 @@ export function classifyEmbedFailureCode(code) {
 }
 
 /**
+ * @summary Classifies an embed failure through its bounded `cause` chain.
+ *
+ * Wrapper errors are allowed to name the failed stage while keeping the provider failure in
+ * `error.cause`. Reading only the outer code therefore turns a precisely classified provider fault
+ * into the unclassified sentinel. This walker inspects at most four distinct Error-like objects,
+ * stops on cycles, and returns the first code that the closed vocabulary recognises. Raw messages
+ * and arbitrary fields never leave the chain.
+ *
+ * @param {*} error Error-like value whose `code` / `cause` chain should be classified.
+ * @returns {String} A bounded `KB_*` code.
+ */
+export function classifyEmbedFailureError(error) {
+    const visited = new Set();
+    let   current = error;
+
+    for (let depth = 0; depth < 4 && current && typeof current === 'object' && !visited.has(current); depth++) {
+        visited.add(current);
+
+        const classified = classifyEmbedFailureCode(current.code);
+        if (classified !== KB_VECTOR_EMBED_UNCLASSIFIED) {
+            return classified
+        }
+
+        current = current.cause
+    }
+
+    return KB_VECTOR_EMBED_UNCLASSIFIED
+}
+
+/**
+ * @summary Projects the closed provider-residency disposition through a bounded cause chain.
+ *
+ * The two literals are source-owned observations from `TextEmbeddingService`. Arbitrary provider
+ * strings never cross the durable receipt boundary; absent, unknown, cyclic, and over-depth values
+ * stay absent.
+ *
+ * @param {*} error Error-like value whose chain may carry a residency disposition.
+ * @returns {'never-resident'|'evicted-mid-batch'|undefined}
+ */
+export function classifyEmbedResidencyDisposition(error) {
+    const allowed = new Set(['never-resident', 'evicted-mid-batch']);
+    const visited = new Set();
+    let   current = error;
+
+    for (let depth = 0; depth < 4 && current && typeof current === 'object' && !visited.has(current); depth++) {
+        visited.add(current);
+
+        if (allowed.has(current.residencyDisposition)) {
+            return current.residencyDisposition
+        }
+
+        current = current.cause
+    }
+}
+
+/**
  * @summary Whether a failed embed may be retried later (`deferrable`) or must fail its ingest run
  * now (`rejected`).
  *

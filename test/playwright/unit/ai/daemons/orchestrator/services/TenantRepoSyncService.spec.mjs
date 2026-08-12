@@ -52,15 +52,15 @@ import {
     parseArgs,
     resolveExitCode
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
-import {readHealLedger} from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
-import MemoryCoreConfig from '../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
+import {readHealLedger}        from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
+import MemoryCoreConfig        from '../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 import {PROVIDER_TIMEOUT_CODE} from '../../../../../../../ai/provider/createTimeoutError.mjs';
 import {
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
     classifyEmbedFailureCode
 } from '../../../../../../../ai/services/knowledge-base/helpers/embedFailureClassification.mjs';
 import TextEmbeddingService from '../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
-import {snapshotAiConfig} from '../../../services/memory-core/util.mjs';
+import {snapshotAiConfig}   from '../../../services/memory-core/util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -1482,7 +1482,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 }
             },
             knowledgeBaseIngestionService: makeFakeIngestionService({
-                captureCalls : ingestCalls,
+                captureCalls  : ingestCalls,
                 summaryFactory: () => ({ingested: 0, deleted: 0, errors: []})
             }),
             onlyRepoSlugs    : [repoSlug],
@@ -1500,7 +1500,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         // The trap is broken only if the checkpoint DURABLY commits — a `completed` status that leaves
         // no committed attempt id would re-enter the same state on the next sweep.
-        const persisted = await fs.readJson(revisionsFile);
+        const persisted     = await fs.readJson(revisionsFile);
         const persistedRepo = persisted.revisions[`t1/${repoSlug}`];
 
         expect(persistedRepo).toMatchObject({
@@ -1601,6 +1601,74 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // committed id, so without these two the test could go green having never reached the predicate.
         expect(ingestCalls).toHaveLength(2);
         expect(ingestCalls[1].payload.materializationAttempt.attemptId).not.toBe(committedAttemptId);
+    });
+
+    test('#17017 full replay bypasses a matching retry receipt and carries the poison-replay control', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/poison-replay-receipt',
+            envelope         = {
+                tenantId        : 't1',
+                repoSlug,
+                files           : [{sourcePath: 'README.md', repoSlug, content: 'source'}],
+                deleted         : [],
+                headRevision    : 'sha-poison-replay',
+                manifestSnapshot: {repoSlug, pathsAfterPush: ['README.md']}
+            },
+            envelopeDigest   = createTenantRepoMaterializationDigest(envelope),
+            ingestionCalls   = [];
+
+        await fs.writeJson(revisionsFile, {revisions: {}});
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://example.invalid/poison-replay.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : async () => ({...envelope}),
+            knowledgeBaseIngestionService: {
+                async getTenantManifest() {
+                    return {
+                        materializationReceipt: {
+                            attemptId            : 'uncommitted-retry-receipt',
+                            ingestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION,
+                            envelopeDigest,
+                            recordedAt           : Date.now()
+                        }
+                    }
+                },
+                async ingestSourceFilesForTenantSync(payload, controls) {
+                    ingestionCalls.push({payload, controls});
+
+                    return {
+                        ingested              : 1,
+                        deleted               : 0,
+                        embeddingsGenerated   : 1,
+                        errors                : [],
+                        tenantId              : payload.tenantId,
+                        durationMs            : 1,
+                        materializationReceipt: {
+                            ...payload.materializationAttempt,
+                            envelopeDigest,
+                            recordedAt: Date.now()
+                        }
+                    }
+                }
+            },
+            onlyRepoSlugs    : [repoSlug],
+            fullReplay       : true,
+            revisionsFilePath: revisionsFile,
+            seedBootstrap    : false
+        });
+
+        expect(result.status).toBe('completed');
+        expect(ingestionCalls).toHaveLength(1);
+        expect(ingestionCalls[0].controls.replayEmbeddingPoison).toBe(true);
+        expect(ingestionCalls[0].payload.materializationAttempt.attemptId)
+            .not.toBe('uncommitted-retry-receipt');
     });
 
     test('POSITIVE CONTROL — declared paths with NO effect and NO explanation still fails', async () => {

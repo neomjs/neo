@@ -229,12 +229,56 @@ test.describe('IngestionService.ingestSourceFiles', () => {
             .toBe(controller.signal);
         expect(vectorCalls[0].options.onProviderTimeout, 'the synchronous hook is not stripped by makeSafe')
             .toBe(onProviderTimeout);
+        expect(vectorCalls[0].options.replayEmbeddingPoison).toBe(false);
 
         vectorCalls.length = 0;
         await Service.ingestSourceFiles(payload);
 
         expect(vectorCalls[0].options.signal, 'ordinary public ingestion remains circuit-neutral').toBeUndefined();
         expect(vectorCalls[0].options.onProviderTimeout, 'the control is internal, never implicit').toBeUndefined();
+    });
+
+    test('#17017 projects a poison as one bounded partial row and threads explicit replay internally', async () => {
+        const chunkId = 'a'.repeat(64);
+
+        Service.vectorService.embed = async (filePath, options) => {
+            const lines = (await fs.readFile(filePath, 'utf8')).trim().split('\n').filter(Boolean);
+            vectorCalls.push({filePath, options, records: lines.map(line => JSON.parse(line))});
+
+            return {
+                message       : 'Embedding completed with one poison fenced.',
+                embedded      : 0,
+                deleted       : 0,
+                poisonedChunks: [{
+                    chunkId,
+                    reasonCode: 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                    observedAt: '2026-08-12T12:00:00.000Z'
+                }]
+            }
+        };
+
+        const summary = await SafeService.ingestSourceFilesForTenantSync({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        }, {
+            replayEmbeddingPoison: true
+        });
+
+        expect(vectorCalls[0].options.replayEmbeddingPoison).toBe(true);
+        expect(summary.embeddingsGenerated).toBe(0);
+        expect(summary.errors).toEqual([{
+            code   : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+            message: 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
+            details: {
+                chunkId,
+                reasonCode : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+                observedAt : '2026-08-12T12:00:00.000Z',
+                disposition: 'proven-content-poison'
+            }
+        }]);
+        expect(Object.keys(summary.errors[0].details).sort()).toEqual([
+            'chunkId', 'disposition', 'observedAt', 'reasonCode'
+        ]);
     });
 
     test('distinguishes NEVER-ATTEMPTED from idle, and discloses its process scope (#14028)', () => {

@@ -1,5 +1,6 @@
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import TextEmbeddingService, {
+    getEmbeddingModel,
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
@@ -22,7 +23,18 @@ import DestructiveOperationGuard                                       from '../
 import {computeCorpusFingerprint, decideResume, selectResumableChunks} from './helpers/resumableEmbedding.mjs';
 import {clearResumeState, readResumeState, writeResumeState}           from './helpers/kbEmbeddingResumeStore.mjs';
 import KBRecorderService                                               from './KBRecorderService.mjs';
-import {KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN}                         from './helpers/embedFailureClassification.mjs';
+import {
+    clearEmbeddingPoisonState,
+    createEmbeddingGenerationId,
+    createEmbeddingPoisonScopeId,
+    readEmbeddingPoisonState,
+    upsertEmbeddingPoisonEntries
+}                                                                     from './helpers/kbEmbeddingPoisonStore.mjs';
+import {
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    classifyEmbedFailureError,
+    classifyEmbedResidencyDisposition
+}                                                                     from './helpers/embedFailureClassification.mjs';
 
 /**
  * @summary Flattens one chunk into Chroma-storable scalar metadata.
@@ -43,9 +55,10 @@ function buildChunkMetadata(chunk) {
     return metadata
 }
 
-const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
-const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
-const STALE_STRATEGY_SKIP   = 'skip';
+const TENANT_GUARDED_FIELDS             = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
+const STALE_STRATEGIES                  = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
+const STALE_STRATEGY_SKIP               = 'skip';
+const EMBEDDING_POISON_STRATEGY_VERSION = 'kb-embedding-input-v1';
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.
@@ -359,6 +372,41 @@ class VectorService extends Base {
     }
 
     /**
+     * @summary Resolves the exact embedding-generation coordinate used by the poison retry fence.
+     *
+     * Provider selection remains owned by `TextEmbeddingService`; this method reads the same resolved
+     * AiConfig leaves at the disposition boundary so a provider, model, vector-schema, or input-strategy
+     * change invalidates prior poison evidence instead of silently suppressing work under a new route.
+     *
+     * @returns {{provider: String, model: String, vectorDimension: Number, strategyVersion: String}}
+     */
+    resolveEmbeddingPoisonGeneration() {
+        const provider = mcConfig.embeddingProvider;
+
+        return {
+            provider,
+            model          : getEmbeddingModel(provider),
+            vectorDimension: Number(aiConfig.vectorDimension),
+            strategyVersion: EMBEDDING_POISON_STRATEGY_VERSION
+        }
+    }
+
+    /**
+     * @summary Resolves one tenant/repository poison scope and active generation hash.
+     * @param {Object} tenantStamp Server-derived tenant/repository stamp.
+     * @returns {{scopeId: String, generationId: String}}
+     */
+    resolveEmbeddingPoisonCoordinates(tenantStamp) {
+        return {
+            scopeId: createEmbeddingPoisonScopeId({
+                tenantId: tenantStamp.tenantId,
+                repoSlug: tenantStamp.repoSlug
+            }),
+            generationId: createEmbeddingGenerationId(this.resolveEmbeddingPoisonGeneration())
+        }
+    }
+
+    /**
      * Builds the provider input string used by the embedding guardrail and provider call.
      *
      * @param {Object} chunk Parsed knowledge chunk.
@@ -654,6 +702,254 @@ class VectorService extends Base {
     }
 
     /**
+     * @summary Whether an embedding failure forbids poison isolation.
+     *
+     * These terminals say nothing about content. A timeout may leave provider work running, an
+     * abort/circuit refusal deliberately ended admission, and a cooperative yield transfers the
+     * lane. None may trigger exploratory provider calls.
+     *
+     * @param {*} error Provider failure.
+     * @param {AbortSignal} [signal] Active run signal.
+     * @returns {Boolean}
+     */
+    isPoisonIsolationForbidden(error, signal) {
+        if (signal?.aborted === true) return true;
+
+        const visited = new Set();
+        let   current = error;
+
+        for (let depth = 0; depth < 4 && current && typeof current === 'object' && !visited.has(current); depth++) {
+            visited.add(current);
+
+            if (isEmbeddingBatchYieldError(current) || current.name === 'AbortError' ||
+                current.code === 'ABORT_ERR' || current.code === KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN ||
+                current.code === PROVIDER_TIMEOUT_CODE ||
+                current.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
+                current.code === 'ETIMEDOUT' || current.code === 'ESOCKETTIMEDOUT') {
+                return true
+            }
+
+            current = current.cause
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Issues one isolation-scoped provider request without changing routing semantics.
+     * @param {Object[]} inputs Array of `{chunk, text}` inputs.
+     * @param {Function} shouldYield Cooperative yield predicate.
+     * @param {AbortSignal} [signal] Shared provider-circuit signal.
+     * @param {Function} [onProviderTimeout] Provider-timeout callback.
+     * @returns {Promise<Array<Array<Number>>>}
+     */
+    generateIsolationEmbeddings({inputs, shouldYield, signal, onProviderTimeout}) {
+        return TextEmbeddingService.embedTexts(
+            inputs.map(input => input.text),
+            mcConfig.embeddingProvider,
+            {
+                operationLabel          : 'knowledge base tenant ingestion poison isolation',
+                operationStage          : 'kb-tenant-ingestion-embedding',
+                providerActivityRecorder: KBRecorderService,
+                service                 : 'knowledge-base',
+                shouldYield,
+                signal,
+                onProviderTimeout
+            }
+        )
+    }
+
+    /**
+     * @summary Persists already-produced isolation embeddings against their exact input ids.
+     * @param {Object} collection Chroma collection.
+     * @param {Object[]} inputs Array of `{chunk, text}` inputs.
+     * @param {Array<Array<Number>>} embeddings Provider output.
+     * @returns {Promise<void>}
+     */
+    async persistIsolationEmbeddings({collection, inputs, embeddings}) {
+        if (!Array.isArray(embeddings) || embeddings.length !== inputs.length) {
+            throw new Error(`Poison isolation received ${embeddings?.length ?? 0} embedding(s) for ${inputs.length} input(s).`)
+        }
+
+        await collection.upsert({
+            ids      : inputs.map(input => input.chunk.id),
+            embeddings,
+            metadatas: inputs.map(input => buildChunkMetadata(input.chunk))
+        })
+    }
+
+    /**
+     * @summary Finds one bounded control outside the failed/poison set from the full current corpus.
+     * @param {Object} options
+     * @returns {Object|null} An embeddable `{chunk, text}` control, or null when no later evidence exists.
+     */
+    findPoisonIsolationControl({controlCandidates, startIndex, guardrail, excludedIds}) {
+        for (let index = startIndex; index < controlCandidates.length; index++) {
+            const candidate = controlCandidates[index];
+            const chunk     = candidate.chunk;
+
+            if (excludedIds.has(chunk.id)) continue;
+
+            const text       = this.buildEmbeddingInputText(chunk),
+                  evaluation = this.evaluateEmbeddingInput({chunk, text, guardrail});
+
+            if (!evaluation.skip) return {chunk, text, alreadyLanded: candidate.alreadyLanded === true}
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Isolates content-dependent failures in the first batch under a dead-provider ceiling.
+     *
+     * The independent control is offered first. If it fails, the provider-wide control costs exactly one
+     * extra request and the corpus is not walked. Once it succeeds, the failed batch is bisected.
+     * Every failing singleton is paired with a fresh success from that same control before it is
+     * called poison; a provider that dies during isolation therefore aborts instead of quarantining
+     * the remainder. Successful subsets are persisted immediately and the later control id is marked
+     * so the ordinary loop does not buy it again.
+     *
+     * @param {Object} options
+     * @returns {Promise<{embedded: Number, poisonEntries: Object[], unproved: Boolean}>}
+     */
+    async isolateFirstFailedBatch({
+        collection,
+        failedInputs,
+        controlCandidates,
+        controlStartIndex,
+        guardrail,
+        excludedIds,
+        preEmbeddedIds,
+        shouldYield,
+        signal,
+        onProviderTimeout,
+        reasonCode,
+        now = Date.now
+    }) {
+        const control = this.findPoisonIsolationControl({
+            controlCandidates,
+            startIndex: controlStartIndex,
+            guardrail,
+            excludedIds
+        });
+
+        if (!control) return {embedded: 0, poisonEntries: [], unproved: true}
+
+        const controlEmbeddings = await this.generateIsolationEmbeddings({
+            inputs: [control], shouldYield, signal, onProviderTimeout
+        });
+        const controlAlreadyLanded = control.alreadyLanded === true;
+
+        let   embedded      = 0;
+        const poisonEntries = [];
+
+        const createPoisonEntry = (chunkId, error) => ({
+            chunkId,
+            reasonCode: error === undefined ? reasonCode : classifyEmbedFailureError(error),
+            observedAt: new Date(now()).toISOString()
+        });
+
+        const isolate = async inputs => {
+            let embeddings;
+
+            try {
+                embeddings = await this.generateIsolationEmbeddings({
+                    inputs, shouldYield, signal, onProviderTimeout
+                });
+            } catch (error) {
+                if (this.isPoisonIsolationForbidden(error, signal)) throw error;
+
+                if (inputs.length > 1) {
+                    const middle = Math.ceil(inputs.length / 2);
+                    await isolate(inputs.slice(0, middle));
+                    await isolate(inputs.slice(middle));
+                    return
+                }
+
+                // Paired evidence at the decision boundary. The earlier control success is not enough:
+                // a provider can die during the split walk, and quarantining everything after that point
+                // would turn a transient outage into durable content loss.
+                await this.generateIsolationEmbeddings({
+                    inputs: [control], shouldYield, signal, onProviderTimeout
+                });
+
+                let candidateRetry;
+
+                try {
+                    candidateRetry = await this.generateIsolationEmbeddings({
+                        inputs, shouldYield, signal, onProviderTimeout
+                    });
+                } catch (candidateRetryError) {
+                    if (this.isPoisonIsolationForbidden(candidateRetryError, signal)) throw candidateRetryError;
+                    poisonEntries.push(createPoisonEntry(inputs[0].chunk.id, candidateRetryError));
+                    return
+                }
+
+                await this.persistIsolationEmbeddings({collection, inputs, embeddings: candidateRetry});
+                preEmbeddedIds.add(inputs[0].chunk.id);
+                embedded++;
+                return
+            }
+
+            // Persistence is intentionally outside the provider-failure catch. A Chroma write error
+            // proves nothing about content and must never be bisected into a poison disposition.
+            await this.persistIsolationEmbeddings({collection, inputs, embeddings});
+            inputs.forEach(input => preEmbeddedIds.add(input.chunk.id));
+            embedded += inputs.length;
+        };
+
+        if (failedInputs.length === 1) {
+            let candidateRetry;
+
+            try {
+                candidateRetry = await this.generateIsolationEmbeddings({
+                    inputs: failedInputs, shouldYield, signal, onProviderTimeout
+                });
+            } catch (candidateRetryError) {
+                if (this.isPoisonIsolationForbidden(candidateRetryError, signal)) throw candidateRetryError;
+                poisonEntries.push(createPoisonEntry(failedInputs[0].chunk.id, candidateRetryError));
+            }
+
+            if (candidateRetry) {
+                await this.persistIsolationEmbeddings({collection, inputs: failedInputs, embeddings: candidateRetry});
+                preEmbeddedIds.add(failedInputs[0].chunk.id);
+                embedded++;
+            }
+        } else {
+            const middle = Math.ceil(failedInputs.length / 2);
+            await isolate(failedInputs.slice(0, middle));
+            await isolate(failedInputs.slice(middle));
+        }
+
+        if (!controlAlreadyLanded) {
+            await this.persistIsolationEmbeddings({collection, inputs: [control], embeddings: controlEmbeddings});
+            preEmbeddedIds.add(control.chunk.id);
+            embedded++;
+        }
+
+        return {embedded, poisonEntries, unproved: false}
+    }
+
+    /**
+     * @summary Wraps a zero-progress batch failure without losing its bounded cause/disposition.
+     * @param {Object} options
+     * @returns {Error}
+     */
+    createFirstBatchAbort({batchIndex, maxRetries, lastError}) {
+        const abort = new Error(`Failed to process batch ${batchIndex} after ${maxRetries} retries. Aborting.`);
+
+        abort.cause = lastError;
+
+        const residencyDisposition = classifyEmbedResidencyDisposition(lastError);
+
+        if (residencyDisposition) {
+            abort.residencyDisposition = residencyDisposition;
+        }
+
+        return abort
+    }
+
+    /**
      * @summary Embeds a set of chunks into the provided Chroma collection.
      *
      * @param {Object}   options
@@ -671,18 +967,43 @@ class VectorService extends Base {
      *     Per-chunk consultation caps the interval at one chunk's worst case.
      * @param {AbortSignal} [options.signal] Shared tenant-sweep provider circuit signal.
      * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
-     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[]}>}
+     * @param {Object[]} [options.knownPoisonEntries] Validated current-generation poison rows.
+     * @param {Object[]} [options.controlCandidates] Full current corpus with landed-state evidence.
+     * @param {Function} [options.onPoisonEntries] Durable writer for newly proven poison rows.
+     * @param {Function} [options.now] Clock seam for bounded poison receipts.
+     * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[]}>}
      *     `failedBatches` carries `{batchIndex, chunkIds, reason}` for every batch that exhausted its retries
      *     while other batches were succeeding. Such a batch is skipped rather than aborting the sweep, because
      *     aborting strands every later batch permanently — see the rationale at the exhaustion branch. A sweep
-     *     in which NOTHING embedded still throws: that is a provider outage, not poisoned content.
+     *     with no earlier provider progress enters bounded paired isolation for non-terminal failures; an
+     *     unavailable control or provider-wide control failure still throws rather than laundering outage as poison.
      * @throws {Error} The original provider error when a provider-phase attempt returns a timeout-class code.
      *     The whole sweep ends after that one offer so the outer scheduler owns the later attempt; already-landed
      *     chunks remain the durable resume boundary.
      */
-    async embedChunks({collection, chunksToProcess, shouldYield = () => false, signal, onProviderTimeout}) {
+    async embedChunks({
+        collection,
+        chunksToProcess,
+        shouldYield = () => false,
+        signal,
+        onProviderTimeout,
+        knownPoisonEntries = [],
+        controlCandidates = chunksToProcess.map(chunk => ({chunk, alreadyLanded: false})),
+        onPoisonEntries,
+        now = Date.now
+    }) {
         if (chunksToProcess.length === 0) {
-            return {embedded: 0, skipped: 0, yielded: false};
+            if (knownPoisonEntries.length === 0) {
+                return {embedded: 0, skipped: 0, yielded: false}
+            }
+
+            return {
+                embedded      : 0,
+                skipped       : 0,
+                yielded       : false,
+                failedBatches : [],
+                poisonedChunks: knownPoisonEntries.map(entry => ({...entry}))
+            };
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
@@ -691,6 +1012,9 @@ class VectorService extends Base {
         const {batchSize, batchDelay, maxRetries} = aiConfig;
         const guardrail                           = this.resolveEmbeddingGuardrail();
         const failedBatches                       = [];
+        const poisonedChunks                      = knownPoisonEntries.map(entry => ({...entry}));
+        const poisonIds                           = new Set(poisonedChunks.map(entry => entry.chunkId));
+        const preEmbeddedIds                      = new Set();
         let   embeddedCount                       = 0;
         let   skippedCount                        = 0;
         let   yielded                             = false;
@@ -712,7 +1036,11 @@ class VectorService extends Base {
                 await this.timeout(batchDelay);
             }
 
-            const batch       = chunksToProcess.slice(i, i + batchSize);
+            const batch = chunksToProcess.slice(i, i + batchSize)
+                .filter(chunk => !poisonIds.has(chunk.id) && !preEmbeddedIds.has(chunk.id));
+
+            if (batch.length === 0) continue;
+
             const batchInputs = batch.map(chunk => ({
                 chunk,
                 text: this.buildEmbeddingInputText(chunk)
@@ -868,37 +1196,88 @@ class VectorService extends Base {
             // same chunk every time never advances"); this arm had no equivalent. Same loop, same hazard, one
             // guarantee.
             //
-            // What separates a poisoned batch from a dead provider is already in hand: whether ANY batch has
-            // embedded this sweep. Deriving it needs no config leaf and no threshold nobody could defend.
+            // Prior success remains the continuation signal for later batches. Batch 1 is different: it has
+            // no earlier success by construction, so the only safe route is a bounded paired control. The
+            // control is offered before any split; if it fails, the provider-wide case stops at a fixed ceiling.
             if (!success && !yielded) {
+                if (embeddedCount === 0) {
+                    const abort = this.createFirstBatchAbort({
+                        batchIndex: i / batchSize + 1,
+                        maxRetries,
+                        lastError
+                    });
+
+                    // A non-null embedding payload means the provider succeeded and persistence
+                    // exhausted its retries. Storage failure is never content evidence.
+                    if (embeddings !== null) throw abort;
+
+                    if (this.isPoisonIsolationForbidden(lastError, signal)) throw abort;
+
+                    // A lease handoff is never evidence about content. It is checked before the first
+                    // isolation dispatch so the cooperative-yield path retains its dispatch ceiling.
+                    if (shouldYield()) {
+                        yielded = true;
+                        break
+                    }
+
+                    const excludedIds = new Set([
+                        ...poisonIds,
+                        ...preEmbeddedIds,
+                        ...batchToEmbed.map(chunk => chunk.id)
+                    ]);
+                    let isolation;
+
+                    try {
+                        isolation = await this.isolateFirstFailedBatch({
+                            collection,
+                            failedInputs     : embeddable,
+                            controlCandidates,
+                            controlStartIndex: 0,
+                            guardrail,
+                            excludedIds,
+                            preEmbeddedIds,
+                            shouldYield,
+                            signal,
+                            onProviderTimeout,
+                            reasonCode       : classifyEmbedFailureError(lastError),
+                            now
+                        });
+                    } catch (isolationError) {
+                        throw this.createFirstBatchAbort({
+                            batchIndex: i / batchSize + 1,
+                            maxRetries,
+                            lastError : isolationError
+                        })
+                    }
+
+                    if (isolation.unproved) throw abort;
+
+                    if (isolation.poisonEntries.length > 0) {
+                        if (typeof onPoisonEntries !== 'function') {
+                            throw new Error('VectorService.embedChunks: a durable poison-state writer is required before poison evidence can be returned.')
+                        }
+
+                        // The marker is the retry fence. If its durable write fails, fail the run even though
+                        // some isolation vectors may already have landed: reporting a partial success without
+                        // the fence would re-buy the same poison indefinitely on later sweeps.
+                        await onPoisonEntries(isolation.poisonEntries.map(entry => ({...entry})));
+
+                        for (const entry of isolation.poisonEntries) {
+                            poisonIds.add(entry.chunkId);
+                            poisonedChunks.push({...entry});
+                        }
+                    }
+
+                    embeddedCount += isolation.embedded;
+                    logger.warn(`[VectorService] First embedding batch was isolated with bounded paired evidence: ${isolation.embedded} recoverable chunk(s) landed and ${isolation.poisonEntries.length} proven poison chunk(s) were fenced.`);
+                    continue
+                }
+
                 failedBatches.push({
                     batchIndex: i / batchSize + 1,
                     chunkIds  : batchToEmbed.map(chunk => chunk.id),
                     reason    : lastError?.message || 'unknown embedding failure'
                 });
-
-                // Nothing has embedded at all: the provider is down, not the content poisoned. Stop, and stop
-                // by throwing — the caller records the failure from the throw, so continuing silently would
-                // turn a total outage into a success-shaped receipt with zero rows. Preserved verbatim because
-                // it is the correct behaviour for this case: walking the rest of the corpus would spend
-                // `remainingBatches * maxRetries * timeout` proving what the first batch already proved.
-                if (embeddedCount === 0) {
-                    const abort = new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
-
-                    // A fresh Error here used to discard everything the provider had already worked out
-                    // about WHY, one hop before the receipt an operator reads. The message survived and
-                    // the classification did not, so a diagnosed outage arrived anonymous — the better
-                    // the diagnosis upstream, the more this hop threw away.
-                    abort.cause = lastError;
-
-                    // Carried only when observed. Absent stays absent: an unclassified failure must not
-                    // acquire a classification by passing through here.
-                    if (lastError?.residencyDisposition) {
-                        abort.residencyDisposition = lastError.residencyDisposition;
-                    }
-
-                    throw abort;
-                }
 
                 // At least one batch has landed, so continuing is worth attempting. This is a CONTINUATION
                 // POLICY, not a diagnosis: an earlier success does not prove the batch is at fault — a
@@ -915,7 +1294,7 @@ class VectorService extends Base {
             if (yielded) break;
         }
 
-        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches};
+        return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches, poisonedChunks};
     }
 
     /**
@@ -949,17 +1328,27 @@ class VectorService extends Base {
      * @param {Function} [options.onProviderTimeout] Synchronous native-provider timeout hook.
      * @returns {Promise<Object>} Embedding result (carries `yielded: true` when the lease was cooperatively released).
      */
-    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount, shouldYield = () => false, signal, onProviderTimeout}) {
+    async embedViaShadowSwap({
+        liveCollection,
+        knowledgeBase,
+        idsToDeleteCount,
+        shouldYield = () => false,
+        signal,
+        onProviderTimeout,
+        knownPoisonEntries = [],
+        onPoisonEntries
+    }) {
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
         const resumeState = await readResumeState({dir: stateDir});
         const decision    = decideResume({resumeState, currentFingerprint: fingerprint});
 
-        let shadowCollection = null;
-        let shadowName       = null;
-        let chunksToEmbed    = knowledgeBase;
-        let attempts         = 1;
-        let alreadyEmbedded  = 0;
+        let shadowCollection  = null;
+        let shadowName        = null;
+        let chunksToEmbed     = knowledgeBase;
+        let attempts          = 1;
+        let alreadyEmbedded   = 0;
+        let shadowExistingIds = new Set();
 
         // Resume into the preserved shadow (it holds the completed batches), skipping already-embedded chunks.
         if (decision.resume) {
@@ -968,7 +1357,8 @@ class VectorService extends Base {
                 attempts         = decision.attempts;
                 shadowCollection = await ChromaManager.client.getCollection({name: shadowName, embeddingFunction: aiConfig.dummyEmbeddingFunction});
 
-                const selection = selectResumableChunks({chunks: knowledgeBase, existingIds: await this.readCollectionIds(shadowCollection)});
+                shadowExistingIds = await this.readCollectionIds(shadowCollection);
+                const selection = selectResumableChunks({chunks: knowledgeBase, existingIds: shadowExistingIds});
 
                 chunksToEmbed   = selection.remaining;
                 alreadyEmbedded = selection.alreadyEmbedded;
@@ -990,6 +1380,7 @@ class VectorService extends Base {
             attempts        = 1;
             chunksToEmbed   = knowledgeBase;
             alreadyEmbedded = 0;
+            shadowExistingIds = new Set();
             logger.log(`Building shadow knowledge-base collection '${shadowName}' (${decision.reason}).`);
 
             // Write-ahead resume marker: record the shadow BEFORE creating + embedding it, so a non-promoted
@@ -1007,12 +1398,23 @@ class VectorService extends Base {
         let shadowPromoted = false;
 
         try {
+            // The outer read filters markers against the live collection. A resumed shadow has its own
+            // durable target-local truth: if a formerly poisoned id is already present there, the hole is
+            // repaired for this transaction and must not keep blocking promotion.
+            const unresolvedPoisonEntries = knownPoisonEntries
+                .filter(entry => !shadowExistingIds.has(entry.chunkId));
             const embedResult = await this.embedChunks({
-                collection     : shadowCollection,
-                chunksToProcess: chunksToEmbed,
+                collection        : shadowCollection,
+                chunksToProcess   : chunksToEmbed,
                 shouldYield,
                 signal,
-                onProviderTimeout
+                onProviderTimeout,
+                knownPoisonEntries: unresolvedPoisonEntries,
+                controlCandidates : knowledgeBase.map(chunk => ({
+                    chunk,
+                    alreadyLanded: shadowExistingIds.has(chunk.id)
+                })),
+                onPoisonEntries
             });
 
             if (embedResult.yielded) {
@@ -1029,7 +1431,8 @@ class VectorService extends Base {
                     deleted         : idsToDeleteCount,
                     staleStrategy   : 'shadow-swap',
                     yielded         : true,
-                    shadowCollection: shadowName
+                    shadowCollection: shadowName,
+                    poisonedChunks  : embedResult.poisonedChunks || []
                 };
             }
 
@@ -1051,6 +1454,20 @@ class VectorService extends Base {
             // so the live corpus is untouched.
             if (embedResult.failedBatches?.length > 0) {
                 throw new Error(`KB_EMBEDDING_BATCH_FAILED: shadow-swap refused to promote an incomplete corpus after ${embedResult.failedBatches.length} batch(es) exhausted their retries.`);
+            }
+
+            if (embedResult.poisonedChunks?.length > 0) {
+                const message = `Shadow-swap preserved without promotion; ${embedResult.poisonedChunks.length} proven poison chunk(s) remain fenced for explicit replay or changed content.`;
+
+                logger.warn(`[VectorService] ${message}`);
+                return {
+                    message,
+                    embedded        : embedResult.embedded + alreadyEmbedded,
+                    deleted         : idsToDeleteCount,
+                    staleStrategy   : 'shadow-swap',
+                    shadowCollection: shadowName,
+                    poisonedChunks  : embedResult.poisonedChunks.map(entry => ({...entry}))
+                }
             }
 
             logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
@@ -1223,6 +1640,8 @@ class VectorService extends Base {
      *                                             never yields, so non-lease-held callers are unaffected.
      * @param {AbortSignal} [opts.signal]          Shared tenant-sweep provider circuit signal.
      * @param {Function} [opts.onProviderTimeout]  Synchronous native-provider timeout hook.
+     * @param {Boolean} [opts.replayEmbeddingPoison=false] Explicit operator replay clears the
+     *                                             tenant/repository poison fence before diffing.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
@@ -1233,7 +1652,8 @@ class VectorService extends Base {
         staleStrategy,
         shouldYield = () => false,
         signal,
-        onProviderTimeout
+        onProviderTimeout,
+        replayEmbeddingPoison = false
     } = {}) {
         logger.log('Starting knowledge base embedding...');
         const resolvedStaleStrategy = this.resolveStaleStrategy({staleStrategy, deleteStale});
@@ -1253,6 +1673,18 @@ class VectorService extends Base {
 
         const tenantStamp           = this.resolveTenantStamp(tenantContext);
         const expandedKnowledgeBase = this.expandOversizedEmbeddingChunks(knowledgeBase);
+        const poisonStateDir        = this.getResumeStateDir();
+        const poisonCoordinates     = this.resolveEmbeddingPoisonCoordinates(tenantStamp);
+
+        if (replayEmbeddingPoison) {
+            await clearEmbeddingPoisonState({dir: poisonStateDir, scopeId: poisonCoordinates.scopeId});
+        }
+
+        const poisonState = await readEmbeddingPoisonState({
+            dir         : poisonStateDir,
+            scopeId     : poisonCoordinates.scopeId,
+            generationId: poisonCoordinates.generationId
+        });
 
         for (let i = 0; i < expandedKnowledgeBase.length; i++) {
             expandedKnowledgeBase[i] = this.applyTenantStamp(expandedKnowledgeBase[i], tenantStamp);
@@ -1328,18 +1760,32 @@ class VectorService extends Base {
 
         logger.log(`Found ${existingIds.size} existing documents in this corpus.`);
 
+        const allIds             = new Set(expandedKnowledgeBase.map(chunk => chunk.id));
+        const knownPoisonEntries = poisonState.status === 'available'
+            ? poisonState.entries.filter(entry => allIds.has(entry.chunkId) && !existingIds.has(entry.chunkId))
+            : [];
+        const poisonIds       = new Set(knownPoisonEntries.map(entry => entry.chunkId));
         const chunksToProcess = [];
-        const allIds          = new Set();
         const processedIds    = new Set();
 
         expandedKnowledgeBase.forEach(chunk => {
             const chunkId = chunk.id;
-            allIds.add(chunkId);
 
-            if (!existingIds.has(chunkId) && !processedIds.has(chunkId)) {
+            if (!existingIds.has(chunkId) && !poisonIds.has(chunkId) && !processedIds.has(chunkId)) {
                 chunksToProcess.push(chunk);
                 processedIds.add(chunkId);
             }
+        });
+
+        const controlCandidates = expandedKnowledgeBase.map(chunk => ({
+            chunk,
+            alreadyLanded: existingIds.has(chunk.id)
+        }));
+        const persistPoisonEntries = entries => upsertEmbeddingPoisonEntries({
+            dir         : poisonStateDir,
+            scopeId     : poisonCoordinates.scopeId,
+            generationId: poisonCoordinates.generationId,
+            entries
         });
 
         // Convert existingIds Set to Array for filtering, as existingDocs object is no longer available
@@ -1391,9 +1837,16 @@ class VectorService extends Base {
         // success-shaped report for the opposite of no change. A delete-bearing pass now falls
         // through to the path below, which deletes and then states the resulting collection size.
         if (!shouldShadowSwap && chunksToProcess.length === 0 && idsToDelete.length === 0) {
-            const message = 'No changes detected. Knowledge base is up to date.';
+            const message = knownPoisonEntries.length > 0
+                ? `No recoverable changes detected; ${knownPoisonEntries.length} proven poison chunk(s) remain fenced for explicit replay or changed content.`
+                : 'No changes detected. Knowledge base is up to date.';
             logger.log(message);
-            return {message, embedded: 0, deleted: 0};
+            return {
+                message,
+                embedded      : 0,
+                deleted       : 0,
+                poisonedChunks: knownPoisonEntries.map(entry => ({...entry}))
+            };
         }
 
         if (shouldShadowSwap) {
@@ -1403,7 +1856,9 @@ class VectorService extends Base {
                 idsToDeleteCount: idsToDelete.length,
                 shouldYield,
                 signal,
-                onProviderTimeout
+                onProviderTimeout,
+                knownPoisonEntries,
+                onPoisonEntries : persistPoisonEntries
             });
         }
 
@@ -1412,18 +1867,35 @@ class VectorService extends Base {
             logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
-        const embedResult = await this.embedChunks({collection, chunksToProcess, signal, onProviderTimeout});
+        const embedResult = await this.embedChunks({
+            collection,
+            chunksToProcess,
+            signal,
+            onProviderTimeout,
+            knownPoisonEntries,
+            controlCandidates,
+            onPoisonEntries: persistPoisonEntries
+        });
 
-        const count         = await collection.count();
-        const failedBatches = embedResult.failedBatches || [];
-        const message       = failedBatches.length > 0
+        const count          = await collection.count();
+        const failedBatches  = embedResult.failedBatches || [];
+        const poisonedChunks = embedResult.poisonedChunks || [];
+        const message        = failedBatches.length > 0
             ? `Embedding complete with ${failedBatches.length} skipped batch(es). Collection now contains ${count} items.`
+            : poisonedChunks.length > 0
+                ? `Embedding complete with ${poisonedChunks.length} proven poison chunk(s) fenced. Collection now contains ${count} items.`
             : `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
 
         // Surfaced rather than swallowed: a skipped batch is recoverable work that did NOT land, and a caller
         // that cannot see it reports a clean sync over a corpus with a hole in it.
-        return {message, embedded: embedResult.embedded, deleted: idsToDelete.length, failedBatches};
+        return {
+            message,
+            embedded: embedResult.embedded,
+            deleted : idsToDelete.length,
+            failedBatches,
+            poisonedChunks
+        };
     }
 
     /**
