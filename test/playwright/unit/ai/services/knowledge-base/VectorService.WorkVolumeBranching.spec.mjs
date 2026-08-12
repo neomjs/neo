@@ -400,6 +400,73 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         }
     });
 
+    test('#17013 splits a production-sized single line in linear time without breaking Unicode', () => {
+        const
+            ascii              = 'x'.repeat(100_000),
+            astral             = '🧠'.repeat(2_500),
+            source             = ascii + astral,
+            maxBytes           = 100_000,
+            originalByteLength = Buffer.byteLength;
+
+        let durationMs,
+            parts,
+            scannedChars = 0;
+
+        Buffer.byteLength = (value, encoding) => {
+            scannedChars += String(value).length;
+            return originalByteLength(value, encoding)
+        };
+
+        try {
+            const startedAt = performance.now();
+
+            parts      = KB_VectorService.splitLongStringByByteBudget(source, maxBytes);
+            durationMs = performance.now() - startedAt
+        } finally {
+            Buffer.byteLength = originalByteLength
+        }
+
+        expect(durationMs).toBeLessThan(1_000);
+        expect(scannedChars).toBe(source.length);
+        expect(parts.length).toBeGreaterThan(1);
+        expect(parts.join('')).toBe(source);
+        expect(parts.every(part => part.length > 0)).toBe(true);
+        expect(parts.every(part => Buffer.byteLength(part, 'utf8') <= maxBytes)).toBe(true);
+        expect(parts.every(part => !/[\uD800-\uDBFF]$/u.test(part) && !/^[\uDC00-\uDFFF]/u.test(part))).toBe(true);
+    });
+
+    test('#17013 packs many short lines without rescanning the growing output prefix', () => {
+        const
+            source             = Array.from({length: 12_000}, (_, index) => `${index.toString().padStart(5, '0')}:${'y'.repeat(24)}\n`).join(''),
+            maxBytes           = 100_000,
+            originalByteLength = Buffer.byteLength;
+
+        let durationMs,
+            parts,
+            scannedChars = 0;
+
+        Buffer.byteLength = (value, encoding) => {
+            scannedChars += String(value).length;
+            return originalByteLength(value, encoding)
+        };
+
+        try {
+            const startedAt = performance.now();
+
+            parts      = KB_VectorService.splitTextByByteBudget(source, maxBytes);
+            durationMs = performance.now() - startedAt
+        } finally {
+            Buffer.byteLength = originalByteLength
+        }
+
+        expect(durationMs).toBeLessThan(1_000);
+        expect(scannedChars).toBe(source.length * 2);
+        expect(parts.length).toBeGreaterThan(1);
+        expect(parts.join('')).toBe(source);
+        expect(parts.every(part => part.length > 0)).toBe(true);
+        expect(parts.every(part => Buffer.byteLength(part, 'utf8') <= maxBytes)).toBe(true);
+    });
+
     test('does not apply local-model input caps to non-local embedding providers', async () => {
         Memory_Config.data.embeddingProvider                            = 'gemini';
         KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
