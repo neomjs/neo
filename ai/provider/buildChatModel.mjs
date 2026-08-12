@@ -92,7 +92,15 @@ function toGeminiEnvelope(result) {
  * @param {Function} [options.ollamaProviderFactory] Test seam — if omitted, lazily imports `./Ollama.mjs` and calls `Neo.create(...)`.
  * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — if omitted, lazily imports `./OpenAiCompatible.mjs` and calls `Neo.create(...)`.
  * @param {Function} [options.geminiClientFactory] Test seam — if omitted, lazily imports `@google/generative-ai` on first `generateContent()`.
- * @param {InteractiveBatchQueue} [options.chatRequestQueue] Test seam — the serializing queue the local providers route through; defaults to the process-wide {@link sharedLocalChatRequestQueue}.
+ * @param {InteractiveBatchQueue} [options.chatRequestQueue] The admission queue the local providers
+ * route through; defaults to the process-wide {@link sharedLocalChatRequestQueue}. A PRODUCTION
+ * injection point, not only a test seam: a consumer with its OWN serving endpoint passes its own
+ * queue so its parallelism is configurable without handing concurrency to every other local chat
+ * consumer in the process. The queue arrives already constructed because its capacity comes from that
+ * consumer's config, and this module must neither receive config values second-hand nor read
+ * `AiConfig` itself. Per ADR 0019 B5 + C1 (ticket-ref-ok: the ADR clauses are the authority for why
+ * the queue arrives constructed instead of as a capacity number — a maintainer "simplifying" this
+ * into a threaded parameter would violate the zero-tolerance C1 rule, so the rule has to be named).
  * @param {Object} [options.providerActivityRecorder] Best-effort bounded provider telemetry sink.
  * @param {String} [options.providerActivityService='unknown'] Stable service owner for emitted activity.
  * @returns {Object|null} Gemini-shaped `{generateContent}` model, OR `null` for gemini without an API key.

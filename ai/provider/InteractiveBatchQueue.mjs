@@ -1,14 +1,22 @@
 /**
- * @summary A single-lane request scheduler that runs async tasks one at a time, preferring
- * interactive work over batch work.
+ * @summary A bounded-lane request scheduler that admits up to `capacity` tasks at a time (default
+ * one), preferring interactive work over batch work.
  *
  * Local chat/embedding endpoints (LM Studio, `lms server`, Ollama, llama.cpp, MLX) serialize
  * model requests, so a long-running batch task — a 30-60m session-summary or a KB backfill — can
  * monopolize the endpoint and stall a latency-sensitive interactive request (an `ask` synthesis,
- * or the mini-summary fired right after `add_memory`). This queue admits one task at a time and,
+ * or the mini-summary fired right after `add_memory`). This queue bounds admission and,
  * whenever it picks the next task, prefers any waiting `interactive` task over `batch` work — so
  * interactive requests jump ahead of queued batch work without starving it (a batch task still
  * runs once no interactive work is waiting). Within a single priority lane, selection is FIFO.
+ *
+ * **`capacity` defaults to 1, which is the original single-lane behaviour exactly.** A capacity
+ * above one exists for a consumer with its OWN serving endpoint: when `ask` synthesis is bound to a
+ * dedicated endpoint, two asks arriving seconds apart must both be served, and a single-lane queue
+ * serializes them no matter how much idle capacity that endpoint has — the bound is admission, not
+ * the endpoint. Raising capacity against a SHARED endpoint would merely move contention downstream
+ * into the model server, which is why the default stays 1 and the capacity travels with the
+ * dedicated instance rather than the shared one.
  *
  * It controls admission ORDER, not in-flight cancellation: a local endpoint request is
  * non-preemptible, so an already-running task always finishes; the queue only decides which
@@ -31,11 +39,19 @@ export default class InteractiveBatchQueue {
      */
     #queue = [];
     /**
-     * Whether the drain loop is currently running (guards against concurrent drains).
-     * @member {Boolean} #active=false
+     * How many tasks are executing right now. A COUNTER rather than a boolean: the boolean it
+     * replaced could only express "a lane is busy", which cannot represent a freed slot among
+     * several.
+     * @member {Number} #running=0
      * @private
      */
-    #active = false;
+    #running = 0;
+    /**
+     * Maximum tasks admitted concurrently. `1` reproduces the original single-lane scheduler.
+     * @member {Number} #capacity=1
+     * @private
+     */
+    #capacity = 1;
     /**
      * Injectable monotonic-enough wall clock for deterministic lifecycle receipts.
      * @member {Function} #now=Date.now
@@ -44,16 +60,34 @@ export default class InteractiveBatchQueue {
     #now = Date.now;
 
     /**
-     * @summary Creates an isolated queue with an optional deterministic clock seam.
+     * @summary Creates an isolated queue with an optional deterministic clock seam and admission bound.
      * @param {Object} [options]
      * @param {Function} [options.now=Date.now] Timestamp provider.
+     * @param {Number} [options.capacity=1] Maximum concurrently admitted tasks. Validated eagerly:
+     * a `0`, negative, fractional or non-numeric capacity would silently stall the lane forever or
+     * admit unbounded work, and a scheduler that never runs a task is indistinguishable from a hung
+     * provider from the caller's side.
      */
-    constructor({now = Date.now} = {}) {
+    constructor({now = Date.now, capacity = 1} = {}) {
         if (typeof now !== 'function') {
             throw new TypeError('InteractiveBatchQueue: options.now must be a function');
         }
 
-        this.#now = now;
+        if (!Number.isInteger(capacity) || capacity < 1) {
+            throw new TypeError(`InteractiveBatchQueue: options.capacity must be an integer >= 1, got ${capacity}`);
+        }
+
+        this.#now      = now;
+        this.#capacity = capacity;
+    }
+
+    /**
+     * @summary The configured admission bound, for observability and assertions.
+     * @member {Number} capacity
+     * @readonly
+     */
+    get capacity() {
+        return this.#capacity
     }
 
     /**
@@ -75,62 +109,76 @@ export default class InteractiveBatchQueue {
     }
 
     /**
-     * @summary Drains the queue one task at a time, selecting interactive work first. A throwing
-     * task rejects its own promise without aborting the loop.
+     * @summary Fills every free slot, selecting interactive work first.
+     *
+     * SYNCHRONOUS on purpose. Two `enqueue` calls arriving in the same tick must both be admitted
+     * when capacity allows, so slot-filling cannot sit behind an `await` — an async gap here would
+     * let the first task's dispatch delay the second, reintroducing the serialization this bound
+     * exists to remove while still reporting a capacity above one.
+     * @returns {void}
+     * @private
+     */
+    #drain() {
+        while (this.#running < this.#capacity && this.#queue.length > 0) {
+            this.#runNext()
+        }
+    }
+
+    /**
+     * @summary Admits and executes one task, then re-drains so a freed slot pulls the next waiting
+     * task. A throwing task rejects its own promise and always releases its slot.
+     *
+     * The next task is selected when a slot FREES, not when the queue was built, which is what keeps
+     * the documented contract — "whenever it picks the next task, prefers any waiting interactive
+     * task" — true under capacity above one.
      * @returns {Promise<void>}
      * @private
      */
-    async #drain() {
-        if (this.#active) {
-            return
-        }
+    async #runNext() {
+        const index = this.#nextIndex(),
+              item  = this.#queue.splice(index, 1)[0];
 
-        this.#active = true;
+        this.#running++;
+
+        const startedAt = this.#now();
+
+        this.#notify(item.lifecycle, 'onStarted', {
+            enqueuedAt : item.enqueuedAt,
+            priority   : item.priority,
+            queueWaitMs: Math.max(0, startedAt - item.enqueuedAt),
+            startedAt
+        });
 
         try {
-            while (this.#queue.length > 0) {
-                const index = this.#nextIndex(),
-                      item  = this.#queue.splice(index, 1)[0];
+            const result      = await item.task(),
+                  completedAt = this.#now();
 
-                const startedAt = this.#now();
+            this.#notify(item.lifecycle, 'onSettled', {
+                completedAt,
+                enqueuedAt : item.enqueuedAt,
+                executionMs: Math.max(0, completedAt - startedAt),
+                priority   : item.priority,
+                startedAt,
+                success    : true
+            });
+            item.resolve(result)
+        } catch (error) {
+            const completedAt = this.#now();
 
-                this.#notify(item.lifecycle, 'onStarted', {
-                    enqueuedAt : item.enqueuedAt,
-                    priority   : item.priority,
-                    queueWaitMs: Math.max(0, startedAt - item.enqueuedAt),
-                    startedAt
-                });
-
-                try {
-                    const result      = await item.task(),
-                          completedAt = this.#now();
-
-                    this.#notify(item.lifecycle, 'onSettled', {
-                        completedAt,
-                        enqueuedAt : item.enqueuedAt,
-                        executionMs: Math.max(0, completedAt - startedAt),
-                        priority   : item.priority,
-                        startedAt,
-                        success    : true
-                    });
-                    item.resolve(result)
-                } catch (error) {
-                    const completedAt = this.#now();
-
-                    this.#notify(item.lifecycle, 'onSettled', {
-                        completedAt,
-                        enqueuedAt : item.enqueuedAt,
-                        error,
-                        executionMs: Math.max(0, completedAt - startedAt),
-                        priority   : item.priority,
-                        startedAt,
-                        success    : false
-                    });
-                    item.reject(error)
-                }
-            }
+            this.#notify(item.lifecycle, 'onSettled', {
+                completedAt,
+                enqueuedAt : item.enqueuedAt,
+                error,
+                executionMs: Math.max(0, completedAt - startedAt),
+                priority   : item.priority,
+                startedAt,
+                success    : false
+            });
+            item.reject(error)
         } finally {
-            this.#active = false
+            // Release BEFORE re-draining, or the freed slot is invisible to the drain it triggers.
+            this.#running--;
+            this.#drain()
         }
     }
 

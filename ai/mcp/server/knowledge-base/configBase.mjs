@@ -339,7 +339,30 @@ class ConfigBase extends ConfigProvider {
                  * stale overlay can cause.
                  * @type {number}
                  */
-                contextMaxCharsPerDocument: leaf(12000, 'NEO_KB_ASK_CONTEXT_MAX_CHARS_PER_DOC', 'number')
+                contextMaxCharsPerDocument: leaf(12000, 'NEO_KB_ASK_CONTEXT_MAX_CHARS_PER_DOC', 'number'),
+                /**
+                 * @summary How many ask syntheses may be in flight at once.
+                 *
+                 * Ask dispatches through a serializing admission queue, so two asks arriving seconds
+                 * apart are served one after the other REGARDLESS of how much idle capacity the
+                 * serving endpoint has — the bound is admission, not the endpoint. Provisioning more
+                 * serving capacity without raising this leaves idle replicas behind a queued second
+                 * ask, and the symptom reads as "the model is slow" rather than "the queue admitted
+                 * one".
+                 *
+                 * `1` is the default and reproduces today's behaviour exactly. Raise it ONLY when ask
+                 * has its own serving endpoint (`baseUrl` above): against a SHARED endpoint, extra
+                 * parallelism moves contention downstream into the model server instead of removing
+                 * it, and it competes with the full-power summarisation lane this separation exists to
+                 * protect.
+                 *
+                 * Size it to the host's real headroom and the number of dev agents, not to an
+                 * aspiration — each in-flight synthesis holds its own context. Absent in an overlay
+                 * predating this leaf resolves to `1`, so an unmigrated clone keeps serializing rather
+                 * than silently acquiring concurrency the host may not survive.
+                 * @type {number}
+                 */
+                maxParallel: leaf(1, 'NEO_KB_ASK_MAX_PARALLEL', 'number')
             },
             /**
              * The path to the generated knowledge base JSONL file.
