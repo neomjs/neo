@@ -256,10 +256,11 @@ services:
       embedding-model:
         condition: service_healthy
 
-  # Disposable benchmark worker (#17024). This service deliberately does not extend any resident
+  # Disposable benchmark worker (#17034; outcome #17024). It deliberately does not extend a resident
   # Agent OS service: Compose inheritance would otherwise carry the orchestrator's Docker socket and
-  # host-backup bind into an evidence process. The controller starts it only via `compose run` under
-  # the dedicated profile, on the internal network, with one read-only candidate receipt mount.
+  # host-backup bind into an evidence process. The service therefore declares no static volumes.
+  # The controller starts it only via `compose run` under the dedicated profile and injects exactly
+  # one validated candidate receipt as a per-run read-only mount on the internal network.
   provider-lane-worker:
     build:
       context: .
