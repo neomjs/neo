@@ -1514,21 +1514,22 @@ class TenantRepoSyncService extends Base {
             globalCadenceMs
         });
 
-        const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
-        const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
+        const resolvedRevisionsPath          = revisionsFilePath || this.defaultRevisionsFilePath();
+        const ingestionService               = knowledgeBaseIngestionService || await this.resolveIngestionService();
         const ingestSourceFilesForTenantSync = typeof ingestionService.ingestSourceFilesForTenantSync === 'function'
             ? (payload, controls) => ingestionService.ingestSourceFilesForTenantSync(payload, controls)
             : (payload, controls) => ingestionService.ingestSourceFiles(payload, controls);
-        const providerTimeoutCircuit = new AbortController();
+        const providerTimeoutCircuit  = new AbortController();
         const providerCircuitControls = {
-            signal           : providerTimeoutCircuit.signal,
+            signal: providerTimeoutCircuit.signal,
+            ...(fullReplay ? {replayEmbeddingPoison: true} : {}),
             onProviderTimeout: () => {
                 if (!providerTimeoutCircuit.signal.aborted) {
                     providerTimeoutCircuit.abort(createProviderTimeoutCircuitError());
                 }
             }
         };
-        const persistedRevisions    = await this.readPersistedRevisions({
+        const persistedRevisions = await this.readPersistedRevisions({
             filePath: resolvedRevisionsPath,
             strict  : true
         });
@@ -2100,7 +2101,14 @@ class TenantRepoSyncService extends Base {
                             repoSlug: repo.repoSlug
                         })
                         : null,
-                    retryReceipt = isMatchingMaterializationReceipt(
+                    declaresNoContent = Array.isArray(envelope.manifestSnapshot?.pathsAfterPush)
+                        && envelope.manifestSnapshot.pathsAfterPush.length === 0,
+                    // A content-bearing full replay must reach VectorService so its explicit replay
+                    // control can clear and re-offer same-generation poison. An authoritative empty
+                    // manifest has no embedding work to suppress, so its uncommitted receipt remains
+                    // the exactly-once recovery proof for a post-ingest checkpoint-write failure.
+                    mustReplayEmbeddingCorpus = fullReplay && !declaresNoContent,
+                    retryReceipt = !mustReplayEmbeddingCorpus && isMatchingMaterializationReceipt(
                         existingManifest?.materializationReceipt,
                         envelopeDigest
                     ) && existingManifest.materializationReceipt.attemptId
