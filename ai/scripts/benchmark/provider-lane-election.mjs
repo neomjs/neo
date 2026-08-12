@@ -18,6 +18,8 @@ import {
 } from './helpers/providerLaneElectionCore.mjs';
 import {writeFileAtomic} from '../../services/shared/atomicFileWrite.mjs';
 
+export const PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION = 'provider-lane-election-report.v1';
+
 const
     execFileAsync = promisify(execFile),
 
@@ -26,7 +28,6 @@ const
     EMBEDDING_SOURCES = Object.freeze(['knowledge-base', 'memory-core', 'orchestrator']),
     LANE_NAMES        = Object.freeze(['chat', 'embedding']),
     PLAN_SCHEMA       = 'provider-lane-election-plan.v1',
-    REPORT_SCHEMA     = 'provider-lane-election-report.v1',
     WORKER_SCHEMA     = 'provider-lane-election-worker.v1',
     WORKER_SENTINEL   = 'NEO_PROVIDER_LANE_WORKER:',
     DIGEST_PATTERN    = /^sha256:[a-f0-9]{64}$/,
@@ -55,15 +56,19 @@ const
         workloadKind : 'ollamaChat'
     }),
     EMBEDDING_ADAPTER = Object.freeze({
-        id              : 'llama-cpp-openai-embeddings-b10380',
-        imageDigest     : 'sha256:9b518883e8faab479650ec802e02c9e37c6bb21d36168509efd8fb3c87fc1648',
-        imageReference  : 'ghcr.io/ggml-org/llama.cpp:server-b10380',
-        lane            : 'embedding',
-        modelDigest     : 'sha256:3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85',
-        provider        : 'openAiCompatible',
-        refusalErrorType: 'exceed_context_size_error',
-        refusalStatus   : 400,
-        workloadKind    : 'openAiEmbeddings'
+        id                               : 'llama-cpp-openai-embeddings-b10380',
+        imageDigest                      : 'sha256:9b518883e8faab479650ec802e02c9e37c6bb21d36168509efd8fb3c87fc1648',
+        imageReference                   : 'ghcr.io/ggml-org/llama.cpp:server-b10380',
+        lane                             : 'embedding',
+        modelDigest                      : 'sha256:3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85',
+        physicalBatchRefusalErrorType    : 'server_error',
+        physicalBatchRefusalMessagePrefix: 'input (',
+        physicalBatchRefusalMessageSuffix: ') is too large to process. increase the physical batch size (current batch size: ',
+        physicalBatchRefusalStatus       : 500,
+        provider                         : 'openAiCompatible',
+        refusalErrorType                 : 'exceed_context_size_error',
+        refusalStatus                    : 400,
+        workloadKind                     : 'openAiEmbeddings'
     }),
     CLOSED_ADAPTERS = Object.freeze({
         chat     : CHAT_ADAPTER,
@@ -267,7 +272,7 @@ export function resolveProviderLaneAdapters(receipt) {
 /**
  * @summary Projects one validated composition receipt into the pure core's immutable profile.
  * @param {Object} options
- * @param {String} options.compositionReceiptDigest Digest of the exact archived receipt bytes.
+ * @param {String} options.compositionReceiptDigest Canonical digest of the validated receipt value.
  * @param {Object} options.receipt Validated composition receipt.
  * @returns {Object}
  */
@@ -335,12 +340,20 @@ export function classifyProviderLaneProbeResponse({adapter, body, status}) {
                   ? errorType === adapter.refusalErrorType
                   : adapter.refusalErrorMessages?.includes(errorMessage)
           ),
+          physicalBatchRefused = status === adapter.physicalBatchRefusalStatus &&
+              errorType === adapter.physicalBatchRefusalErrorType &&
+              typeof errorMessage === 'string' &&
+              errorMessage.startsWith(adapter.physicalBatchRefusalMessagePrefix ?? '\0') &&
+              errorMessage.includes(adapter.physicalBatchRefusalMessageSuffix ?? '\0') &&
+              /\d+\)$/.test(errorMessage),
           completed = status >= 200 && status < 300;
 
     return {
         observedOutputTokens: completed ? inferObservedOutput(parsed) : 0,
         responseBodyDigest  : digestRaw(body),
-        responseClass       : refused ? 'context-limit-refusal' : completed ? 'completed' : 'provider-error',
+        responseClass       : physicalBatchRefused
+            ? 'physical-batch-refusal'
+            : refused ? 'context-limit-refusal' : completed ? 'completed' : 'provider-error',
         transportStatus     : status
     }
 }
@@ -569,6 +582,7 @@ export function projectProviderLaneOutcome({election, receipts}) {
 
     if (sortedReceipts.some((entry, index) => entry?.candidate !== CANDIDATES[index] ||
         !DIGEST_PATTERN.test(entry?.compositionReceiptDigest ?? '') ||
+        entry.compositionReceiptDigest !== digestProviderLaneValue(entry.receipt) ||
         entry?.receipt?.lanes?.embedding?.parallelSlots !== entry.candidate)) {
         throw new Error('provider-lane outcome projection requires exact validated candidate receipts')
     }
@@ -587,51 +601,10 @@ export function projectProviderLaneOutcome({election, receipts}) {
     }
 
     return {
-        deploymentInputs   : receipt ? structuredClone(receipt.receipt.deploymentInputs) : null,
-        selectedComposition: receipt ? projectSelectedProviderLaneComposition(receipt) : null,
-        status             : winner === null ? 'NO_ELECTION' : 'ELECTED'
-    }
-}
-
-/**
- * @summary Projects the self-describing immutable composition selected by the measured winner.
- *
- * The profile digest proves which archived receipt was measured, but downstream generation identity
- * cannot recover model coordinates, endpoints, role routing, or the fixed resource envelope from a
- * digest alone. This projection is therefore copied from the same already-validated receipt as the
- * deployment inputs. It contains no operator secrets and never re-derives configuration.
- *
- * @param {Object} receiptEntry Validated archived candidate receipt wrapper.
- * @returns {Object} Allowlisted immutable composition artifact.
- */
-function projectSelectedProviderLaneComposition(receiptEntry) {
-    const receipt = receiptEntry.receipt;
-
-    resolveProviderLaneAdapters(receipt);
-
-    return {
-        candidate               : receiptEntry.candidate,
-        compositionReceiptDigest: receiptEntry.compositionReceiptDigest,
-        envelope                : structuredClone(receipt.envelope),
-        lanes                   : Object.fromEntries(LANE_NAMES.map(laneName => {
-            const lane = receipt.lanes[laneName];
-
-            return [laneName, {
-                baseUrl                     : lane.baseUrl,
-                contextTokensPerSlotRequired: lane.contextTokensPerSlotRequired,
-                cpuCores                    : lane.cpuCores,
-                endpoints                   : structuredClone(lane.endpoints),
-                image                       : structuredClone(lane.image),
-                memoryBytes                 : lane.memoryBytes,
-                model                       : structuredClone(lane.model),
-                parallelSlots               : lane.parallelSlots,
-                provider                    : lane.provider,
-                serviceKey                  : lane.serviceKey,
-                totalContextTokens          : lane.totalContextTokens
-            }]
-        })),
-        roles        : structuredClone(receipt.roles),
-        schemaVersion: receipt.schemaVersion
+        deploymentInputs     : receipt ? structuredClone(receipt.receipt.deploymentInputs) : null,
+        selectedReceipt      : receipt ? structuredClone(receipt.receipt) : null,
+        selectedReceiptDigest: receipt?.compositionReceiptDigest ?? null,
+        status               : winner === null ? 'NO_ELECTION' : 'ELECTED'
     }
 }
 
@@ -639,28 +612,45 @@ function projectSelectedProviderLaneComposition(receiptEntry) {
  * @summary Finalizes live-controller evidence without exposing an authority-minting public seam.
  * @private
  */
-function finalizeProviderLaneElection({artifacts, election, head, projectName, receipts}) {
+function finalizeProviderLaneElection({artifacts, election, evidence, head, projectName, receipts}) {
     if (!REVISION_PATTERN.test(head ?? '') || typeof projectName !== 'string' || !projectName) {
         throw new Error('provider-lane finalizer requires an exact live controller identity')
     }
 
-    const outcome = projectProviderLaneOutcome({election, receipts});
+    const outcome           = projectProviderLaneOutcome({election, receipts}),
+          candidateReceipts = receipts.map(({candidate, compositionReceiptDigest, receipt}) => ({
+              candidate,
+              compositionReceiptDigest,
+              receipt: structuredClone(receipt)
+          })),
+          evidenceDigest = digestProviderLaneValue({
+              candidateReceiptDigests: candidateReceipts.map(item => item.compositionReceiptDigest),
+              evidence,
+              projectName,
+              repositoryHead         : head
+          });
 
-    return {
-        artifacts: structuredClone(artifacts),
+    const report = {
+        artifacts: {...structuredClone(artifacts), evidenceDigest},
         authority: {
             authoritative: true,
             evidenceClass: 'canonical-disposable-plane',
             reason       : 'complete validated matrix on a run-owned disposable Compose project'
         },
-        deploymentInputs   : outcome.deploymentInputs,
+        candidateReceipts,
+        deploymentInputs     : outcome.deploymentInputs,
         election,
+        evidence             : structuredClone(evidence),
         projectName,
-        repositoryHead     : head,
-        schemaVersion      : REPORT_SCHEMA,
-        selectedComposition: outcome.selectedComposition,
-        status             : outcome.status
-    }
+        repositoryHead       : head,
+        schemaVersion        : PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION,
+        selectedReceipt      : outcome.selectedReceipt,
+        selectedReceiptDigest: outcome.selectedReceiptDigest,
+        status               : outcome.status
+    };
+
+    validateProviderLaneElectionReport(report, {requireElected: false});
+    return report
 }
 
 /**
@@ -670,19 +660,309 @@ function finalizeProviderLaneElection({artifacts, election, head, projectName, r
  */
 export function createIncompleteProviderLaneReport({code = 'RUN_ABORTED', measuredHead = null, projectName = null} = {}) {
     return {
-        artifacts: {candidateReceipts: []},
+        artifacts: {
+            candidateReceipts: [],
+            evidenceDigest   : null,
+            planDigest       : null,
+            workloadDigest   : null
+        },
         authority: {
             authoritative: false,
             evidenceClass: 'incomplete',
             reason       : String(code).slice(0, 120)
         },
-        deploymentInputs   : null,
-        election           : null,
+        candidateReceipts    : [],
+        deploymentInputs     : null,
+        election             : null,
+        evidence             : null,
         projectName,
-        repositoryHead     : REVISION_PATTERN.test(measuredHead ?? '') ? measuredHead : null,
-        schemaVersion      : REPORT_SCHEMA,
-        selectedComposition: null,
-        status             : 'INCOMPLETE'
+        repositoryHead       : REVISION_PATTERN.test(measuredHead ?? '') ? measuredHead : null,
+        schemaVersion        : PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION,
+        selectedReceipt      : null,
+        selectedReceiptDigest: null,
+        status               : 'INCOMPLETE'
+    }
+}
+
+/**
+ * @summary Recomputes and validates the complete election handoff consumed by downstream runtime proof.
+ *
+ * The report's `authority` and `status` fields are never trusted as inputs. This validator first
+ * validates every full canonical composition receipt, reconstructs the pure plan, reruns the complete
+ * matrix from raw bounded evidence, and only then checks the elected receipt and deployment inputs.
+ * `INCOMPLETE` is never consumable; `NO_ELECTION` is accepted only for archival callers which
+ * explicitly set `requireElected:false`.
+ *
+ * @param {Object} report Persisted provider-lane election report.
+ * @param {Object} [options]
+ * @param {Boolean} [options.requireElected=true] Require an elected downstream input.
+ * @returns {Object} Defensive clone of the validated report.
+ */
+export function validateProviderLaneElectionReport(report, {requireElected = true} = {}) {
+    requireExactKeys(report, [
+        'artifacts',
+        'authority',
+        'candidateReceipts',
+        'deploymentInputs',
+        'election',
+        'evidence',
+        'projectName',
+        'repositoryHead',
+        'schemaVersion',
+        'selectedReceipt',
+        'selectedReceiptDigest',
+        'status'
+    ], 'provider-lane election report');
+
+    if (report.schemaVersion !== PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION ||
+        !['ELECTED', 'NO_ELECTION'].includes(report.status) ||
+        !REVISION_PATTERN.test(report.repositoryHead ?? '') ||
+        !/^neo-provider-election-[0-9a-f]{10}-[0-9a-f]{12}$/.test(report.projectName ?? '') ||
+        typeof requireElected !== 'boolean') {
+        throw Object.assign(new Error('provider-lane election report has no complete canonical controller identity'), {
+            code: 'ELECTION_REPORT_INVALID'
+        })
+    }
+
+    requireExactKeys(report.authority, ['authoritative', 'evidenceClass', 'reason'],
+        'provider-lane election authority');
+    if (report.authority.authoritative !== true ||
+        report.authority.evidenceClass !== 'canonical-disposable-plane' ||
+        report.authority.reason !== 'complete validated matrix on a run-owned disposable Compose project') {
+        throw Object.assign(new Error('provider-lane election report carries a forged authority assertion'), {
+            code: 'ELECTION_REPORT_INVALID'
+        })
+    }
+
+    const receipts = validateProviderLaneElectionReceipts(report.candidateReceipts, report.projectName);
+
+    requireExactKeys(report.evidence, ['contextEvidence', 'trials'], 'provider-lane election evidence');
+    assertProviderLaneElectionEvidenceShape(report.evidence);
+
+    const plan       = reconstructProviderLaneElectionPlan({election: report.election, receipts}),
+          recomputed = evaluateProviderLaneElection({
+              contextEvidence: report.evidence.contextEvidence,
+              plan,
+              trials         : report.evidence.trials
+          });
+
+    if (stableSerialize(recomputed) !== stableSerialize(report.election)) {
+        throw Object.assign(new Error('provider-lane election report does not reproduce from its bounded evidence'), {
+            code: 'ELECTION_REPORT_EVIDENCE_DRIFT'
+        })
+    }
+
+    const outcome = projectProviderLaneOutcome({election: recomputed, receipts});
+
+    if (outcome.status !== report.status ||
+        stableSerialize(outcome.deploymentInputs) !== stableSerialize(report.deploymentInputs) ||
+        stableSerialize(outcome.selectedReceipt) !== stableSerialize(report.selectedReceipt) ||
+        outcome.selectedReceiptDigest !== report.selectedReceiptDigest) {
+        throw Object.assign(new Error('provider-lane election report selected a receipt other than the smallest PASS'), {
+            code: 'ELECTION_REPORT_SELECTION_DRIFT'
+        })
+    }
+
+    validateProviderLaneElectionArtifacts({
+        artifacts     : report.artifacts,
+        evidence      : report.evidence,
+        plan,
+        projectName   : report.projectName,
+        receipts,
+        repositoryHead: report.repositoryHead
+    });
+
+    if (requireElected && report.status !== 'ELECTED') {
+        throw Object.assign(new Error('provider-lane downstream proof requires an elected report'), {
+            code: 'ELECTION_REQUIRED'
+        })
+    }
+
+    return structuredClone(report)
+}
+
+/**
+ * @summary Validates the three full canonical composition receipts embedded in a report.
+ * @private
+ */
+function validateProviderLaneElectionReceipts(candidateReceipts, projectName) {
+    if (!Array.isArray(candidateReceipts) || candidateReceipts.length !== CANDIDATES.length) {
+        throw new Error('provider-lane election report requires full receipts for candidates 1, 2, and 4')
+    }
+
+    const receipts = [...candidateReceipts].sort((left, right) => left?.candidate - right?.candidate);
+
+    receipts.forEach((entry, index) => {
+        requireExactKeys(entry, ['candidate', 'compositionReceiptDigest', 'receipt'],
+            `provider-lane candidate receipt ${CANDIDATES[index]}`);
+        if (entry.candidate !== CANDIDATES[index] ||
+            entry.compositionReceiptDigest !== digestProviderLaneValue(entry.receipt) ||
+            entry.receipt?.composeProject !== projectName ||
+            entry.receipt?.lanes?.embedding?.parallelSlots !== entry.candidate) {
+            throw new Error('provider-lane election report contains a drifted candidate receipt')
+        }
+        resolveProviderLaneAdapters(entry.receipt)
+    });
+
+    return receipts
+}
+
+/**
+ * @summary Reconstructs the exact pure plan only from validated receipts and projected policy coordinates.
+ * @private
+ */
+function reconstructProviderLaneElectionPlan({election, receipts}) {
+    requireExactKeys(election, ['candidates', 'jointSlo', 'planCoordinates', 'winnerCandidate'],
+        'provider-lane election result');
+    requireExactKeys(election.jointSlo, ['lanes'], 'provider-lane joint SLO');
+    requireExactKeys(election.planCoordinates, [
+        'blocks',
+        'candidateRunCount',
+        'planDigest',
+        'resourceSampling',
+        'totalRunCount',
+        'uncertaintyMethod',
+        'workloadDigest',
+        'workloadOfferedOperations'
+    ], 'provider-lane plan coordinates');
+
+    return {
+        blocks           : election.planCoordinates.blocks,
+        candidateProfiles: receipts.map(createProviderLaneCandidateProfile),
+        resourceSampling : structuredClone(election.planCoordinates.resourceSampling),
+        slo              : structuredClone(election.jointSlo),
+        workload         : {
+            digest           : election.planCoordinates.workloadDigest,
+            offeredOperations: structuredClone(election.planCoordinates.workloadOfferedOperations)
+        }
+    }
+}
+
+/**
+ * @summary Rejects unknown fields from the raw evidence envelope before pure-core projection.
+ * @private
+ */
+function assertProviderLaneElectionEvidenceShape(evidence) {
+    if (!Array.isArray(evidence.contextEvidence) || !Array.isArray(evidence.trials)) {
+        throw new Error('provider-lane election evidence requires context and trial arrays')
+    }
+
+    for (const context of evidence.contextEvidence) {
+        requireExactKeys(context, [
+            'candidate', 'completedAtMs', 'compositionReceiptDigest', 'lanes', 'startedAtMs'
+        ], 'provider-lane context evidence');
+        requireExactKeys(context.lanes, LANE_NAMES, 'provider-lane context lanes');
+
+        for (const laneName of LANE_NAMES) {
+            const lane = context.lanes[laneName];
+            requireExactKeys(lane, laneName === 'embedding'
+                ? ['observedContextTokensPerSlot', 'overLimitProbe', 'supportedLimitProbe']
+                : ['observedContextTokensPerSlot', 'overLimitProbe'], `provider-lane ${laneName} context lane`);
+            assertProviderLaneProbeShape(lane.overLimitProbe, `${laneName} over-limit probe`);
+            if (laneName === 'embedding') {
+                assertProviderLaneProbeShape(lane.supportedLimitProbe, 'embedding supported-limit probe')
+            }
+        }
+    }
+
+    for (const trial of evidence.trials) {
+        requireExactKeys(trial, [
+            'candidate',
+            'completedAtMs',
+            'compositionReceiptDigest',
+            'executionIndex',
+            'lanes',
+            'residencyBefore',
+            'scheduleId',
+            'startedAtMs',
+            'workloadDigest'
+        ], 'provider-lane trial evidence');
+        requireExactKeys(trial.lanes, LANE_NAMES, 'provider-lane trial lanes');
+        requireExactKeys(trial.residencyBefore, ['lanes', 'observedAtMs'], 'provider-lane residency evidence');
+        requireExactKeys(trial.residencyBefore.lanes, LANE_NAMES, 'provider-lane residency lanes');
+
+        for (const laneName of LANE_NAMES) {
+            const lane = trial.lanes[laneName];
+            requireExactKeys(lane, ['operations', 'resourceSamples', 'runtimeProfile', 'sourceCalls'],
+                `provider-lane ${laneName} trial lane`);
+            requireExactKeys(trial.residencyBefore.lanes[laneName], ['modelDigest', 'resident'],
+                `provider-lane ${laneName} residency`);
+            lane.operations.forEach(operation => requireExactKeys(operation, [
+                'callId',
+                'completedAtMs',
+                'enqueuedAtMs',
+                'id',
+                'outcome',
+                'providerStartedAtMs',
+                'queueDisposition',
+                'source'
+            ], `provider-lane ${laneName} operation`));
+            lane.resourceSamples.forEach(sample => requireExactKeys(sample, ['atMs', 'cpuPercent', 'rssBytes'],
+                `provider-lane ${laneName} resource sample`));
+            requireExactKeys(lane.runtimeProfile, [
+                'cpuCores', 'imageDigest', 'memoryBytes', 'modelDigest', 'parallelism', 'serviceKey'
+            ], `provider-lane ${laneName} runtime profile`);
+            lane.sourceCalls.forEach(call => requireExactKeys(call, [
+                'completedAtMs', 'demandAtMs', 'id', 'outcome', 'source'
+            ], `provider-lane ${laneName} source call`))
+        }
+    }
+}
+
+/**
+ * @summary Requires the exact bounded structural provider-probe fields.
+ * @private
+ */
+function assertProviderLaneProbeShape(probe, label) {
+    requireExactKeys(probe, [
+        'completedAtMs',
+        'id',
+        'modelDigest',
+        'observedOutputTokens',
+        'protocolAdapter',
+        'requestedContextTokens',
+        'responseBodyDigest',
+        'responseClass',
+        'serviceKey',
+        'startedAtMs',
+        'transportStatus'
+    ], label)
+}
+
+/**
+ * @summary Verifies report artifact coordinates against recomputed canonical evidence.
+ * @private
+ */
+function validateProviderLaneElectionArtifacts({artifacts, evidence, plan, projectName, receipts, repositoryHead}) {
+    requireExactKeys(artifacts, [
+        'candidateReceipts', 'evidenceDigest', 'planDigest', 'workloadDigest'
+    ], 'provider-lane election artifacts');
+
+    if (!Array.isArray(artifacts.candidateReceipts) || artifacts.candidateReceipts.length !== CANDIDATES.length) {
+        throw new Error('provider-lane election artifacts require three archived candidate receipts')
+    }
+
+    const archived = [...artifacts.candidateReceipts].sort((left, right) => left?.candidate - right?.candidate);
+    archived.forEach((entry, index) => {
+        requireExactKeys(entry, ['archiveByteDigest', 'candidate', 'digest', 'file'],
+            `provider-lane archived candidate ${CANDIDATES[index]}`);
+        if (entry.candidate !== CANDIDATES[index] || entry.digest !== receipts[index].compositionReceiptDigest ||
+            !DIGEST_PATTERN.test(entry.archiveByteDigest ?? '') ||
+            entry.file !== `composition-candidate-${entry.candidate}.json`) {
+            throw new Error('provider-lane election artifact metadata drifted from its canonical receipt')
+        }
+    });
+
+    const evidenceDigest = digestProviderLaneValue({
+        candidateReceiptDigests: receipts.map(item => item.compositionReceiptDigest),
+        evidence,
+        projectName,
+        repositoryHead
+    });
+
+    if (artifacts.planDigest !== createProviderLanePlanDigest(plan) ||
+        artifacts.workloadDigest !== plan.workload.digest || artifacts.evidenceDigest !== evidenceDigest) {
+        throw new Error('provider-lane election artifact digests do not bind the recomputed report')
     }
 }
 
@@ -779,6 +1059,14 @@ export async function runProviderLaneContextWorker({includeOverLimit, receipt, t
         };
 
         if (includeOverLimit) {
+            if (laneName === 'embedding') {
+                lanes[laneName].supportedLimitProbe = await runSupportedLimitProbe({
+                    adapter                     : adapters[laneName],
+                    lane,
+                    observedContextTokensPerSlot: observation.contextTokensPerSlot,
+                    timeoutMs
+                })
+            }
             lanes[laneName].overLimitProbe = await runOverLimitProbe({
                 adapter                     : adapters[laneName],
                 lane,
@@ -1229,6 +1517,69 @@ async function runOverLimitProbe({adapter, lane, observedContextTokensPerSlot, t
 }
 
 /**
+ * @summary Executes one exact-size embedding request which must fit both context and physical batch.
+ * @private
+ */
+async function runSupportedLimitProbe({adapter, lane, observedContextTokensPerSlot, timeoutMs}) {
+    const {body, requestedContextTokens} = createProviderLaneSupportedLimitRequest({
+              adapter,
+              lane,
+              observedContextTokensPerSlot
+          }),
+          startedAtMs                    = Date.now(),
+          response                       = await fetchBounded(lane.endpoints.workload.url, {
+              body,
+              method: lane.endpoints.workload.method,
+              timeoutMs
+          });
+
+    return {
+        completedAtMs  : Date.now(),
+        id             : `${lane.serviceKey}:${startedAtMs}:supported:${randomBytes(8).toString('hex')}`,
+        modelDigest    : lane.model.digest,
+        protocolAdapter: adapter.id,
+        requestedContextTokens,
+        serviceKey     : lane.serviceKey,
+        startedAtMs,
+        ...classifyProviderLaneProbeResponse({adapter, body: response.body, status: response.status})
+    }
+}
+
+/**
+ * @summary Builds one exact-token embedding request at the declared supported single-request limit.
+ * @param {Object} options
+ * @param {Object} options.adapter Closed exact-image adapter.
+ * @param {Object} options.lane Validated embedding lane receipt.
+ * @param {Number} options.observedContextTokensPerSlot Runtime-observed exact supported limit.
+ * @returns {{body: String, requestedContextTokens: Number}}
+ */
+export function createProviderLaneSupportedLimitRequest({adapter, lane, observedContextTokensPerSlot}) {
+    const requestedContextTokens = Number(observedContextTokensPerSlot),
+          batchTokens            = Number(lane?.batchTokens),
+          ubatchTokens           = Number(lane?.ubatchTokens),
+          requiredTokens         = Number(lane?.contextTokensPerSlotRequired),
+          modelCeiling           = Number(lane?.model?.contextTokensMax);
+
+    if (adapter !== EMBEDDING_ADAPTER || !Number.isInteger(requestedContextTokens) ||
+        !Number.isInteger(batchTokens) || !Number.isInteger(ubatchTokens) ||
+        !Number.isInteger(requiredTokens) || !Number.isInteger(modelCeiling) ||
+        requestedContextTokens < requiredTokens || requestedContextTokens > modelCeiling ||
+        requestedContextTokens > batchTokens || requestedContextTokens > ubatchTokens) {
+        throw Object.assign(new Error('provider-lane supported-limit probe exceeds declared batch authority'), {
+            code: 'SUPPORTED_LIMIT_BATCH_INVALID'
+        })
+    }
+
+    return {
+        body: JSON.stringify({
+            input: Array(requestedContextTokens).fill(1),
+            model: lane.model.id
+        }),
+        requestedContextTokens
+    }
+}
+
+/**
  * @summary Builds one bounded closed-adapter over-limit request from verified runtime context truth.
  * @param {Object} options
  * @returns {{body: String, requestedContextTokens: Number}}
@@ -1246,8 +1597,9 @@ export function createProviderLaneOverLimitRequest({adapter, lane, observedConte
         })
     }
 
-    const requestedContextTokens = observedContextTokensPerSlot + 1,
-          body                   = adapter === CHAT_ADAPTER
+    const requestedContextTokens = observedContextTokensPerSlot + 1;
+
+    const body = adapter === CHAT_ADAPTER
               ? JSON.stringify({
                   messages: [{content: 'x '.repeat(requestedContextTokens), role: 'user'}],
                   model   : lane.model.id,
@@ -1257,7 +1609,7 @@ export function createProviderLaneOverLimitRequest({adapter, lane, observedConte
                   truncate: false
               })
               : JSON.stringify({
-                  input: 'x '.repeat(requestedContextTokens),
+                  input: Array(requestedContextTokens).fill(1),
                   model: lane.model.id
               });
 
@@ -1410,9 +1762,10 @@ async function runProviderLaneElectionController({artifactDir, dockerAuthority, 
         const election  = evaluateProviderLaneElection({contextEvidence, plan: purePlan, trials}),
               artifacts = {
                   candidateReceipts: receipts.map(item => ({
-                      candidate: item.candidate,
-                      digest   : item.compositionReceiptDigest,
-                      file     : path.basename(item.file)
+                      archiveByteDigest: item.archiveByteDigest,
+                      candidate        : item.candidate,
+                      digest           : item.compositionReceiptDigest,
+                      file             : path.basename(item.file)
                   })),
                   planDigest,
                   workloadDigest: workload.digest
@@ -1421,6 +1774,7 @@ async function runProviderLaneElectionController({artifactDir, dockerAuthority, 
         return finalizeProviderLaneElection({
             artifacts,
             election,
+            evidence: {contextEvidence, trials},
             head,
             projectName,
             receipts
@@ -1436,16 +1790,31 @@ async function runProviderLaneElectionController({artifactDir, dockerAuthority, 
  */
 function createWorkloadContract(plan) {
     const offeredOperations = Object.fromEntries(Object.entries(WORKLOAD_PAYLOADS).map(([source, payloads]) => [
-        source,
-        payloads.length
-    ]));
+              source,
+              payloads.length
+          ])),
+          embeddingInputs = EMBEDDING_SOURCES.flatMap(source => WORKLOAD_PAYLOADS[source].flat()),
+          maxEmbeddingInputBytes = Math.max(...embeddingInputs.map(value => Buffer.byteLength(value, 'utf8'))),
+          supportedEmbeddingTokens = plan.slo?.lanes?.embedding?.minContextTokensPerSlot;
+
+    // Every fixed embedding fixture is ASCII. Byte length plus one optional special token is a
+    // conservative upper bound for its tokenized single-input size; the exact-token runtime probe
+    // independently proves that the declared limit itself completes on the pinned provider.
+    if (!Number.isInteger(supportedEmbeddingTokens) ||
+        maxEmbeddingInputBytes + 1 > supportedEmbeddingTokens) {
+        throw Object.assign(new Error('provider-lane embedding fixture exceeds the supported single-request contract'), {
+            code: 'WORKLOAD_INPUT_CAPACITY_INVALID'
+        })
+    }
 
     return {
         digest: digestProviderLaneValue({
             contextProbeTimeoutMs: plan.contextProbeTimeoutMs,
             embeddingChunkSize   : EMBEDDING_CHUNK_SIZE,
             fixtures             : WORKLOAD_PAYLOADS,
+            maxEmbeddingInputBytes,
             schemaVersion        : 'provider-lane-workload.v1',
+            supportedEmbeddingTokens,
             trialTimeoutMs       : plan.trialTimeoutMs
         }),
         offeredOperations
@@ -1492,17 +1861,18 @@ async function renderAndArchiveCandidateReceipts({actor, artifactDir, plan}) {
 
         assertDeploymentInputsEqual(receipt.deploymentInputs, candidateInput.deploymentInputs, candidate);
 
-        const compositionReceiptDigest = digestRaw(raw),
+        const compositionReceiptDigest = digestProviderLaneValue(receipt),
+              archiveByteDigest        = digestRaw(raw),
               file                     = path.join(artifactDir, `composition-candidate-${candidate}.json`);
 
         await atomicWrite(file, raw);
-        if (digestRaw(await readFile(file, 'utf8')) !== compositionReceiptDigest) {
+        if (digestRaw(await readFile(file, 'utf8')) !== archiveByteDigest) {
             throw Object.assign(new Error('provider-lane archived receipt digest changed after write'), {
                 code: 'RECEIPT_ARCHIVE_MISMATCH'
             })
         }
 
-        receipts.push({candidate, compositionReceiptDigest, file, receipt, candidateInput})
+        receipts.push({archiveByteDigest, candidate, compositionReceiptDigest, file, receipt, candidateInput})
     }
 
     return receipts.sort((left, right) => left.candidate - right.candidate)
@@ -1602,7 +1972,7 @@ function createComposeActor({dockerAuthority, plan, projectName, projectRoot, si
                 candidateInput: receiptEntry.candidateInput,
                 runDocker,
                 service       : 'provider-lane-worker',
-                timeout       : (includeOverLimit ? timeoutMs * 4 : timeoutMs) + 30_000,
+                timeout       : (includeOverLimit ? timeoutMs * 5 : timeoutMs) + 30_000,
                 volume        : `${receiptEntry.file}:/tmp/provider-lane-receipt.json:ro`
             })
         },
@@ -1930,6 +2300,7 @@ function normalizeCandidateContextEvidence({receiptEntry, worker}) {
             const lane = worker.lanes?.[laneName];
 
             if (!lane?.overLimitProbe || lane.resident !== true ||
+                (laneName === 'embedding' && !lane.supportedLimitProbe) ||
                 lane.parallelism !== receiptEntry.receipt.lanes[laneName].parallelSlots) {
                 throw Object.assign(new Error(`provider-lane ${laneName} context evidence is incomplete`), {
                     code: 'CONTEXT_EVIDENCE_INVALID'
@@ -1938,7 +2309,10 @@ function normalizeCandidateContextEvidence({receiptEntry, worker}) {
 
             return [laneName, {
                 observedContextTokensPerSlot: lane.observedContextTokensPerSlot,
-                overLimitProbe              : structuredClone(lane.overLimitProbe)
+                overLimitProbe              : structuredClone(lane.overLimitProbe),
+                ...(laneName === 'embedding' ? {
+                    supportedLimitProbe: structuredClone(lane.supportedLimitProbe)
+                } : {})
             }]
         })),
         startedAtMs: worker.startedAtMs

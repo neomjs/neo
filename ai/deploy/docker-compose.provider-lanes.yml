@@ -56,6 +56,8 @@ x-provider-lane-contract:
       slots: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding lane slot allocation required}
       totalContextTokens: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context allocation required}
       contextTokensPerSlotRequired: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context requirement required}
+      batchTokens: ${NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS:?embedding logical batch required}
+      ubatchTokens: ${NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS:?embedding physical ubatch required}
       model:
         id: qwen3-embedding-8b
         coordinate: hf://Qwen/Qwen3-Embedding-8B-GGUF@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
@@ -88,9 +90,11 @@ x-provider-lane-contract:
           contextTokensField: n_ctx
           processingField: is_processing
       controls:
+        batchEnv: LLAMA_ARG_BATCH
         contextEnv: LLAMA_ARG_CTX_SIZE
         slotsEnv: LLAMA_ARG_N_PARALLEL
         slotsEndpointEnv: LLAMA_ARG_ENDPOINT_SLOTS
+        ubatchEnv: LLAMA_ARG_UBATCH
   roles:
     model:
       configPath: modelProvider
@@ -196,6 +200,8 @@ services:
       LLAMA_ARG_PORT: "8080"
       LLAMA_ARG_CTX_SIZE: ${NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS:?embedding total context required}
       LLAMA_ARG_N_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+      LLAMA_ARG_BATCH: ${NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS:?embedding logical batch required}
+      LLAMA_ARG_UBATCH: ${NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS:?embedding physical ubatch required}
       LLAMA_ARG_ENDPOINT_SLOTS: "true"
       NEO_PROVIDER_LANE_MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF/resolve/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
       NEO_PROVIDER_LANE_MODEL_SHA256: 3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85

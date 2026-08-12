@@ -9,6 +9,7 @@ import {
     validateProviderLaneCompositionReceipt
 } from '../../../../../../ai/scripts/diagnostics/providerLaneComposition.mjs';
 import {
+    PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION,
     calculateProviderLaneDockerCpuPercent,
     classifyProviderLaneOperationResult,
     classifyProviderLaneProbeResponse,
@@ -17,6 +18,7 @@ import {
     createProviderLaneCleanup,
     createProviderLaneCandidateProfile,
     createProviderLaneOverLimitRequest,
+    createProviderLaneSupportedLimitRequest,
     digestProviderLaneValue,
     installProviderLaneSignalHandlers,
     invokeProviderLaneEmbeddingSource,
@@ -27,8 +29,13 @@ import {
     readBoundedProviderLaneResponseBody,
     resolveProviderLaneDockerAuthority,
     resolveProviderLaneAdapters,
+    validateProviderLaneElectionReport,
     validateProviderLaneRunPlan
 } from '../../../../../../ai/scripts/benchmark/provider-lane-election.mjs';
+import {
+    buildProviderLaneCandidateSchedule,
+    evaluateProviderLaneElection
+} from '../../../../../../ai/scripts/benchmark/helpers/providerLaneElectionCore.mjs';
 
 const
     repoRoot    = path.resolve(process.cwd()),
@@ -46,7 +53,9 @@ function buildComposition(candidate) {
         NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES                    : '17179869184',
         NEO_PROVIDER_LANE_EMBEDDING_SLOTS                           : String(candidate),
         NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : String(candidate * 8192),
-        NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192'
+        NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
+        NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : String(candidate * 8192),
+        NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : String(candidate * 8192)
     };
     const source = fs.readFileSync(profilePath, 'utf8').replace(
         /\$\{([A-Z0-9_]+):\?[^}]+}/g,
@@ -168,6 +177,217 @@ function buildWorkerReceipt(source, receipt) {
     }
 }
 
+/**
+ * @summary Builds one complete controller-shaped report without exposing a production authority minter.
+ */
+function buildElectionReport({failAll = false} = {}) {
+    const projectName = `neo-provider-election-${REVISION.slice(0, 10)}-${'a'.repeat(12)}`,
+          receipts    = [1, 2, 4].map(candidate => {
+              const receipt = buildReceipt(candidate);
+              receipt.composeProject = projectName;
+
+              return {
+                  candidate,
+                  compositionReceiptDigest: digestProviderLaneValue(receipt),
+                  receipt
+              }
+          }),
+          workload = {
+              digest           : digestProviderLaneValue({fixture: 'provider-lane-report'}),
+              offeredOperations: {chat: 2, 'knowledge-base': 1, 'memory-core': 1, orchestrator: 2}
+          },
+          runPlan = buildRunPlan(receipts.map(item => item.receipt)),
+          plan = {
+              blocks           : 1,
+              candidateProfiles: receipts.map(createProviderLaneCandidateProfile),
+              resourceSampling : runPlan.resourceSampling,
+              slo              : runPlan.slo,
+              workload
+          },
+          contextEvidence = receipts.map(item => buildReportContextEvidence(item)),
+          trials = buildProviderLaneCandidateSchedule({blocks: 1})
+              .map(slot => buildReportTrial({plan, slot})),
+          election = evaluateProviderLaneElection({contextEvidence, plan, trials}),
+          evidence = {contextEvidence, trials},
+          evidenceDigest = digestProviderLaneValue({
+              candidateReceiptDigests: receipts.map(item => item.compositionReceiptDigest),
+              evidence,
+              projectName,
+              repositoryHead         : REVISION
+          });
+
+    if (failAll) {
+        for (const context of contextEvidence) {
+            context.lanes.embedding.overLimitProbe.responseClass = 'provider-error';
+            context.lanes.embedding.overLimitProbe.transportStatus = 500
+        }
+    }
+
+    const measuredElection = failAll
+              ? evaluateProviderLaneElection({contextEvidence, plan, trials})
+              : election,
+          selected = measuredElection.winnerCandidate === null
+              ? null
+              : receipts.find(item => item.candidate === measuredElection.winnerCandidate);
+
+    return {
+        artifacts: {
+            candidateReceipts: receipts.map(item => ({
+                archiveByteDigest: digestProviderLaneValue({archive: item.candidate}),
+                candidate        : item.candidate,
+                digest           : item.compositionReceiptDigest,
+                file             : `composition-candidate-${item.candidate}.json`
+            })),
+            evidenceDigest: failAll ? digestProviderLaneValue({
+                candidateReceiptDigests: receipts.map(item => item.compositionReceiptDigest),
+                evidence,
+                projectName,
+                repositoryHead         : REVISION
+            }) : evidenceDigest,
+            planDigest    : measuredElection.planCoordinates.planDigest,
+            workloadDigest: workload.digest
+        },
+        authority: {
+            authoritative: true,
+            evidenceClass: 'canonical-disposable-plane',
+            reason       : 'complete validated matrix on a run-owned disposable Compose project'
+        },
+        candidateReceipts    : receipts,
+        deploymentInputs     : selected ? structuredClone(selected.receipt.deploymentInputs) : null,
+        election             : measuredElection,
+        evidence,
+        projectName,
+        repositoryHead       : REVISION,
+        schemaVersion        : PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION,
+        selectedReceipt      : selected ? structuredClone(selected.receipt) : null,
+        selectedReceiptDigest: selected?.compositionReceiptDigest ?? null,
+        status               : selected ? 'ELECTED' : 'NO_ELECTION'
+    }
+}
+
+/**
+ * @summary Builds exact supported and over-limit receipts for one candidate.
+ */
+function buildReportContextEvidence(entry) {
+    const startedAtMs   = entry.candidate * 1000,
+          completedAtMs = startedAtMs + 500,
+          probe         = (laneName, mode) => {
+              const lane      = entry.receipt.lanes[laneName],
+                    supported = mode === 'supported';
+
+              return {
+                  completedAtMs       : completedAtMs - (supported ? 110 : 10),
+                  id                  : `${entry.candidate}:${laneName}:${mode}`,
+                  modelDigest         : lane.model.digest,
+                  observedOutputTokens: supported ? 1 : 0,
+                  protocolAdapter     : laneName === 'chat'
+                      ? 'ollama-chat-v0.32.9'
+                      : 'llama-cpp-openai-embeddings-b10380',
+                  requestedContextTokens: supported
+                      ? lane.contextTokensPerSlotRequired
+                      : lane.contextTokensPerSlotRequired + 1,
+                  responseBodyDigest: digestProviderLaneValue({candidate: entry.candidate, laneName, mode}),
+                  responseClass     : supported ? 'completed' : 'context-limit-refusal',
+                  serviceKey        : lane.serviceKey,
+                  startedAtMs       : supported ? startedAtMs + 10 : completedAtMs - 100,
+                  transportStatus   : supported ? 200 : 400
+              }
+          };
+
+    return {
+        candidate               : entry.candidate,
+        completedAtMs,
+        compositionReceiptDigest: entry.compositionReceiptDigest,
+        lanes                   : {
+            chat: {
+                observedContextTokensPerSlot: 131072,
+                overLimitProbe              : probe('chat', 'over-limit')
+            },
+            embedding: {
+                observedContextTokensPerSlot: 8192,
+                overLimitProbe              : probe('embedding', 'over-limit'),
+                supportedLimitProbe         : probe('embedding', 'supported')
+            }
+        },
+        startedAtMs
+    }
+}
+
+/**
+ * @summary Builds one chronological production-source trial for report-validator falsifiers.
+ */
+function buildReportTrial({plan, slot}) {
+    const startedAtMs   = 10_000 + slot.executionIndex * 10_000,
+          completedAtMs = startedAtMs + 5000,
+          profile       = plan.candidateProfiles.find(item => item.embeddingSlots === slot.candidate),
+          operation     = ({completedOffset, id, laneName, source, startedOffset}) => ({
+              callId             : `${slot.id}:${id}`,
+              completedAtMs      : startedAtMs + completedOffset,
+              enqueuedAtMs       : startedAtMs + 100,
+              id                 : `${slot.id}:${laneName}:${id}`,
+              outcome            : 'completed',
+              providerStartedAtMs: startedAtMs + startedOffset,
+              queueDisposition   : 'queued',
+              source
+          }),
+          chatOperations = [
+              operation({completedOffset: 1000, id: 'chat-0', laneName: 'chat', source: 'chat', startedOffset: 200}),
+              operation({completedOffset: 2000, id: 'chat-1', laneName: 'chat', source: 'chat', startedOffset: 1200})
+          ],
+          starts = {
+              1: [200, 1000, 1800, 2600],
+              2: [200, 200, 1200, 1200],
+              4: [200, 200, 200, 1200]
+          }[slot.candidate],
+          embeddingSources = ['knowledge-base', 'memory-core', 'orchestrator', 'orchestrator'],
+          embeddingOperations = embeddingSources.map((source, index) => operation({
+              completedOffset: starts[index] + 600,
+              id             : `${source}-${index}`,
+              laneName       : 'embedding',
+              source,
+              startedOffset  : starts[index]
+          })),
+          lane = (laneName, operations) => ({
+              operations,
+              resourceSamples: Array.from({length: 6}, (_, index) => ({
+                  atMs      : startedAtMs + index * 1000,
+                  cpuPercent: laneName === 'chat' ? 100 : 150,
+                  rssBytes  : laneName === 'chat' ? 2_000_000_000 : 3_000_000_000
+              })),
+              runtimeProfile: Object.fromEntries([
+                  'cpuCores', 'imageDigest', 'memoryBytes', 'modelDigest', 'parallelism', 'serviceKey'
+              ].map(field => [field, profile.lanes[laneName][field]])),
+              sourceCalls   : operations.map(row => ({
+                  completedAtMs: row.completedAtMs + 100,
+                  demandAtMs   : startedAtMs + 100,
+                  id           : row.callId,
+                  outcome      : 'completed',
+                  source       : row.source
+              }))
+          });
+
+    return {
+        candidate               : slot.candidate,
+        completedAtMs,
+        compositionReceiptDigest: profile.compositionReceiptDigest,
+        executionIndex          : slot.executionIndex,
+        lanes                   : {
+            chat     : lane('chat', chatOperations),
+            embedding: lane('embedding', embeddingOperations)
+        },
+        residencyBefore: {
+            lanes: {
+                chat     : {modelDigest: profile.lanes.chat.modelDigest, resident: true},
+                embedding: {modelDigest: profile.lanes.embedding.modelDigest, resident: true}
+            },
+            observedAtMs: startedAtMs - 1
+        },
+        scheduleId    : slot.id,
+        startedAtMs,
+        workloadDigest: plan.workload.digest
+    }
+}
+
 test.describe('provider-lane election runner authority seams', () => {
     test('consumes exact canonical deployment envelopes for candidates 1, 2, and 4', () => {
         const receipts = [1, 2, 4].map(buildReceipt),
@@ -223,6 +443,16 @@ test.describe('provider-lane election runner authority seams', () => {
         }).responseClass).toBe('provider-error');
         expect(classifyProviderLaneProbeResponse({
             adapter,
+            body  : '{"error":{"type":"server_error","message":"input (32769 tokens) is too large to process. increase the physical batch size (current batch size: 32768)"}}',
+            status: 500
+        }).responseClass).toBe('physical-batch-refusal');
+        expect(classifyProviderLaneProbeResponse({
+            adapter,
+            body  : '{"error":{"type":"server_error","message":"unrelated server failure"}}',
+            status: 500
+        }).responseClass).toBe('provider-error');
+        expect(classifyProviderLaneProbeResponse({
+            adapter,
             body  : '{"data":[{"embedding":[0]}]}',
             status: 200
         })).toMatchObject({responseClass: 'completed', observedOutputTokens: 1});
@@ -243,16 +473,32 @@ test.describe('provider-lane election runner authority seams', () => {
               adapter = resolveProviderLaneAdapters(receipt).embedding,
               lane    = receipt.lanes.embedding;
 
-        expect(createProviderLaneOverLimitRequest({
-            adapter,
-            lane,
-            observedContextTokensPerSlot: 8192
-        })).toMatchObject({requestedContextTokens: 8193});
+        const supportedMinimum = createProviderLaneSupportedLimitRequest({
+                  adapter,
+                  lane,
+                  observedContextTokensPerSlot: 8192
+              }),
+              overLimit        = createProviderLaneOverLimitRequest({
+                  adapter,
+                  lane,
+                  observedContextTokensPerSlot: 8192
+              });
+
+        expect(supportedMinimum.requestedContextTokens).toBe(8192);
+        expect(JSON.parse(supportedMinimum.body).input).toHaveLength(8192);
+        expect(overLimit.requestedContextTokens).toBe(8193);
+        expect(JSON.parse(overLimit.body).input).toHaveLength(8193);
         expect(() => createProviderLaneOverLimitRequest({
             adapter,
             lane,
             observedContextTokensPerSlot: lane.model.contextTokensMax + 1
         })).toThrow(/unbounded runtime context/)
+
+        expect(() => createProviderLaneSupportedLimitRequest({
+            adapter,
+            lane,
+            observedContextTokensPerSlot: 8193
+        })).toThrow(/exceeds declared batch authority/)
     });
 
     test('builds the Ollama over-limit probe with truncation and shifting disabled', () => {
@@ -502,6 +748,51 @@ test.describe('provider-lane election runner authority seams', () => {
         })
     });
 
+    test('recomputes the public handoff and rejects self-attested election authority', () => {
+        const report = buildElectionReport();
+
+        expect(validateProviderLaneElectionReport(report)).toEqual(report);
+        expect(report.selectedReceipt).toEqual(report.candidateReceipts[0].receipt);
+        expect(report.selectedReceiptDigest).toBe(report.candidateReceipts[0].compositionReceiptDigest);
+
+        const forgedWinner = structuredClone(report);
+        forgedWinner.election.winnerCandidate = 2;
+        forgedWinner.selectedReceipt = structuredClone(forgedWinner.candidateReceipts[1].receipt);
+        forgedWinner.selectedReceiptDigest = forgedWinner.candidateReceipts[1].compositionReceiptDigest;
+        forgedWinner.deploymentInputs = structuredClone(forgedWinner.selectedReceipt.deploymentInputs);
+        expect(() => validateProviderLaneElectionReport(forgedWinner)).toThrow(/does not reproduce/);
+
+        const reducedSelection = structuredClone(report);
+        delete reducedSelection.selectedReceipt.roles;
+        expect(() => validateProviderLaneElectionReport(reducedSelection)).toThrow(/smallest PASS/);
+
+        const digestDrift = structuredClone(report);
+        digestDrift.candidateReceipts[0].compositionReceiptDigest = `sha256:${'f'.repeat(64)}`;
+        expect(() => validateProviderLaneElectionReport(digestDrift)).toThrow(/drifted candidate receipt/);
+
+        const receiptExtra = structuredClone(report);
+        receiptExtra.candidateReceipts[0].receipt.token = 'SECRET';
+        receiptExtra.candidateReceipts[0].compositionReceiptDigest =
+            digestProviderLaneValue(receiptExtra.candidateReceipts[0].receipt);
+        expect(() => validateProviderLaneElectionReport(receiptExtra)).toThrow(/canonical validation/);
+
+        const unknownField = structuredClone(report);
+        unknownField.evidence.trials[0].lanes.embedding.operations[0].token = 'SECRET';
+        expect(() => validateProviderLaneElectionReport(unknownField)).toThrow(/requires exact fields/);
+
+        const forgedAuthority = structuredClone(report);
+        forgedAuthority.authority.authoritative = false;
+        expect(() => validateProviderLaneElectionReport(forgedAuthority)).toThrow(/forged authority/);
+
+        const noElection = buildElectionReport({failAll: true});
+        expect(() => validateProviderLaneElectionReport(noElection)).toThrow(/requires an elected report/);
+        expect(validateProviderLaneElectionReport(noElection, {requireElected: false}).status).toBe('NO_ELECTION');
+
+        const extra = structuredClone(report);
+        extra.selfAttested = true;
+        expect(() => validateProviderLaneElectionReport(extra)).toThrow(/requires exact fields/)
+    });
+
     test('publishes only the winning archived deployment inputs and never falls back', () => {
         const receipts = [1, 2, 4].map(candidate => {
             const receipt = buildReceipt(candidate);
@@ -525,9 +816,8 @@ test.describe('provider-lane election runner authority seams', () => {
 
         expect(report.status).toBe('ELECTED');
         expect(report.deploymentInputs).toEqual(receipts[1].receipt.deploymentInputs);
-        expect(report.selectedComposition).toMatchObject({
-            candidate: 2,
-            lanes    : {
+        expect(report.selectedReceipt).toMatchObject({
+            lanes: {
                 chat: {
                     image: {digest: receipts[1].receipt.lanes.chat.image.digest},
                     model: {coordinate: receipts[1].receipt.lanes.chat.model.coordinate}
@@ -539,6 +829,7 @@ test.describe('provider-lane election runner authority seams', () => {
             },
             roles: receipts[1].receipt.roles
         });
+        expect(report.selectedReceiptDigest).toBe(receipts[1].compositionReceiptDigest);
 
         const noElection = projectProviderLaneOutcome({
             election: {
@@ -549,7 +840,8 @@ test.describe('provider-lane election runner authority seams', () => {
         });
         expect(noElection.status).toBe('NO_ELECTION');
         expect(noElection.deploymentInputs).toBeNull();
-        expect(noElection.selectedComposition).toBeNull();
+        expect(noElection.selectedReceipt).toBeNull();
+        expect(noElection.selectedReceiptDigest).toBeNull();
 
         expect(() => projectProviderLaneOutcome({
             election: {
@@ -560,12 +852,15 @@ test.describe('provider-lane election runner authority seams', () => {
         })).toThrow(/incoherent measured winner/);
 
         expect(createIncompleteProviderLaneReport({code: 'EVIDENCE_GAP'})).toMatchObject({
-            status             : 'INCOMPLETE',
-            deploymentInputs   : null,
-            repositoryHead     : null,
-            selectedComposition: null,
-            authority          : {authoritative: false}
+            status          : 'INCOMPLETE',
+            deploymentInputs: null,
+            repositoryHead  : null,
+            selectedReceipt : null,
+            authority       : {authoritative: false}
         });
+
+        expect(() => validateProviderLaneElectionReport(createIncompleteProviderLaneReport()))
+            .toThrow(/no complete canonical controller identity/);
 
         const requestedHead = 'a'.repeat(40),
               measuredHead  = 'b'.repeat(40),

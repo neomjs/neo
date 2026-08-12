@@ -34,7 +34,9 @@ export const PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS       = Object.freeze({
     embeddingMemoryBytes                 : 'NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES',
     embeddingParallelSlots               : 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS',
     embeddingTotalContextTokens          : 'NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS',
-    embeddingContextTokensPerSlotRequired: 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED'
+    embeddingContextTokensPerSlotRequired: 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED',
+    embeddingBatchTokens                 : 'NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS',
+    embeddingUbatchTokens                : 'NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS'
 });
 export const PROVIDER_LANE_MODEL_CONTRACT               = Object.freeze({
     chat: Object.freeze({
@@ -249,6 +251,10 @@ function laneReceipt(name, declaration = {}) {
         parallelSlots               : integerAboveZero(declaration.slots),
         totalContextTokens          : integerAboveZero(declaration.totalContextTokens),
         contextTokensPerSlotRequired: integerAboveZero(declaration.contextTokensPerSlotRequired),
+        ...(name === 'embedding' ? {
+            batchTokens : integerAboveZero(declaration.batchTokens),
+            ubatchTokens: integerAboveZero(declaration.ubatchTokens)
+        } : {}),
         endpoints                   : Object.fromEntries(Object.entries(declaration.endpoints || {}).map(([key, value]) => [key, endpointReceipt(value)]))
     }
 }
@@ -280,9 +286,46 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
     const fail   = (condition, code, pathName, expected, actual) =>
         assertValue(errors, condition, code, pathName, expected, actual);
 
+    const receiptFields = [
+        'composeProject',
+        'consumerCensus',
+        'deploymentInputs',
+        'envelope',
+        'errors',
+        'lanes',
+        'ready',
+        'roles',
+        'schemaVersion'
+    ];
+
+    fail(sameSet(Object.keys(receipt || {}), receiptFields), 'receipt-field-set',
+        'receipt', receiptFields, Object.keys(receipt || {}));
+
     fail(receipt?.schemaVersion === PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION,
         'schema-version', 'schemaVersion', PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION, receipt?.schemaVersion);
-    if (requireReady) fail(receipt?.ready === true, 'receipt-not-ready', 'ready', true, receipt?.ready);
+    if (requireReady) {
+        fail(receipt?.ready === true, 'receipt-not-ready', 'ready', true, receipt?.ready);
+        fail(Array.isArray(receipt?.errors) && receipt.errors.length === 0,
+            'receipt-errors', 'errors', [], receipt?.errors)
+    }
+    fail(typeof receipt?.composeProject === 'string' && receipt.composeProject.length > 0 &&
+        receipt.composeProject.length <= 128, 'compose-project', 'composeProject', 'bounded nonempty string', receipt?.composeProject);
+    fail(JSON.stringify(receipt?.consumerCensus) === JSON.stringify(PROVIDER_LANE_CONSUMER_CENSUS),
+        'consumer-census', 'consumerCensus', PROVIDER_LANE_CONSUMER_CENSUS, receipt?.consumerCensus);
+
+    const envelope = receipt?.envelope || {};
+    fail(sameSet(Object.keys(envelope), ['allocations', 'scope', 'total']),
+        'envelope-field-set', 'envelope', ['allocations', 'scope', 'total'], Object.keys(envelope));
+    fail(envelope.scope === 'provider-runtimes', 'envelope-scope', 'envelope.scope', 'provider-runtimes', envelope.scope);
+    fail(sameSet(Object.keys(envelope.total || {}), ['cpuCores', 'memoryBytes']),
+        'envelope-total-field-set', 'envelope.total', ['cpuCores', 'memoryBytes'], Object.keys(envelope.total || {}));
+    fail(sameSet(Object.keys(envelope.allocations || {}), PROVIDER_LANE_KEYS),
+        'envelope-allocation-set', 'envelope.allocations', PROVIDER_LANE_KEYS, Object.keys(envelope.allocations || {}));
+    for (const laneName of PROVIDER_LANE_KEYS) {
+        fail(sameSet(Object.keys(envelope.allocations?.[laneName] || {}), ['cpuCores', 'memoryBytes']),
+            'envelope-allocation-field-set', `envelope.allocations.${laneName}`,
+            ['cpuCores', 'memoryBytes'], Object.keys(envelope.allocations?.[laneName] || {}))
+    }
 
     const lanes = receipt?.lanes || {};
     fail(sameSet(Object.keys(lanes), PROVIDER_LANE_KEYS), 'lane-set', 'lanes', PROVIDER_LANE_KEYS, Object.keys(lanes));
@@ -290,6 +333,25 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
     for (const laneName of PROVIDER_LANE_KEYS) {
         const lane          = lanes[laneName] || {};
         const expectedModel = PROVIDER_LANE_MODEL_CONTRACT[laneName];
+        const laneFields    = [
+            'baseUrl',
+            'contextTokensPerSlotRequired',
+            'cpuCores',
+            'dnsName',
+            'endpoints',
+            'image',
+            'memoryBytes',
+            'model',
+            'parallelSlots',
+            'provider',
+            'serviceKey',
+            'totalContextTokens',
+            ...(laneName === 'embedding' ? ['batchTokens', 'ubatchTokens'] : [])
+        ];
+        fail(sameSet(Object.keys(lane), laneFields), 'lane-field-set',
+            `lanes.${laneName}`, laneFields, Object.keys(lane));
+        fail(sameSet(Object.keys(lane.image || {}), ['digest', 'reference']), 'image-field-set',
+            `lanes.${laneName}.image`, ['digest', 'reference'], Object.keys(lane.image || {}));
         fail(lane.serviceKey === PROVIDER_LANE_SERVICE_KEYS[laneName], 'service-key', `lanes.${laneName}.serviceKey`, PROVIDER_LANE_SERVICE_KEYS[laneName], lane.serviceKey);
         fail(lane.dnsName === lane.serviceKey, 'lane-dns', `lanes.${laneName}.dnsName`, lane.serviceKey, lane.dnsName);
         fail(isSha256(lane.image?.digest), 'image-digest', `lanes.${laneName}.image.digest`, 'sha256:<64hex>', lane.image?.digest);
@@ -336,6 +398,16 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
     }
 
     fail(lanes.chat?.parallelSlots === 1, 'chat-parallelism', 'lanes.chat.parallelSlots', 1, lanes.chat?.parallelSlots);
+    fail(integerAboveZero(lanes.embedding?.batchTokens) !== null,
+        'embedding-batch', 'lanes.embedding.batchTokens', 'positive integer', lanes.embedding?.batchTokens);
+    fail(integerAboveZero(lanes.embedding?.ubatchTokens) !== null,
+        'embedding-ubatch', 'lanes.embedding.ubatchTokens', 'positive integer', lanes.embedding?.ubatchTokens);
+    fail(lanes.embedding?.batchTokens === lanes.embedding?.ubatchTokens,
+        'embedding-batch-ubatch-coupling', 'lanes.embedding.batchTokens',
+        '=== lanes.embedding.ubatchTokens', lanes.embedding?.batchTokens);
+    fail(lanes.embedding?.ubatchTokens === lanes.embedding?.totalContextTokens,
+        'embedding-batch-context-coupling', 'lanes.embedding.ubatchTokens',
+        '=== lanes.embedding.totalContextTokens', lanes.embedding?.ubatchTokens);
     fail(lanes.chat?.serviceKey !== lanes.embedding?.serviceKey, 'lane-collapse', 'lanes', 'distinct service keys', lanes.chat?.serviceKey);
     fail(lanes.chat?.provider !== lanes.embedding?.provider, 'provider-collapse', 'lanes', 'distinct provider families', lanes.chat?.provider);
     const total       = receipt?.envelope?.total || {};
@@ -358,7 +430,9 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         embeddingMemoryBytes                 : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingMemoryBytes, value: lanes.embedding?.memoryBytes},
         embeddingParallelSlots               : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingParallelSlots, value: lanes.embedding?.parallelSlots},
         embeddingTotalContextTokens          : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingTotalContextTokens, value: lanes.embedding?.totalContextTokens},
-        embeddingContextTokensPerSlotRequired: {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingContextTokensPerSlotRequired, value: lanes.embedding?.contextTokensPerSlotRequired}
+        embeddingContextTokensPerSlotRequired: {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingContextTokensPerSlotRequired, value: lanes.embedding?.contextTokensPerSlotRequired},
+        embeddingBatchTokens                 : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingBatchTokens, value: lanes.embedding?.batchTokens},
+        embeddingUbatchTokens                : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingUbatchTokens, value: lanes.embedding?.ubatchTokens}
     };
 
     fail(sameSet(Object.keys(deploymentInputs), Object.keys(expectedDeploymentInputs)), 'deployment-input-set',
@@ -377,6 +451,11 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         const role         = roles[roleName] || {};
         const lane         = lanes[role.lane];
         const expectedRole = PROVIDER_LANE_ROLE_CONTRACT[roleName];
+        fail(sameSet(Object.keys(role), [
+            'baseUrl', 'configPath', 'consumers', 'lane', 'modelId', 'provider', 'roleKey', 'serviceKey'
+        ]), 'role-field-set', `roles.${roleName}`,
+        ['baseUrl', 'configPath', 'consumers', 'lane', 'modelId', 'provider', 'roleKey', 'serviceKey'], Object.keys(role));
+        fail(role.roleKey === roleName, 'role-key', `roles.${roleName}.roleKey`, roleName, role.roleKey);
         fail(role.configPath === expectedRole.configPath, 'role-config-path', `roles.${roleName}.configPath`, expectedRole.configPath, role.configPath);
         fail(role.lane === expectedRole.lane, 'role-lane-assignment', `roles.${roleName}.lane`, expectedRole.lane, role.lane);
         fail(Boolean(lane), 'role-lane', `roles.${roleName}.lane`, PROVIDER_LANE_KEYS, role.lane);
@@ -436,7 +515,9 @@ export function analyzeProviderLaneComposition(composition, {
         embeddingMemoryBytes                 : input('embeddingMemoryBytes', lanes.embedding.memoryBytes),
         embeddingParallelSlots               : input('embeddingParallelSlots', lanes.embedding.parallelSlots),
         embeddingTotalContextTokens          : input('embeddingTotalContextTokens', lanes.embedding.totalContextTokens),
-        embeddingContextTokensPerSlotRequired: input('embeddingContextTokensPerSlotRequired', lanes.embedding.contextTokensPerSlotRequired)
+        embeddingContextTokensPerSlotRequired: input('embeddingContextTokensPerSlotRequired', lanes.embedding.contextTokensPerSlotRequired),
+        embeddingBatchTokens                 : input('embeddingBatchTokens', lanes.embedding.batchTokens),
+        embeddingUbatchTokens                : input('embeddingUbatchTokens', lanes.embedding.ubatchTokens)
     };
 
     const receipt = {
@@ -472,6 +553,12 @@ export function analyzeProviderLaneComposition(composition, {
         fail(bytes(limits.memory) === lane.memoryBytes, 'service-memory-drift', `services.${lane.serviceKey}.deploy.resources.limits.memory`, lane.memoryBytes, limits.memory);
         fail(integerAboveZero(env[controls.contextEnv]) === lane.totalContextTokens, 'service-context-drift', `services.${lane.serviceKey}.environment.${controls.contextEnv}`, lane.totalContextTokens, env[controls.contextEnv]);
         fail(integerAboveZero(env[controls.slotsEnv]) === lane.parallelSlots, 'service-slots-drift', `services.${lane.serviceKey}.environment.${controls.slotsEnv}`, lane.parallelSlots, env[controls.slotsEnv]);
+        if (laneName === 'embedding') {
+            fail(integerAboveZero(env[controls.batchEnv]) === lane.batchTokens,
+                'service-batch-drift', `services.${lane.serviceKey}.environment.${controls.batchEnv}`, lane.batchTokens, env[controls.batchEnv]);
+            fail(integerAboveZero(env[controls.ubatchEnv]) === lane.ubatchTokens,
+                'service-ubatch-drift', `services.${lane.serviceKey}.environment.${controls.ubatchEnv}`, lane.ubatchTokens, env[controls.ubatchEnv]);
+        }
         fail(lane.dnsName === lane.serviceKey, 'service-dns-drift', `x-provider-lane-contract.lanes.${laneName}.endpoints`, lane.serviceKey, lane.dnsName);
     }
 

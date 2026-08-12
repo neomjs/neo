@@ -226,6 +226,12 @@ function buildContextEvidence({candidate, plan}) {
             },
             embedding: {
                 observedContextTokensPerSlot: 8192,
+                supportedLimitProbe         : buildSupportedLimitProbe({
+                    candidate,
+                    completedAtMs,
+                    profile,
+                    startedAtMs
+                }),
                 overLimitProbe              : buildOverLimitProbe({
                     candidate,
                     completedAtMs,
@@ -237,6 +243,25 @@ function buildContextEvidence({candidate, plan}) {
             }
         },
         startedAtMs
+    }
+}
+
+/**
+ * @summary Shapes a successful exact-limit embedding receipt independent of the refusal probe.
+ */
+function buildSupportedLimitProbe({candidate, completedAtMs, profile, startedAtMs}) {
+    return {
+        completedAtMs         : completedAtMs - 110,
+        id                    : `candidate-${candidate}:embedding:supported-limit`,
+        modelDigest           : profile.lanes.embedding.modelDigest,
+        observedOutputTokens  : 1,
+        protocolAdapter       : profile.lanes.embedding.protocolAdapter,
+        requestedContextTokens: profile.lanes.embedding.contextTokensPerSlotRequired,
+        responseBodyDigest    : `sha256:${'7'.repeat(64)}`,
+        responseClass         : 'completed',
+        serviceKey            : profile.lanes.embedding.serviceKey,
+        startedAtMs           : startedAtMs + 10,
+        transportStatus       : 200
     }
 }
 
@@ -580,6 +605,7 @@ test.describe('providerLaneElectionCore', () => {
               trial   = fixture.trials.find(item => item.candidate === 2);
 
         context.lanes.embedding.observedContextTokensPerSlot = 4096;
+        context.lanes.embedding.supportedLimitProbe.requestedContextTokens = 4096;
         Object.assign(context.lanes.embedding.overLimitProbe, {
             observedOutputTokens: 32,
             responseClass       : 'completed',
@@ -598,6 +624,45 @@ test.describe('providerLaneElectionCore', () => {
             'ERROR_BUDGET_EXCEEDED',
             'PROGRESS_BELOW_SLO'
         ]))
+    });
+
+    test('fails a candidate whose supported embedding limit does not complete', () => {
+        const fixture = buildFixture(),
+              probe   = fixture.contextEvidence.find(item => item.candidate === 2)
+                  .lanes.embedding.supportedLimitProbe;
+
+        Object.assign(probe, {
+            observedOutputTokens: 0,
+            responseClass       : 'provider-error',
+            transportStatus     : 500
+        });
+
+        const result = evaluateProviderLaneElection(fixture),
+              codes  = result.candidates.find(item => item.candidate === 2).failures.map(failure => failure.code);
+
+        expect(codes).toContain('SUPPORTED_LIMIT_NOT_COMPLETED')
+    });
+
+    test('accepts a physical refusal only beyond the embedding lane physical context envelope', () => {
+        const fixture = buildFixture(),
+              lane    = fixture.contextEvidence.find(item => item.candidate === 1).lanes.embedding;
+
+        Object.assign(lane.overLimitProbe, {
+            responseClass  : 'physical-batch-refusal',
+            transportStatus: 500
+        });
+
+        const result = evaluateProviderLaneElection(fixture),
+              codes  = result.candidates.find(item => item.candidate === 1).failures
+                  .map(failure => failure.code);
+        expect(codes).not.toContain('OVER_LIMIT_NOT_REFUSED');
+
+        const impossible = buildFixture();
+        Object.assign(impossible.contextEvidence.find(item => item.candidate === 2).lanes.embedding.overLimitProbe, {
+            responseClass  : 'physical-batch-refusal',
+            transportStatus: 500
+        });
+        expect(() => evaluateProviderLaneElection(impossible)).toThrow(/impossible physical-batch refusal/)
     });
 
     test('cannot lower the joint SLO beneath the composition-required per-slot context', () => {
@@ -721,6 +786,7 @@ test.describe('providerLaneElectionCore', () => {
         trial.lanes.embedding.runtimeProfile.token = 'RUNTIME_SECRET';
         trial.lanes.embedding.operations[0].id = '/tenant/private/corpus/row';
         fixture.contextEvidence[0].lanes.embedding.overLimitProbe.id = 'sk-private-provider-token';
+        fixture.contextEvidence[0].lanes.embedding.supportedLimitProbe.id = '/tenant/private/supported-probe';
 
         const result     = evaluateProviderLaneElection(fixture),
               serialized = JSON.stringify(result),
@@ -735,5 +801,6 @@ test.describe('providerLaneElectionCore', () => {
         expect(lane.runtimeProfile.token).toBeUndefined();
         expect(lane.operations[0].id).toMatch(/^sha256:[0-9a-f]{64}$/);
         expect(context.overLimitProbe.id).toMatch(/^sha256:[0-9a-f]{64}$/)
+        expect(context.supportedLimitProbe.id).toMatch(/^sha256:[0-9a-f]{64}$/)
     });
 });

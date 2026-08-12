@@ -24,7 +24,12 @@ const
     LANE_NAMES             = Object.freeze(['chat', 'embedding']),
     OUTCOMES               = Object.freeze(['completed', 'error', 'unexpected-refusal']),
     PROVIDER_OUTCOMES      = Object.freeze(['completed', 'error']),
-    PROBE_RESPONSE_CLASSES = Object.freeze(['completed', 'context-limit-refusal', 'provider-error']),
+    PROBE_RESPONSE_CLASSES = Object.freeze([
+        'completed',
+        'context-limit-refusal',
+        'physical-batch-refusal',
+        'provider-error'
+    ]),
     QUEUE_DISPOSITIONS     = Object.freeze(['not-applicable', 'queued']),
     SAFE_PUBLIC_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/,
     SOURCE_NAMES           = Object.freeze(['chat', ...EMBED_SOURCES]),
@@ -753,21 +758,62 @@ function validateContextEvidence({evidence, ids, plan}) {
  * @returns {Object} Bounded, identity-bound lane evidence.
  */
 function validateContextLane({ids, lane, laneName, profile, receipt}) {
-    const label = `candidate ${receipt.candidate} ${laneName}`,
-          probe = lane?.overLimitProbe;
+    const label = `candidate ${receipt.candidate} ${laneName}`;
 
     assertPositiveInteger(lane?.observedContextTokensPerSlot, `${label}.observedContextTokensPerSlot`);
-    assertPositiveInteger(probe?.requestedContextTokens, `${label}.overLimitProbe.requestedContextTokens`);
+    const overLimitProbe = validateContextProbe({
+        ids,
+        label,
+        lane,
+        laneName,
+        mode : 'over-limit',
+        probe: lane?.overLimitProbe,
+        profile,
+        receipt
+    });
+    const supportedLimitProbe = laneName === 'embedding'
+        ? validateContextProbe({
+            ids,
+            label,
+            lane,
+            laneName,
+            mode : 'supported-limit',
+            probe: lane?.supportedLimitProbe,
+            profile,
+            receipt
+        })
+        : null;
+
+    return {
+        observedContextTokensPerSlot: lane.observedContextTokensPerSlot,
+        overLimitProbe,
+        ...(supportedLimitProbe ? {supportedLimitProbe} : {})
+    }
+}
+
+/**
+ * @summary Validates and projects one supported-limit or over-limit provider probe.
+ * @param {Object} options Validation inputs.
+ * @returns {Object} Bounded structural response receipt.
+ */
+function validateContextProbe({ids, label, lane, laneName, mode, probe, profile, receipt}) {
+    const path = `${label}.${mode === 'over-limit' ? 'overLimitProbe' : 'supportedLimitProbe'}`;
+
+    assertPositiveInteger(probe?.requestedContextTokens, `${path}.requestedContextTokens`);
 
     if (!probe || typeof probe.id !== 'string' || probe.id.length === 0 || probe.id.length > 1024 || ids.has(probe.id)) {
-        throw new Error(`${label}.overLimitProbe requires a unique request id`)
+        throw new Error(`${path} requires a unique request id`)
     }
     ids.add(probe.id);
 
-    if (!Number.isFinite(probe.startedAtMs) || !Number.isFinite(probe.completedAtMs) ||
+    const requestBound = mode === 'over-limit'
+        ? probe.requestedContextTokens > lane.observedContextTokensPerSlot
+        : probe.requestedContextTokens === lane.observedContextTokensPerSlot;
+
+    if (lane.observedContextTokensPerSlot > profile.lanes[laneName].totalContextTokens ||
+        !requestBound || !Number.isFinite(probe.startedAtMs) || !Number.isFinite(probe.completedAtMs) ||
         probe.startedAtMs < receipt.startedAtMs || probe.completedAtMs > receipt.completedAtMs ||
         probe.completedAtMs <= probe.startedAtMs ||
-        probe.requestedContextTokens <= lane.observedContextTokensPerSlot ||
         probe.serviceKey !== profile.lanes[laneName].serviceKey ||
         probe.modelDigest !== profile.lanes[laneName].modelDigest ||
         probe.protocolAdapter !== profile.lanes[laneName].protocolAdapter ||
@@ -778,27 +824,28 @@ function validateContextLane({ids, lane, laneName, profile, receipt}) {
         throw new Error(`candidate ${receipt.candidate} lane ${laneName} requires truthful identity-bound context evidence`)
     }
 
-    if (probe.responseClass === 'completed' && probe.transportStatus >= 400 ||
+    if (probe.responseClass === 'completed' && (probe.transportStatus < 200 || probe.transportStatus >= 300) ||
         probe.responseClass !== 'completed' && probe.transportStatus < 400 ||
-        probe.responseClass === 'context-limit-refusal' && probe.observedOutputTokens !== 0) {
-        throw new Error(`candidate ${receipt.candidate} lane ${laneName} has an inconsistent over-limit provider response`)
+        probe.responseClass !== 'completed' && probe.observedOutputTokens !== 0) {
+        throw new Error(`candidate ${receipt.candidate} lane ${laneName} has an inconsistent ${mode} provider response`)
+    }
+    if (probe.responseClass === 'physical-batch-refusal' &&
+        (laneName !== 'embedding' || probe.requestedContextTokens <= profile.lanes.embedding.totalContextTokens)) {
+        throw new Error(`candidate ${receipt.candidate} lane ${laneName} has an impossible physical-batch refusal`)
     }
 
     return {
-        observedContextTokensPerSlot: lane.observedContextTokensPerSlot,
-        overLimitProbe              : {
-            completedAtMs         : probe.completedAtMs,
-            id                    : projectOpaqueId(probe.id),
-            modelDigest           : probe.modelDigest,
-            observedOutputTokens  : probe.observedOutputTokens,
-            protocolAdapter       : probe.protocolAdapter,
-            requestedContextTokens: probe.requestedContextTokens,
-            responseBodyDigest    : probe.responseBodyDigest,
-            responseClass         : probe.responseClass,
-            serviceKey            : probe.serviceKey,
-            startedAtMs           : probe.startedAtMs,
-            transportStatus       : probe.transportStatus
-        }
+        completedAtMs         : probe.completedAtMs,
+        id                    : projectOpaqueId(probe.id),
+        modelDigest           : probe.modelDigest,
+        observedOutputTokens  : probe.observedOutputTokens,
+        protocolAdapter       : probe.protocolAdapter,
+        requestedContextTokens: probe.requestedContextTokens,
+        responseBodyDigest    : probe.responseBodyDigest,
+        responseClass         : probe.responseClass,
+        serviceKey            : probe.serviceKey,
+        startedAtMs           : probe.startedAtMs,
+        transportStatus       : probe.transportStatus
     }
 }
 
@@ -999,7 +1046,12 @@ function evaluateCandidate({candidate, contextEvidence, plan, trials}) {
 
         evidence.observedContextTokensPerSlot < plan.slo.lanes[laneName].minContextTokensPerSlot &&
             fail('CONTEXT_BELOW_SLO');
-        evidence.overLimitProbe.responseClass !== 'context-limit-refusal' &&
+        laneName === 'embedding' &&
+            (evidence.supportedLimitProbe.responseClass !== 'completed' ||
+                evidence.supportedLimitProbe.observedOutputTokens < 1) &&
+            fail('SUPPORTED_LIMIT_NOT_COMPLETED');
+        !(evidence.overLimitProbe.responseClass === 'context-limit-refusal' ||
+            laneName === 'embedding' && evidence.overLimitProbe.responseClass === 'physical-batch-refusal') &&
             fail('OVER_LIMIT_NOT_REFUSED')
     }
 
