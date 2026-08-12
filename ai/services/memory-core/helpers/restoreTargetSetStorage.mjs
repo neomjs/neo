@@ -83,13 +83,23 @@ export function createRestoreTargetSetStorage({
         onPhase
     });
 
-    // One captured view per restore run: every role's promote validates against the SAME view, so
-    // a generation commit landing between two role promotes cannot split one run across generations.
-    let promoteViewPromise = null;
+    // One captured view per restore ATTEMPT: every role's promote inside one attempt validates
+    // against the SAME view (a commit landing between two role promotes cannot split the attempt
+    // across generations), while a NEW attempt captures fresh — the storage object outlives
+    // attempts at its call site, so a per-factory memo would leak a stale view across an
+    // intervening election.
+    const promoteViewByAttempt = new Map();
 
-    function capturePromoteViewOnce() {
-        promoteViewPromise ??= captureVectorPromoteView({dir: electionDir});
-        return promoteViewPromise
+    function capturePromoteViewForAttempt(attemptFingerprint) {
+        if (typeof attemptFingerprint !== 'string' || attemptFingerprint.length === 0) {
+            throw new Error('restoreTargetSetStorage: promoteComponent requires context.attemptFingerprint for election-view capture')
+        }
+
+        if (!promoteViewByAttempt.has(attemptFingerprint)) {
+            promoteViewByAttempt.set(attemptFingerprint, captureVectorPromoteView({dir: electionDir}))
+        }
+
+        return promoteViewByAttempt.get(attemptFingerprint)
     }
 
     return {
@@ -247,7 +257,7 @@ export function createRestoreTargetSetStorage({
             promoteAdmission = await assertCapturedPromoteView({
                 dir          : electionDir,
                 collectionKey: electionKey,
-                view         : await capturePromoteViewOnce()
+                view         : await capturePromoteViewForAttempt(context.attemptFingerprint)
             })
         }
 
