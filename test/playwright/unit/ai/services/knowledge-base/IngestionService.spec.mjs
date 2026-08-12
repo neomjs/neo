@@ -996,6 +996,35 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
+    test('#17013 keeps production-sized single-line ingestion bounded and lossless', async () => {
+        const content = 'z'.repeat(105_000);
+
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            contextLimitTokens       : 40_000,
+            safeProcessingLimitTokens: 33_400
+        });
+
+        const startedAt = performance.now();
+        const summary   = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            repoSlug: 'repo-a',
+            files   : [{
+                content,
+                sourcePath: 'dist/generated.min.js'
+            }]
+        });
+        const durationMs = performance.now() - startedAt;
+        const records    = vectorCalls[0].records;
+
+        expect(durationMs).toBeLessThan(1_000);
+        expect(summary.ingested).toBeGreaterThan(1);
+        expect(summary.embeddingsGenerated).toBe(summary.ingested);
+        expect(summary.errors).toEqual([]);
+        expect(records.every(record => record.sourcePath === 'dist/generated.min.js')).toBe(true);
+        expect(records.every(record => record.oversizedSplit === true)).toBe(true);
+        expect(records.map(record => record.content).join('')).toBe(content);
+    });
+
     test('keeps skip diagnostics for over-budget chunks that cannot be split', async () => {
         Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
             contextLimitTokens       : 50,
