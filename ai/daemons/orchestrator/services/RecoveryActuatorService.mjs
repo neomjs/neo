@@ -22,7 +22,8 @@ import {
 } from '../../../services/memory-core/helpers/recoveryOverrideStore.mjs';
 import {
     knobLeafPaths,
-    RECOVERY_KNOBS
+    RECOVERY_KNOBS,
+    selectAutomaticKnobTransaction
 } from '../../../services/memory-core/helpers/recoveryKnobRegistry.mjs';
 import {isStoreBackedService} from './ContainerHealthDiagnosisService.mjs';
 
@@ -97,10 +98,12 @@ export function isRecoveryActuatorTargetBlocked(target, blockedTargets) {
  * @extends Neo.core.Base
  *
  * B1 privileged recovery actuator (the deny-by-default privilege-boundary design). The service is controller-blind:
- * callers pass an already-selected action, and this class only answers whether the
- * recovery target registry + persisted anti-thrash envelope admits it. Compose-service
- * lifecycle writes are delegated to the shared L0 deployment-runtime access holder,
- * keeping Docker socket access and container identity resolution out of this B1 class.
+ * callers pass an already-selected action, and this class answers whether the recovery target
+ * registry + persisted anti-thrash envelope admits it. When the action names a semantic knob but no
+ * leaf values, the registry's closed automatic policy selects them here against runtime context — the
+ * controller never gains config-leaf authority. Compose-service lifecycle writes are delegated to the
+ * shared L0 deployment-runtime access holder, keeping Docker socket access and container identity
+ * resolution out of this B1 class.
  */
 export class RecoveryActuatorService extends Base {
     static config = {
@@ -123,6 +126,15 @@ export class RecoveryActuatorService extends Base {
          * @reactive
          */
         dataDir_: null,
+        /**
+         * `null` = derive the recovery overlay directory from the deployment-state snapshot leaf on
+         * read. Tests inject a scratch directory through this bounded storage seam instead of
+         * mutating the shared AiConfig singleton.
+         * @member {String|null} recoveryOverrideDir_=null
+         * @protected
+         * @reactive
+         */
+        recoveryOverrideDir_: null,
         /**
          * @member {Object|null} healthService_=null
          * @protected
@@ -274,9 +286,10 @@ export class RecoveryActuatorService extends Base {
         isAuthorityHeld = null,
         isEffectStillAdmitted = null,
         expectedContainerId = null,
-        // Only `reconfigure` consumes these. A controller names a KNOB, never a config leaf — the
-        // transaction boundary belongs to the closed set, so a caller cannot compose an arbitrary
-        // group of leaves and have it applied as one.
+        // `reconfigure` and `raise-ceiling` consume these. A controller names a KNOB, never a config
+        // leaf — the transaction boundary belongs to the closed set, so a caller cannot compose an
+        // arbitrary group of leaves and have it applied as one. `raise-ceiling` may omit values to
+        // invoke the knob's registry-owned automatic policy; `reconfigure` remains caller-authored.
         knob = null,
         knobValues = null
     } = {}) {
@@ -679,6 +692,16 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Resolves the writer-owned recovery overlay directory from the deployment-state SSOT
+     * when no explicit test boundary was injected.
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeGetRecoveryOverrideDir(value) {
+        return value ?? path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath)
+    }
+
+    /**
      * @summary Resolves the strict recovery target entry for a service key and optional identity.
      * @param {Object} options
      * @returns {Object|null}
@@ -759,7 +782,7 @@ export class RecoveryActuatorService extends Base {
             knob,
             // Derived from the bridge's snapshot leaf rather than re-resolved: both files live on the
             // same writer-owned mount, and deriving keeps them together if that root ever relocates.
-            overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
+            overrideDir: this.recoveryOverrideDir,
             values     : knobValues,
             isAuthorityHeld
         });
@@ -807,7 +830,8 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @param {Object} options.target Resolved compose-service target.
      * @param {String} options.knob Knob name from the closed set.
-     * @param {Object} options.knobValues Proposed values keyed by leaf path.
+     * @param {Object|null} [options.knobValues=null] Explicit values keyed by leaf path. Omission
+     * selects the knob's registry-owned automatic transaction against the inspected live limit.
      * @param {String|null} options.reason Controller reason.
      * @returns {Promise<Object>}
      */
@@ -831,7 +855,8 @@ export class RecoveryActuatorService extends Base {
         }
 
         const inspection     = await this.deploymentRuntimeAccessService.readObserve({serviceKey: target.id, operation: 'inspect'}),
-              liveLimitBytes = Number(inspection.data?.HostConfig?.Memory);
+              liveLimitBytes = Number(inspection.data?.HostConfig?.Memory),
+              context        = {[`runtime.${target.id}.liveMemoryLimitBytes`]: liveLimitBytes};
 
         if (!Number.isFinite(liveLimitBytes)) {
             throw new Error(`Live memory limit for '${target.id}' is unreadable from inspect — refusing to raise against an unknown bound`);
@@ -843,12 +868,24 @@ export class RecoveryActuatorService extends Base {
         // next converge would apply an intent its author no longer had authority to form.
         this.assertAuthorityHeld({isAuthorityHeld, action: 'raise-ceiling', target});
 
+        let selectedKnobValues = knobValues;
+
+        if (selectedKnobValues === null || selectedKnobValues === undefined) {
+            const selection = selectAutomaticKnobTransaction({knob, context});
+
+            if (!selection.valid) {
+                throw new Error(`Automatic knob transaction refused for '${knob}': ${selection.violations.join('; ')}`);
+            }
+
+            selectedKnobValues = selection.values;
+        }
+
         const {applied, path: overridePath, violations} = await writeKnobOverride({
-            context    : {[`runtime.${target.id}.liveMemoryLimitBytes`]: liveLimitBytes},
+            context,
             knob,
             // Same writer-owned mount as `reconfigure` — one overlay, one owner, one revert surface.
-            overrideDir: path.dirname(AiConfig.orchestrator.deploymentStateBridge.snapshotPath),
-            values     : knobValues,
+            overrideDir: this.recoveryOverrideDir,
+            values     : selectedKnobValues,
             isAuthorityHeld
         });
 
@@ -863,7 +900,7 @@ export class RecoveryActuatorService extends Base {
         // The oracle travels into the live mutation as well: `writeKnobOverride` above is awaited, so
         // this is a second yield point. `applyLifecycle` re-checks after it resolves the container —
         // the last boundary Neo owns before the cgroup actually moves.
-        const memoryLimitBytes = knobValues[leafPaths[0]],
+        const memoryLimitBytes = selectedKnobValues[leafPaths[0]],
               update           = await this.deploymentRuntimeAccessService.applyLifecycle({
                   serviceKey: target.id,
                   operation : 'update-memory-limit',

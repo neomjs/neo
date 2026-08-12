@@ -5,6 +5,7 @@ import {
     isKnownKnob,
     knobLeafPaths,
     knobRequiredContext,
+    selectAutomaticKnobTransaction,
     validateKnobTransaction
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
@@ -184,6 +185,48 @@ const CEIL_LEAF    = 'deploy.chroma.memoryCeilingBytes';
 const LIVE_LEAF    = 'runtime.chroma.liveMemoryLimitBytes';
 
 test.describe('recoveryKnobRegistry — container-memory-ceiling is the store\'s bounded raise (#16596)', () => {
+    test('the automatic policy owns the finite 2 → 8 → 16 → refusal sequence', () => {
+        const incident = selectAutomaticKnobTransaction({
+                  context: {[LIVE_LEAF]: 2 * GIB},
+                  knob   : CEILING_KNOB
+              }),
+              belowFloor = selectAutomaticKnobTransaction({
+                  context: {[LIVE_LEAF]: 6 * GIB},
+                  knob   : CEILING_KNOB
+              }),
+              second   = selectAutomaticKnobTransaction({
+                  context: {[LIVE_LEAF]: 8 * GIB},
+                  knob   : CEILING_KNOB
+              }),
+              belowCap = selectAutomaticKnobTransaction({
+                  context: {[LIVE_LEAF]: 12 * GIB},
+                  knob   : CEILING_KNOB
+              }),
+              terminal = selectAutomaticKnobTransaction({
+                  context: {[LIVE_LEAF]: 16 * GIB},
+                  knob   : CEILING_KNOB
+              });
+
+        expect(incident).toEqual({valid: true, values: {[CEIL_LEAF]: 8 * GIB}, violations: []});
+        expect(belowFloor).toEqual({valid: true, values: {[CEIL_LEAF]: 8 * GIB}, violations: []});
+        expect(second).toEqual({valid: true, values: {[CEIL_LEAF]: 16 * GIB}, violations: []});
+        expect(belowCap).toEqual({valid: true, values: {[CEIL_LEAF]: 16 * GIB}, violations: []});
+
+        // No clamp at the cap. The invalid 32 GiB candidate remains inspectable, and the registry's
+        // ordinary validation vocabulary says exactly why autonomy stopped.
+        expect(terminal.valid).toBe(false);
+        expect(terminal.values).toEqual({[CEIL_LEAF]: 32 * GIB});
+        expect(terminal.violations.some(violation => violation.includes(`${8 * GIB}..${16 * GIB}`))).toBe(true);
+    });
+
+    test('a knob without an automatic policy remains operator-authored only', () => {
+        expect(selectAutomaticKnobTransaction({knob: KNOB, context: CTX})).toEqual({
+            valid     : false,
+            values    : null,
+            violations: [`knob '${KNOB}' has no automatic value-selection policy`]
+        });
+    });
+
     test('the incident transaction is accepted — a 2 GiB plane raises to the derived 8 GiB default', () => {
         // The shape the reactive controller will actually issue, taken from the live incident: a store
         // at the pre-parameterisation 2 GiB cap, mid-ingestion, raised to the compose default. A guard
