@@ -702,38 +702,45 @@ export class MaintenanceBackpressureService extends Base {
      */
     configuredTenantRepoLabelsAt = 0
     /**
-     * @member {Boolean} refreshingConfiguredTenantRepoLabels=false
-     * Single-flight guard so a poll storm cannot stack resolver calls.
+     * @member {Promise|null} configuredTenantRepoLabelsRefresh=null
+     * The in-flight refresh, exposed so boot can AWAIT the first snapshot instead of racing it.
+     * Doubles as the single-flight guard: a poll storm joins this promise rather than stacking
+     * resolver calls.
      * @protected
      */
-    refreshingConfiguredTenantRepoLabels = false
+    configuredTenantRepoLabelsRefresh = null
 
     /**
-     * @summary Kicks a throttled background refresh of the configured tenant-repo label snapshot.
+     * @summary Resolves the configured tenant-repo label snapshot, awaitable and single-flight.
      *
-     * Deliberately fire-and-forget. The consumer (`isBootstrapCriticalTask`) is synchronous — it
-     * runs inside the scheduling picker on every poll — while the canonical configured-repo truth
-     * is async (`resolveTenantReposConfig` → `listConfiguredTenantRepos`, tiered graph node >
-     * `kb-config.yaml` bootstrap > config default). Reading a config leaf directly here would be
-     * cheaper and wrong: that direct read is exactly what the tiered resolver replaced so the
-     * bootstrap/graph tiers are honoured, so it would misread every plane whose repos come from
-     * the graph tier.
+     * The canonical configured-repo truth is async (`resolveTenantReposConfig` →
+     * `listConfiguredTenantRepos`, tiered graph node > `kb-config.yaml` bootstrap > config
+     * default) while the consumer (`isBootstrapCriticalTask`) is synchronous — it runs inside the
+     * scheduling picker on every poll. Reading a config leaf directly would be cheaper and wrong:
+     * that direct read is what the tiered resolver replaced so the bootstrap/graph tiers are
+     * honoured, so it would misread every plane whose repos come from the graph tier.
      *
-     * Bounded staleness is the accepted trade: a newly configured repo activates the class one
-     * refresh later, which costs at most one scheduling cycle of ordinary ranking. A resolver
-     * failure leaves the previous snapshot in place rather than downgrading coverage.
+     * **Boot must await this before the first scheduling sweep.** A fire-and-forget kick is not
+     * sufficient: on a first deployment the first decision would run against an unresolved
+     * snapshot, rank the bootstrap lane as ordinary, and hand the heavy lease to a more-stale REM
+     * cycle for its full duration — losing precisely the decision the class exists to win. Steady
+     * state still refreshes lazily off the TTL, where bounded staleness costs at most one cycle of
+     * ordinary ranking.
+     *
+     * A resolver failure leaves the previous snapshot in place rather than downgrading coverage,
+     * and never rejects — boot must not be blocked by a resolver outage.
      *
      * @param {Number} [now=Date.now()] Clock seam.
-     * @returns {void}
+     * @returns {Promise<String[]|null>} The current snapshot once any needed refresh settles.
      * @protected
      */
-    refreshConfiguredTenantRepoLabels(now = Date.now()) {
-        if (this.refreshingConfiguredTenantRepoLabels) return;
-        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return;
+    ensureConfiguredTenantRepoLabels(now = Date.now()) {
+        if (this.configuredTenantRepoLabelsRefresh) return this.configuredTenantRepoLabelsRefresh;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) {
+            return Promise.resolve(this.configuredTenantRepoLabels);
+        }
 
-        this.refreshingConfiguredTenantRepoLabels = true;
-
-        Promise.resolve()
+        this.configuredTenantRepoLabelsRefresh = Promise.resolve()
             .then(() => this.resolveConfiguredTenantRepoLabelsFn())
             .then(labels => {
                 if (Array.isArray(labels)) {
@@ -744,9 +751,25 @@ export class MaintenanceBackpressureService extends Base {
             .catch(e => {
                 this.writeLog('WARN', `[Orchestrator] Configured tenant-repo snapshot refresh failed: ${e.message} — keeping the previous snapshot.`);
             })
+            .then(() => this.configuredTenantRepoLabels)
             .finally(() => {
-                this.refreshingConfiguredTenantRepoLabels = false;
+                this.configuredTenantRepoLabelsRefresh = null;
             });
+
+        return this.configuredTenantRepoLabelsRefresh;
+    }
+
+    /**
+     * @summary Non-blocking lazy refresh used by the synchronous predicate on the steady-state path.
+     * @param {Number} [now=Date.now()] Clock seam.
+     * @returns {void}
+     * @protected
+     */
+    refreshConfiguredTenantRepoLabels(now = Date.now()) {
+        if (this.configuredTenantRepoLabelsRefresh) return;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return;
+
+        this.ensureConfiguredTenantRepoLabels(now);
     }
 
     /**
@@ -796,10 +819,20 @@ export class MaintenanceBackpressureService extends Base {
                 ? rawRevisions
                 : {};
 
-            // Snapshot unresolved: fall back to the manifest-only predicate rather than treating an
-            // unknown configured set as full coverage.
+            // Snapshot unresolved. Boot awaits `ensureConfiguredTenantRepoLabels()` before the first
+            // sweep, so this is the defensive path (a service composed outside that boot order, or a
+            // resolver that has not settled yet) — and its posture must fail SAFE, because failing
+            // ordinary here loses the exact decision the class exists to win.
+            //
+            // An entirely absent manifest cannot prove the plane is initialized: it is equally the
+            // signature of a first deployment. Ranking bootstrap here costs at most one poll of
+            // priority on a plane that turns out to have no configured repos (the sweep no-ops and
+            // the snapshot resolves to empty on the next call); ranking ordinary costs a full REM
+            // hold on exactly the plane that needed the lane first.
             if (!Array.isArray(labels)) {
-                return Object.values(revisions).some(entry => !entry?.lastIngestedRev);
+                const manifestKeys = Object.keys(revisions);
+
+                return manifestKeys.length === 0 || manifestKeys.some(key => !revisions[key]?.lastIngestedRev);
             }
 
             return labels.some(label => !revisions[label]?.lastIngestedRev);

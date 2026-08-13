@@ -1521,6 +1521,15 @@ export class Orchestrator extends Base {
             }
         }
 
+        // Resolve configured tenant-repo coverage BEFORE the first sweep. The bootstrap-critical
+        // rank is evaluated synchronously inside the picker, so a fire-and-forget refresh would
+        // leave the very first scheduling decision running on unresolved coverage — on a first
+        // deployment that ranks the bootstrap lane as ordinary and hands the heavy lease to a
+        // more-stale REM cycle for its full duration, losing the one decision the class exists to
+        // win. Awaited rather than raced; the call never rejects, so a resolver outage delays
+        // nothing.
+        await this.maintenanceBackpressureService.ensureConfiguredTenantRepoLabels?.();
+
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.announceDisabledLanes();

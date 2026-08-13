@@ -18,6 +18,7 @@ import {
     recordDeferral
 } from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {PRIORITY_ZERO_TASKS} from '../../../../../../../ai/daemons/orchestrator/scheduling/pipeline.mjs';
+import {pickNextCandidate}   from '../../../../../../../ai/daemons/orchestrator/scheduling/picker.mjs';
 
 const T0   = Date.parse('2026-08-13T10:00:00.000Z');
 const HOUR = 60 * 60 * 1000;
@@ -218,14 +219,21 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
             complete.destroy()
         });
 
-        test('an absent or corrupt manifest never grants priority', () => {
-            const absent  = serviceWithManifest(undefined);
+        test('a corrupt manifest never grants priority — fail-closed on unreadable evidence', () => {
             const corrupt = serviceWithManifest('{not json');
 
-            expect(absent.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
             expect(corrupt.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
-            absent.destroy();
             corrupt.destroy()
+        });
+
+        test('an empty configured set is ordinary even before any manifest exists', () => {
+            const service = serviceWithManifest(undefined);
+
+            service.configuredTenantRepoLabels   = [];
+            service.configuredTenantRepoLabelsAt = Date.now();
+
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
+            service.destroy()
         });
 
         // Configured coverage, not the manifest alone, decides the class. The manifest only records
@@ -294,12 +302,111 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
             const service = serviceWithManifest(JSON.stringify({revisions: {'a/one': {lastIngestedRev: 'abc123'}}}));
 
             service.resolveConfiguredTenantRepoLabelsFn = async () => ['a/one', 'a/two'];
-            service.refreshConfiguredTenantRepoLabels();
-            await new Promise(resolve => setImmediate(resolve));
+            // Await the resolver promise rather than counting event-loop turns: tick-counting
+            // couples the test to the refresh chain's internal depth.
+            await service.ensureConfiguredTenantRepoLabels();
 
             expect(service.configuredTenantRepoLabels).toEqual(['a/one', 'a/two']);
             // 'a/two' is configured and uncheckpointed, so coverage now grants the class.
             expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        // The boot boundary. The arms above seed the snapshot or await a tick, which proves the
+        // predicate but MASKS the first production decision: on a fresh deployment the snapshot is
+        // unresolved at the first pick, and ranking ordinary there hands the heavy lease to a
+        // more-stale REM cycle for its full duration — losing the one decision the class exists to
+        // win. These two compose the real thing: real service, real async resolver, real absent
+        // manifest, no seeding and no setImmediate.
+        function bootCandidates() {
+            return [
+                {taskName: 'dream',            descriptor: {maintenanceClass: 'heavy', dependencies: []}},
+                {taskName: 'tenant-repo-sync', descriptor: {maintenanceClass: 'heavy', dependencies: []}}
+            ]
+        }
+
+        // dream is far more stale, so pure staleness picks dream.
+        function bootPolicyContext(service) {
+            return {
+                now                    : 1_000_000,
+                taskMeta               : {dream: {lastRunAt: 0, cadenceMs: 10_000}, 'tenant-repo-sync': {lastRunAt: 990_000, cadenceMs: 10_000}},
+                priorityZeroTasks      : PRIORITY_ZERO_TASKS,
+                isBootstrapCriticalTask: taskName => service.isBootstrapCriticalTask(taskName)
+            }
+        }
+
+        test('first scheduling decision after boot ranks tenant sync over more-stale REM', async () => {
+            const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-boot-'));
+            const service = Neo.create(MaintenanceBackpressureService, {
+                dataDir,
+                writeLog                           : () => {},
+                resolveConfiguredTenantRepoLabelsFn: async () => ['a/one']
+            });
+
+            // Exactly what Orchestrator.start() does before its first sweep.
+            await service.ensureConfiguredTenantRepoLabels();
+
+            const winner = pickNextCandidate({
+                candidates   : bootCandidates(),
+                runningTasks : [],
+                policyContext: bootPolicyContext(service)
+            });
+
+            expect(winner.taskName).toBe('tenant-repo-sync');
+            service.destroy()
+        });
+
+        test('CONTROL — with complete checkpoint coverage the more-stale REM lane wins that same decision', async () => {
+            const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bootstrap-boot-covered-'));
+
+            fs.writeFileSync(
+                path.join(dataDir, 'tenant-repo-sync-revisions.json'),
+                JSON.stringify({revisions: {'a/one': {lastIngestedRev: 'abc123'}}})
+            );
+
+            const service = Neo.create(MaintenanceBackpressureService, {
+                dataDir,
+                writeLog                           : () => {},
+                resolveConfiguredTenantRepoLabelsFn: async () => ['a/one']
+            });
+
+            await service.ensureConfiguredTenantRepoLabels();
+
+            const winner = pickNextCandidate({
+                candidates   : bootCandidates(),
+                runningTasks : [],
+                policyContext: bootPolicyContext(service)
+            });
+
+            // Establishes the arm above is not vacuous: staleness genuinely favours dream here.
+            expect(winner.taskName).toBe('dream');
+            service.destroy()
+        });
+
+        test('an unresolved snapshot with no manifest fails SAFE — cannot prove the plane is initialized', () => {
+            const service = serviceWithManifest(undefined);
+
+            service.resolveConfiguredTenantRepoLabelsFn = () => new Promise(() => {}); // never settles
+
+            expect(service.configuredTenantRepoLabels).toBeNull();
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        test('ensureConfiguredTenantRepoLabels is single-flight — concurrent callers share one resolver call', async () => {
+            const service = serviceWithManifest(undefined);
+            let   calls   = 0;
+
+            service.resolveConfiguredTenantRepoLabelsFn = async () => { calls++; return ['a/one'] };
+
+            const [a, b] = await Promise.all([
+                service.ensureConfiguredTenantRepoLabels(),
+                service.ensureConfiguredTenantRepoLabels()
+            ]);
+
+            expect(calls).toBe(1);
+            expect(a).toEqual(['a/one']);
+            expect(b).toEqual(['a/one']);
             service.destroy()
         });
 
@@ -308,8 +415,8 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
 
             service.resolveConfiguredTenantRepoLabelsFn = async () => { throw new Error('resolver down') };
             service.configuredTenantRepoLabelsAt        = 0;
-            service.refreshConfiguredTenantRepoLabels();
-            await new Promise(resolve => setImmediate(resolve));
+            // Must not reject: boot awaits this call, so a resolver outage cannot block startup.
+            await service.ensureConfiguredTenantRepoLabels();
 
             expect(service.configuredTenantRepoLabels).toEqual(['a/one']);
             expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
