@@ -1,5 +1,6 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
+import os             from 'os';
 import path           from 'path';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
@@ -47,7 +48,12 @@ function buildService(overrides = {}) {
     return Neo.create(MaintenanceBackpressureService, {
         heavyMaintenanceTaskNames    : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
         goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
-        writeLog                     : () => {},
+        // Isolated per-instance lease path: the waiter ledger persists deferral entries BESIDE
+        // the lease file by design, so a fixture inheriting the real plane path would leak one
+        // arm's registered waiters (including priority-0 ones, which force yields with no
+        // starvation bound) into every later arm's admission decision — and into the plane dir.
+        heavyMaintenanceLeasePath: path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mbs-lease-')), 'heavy-maintenance-lease.json'),
+        writeLog                 : () => {},
         ...overrides
     });
 }

@@ -66,8 +66,14 @@ function createTestOrchestrator(config = {}) {
         neuralLinkBridgeLivenessTimeoutMs: config.neuralLinkBridgeLivenessTimeoutMs ?? 50
     });
 
+    // Per-fixture DIRECTORY, not merely a per-fixture file: the waiter ledger lives in a
+    // `heavy-maintenance-waiters/` sibling derived from the lease path's dirname, so unique
+    // lease files inside one shared directory would still share one ledger — and a leftover
+    // priority-0 waiter entry from an earlier arm forces every later acquisition to yield.
     const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
-        || `/tmp/orchestrator-test/heavy-maintenance-lease-${process.pid}-${++testOrchestratorSeq}.json`;
+        || `/tmp/orchestrator-test/lease-${process.pid}-${++testOrchestratorSeq}/heavy-maintenance-lease.json`;
+
+    fs.mkdirSync(path.dirname(heavyMaintenanceLeasePath), {recursive: true});
 
     TaskStateService.configure({
         stateFile : '/tmp/orchestrator-test/state.json',
