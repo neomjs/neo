@@ -82,7 +82,7 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 *   **`[TOOLING_GAP]`**: Use this to document failures in the development workflow, broken test commands, or MCP tools that failed during the generation of the PR.
 *   **`[RETROSPECTIVE]`**: Use this for high-level takeaways or architectural praise.
 
-**Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
+**Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines `[ADDRESSED]`, `[REJECTED_WITH_RATIONALE]`, and guarded `[SCOPE_TRANSFERRED]`. Accepted-but-unimplemented work remains OPEN. The shared taxonomy keeps the negotiation thread mineable without weakening the Required Action gate.
 
 ### 4.1 Reference Hygiene
 
@@ -313,7 +313,7 @@ After §3-§8, choose exactly one row:
 |---|---|
 | **Approve** | Merge-safe; inline nits or Maintainer Polish, no return cycle. |
 | **Request Changes** | Delivered-scope correctness, safety, or code-shape defect; budgeted in-place repair. |
-| **Approve+Follow-Up** | Scope transfer only; worst normal outcome. Requires a merge-safe head, no deferred correctness, explicit close-target AC ownership, and an independently valuable day-after-merge counterfactual. |
+| **Approve+Follow-Up** | Scope transfer only; worst normal outcome. Requires a merge-safe head, no unresolved correctness, explicit close-target AC ownership, and an independently valuable day-after-merge counterfactual. |
 | **Drop+Supersede** | Dead/stale premise at any cycle, or no merge-safe slice after RC2; terminal `CHANGES_REQUESTED`, not repair. |
 
 **RC2 `COMMENTED` closure packet:** consumer sweep; falsifier/property matrix; carried-vs-new census; truth-fold; semantic-surface freeze. Afterward only the existing RA's named capability may change; property refinements within it are allowed, new semantic surfaces are not.
