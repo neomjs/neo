@@ -1312,7 +1312,12 @@ class ConfigBase extends ConfigProvider {
                  * @type {Object}
                  */
                 heavyMaintenanceLease: {
-                    staleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_TTL_MS', 'number')
+                    staleAfterMs: leaf(6 * 60 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_TTL_MS', 'number'),
+                    // Fairness bound: an acquirer that is NOT the waiter yields to a registered waiter
+                    // whose unbroken deferral streak exceeds this. Deliberately generous — sized as a
+                    // starvation ceiling, not a scheduling optimization — thresholds derived from a
+                    // misbehaving system's observations bound the wrong quantity.
+                    fairnessYieldAfterMs: leaf(30 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_FAIRNESS_YIELD_MS', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
