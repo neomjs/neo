@@ -930,6 +930,33 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }
     });
 
+    test('a throwing provider-activity projection degrades to explicit unavailable, never an escaped error', () => {
+        // Reap-on-read makes the projection a WRITING read, so a lock storm or corruption can now
+        // throw where the path previously only read. The method's contract is that every degraded
+        // state is explicit — and the effect-boundary consumer must read that as "not idle".
+        const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
+
+        orchestrator.db = {
+            prepare() { throw new Error('database is locked') }
+        };
+        orchestrator.providerActivityTelemetryEnabledReader = () => true;
+        orchestrator.providerActivityStatusReader = () => ({status: 'ok'});
+
+        const projection = orchestrator.readProviderActivityProjection({
+            sinceTs   : 0,
+            limit     : 50,
+            observedAt: Date.now()
+        });
+
+        expect(projection).toEqual({
+            status           : 'unavailable',
+            unavailableReason: 'provider-activity-read-failed'
+        });
+        expect(() => orchestrator.isOllamaResidualRestartStillAdmitted()).not.toThrow();
+        expect(orchestrator.isOllamaResidualRestartStillAdmitted(),
+            'an unreadable projection is not proof of idleness').toBe(false);
+    });
+
     test('provider activity projection reads the container-plane boot database without heartbeat readiness', async () => {
         const orchestrator = createTestOrchestrator({kbSyncEnabled: false});
 

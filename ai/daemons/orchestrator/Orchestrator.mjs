@@ -555,7 +555,10 @@ export class Orchestrator extends Base {
 
         if (!db) return {status: 'unavailable', unavailableReason: 'graph-database-unavailable'};
 
-        const projection = getProviderActivityMetrics(db, {
+        let projection;
+
+        try {
+            projection = getProviderActivityMetrics(db, {
                 limit,
                 now    : observedAt,
                 sinceTs,
@@ -567,11 +570,21 @@ export class Orchestrator extends Base {
                     chat     : memoryCoreConfig.sessionSummaryTimeoutMs,
                     embedding: memoryCoreConfig.ollama.embeddingTimeoutMs
                 }
-            }),
-              observer   = this.providerActivityStatusReader({
-                  dbPath: memoryCoreConfig.storagePaths.graph,
-                  sinceTs
-              });
+            });
+        } catch (error) {
+            // Reap-on-read makes this a WRITING read: a lock storm or corruption now throws where
+            // the path previously only read. Degradation in this method is explicit by contract —
+            // an escaped throw would propagate through `isOllamaResidualRestartStillAdmitted` as an
+            // unstructured error instead of an unavailable state that can never mean idle.
+            this.deploymentStateBridgeWriteLog?.('ERROR', `provider-activity projection read failed: ${error?.message || error}`);
+
+            return {status: 'unavailable', unavailableReason: 'provider-activity-read-failed'};
+        }
+
+        const observer = this.providerActivityStatusReader({
+            dbPath: memoryCoreConfig.storagePaths.graph,
+            sinceTs
+        });
 
         return {
             ...projection,
