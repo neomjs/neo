@@ -22,7 +22,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 /**
  * @summary Verifies that operator-runnable heavy-maintenance CLI scripts wrap their
  * substrate-heavy work with the shared `withHeavyMaintenanceLease` primitive and handle
- * the `held` outcome with a clean non-error exit.
+ * the `held` outcome with declared bounded exit semantics.
  *
  * Content-verification approach (parse the script source for the expected import +
  * wrapper call + held-status branch) rather than subprocess execution because each script
@@ -82,10 +82,24 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             owner          : 'kbIngest',
             invocation     : 'withHeavyMaintenanceLease(',
             heldExitPattern: /process\.exit\(0\)/
+        },
+        {
+            file           : 'maintenance/syncTenantRepos.mjs',
+            owner          : 'tenant-repo-sync',
+            reason         : 'container-one-shot',
+            invocation     : 'withLeaseImpl ?? withHeavyMaintenanceLease',
+            heldExitPattern: /process\.exit\(4\)/
         }
     ];
 
-    for (const {file, owner, invocation, heldExitPattern, heldDiagnosticPattern = /Deferred:.*lease held by/i} of SCRIPTS) {
+    for (const {
+        file,
+        owner,
+        reason = 'manual-cli',
+        invocation,
+        heldExitPattern,
+        heldDiagnosticPattern = /Deferred:.*lease held by/i
+    } of SCRIPTS) {
         test(`${file}: imports withHeavyMaintenanceLease`, async () => {
             const source          = await fs.readFile(scriptPath(file), 'utf-8');
             const canonicalImport = /import\s*\{[^}]*\}\s*from\s*['"]\.\.\/\.\.\/daemons\/orchestrator\/services\/HeavyMaintenanceLeaseService\.mjs['"]/;
@@ -114,18 +128,18 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             const wrapperOptions = source.slice(optionsStart);
             expect(wrapperOptions).toMatch(new RegExp(
                 `^\\{\\s*leasePath\\s*:\\s*resolveHeavyMaintenanceLeasePath\\(\\{dataDir\\s*:\\s*AiConfig\\.orchestrator\\.dataDir\\}\\)\\s*,` +
-                `\\s*owner\\s*:\\s*['"]${owner}['"]\\s*,\\s*reason\\s*:\\s*['"]manual-cli['"]`
+                `\\s*owner\\s*:\\s*['"]${owner}['"]\\s*,\\s*reason\\s*:\\s*['"]${reason}['"]`
             ));
         });
 
-        test(`${file}: handles 'held' outcome with non-error exit + diagnostic message`, async () => {
+        test(`${file}: handles 'held' outcome with declared exit + diagnostic message`, async () => {
             const source = await fs.readFile(scriptPath(file), 'utf-8');
             // Assert the held-status branch exists
             expect(source).toMatch(/status\s*===\s*['"]held['"]/);
             // Interactive CLIs emit prose naming the holder; supervised children emit the structured
             // heavy-maintenance-lease-held outcome consumed by the orchestrator.
             expect(source).toMatch(heldDiagnosticPattern);
-            // Assert process.exit(0) is called on held — non-error semantics per AC2
+            // Assert the script's declared bounded held exit is present.
             expect(source).toMatch(heldExitPattern);
         });
     }
