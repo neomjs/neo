@@ -162,7 +162,14 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     });
 
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {
-        const stats = { nodes: 0, edges: 0 };
+        const stats = {
+            pathNodesUpserted: 0,
+            edgesCreated     : 0,
+            edgesVerified    : 0,
+            edgesDrifted     : 0,
+            edgesCulled      : 0,
+            edgesUnavailable : 0
+        };
 
         // Override walk logic root physically mimicking neoRootDir logic natively
         await FileSystemIngestor.walkDirectory(mockFsRoot, mockFsRoot, null, stats, new Map(), new Map());
@@ -203,5 +210,84 @@ test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
         const link = GraphService.db.edges.items.find(e => e.source === srcNode.id && e.target === fileNode.id);
         expect(link).toBeDefined();
         expect(link.type).toBe('CONTAINS');
+    });
+
+    test('re-verifies an unchanged tree without rewriting CONTAINS edges (#17056)', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-filesystem-idempotency-'));
+
+        try {
+            fs.ensureDirSync(path.join(root, 'left'));
+            fs.ensureDirSync(path.join(root, 'right'));
+            fs.writeFileSync(path.join(root, 'left', 'a.mjs'), 'export const a = true');
+            fs.writeFileSync(path.join(root, 'right', 'b.mjs'), 'export const b = true');
+
+            const
+                sqlite    = GraphService.db.storage.db,
+                readEdges = () => sqlite.prepare(`
+                    SELECT id, source, target, type, data
+                    FROM Edges
+                    WHERE type = 'CONTAINS'
+                    ORDER BY source, target, id
+                `).all(),
+                readEdgeLogs = () => sqlite.prepare("SELECT * FROM GraphLog WHERE entity_type = 'edges' ORDER BY log_id").all();
+
+            const firstStats = await FileSystemIngestor.syncWorkspaceToGraph({rootDir: root});
+
+            const firstEdges = readEdges();
+            expect(firstStats).toEqual({
+                status           : 'completed',
+                pathNodesUpserted: 4,
+                edgesCreated     : 4,
+                edgesVerified    : 0,
+                edgesDrifted     : 0,
+                edgesCulled      : 0,
+                edgesUnavailable : 0
+            });
+            expect(firstEdges).toHaveLength(4);
+
+            sqlite.exec('DELETE FROM GraphLog');
+
+            const secondStats = await FileSystemIngestor.syncWorkspaceToGraph({rootDir: root});
+
+            expect(secondStats).toEqual({
+                status           : 'completed',
+                pathNodesUpserted: 0,
+                edgesCreated     : 0,
+                edgesVerified    : 4,
+                edgesDrifted     : 0,
+                edgesCulled      : 0,
+                edgesUnavailable : 0
+            });
+            expect(readEdges()).toEqual(firstEdges);
+            expect(readEdgeLogs()).toEqual([]);
+
+            const beforeAdd = readEdges();
+            fs.writeFileSync(path.join(root, 'left', 'new.mjs'), 'export const added = true');
+            const changedAt = new Date(Date.now() + 2000);
+            fs.utimesSync(path.join(root, 'left'), changedAt, changedAt);
+            sqlite.exec('DELETE FROM GraphLog');
+
+            const thirdStats = await FileSystemIngestor.syncWorkspaceToGraph({rootDir: root});
+
+            const afterAdd  = readEdges();
+            const addedEdge = afterAdd.find(edge => !beforeAdd.some(before => before.id === edge.id));
+
+            expect(thirdStats).toEqual({
+                status           : 'completed',
+                pathNodesUpserted: 2,
+                edgesCreated     : 1,
+                edgesVerified    : 4,
+                edgesDrifted     : 0,
+                edgesCulled      : 0,
+                edgesUnavailable : 0
+            });
+            expect(afterAdd).toHaveLength(5);
+            expect(readEdgeLogs()).toEqual([
+                expect.objectContaining({entity_id: addedEdge.id, entity_type: 'edges'})
+            ]);
+            expect(afterAdd.filter(edge => beforeAdd.some(before => before.id === edge.id))).toEqual(beforeAdd);
+        } finally {
+            fs.removeSync(root)
+        }
     });
 });

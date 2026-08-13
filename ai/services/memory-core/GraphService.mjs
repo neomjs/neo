@@ -10,6 +10,7 @@ import {createGraphBootSeedNodeRecord} from '../../../ai/graph/bootSeedManifest.
 import {getGraphBootSeedNodeSpec}      from '../../../ai/graph/bootSeedManifest.mjs';
 import { normalizeUserId }             from '../../mcp/server/shared/services/RequestContextService.mjs';
 import fsExtra                         from 'fs-extra';
+import {isDeepStrictEqual}             from 'node:util';
 import {projectNode}                   from './nodeProjection.mjs';
 
 /**
@@ -511,6 +512,180 @@ class GraphService extends Base {
      */
     linkGlobalNodes(source, target, relationship, weight = 1.0) {
         this.linkNodes(source, target, relationship, weight, {userId: null});
+    }
+
+    /**
+     * Creates a structural relation exactly once and reports verification without reinforcing
+     * an existing edge.
+     *
+     * @summary This is the write-idempotent counterpart to {@link GraphService#linkNodes}.
+     * Structural projectors repeatedly assert topology that is already authoritative; routing
+     * those assertions through `linkNodes` would increase weight, execute `UPDATE Edges`, and
+     * append a false GraphLog invalidation on every verification pass. The creation weight is
+     * therefore deliberately NOT an equivalence invariant: an existing edge may carry legitimate
+     * or historical reinforcement and must remain byte-stable.
+     *
+     * Caller-declared `properties` ARE structural invariants. A mismatch is returned as
+     * `drifted` with the divergent keys and is never silently rewritten or reinforced. Missing
+     * endpoints retain `linkNodes`' cache-warm/cull posture. The operation owns one atomic graph
+     * transaction and rejects an outer transaction rather than pretending that SQLite alone can
+     * represent its queued node/edge additions and removals. The table still has no unique
+     * `(source, target, type)` constraint, so this method does not claim cross-process exactly-once
+     * creation.
+     *
+     * @param {String} source Source node id.
+     * @param {String} target Target node id.
+     * @param {String} relationship Edge type.
+     * @param {Number} [weight=1.0] Initial weight used only when the edge is created.
+     * @param {Object} [properties={}] Structural properties that must match when already present.
+     * @returns {{status: String, divergentKeys: (String[]|undefined)}}
+     * @throws {Error} When called inside an existing Graph Database transaction.
+     */
+    ensureStructuralEdge(source, target, relationship, weight = 1.0, properties = {}) {
+        if (!this.db?.storage?.db) {
+            return {status: 'unavailable'}
+        }
+
+        if (this.db.isExecutingTransaction) {
+            throw new Error('ensureStructuralEdge owns its transaction and cannot run inside another Graph Database transaction')
+        }
+
+        const
+            findEdge = this.db.storage.db.prepare(`
+                SELECT id, user_id, data
+                FROM Edges
+                WHERE source = ?
+                  AND target = ?
+                  AND type = ?
+                LIMIT 1
+            `),
+            findCachedEdges = () => this.db.edges.getByIndex('source', source)
+                .filter(edge => edge.target === target && edge.type === relationship),
+            findPersistedEdgeIds = () => new Set(this.db.storage.db.prepare(`
+                SELECT id
+                FROM Edges
+                WHERE source = ?
+                  AND target = ?
+                  AND type = ?
+            `).all(source, target, relationship).map(edge => edge.id)),
+            reconcileCachedTuple = () => {
+                const persistedEdgeIds = findPersistedEdgeIds();
+                const staleEdges       = findCachedEdges()
+                    .filter(edge => !persistedEdgeIds.has(edge.id));
+
+                if (staleEdges.length === 0) return
+
+                const wasAutoSave = this.db.autoSave;
+                this.db.autoSave = false;
+
+                try {
+                    this.db.edges.remove(staleEdges.map(edge => edge.id));
+                    // Store.remove() clears the current map records. Also remove exact stale
+                    // references that a prior refresh may have left in secondary index Sets.
+                    this.db.edges.updateIndexMaps?.(null, staleEdges)
+                } finally {
+                    this.db.autoSave = wasAutoSave
+                }
+            },
+            expectedUserId = properties.userId === undefined
+                ? resolveRlsUserId(this.db.storage?.RequestContextService) ?? null
+                : properties.userId == null ? null : normalizeUserId(properties.userId),
+            classifyExisting = existing => {
+                const
+                    existingProperties = existing.data
+                        ? JSON.parse(existing.data)?.properties || {}
+                        : existing.get?.('properties') || existing.properties || {},
+                    existingUserId = existing.user_id === undefined
+                        ? existingProperties.userId == null ? null : normalizeUserId(existingProperties.userId)
+                        : existing.user_id == null ? null : normalizeUserId(existing.user_id),
+                    existingJsonUserId = existingProperties.userId == null
+                        ? null
+                        : normalizeUserId(existingProperties.userId),
+                    structuralProperties = {...properties};
+
+                // Weight is creation-time topology metadata, not a verification invariant. Preserve
+                // any intentional or historical reinforcement instead of normalizing it back to 1.
+                delete structuralProperties.weight;
+                delete structuralProperties.userId;
+
+                const divergentKeys = Object.entries(structuralProperties)
+                    .filter(([key, value]) => !isDeepStrictEqual(existingProperties[key], value))
+                    .map(([key]) => key);
+
+                // SQL `user_id` is the RLS authority. JSON historically omitted `userId` for a
+                // global edge, so missing and null are equivalent; a present divergent value is not.
+                if ((existingUserId !== expectedUserId || existingJsonUserId !== expectedUserId)
+                    && !divergentKeys.includes('userId')) {
+                    divergentKeys.push('userId')
+                }
+
+                return divergentKeys.length > 0
+                    ? {status: 'drifted', divergentKeys}
+                    : {status: 'verified'}
+            },
+            findCurrentEdge = () => findEdge.get(source, target, relationship),
+            cachedBeforeSync = findCachedEdges();
+
+        // An absent persisted tuple makes any same-tuple RAM record stale. Consume pending peer
+        // invalidations before the local transaction can acknowledge beyond them, then reconcile
+        // any orphaned cache record that predates the retained GraphLog window.
+        if (!findCurrentEdge() && cachedBeforeSync.length > 0) {
+            this.db.syncCache()
+        }
+
+        const existing = findCurrentEdge();
+        reconcileCachedTuple();
+
+        if (existing) return classifyExisting(existing);
+
+        let outcome;
+
+        const createIfStillAbsent = () => {
+            const concurrent = findCurrentEdge();
+            if (concurrent) {
+                outcome = classifyExisting(concurrent);
+                return
+            }
+
+            const
+                endpointCount = this.db.storage.db.prepare(
+                    'SELECT count(*) AS count FROM Nodes WHERE id IN (?, ?)'
+                ).get(source, target).count,
+                expectedCount = source === target ? 1 : 2;
+
+            if (endpointCount !== expectedCount) {
+                // Preserve linkNodes' cache-warm/cull behavior without ever invoking its
+                // reinforcing existing-edge branch.
+                this.db.getAdjacentNodes?.(source, 'both');
+                this.db.getAdjacentNodes?.(target, 'both');
+
+                const warmedCount = this.db.storage.db.prepare(
+                    'SELECT count(*) AS count FROM Nodes WHERE id IN (?, ?)'
+                ).get(source, target).count;
+
+                if (warmedCount !== expectedCount) {
+                    logger.warn(`[GraphService] Culling hallucinated structural edge mapping: ${source} -> ${target} (count was ${warmedCount})`);
+                    outcome = {status: 'culled'};
+                    return
+                }
+            }
+
+            const edge = {
+                id        : globalThis.crypto.randomUUID(),
+                source,
+                target,
+                type      : relationship,
+                properties: {weight, ...properties, userId: expectedUserId}
+            };
+
+            this.db.addEdge(edge);
+            outcome = {status: 'created'}
+        };
+
+        this.db.transaction(createIfStillAbsent);
+        reconcileCachedTuple();
+
+        return outcome
     }
 
     /**

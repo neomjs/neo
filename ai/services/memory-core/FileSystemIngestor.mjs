@@ -216,14 +216,29 @@ class FileSystemIngestor extends Base {
     }
 
     /**
-     * Executes the recursive file system sync into the native Graph database.
+     * Executes the recursive file system sync into the Native Edge Graph and returns a truthful
+     * mutation/verification receipt. `rootDir` is injectable for the real-SQLite unit fixture;
+     * production callers retain the no-argument Neo-repository default.
+     *
+     * @param {Object} [options={}]
+     * @param {String} [options.rootDir=neoRootDir] Filesystem root to project.
+     * @returns {Promise<{status: String, pathNodesUpserted: Number, edgesCreated: Number, edgesVerified: Number, edgesDrifted: Number, edgesCulled: Number, edgesUnavailable: Number}>}
      */
-    async syncWorkspaceToGraph() {
+    async syncWorkspaceToGraph({rootDir = neoRootDir} = {}) {
         logger.info('[FileSystemIngestor] Initiating dynamic filesystem-to-graph sync...');
 
-        if (!GraphService.db || !GraphService.db.nodes) {
+        const stats = {
+            pathNodesUpserted: 0,
+            edgesCreated     : 0,
+            edgesVerified    : 0,
+            edgesDrifted     : 0,
+            edgesCulled      : 0,
+            edgesUnavailable : 0
+        };
+
+        if (!GraphService.db?.nodes || !GraphService.db?.storage?.db) {
             logger.warn('[FileSystemIngestor] GraphService DB not mounted. Aborting sync.');
-            return;
+            return {status: 'unavailable', ...stats}
         }
 
         // Precache existing mtimeMs dynamically bypassing RAM bloat cleanly natively
@@ -256,10 +271,15 @@ class FileSystemIngestor extends Base {
             description: 'The physical root directory of the Neo.mjs project.'
         });
 
-        const stats = { nodes: 0, edges: 0 };
-        await this.walkDirectory(neoRootDir, neoRootDir, rootNodeId, stats, mtimeMap, hashMap);
+        await this.walkDirectory(rootDir, rootDir, rootNodeId, stats, mtimeMap, hashMap);
 
-        logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} tracked CONTAINS Edges.`);
+        logger.info(
+            `[FileSystemIngestor] Workspace Sync Complete. Upserted ${stats.pathNodesUpserted} path nodes; ` +
+            `CONTAINS edges created=${stats.edgesCreated}, verified=${stats.edgesVerified}, ` +
+            `drifted=${stats.edgesDrifted}, culled=${stats.edgesCulled}, unavailable=${stats.edgesUnavailable}.`
+        );
+
+        return {status: 'completed', ...stats}
     }
 
     /**
@@ -267,7 +287,7 @@ class FileSystemIngestor extends Base {
      * @param {String} dir Current directory path
      * @param {String} rootDir The base root path determining relative node ids natively
      * @param {String|null} parentId Graph ID of the parent directory Node
-     * @param {Object} stats Reference counter
+     * @param {{pathNodesUpserted: Number, edgesCreated: Number, edgesVerified: Number, edgesDrifted: Number, edgesCulled: Number, edgesUnavailable: Number}} stats Mutation/verification counters.
      * @param {Map} mtimeMap Precaching SQLite map
      * @param {Map} hashMap Precaching SQLite hash map
      */
@@ -331,13 +351,25 @@ class FileSystemIngestor extends Base {
                         ...(fileHash && { hash: fileHash })
                     }
                 });
-                stats.nodes++;
+                stats.pathNodesUpserted++;
             }
 
-            // Create hierarchical structural edge tracking deduplication safely via GraphService native logic
+            // Filesystem hierarchy is an asserted fact, not a learning signal. Verify it on every
+            // walk so missing topology self-heals, but never reinforce an unchanged relation.
             if (parentId) {
-                GraphService.linkNodes(parentId, nodeId, 'CONTAINS', 1.0);
-                stats.edges++; // Tracks 'verified or created' topological state
+                const {status} = GraphService.ensureStructuralEdge(parentId, nodeId, 'CONTAINS', 1.0);
+
+                if (status === 'created') {
+                    stats.edgesCreated++
+                } else if (status === 'verified') {
+                    stats.edgesVerified++
+                } else if (status === 'drifted') {
+                    stats.edgesDrifted++
+                } else if (status === 'culled') {
+                    stats.edgesCulled++
+                } else {
+                    stats.edgesUnavailable++
+                }
             }
 
             if (isDir) {
