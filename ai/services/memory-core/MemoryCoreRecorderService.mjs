@@ -105,11 +105,15 @@ function emptyProviderActivity(status) {
         totalActivities           : 0,
         totalInFlight             : 0,
         totalRecentCompletions    : 0,
+        totalReaped               : 0,
         inFlightTruncated         : false,
         recentCompletionsTruncated: false,
+        reapedTruncated           : false,
+        reapedThisRead            : {abandoned: 0, unsettled: 0},
         aggregates                : [],
         inFlight                  : [],
-        recentCompletions         : []
+        recentCompletions         : [],
+        reaped                    : []
     };
 }
 
@@ -703,7 +707,17 @@ class MemoryCoreRecorderService extends Base {
                 // Keyed by SERVICE::provider, and this reader declares a cap for its OWN service only.
                 // Another process's rows report `cap: null` rather than borrowing this ceiling — the
                 // Knowledge Base runs its own limiter and this reader has no authority over it.
-                nativeAdmissionCaps: {'memory-core::ollama': config.ollama.maxInFlightEmbeddings}
+                nativeAdmissionCaps: {'memory-core::ollama': config.ollama.maxInFlightEmbeddings},
+                // The reap bound DERIVES FROM THE ITEM'S OWN CLASS and is read here, at the use
+                // site, for the same reason the cap is: the shared ledger must not import AiConfig.
+                // Each value is the WIDEST deadline this reader can cite for the role — the
+                // embedding request ceiling, and the widest chat-call budget (`sessionSummary`).
+                // Cross-service rows are reaped with these bounds too; the reap factor dwarfs the
+                // inter-service deadline variance, and an unknown class is simply never reaped.
+                activityDeadlineMs: {
+                    chat     : config.sessionSummaryTimeoutMs,
+                    embedding: config.ollama.embeddingTimeoutMs
+                }
             });
         } catch (error) {
             logger.warn('[MemoryCoreRecorderService] Failed to read provider activity telemetry:', error.message);

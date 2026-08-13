@@ -555,7 +555,19 @@ export class Orchestrator extends Base {
 
         if (!db) return {status: 'unavailable', unavailableReason: 'graph-database-unavailable'};
 
-        const projection = getProviderActivityMetrics(db, {sinceTs, limit, now: observedAt}),
+        const projection = getProviderActivityMetrics(db, {
+                limit,
+                now    : observedAt,
+                sinceTs,
+                // Reap-on-read bounds, read at this use site because the shared ledger must not
+                // import AiConfig. Same values the Memory Core recorder injects: the widest deadline
+                // per role class this reader can cite. Unknown classes are never reaped — the ledger
+                // over-reports demand rather than blinding it.
+                activityDeadlineMs: {
+                    chat     : memoryCoreConfig.sessionSummaryTimeoutMs,
+                    embedding: memoryCoreConfig.ollama.embeddingTimeoutMs
+                }
+            }),
               observer   = this.providerActivityStatusReader({
                   dbPath: memoryCoreConfig.storagePaths.graph,
                   sinceTs

@@ -583,6 +583,9 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             'nativeAdmission',
             'totalActivities',
             'totalInFlight',
+            'totalReaped',
+            'reaped',
+            'reapedThisRead',
             'aggregates',
             'inFlight',
             'recentCompletions'
@@ -637,6 +640,26 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         ]);
         expect(completion.properties.queueDisposition.enum).toContain('not-applicable');
         expect(completion.properties.queueWaitMs.nullable).toBe(true);
+
+        const reaped = doc.components.schemas.ProviderActivityReaped;
+
+        expect(Object.keys(reaped.properties)).toEqual([
+            'activityId',
+            'service',
+            'operationStage',
+            'role',
+            'provider',
+            'model',
+            'priority',
+            'enqueuedAt',
+            'startedAt',
+            'queueDisposition',
+            'queueWaitMs',
+            'reapedAt',
+            'disposition',
+            'ageMs'
+        ]);
+        expect(reaped.properties.disposition.enum).toEqual(['abandoned', 'unsettled']);
         expect(() => new Ajv({strict: false}).compile(schema)).not.toThrow();
     });
 

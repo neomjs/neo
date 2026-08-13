@@ -2938,6 +2938,9 @@ components:
         - nativeAdmission
         - totalActivities
         - totalInFlight
+        - totalReaped
+        - reaped
+        - reapedThisRead
         - aggregates
         - inFlight
         - recentCompletions
@@ -2993,6 +2996,33 @@ components:
           type: integer
           minimum: 0
           description: Activities without a completion boundary inside the effective lookback window.
+        totalReaped:
+          type: integer
+          minimum: 0
+          description: >-
+            Records reaped as definitionally leaked (age past a factor of their own role-class
+            deadline). Retained evidence, never demand and never completions: reaped rows are
+            excluded from every in-flight count and `completed_at` stays null on them.
+        reaped:
+          type: array
+          description: Newest-first reaped activities with their typed dispositions.
+          items:
+            $ref: '#/components/schemas/ProviderActivityReaped'
+        reapedThisRead:
+          type: object
+          required: [abandoned, unsettled]
+          description: >-
+            Rows reaped during THIS read, per disposition. Zero on both when the caller supplied no
+            reap bounds — reaping only runs where the reader injects class deadlines.
+          properties:
+            abandoned:
+              type: integer
+              minimum: 0
+              description: Never-started rows reaped this read (reversible on a later start boundary).
+            unsettled:
+              type: integer
+              minimum: 0
+              description: Started rows reaped this read (terminal; the settle was definitionally lost).
         aggregates:
           type: array
           description: Low-cardinality stage/service/provider/model aggregates.
@@ -3072,6 +3102,44 @@ components:
         queueDisposition: {type: string, enum: [neo-queued, not-applicable, unknown]}
         queueWaitMs:      {type: integer, nullable: true, minimum: 0}
         elapsedMs:        {type: integer, minimum: 0}
+
+    ProviderActivityReaped:
+      type: object
+      required:
+        - activityId
+        - service
+        - operationStage
+        - role
+        - provider
+        - model
+        - priority
+        - enqueuedAt
+        - startedAt
+        - queueDisposition
+        - queueWaitMs
+        - reapedAt
+        - disposition
+        - ageMs
+      properties:
+        activityId:       {type: string}
+        service:          {type: string, enum: [knowledge-base, memory-core, dream-pipeline, orchestrator, unknown]}
+        operationStage:   {type: string, enum: [kb-query-embedding, kb-ask-synthesis, kb-tenant-ingestion-embedding, mc-wal-drain-embedding, mc-mini-summary, mc-session-summary, rem-tri-vector, rem-topology, embedding-canary, unknown]}
+        role:             {type: string, enum: [chat, embedding, unknown]}
+        provider:         {type: string, enum: [gemini, ollama, openAiCompatible, unknown]}
+        model:            {type: string, maxLength: 160}
+        priority:         {type: string, enum: [interactive, batch, unknown]}
+        enqueuedAt:       {type: string, format: date-time}
+        startedAt:        {type: string, format: date-time, nullable: true}
+        queueDisposition: {type: string, enum: [neo-queued, not-applicable, unknown]}
+        queueWaitMs:      {type: integer, nullable: true, minimum: 0}
+        reapedAt:         {type: string, format: date-time}
+        disposition:
+          type: string
+          enum: [abandoned, unsettled]
+          description: >-
+            `abandoned` = never started (reversible: a later start boundary resurrects the row);
+            `unsettled` = started past its class deadline with no completion (terminal).
+        ageMs:            {type: integer, minimum: 0}
 
     ProviderActivityCompletion:
       type: object

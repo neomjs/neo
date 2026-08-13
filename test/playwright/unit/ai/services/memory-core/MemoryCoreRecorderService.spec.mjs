@@ -690,11 +690,15 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 totalActivities           : 0,
                 totalInFlight             : 0,
                 totalRecentCompletions    : 0,
+                totalReaped               : 0,
                 inFlightTruncated         : false,
                 recentCompletionsTruncated: false,
+                reapedTruncated           : false,
+                reapedThisRead            : {abandoned: 0, unsettled: 0},
                 aggregates                : [],
                 inFlight                  : [],
-                recentCompletions         : []
+                recentCompletions         : [],
+                reaped                    : []
             });
         } finally {
             MemoryCoreRecorderService.db = originalDb;
@@ -766,11 +770,15 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
                 totalActivities           : 0,
                 totalInFlight             : 0,
                 totalRecentCompletions    : 0,
+                totalReaped               : 0,
                 inFlightTruncated         : false,
                 recentCompletionsTruncated: false,
+                reapedTruncated           : false,
+                reapedThisRead            : {abandoned: 0, unsettled: 0},
                 aggregates                : [],
                 inFlight                  : [],
-                recentCompletions         : []
+                recentCompletions         : [],
+                reaped                    : []
             });
         } finally {
             fs.renameSync(withheldFile, kbFile);
