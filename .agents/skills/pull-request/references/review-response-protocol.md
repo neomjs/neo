@@ -17,7 +17,9 @@ silence failure mode (today's anchor: PR #10607 Cycle 1, where Gemini's Cmd+N
 primitive matched operator intent but was removed under reviewer pressure
 without invoking `[REJECTED_WITH_RATIONALE]`).
 
-If NO, proceed with standard `[ADDRESSED]` / `[DEFERRED]` response shapes.
+If NO, use `[ADDRESSED]`. If the request is wrong, use
+`[REJECTED_WITH_RATIONALE]`. An accepted-but-unimplemented Required Action stays
+OPEN; difficulty is not a fourth disposition.
 
 ## 2. The Triangular Evaluation
 
@@ -43,11 +45,40 @@ Skip if the review is `Approved` with zero blocking concerns — a brief thank-y
 
 ## 4. Per-Item Status Tags
 
-Every Required Action from the reviewer's comment MUST receive an explicit status in the author's response comment. Three tags, mirroring `pr-review` §4 Graph Ingestion Notes so the Retrospective daemon sees a unified taxonomy:
+After an actionable review, every Required Action MUST be discharged before any
+subsequent push/update to the PR branch, author response, or re-review request:
 
-- **`[ADDRESSED]`** — fix pushed in commit X; 1-2 sentences on what changed.
-- **`[DEFERRED]`** — not addressed in this PR; follow-up ticket # cited + rationale for deferral.
-- **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask; rationale documented for the reviewer's potential counter-challenge. **Do NOT silently skip an item** — if you disagree, say so explicitly. (Use this aggressively when the Triangular Evaluation proves the reviewer is hallucinating or derailing).
+- **A** = open Required Actions.
+- **B** = the current delivered-scope authority: retained close-target ticket
+  ACs, PR-body claims, and the actual diff.
+- **Gate:** A must be empty relative to B. GitHub may still show the old review;
+  the candidate head and evidence determine whether an item is discharged.
+
+The terminal tags are:
+
+- **`[ADDRESSED]`** — the candidate head contains the fix and evidence; cite the commit.
+- **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask and
+  falsifies its premise with source or empirical evidence. Disagreement,
+  difficulty, implementation cost, unfamiliarity, or preference do not
+  discharge the RA. **Do NOT silently skip an item** — if the evidence rejects
+  it, say so explicitly so the reviewer can counter-challenge.
+- **`[SCOPE_TRANSFERRED]`** — B was already narrowed before this response. Cite
+  the linked implementation leaf, the source-ticket and PR-body/close-target
+  edits, and evidence that the remaining head is merge-safe and independently
+  valuable with no surviving AC or claim depending on the transferred work.
+
+Scope transfer is exceptional. Ordinary bounded repair stays in the current PR;
+hundreds of lines, CI duration, token/rate limits, an awkward seam, or reviewer
+preference do not change authority. If underestimated work reveals an epic,
+split ticket authority first; if no coherent merge-safe slice remains, supersede
+it. The tag records that completed authority change—it never substitutes for it.
+
+**Blocked on understanding, not capability?** Ask the reviewer through a 1:1
+A2A DM by default, or on the PR thread when A2A is unavailable. A question is
+not a disposition: the RA stays OPEN, the author loop stays active, and no push,
+closure response, or re-review request follows until it is discharged. This is
+not an escape from a local reversible Tier-2 decision the author already has
+authority to make; decide and implement that choice.
 
 ## 5. Template
 
@@ -71,7 +102,10 @@ Example: `fix(ai): protect SESSION and MEMORY from getOrphanedNodes cleanup (#10
 
 ## 8. Re-Review Signal
 
-Before ending the Addressed comment with `Re-review requested.`, apply the CI-green gate in [`./ci-green-review-routing.md`](./ci-green-review-routing.md). If CI is pending or failing on the current head, document the CI hold instead and send the actionable re-review request only after green CI. Do NOT add a new commit after posting the Addressed comment unless you are starting another response cycle (in response to the reviewer's follow-up feedback — new round, new comment).
+End with `Re-review requested.` only after every item passes the §4 gate, then
+apply the CI-green gate in [`./ci-green-review-routing.md`](./ci-green-review-routing.md).
+If CI is pending or failing, document the CI hold and request re-review only
+after green CI. A later commit starts a new response cycle and needs a new comment.
 
 After the second ordinary `CHANGES_REQUESTED`, the next reviewer handoff is closure, not another RC request. Supply the evidence needed for the reviewer's `COMMENTED` RC2 packet (consumer sweep, falsifier/property matrix, carried-vs-new census, truth-fold, frozen semantic surface); the next gate-bearing verdict is `APPROVED` or one complete terminal Drop+Supersede.
 
@@ -89,6 +123,8 @@ After the second ordinary `CHANGES_REQUESTED`, the next reviewer handoff is clos
 | Passive Compliance (Rubber-Stamping) | Allows hallucinated or derailing reviewer requests to degrade the architecture because the author forgot their original intent. |
 | Pushing a follow-up commit without an Addressed comment | Reviewer must discover + match commits to Required Actions manually; breaks re-review efficiency |
 | Silently skipping a Required Action | Signals neither agreement (should be `[ADDRESSED]`) nor disagreement (should be `[REJECTED_WITH_RATIONALE]`) — leaves reviewer uncertain |
+| Pushing a partial response head while an accepted RA remains open | Burns CI/review cost on a candidate the author already knows cannot pass |
+| Creating a follow-up without changing B | Renames unfinished declared scope instead of transferring an independent slice |
 | Editing the reviewer's comment | Authorship-respect violation; attribution collapse |
 | Rewriting a contested *position* in your own PR body, or a body-only edit that makes work look addressed | Commit + Addressed comment is the canonical record. Correcting a *fact* stays required even when the RA is what found it — the axis is fact-vs-position, not answered-vs-unanswered; see §6 |
 | Using non-standard status language (*"done"*, *"fixed"*, *"won't fix"*) | Breaks the tag taxonomy; Retrospective daemon cannot ingest consistently |
@@ -121,33 +157,17 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 
 ## 14. A2A Comment-ID Propagation (Author Side)
 
-Symmetric with `pr-review §10` (reviewer side). When you post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
+This is the author-side mirror of `pr-review §10`:
 
-**Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID). This is the canonical artifact identifier for the formal review entity (the surface that flipped `reviewDecision`). Reviewers SHOULD relay `reviewId` + the response payload (`url`, `state`, `submittedAt`) when handing off to the next actor in the review cycle.
+1. Create the response comment and capture its `commentId` (IC_*).
+2. DM the reviewer at canonical `@<identity>` with the PR number, literal
+   `commentId`, and disposition summary.
+3. The reviewer fetches only that comment with
+   `get_conversation({pr_number, comment_id})`.
 
-**Contract distinction:** `reviewId` (PRR_*) is NOT a `commentId` (IC_*). `get_conversation({comment_id})` reads `pullRequest.comments` (IssueComment, IC_*) and never fetches `PullRequestReview`, so passing a `reviewId` there returns empty. Fetch a `manage_pr_review` body from its own response payload's `body` field, or via `gh api graphql` with a `node(id: $reviewId)` selection.
+A `manage_pr_review` `reviewId` (PRR_*) is not a `commentId`; relay its returned
+review payload instead. Use a full-thread or `since_comment_id` fetch for a cold
+cache; the scoped fetch is only for a grounded warm-cache cycle.
 
-**Workflow:**
-1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
-2. Author captures `commentId` from the response.
-3. Author sends an A2A DM to the reviewer using canonical `@<identity>` form per #11417:
-   ```js
-   add_message({
-       to     : '@<reviewer-agent>',          // ✅ canonical @<identity>; never 'AGENT:<family>/<model>'
-       subject: 're: PR #N addressed',
-       body   : 'Response posted at PR #N comment <COMMENT_ID>. ' +
-                'Summary: addressed <X>, deferred <Y> to #Z.',
-       inReplyTo      : '<reviewer-original-review-commentId-if-known>',
-       relatedTickets : ['#N']
-   });
-   ```
-   Pre-#11417 alias confab like `to: 'AGENT:claude/opus'` silently stored as `to: null` (orphan A2A invisible to the reviewer). Post-#11417 the MailboxService rejects unrecognized formats explicitly and attempts `AGENT:<family>/<model>` resolution only when exactly one AgentIdentity matches that `modelFamily`.
-4. Reviewer fetches just this response via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`.
-
-**Re-review cycle:** if reviewer posts a follow-up (Request Changes or Approved), they mailbox YOU with their new commentId. You fetch just-their-new-comment, evaluate, commit further polish if needed, and the loop continues with linear-to-new-content context cost rather than cumulative.
-
-Rationale: §10 of `pr-review-guide.md` covers the reviewer-side hand-off discipline; this section covers the author-side symmetric hand-off. Scope the fetch per the `get_conversation` tool description (it owns the selector precedence) — the author-side discipline is identical to the reviewer-side.
-
-**Pre-Flight Check (operational reflex)** — mirrors `AGENTS.md §pre_commit_gates / §memory_core_protocol`. After every author-side `manage_issue_comment` create, before yielding turn, explicitly state in your reasoning: *"Pre-Flight: I posted response commentId `<ID>` addressing reviewer feedback. I have (or will) send an A2A ping to reviewer `<handle>` with the literal commentId in the body."* This commitment-statement is the gate that permits yielding turn. Skipping is empirically the dominant failure mode (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap). See `pr-review-guide §10` for the shared warm-cache hand-off discipline; the reasoning template above is the author-side instance.
-
-**Cold-cache exception:** When picking up a PR after a fresh session bootstrap, opening Cycle 1 of a PR, taking a cross-agent handoff, or recovering from a missed/lost reviewer ping, full-thread fetch (or `since_comment_id` from the last-known anchor) is the right call instead — the warm-cache reflex would land one comment in a void without prior-cycle grounding. See `pr-review-guide §10` for the warm-vs-cold-cache dichotomy.
+**Pre-Flight:** after creating the response comment, state that its literal
+`commentId` was or will be sent to the reviewer before yielding.
