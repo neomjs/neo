@@ -326,6 +326,8 @@ class WakeSubscriptionService extends Base {
                 if (typeof storage.getLatestLogId === 'function' && storage.getLatestLogId() > this.liveCursor) {
                     this._pumpRequested = true;
                 }
+
+                if (this._pumpRequested) await this._yieldPumpTurn();
             } while (this._pumpRequested);
         } catch (e) {
             logger.error('[WakeSubscription] Background pump failed:', e);
@@ -335,8 +337,8 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Yields between bounded GraphLog pages so MCP transport, health timers, and WAL
-     * acceptance work can run while a large wake backlog drains.
+     * @summary Yields between bounded GraphLog work units so MCP transport, health timers, and WAL
+     * acceptance work can run between pages and before a coalesced tail drain re-enters.
      * @returns {Promise<void>}
      * @protected
      */

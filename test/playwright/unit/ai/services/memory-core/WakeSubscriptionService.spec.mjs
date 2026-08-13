@@ -2492,6 +2492,63 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             }
         });
 
+        test('yields before draining a coalesced sub-page tail (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'TASK_STATE_CHANGED', harnessTarget: 'mcp-notifications'});
+            });
+
+            const storage = GraphService.db.storage;
+            const sqlite  = storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            const firstLogId = appendTaskEvent({
+                eventId: 'task-coalesced-page-event',
+                taskId : 'MSG:COALESCED-PAGE'
+            }).logId;
+            const originalGetLatestLogId = storage.getLatestLogId;
+            let   latestReadCount        = 0;
+            let   tailLogId              = null;
+            let   cursorAtControl        = null;
+
+            storage.getLatestLogId = function() {
+                latestReadCount += 1;
+                // The first read freezes the snapshot; the second is its tail check. Injecting here
+                // models an external writer advancing the shared journal between those statements.
+                if (latestReadCount === 2) {
+                    tailLogId = appendTaskEvent({
+                        eventId: 'task-coalesced-tail-event',
+                        taskId : 'MSG:COALESCED-TAIL'
+                    }).logId;
+                }
+
+                return originalGetLatestLogId.call(this);
+            };
+
+            try {
+                const controlTurn = new Promise(resolve => setImmediate(() => {
+                    cursorAtControl = WakeSubscriptionService.liveCursor;
+                    resolve();
+                }));
+                const pump = WakeSubscriptionService.pump();
+
+                await Promise.all([controlTurn, pump]);
+                expect(cursorAtControl).toBe(firstLogId);
+                expect(cursorAtControl).toBeLessThan(tailLogId);
+
+                await CoalescingEngineService.flushAll();
+
+                expect(WakeSubscriptionService.liveCursor).toBe(tailLogId);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual([
+                    'task-coalesced-page-event',
+                    'task-coalesced-tail-event'
+                ]);
+            } finally {
+                storage.getLatestLogId = originalGetLatestLogId;
+            }
+        });
+
         test('evaluates a repeatedly rewritten entity once per frozen paged snapshot (#16677)', async () => {
             CoalescingEngineService.addMcpServer(mockMcpServer);
 
