@@ -22,7 +22,9 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 /**
  * @summary Verifies that operator-runnable heavy-maintenance CLI scripts wrap their
  * substrate-heavy work with the shared `withHeavyMaintenanceLease` primitive and handle
- * the `held` outcome with declared bounded exit semantics.
+ * the `held` outcome with a clean non-error exit by default. `syncTenantRepos` is the
+ * documented bounded-busy exception: exit `0` already means completed, so lease contention
+ * exits `4` without being classified as ingestion failure.
  *
  * Content-verification approach (parse the script source for the expected import +
  * wrapper call + held-status branch) rather than subprocess execution because each script
@@ -139,7 +141,8 @@ test.describe('Manual heavy-maintenance script lease adoption', () => {
             // Interactive CLIs emit prose naming the holder; supervised children emit the structured
             // heavy-maintenance-lease-held outcome consumed by the orchestrator.
             expect(source).toMatch(heldDiagnosticPattern);
-            // Assert the script's declared bounded held exit is present.
+            // Assert the default non-error held exit or the documented syncTenantRepos
+            // bounded-busy exception is present.
             expect(source).toMatch(heldExitPattern);
         });
     }
