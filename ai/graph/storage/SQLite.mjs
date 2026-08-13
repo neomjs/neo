@@ -654,23 +654,72 @@ class SQLite extends Base {
      * Executes localized sequence polling isolating un-processed Native SQL edits securely resolving Cache Coherence natively cleanly.
      * Maps `AFTER UPDATE/INSERT/DELETE` trigger records stored in `GraphLog` locally comparing explicitly sequentially securely validating remote worker diffs internally perfectly accurately.
      * @see Neo.ai.graph.Database#syncCache
+     * The optional raw-row limit is applied by SQLite before result materialization. Consumers
+     * that need to remain schedulable under a large mutation wave can therefore page the journal
+     * without first allocating or walking the full tail. Existing callers retain the historical
+     * unbounded behavior by omitting `options.limit`.
+     *
      * @param {Number} sinceId
-     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events }
+     * @param {Object} [options]
+     * @param {Number|null} [options.limit=null] Positive maximum raw GraphLog rows to materialize.
+     * @param {Number|null} [options.untilId=null] Inclusive upper log-id boundary for a frozen page sequence.
+     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events, entityLogIds, hasMore }
      */
-    getDeltaLog(sinceId = 0) {
-        if (!this.db) return {lastLogId: sinceId, invalidNodes: [], invalidEdges: [], events: []};
+    getDeltaLog(sinceId = 0, {limit = null, untilId = null} = {}) {
+        const isBounded     = limit !== null && limit !== undefined;
+        const hasUpperBound = untilId !== null && untilId !== undefined;
+
+        if (isBounded && (!Number.isInteger(limit) || limit <= 0)) {
+            throw new TypeError('GraphLog delta limit must be a positive integer.');
+        }
+        if (hasUpperBound && (!Number.isInteger(untilId) || untilId < 0)) {
+            throw new TypeError('GraphLog delta upper bound must be a non-negative integer.');
+        }
+
+        if (!this.db) return {
+            lastLogId: sinceId, invalidNodes: [], invalidEdges: [], events: [], entityLogIds: new Map(), hasMore: false
+        };
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
-        let logs            = this.db.prepare('SELECT log_id, entity_id, entity_type, event_id, event_payload FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
+        let query = `
+            SELECT log_id, entity_id, entity_type, event_id, event_payload
+            FROM GraphLog
+            WHERE log_id > ?
+        `;
+        const queryArgs = [sinceId];
+
+        if (hasUpperBound) {
+            query += ' AND log_id <= ?';
+            queryArgs.push(untilId);
+        }
+
+        query += ' ORDER BY log_id ASC';
+        if (isBounded) {
+            query += ' LIMIT ?';
+            queryArgs.push(limit + 1);
+        }
+
+        let logs = this.db.prepare(query).all(...queryArgs);
+
+        const hasMore = isBounded && logs.length > limit;
+        if (hasMore) logs = logs.slice(0, limit);
+
         let maxId           = sinceId;
         let invalidNodes    = new Set();
         let invalidEdgesMap = new Map();
         let events          = [];
+        let entityLogIds    = new Map();
 
         for (let trace of logs) {
             maxId = trace.log_id > maxId ? trace.log_id : maxId;
-            if (trace.entity_type === 'nodes') invalidNodes.add(trace.entity_id);
-            else if (trace.entity_type === 'edges') invalidEdgesMap.set(trace.entity_id, { id: trace.entity_id });
+            if (trace.entity_type === 'nodes') {
+                invalidNodes.add(trace.entity_id);
+                entityLogIds.set(trace.entity_id, trace.log_id);
+            }
+            else if (trace.entity_type === 'edges') {
+                invalidEdgesMap.set(trace.entity_id, {id: trace.entity_id, logId: trace.log_id});
+                entityLogIds.set(trace.entity_id, trace.log_id);
+            }
             else if (trace.event_id && trace.event_payload) events.push(trace);
         }
 
@@ -683,7 +732,7 @@ class SQLite extends Base {
                 let edgesQuery   = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
                 let edgesData    = edgesQuery.all(...chunk);
                 for (let row of edgesData) {
-                    invalidEdgesMap.set(row.id, { id: row.id, source: row.source, target: row.target });
+                    invalidEdgesMap.set(row.id, {...invalidEdgesMap.get(row.id), source: row.source, target: row.target});
                 }
             }
         }
@@ -692,7 +741,9 @@ class SQLite extends Base {
             lastLogId   : maxId,
             invalidNodes: Array.from(invalidNodes),
             invalidEdges: Array.from(invalidEdgesMap.values()),
-            events
+            events,
+            entityLogIds,
+            hasMore
         };
     }
 
