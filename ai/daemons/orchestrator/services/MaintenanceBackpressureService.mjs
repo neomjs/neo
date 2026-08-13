@@ -33,6 +33,34 @@ import {
  */
 export const WAITER_ENTRY_STALE_AFTER_MS = 10 * 60 * 1000;
 
+/**
+ * Refresh throttle for the configured tenant-repo label snapshot consumed by
+ * `isBootstrapCriticalTask`. The snapshot only has to track operator config edits, which are rare
+ * next to the poll cadence that reads it, so a minute of staleness costs at most one scheduling
+ * cycle of ordinary ranking while keeping the resolver off the hot path.
+ * @type {Number}
+ */
+export const CONFIGURED_TENANT_REPO_LABELS_TTL_MS = 60 * 1000;
+
+/**
+ * @summary Default resolver for the configured `<tenantId>/<repoSlug>` label set.
+ *
+ * Dynamically imported so this policy service does not take a load-time dependency on the tenant
+ * sync lane, mirroring `TenantRepoSyncService.resolveIngestionService()`'s own pattern. Routed
+ * through the canonical tiered resolver rather than a direct config read so graph-node and
+ * bootstrap tiers are honoured.
+ *
+ * @returns {Promise<String[]>}
+ */
+async function resolveConfiguredTenantRepoLabels() {
+    const {default: TenantRepoSyncService} = await import('./TenantRepoSyncService.mjs');
+    const resolved                         = await TenantRepoSyncService.resolveTenantReposConfig();
+
+    return (resolved?.tenantRepos || [])
+        .filter(repo => repo?.tenantId && repo?.repoSlug)
+        .map(repo => `${repo.tenantId}/${repo.repoSlug}`);
+}
+
 export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
@@ -421,6 +449,14 @@ export class MaintenanceBackpressureService extends Base {
          */
         writeLog_: () => {},
         /**
+         * Resolver seam for the configured tenant-repo label snapshot. Defaults to the canonical
+         * tiered resolver; tests inject a stub so the bootstrap predicate is exercised without
+         * booting the tenant sync lane.
+         * @member {Function} resolveConfiguredTenantRepoLabelsFn_=resolveConfiguredTenantRepoLabels
+         * @reactive
+         */
+        resolveConfiguredTenantRepoLabelsFn_: resolveConfiguredTenantRepoLabels,
+        /**
          * @member {Function} acquireLeaseFn_=acquireHeavyMaintenanceLeaseSync
          * @reactive
          */
@@ -652,23 +688,87 @@ export class MaintenanceBackpressureService extends Base {
     }
 
     /**
+     * @member {String[]|null} configuredTenantRepoLabels=null
+     * Snapshot of currently configured `<tenantId>/<repoSlug>` labels, refreshed off the
+     * canonical tiered resolver. `null` means "never resolved", which deliberately preserves the
+     * older manifest-only predicate rather than guessing coverage from an unresolved snapshot.
+     * @protected
+     */
+    configuredTenantRepoLabels = null
+    /**
+     * @member {Number} configuredTenantRepoLabelsAt=0
+     * Epoch ms of the last successful snapshot refresh; drives the refresh throttle.
+     * @protected
+     */
+    configuredTenantRepoLabelsAt = 0
+    /**
+     * @member {Boolean} refreshingConfiguredTenantRepoLabels=false
+     * Single-flight guard so a poll storm cannot stack resolver calls.
+     * @protected
+     */
+    refreshingConfiguredTenantRepoLabels = false
+
+    /**
+     * @summary Kicks a throttled background refresh of the configured tenant-repo label snapshot.
+     *
+     * Deliberately fire-and-forget. The consumer (`isBootstrapCriticalTask`) is synchronous — it
+     * runs inside the scheduling picker on every poll — while the canonical configured-repo truth
+     * is async (`resolveTenantReposConfig` → `listConfiguredTenantRepos`, tiered graph node >
+     * `kb-config.yaml` bootstrap > config default). Reading a config leaf directly here would be
+     * cheaper and wrong: that direct read is exactly what the tiered resolver replaced so the
+     * bootstrap/graph tiers are honoured, so it would misread every plane whose repos come from
+     * the graph tier.
+     *
+     * Bounded staleness is the accepted trade: a newly configured repo activates the class one
+     * refresh later, which costs at most one scheduling cycle of ordinary ranking. A resolver
+     * failure leaves the previous snapshot in place rather than downgrading coverage.
+     *
+     * @param {Number} [now=Date.now()] Clock seam.
+     * @returns {void}
+     * @protected
+     */
+    refreshConfiguredTenantRepoLabels(now = Date.now()) {
+        if (this.refreshingConfiguredTenantRepoLabels) return;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return;
+
+        this.refreshingConfiguredTenantRepoLabels = true;
+
+        Promise.resolve()
+            .then(() => this.resolveConfiguredTenantRepoLabelsFn())
+            .then(labels => {
+                if (Array.isArray(labels)) {
+                    this.configuredTenantRepoLabels   = labels;
+                    this.configuredTenantRepoLabelsAt = Date.now();
+                }
+            })
+            .catch(e => {
+                this.writeLog('WARN', `[Orchestrator] Configured tenant-repo snapshot refresh failed: ${e.message} — keeping the previous snapshot.`);
+            })
+            .finally(() => {
+                this.refreshingConfiguredTenantRepoLabels = false;
+            });
+    }
+
+    /**
      * @summary Whether the task is bootstrap-critical: initializing durable state the plane
      * cannot function without.
      *
-     * For tenant-repo sync, the durable truth is the persisted revisions manifest the sync
-     * lane itself maintains beside its checkpoints: bootstrap-spread seeding writes an entry
-     * with `lastIngestedRev: null` for every configured repo on the first sweep, and a commit
-     * replaces the null with a revision. Any remaining null therefore means a configured repo
-     * has never completed its initial ingest — the knowledge base is still partially
-     * uninitialized, and enrichment cycles must not re-acquire ahead of it.
+     * Bootstrap truth is CURRENT CONFIGURED COVERAGE, not the manifest alone. The manifest is a
+     * record of what the sync lane has already seen, so deriving the class from it alone gets
+     * three cases wrong: a first deployment has no manifest at all and would read ordinary,
+     * exactly when the class is most needed; a newly added repo is absent from an existing
+     * manifest and would read ordinary until the next sweep seeds it; and a removed repo's stale
+     * null entry would keep granting priority forever.
      *
-     * Reads resolve fresh on every admission decision so the class evaporates the moment the
-     * last checkpoint commits. An absent manifest is NOT treated as bootstrap-critical (a plane
-     * with no tenant repos never writes one); the age-based fairness bound still guarantees the
-     * first sweep runs eventually on a contended plane, which seeds the manifest and activates
-     * this class for the repos that remain.
+     * So a configured `<tenantId>/<repoSlug>` label with no checkpoint — absent from the manifest
+     * or carrying a null `lastIngestedRev` — makes the lane bootstrap-critical, and manifest
+     * entries whose label is no longer configured are ignored. An empty configured set is
+     * ordinary (a plane with no tenant repos is not uninitialized). While the snapshot is still
+     * unresolved the older manifest-only predicate applies, so this never grants priority on
+     * less evidence than before.
      *
-     * Fail-closed on read errors: a corrupt manifest must not grant priority.
+     * Reads resolve fresh on every admission decision so the class evaporates the moment the last
+     * checkpoint commits. Fail-closed on read errors: a corrupt manifest must not grant priority.
      *
      * @param {String} taskName Stable orchestrator task name.
      * @returns {Boolean}
@@ -678,20 +778,31 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
+        this.refreshConfiguredTenantRepoLabels();
+
         try {
+            const labels = this.configuredTenantRepoLabels;
+
+            // Configured, and empty: nothing to initialize.
+            if (Array.isArray(labels) && labels.length === 0) {
+                return false;
+            }
+
             const manifestPath = path.join(this.dataDir, 'tenant-repo-sync-revisions.json');
+            const rawRevisions = fs.existsSync(manifestPath)
+                ? JSON.parse(fs.readFileSync(manifestPath, 'utf8'))?.revisions
+                : null;
+            const revisions = rawRevisions && typeof rawRevisions === 'object' && !Array.isArray(rawRevisions)
+                ? rawRevisions
+                : {};
 
-            if (!fs.existsSync(manifestPath)) {
-                return false;
+            // Snapshot unresolved: fall back to the manifest-only predicate rather than treating an
+            // unknown configured set as full coverage.
+            if (!Array.isArray(labels)) {
+                return Object.values(revisions).some(entry => !entry?.lastIngestedRev);
             }
 
-            const revisions = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))?.revisions;
-
-            if (!revisions || typeof revisions !== 'object' || Array.isArray(revisions)) {
-                return false;
-            }
-
-            return Object.values(revisions).some(entry => !entry?.lastIngestedRev);
+            return labels.some(label => !revisions[label]?.lastIngestedRev);
         } catch (e) {
             this.writeLog('WARN', `[Orchestrator] Bootstrap-critical check failed for ${taskName}: ${e.message} — treating as ordinary.`);
             return false;

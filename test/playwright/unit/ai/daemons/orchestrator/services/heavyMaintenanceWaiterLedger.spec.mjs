@@ -226,6 +226,94 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
             expect(corrupt.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
             absent.destroy();
             corrupt.destroy()
+        });
+
+        // Configured coverage, not the manifest alone, decides the class. The manifest only records
+        // what the sync lane has already seen, so a manifest-only predicate reads "ordinary" in the
+        // three states below — including a first deployment, which is when the class matters most.
+        function serviceWithCoverage(manifest, labels) {
+            const service = serviceWithManifest(manifest);
+
+            // Seed the snapshot directly and stamp it fresh so the throttle suppresses a live
+            // resolver call; the refresh path itself is covered by its own arm below.
+            service.configuredTenantRepoLabels   = labels;
+            service.configuredTenantRepoLabelsAt = Date.now();
+
+            return service
+        }
+
+        test('first deployment — configured repos with no manifest at all is bootstrap-critical', () => {
+            const service = serviceWithCoverage(undefined, ['a/one', 'a/two']);
+
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        test('a newly added repo absent from an existing manifest is bootstrap-critical', () => {
+            const service = serviceWithCoverage(
+                JSON.stringify({revisions: {'a/one': {lastIngestedRev: 'abc123'}}}),
+                ['a/one', 'a/two']
+            );
+
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        test('a removed repo\'s stale null entry no longer grants priority', () => {
+            const service = serviceWithCoverage(
+                JSON.stringify({revisions: {
+                    'a/one' : {lastIngestedRev: 'abc123'},
+                    'a/gone': {lastIngestedRev: null}
+                }}),
+                ['a/one']
+            );
+
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
+            service.destroy()
+        });
+
+        test('an empty configured set is ordinary even with a stale null-bearing manifest', () => {
+            const service = serviceWithCoverage(
+                JSON.stringify({revisions: {'a/gone': {lastIngestedRev: null}}}),
+                []
+            );
+
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(false);
+            service.destroy()
+        });
+
+        test('an unresolved snapshot falls back to the manifest-only predicate', () => {
+            const service = serviceWithManifest(JSON.stringify({revisions: {'a/two': {lastIngestedRev: null}}}));
+
+            expect(service.configuredTenantRepoLabels).toBeNull();
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        test('the snapshot refresh populates labels from the canonical resolver seam', async () => {
+            const service = serviceWithManifest(JSON.stringify({revisions: {'a/one': {lastIngestedRev: 'abc123'}}}));
+
+            service.resolveConfiguredTenantRepoLabelsFn = async () => ['a/one', 'a/two'];
+            service.refreshConfiguredTenantRepoLabels();
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(service.configuredTenantRepoLabels).toEqual(['a/one', 'a/two']);
+            // 'a/two' is configured and uncheckpointed, so coverage now grants the class.
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
+        });
+
+        test('a failing resolver keeps the previous snapshot instead of downgrading coverage', async () => {
+            const service = serviceWithCoverage(undefined, ['a/one']);
+
+            service.resolveConfiguredTenantRepoLabelsFn = async () => { throw new Error('resolver down') };
+            service.configuredTenantRepoLabelsAt        = 0;
+            service.refreshConfiguredTenantRepoLabels();
+            await new Promise(resolve => setImmediate(resolve));
+
+            expect(service.configuredTenantRepoLabels).toEqual(['a/one']);
+            expect(service.isBootstrapCriticalTask('tenant-repo-sync')).toBe(true);
+            service.destroy()
         })
     });
 
