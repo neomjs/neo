@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-08-13T02:42:50.669Z",
-  "releasesLastFetched": "2026-08-13T02:32:50.100Z",
+  "lastSync": "2026-08-13T06:37:16.915Z",
+  "releasesLastFetched": "2026-08-13T06:26:02.694Z",
   "pushFailures": [],
   "issues": {
     "1": {
@@ -101149,10 +101149,10 @@
       "state": "CLOSED",
       "path": "resources/content/issues/chunk-15/issue-17024.md",
       "closedAt": "2026-08-12T23:21:40Z",
-      "updatedAt": "2026-08-12T23:21:40Z",
-      "contentHash": "6214683f8c4fb6e2eb4a69dfb40a7e0025798eb3b0df090eb4c6b0768bdcc969",
+      "updatedAt": "2026-08-13T06:24:16Z",
+      "contentHash": "6c04ca72c4c9bfe7b8b66ec1eb3e3b30ad6b9e658669badabfdf15ac08f7d6a5",
       "milestone": "v13.2",
-      "commentsTotal": 6
+      "commentsTotal": 7
     },
     "17025": {
       "state": "CLOSED",
