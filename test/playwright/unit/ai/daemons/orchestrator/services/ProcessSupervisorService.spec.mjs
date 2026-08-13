@@ -1007,6 +1007,59 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         }));
     });
 
+    test('#17051: liveness admission remains held until deferred readiness settles', async () => {
+        const {service} = createTestService();
+        const calls     = [];
+        const cooldown  = 15000;
+        let   rejectReadiness;
+        let livenessCalls  = 0;
+        let readinessCalls = 0;
+
+        service.runTask = (taskName, reason) => { calls.push({taskName, reason}); return true; };
+        service.taskStateService.getTaskState = () => ({running: false, lastRunAt: 0});
+        service.taskDefinitions = {
+            probeTask: {
+                label        : 'Probe Task',
+                livenessProbe: async () => { livenessCalls++; return true; },
+                postSpawn    : async () => {
+                    readinessCalls++;
+
+                    if (readinessCalls === 1) {
+                        return new Promise((resolve, reject) => { rejectReadiness = reject; });
+                    }
+
+                    return {ready: true};
+                }
+            }
+        };
+
+        const firstPollAt = Date.now();
+
+        service.superviseTask('probeTask', firstPollAt, cooldown);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(service._livenessProbeInFlight.probeTask).toBe(true);
+        expect({livenessCalls, readinessCalls}).toEqual({livenessCalls: 1, readinessCalls: 1});
+
+        service.superviseTask('probeTask', firstPollAt + cooldown + 1, cooldown);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect({livenessCalls, readinessCalls}).toEqual({livenessCalls: 1, readinessCalls: 1});
+
+        rejectReadiness(new Error('readiness failed'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(service._livenessProbeInFlight.probeTask).toBe(false);
+        expect(calls).toEqual([{taskName: 'probeTask', reason: 'supervisor-restart'}]);
+
+        service.superviseTask('probeTask', Date.now() + cooldown + 1, cooldown);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect({livenessCalls, readinessCalls}).toEqual({livenessCalls: 2, readinessCalls: 2});
+        expect(service._livenessProbeInFlight.probeTask).toBe(false);
+    });
+
     test('superviseTask gates a fire-and-exit lane on its liveness probe — DOWN triggers a restart', async () => {
         const {service} = createTestService();
         const calls     = [];

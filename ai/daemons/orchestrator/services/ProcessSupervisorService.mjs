@@ -1087,7 +1087,7 @@ export class ProcessSupervisorService extends Base {
             .then(up => {
                 if (up) {
                     this._livenessConfirmedAt[taskName] = Date.now();
-                    this.runLivenessReadinessHook(taskName, task, 'liveness-confirmed', () => this.runTask(taskName, 'supervisor-restart'));
+                    return this.runLivenessReadinessHook(taskName, task, 'liveness-confirmed', () => this.runTask(taskName, 'supervisor-restart'));
                 } else {
                     this.clearReadinessSuccessLogState(taskName, 'liveness');
                     this.runTask(taskName, 'supervisor-restart');
