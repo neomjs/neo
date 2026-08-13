@@ -212,6 +212,11 @@ function parsedUrl(value) {
     }
 }
 
+function healthcheckText(service) {
+    const test = service?.healthcheck?.test;
+    return Array.isArray(test) ? test.join('\n') : String(test ?? '')
+}
+
 function commandText(service) {
     const command = service?.command;
     return Array.isArray(command) ? command.join('\n') : String(command || '')
@@ -577,6 +582,35 @@ export function analyzeProviderLaneComposition(composition, {
     fail(embeddingEnv.NEO_PROVIDER_LANE_MODEL_SHA256 === lanes.embedding.model.digest.replace(/^sha256:/, ''), 'embedding-model-digest-drift', 'services.embedding-model.environment.NEO_PROVIDER_LANE_MODEL_SHA256', lanes.embedding.model.digest.replace(/^sha256:/, ''), embeddingEnv.NEO_PROVIDER_LANE_MODEL_SHA256);
     fail(typeof embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL === 'string' && lanes.embedding.model.coordinate.includes('@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/') && embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL.includes('/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/'),
         'embedding-model-coordinate-drift', 'services.embedding-model.environment.NEO_PROVIDER_LANE_MODEL_URL', lanes.embedding.model.coordinate, embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL);
+
+    // Steady-state probes must be liveness-only. Hashing multi-GB weights inside the
+    // lane's own CPU quota starves the probe under exactly the load it must tolerate, and the
+    // false unhealthy feeds the recovery actuator a restart that destroys in-flight work. The
+    // boot-time integrity checks stay asserted above via the entrypoint command assertions.
+    const chatProbe      = healthcheckText(chatService);
+    const embeddingProbe = healthcheckText(embeddingService);
+    fail(!chatProbe.includes('sha256sum'), 'chat-probe-heavy-integrity',
+        'services.chat-model.healthcheck.test', 'liveness probe free of weight/manifest hashing', chatProbe);
+    fail(!embeddingProbe.includes('sha256sum'), 'embedding-probe-heavy-integrity',
+        'services.embedding-model.healthcheck.test', 'liveness probe free of weight hashing', embeddingProbe);
+    fail(embeddingProbe.includes('/health'), 'embedding-probe-liveness-missing',
+        'services.embedding-model.healthcheck.test', 'curl /health liveness probe', embeddingProbe);
+
+    // Compute threads must be pinned to the elected CPU allocation. llama.cpp's -1
+    // default resolves against HOST hardware concurrency — a CPU quota does not change that
+    // answer — so an unpinned lane runs host-core-count spin workers inside its quota
+    // (measured: 98 threads in a 6-cpu cgroup, ~10x oversubscription presenting as saturation).
+    const embeddingThreads = integerAboveZero(embeddingEnv.LLAMA_ARG_THREADS);
+    fail(embeddingThreads !== null, 'embedding-threads-unpinned',
+        'services.embedding-model.environment.LLAMA_ARG_THREADS',
+        'positive integer pinned to the lane CPU allocation', embeddingEnv.LLAMA_ARG_THREADS ?? null);
+    if (embeddingThreads !== null) {
+        fail(embeddingThreads <= Math.ceil(lanes.embedding.cpuCores), 'embedding-threads-oversubscribed',
+            'services.embedding-model.environment.LLAMA_ARG_THREADS',
+            `<= ceil(lane cpuCores ${lanes.embedding.cpuCores})`, embeddingThreads);
+    }
+    fail(integerAboveZero(embeddingEnv.LLAMA_ARG_THREADS_HTTP) !== null, 'embedding-http-threads-unpinned',
+        'services.embedding-model.environment.LLAMA_ARG_THREADS_HTTP', 'positive integer', embeddingEnv.LLAMA_ARG_THREADS_HTTP ?? null);
 
     const applicationServices = ['kb-server', 'mc-server', 'orchestrator'];
     for (const serviceKey of applicationServices) {

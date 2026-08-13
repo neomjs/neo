@@ -24,7 +24,8 @@ const FIXTURE_ENV = Object.freeze({
     NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : '32768',
     NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
     NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : '32768',
-    NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768'
+    NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768',
+    NEO_PROVIDER_LANE_EMBEDDING_THREADS                         : '2'
 });
 
 function renderRequiredInputs(source) {
@@ -326,6 +327,42 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         const receipt = analyzeProviderLaneComposition(composition);
         expect(receipt.ready).toBe(false);
         expect(errorCodes(receipt)).toContain('slots-endpoint-disabled')
+    });
+
+    test('a steady-state probe that hashes model weights is refused on either lane (#17063)', () => {
+        const hashedEmbedding = loadComposition();
+        hashedEmbedding.services['embedding-model'].healthcheck.test = [
+            'CMD-SHELL',
+            'curl --fail --silent http://127.0.0.1:8080/health >/dev/null && echo "x  /models/model.gguf" | sha256sum -c - >/dev/null'
+        ];
+        expect(errorCodes(analyzeProviderLaneComposition(hashedEmbedding))).toContain('embedding-probe-heavy-integrity');
+
+        const hashedChat = loadComposition();
+        hashedChat.services['chat-model'].healthcheck.test = [
+            'CMD-SHELL',
+            'ollama show "$NEO_PROVIDER_LANE_MODEL" >/dev/null && echo "x  manifest" | sha256sum -c - >/dev/null'
+        ];
+        expect(errorCodes(analyzeProviderLaneComposition(hashedChat))).toContain('chat-probe-heavy-integrity');
+
+        const nonLiveness = loadComposition();
+        nonLiveness.services['embedding-model'].healthcheck.test = ['CMD-SHELL', 'true'];
+        expect(errorCodes(analyzeProviderLaneComposition(nonLiveness))).toContain('embedding-probe-liveness-missing')
+    });
+
+    test('an embedding lane with unpinned or oversubscribed compute threads is refused (#17073)', () => {
+        const unpinned = loadComposition();
+        delete unpinned.services['embedding-model'].environment.LLAMA_ARG_THREADS;
+        const unpinnedReceipt = analyzeProviderLaneComposition(unpinned);
+        expect(unpinnedReceipt.ready).toBe(false);
+        expect(errorCodes(unpinnedReceipt)).toContain('embedding-threads-unpinned');
+
+        const oversubscribed = loadComposition();
+        oversubscribed.services['embedding-model'].environment.LLAMA_ARG_THREADS = '64';
+        expect(errorCodes(analyzeProviderLaneComposition(oversubscribed))).toContain('embedding-threads-oversubscribed');
+
+        const httpUnpinned = loadComposition();
+        delete httpUnpinned.services['embedding-model'].environment.LLAMA_ARG_THREADS_HTTP;
+        expect(errorCodes(analyzeProviderLaneComposition(httpUnpinned))).toContain('embedding-http-threads-unpinned')
     });
 
     test('the pure downstream validator rejects unknown and unready receipts without Compose', () => {
