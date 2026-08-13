@@ -392,6 +392,32 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
             service.destroy()
         });
 
+        test('an expired coverage snapshot cannot dispatch REM while a canonical refresh discovers a new repo', async () => {
+            const service = serviceWithManifest(JSON.stringify({revisions: {
+                'a/one': {lastIngestedRev: 'abc123'}
+            }}));
+
+            // The last-known snapshot is complete but stale. The canonical resolver now exposes a
+            // newly configured repo whose first checkpoint does not exist yet.
+            service.configuredTenantRepoLabels           = ['a/one'];
+            service.configuredTenantRepoLabelsAt         = 0;
+            service.resolveConfiguredTenantRepoLabelsFn = async () => ['a/one', 'a/two'];
+
+            const winner = pickNextCandidate({
+                candidates   : bootCandidates(),
+                runningTasks : [],
+                policyContext: bootPolicyContext(service)
+            });
+
+            // The synchronous picker cannot await the canonical refresh. It must therefore fail
+            // safe for THIS decision instead of handing the only heavy slot to more-stale REM.
+            expect(winner.taskName).toBe('tenant-repo-sync');
+
+            await service.ensureConfiguredTenantRepoLabels();
+            expect(service.configuredTenantRepoLabels).toEqual(['a/one', 'a/two']);
+            service.destroy()
+        });
+
         test('an unresolved snapshot with no manifest fails SAFE — cannot prove the plane is initialized', () => {
             const service = serviceWithManifest(undefined);
 

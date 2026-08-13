@@ -36,8 +36,9 @@ export const WAITER_ENTRY_STALE_AFTER_MS = 10 * 60 * 1000;
 /**
  * Refresh throttle for the configured tenant-repo label snapshot consumed by
  * `isBootstrapCriticalTask`. The snapshot only has to track operator config edits, which are rare
- * next to the poll cadence that reads it, so a minute of staleness costs at most one scheduling
- * cycle of ordinary ranking while keeping the resolver off the hot path.
+ * next to the poll cadence that reads it. Once the TTL expires the synchronous predicate starts a
+ * lazy refresh and treats the stale last-known array as unresolved for that decision, so a newly
+ * configured repo cannot lose the heavy lane to ordinary work while the resolver is in flight.
  * @type {Number}
  */
 export const CONFIGURED_TENANT_REPO_LABELS_TTL_MS = 60 * 1000;
@@ -724,8 +725,8 @@ export class MaintenanceBackpressureService extends Base {
      * sufficient: on a first deployment the first decision would run against an unresolved
      * snapshot, rank the bootstrap lane as ordinary, and hand the heavy lease to a more-stale REM
      * cycle for its full duration — losing precisely the decision the class exists to win. Steady
-     * state still refreshes lazily off the TTL, where bounded staleness costs at most one cycle of
-     * ordinary ranking.
+     * state still refreshes lazily off the TTL; the synchronous predicate fails safe while that
+     * refresh is pending rather than dispatching from stale coverage.
      *
      * A resolver failure leaves the previous snapshot in place rather than downgrading coverage,
      * and never rejects — boot must not be blocked by a resolver outage.
@@ -762,14 +763,16 @@ export class MaintenanceBackpressureService extends Base {
     /**
      * @summary Non-blocking lazy refresh used by the synchronous predicate on the steady-state path.
      * @param {Number} [now=Date.now()] Clock seam.
-     * @returns {void}
+     * @returns {Boolean} True while configured coverage is unresolved or refreshing.
      * @protected
      */
     refreshConfiguredTenantRepoLabels(now = Date.now()) {
-        if (this.configuredTenantRepoLabelsRefresh) return;
-        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return;
+        if (this.configuredTenantRepoLabelsRefresh) return true;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return false;
 
         this.ensureConfiguredTenantRepoLabels(now);
+
+        return true;
     }
 
     /**
@@ -781,7 +784,9 @@ export class MaintenanceBackpressureService extends Base {
      * three cases wrong: a first deployment has no manifest at all and would read ordinary,
      * exactly when the class is most needed; a newly added repo is absent from an existing
      * manifest and would read ordinary until the next sweep seeds it; and a removed repo's stale
-     * null entry would keep granting priority forever.
+     * null entry would keep granting priority forever. When a last-known snapshot has expired, the
+     * canonical refresh cannot be awaited inside the synchronous picker; that current decision
+     * therefore fails safe instead of handing the heavy lane to ordinary work on stale coverage.
      *
      * So a configured `<tenantId>/<repoSlug>` label with no checkpoint — absent from the manifest
      * or carrying a null `lastIngestedRev` — makes the lane bootstrap-critical, and manifest
@@ -801,15 +806,10 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
-        this.refreshConfiguredTenantRepoLabels();
+        const coverageRefreshPending = this.refreshConfiguredTenantRepoLabels();
 
         try {
             const labels = this.configuredTenantRepoLabels;
-
-            // Configured, and empty: nothing to initialize.
-            if (Array.isArray(labels) && labels.length === 0) {
-                return false;
-            }
 
             const manifestPath = path.join(this.dataDir, 'tenant-repo-sync-revisions.json');
             const rawRevisions = fs.existsSync(manifestPath)
@@ -818,6 +818,18 @@ export class MaintenanceBackpressureService extends Base {
             const revisions = rawRevisions && typeof rawRevisions === 'object' && !Array.isArray(rawRevisions)
                 ? rawRevisions
                 : {};
+
+            // The last-known array is stale and its canonical refresh is asynchronous. Even a
+            // previously complete or empty set cannot prove that no repo was added since it was
+            // captured, so the due tenant lane wins THIS decision while coverage resolves.
+            if (coverageRefreshPending && Array.isArray(labels)) {
+                return true;
+            }
+
+            // Configured, fresh, and empty: nothing to initialize.
+            if (Array.isArray(labels) && labels.length === 0) {
+                return false;
+            }
 
             // Snapshot unresolved. Boot awaits `ensureConfiguredTenantRepoLabels()` before the first
             // sweep, so this is the defensive path (a service composed outside that boot order, or a
