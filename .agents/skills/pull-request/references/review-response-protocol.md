@@ -57,7 +57,11 @@ subsequent push/update to the PR branch, author response, or re-review request:
 The terminal tags are:
 
 - **`[ADDRESSED]`** — the candidate head contains the fix and evidence; cite the commit.
-- **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask; rationale documented for the reviewer's potential counter-challenge. **Do NOT silently skip an item** — if you disagree, say so explicitly. (Use this aggressively when the Triangular Evaluation proves the reviewer is hallucinating or derailing).
+- **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask and
+  falsifies its premise with source or empirical evidence. Disagreement,
+  difficulty, implementation cost, unfamiliarity, or preference do not
+  discharge the RA. **Do NOT silently skip an item** — if the evidence rejects
+  it, say so explicitly so the reviewer can counter-challenge.
 - **`[SCOPE_TRANSFERRED]`** — B was already narrowed before this response. Cite
   the linked implementation leaf, the source-ticket and PR-body/close-target
   edits, and evidence that the remaining head is merge-safe and independently
@@ -68,6 +72,13 @@ hundreds of lines, CI duration, token/rate limits, an awkward seam, or reviewer
 preference do not change authority. If underestimated work reveals an epic,
 split ticket authority first; if no coherent merge-safe slice remains, supersede
 it. The tag records that completed authority change—it never substitutes for it.
+
+**Blocked on understanding, not capability?** Ask the reviewer through a 1:1
+A2A DM by default, or on the PR thread when A2A is unavailable. A question is
+not a disposition: the RA stays OPEN, the author loop stays active, and no push,
+closure response, or re-review request follows until it is discharged. This is
+not an escape from a local reversible Tier-2 decision the author already has
+authority to make; decide and implement that choice.
 
 ## 5. Template
 
