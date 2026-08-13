@@ -54,6 +54,11 @@ function buildService(overrides = {}) {
         // starvation bound) into every later arm's admission decision — and into the plane dir.
         heavyMaintenanceLeasePath: path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mbs-lease-')), 'heavy-maintenance-lease.json'),
         writeLog                 : () => {},
+        // Same isolation reasoning applied to the coverage resolver: the admission fairness gate
+        // calls isBootstrapCriticalTask, which kicks a lazy refresh. Unstubbed, that runs the real
+        // tiered resolver in the background — importing the tenant sync lane and touching its lease
+        // guard directories after the arm returns, which races other specs' temp-dir teardown.
+        resolveConfiguredTenantRepoLabelsFn: async () => null,
         ...overrides
     });
 }

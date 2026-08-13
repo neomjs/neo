@@ -199,7 +199,16 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
                 fs.writeFileSync(path.join(dataDir, 'tenant-repo-sync-revisions.json'), manifest);
             }
 
-            return Neo.create(MaintenanceBackpressureService, {dataDir, writeLog: () => {}});
+            return Neo.create(MaintenanceBackpressureService, {
+                dataDir,
+                writeLog: () => {},
+                // ALWAYS inject the resolver seam. `isBootstrapCriticalTask` kicks a lazy refresh,
+                // so a service built without this would run the real tiered resolver in the
+                // background — dynamically importing the tenant sync lane and touching its lease
+                // guard directories after the test returns, which races other specs' temp-dir
+                // teardown. Arms that care about resolution override this explicitly.
+                resolveConfiguredTenantRepoLabelsFn: async () => null
+            });
         }
 
         test('an uncheckpointed seeded repo makes tenant sync bootstrap-critical; full checkpoints end it', () => {
@@ -453,8 +462,12 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
                 heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
                 writeLog                 : () => {},
                 dataDir                  : dataDir ?? null,
-                healthService            : {recordTaskOutcome: (name, status, payload) => outcomes.push({name, status, payload})},
-                taskStateService         : {
+                // acquireLeaseAndExecute's fairness gate calls isBootstrapCriticalTask, which kicks
+                // the lazy coverage refresh — without this seam these arms would run the real tiered
+                // resolver in the background and touch the tenant sync lane's lease guards.
+                resolveConfiguredTenantRepoLabelsFn: async () => null,
+                healthService                      : {recordTaskOutcome: (name, status, payload) => outcomes.push({name, status, payload})},
+                taskStateService                   : {
                     getTaskState: name => taskState[name] ?? null,
                     markDeferred: name => taskState[name]?.deferralStreakStartedAt ?? null
                 },

@@ -1699,6 +1699,91 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(started).toEqual([]);
     });
 
+    // The boot-time configured-coverage prewarm sits on the start path, so it needs both an
+    // authority gate and a deadline. Ungated it drags a host-edge or graphless profile into
+    // container-plane configuration authority (the canonical resolver awaits `graphService.ready()`);
+    // unbounded, a resolver that never settles stops the daemon polling at all. Gate and bound are
+    // exercised together here rather than separately — testing either alone is what let the
+    // composition defect through the previous cycle.
+    test.describe('prewarmConfiguredTenantRepoCoverage — boot-boundary gate and deadline', () => {
+        function orchestratorWithPrewarm({owned, enabled, ensureImpl}) {
+            const orchestrator = Neo.create(Orchestrator);
+            const logs         = [];
+
+            orchestrator.writeLog                       = (level, message) => logs.push({level, message});
+            orchestrator.isTaskAuthorityOwned           = taskName => owned && taskName === 'tenant-repo-sync';
+            orchestrator.maintenanceBackpressureService = {ensureConfiguredTenantRepoLabels: ensureImpl};
+
+            Object.defineProperty(orchestrator, 'tenantRepoSyncEnabled', {get: () => enabled, configurable: true});
+
+            return {orchestrator, logs}
+        }
+
+        test('a profile that does not own tenant-repo-sync never reaches the resolver', async () => {
+            let   calls          = 0;
+            const {orchestrator} = orchestratorWithPrewarm({
+                owned: false, enabled: true, ensureImpl: async () => { calls++; return [] }
+            });
+
+            await orchestrator.prewarmConfiguredTenantRepoCoverage(50);
+
+            expect(calls).toBe(0);
+            orchestrator.destroy()
+        });
+
+        test('an owning profile with the lane disabled never reaches the resolver', async () => {
+            let   calls          = 0;
+            const {orchestrator} = orchestratorWithPrewarm({
+                owned: true, enabled: false, ensureImpl: async () => { calls++; return [] }
+            });
+
+            await orchestrator.prewarmConfiguredTenantRepoCoverage(50);
+
+            expect(calls).toBe(0);
+            orchestrator.destroy()
+        });
+
+        test('a never-settling resolver cannot prevent the scheduler from starting', async () => {
+            const {orchestrator, logs} = orchestratorWithPrewarm({
+                owned: true, enabled: true, ensureImpl: () => new Promise(() => {})
+            });
+
+            // The assertion is that this await RETURNS at all — an unbounded prewarm hangs here
+            // forever and the daemon never polls.
+            await orchestrator.prewarmConfiguredTenantRepoCoverage(25);
+
+            expect(logs.some(entry => entry.level === 'WARN' && /did not resolve within 25ms/.test(entry.message))).toBe(true);
+            orchestrator.destroy()
+        });
+
+        test('an owned, enabled lane observes resolved coverage before returning', async () => {
+            let   resolved             = false;
+            const {orchestrator, logs} = orchestratorWithPrewarm({
+                owned     : true,
+                enabled   : true,
+                ensureImpl: async () => { await new Promise(r => setTimeout(r, 5)); resolved = true; return ['a/one'] }
+            });
+
+            await orchestrator.prewarmConfiguredTenantRepoCoverage(1000);
+
+            expect(resolved).toBe(true);
+            expect(logs.some(entry => entry.level === 'WARN')).toBe(false);
+            orchestrator.destroy()
+        });
+
+        test('start() awaits the prewarm before the first poll', async () => {
+            // Source-shape assertion: the gate/deadline above are worthless if the call site drifts
+            // after `poll()`. Mirrors the existing runSandman lease-window ordering test.
+            const source     = await fs.readFile(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf-8');
+            const prewarmIdx = source.indexOf('await this.prewarmConfiguredTenantRepoCoverage()');
+            const pollIdx    = source.indexOf('this.poll();');
+
+            expect(prewarmIdx).toBeGreaterThan(-1);
+            expect(pollIdx).toBeGreaterThan(-1);
+            expect(prewarmIdx).toBeLessThan(pollIdx)
+        })
+    });
+
     test('resolves default paths correctly without configuration overrides', () => {
         // With configure() removed, path resolution is direct instance-field
         // assignment + buildTaskDefinitions(), mirroring the substrate-correct shape used
