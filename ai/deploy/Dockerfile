@@ -114,7 +114,7 @@ WORKDIR /app
 
 # `git` is required by `ai/services/knowledge-base/helpers/GitMirror.mjs` for
 # tenant-repo clone/fetch. The orchestrator daemon's tenantRepoSync lane and
-# the operator-bulk `syncTenantRepos.mjs` CLI both shell out to it.
+# the container-plane `syncTenantRepos.mjs` one-shot both shell out to it.
 RUN apk add --no-cache libstdc++ git
 
 COPY --from=builder /app ./

@@ -41,7 +41,10 @@ import {createTenantRepoMaterializationDigest}
 import {
     LIFECYCLE_GUARD_SUFFIX,
     acquireHeavyMaintenanceLease,
-    buildLeasePayload
+    buildLeasePayload,
+    inspectHeavyMaintenanceLease,
+    releaseHeavyMaintenanceLease,
+    withHeavyMaintenanceLease
 } from '../../../../../../../ai/daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 import {
     enterLifecycleGuard,
@@ -50,7 +53,8 @@ import {
 import {
     buildRunTaskOptions,
     parseArgs,
-    resolveExitCode
+    resolveExitCode,
+    runTenantRepoSyncWithGlobalLease
 } from '../../../../../../../ai/scripts/maintenance/syncTenantRepos.mjs';
 import {readHealLedger}        from '../../../../../../../ai/services/memory-core/helpers/healEventLedgerStore.mjs';
 import MemoryCoreConfig        from '../../../../../../../ai/mcp/server/memory-core/config.template.mjs';
@@ -6412,7 +6416,22 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Provider mirro
     });
 });
 
-test.describe('syncTenantRepos manual CLI (#15748)', () => {
+test.describe('syncTenantRepos container-plane CLI (#15748)', () => {
+    async function withTempLease(testFn) {
+        const leaseDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-tenant-sync-global-lease-'));
+        const leasePath = path.join(leaseDir, 'heavy-maintenance-lease.json');
+        try {
+            await testFn({leasePath});
+        } finally {
+            await fs.remove(leaseDir);
+        }
+    }
+
+    const injectLeasePath = leasePath => (task, options) => withHeavyMaintenanceLease(task, {
+        ...options,
+        leasePath
+    });
+
     test('parses repeatable repo selectors with explicit full replay', () => {
         expect(parseArgs([
             'node',
@@ -6452,6 +6471,86 @@ test.describe('syncTenantRepos manual CLI (#15748)', () => {
             writeLog,
             onlyRepoSlugs: ['org/a', 'org/b'],
             fullReplay   : true
+        });
+    });
+
+    test('global held lease defers without dispatching tenant sync', async () => {
+        await withTempLease(async ({leasePath}) => {
+            const incumbent = await acquireHeavyMaintenanceLease({
+                leasePath,
+                owner       : 'dream',
+                reason      : 'scheduled',
+                staleAfterMs: 60_000
+            });
+            const runTaskCalls = [];
+
+            try {
+                const outcome = await runTenantRepoSyncWithGlobalLease({
+                    parsed          : {fullReplay: false, repoSlugs: ['org/a']},
+                    taskStateService: {name: 'task-state'},
+                    writeLog        : () => {},
+                    runTaskImpl     : options => {
+                        runTaskCalls.push(options);
+                        return {status: 'completed'};
+                    },
+                    withLeaseImpl: injectLeasePath(leasePath)
+                });
+
+                expect(outcome.status).toBe('held');
+                expect(outcome.lease.owner).toBe('dream');
+                expect(runTaskCalls).toHaveLength(0);
+            } finally {
+                await releaseHeavyMaintenanceLease({
+                    leasePath,
+                    token: incumbent.lease.token
+                });
+            }
+        });
+    });
+
+    test('global lease preserves selectors and releases after success or returned failure', async () => {
+        for (const status of ['completed', 'failed']) {
+            await withTempLease(async ({leasePath}) => {
+                const taskStateService = {name: 'task-state'};
+                const writeLog         = () => {};
+                const outcome          = await runTenantRepoSyncWithGlobalLease({
+                    parsed: {
+                        fullReplay: true,
+                        repoSlugs : ['org/a', 'org/b']
+                    },
+                    taskStateService,
+                    writeLog,
+                    runTaskImpl  : async options => ({status, options}),
+                    withLeaseImpl: injectLeasePath(leasePath)
+                });
+
+                expect(outcome.status).toBe('completed');
+                expect(outcome.result).toEqual({
+                    status,
+                    options: {
+                        reason       : 'manual',
+                        taskStateService,
+                        writeLog,
+                        onlyRepoSlugs: ['org/a', 'org/b'],
+                        fullReplay   : true
+                    }
+                });
+                expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
+            });
+        }
+    });
+
+    test('global lease releases after tenant sync throws', async () => {
+        await withTempLease(async ({leasePath}) => {
+            await expect(runTenantRepoSyncWithGlobalLease({
+                parsed          : {fullReplay: false, repoSlugs: []},
+                taskStateService: {name: 'task-state'},
+                writeLog        : () => {},
+                runTaskImpl     : async () => { throw new Error('tenant-sync-failed'); },
+                withLeaseImpl   : injectLeasePath(leasePath)
+            })).rejects.toThrow('tenant-sync-failed');
+
+            expect((await inspectHeavyMaintenanceLease({leasePath})).status).toBe('missing');
         });
     });
 
