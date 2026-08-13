@@ -133,6 +133,126 @@ test.describe('lmsExecOptions — embedding-readiness PATH fix', () => {
     });
 });
 
+test.describe('LM Studio residency mutation queue (#17054)', () => {
+    let ensureLmsModelsLoaded;
+
+    test.beforeAll(async () => {
+        ({ensureLmsModelsLoaded} = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs'));
+    });
+
+    test('serializes concurrent repairs without coalescing their role sets', async () => {
+        let releaseFirst, signalFirstStarted, activeLoads = 0, maxActiveLoads = 0;
+        const events       = [],
+              firstGate    = new Promise(resolve => { releaseFirst = resolve; }),
+              firstStarted = new Promise(resolve => { signalFirstStarted = resolve; }),
+              createRepair = (model, waitForRelease = false) => {
+                  let loaded = false;
+
+                  return ensureLmsModelsLoaded({
+                      host         : 'http://127.0.0.1:1234',
+                      models       : [model],
+                      attempts     : 1,
+                      delayMs      : 0,
+                      timeoutMs    : 10,
+                      fetchModelIds: async () => {
+                          events.push(`discover:${model}`);
+                          return loaded ? [model] : [];
+                      },
+                      async loadModel() {
+                          events.push(`load:${model}`);
+                          activeLoads += 1;
+                          maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+
+                          if (waitForRelease) {
+                              signalFirstStarted();
+                              await firstGate;
+                          }
+
+                          loaded = true;
+                          activeLoads -= 1;
+                      },
+                      unloadModel: async () => {},
+                      log        : {info() {}, warn() {}}
+                  });
+              },
+              first = createRepair('chat-model', true);
+
+        await firstStarted;
+
+        const second = createRepair('embedding-model');
+
+        await Promise.resolve();
+        expect(events).toEqual(['discover:chat-model', 'load:chat-model']);
+
+        releaseFirst();
+
+        const [firstResult, secondResult] = await Promise.all([first, second]);
+
+        expect(maxActiveLoads).toBe(1);
+        expect(firstResult.requiredModels).toEqual(['chat-model']);
+        expect(secondResult.requiredModels).toEqual(['embedding-model']);
+        expect(events).toEqual([
+            'discover:chat-model',
+            'load:chat-model',
+            'discover:chat-model',
+            'discover:embedding-model',
+            'load:embedding-model',
+            'discover:embedding-model'
+        ]);
+    });
+
+    test('releases a rejected predecessor and rechecks queued caller authority', async () => {
+        let rejectFirst, signalFirstStarted, authorityHeld = true, secondDiscoveries = 0, secondLoads = 0;
+        const firstGate    = new Promise((resolve, reject) => { rejectFirst = reject; }),
+              firstStarted = new Promise(resolve => { signalFirstStarted = resolve; }),
+              first        = ensureLmsModelsLoaded({
+                  host         : 'http://127.0.0.1:1234',
+                  models       : ['chat-model'],
+                  attempts     : 1,
+                  delayMs      : 0,
+                  timeoutMs    : 10,
+                  fetchModelIds: async () => [],
+                  async loadModel() {
+                      signalFirstStarted();
+                      await firstGate;
+                  },
+                  unloadModel: async () => {},
+                  log        : {info() {}, warn() {}}
+              });
+
+        await firstStarted;
+
+        const second = ensureLmsModelsLoaded({
+            host         : 'http://127.0.0.1:1234',
+            models       : ['embedding-model'],
+            attempts     : 1,
+            delayMs      : 0,
+            timeoutMs    : 10,
+            fetchModelIds: async () => {
+                secondDiscoveries += 1;
+                return [];
+            },
+            async loadModel() {
+                secondLoads += 1;
+            },
+            unloadModel    : async () => {},
+            isAuthorityHeld: () => authorityHeld,
+            log            : {info() {}, warn() {}}
+        });
+
+        authorityHeld = false;
+        await Promise.resolve();
+        expect(secondDiscoveries).toBe(0);
+
+        rejectFirst(new Error('first repair failed'));
+
+        await expect(first).rejects.toThrow('first repair failed');
+        await expect(second).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+        expect(secondDiscoveries).toBe(1);
+        expect(secondLoads).toBe(0);
+    });
+});
+
 test.describe('provider residency helpers — production mutation authority fences (#16837)', () => {
     let ensureLmsModelsLoaded, ensureOllamaModelsReady;
 
