@@ -168,6 +168,171 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(storedProperties.weight).toBeCloseTo(1.2);
         expect(GraphService.db.edges.get(initialRow.id)).toBe(cachedEdge);
         expect(cachedEdge.get('properties')).toEqual(storedProperties);
+
+        const reinforcementLogs = GraphService.db.storage.db.prepare(`
+            SELECT entity_id
+            FROM GraphLog
+            WHERE entity_type = 'edges'
+              AND entity_id = ?
+        `).all(initialRow.id);
+
+        expect(reinforcementLogs).toHaveLength(2);
+    });
+
+    test('structural edge verification is write-idempotent while property drift stays explicit (#17056)', () => {
+        GraphService.upsertNode({id: 'StructuralSource', type: 'TEST_NODE'});
+        GraphService.upsertNode({id: 'StructuralTarget', type: 'TEST_NODE'});
+
+        const
+            sqlite     = GraphService.db.storage.db,
+            selectEdge = sqlite.prepare(`
+                SELECT id, data
+                FROM Edges
+                WHERE source = ?
+                  AND target = ?
+                  AND type = ?
+            `),
+            edgeLogs   = () => sqlite.prepare("SELECT * FROM GraphLog WHERE entity_type = 'edges' ORDER BY log_id").all();
+
+        sqlite.exec('DELETE FROM GraphLog');
+
+        const created = GraphService.ensureStructuralEdge(
+            'StructuralSource',
+            'StructuralTarget',
+            'CONTAINS',
+            1,
+            {projection: 'filesystem'}
+        );
+
+        expect(created).toEqual({status: 'created'});
+        expect(edgeLogs()).toHaveLength(1);
+
+        // Intentional learning can raise the historical weight; structural verification must
+        // preserve that authority rather than normalize it back to the creation weight.
+        GraphService.linkNodes(
+            'StructuralSource',
+            'StructuralTarget',
+            'CONTAINS',
+            2,
+            {projection: 'filesystem'}
+        );
+
+        const reinforcedRow = selectEdge.get('StructuralSource', 'StructuralTarget', 'CONTAINS');
+        expect(JSON.parse(reinforcedRow.data).properties.weight).toBeCloseTo(1.2);
+
+        sqlite.exec('DELETE FROM GraphLog');
+
+        const verified = GraphService.ensureStructuralEdge(
+            'StructuralSource',
+            'StructuralTarget',
+            'CONTAINS',
+            1,
+            {projection: 'filesystem'}
+        );
+
+        expect(verified).toEqual({status: 'verified'});
+        expect(selectEdge.get('StructuralSource', 'StructuralTarget', 'CONTAINS').data).toBe(reinforcedRow.data);
+        expect(edgeLogs()).toEqual([]);
+
+        const drifted = GraphService.ensureStructuralEdge(
+            'StructuralSource',
+            'StructuralTarget',
+            'CONTAINS',
+            1,
+            {projection: 'different-authority'}
+        );
+
+        expect(drifted).toMatchObject({
+            status       : 'drifted',
+            divergentKeys: ['projection']
+        });
+        expect(selectEdge.get('StructuralSource', 'StructuralTarget', 'CONTAINS').data).toBe(reinforcedRow.data);
+        expect(edgeLogs()).toEqual([]);
+
+        GraphService.upsertNode({id: 'PrivateTarget', type: 'TEST_NODE'});
+        GraphService.linkNodes(
+            'StructuralSource',
+            'PrivateTarget',
+            'CONTAINS',
+            1,
+            {userId: 'tenant-a'}
+        );
+        sqlite.exec('DELETE FROM GraphLog');
+
+        expect(GraphService.ensureStructuralEdge(
+            'StructuralSource',
+            'PrivateTarget',
+            'CONTAINS'
+        )).toEqual({status: 'drifted', divergentKeys: ['userId']});
+        expect(edgeLogs()).toEqual([]);
+    });
+
+    test('structural edge verification rejects an outer transaction instead of reading a partial overlay (#17056)', () => {
+        GraphService.upsertNode({id: 'QueuedSource', type: 'TEST_NODE'});
+        GraphService.upsertNode({id: 'QueuedTarget', type: 'TEST_NODE'});
+        GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+
+        expect(() => GraphService.db.transaction(() => {
+            GraphService.ensureStructuralEdge('QueuedSource', 'QueuedTarget', 'CONTAINS')
+        })).toThrow(/owns its transaction/);
+        expect(GraphService.db.storage.db.prepare(`
+            SELECT COUNT(*) AS count
+            FROM Edges
+            WHERE source = 'QueuedSource'
+              AND target = 'QueuedTarget'
+              AND type = 'CONTAINS'
+        `).get().count).toBe(0);
+        expect(GraphService.db.storage.db.prepare(
+            "SELECT COUNT(*) AS count FROM GraphLog WHERE entity_type = 'edges'"
+        ).get().count).toBe(0)
+    });
+
+    test('structural edge verification recreates a peer-deleted SQLite edge despite stale RAM (#17056)', () => {
+        GraphService.upsertNode({id: 'StaleSource', type: 'TEST_NODE'});
+        GraphService.upsertNode({id: 'StaleTarget', type: 'TEST_NODE'});
+        GraphService.ensureStructuralEdge('StaleSource', 'StaleTarget', 'CONTAINS');
+
+        const
+            sqlite      = GraphService.db.storage.db,
+            originalRow = sqlite.prepare(`
+                SELECT id
+                FROM Edges
+                WHERE source = 'StaleSource'
+                  AND target = 'StaleTarget'
+                  AND type = 'CONTAINS'
+            `).get();
+
+        // Simulate a peer-process delete before this process consumes the GraphLog invalidation.
+        // The old edge deliberately remains in the RAM store and must not satisfy verification.
+        sqlite.exec('DELETE FROM GraphLog');
+        sqlite.prepare('DELETE FROM Edges WHERE id = ?').run(originalRow.id);
+
+        expect(GraphService.db.edges.has(originalRow.id)).toBe(true);
+        expect(GraphService.ensureStructuralEdge(
+            'StaleSource',
+            'StaleTarget',
+            'CONTAINS'
+        )).toEqual({status: 'created'});
+
+        const persisted = sqlite.prepare(`
+            SELECT id
+            FROM Edges
+            WHERE source = 'StaleSource'
+              AND target = 'StaleTarget'
+              AND type = 'CONTAINS'
+        `).all();
+
+        expect(persisted).toHaveLength(1);
+        expect(persisted[0].id).not.toBe(originalRow.id);
+
+        const cachedTuple = GraphService.db.edges.getByIndex('source', 'StaleSource')
+            .filter(edge => edge.target === 'StaleTarget' && edge.type === 'CONTAINS');
+
+        expect(cachedTuple.map(edge => edge.id)).toEqual([persisted[0].id]);
+        expect(GraphService.db.edges.has(originalRow.id)).toBe(false);
+        expect(sqlite.prepare(
+            "SELECT entity_id FROM GraphLog WHERE entity_type = 'edges' ORDER BY log_id"
+        ).all().map(row => row.entity_id)).toEqual([originalRow.id, persisted[0].id])
     });
 
     test('removeNodes rejects invalid node ids before Database.removeNode null path (#11698)', async () => {
