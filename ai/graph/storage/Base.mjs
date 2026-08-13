@@ -77,9 +77,12 @@ class Base extends NeoBase {
      * Evaluates Database Logs verifying structurally exactly which remote Application Workers modified Graph limits.
      * @see Neo.ai.graph.Database#syncCache
      * @param {Number} sinceId
-     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events }
+     * @param {Object} [options]
+     * @param {Number|null} [options.limit=null] Maximum raw GraphLog rows to materialize.
+     * @param {Number|null} [options.untilId=null] Inclusive upper log-id boundary for a frozen page sequence.
+     * @returns {Object} { lastLogId, invalidNodes, invalidEdges, events, entityLogIds, hasMore }
      */
-    getDeltaLog(sinceId) {}
+    getDeltaLog(sinceId, options) {}
 
     /**
      * @summary Appends one immutable typed GraphLog event.

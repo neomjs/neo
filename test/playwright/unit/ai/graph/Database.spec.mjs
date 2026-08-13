@@ -363,6 +363,51 @@ test.describe('Neo.ai.graph.Database', () => {
         }
     });
 
+    test('SQLite pages GraphLog before materialization and carries per-entity log ids (#16677)', async () => {
+        const storage = Neo.create(SQLite, {dbPath});
+        await storage.initAsync();
+
+        try {
+            const insert = storage.db.prepare('INSERT INTO GraphLog(entity_id, entity_type) VALUES (?, ?)');
+            insert.run('page-node-1', 'nodes');
+            insert.run('page-node-2', 'nodes');
+            insert.run('page-node-3', 'nodes');
+
+            const first = storage.getDeltaLog(0, {limit: 2});
+
+            expect(first.invalidNodes).toEqual(['page-node-1', 'page-node-2']);
+            expect(first.entityLogIds.get('page-node-1')).toBe(1);
+            expect(first.entityLogIds.get('page-node-2')).toBe(2);
+            expect(first.lastLogId).toBe(2);
+            expect(first.hasMore).toBe(true);
+
+            const second = storage.getDeltaLog(first.lastLogId, {limit: 2});
+
+            expect(second.invalidNodes).toEqual(['page-node-3']);
+            expect(second.entityLogIds.get('page-node-3')).toBe(3);
+            expect(second.lastLogId).toBe(3);
+            expect(second.hasMore).toBe(false);
+
+            insert.run('page-node-4', 'nodes');
+
+            const frozen = storage.getDeltaLog(first.lastLogId, {limit: 2, untilId: second.lastLogId});
+            expect(frozen.invalidNodes).toEqual(['page-node-3']);
+            expect(frozen.lastLogId).toBe(3);
+            expect(frozen.hasMore).toBe(false);
+
+            const tail = storage.getDeltaLog(frozen.lastLogId, {limit: 2});
+            expect(tail.invalidNodes).toEqual(['page-node-4']);
+            expect(tail.lastLogId).toBe(4);
+
+            expect(() => storage.getDeltaLog(0, {limit: 0})).toThrow(/positive integer/);
+            expect(() => storage.getDeltaLog(0, {limit: 1.5})).toThrow(/positive integer/);
+            expect(() => storage.getDeltaLog(0, {untilId: -1})).toThrow(/non-negative integer/);
+        } finally {
+            if (storage.db?.open) storage.db.close();
+            storage.destroy();
+        }
+    });
+
     test('SQLite migrates legacy SummarizationJobs rows with nullable durable receipt columns (#16105)', async () => {
         seedLegacyGraphFile();
 

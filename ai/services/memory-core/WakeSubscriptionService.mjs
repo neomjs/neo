@@ -219,12 +219,30 @@ class WakeSubscriptionService extends Base {
     _pumping = false
 
     /**
+     * @member {Boolean} _pumpRequested=false
+     * A trigger arriving during a drain is folded into the active single-flight. The active drain
+     * rechecks the tail after its current page sequence instead of silently discarding the trigger.
+     * @protected
+     */
+    _pumpRequested = false
+
+    /**
+     * @member {Number} pumpBatchSize=512
+     * Maximum raw GraphLog rows materialized and evaluated in one event-loop turn. This is an
+     * internal liveness boundary rather than deployment policy: every page is eventually consumed,
+     * and changing it does not alter delivery eligibility.
+     * @protected
+     */
+    pumpBatchSize = 512
+
+    /**
      * Evaluates recent GraphLog deltas and pushes matching events to active Shape A
      * (MCP notification) and Shape B (signed webhook) routes. Intended to be called by
      * mutation paths (e.g. MailboxService, PermissionService) for low-latency delivery.
      * @returns {Promise<void>}
      */
     async pump() {
+        this._pumpRequested = true;
         if (this._pumping) return;
 
         try {
@@ -235,54 +253,97 @@ class WakeSubscriptionService extends Base {
             const storage = db.storage;
             if (!storage?.getDeltaLog) return;
 
-            const delta       = storage.getDeltaLog(this.liveCursor);
-            const typedEvents = delta.events || [];
-            if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0 && typedEvents.length === 0) {
-                this._setLiveCursor(delta.lastLogId);
-                return;
-            }
+            do {
+                this._pumpRequested = false;
 
-            // Live push needs every active Shape A/B subscription, not only routes that were
-            // touched through this process's lazy cache.
-            this._warmPushSubscriptions();
+                // Live push needs every active Shape A/B subscription, not only routes that were
+                // touched through this process's lazy cache. Re-warm for an explicitly coalesced
+                // trigger so a route added during a long catch-up joins the next tail check.
+                this._warmPushSubscriptions();
 
-            // Shared predicate, NOT `sub.status === 'active'`. This is the hot push path, and the cache
-            // is warmed from `_hydrateSubscriptionFromDurableNode`, which preserves an absent `status`
-            // as absent rather than synthesizing one. A strict compare here publishes a route into the
-            // manifest and then never dispatches through it — a live route that reads armed everywhere
-            // and delivers nothing, which is worse than either consistent answer.
-            const activeSubs = Array.from(this.subscriptionCache.values())
-                .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && isActiveWakeSubscriptionStatus(sub.status));
+                // Shared predicate, NOT `sub.status === 'active'`. This is the hot push path, and the cache
+                // is warmed from `_hydrateSubscriptionFromDurableNode`, which preserves an absent `status`
+                // as absent rather than synthesizing one. A strict compare here publishes a route into the
+                // manifest and then never dispatches through it — a live route that reads armed everywhere
+                // and delivers nothing, which is worse than either consistent answer.
+                const activeSubs = Array.from(this.subscriptionCache.values())
+                    .filter(sub => ['mcp-notifications', 'a2a-webhook'].includes(sub.harnessTarget) && isActiveWakeSubscriptionStatus(sub.status));
 
-            if (activeSubs.length === 0) {
-                this._setLiveCursor(delta.lastLogId);
-                return;
-            }
+                const snapshotMaxLogId = typeof storage.getLatestLogId === 'function'
+                    ? storage.getLatestLogId()
+                    : null;
+                const evaluatedEntities = new Set();
+                let hasMore;
+                do {
+                    const delta = storage.getDeltaLog(this.liveCursor, {
+                        limit  : this.pumpBatchSize,
+                        untilId: snapshotMaxLogId
+                    });
+                    const typedEvents = delta.events || [];
+                    const pageMatches = [];
 
-            for (const sub of activeSubs) {
-                for (const edgeRef of delta.invalidEdges) {
-                    const logId   = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
-                    const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, logId);
-                    if (matched) CoalescingEngineService.enqueue(sub, matched);
+                    for (const sub of activeSubs) {
+                        for (const edgeRef of delta.invalidEdges) {
+                            const entityKey = `edge:${edgeRef.id}`;
+                            if (evaluatedEntities.has(entityKey)) continue;
+
+                            const logId   = edgeRef.logId || delta.entityLogIds?.get(edgeRef.id) || delta.lastLogId;
+                            const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, logId);
+                            if (matched) pageMatches.push({sub, matched});
+                        }
+                        for (const nodeId of delta.invalidNodes) {
+                            const entityKey = `node:${nodeId}`;
+                            if (evaluatedEntities.has(entityKey)) continue;
+
+                            const logId   = delta.entityLogIds?.get(nodeId) || delta.lastLogId;
+                            const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, logId);
+                            if (matched) pageMatches.push({sub, matched});
+                        }
+                        for (const trace of typedEvents) {
+                            const matched = this._evaluateTypedEventAgainstSubscription(trace, sub);
+                            if (matched) pageMatches.push({sub, matched});
+                        }
+                    }
+
+                    for (const edgeRef of delta.invalidEdges) evaluatedEntities.add(`edge:${edgeRef.id}`);
+                    for (const nodeId of delta.invalidNodes) evaluatedEntities.add(`node:${nodeId}`);
+
+                    // Evaluate the full page before dispatching any match. An evaluator failure
+                    // therefore leaves the page both cursor-replayable and delivery-replayable,
+                    // rather than leaking a partial raw-MCP page before retry.
+                    for (const {sub, matched} of pageMatches) {
+                        CoalescingEngineService.enqueue(sub, matched);
+                    }
+
+                    // Cursor advancement is page-atomic for evaluation: an exception above leaves
+                    // this page replayable instead of skipping work that was never evaluated.
+                    this._setLiveCursor(delta.lastLogId);
+                    hasMore = delta.hasMore;
+
+                    if (hasMore) await this._yieldPumpTurn();
+                } while (hasMore);
+
+                if (typeof storage.getLatestLogId === 'function' && storage.getLatestLogId() > this.liveCursor) {
+                    this._pumpRequested = true;
                 }
-                for (const nodeId of delta.invalidNodes) {
-                    const logId   = this._getEntityLogId(nodeId) || delta.lastLogId;
-                    const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, logId);
-                    if (matched) CoalescingEngineService.enqueue(sub, matched);
-                }
-                for (const trace of typedEvents) {
-                    const matched = this._evaluateTypedEventAgainstSubscription(trace, sub);
-                    if (matched) CoalescingEngineService.enqueue(sub, matched);
-                }
-            }
 
-
-            this._setLiveCursor(delta.lastLogId);
+                if (this._pumpRequested) await this._yieldPumpTurn();
+            } while (this._pumpRequested);
         } catch (e) {
             logger.error('[WakeSubscription] Background pump failed:', e);
         } finally {
             this._pumping = false;
         }
+    }
+
+    /**
+     * @summary Yields between bounded GraphLog work units so MCP transport, health timers, and WAL
+     * acceptance work can run between pages and before a coalesced tail drain re-enters.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    _yieldPumpTurn() {
+        return new Promise(resolve => setImmediate(resolve));
     }
 
     /**
@@ -1587,12 +1648,12 @@ class WakeSubscriptionService extends Base {
         // immutable typed-event rows returned separately by getDeltaLog().
         // Filter spec is applied to the matched candidate's payload; non-matches are skipped.
         for (const edgeRef of delta.invalidEdges) {
-            const logId   = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
+            const logId   = edgeRef.logId || delta.entityLogIds?.get(edgeRef.id) || delta.lastLogId;
             const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription, logId);
             if (matched) events.push(matched);
         }
         for (const nodeId of delta.invalidNodes) {
-            const logId   = this._getEntityLogId(nodeId) || delta.lastLogId;
+            const logId   = delta.entityLogIds?.get(nodeId) || delta.lastLogId;
             const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, logId);
             if (matched) events.push(matched);
         }
