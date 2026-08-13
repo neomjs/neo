@@ -761,16 +761,35 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
-        // Fairness gate: do not step past a measurably starving registered waiter. This
-        // sits at the single acquisition point, so the periodic scheduler and every lease-aware
-        // manual CLI inherit the same rule. Fail-open: a broken ledger read must not halt all
-        // maintenance — it logs and proceeds, degrading to pre-fairness behavior.
+        // Fairness gate: do not step past a starving registered waiter that outranks this acquirer.
+        //
+        // SCOPE: this is the orchestrator-owned admission point only. Manual/container CLI entry
+        // points acquire the global lease directly and do NOT pass through this service, so they
+        // inherit lease exclusion but not this fairness rule.
+        //
+        // This gate is the SECOND line of defence, not the mechanism. It can only make an admitted
+        // acquirer abstain, and the scheduling pipeline dispatches one candidate per poll — so a
+        // yield here spends the poll without promoting anyone. Selection-time rank in
+        // `scheduling/picker.mjs` is what actually gets a starved bootstrap lane executed; this
+        // gate covers the residue (a task that reached admission while a higher-ranked peer was
+        // registered mid-poll).
+        //
+        // Fail-open: a broken ledger read must not halt all maintenance — it logs and proceeds,
+        // degrading to pre-fairness behavior.
         try {
-            const {waiters} = listActiveWaitersSync({
+            const {waiters, unreadable} = listActiveWaitersSync({
                 leasePath   : this.resolveHeavyMaintenanceLeasePath(),
                 staleAfterMs: WAITER_ENTRY_STALE_AFTER_MS,
                 now
             });
+
+            // A corrupt entry is an invisible loss of fairness: the waiter it represents cannot be
+            // yielded to, so it silently starves while every surface reads healthy. Surface it —
+            // the ledger reports these rather than throwing precisely so a consumer can decide, and
+            // "broken reads log" is only true if someone actually logs them.
+            if (unreadable?.length > 0) {
+                this.writeLog('WARN', `[Orchestrator] Waiter ledger has ${unreadable.length} unreadable entr${unreadable.length === 1 ? 'y' : 'ies'} (${unreadable.join(', ')}); those waiters cannot be yielded to until repaired.`);
+            }
 
             const yieldTo = findWaiterToYieldTo({
                 taskName,

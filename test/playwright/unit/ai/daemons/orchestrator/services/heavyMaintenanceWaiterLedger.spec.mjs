@@ -139,6 +139,46 @@ test.describe('Neo.ai.daemons.orchestrator.services.heavyMaintenanceWaiterLedger
             expect(findWaiterToYieldTo({taskName: 'backup', priorityZero: true, waiters, fairnessYieldAfterMs: bound, now: T0})).toBeNull()
         });
 
+        // Mixed-rank negatives. The original matrix tested each `outranks*` arm in isolation and
+        // every arm was green, but the arms were ORed and then resolved by oldest-wins — so age
+        // could promote a LOWER-ranked waiter across the class boundary. Each case below fails
+        // against that shape and passes only when rank is evaluated strictly before age.
+        test('an ancient ORDINARY waiter never preempts a priority-0 acquirer — age must not cross rank', () => {
+            const waiters = [{taskName: 'summary', priorityZero: false, deferredSince: iso(T0 - 12 * HOUR)}];
+
+            expect(findWaiterToYieldTo({
+                taskName: 'backup', priorityZero: true,
+                waiters, fairnessYieldAfterMs: bound, now: T0
+            })).toBeNull()
+        });
+
+        test('an ancient ORDINARY waiter never preempts a bootstrap-critical acquirer', () => {
+            const waiters = [{taskName: 'summary', priorityZero: false, deferredSince: iso(T0 - 12 * HOUR)}];
+
+            expect(findWaiterToYieldTo({
+                taskName: 'tenant-repo-sync', bootstrapCritical: true,
+                waiters, fairnessYieldAfterMs: bound, now: T0
+            })).toBeNull()
+        });
+
+        test('a YOUNGER priority-0 waiter outranks an older ordinary one — rank first, age only within rank', () => {
+            const waiters = [
+                {taskName: 'summary', priorityZero: false, deferredSince: iso(T0 - 6 * HOUR)},
+                {taskName: 'backup',  priorityZero: true,  deferredSince: iso(T0 - 30_000)}
+            ];
+
+            expect(findWaiterToYieldTo({taskName: 'dream', waiters, fairnessYieldAfterMs: bound, now: T0})?.taskName).toBe('backup')
+        });
+
+        test('age still breaks ties WITHIN a rank — oldest of two qualifying priority-0 waiters wins', () => {
+            const waiters = [
+                {taskName: 'backup',       priorityZero: true, deferredSince: iso(T0 - 60_000)},
+                {taskName: 'other-backup', priorityZero: true, deferredSince: iso(T0 - 5 * HOUR)}
+            ];
+
+            expect(findWaiterToYieldTo({taskName: 'dream', waiters, fairnessYieldAfterMs: bound, now: T0})?.taskName).toBe('other-backup')
+        });
+
         test('bootstrap-critical acquirer vs bootstrap-critical waiter falls through to the age rule', () => {
             const waiters = [{taskName: 'other-bootstrap', bootstrapCritical: true, deferredSince: iso(T0 - 60_000)}];
 

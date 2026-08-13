@@ -166,16 +166,39 @@ export function listActiveWaitersSync({leasePath, staleAfterMs, fsModule = fs, n
 }
 
 /**
+ * @summary Ordinal fairness rank of a waiter entry or acquirer class. Higher wins.
+ *
+ * The three classes are strictly ordered, never additive: priority-0 (data-safety, must never
+ * sit behind a backlog) > bootstrap-critical (durable state the plane cannot function without)
+ * > ordinary enrichment/maintenance. Age is deliberately NOT part of the rank — it is a
+ * tie-breaker applied only WITHIN a rank by {@link findWaiterToYieldTo}, because an age bound
+ * that can promote across the class boundary would let a long-waiting ordinary task displace
+ * data-safety work.
+ *
+ * @param {Object} entry `{priorityZero, bootstrapCritical}` — a ledger entry or an acquirer class.
+ * @returns {Number} `2` priority-0 · `1` bootstrap-critical · `0` ordinary.
+ */
+function fairnessRank({priorityZero, bootstrapCritical} = {}) {
+    if (priorityZero === true)      return 2;
+    if (bootstrapCritical === true) return 1;
+    return 0;
+}
+
+/**
  * @summary The fairness decision: must `taskName` yield the acquisition to a registered waiter?
  *
- * A candidate yields when a live waiter (not itself) outranks it in the three-rank order:
- * priority-0 beats everything below it; bootstrap-critical (initializing durable state the
- * plane cannot function without) beats ordinary enrichment/maintenance immediately — an
- * uninitialized corpus must not wait out a starvation bound while cycles of downstream work
- * re-acquire ahead of it; and an ordinary waiter starving past `fairnessYieldAfterMs` beats a
- * candidate that has not been waiting at least as long itself. Ties in the same class do NOT
- * force a yield — the lease's normal contention handles peers; fairness only prevents a fresh
- * or lower-class acquirer from stepping past someone measurably starving.
+ * Rank is evaluated STRICTLY BEFORE age, and age never crosses the class boundary:
+ *
+ * - a waiter of a **higher** rank than the acquirer wins immediately, with no starvation bound —
+ *   an uninitialized corpus must not wait out a grace window while downstream cycles re-acquire;
+ * - a waiter of the **same** rank wins only once it has starved past `fairnessYieldAfterMs` and
+ *   has been waiting longer than the acquirer itself;
+ * - a waiter of a **lower** rank never wins, however long it has waited.
+ *
+ * Among qualifying waiters the highest rank is selected first, and age (oldest `deferredSince`)
+ * breaks ties only within that rank. Ties in the same class do NOT force a yield — the lease's
+ * normal contention handles peers; fairness only prevents a fresh or lower-class acquirer from
+ * stepping past someone measurably starving.
  *
  * @param {Object} options
  * @param {String} options.taskName The would-be acquirer.
@@ -183,7 +206,7 @@ export function listActiveWaitersSync({leasePath, staleAfterMs, fsModule = fs, n
  * @param {Boolean} [options.bootstrapCritical=false] Acquirer's bootstrap-critical class.
  * @param {String|null} [options.ownDeferredSince=null] Acquirer's own durable streak start, if any.
  * @param {Object[]} options.waiters Live entries from {@link listActiveWaitersSync}.
- * @param {Number} options.fairnessYieldAfterMs Starvation bound that activates seniority yielding.
+ * @param {Number} options.fairnessYieldAfterMs Starvation bound that activates same-rank seniority yielding.
  * @param {Date|Number} [options.now=new Date()] Clock seam.
  * @returns {Object|null} The waiter to yield to, or `null` when acquisition may proceed.
  */
@@ -196,24 +219,43 @@ export function findWaiterToYieldTo({taskName, priorityZero = false, bootstrapCr
         throw new TypeError('findWaiterToYieldTo: a positive fairnessYieldAfterMs is required');
     }
 
-    const nowMs   = typeof now === 'number' ? now : now.getTime();
-    const ownMs   = ownDeferredSince ? Date.parse(ownDeferredSince) : null;
-    let   yieldTo = null;
+    const
+        nowMs        = typeof now === 'number' ? now : now.getTime(),
+        ownMs        = ownDeferredSince ? Date.parse(ownDeferredSince) : null,
+        acquirerRank = fairnessRank({priorityZero, bootstrapCritical});
+
+    let yieldTo     = null,
+        yieldToRank = -1,
+        yieldToMs   = Infinity;
 
     for (const waiter of waiters) {
         if (waiter.taskName === taskName) continue;
 
-        const waiterMs   = Date.parse(waiter.deferredSince);
-        const starvingMs = nowMs - waiterMs;
+        const waiterMs = Date.parse(waiter.deferredSince);
 
-        const outranksByClass     = waiter.priorityZero === true && priorityZero !== true;
-        const outranksByBootstrap = waiter.bootstrapCritical === true && bootstrapCritical !== true && priorityZero !== true;
-        const outranksByAge       = starvingMs >= fairnessYieldAfterMs && (ownMs === null || waiterMs < ownMs);
+        if (Number.isNaN(waiterMs)) continue;
 
-        if (outranksByClass || outranksByBootstrap || outranksByAge) {
-            if (!yieldTo || Date.parse(yieldTo.deferredSince) > waiterMs) {
-                yieldTo = waiter;
-            }
+        const waiterRank = fairnessRank(waiter);
+
+        // Rank gate. A lower-ranked waiter can never displace a higher-ranked acquirer, no matter
+        // how long it has starved; same-rank contention still needs the measured starvation bound.
+        let qualifies;
+
+        if (waiterRank > acquirerRank) {
+            qualifies = true;
+        } else if (waiterRank === acquirerRank) {
+            qualifies = nowMs - waiterMs >= fairnessYieldAfterMs && (ownMs === null || waiterMs < ownMs);
+        } else {
+            qualifies = false;
+        }
+
+        if (!qualifies) continue;
+
+        // Highest admissible rank wins; oldest `deferredSince` breaks ties within that rank only.
+        if (waiterRank > yieldToRank || (waiterRank === yieldToRank && waiterMs < yieldToMs)) {
+            yieldTo     = waiter;
+            yieldToRank = waiterRank;
+            yieldToMs   = waiterMs;
         }
     }
 

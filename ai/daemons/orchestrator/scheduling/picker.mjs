@@ -27,8 +27,10 @@
  * @param {Object} options.policyContext Additional policy state. Recognized fields:
  *   `runningHeavyTasks` (Set) + `isHeavyMaintenanceConflict` (fn) for the heavy-conflict filter;
  *   and for the final selector: `now` (epoch ms), `taskMeta` (`{[taskName]: {lastRunAt, cadenceMs}}`),
- *   and `priorityZeroTasks` (String[]). When `taskMeta` is absent the selector degrades to
- *   registry-order, preserving legacy `selectFirstCandidate` behavior.
+ *   `priorityZeroTasks` (String[]), and `isBootstrapCriticalTask` (`(taskName) => Boolean`, the
+ *   live per-poll oracle that ranks an uninitialized corpus above ordinary enrichment). When
+ *   `taskMeta` is absent the selector degrades to registry-order, preserving legacy
+ *   `selectFirstCandidate` behavior.
  * @returns {Object|null} The winning candidate, or null if no candidate survives the pipeline.
  */
 export function pickNextCandidate({candidates, runningTasks, policyContext = {}}) {
@@ -114,6 +116,17 @@ function filterUnmetDependencies(candidates, runningSet) {
  *   1. **Priority-0** — data-safety tasks (e.g. `backup`) win unconditionally when present,
  *      so a daily backup is never deferred behind a backlog-draining task. Registry order
  *      breaks ties among multiple priority-0 survivors.
+ *   1b. **Bootstrap-critical** — a task whose durable corpus is still uninitialized (e.g. tenant
+ *      repos with no checkpoint yet) outranks ordinary enrichment, because a plane that has never
+ *      ingested cannot usefully enrich. Registry order breaks ties.
+ *
+ *      This rank lives in SELECTION, not in lease admission, and that placement is load-bearing.
+ *      The admission-side fairness gate can only make the picked winner *abstain*; since the
+ *      pipeline dispatches exactly one candidate per poll and then returns, a yield there spends
+ *      the poll without promoting anybody — the starved task is never dispatched, and the ledger
+ *      entry simply expires before it runs. Ranking here means the bootstrap task actually
+ *      executes. Admission-side fairness remains the second line of defence for holders that are
+ *      already running.
  *   2. **Staleness-ratio (eligible set only)** — among candidates carrying `taskMeta` (the
  *      lease-competing heavy tasks plus `golden-path`), the most overdue by `(now - lastRunAt) /
  *      cadenceMs` is the single eligible representative, so a weeks-stale `golden-path` or a
@@ -136,7 +149,7 @@ function filterUnmetDependencies(candidates, runningSet) {
 function selectByPriority(candidates, policyContext = {}) {
     if (candidates.length === 0) return null;
 
-    const {taskMeta, now, priorityZeroTasks} = policyContext;
+    const {taskMeta, now, priorityZeroTasks, isBootstrapCriticalTask} = policyContext;
 
     // Legacy / no-metadata path: registry-order priority (earlier descriptors win).
     if (!taskMeta) return candidates[0];
@@ -145,6 +158,21 @@ function selectByPriority(candidates, policyContext = {}) {
     if (Array.isArray(priorityZeroTasks) && priorityZeroTasks.length > 0) {
         const priorityZeroWinner = candidates.find(candidate => priorityZeroTasks.includes(candidate.taskName));
         if (priorityZeroWinner) return priorityZeroWinner;
+    }
+
+    // Bootstrap-critical: outranks staleness so an uninitialized corpus is DISPATCHED rather than
+    // merely deferred-to. The predicate is re-evaluated every poll and is fail-open — a throwing or
+    // absent oracle degrades to pure staleness ordering, never blocks the pick.
+    if (typeof isBootstrapCriticalTask === 'function') {
+        const bootstrapWinner = candidates.find(candidate => {
+            try {
+                return isBootstrapCriticalTask(candidate.taskName) === true;
+            } catch {
+                return false;
+            }
+        });
+
+        if (bootstrapWinner) return bootstrapWinner;
     }
 
     // Staleness reorders ONLY the eligible set (candidates carrying `taskMeta` — the

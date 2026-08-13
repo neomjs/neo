@@ -238,6 +238,102 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
         expect(spawnedTask).toBe('temporal-summary');
     });
 
+    // Composition witness for the bootstrap rank. Gating the rank at lease admission alone is not
+    // enough: a yield there only makes the picked winner abstain, and because this pipeline
+    // dispatches exactly one candidate per poll and returns, that promotes nobody — the starved
+    // bootstrap lane is never dispatched and its waiter entry expires before it runs, producing a
+    // dead window followed by the original ordering. These arms pin the rank to SELECTION, where it
+    // determines what actually executes.
+    test.describe('bootstrap-critical rank is applied at selection, not only at admission', () => {
+        // dream is far more stale than tenant-repo-sync, so pure staleness picks dream.
+        const bootstrapCompetitionFixture = () => ({
+            registry: [
+                makeCandidateDescriptor({taskName: 'dream'}),
+                makeCandidateDescriptor({taskName: 'tenant-repo-sync'})
+            ],
+            context: makeContext({
+                now      : 1_000_000,
+                state    : {dream: {lastRunAt: 0}, 'tenant-repo-sync': {lastRunAt: 990_000}},
+                intervals: {dream: 10_000, tenantRepoSync: 10_000}
+            })
+        });
+
+        test('CONTROL — without the bootstrap oracle the more-stale REM lane wins the poll', () => {
+            const started             = [];
+            const {registry, context} = bootstrapCompetitionFixture();
+
+            const result = runSchedulingPipeline({
+                registry,
+                context,
+                services: makeServices({
+                    processSupervisorService: {runTask(taskName) { started.push(taskName); return true }}
+                }),
+                runtime: makeRuntime()
+            });
+
+            // Establishes that the assertion below is not vacuous: staleness genuinely favours dream.
+            expect(result.winner.taskName).toBe('dream');
+            expect(started).toEqual(['dream']);
+        });
+
+        test('a registered bootstrap-critical lane is DISPATCHED over the more-stale REM lane', () => {
+            const started             = [];
+            const {registry, context} = bootstrapCompetitionFixture();
+
+            const result = runSchedulingPipeline({
+                registry,
+                context,
+                services: makeServices({
+                    maintenanceBackpressureService: {
+                        acquireLeaseAndExecute({executeFn, taskName, reason, onSuccess, activeHeavyTask}) {
+                            return executeFn(taskName, reason, onSuccess, {activeHeavyTask});
+                        },
+                        executeWithGoldenPathDependencyGate({executeFn, taskName, reason}) {
+                            return executeFn(taskName, reason);
+                        },
+                        getActiveHeavyMaintenanceTask() { return null },
+                        isHeavyMaintenanceTask() { return false },
+                        recordDeferral() {},
+                        isBootstrapCriticalTask(taskName) { return taskName === 'tenant-repo-sync' }
+                    },
+                    processSupervisorService: {runTask(taskName) { started.push(taskName); return true }}
+                }),
+                runtime: makeRuntime()
+            });
+
+            // The whole point of RA-1: the bootstrap lane RUNS. A veto-only fix would leave `started`
+            // empty and the winner unexecuted, which is indistinguishable from progress on a dashboard.
+            expect(result.winner.taskName).toBe('tenant-repo-sync');
+            expect(started).toEqual(['tenant-repo-sync']);
+        });
+
+        test('a throwing bootstrap oracle fails open to staleness ordering', () => {
+            const {registry, context} = bootstrapCompetitionFixture();
+
+            const result = runSchedulingPipeline({
+                registry,
+                context,
+                services: makeServices({
+                    maintenanceBackpressureService: {
+                        acquireLeaseAndExecute({executeFn, taskName, reason, onSuccess, activeHeavyTask}) {
+                            return executeFn(taskName, reason, onSuccess, {activeHeavyTask});
+                        },
+                        executeWithGoldenPathDependencyGate({executeFn, taskName, reason}) {
+                            return executeFn(taskName, reason);
+                        },
+                        getActiveHeavyMaintenanceTask() { return null },
+                        isHeavyMaintenanceTask() { return false },
+                        recordDeferral() {},
+                        isBootstrapCriticalTask() { throw new Error('manifest unreadable') }
+                    }
+                }),
+                runtime: makeRuntime()
+            });
+
+            expect(result.winner.taskName).toBe('dream');
+        });
+    });
+
     test('reports descriptor errors and still dispatches the selected candidate', () => {
         const outcomes = [];
         const started  = [];
