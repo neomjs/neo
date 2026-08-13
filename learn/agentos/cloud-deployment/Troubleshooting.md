@@ -286,11 +286,16 @@ already committed — repeating `--full` on an unchanged, legitimately-empty rep
 every time instead of failing from the second run onward. On a manifest that declares content, a
 zero-effect replay still cannot advance the checkpoint.
 
-The CLI and the daemon's periodic sweep serialize through a cross-process lease next to the
-revisions manifest. Exit code `4` (reason `KB_TENANT_REPO_SYNC_LEASE_HELD`) means another sync is
-active — retry after it finishes; a periodic sweep deferred the same way reports a `skipped`
-outcome with that reason and no backoff mutation. Crashed lease owners recover automatically on
-the next attempt (pid-liveness). A live sweep renews its lease every `max(5s, TTL/3)`, so
+The CLI first acquires the deployment-wide heavy-maintenance lease, then the same cross-process
+tenant-repo-sync lease as the daemon's periodic sweep. Exit code `4` is the bounded busy result
+for either holder class. A global deferral writes `Deferred: heavy-maintenance lease held by
+<owner>` to stderr; a same-lane deferral returns `KB_TENANT_REPO_SYNC_LEASE_HELD`, so use the
+diagnostic rather than the shared code to choose a retry cadence. Global holders such as Dream/REM
+or backup can legitimately run up to the configured heavy-maintenance stale bound (six hours by
+default); wait for the named task instead of retrying on the shorter tenant-sync cadence. A
+periodic sweep deferred by the narrower lease reports a `skipped` outcome with no backoff mutation.
+Crashed lease owners recover automatically on the next attempt (pid-liveness). A live tenant sync
+renews its lease every `max(5s, TTL/3)`, so
 `leaseStaleAfterMs` only ever expires an owner that stopped renewing (fully wedged or gone); a run
 that loses its lease anyway fails with `KB_TENANT_REPO_SYNC_LEASE_LOST` at its next work fence —
 before further git, ingest, or manifest work — leaving checkpoints, backoff state, and the new

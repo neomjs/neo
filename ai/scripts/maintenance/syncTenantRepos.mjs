@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * @summary Manual / operator-facing run path for the tenant-repo-sync lane.
+ * @summary Container-plane one-shot run path for the tenant-repo-sync lane.
  *
  * Forces a single sweep of the cloud-deployable tenant-repo-sync cycle outside the
- * Orchestrator's periodic schedule. Operators run this for: bootstrap (initial
- * ingest after first deploy), one-off after a config change, or scoped re-sync of a
- * specific tenant repo.
+ * Orchestrator's periodic schedule. Deployment owners invoke it inside the
+ * orchestrator container for bootstrap (initial ingest after first deploy), a
+ * one-off after a config change, or scoped re-sync of a specific tenant repo.
  *
  * Usage:
  *   node ./ai/scripts/maintenance/syncTenantRepos.mjs                # all configured tenantRepos
@@ -15,12 +15,13 @@
  *
  * Exit code: 0 on `completed`, 1 on `failed` or `skipped`
  * (no-tenant-repos-configured), 2 on argument error, 3 when a selected
- * repo slug is not configured, and 4 when another process (the orchestrator's
- * periodic sweep or a second CLI run) holds the cross-process tenant-repo-sync
- * lease. The lease serializes both entry paths over the shared revisions
- * manifest; a held lease is a bounded busy result, never a silent race.
+ * repo slug is not configured, and 4 when another heavy-maintenance task or
+ * tenant-repo-sync process holds either cross-process lease. The outer global
+ * lease prevents overlap with Dream/REM and other heavy lanes; the existing inner
+ * lease serializes tenant-sync entry paths over the shared revisions manifest.
+ * A held lease is a bounded busy result, never a silent race.
  *
- * Mirrors the operator-side pattern of `ai/scripts/maintenance/backup.mjs` and the
+ * Mirrors the container-side pattern of `ai/scripts/maintenance/backup.mjs` and the
  * other `./maintenance/*` scripts — bootstrap Neo namespace then invoke a service.
  *
  * @see ai/daemons/orchestrator/services/TenantRepoSyncService.mjs
@@ -31,7 +32,12 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import {pathToFileURL} from 'url';
 
+import AiConfig              from '../../config.mjs';
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
+import {
+    resolveHeavyMaintenanceLeasePath,
+    withHeavyMaintenanceLease
+} from '../../daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import {
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED
@@ -82,21 +88,21 @@ tenantRepo. Pass --repo-slug to scope to a specific repo (repeatable).
 Pass --full only with one or more --repo-slug selectors to rebuild those repos
 from a null revision base. Stored checkpoints advance only after an error-free replay.
 
-Runs are serialized against the orchestrator's periodic sweep through a
-cross-process lease next to the revisions manifest: if another sync is active,
-this CLI exits immediately with code 4 instead of racing it. Crashed lease
-owners recover automatically; simply re-run.
+Runs first acquire the deployment-wide heavy-maintenance lease, then the
+tenant-repo-sync lease next to the revisions manifest. If Dream/REM, another
+heavy lane, or another sync is active, this CLI exits immediately with code 4
+instead of racing it. Crashed lease owners recover automatically; simply re-run.
 
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
   1  failed (all repos failed) or skipped (no configured tenantRepos)
   3  --repo-slug requested but the named repo is not configured (KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)
-  4  another process holds the tenant-repo-sync lease (KB_TENANT_REPO_SYNC_LEASE_HELD) — retry after it finishes
+  4  another heavy task or tenant sync holds a required lease — retry after it finishes
   2  argument-parse error`);
 }
 
 /**
- * Stand-in TaskStateService for the manual run path: provides only the methods the
+ * Stand-in TaskStateService for the container one-shot path: provides only the methods the
  * service touches (markStarted/markCompleted/markSkipped/markFailed/getTaskState) so
  * the lane-runner doesn't need a real persistent state file for a one-shot CLI invoke.
  */
@@ -139,6 +145,42 @@ function buildRunTaskOptions({parsed, taskStateService, writeLog}) {
     }
 }
 
+/**
+ * @summary Runs one container-plane tenant sync under the global heavy-maintenance lease.
+ *
+ * The service retains its narrower tenant-repo-sync lease inside `runTask`; this
+ * outer lease adds the scheduler's deployment-wide exclusion contract without
+ * duplicating the service's checkpoint or result handling.
+ *
+ * @param {Object} options
+ * @param {{fullReplay: Boolean, repoSlugs: String[]}} options.parsed
+ * @param {Object} options.taskStateService
+ * @param {Function} options.writeLog
+ * @param {Function} [options.runTaskImpl] Test seam for the service dispatch.
+ * @param {Function|null} [options.withLeaseImpl] Test seam for the lease wrapper.
+ * @returns {Promise<Object>} Global lease outcome containing the service result when admitted.
+ */
+function runTenantRepoSyncWithGlobalLease({
+    parsed,
+    taskStateService,
+    writeLog,
+    runTaskImpl   = options => TenantRepoSyncService.runTask(options),
+    withLeaseImpl = null
+}) {
+    const withLease = withLeaseImpl ?? withHeavyMaintenanceLease;
+
+    return withLease(
+        () => runTaskImpl(buildRunTaskOptions({parsed, taskStateService, writeLog})),
+        {
+            leasePath   : resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir}),
+            owner       : 'tenant-repo-sync',
+            reason      : 'container-one-shot',
+            staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs,
+            metadata    : {script: 'ai/scripts/maintenance/syncTenantRepos.mjs'}
+        }
+    );
+}
+
 async function main() {
     let parsed;
     try {
@@ -157,11 +199,19 @@ async function main() {
     const taskStateService = createInMemoryTaskStateService();
     const writeLog         = (level, msg) => console.log(`[${level}] ${msg}`);
 
-    const result = await TenantRepoSyncService.runTask(buildRunTaskOptions({
+    const outcome = await runTenantRepoSyncWithGlobalLease({
         parsed,
         taskStateService,
         writeLog
-    }));
+    });
+
+    if (outcome.status === 'held') {
+        const holder = outcome.lease?.owner || 'unknown';
+        console.error(`Deferred: heavy-maintenance lease held by ${holder}. Retry after it finishes.`);
+        process.exit(4);
+    }
+
+    const result = outcome.result;
 
     console.log(JSON.stringify(result, null, 2));
 
@@ -206,4 +256,4 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     })
 }
 
-export {buildRunTaskOptions, parseArgs, resolveExitCode};
+export {buildRunTaskOptions, parseArgs, resolveExitCode, runTenantRepoSyncWithGlobalLease};
