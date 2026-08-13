@@ -20,7 +20,8 @@ import {
     observeUnqueuedProviderActivity
 } from '../shared/providerActivityLedger.mjs';
 
-let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve();
+let openAiCompatibleEmbeddingServingProbeQueue = Promise.resolve(),
+    lmsResidencyMutationQueue                  = Promise.resolve();
 
 const
     providerDiscoveryCache         = new Map(),
@@ -1323,6 +1324,11 @@ export function getInsufficientLmsLoadedModels({
  * endpoint enumerates both. Parameters come from config-owned callers so the helper
  * has no hidden retry or timeout defaults.
  *
+ * Every call runs behind one process-wide FIFO so the supervisor readiness hook and recovery
+ * actuator cannot overlap destructive `lms unload` / `lms load` sequences. Calls are serialized,
+ * never coalesced: each queued caller re-probes with its own role set, shape requirements, and
+ * authority oracle after its predecessor settles.
+ *
  * Per-model context-length overrides flow through the optional `contextLengths`
  * map (`{[modelId]: tokens}`). When present, the helper invokes
  * `lms load <model> --context-length <N>` for that model so the loaded context
@@ -1351,7 +1357,22 @@ export function getInsufficientLmsLoadedModels({
  * @param {Object} [options.log=logger] Logger seam.
  * @returns {Promise<Object>}
  */
-export async function ensureLmsModelsLoaded({
+export function ensureLmsModelsLoaded(options = {}) {
+    const queuedRepair = lmsResidencyMutationQueue
+        .catch(() => {})
+        .then(() => ensureLmsModelsLoadedOnce(options));
+
+    lmsResidencyMutationQueue = queuedRepair.catch(() => {});
+
+    return queuedRepair;
+}
+
+/**
+ * @summary Executes one LMS residency repair after the process-wide mutation queue admits it.
+ * @param {Object} options Validated by the repair body.
+ * @returns {Promise<Object>}
+ */
+async function ensureLmsModelsLoadedOnce({
     host,
     models,
     attempts,
