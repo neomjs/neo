@@ -2177,8 +2177,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             WakeSubscriptionService.subscriptionCache.clear();
 
             GraphService.upsertNode({
-                id        : 'MSG:COLD-WEBHOOK-ROUTE',
-                type      : 'MESSAGE',
+                id  : 'MSG:COLD-WEBHOOK-ROUTE',
+                type: 'MESSAGE',
                 // Production MESSAGE rows always carry the canonical `sentAt` (MailboxService
                 // stamps it); the digest path age-gates on it, so the fixture must too.
                 properties: {from: '@bob', subject: 'first post-restart webhook', sentAt: new Date().toISOString()}
@@ -2404,6 +2404,232 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
 
             // If the race condition was present, both might emit the same event
             expect(emittedEvents.length).toBe(1);
+        });
+
+        test('yields between bounded GraphLog pages before the full backlog is drained (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'TASK_STATE_CHANGED', harnessTarget: 'mcp-notifications'});
+            });
+
+            const sqlite = GraphService.db.storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            const sourceEventIds = [];
+            for (let index = 0; index < 5; index++) {
+                const sourceEventId = `task-page-event-${index}`;
+                sourceEventIds.push(sourceEventId);
+                appendTaskEvent({eventId: sourceEventId, taskId: `MSG:PAGE-${index}`});
+            }
+
+            const initialCursor   = WakeSubscriptionService.liveCursor;
+            const finalCursor     = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId;
+            const originalSize    = WakeSubscriptionService.pumpBatchSize;
+            let   cursorAtControl = null;
+
+            WakeSubscriptionService.pumpBatchSize = 2;
+
+            try {
+                const controlTurn = new Promise(resolve => setImmediate(() => {
+                    cursorAtControl = WakeSubscriptionService.liveCursor;
+                    resolve();
+                }));
+                const pump = WakeSubscriptionService.pump();
+
+                await controlTurn;
+                expect(cursorAtControl).toBeGreaterThan(initialCursor);
+                expect(cursorAtControl).toBeLessThan(finalCursor);
+
+                await pump;
+                await CoalescingEngineService.flushAll();
+
+                expect(WakeSubscriptionService.liveCursor).toBe(finalCursor);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual(sourceEventIds);
+            } finally {
+                WakeSubscriptionService.pumpBatchSize = originalSize;
+            }
+        });
+
+        test('folds a pump trigger and new event arriving during a paged drain into the same single-flight (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'TASK_STATE_CHANGED', harnessTarget: 'mcp-notifications'});
+            });
+
+            const sqlite = GraphService.db.storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            for (let index = 0; index < 4; index++) {
+                appendTaskEvent({eventId: `task-concurrent-event-${index}`, taskId: `MSG:CONCURRENT-${index}`});
+            }
+
+            const originalSize = WakeSubscriptionService.pumpBatchSize;
+            WakeSubscriptionService.pumpBatchSize = 2;
+
+            try {
+                const appendDuringYield = new Promise(resolve => setImmediate(() => {
+                    appendTaskEvent({eventId: 'task-concurrent-event-tail', taskId: 'MSG:CONCURRENT-TAIL'});
+                    void WakeSubscriptionService.pump();
+                    resolve();
+                }));
+
+                await Promise.all([WakeSubscriptionService.pump(), appendDuringYield]);
+                await CoalescingEngineService.flushAll();
+
+                const finalCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId;
+                expect(WakeSubscriptionService.liveCursor).toBe(finalCursor);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual([
+                    'task-concurrent-event-0',
+                    'task-concurrent-event-1',
+                    'task-concurrent-event-2',
+                    'task-concurrent-event-3',
+                    'task-concurrent-event-tail'
+                ]);
+            } finally {
+                WakeSubscriptionService.pumpBatchSize = originalSize;
+            }
+        });
+
+        test('yields before draining a coalesced sub-page tail (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'TASK_STATE_CHANGED', harnessTarget: 'mcp-notifications'});
+            });
+
+            const storage = GraphService.db.storage;
+            const sqlite  = storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            const firstLogId = appendTaskEvent({
+                eventId: 'task-coalesced-page-event',
+                taskId : 'MSG:COALESCED-PAGE'
+            }).logId;
+            const originalGetLatestLogId = storage.getLatestLogId;
+            let   latestReadCount        = 0;
+            let   tailLogId              = null;
+            let   cursorAtControl        = null;
+
+            storage.getLatestLogId = function() {
+                latestReadCount += 1;
+                // The first read freezes the snapshot; the second is its tail check. Injecting here
+                // models an external writer advancing the shared journal between those statements.
+                if (latestReadCount === 2) {
+                    tailLogId = appendTaskEvent({
+                        eventId: 'task-coalesced-tail-event',
+                        taskId : 'MSG:COALESCED-TAIL'
+                    }).logId;
+                }
+
+                return originalGetLatestLogId.call(this);
+            };
+
+            try {
+                const controlTurn = new Promise(resolve => setImmediate(() => {
+                    cursorAtControl = WakeSubscriptionService.liveCursor;
+                    resolve();
+                }));
+                const pump = WakeSubscriptionService.pump();
+
+                await Promise.all([controlTurn, pump]);
+                expect(cursorAtControl).toBe(firstLogId);
+                expect(cursorAtControl).toBeLessThan(tailLogId);
+
+                await CoalescingEngineService.flushAll();
+
+                expect(WakeSubscriptionService.liveCursor).toBe(tailLogId);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual([
+                    'task-coalesced-page-event',
+                    'task-coalesced-tail-event'
+                ]);
+            } finally {
+                storage.getLatestLogId = originalGetLatestLogId;
+            }
+        });
+
+        test('evaluates a repeatedly rewritten entity once per frozen paged snapshot (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications'});
+            });
+
+            GraphService.upsertNode({id: 'MSG:PAGED-REWRITE', type: 'MESSAGE', properties: {from: '@bob'}});
+            GraphService.linkNodes('MSG:PAGED-REWRITE', '@alice', 'SENT_TO', 1.0);
+
+            const sqlite = GraphService.db.storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            GraphService.linkNodes('MSG:PAGED-REWRITE', '@alice', 'SENT_TO', 1.0, {revision: 1});
+            GraphService.linkNodes('MSG:PAGED-REWRITE', '@alice', 'SENT_TO', 1.0, {revision: 2});
+            GraphService.linkNodes('MSG:PAGED-REWRITE', '@alice', 'SENT_TO', 1.0, {revision: 3});
+
+            const originalSize = WakeSubscriptionService.pumpBatchSize;
+            const finalLogId   = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId;
+            WakeSubscriptionService.pumpBatchSize = 1;
+
+            try {
+                await WakeSubscriptionService.pump();
+                await CoalescingEngineService.flushAll();
+
+                expect(emittedEvents).toHaveLength(1);
+                expect(emittedEvents[0].params.payload.messageId).toBe('MSG:PAGED-REWRITE');
+                expect(WakeSubscriptionService.liveCursor).toBe(finalLogId);
+            } finally {
+                WakeSubscriptionService.pumpBatchSize = originalSize;
+            }
+        });
+
+        test('does not advance the cursor past a page whose evaluation fails (#16677)', async () => {
+            CoalescingEngineService.addMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({trigger: 'TASK_STATE_CHANGED', harnessTarget: 'mcp-notifications'});
+            });
+
+            const sqlite = GraphService.db.storage.db;
+            WakeSubscriptionService.liveCursor = sqlite.prepare('SELECT MAX(log_id) AS maxId FROM GraphLog').get().maxId || 0;
+
+            const logIds = [];
+            for (let index = 0; index < 4; index++) {
+                logIds.push(appendTaskEvent({eventId: `task-failure-event-${index}`, taskId: `MSG:FAILURE-${index}`}).logId);
+            }
+
+            const originalSize     = WakeSubscriptionService.pumpBatchSize;
+            const originalEvaluate = WakeSubscriptionService._evaluateTypedEventAgainstSubscription;
+            WakeSubscriptionService.pumpBatchSize = 2;
+            WakeSubscriptionService._evaluateTypedEventAgainstSubscription = (trace, subscription) => {
+                if (trace.event_id === 'task-failure-event-3') throw new Error('injected page failure');
+                return originalEvaluate.call(WakeSubscriptionService, trace, subscription);
+            };
+
+            try {
+                await WakeSubscriptionService.pump();
+                await CoalescingEngineService.flushAll();
+
+                expect(WakeSubscriptionService.liveCursor).toBe(logIds[1]);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual([
+                    'task-failure-event-0',
+                    'task-failure-event-1'
+                ]);
+
+                WakeSubscriptionService._evaluateTypedEventAgainstSubscription = originalEvaluate;
+                await WakeSubscriptionService.pump();
+                await CoalescingEngineService.flushAll();
+
+                expect(WakeSubscriptionService.liveCursor).toBe(logIds[3]);
+                expect(emittedEvents.map(event => event.params.sourceEventId)).toEqual([
+                    'task-failure-event-0',
+                    'task-failure-event-1',
+                    'task-failure-event-2',
+                    'task-failure-event-3'
+                ]);
+            } finally {
+                WakeSubscriptionService.pumpBatchSize = originalSize;
+                WakeSubscriptionService._evaluateTypedEventAgainstSubscription = originalEvaluate;
+            }
         });
     });
 
