@@ -538,7 +538,7 @@ class GraphService extends Base {
      * @param {String} relationship Edge type.
      * @param {Number} [weight=1.0] Initial weight used only when the edge is created.
      * @param {Object} [properties={}] Structural properties that must match when already present.
-     * @returns {{status: String, divergentKeys: (String[]|undefined)}}
+     * @returns {{status: ('unavailable'|'drifted'|'verified'|'culled'|'created'), divergentKeys: (String[]|undefined)}}
      * @throws {Error} When called inside an existing Graph Database transaction.
      */
     ensureStructuralEdge(source, target, relationship, weight = 1.0, properties = {}) {
@@ -551,25 +551,17 @@ class GraphService extends Base {
         }
 
         const
-            findEdge = this.db.storage.db.prepare(`
+            findEdges = this.db.storage.db.prepare(`
                 SELECT id, user_id, data
                 FROM Edges
                 WHERE source = ?
                   AND target = ?
                   AND type = ?
-                LIMIT 1
             `),
             findCachedEdges = () => this.db.edges.getByIndex('source', source)
                 .filter(edge => edge.target === target && edge.type === relationship),
-            findPersistedEdgeIds = () => new Set(this.db.storage.db.prepare(`
-                SELECT id
-                FROM Edges
-                WHERE source = ?
-                  AND target = ?
-                  AND type = ?
-            `).all(source, target, relationship).map(edge => edge.id)),
-            reconcileCachedTuple = () => {
-                const persistedEdgeIds = findPersistedEdgeIds();
+            reconcileCachedTuple = persistedEdges => {
+                const persistedEdgeIds = new Set(persistedEdges.map(edge => edge.id));
                 const staleEdges       = findCachedEdges()
                     .filter(edge => !persistedEdgeIds.has(edge.id));
 
@@ -623,25 +615,28 @@ class GraphService extends Base {
                     ? {status: 'drifted', divergentKeys}
                     : {status: 'verified'}
             },
-            findCurrentEdge = () => findEdge.get(source, target, relationship),
+            findCurrentEdges = () => findEdges.all(source, target, relationship),
             cachedBeforeSync = findCachedEdges();
 
         // An absent persisted tuple makes any same-tuple RAM record stale. Consume pending peer
         // invalidations before the local transaction can acknowledge beyond them, then reconcile
         // any orphaned cache record that predates the retained GraphLog window.
-        if (!findCurrentEdge() && cachedBeforeSync.length > 0) {
+        let persistedEdges = findCurrentEdges();
+
+        if (persistedEdges.length === 0 && cachedBeforeSync.length > 0) {
             this.db.syncCache()
+            persistedEdges = findCurrentEdges()
         }
 
-        const existing = findCurrentEdge();
-        reconcileCachedTuple();
+        const existing = persistedEdges[0];
+        reconcileCachedTuple(persistedEdges);
 
         if (existing) return classifyExisting(existing);
 
         let outcome;
 
         const createIfStillAbsent = () => {
-            const concurrent = findCurrentEdge();
+            const concurrent = findCurrentEdges()[0];
             if (concurrent) {
                 outcome = classifyExisting(concurrent);
                 return
@@ -683,7 +678,7 @@ class GraphService extends Base {
         };
 
         this.db.transaction(createIfStillAbsent);
-        reconcileCachedTuple();
+        reconcileCachedTuple(findCurrentEdges());
 
         return outcome
     }
@@ -708,6 +703,8 @@ class GraphService extends Base {
      * @param {String} relationship
      * @param {Number} weight
      * @param {Object} [properties={}] Additional edge metadata (e.g. justification, context_source).
+     * @see {@link GraphService#ensureStructuralEdge} for asserted topology that must not reinforce
+     *     an equivalent existing relation.
      */
     linkNodes(source, target, relationship, weight = 1.0, properties = {}) {
         if (!this.db?.storage?.db) {
