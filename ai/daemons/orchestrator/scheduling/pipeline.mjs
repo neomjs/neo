@@ -228,7 +228,15 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
             ),
             now              : context.now,
             taskMeta         : buildTaskStalenessMeta({candidates, state: context.state, intervals: context.intervals}),
-            priorityZeroTasks: PRIORITY_ZERO_TASKS
+            priorityZeroTasks: PRIORITY_ZERO_TASKS,
+            // Selection-time bootstrap rank. Bound here rather than left to lease admission because
+            // this pipeline dispatches exactly one candidate per poll: an admission-side yield makes
+            // the winner abstain without promoting the starved task, so the bootstrap lane would
+            // never be dispatched at all. Optional-chained so a service build without the predicate
+            // degrades to staleness ordering.
+            isBootstrapCriticalTask: services.maintenanceBackpressureService.isBootstrapCriticalTask?.bind(
+                services.maintenanceBackpressureService
+            )
         }
     });
 

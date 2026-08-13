@@ -1,3 +1,5 @@
+import fs       from 'fs-extra';
+import path     from 'node:path';
 import Neo      from '../../../../src/Neo.mjs';
 import Base     from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
@@ -6,6 +8,12 @@ import {
     releaseHeavyMaintenanceLeaseSync,
     resolveHeavyMaintenanceLeasePath as resolveLeasePath
 } from './HeavyMaintenanceLeaseService.mjs';
+import {
+    clearWaiterSync,
+    findWaiterToYieldTo,
+    listActiveWaitersSync,
+    registerWaiterSync
+} from './heavyMaintenanceWaiterLedger.mjs';
 
 /**
  * Canonical set of heavy-maintenance task names that participate in the cross-poll
@@ -15,6 +23,45 @@ import {
  *
  * @type {ReadonlyArray<String>}
  */
+/**
+ * Freshness bound for waiter-ledger entries. A live waiter refreshes its entry on every deferred
+ * poll (~60s cadence), so ten minutes of silence means the waiter's process is gone — its entry
+ * must stop making acquirers yield. Deliberately NOT the lease's 6h `staleAfterMs`: that bound is
+ * sized for the longest legitimate HOLD, and a dead waiter vetoing acquisitions for 6 hours would
+ * be a brand-new starvation shape.
+ * @type {Number}
+ */
+export const WAITER_ENTRY_STALE_AFTER_MS = 10 * 60 * 1000;
+
+/**
+ * Refresh throttle for the configured tenant-repo label snapshot consumed by
+ * `isBootstrapCriticalTask`. The snapshot only has to track operator config edits, which are rare
+ * next to the poll cadence that reads it. Once the TTL expires the synchronous predicate starts a
+ * lazy refresh and treats the stale last-known array as unresolved for that decision, so a newly
+ * configured repo cannot lose the heavy lane to ordinary work while the resolver is in flight.
+ * @type {Number}
+ */
+export const CONFIGURED_TENANT_REPO_LABELS_TTL_MS = 60 * 1000;
+
+/**
+ * @summary Default resolver for the configured `<tenantId>/<repoSlug>` label set.
+ *
+ * Dynamically imported so this policy service does not take a load-time dependency on the tenant
+ * sync lane, mirroring `TenantRepoSyncService.resolveIngestionService()`'s own pattern. Routed
+ * through the canonical tiered resolver rather than a direct config read so graph-node and
+ * bootstrap tiers are honoured.
+ *
+ * @returns {Promise<String[]>}
+ */
+async function resolveConfiguredTenantRepoLabels() {
+    const {default: TenantRepoSyncService} = await import('./TenantRepoSyncService.mjs');
+    const resolved                         = await TenantRepoSyncService.resolveTenantReposConfig();
+
+    return (resolved?.tenantRepos || [])
+        .filter(repo => repo?.tenantId && repo?.repoSlug)
+        .map(repo => `${repo.tenantId}/${repo.repoSlug}`);
+}
+
 export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
@@ -316,6 +363,11 @@ export function recordDeferral({
     }
 
     healthService?.recordTaskOutcome?.(taskName, 'skipped', outcomePayload);
+
+    // The payload carries the durable `deferredSince` (when measurable) — returning it lets the
+    // instance layer register the waiter with the SAME quantity the starvation measurement records,
+    // instead of re-deriving a per-poll timestamp that resets on every blocker rotation.
+    return outcomePayload;
 }
 
 // ============================================================================
@@ -398,6 +450,14 @@ export class MaintenanceBackpressureService extends Base {
          */
         writeLog_: () => {},
         /**
+         * Resolver seam for the configured tenant-repo label snapshot. Defaults to the canonical
+         * tiered resolver; tests inject a stub so the bootstrap predicate is exercised without
+         * booting the tenant sync lane.
+         * @member {Function} resolveConfiguredTenantRepoLabelsFn_=resolveConfiguredTenantRepoLabels
+         * @reactive
+         */
+        resolveConfiguredTenantRepoLabelsFn_: resolveConfiguredTenantRepoLabels,
+        /**
          * @member {Function} acquireLeaseFn_=acquireHeavyMaintenanceLeaseSync
          * @reactive
          */
@@ -406,7 +466,14 @@ export class MaintenanceBackpressureService extends Base {
          * @member {Function} releaseLeaseFn_=releaseHeavyMaintenanceLeaseSync
          * @reactive
          */
-        releaseLeaseFn_: releaseHeavyMaintenanceLeaseSync
+        releaseLeaseFn_: releaseHeavyMaintenanceLeaseSync,
+        /**
+         * Priority-class mirror of `PRIORITY_ZERO_TASKS` (`scheduling/pipeline.mjs`) — execution
+         * policy needs the class without importing the selection module; a unit spec guards drift.
+         * @member {String[]} priorityZeroTaskNames_=['backup']
+         * @reactive
+         */
+        priorityZeroTaskNames_: ['backup']
     }
 
     /**
@@ -574,7 +641,7 @@ export class MaintenanceBackpressureService extends Base {
      * @returns {void}
      */
     recordDeferral({taskName, reasonCode, reasonText, blockingTaskName = null, holdingLease = null}) {
-        recordDeferral({
+        const outcome = recordDeferral({
             deferralLogKeys     : this.deferralLogKeys,
             deferralStreakStarts: this.deferralStreakStarts,
             taskName,
@@ -587,6 +654,204 @@ export class MaintenanceBackpressureService extends Base {
             healthService       : this.healthService,
             taskStateService    : this.taskStateService
         });
+
+        // Fairness half of the lease contract: a lease/backpressure deferral with a measurable streak becomes a
+        // REGISTERED waiter, so acquisition can stop stepping past measurably starving work. Only the
+        // contention classes register — a shed-window or dependency gate is policy, not competition.
+        if (outcome?.deferredSince && ['heavy-maintenance-lease-held', 'heavy-maintenance-backpressure', 'heavy-maintenance-yield-to-waiter'].includes(reasonCode)) {
+            try {
+                registerWaiterSync({
+                    leasePath        : this.resolveHeavyMaintenanceLeasePath(),
+                    taskName,
+                    priorityZero     : this.isPriorityZeroTask(taskName),
+                    bootstrapCritical: this.isBootstrapCriticalTask(taskName),
+                    deferredSince    : outcome.deferredSince
+                });
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] Waiter registration failed for ${taskName}: ${e.message}`);
+            }
+        }
+    }
+
+    /**
+     * @summary Whether the task outranks ordinary maintenance in the scheduler's priority model.
+     *
+     * Mirrors `PRIORITY_ZERO_TASKS` in `scheduling/pipeline.mjs` without importing it — the
+     * scheduling module owns selection and this service owns execution, and a one-name constant
+     * is cheaper than coupling the layers. The mirror is drift-guarded by a unit spec asserting
+     * both arrays stay identical.
+     *
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isPriorityZeroTask(taskName) {
+        return this.priorityZeroTaskNames.includes(taskName);
+    }
+
+    /**
+     * @member {String[]|null} configuredTenantRepoLabels=null
+     * Snapshot of currently configured `<tenantId>/<repoSlug>` labels, refreshed off the
+     * canonical tiered resolver. `null` means "never resolved", which deliberately preserves the
+     * older manifest-only predicate rather than guessing coverage from an unresolved snapshot.
+     * @protected
+     */
+    configuredTenantRepoLabels = null
+    /**
+     * @member {Number} configuredTenantRepoLabelsAt=0
+     * Epoch ms of the last successful snapshot refresh; drives the refresh throttle.
+     * @protected
+     */
+    configuredTenantRepoLabelsAt = 0
+    /**
+     * @member {Promise|null} configuredTenantRepoLabelsRefresh=null
+     * The in-flight refresh, exposed so boot can AWAIT the first snapshot instead of racing it.
+     * Doubles as the single-flight guard: a poll storm joins this promise rather than stacking
+     * resolver calls.
+     * @protected
+     */
+    configuredTenantRepoLabelsRefresh = null
+
+    /**
+     * @summary Resolves the configured tenant-repo label snapshot, awaitable and single-flight.
+     *
+     * The canonical configured-repo truth is async (`resolveTenantReposConfig` →
+     * `listConfiguredTenantRepos`, tiered graph node > `kb-config.yaml` bootstrap > config
+     * default) while the consumer (`isBootstrapCriticalTask`) is synchronous — it runs inside the
+     * scheduling picker on every poll. Reading a config leaf directly would be cheaper and wrong:
+     * that direct read is what the tiered resolver replaced so the bootstrap/graph tiers are
+     * honoured, so it would misread every plane whose repos come from the graph tier.
+     *
+     * **Boot must await this before the first scheduling sweep.** A fire-and-forget kick is not
+     * sufficient: on a first deployment the first decision would run against an unresolved
+     * snapshot, rank the bootstrap lane as ordinary, and hand the heavy lease to a more-stale REM
+     * cycle for its full duration — losing precisely the decision the class exists to win. Steady
+     * state still refreshes lazily off the TTL; the synchronous predicate fails safe while that
+     * refresh is pending rather than dispatching from stale coverage.
+     *
+     * A resolver failure leaves the previous snapshot in place rather than downgrading coverage,
+     * and never rejects — boot must not be blocked by a resolver outage.
+     *
+     * @param {Number} [now=Date.now()] Clock seam.
+     * @returns {Promise<String[]|null>} The current snapshot once any needed refresh settles.
+     * @protected
+     */
+    ensureConfiguredTenantRepoLabels(now = Date.now()) {
+        if (this.configuredTenantRepoLabelsRefresh) return this.configuredTenantRepoLabelsRefresh;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) {
+            return Promise.resolve(this.configuredTenantRepoLabels);
+        }
+
+        this.configuredTenantRepoLabelsRefresh = Promise.resolve()
+            .then(() => this.resolveConfiguredTenantRepoLabelsFn())
+            .then(labels => {
+                if (Array.isArray(labels)) {
+                    this.configuredTenantRepoLabels   = labels;
+                    this.configuredTenantRepoLabelsAt = Date.now();
+                }
+            })
+            .catch(e => {
+                this.writeLog('WARN', `[Orchestrator] Configured tenant-repo snapshot refresh failed: ${e.message} — keeping the previous snapshot.`);
+            })
+            .then(() => this.configuredTenantRepoLabels)
+            .finally(() => {
+                this.configuredTenantRepoLabelsRefresh = null;
+            });
+
+        return this.configuredTenantRepoLabelsRefresh;
+    }
+
+    /**
+     * @summary Non-blocking lazy refresh used by the synchronous predicate on the steady-state path.
+     * @param {Number} [now=Date.now()] Clock seam.
+     * @returns {Boolean} True while configured coverage is unresolved or refreshing.
+     * @protected
+     */
+    refreshConfiguredTenantRepoLabels(now = Date.now()) {
+        if (this.configuredTenantRepoLabelsRefresh) return true;
+        if (this.configuredTenantRepoLabels !== null && now - this.configuredTenantRepoLabelsAt < CONFIGURED_TENANT_REPO_LABELS_TTL_MS) return false;
+
+        this.ensureConfiguredTenantRepoLabels(now);
+
+        return true;
+    }
+
+    /**
+     * @summary Whether the task is bootstrap-critical: initializing durable state the plane
+     * cannot function without.
+     *
+     * Bootstrap truth is CURRENT CONFIGURED COVERAGE, not the manifest alone. The manifest is a
+     * record of what the sync lane has already seen, so deriving the class from it alone gets
+     * three cases wrong: a first deployment has no manifest at all and would read ordinary,
+     * exactly when the class is most needed; a newly added repo is absent from an existing
+     * manifest and would read ordinary until the next sweep seeds it; and a removed repo's stale
+     * null entry would keep granting priority forever. When a last-known snapshot has expired, the
+     * canonical refresh cannot be awaited inside the synchronous picker; that current decision
+     * therefore fails safe instead of handing the heavy lane to ordinary work on stale coverage.
+     *
+     * So a configured `<tenantId>/<repoSlug>` label with no checkpoint — absent from the manifest
+     * or carrying a null `lastIngestedRev` — makes the lane bootstrap-critical, and manifest
+     * entries whose label is no longer configured are ignored. An empty configured set is
+     * ordinary (a plane with no tenant repos is not uninitialized). While the snapshot is still
+     * unresolved the older manifest-only predicate applies, so this never grants priority on
+     * less evidence than before.
+     *
+     * Reads resolve fresh on every admission decision so the class evaporates the moment the last
+     * checkpoint commits. Fail-closed on read errors: a corrupt manifest must not grant priority.
+     *
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isBootstrapCriticalTask(taskName) {
+        if (taskName !== 'tenant-repo-sync') {
+            return false;
+        }
+
+        const coverageRefreshPending = this.refreshConfiguredTenantRepoLabels();
+
+        try {
+            const labels = this.configuredTenantRepoLabels;
+
+            const manifestPath = path.join(this.dataDir, 'tenant-repo-sync-revisions.json');
+            const rawRevisions = fs.existsSync(manifestPath)
+                ? JSON.parse(fs.readFileSync(manifestPath, 'utf8'))?.revisions
+                : null;
+            const revisions = rawRevisions && typeof rawRevisions === 'object' && !Array.isArray(rawRevisions)
+                ? rawRevisions
+                : {};
+
+            // The last-known array is stale and its canonical refresh is asynchronous. Even a
+            // previously complete or empty set cannot prove that no repo was added since it was
+            // captured, so the due tenant lane wins THIS decision while coverage resolves.
+            if (coverageRefreshPending && Array.isArray(labels)) {
+                return true;
+            }
+
+            // Configured, fresh, and empty: nothing to initialize.
+            if (Array.isArray(labels) && labels.length === 0) {
+                return false;
+            }
+
+            // Snapshot unresolved. Boot awaits `ensureConfiguredTenantRepoLabels()` before the first
+            // sweep, so this is the defensive path (a service composed outside that boot order, or a
+            // resolver that has not settled yet) — and its posture must fail SAFE, because failing
+            // ordinary here loses the exact decision the class exists to win.
+            //
+            // An entirely absent manifest cannot prove the plane is initialized: it is equally the
+            // signature of a first deployment. Ranking bootstrap here costs at most one poll of
+            // priority on a plane that turns out to have no configured repos (the sweep no-ops and
+            // the snapshot resolves to empty on the next call); ranking ordinary costs a full REM
+            // hold on exactly the plane that needed the lane first.
+            if (!Array.isArray(labels)) {
+                const manifestKeys = Object.keys(revisions);
+
+                return manifestKeys.length === 0 || manifestKeys.some(key => !revisions[key]?.lastIngestedRev);
+            }
+
+            return labels.some(label => !revisions[label]?.lastIngestedRev);
+        } catch (e) {
+            this.writeLog('WARN', `[Orchestrator] Bootstrap-critical check failed for ${taskName}: ${e.message} — treating as ordinary.`);
+            return false;
+        }
     }
 
     // --- Executor wrappers (Group 3 entry points) ---
@@ -652,6 +917,59 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
+        // Fairness gate: do not step past a starving registered waiter that outranks this acquirer.
+        //
+        // SCOPE: this is the orchestrator-owned admission point only. Manual/container CLI entry
+        // points acquire the global lease directly and do NOT pass through this service, so they
+        // inherit lease exclusion but not this fairness rule.
+        //
+        // This gate is the SECOND line of defence, not the mechanism. It can only make an admitted
+        // acquirer abstain, and the scheduling pipeline dispatches one candidate per poll — so a
+        // yield here spends the poll without promoting anyone. Selection-time rank in
+        // `scheduling/picker.mjs` is what actually gets a starved bootstrap lane executed; this
+        // gate covers the residue (a task that reached admission while a higher-ranked peer was
+        // registered mid-poll).
+        //
+        // Fail-open: a broken ledger read must not halt all maintenance — it logs and proceeds,
+        // degrading to pre-fairness behavior.
+        try {
+            const {waiters, unreadable} = listActiveWaitersSync({
+                leasePath   : this.resolveHeavyMaintenanceLeasePath(),
+                staleAfterMs: WAITER_ENTRY_STALE_AFTER_MS,
+                now
+            });
+
+            // A corrupt entry is an invisible loss of fairness: the waiter it represents cannot be
+            // yielded to, so it silently starves while every surface reads healthy. Surface it —
+            // the ledger reports these rather than throwing precisely so a consumer can decide, and
+            // "broken reads log" is only true if someone actually logs them.
+            if (unreadable?.length > 0) {
+                this.writeLog('WARN', `[Orchestrator] Waiter ledger has ${unreadable.length} unreadable entr${unreadable.length === 1 ? 'y' : 'ies'} (${unreadable.join(', ')}); those waiters cannot be yielded to until repaired.`);
+            }
+
+            const yieldTo = findWaiterToYieldTo({
+                taskName,
+                priorityZero        : this.isPriorityZeroTask(taskName),
+                bootstrapCritical   : this.isBootstrapCriticalTask(taskName),
+                ownDeferredSince    : this.taskStateService?.getTaskState?.(taskName)?.deferralStreakStartedAt ?? null,
+                waiters,
+                fairnessYieldAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.fairnessYieldAfterMs,
+                now
+            });
+
+            if (yieldTo) {
+                this.recordDeferral({
+                    taskName,
+                    reasonCode      : 'heavy-maintenance-yield-to-waiter',
+                    reasonText      : `${reasonText}; yielding to starving ${yieldTo.taskName} (deferred since ${yieldTo.deferredSince})`,
+                    blockingTaskName: yieldTo.taskName
+                });
+                return false;
+            }
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Waiter fairness check failed for ${taskName}: ${e.message} — proceeding without it.`);
+        }
+
         let acquisition;
         try {
             acquisition = this.acquireLeaseFn({
@@ -688,6 +1006,14 @@ export class MaintenanceBackpressureService extends Base {
         }
 
         this.clearDeferralLogState(taskName);
+
+        // The task proceeds (own lease or compatible-pair bypass): it is no longer a waiter, and a
+        // stale self-entry must not make OTHER acquirers yield to work that is already running.
+        try {
+            clearWaiterSync({leasePath: this.resolveHeavyMaintenanceLeasePath(), taskName});
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Waiter clear failed for ${taskName}: ${e.message}`);
+        }
 
         const releaseLease = () => {
             if (!leaseToken) return;

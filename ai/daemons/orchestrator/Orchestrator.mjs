@@ -95,6 +95,15 @@ import {
 } from './services/heavyMaintenanceLeasePrimitives.mjs';
 import {resolveCloudOnlyDefault} from './services/deploymentDurabilityPosture.mjs';
 
+/**
+ * Deadline for the boot-time configured-tenant-repo coverage prewarm. An internal liveness bound
+ * rather than deployment policy: exceeding it costs ranking precision on the first sweep (the
+ * unresolved fail-safe posture still ranks bootstrap), while an unbounded wait would stop the
+ * daemon from polling at all.
+ * @type {Number}
+ */
+export const CONFIGURED_TENANT_REPO_PREWARM_TIMEOUT_MS = 10_000;
+
 /** @summary Opens/creates the orchestrator sqlite DB via the shared Memory Core schema bootstrap. */
 export async function initializeDatabaseSelfBootstrap(dbPath) {
     const storage = Neo.create(SQLite, {dbPath});
@@ -1521,10 +1530,59 @@ export class Orchestrator extends Base {
             }
         }
 
+        await this.prewarmConfiguredTenantRepoCoverage();
+
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.announceDisabledLanes();
         this.poll();
+    }
+
+    /**
+     * @summary Resolves configured tenant-repo coverage before the first scheduling sweep, gated to
+     * the owning profile and bounded by a deadline.
+     *
+     * The bootstrap-critical rank is evaluated synchronously inside the picker, so a fire-and-forget
+     * refresh would leave the very first scheduling decision running on unresolved coverage — on a
+     * first deployment that ranks the bootstrap lane ordinary and hands the heavy lease to a
+     * more-stale REM cycle for its full duration.
+     *
+     * Two boundaries make that prewarm safe to put on the boot path:
+     *
+     * **Authority.** `tenant-repo-sync` is container-plane-owned. The canonical resolver reaches
+     * `listConfiguredTenantRepos()`, which awaits `graphService.ready()`, so running it
+     * unconditionally would pull a host-edge or graphless profile into container-plane
+     * configuration authority it does not hold. The prewarm therefore runs only for the profile
+     * that owns the lane and only while it is enabled — the same shape as the swarm-heartbeat init
+     * above. No optional chaining inside that branch: on the owned seam the method must exist, and
+     * a silently-absent invariant is worse than a crash.
+     *
+     * **Deadline.** `ensureConfiguredTenantRepoLabels()` contains rejection but is not a timeout: a
+     * resolver that never settles would leave `start()` pending forever and the daemon would never
+     * poll. Boot proceeds on the deadline and the already-implemented unresolved fail-safe posture
+     * covers the gap — an unresolved snapshot with no manifest ranks bootstrap rather than ordinary,
+     * so a slow resolver costs precision, never the decision.
+     *
+     * @param {Number} [timeoutMs=CONFIGURED_TENANT_REPO_PREWARM_TIMEOUT_MS] Deadline seam for tests.
+     * @returns {Promise<void>} Always resolves; never rejects and never hangs.
+     */
+    async prewarmConfiguredTenantRepoCoverage(timeoutMs = CONFIGURED_TENANT_REPO_PREWARM_TIMEOUT_MS) {
+        if (!this.isTaskAuthorityOwned('tenant-repo-sync') || !this.tenantRepoSyncEnabled) {
+            return;
+        }
+
+        let timer;
+
+        const settled = await Promise.race([
+            this.maintenanceBackpressureService.ensureConfiguredTenantRepoLabels().then(() => true),
+            new Promise(resolve => { timer = setTimeout(() => resolve(false), timeoutMs) })
+        ]);
+
+        clearTimeout(timer);
+
+        if (!settled) {
+            this.writeLog('WARN', `[Orchestrator] Configured tenant-repo coverage did not resolve within ${timeoutMs}ms; starting the scheduler on the unresolved fail-safe posture.`);
+        }
     }
 
     /**
