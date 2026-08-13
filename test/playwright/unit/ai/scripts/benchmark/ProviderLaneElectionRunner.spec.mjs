@@ -55,8 +55,7 @@ function buildComposition(candidate) {
         NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : String(candidate * 8192),
         NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
         NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : String(candidate * 8192),
-        NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : String(candidate * 8192),
-        NEO_PROVIDER_LANE_EMBEDDING_THREADS                         : '2'
+        NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : String(candidate * 8192)
     };
     const source = fs.readFileSync(profilePath, 'utf8').replace(
         /\$\{([A-Z0-9_]+):\?[^}]+}/g,

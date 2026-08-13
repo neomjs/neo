@@ -206,17 +206,23 @@ services:
       LLAMA_ARG_N_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
       LLAMA_ARG_BATCH: ${NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS:?embedding logical batch required}
       LLAMA_ARG_UBATCH: ${NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS:?embedding physical ubatch required}
-      # Pin compute threads to the elected CPU allocation (#17073). llama.cpp's default (-1)
-      # resolves compute workers to the host's PHYSICAL cores (common_cpu_get_num_math) and the
-      # HTTP pool to max(n_parallel + 4, hardware_concurrency - 1) — a CPU *quota*
+      # Pin compute threads to the elected CPU allocation (#17073) — the SAME value the election
+      # already produces, consumed twice (cpu limit below + threads here), so no new deployment
+      # input exists and the election actor's closed env export carries this unchanged. llama.cpp's
+      # default (-1) resolves compute workers to the host's PHYSICAL cores (common_cpu_get_num_math)
+      # and the HTTP pool to max(n_parallel + 4, hardware_concurrency - 1) — a CPU *quota*
       # (deploy.resources.limits.cpus) changes neither answer; only a cpuset would. Unpinned on
       # the incident host (32-core/64-thread EPYC): ~32 compute workers + a 63-thread HTTP pool
       # inside a 6-cpu quota (98 threads observed; ~5.3x compute oversubscription), converting
-      # the allocation into scheduler thrash that presents as saturation. THREADS_HTTP pins the
-      # HTTP pool small while keeping /health answerable under full compute load. The Ollama
-      # chat lane above has the same derivation class engine-side with no env to pin it —
-      # tracked with #17073's family; its heavy producers are shaped in #17046.
-      LLAMA_ARG_THREADS: ${NEO_PROVIDER_LANE_EMBEDDING_THREADS:?embedding lane compute threads required (pin to the elected CPU allocation)}
+      # the allocation into scheduler thrash that presents as saturation. The analyzer asserts
+      # threads === the elected allocation exactly (integer by the election contract; a fractional
+      # allocation fails the integer gate closed and forces an explicit decision). THREADS_HTTP
+      # pins the BASE fixed HTTP pool (this engine build can add dynamic HTTP workers under load —
+      # the pin removes the host-derived hw-1 default, it is not a hard total cap) while keeping
+      # /health answerable under full compute load. The Ollama chat lane above has the same
+      # derivation class engine-side with no env to pin it — tracked with #17073's family; its
+      # heavy producers are shaped in #17046.
+      LLAMA_ARG_THREADS: ${NEO_PROVIDER_LANE_EMBEDDING_CPUS:?embedding lane CPU allocation required}
       LLAMA_ARG_THREADS_HTTP: "4"
       LLAMA_ARG_ENDPOINT_SLOTS: "true"
       NEO_PROVIDER_LANE_MODEL_URL: https://huggingface.co/Qwen/Qwen3-Embedding-8B-GGUF/resolve/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/Qwen3-Embedding-8B-Q4_K_M.gguf
