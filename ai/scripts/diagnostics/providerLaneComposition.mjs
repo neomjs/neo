@@ -596,10 +596,11 @@ export function analyzeProviderLaneComposition(composition, {
     fail(embeddingProbe.includes('/health'), 'embedding-probe-liveness-missing',
         'services.embedding-model.healthcheck.test', 'curl /health liveness probe', embeddingProbe);
 
-    // Compute threads must be pinned to the elected CPU allocation. llama.cpp's -1
-    // default resolves against HOST hardware concurrency — a CPU quota does not change that
-    // answer — so an unpinned lane runs host-core-count spin workers inside its quota
-    // (measured: 98 threads in a 6-cpu cgroup, ~10x oversubscription presenting as saturation).
+    // Compute threads must be pinned to the elected CPU allocation. llama.cpp's -1 default
+    // resolves compute workers to the host's PHYSICAL cores and its HTTP pool to
+    // max(n_parallel + 4, hardware_concurrency - 1) — a CPU quota changes neither answer — so
+    // an unpinned lane runs host-sized pools inside its quota (observed: 98 threads in a 6-cpu
+    // cgroup on a 32c/64t host, ~5.3x compute oversubscription presenting as saturation).
     const embeddingThreads = integerAboveZero(embeddingEnv.LLAMA_ARG_THREADS);
     fail(embeddingThreads !== null, 'embedding-threads-unpinned',
         'services.embedding-model.environment.LLAMA_ARG_THREADS',
