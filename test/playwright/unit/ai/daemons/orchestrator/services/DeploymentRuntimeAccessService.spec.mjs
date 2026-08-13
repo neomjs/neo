@@ -1,10 +1,15 @@
 import {readFileSync} from 'node:fs';
+import {rm}           from 'node:fs/promises';
+import {createServer} from 'node:http';
+import {tmpdir}       from 'node:os';
+import path           from 'node:path';
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     DeploymentRuntimeAccessService,
-    DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY
+    DEPLOYMENT_RUNTIME_SELF_SERVICE_KEY,
+    dockerSocketRequest
 } from '../../../../../../../ai/daemons/orchestrator/services/DeploymentRuntimeAccessService.mjs';
 import {RECOVERY_KNOBS} from '../../../../../../../ai/services/memory-core/helpers/recoveryKnobRegistry.mjs';
 
@@ -41,7 +46,11 @@ function makeContainer(overrides = {}) {
 function createService({
     config = {},
     containers = [makeContainer()],
-    inspectData = {Name: '/neo-mc-server-1'},
+    inspectData = {
+        Id   : 'container-abc',
+        Name : '/neo-mc-server-1',
+        State: {StartedAt: '2026-08-13T20:00:00.000Z'}
+    },
     statsData = {cpu_stats: {}},
     logText = 'ready',
     requestError = null
@@ -51,8 +60,10 @@ function createService({
     const dockerRequestFn = async request => {
         calls.push(request);
 
-        if (requestError) {
-            throw requestError;
+        const error = typeof requestError === 'function' ? requestError(request) : requestError;
+
+        if (error) {
+            throw error;
         }
 
         if (request.path.startsWith('/containers/json')) {
@@ -111,7 +122,7 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
 
         expect(service).toBeInstanceOf(core.Base);
         expect(result.ok).toBe(true);
-        expect(result.data).toEqual({Name: '/neo-mc-server-1'});
+        expect(result.data).toMatchObject({Name: '/neo-mc-server-1'});
         expect(result.proof).toMatchObject({
             recordType        : 'deployment-runtime-access',
             runtimeMechanism  : 'docker-socket',
@@ -282,10 +293,140 @@ test.describe('Neo.ai.daemons.services.DeploymentRuntimeAccessService', () => {
             auditLabel        : 'lifecycle-write:restart',
             reason            : 'diagnosis:crash'
         });
-        expect(calls[1]).toMatchObject({
-            method: 'POST',
-            path  : '/containers/container-abc/restart?t=4'
+        expect(calls[2]).toMatchObject({
+            method   : 'POST',
+            path     : '/containers/container-abc/restart?t=4',
+            timeoutMs: 9_000
         });
+    });
+
+    test('a post-dispatch restart timeout is uncertain and carries its incarnation baseline', async () => {
+        const timeoutError = Object.assign(
+            new Error('Docker API POST /containers/container-abc/restart?t=10 timed out after 15000ms'),
+            {
+                code                  : 'ETIMEDOUT',
+                reason                : 'docker-api-timeout',
+                dockerTransportFailure: true,
+                requestDispatched     : true
+            }
+        );
+        const {service, calls} = createService({
+            requestError: request => request.path.includes('/restart?') ? timeoutError : null
+        });
+
+        let error;
+
+        try {
+            await service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'});
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(error).toMatchObject({
+            reason                    : 'runtime-effect-disposition-uncertain',
+            code                      : 'ETIMEDOUT',
+            effectDisposition         : 'uncertain',
+            restartObservationBaseline: {
+                containerId: 'container-abc',
+                startedAt  : '2026-08-13T20:00:00.000Z'
+            }
+        });
+        expect(calls.at(-1)).toMatchObject({
+            path     : '/containers/container-abc/restart?t=10',
+            timeoutMs: 15_000
+        });
+    });
+
+    test('a pre-dispatch restart failure never claims an uncertain effect', async () => {
+        const preDispatchError = Object.assign(new Error('Docker socket unavailable'), {
+            code             : 'ECONNREFUSED',
+            reason           : 'docker-socket-unavailable',
+            requestDispatched: false
+        });
+        const {service} = createService({
+            requestError: request => request.path.includes('/restart?') ? preDispatchError : null
+        });
+
+        let error;
+
+        try {
+            await service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'});
+        } catch (caught) {
+            error = caught
+        }
+
+        expect(error).toBe(preDispatchError);
+        expect(error.effectDisposition).toBeUndefined();
+    });
+
+    test('a post-finish socket reset is structurally tagged as a dispatched transport failure', async () => {
+        const socketPath = path.join(tmpdir(), `neo-docker-reset-${process.pid}-${Date.now()}.sock`),
+              server     = createServer(request => request.socket.destroy());
+
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(socketPath, resolve)
+        });
+
+        let error;
+
+        try {
+            await dockerSocketRequest({
+                socketPath,
+                method   : 'POST',
+                path     : '/containers/container-abc/restart?t=10',
+                timeoutMs: 1_000
+            })
+        } catch (caught) {
+            error = caught
+        } finally {
+            await new Promise(resolve => server.close(resolve));
+            await rm(socketPath, {force: true})
+        }
+
+        expect(error).toMatchObject({
+            dockerTransportFailure: true,
+            requestDispatched     : true
+        });
+    });
+
+    test('generic post-dispatch transport loss is uncertain, not only the timeout subtype', async () => {
+        const resetError = Object.assign(new Error('socket hang up'), {
+            code                  : 'ECONNRESET',
+            reason                : 'docker-api-transport-error',
+            dockerTransportFailure: true,
+            requestDispatched     : true
+        });
+        const {service} = createService({
+            requestError: request => request.path.includes('/restart?') ? resetError : null
+        });
+
+        await expect(service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'}))
+            .rejects.toMatchObject({
+                reason           : 'runtime-effect-disposition-uncertain',
+                effectDisposition: 'uncertain',
+                code             : 'ECONNRESET'
+            });
+    });
+
+    test('restart timing rejects invalid grace or margin values before the POST', async () => {
+        for (const restartTimeoutSeconds of [-1, 1.5, Number.NaN]) {
+            const {service, calls} = createService();
+
+            await expect(service.applyLifecycle({
+                serviceKey: 'mc-server',
+                operation : 'restart',
+                restartTimeoutSeconds
+            })).rejects.toThrow(/non-negative integer/);
+
+            expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
+        }
+
+        const {service, calls} = createService({config: {timeoutMs: 0}});
+
+        await expect(service.applyLifecycle({serviceKey: 'mc-server', operation: 'restart'}))
+            .rejects.toThrow(/positive finite/);
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
     });
 
     test('denies cross-envelope and non-allowlisted operations before Docker access', async () => {
@@ -893,6 +1034,45 @@ test.describe('applyLifecycle — authority is rechecked AFTER target resolution
         });
 
         expect(calls.some(call => /\/restart/.test(call.path))).toBe(true);
+    });
+
+    test('authority moving during the durable restart marker refuses before the POST', async () => {
+        let held = true;
+
+        const {service, calls} = createService();
+
+        await expect(service.applyLifecycle({
+            serviceKey     : 'mc-server',
+            operation      : 'restart',
+            isAuthorityHeld: () => held,
+            onBeforeRestartDispatch({baseline, clientTimeoutMs}) {
+                expect(baseline).toEqual({
+                    containerId: 'container-abc',
+                    startedAt  : '2026-08-13T20:00:00.000Z'
+                });
+                expect(clientTimeoutMs).toBe(15_000);
+                held = false
+            }
+        })).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
+    });
+
+    test('admission moving during the durable restart marker refuses before the POST', async () => {
+        let admitted = true;
+
+        const {service, calls} = createService();
+
+        await expect(service.applyLifecycle({
+            serviceKey           : 'mc-server',
+            operation            : 'restart',
+            isEffectStillAdmitted: () => admitted,
+            onBeforeRestartDispatch() {
+                admitted = false
+            }
+        })).rejects.toMatchObject({reason: 'runtime-effect-not-admitted'});
+
+        expect(calls.some(call => /\/restart/.test(call.path))).toBe(false);
     });
 
     test('live demand admitted during target resolution vetoes the restart at the last boundary', async () => {
