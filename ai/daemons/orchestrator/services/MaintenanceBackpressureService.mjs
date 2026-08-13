@@ -1,3 +1,5 @@
+import fs       from 'fs-extra';
+import path     from 'node:path';
 import Neo      from '../../../../src/Neo.mjs';
 import Base     from '../../../../src/core/Base.mjs';
 import AiConfig from '../../../config.mjs';
@@ -6,6 +8,12 @@ import {
     releaseHeavyMaintenanceLeaseSync,
     resolveHeavyMaintenanceLeasePath as resolveLeasePath
 } from './HeavyMaintenanceLeaseService.mjs';
+import {
+    clearWaiterSync,
+    findWaiterToYieldTo,
+    listActiveWaitersSync,
+    registerWaiterSync
+} from './heavyMaintenanceWaiterLedger.mjs';
 
 /**
  * Canonical set of heavy-maintenance task names that participate in the cross-poll
@@ -15,6 +23,16 @@ import {
  *
  * @type {ReadonlyArray<String>}
  */
+/**
+ * Freshness bound for waiter-ledger entries. A live waiter refreshes its entry on every deferred
+ * poll (~60s cadence), so ten minutes of silence means the waiter's process is gone — its entry
+ * must stop making acquirers yield. Deliberately NOT the lease's 6h `staleAfterMs`: that bound is
+ * sized for the longest legitimate HOLD, and a dead waiter vetoing acquisitions for 6 hours would
+ * be a brand-new starvation shape.
+ * @type {Number}
+ */
+export const WAITER_ENTRY_STALE_AFTER_MS = 10 * 60 * 1000;
+
 export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'memory-summary-backfill',
@@ -316,6 +334,11 @@ export function recordDeferral({
     }
 
     healthService?.recordTaskOutcome?.(taskName, 'skipped', outcomePayload);
+
+    // The payload carries the durable `deferredSince` (when measurable) — returning it lets the
+    // instance layer register the waiter with the SAME quantity the starvation measurement records,
+    // instead of re-deriving a per-poll timestamp that resets on every blocker rotation.
+    return outcomePayload;
 }
 
 // ============================================================================
@@ -406,7 +429,14 @@ export class MaintenanceBackpressureService extends Base {
          * @member {Function} releaseLeaseFn_=releaseHeavyMaintenanceLeaseSync
          * @reactive
          */
-        releaseLeaseFn_: releaseHeavyMaintenanceLeaseSync
+        releaseLeaseFn_: releaseHeavyMaintenanceLeaseSync,
+        /**
+         * Priority-class mirror of `PRIORITY_ZERO_TASKS` (`scheduling/pipeline.mjs`) — execution
+         * policy needs the class without importing the selection module; a unit spec guards drift.
+         * @member {String[]} priorityZeroTaskNames_=['backup']
+         * @reactive
+         */
+        priorityZeroTaskNames_: ['backup']
     }
 
     /**
@@ -574,7 +604,7 @@ export class MaintenanceBackpressureService extends Base {
      * @returns {void}
      */
     recordDeferral({taskName, reasonCode, reasonText, blockingTaskName = null, holdingLease = null}) {
-        recordDeferral({
+        const outcome = recordDeferral({
             deferralLogKeys     : this.deferralLogKeys,
             deferralStreakStarts: this.deferralStreakStarts,
             taskName,
@@ -587,6 +617,85 @@ export class MaintenanceBackpressureService extends Base {
             healthService       : this.healthService,
             taskStateService    : this.taskStateService
         });
+
+        // Fairness half of the lease contract: a lease/backpressure deferral with a measurable streak becomes a
+        // REGISTERED waiter, so acquisition can stop stepping past measurably starving work. Only the
+        // contention classes register — a shed-window or dependency gate is policy, not competition.
+        if (outcome?.deferredSince && ['heavy-maintenance-lease-held', 'heavy-maintenance-backpressure', 'heavy-maintenance-yield-to-waiter'].includes(reasonCode)) {
+            try {
+                registerWaiterSync({
+                    leasePath        : this.resolveHeavyMaintenanceLeasePath(),
+                    taskName,
+                    priorityZero     : this.isPriorityZeroTask(taskName),
+                    bootstrapCritical: this.isBootstrapCriticalTask(taskName),
+                    deferredSince    : outcome.deferredSince
+                });
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] Waiter registration failed for ${taskName}: ${e.message}`);
+            }
+        }
+    }
+
+    /**
+     * @summary Whether the task outranks ordinary maintenance in the scheduler's priority model.
+     *
+     * Mirrors `PRIORITY_ZERO_TASKS` in `scheduling/pipeline.mjs` without importing it — the
+     * scheduling module owns selection and this service owns execution, and a one-name constant
+     * is cheaper than coupling the layers. The mirror is drift-guarded by a unit spec asserting
+     * both arrays stay identical.
+     *
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isPriorityZeroTask(taskName) {
+        return this.priorityZeroTaskNames.includes(taskName);
+    }
+
+    /**
+     * @summary Whether the task is bootstrap-critical: initializing durable state the plane
+     * cannot function without.
+     *
+     * For tenant-repo sync, the durable truth is the persisted revisions manifest the sync
+     * lane itself maintains beside its checkpoints: bootstrap-spread seeding writes an entry
+     * with `lastIngestedRev: null` for every configured repo on the first sweep, and a commit
+     * replaces the null with a revision. Any remaining null therefore means a configured repo
+     * has never completed its initial ingest — the knowledge base is still partially
+     * uninitialized, and enrichment cycles must not re-acquire ahead of it.
+     *
+     * Reads resolve fresh on every admission decision so the class evaporates the moment the
+     * last checkpoint commits. An absent manifest is NOT treated as bootstrap-critical (a plane
+     * with no tenant repos never writes one); the age-based fairness bound still guarantees the
+     * first sweep runs eventually on a contended plane, which seeds the manifest and activates
+     * this class for the repos that remain.
+     *
+     * Fail-closed on read errors: a corrupt manifest must not grant priority.
+     *
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isBootstrapCriticalTask(taskName) {
+        if (taskName !== 'tenant-repo-sync') {
+            return false;
+        }
+
+        try {
+            const manifestPath = path.join(this.dataDir, 'tenant-repo-sync-revisions.json');
+
+            if (!fs.existsSync(manifestPath)) {
+                return false;
+            }
+
+            const revisions = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))?.revisions;
+
+            if (!revisions || typeof revisions !== 'object' || Array.isArray(revisions)) {
+                return false;
+            }
+
+            return Object.values(revisions).some(entry => !entry?.lastIngestedRev);
+        } catch (e) {
+            this.writeLog('WARN', `[Orchestrator] Bootstrap-critical check failed for ${taskName}: ${e.message} — treating as ordinary.`);
+            return false;
+        }
     }
 
     // --- Executor wrappers (Group 3 entry points) ---
@@ -652,6 +761,40 @@ export class MaintenanceBackpressureService extends Base {
             return false;
         }
 
+        // Fairness gate: do not step past a measurably starving registered waiter. This
+        // sits at the single acquisition point, so the periodic scheduler and every lease-aware
+        // manual CLI inherit the same rule. Fail-open: a broken ledger read must not halt all
+        // maintenance — it logs and proceeds, degrading to pre-fairness behavior.
+        try {
+            const {waiters} = listActiveWaitersSync({
+                leasePath   : this.resolveHeavyMaintenanceLeasePath(),
+                staleAfterMs: WAITER_ENTRY_STALE_AFTER_MS,
+                now
+            });
+
+            const yieldTo = findWaiterToYieldTo({
+                taskName,
+                priorityZero        : this.isPriorityZeroTask(taskName),
+                bootstrapCritical   : this.isBootstrapCriticalTask(taskName),
+                ownDeferredSince    : this.taskStateService?.getTaskState?.(taskName)?.deferralStreakStartedAt ?? null,
+                waiters,
+                fairnessYieldAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.fairnessYieldAfterMs,
+                now
+            });
+
+            if (yieldTo) {
+                this.recordDeferral({
+                    taskName,
+                    reasonCode      : 'heavy-maintenance-yield-to-waiter',
+                    reasonText      : `${reasonText}; yielding to starving ${yieldTo.taskName} (deferred since ${yieldTo.deferredSince})`,
+                    blockingTaskName: yieldTo.taskName
+                });
+                return false;
+            }
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Waiter fairness check failed for ${taskName}: ${e.message} — proceeding without it.`);
+        }
+
         let acquisition;
         try {
             acquisition = this.acquireLeaseFn({
@@ -688,6 +831,14 @@ export class MaintenanceBackpressureService extends Base {
         }
 
         this.clearDeferralLogState(taskName);
+
+        // The task proceeds (own lease or compatible-pair bypass): it is no longer a waiter, and a
+        // stale self-entry must not make OTHER acquirers yield to work that is already running.
+        try {
+            clearWaiterSync({leasePath: this.resolveHeavyMaintenanceLeasePath(), taskName});
+        } catch (e) {
+            this.writeLog('ERROR', `[Orchestrator] Waiter clear failed for ${taskName}: ${e.message}`);
+        }
 
         const releaseLease = () => {
             if (!leaseToken) return;

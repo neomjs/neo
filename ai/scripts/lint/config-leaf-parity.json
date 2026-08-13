@@ -310,6 +310,7 @@
         "orchestrator.heavyMaintenance",
         "orchestrator.heavyMaintenance.maxActiveHoldMs",
         "orchestrator.heavyMaintenanceLease",
+        "orchestrator.heavyMaintenanceLease.fairnessYieldAfterMs",
         "orchestrator.heavyMaintenanceLease.staleAfterMs",
         "orchestrator.intervals",
         "orchestrator.intervals.backupMs",

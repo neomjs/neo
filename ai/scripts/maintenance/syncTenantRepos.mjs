@@ -15,10 +15,13 @@
  *
  * Exit code: 0 on `completed`, 1 on `failed` or `skipped`
  * (no-tenant-repos-configured), 2 on argument error, 3 when a selected
- * repo slug is not configured, and 4 when another process (the orchestrator's
+ * repo slug is not configured, 4 when another process (the orchestrator's
  * periodic sweep or a second CLI run) holds the cross-process tenant-repo-sync
- * lease. The lease serializes both entry paths over the shared revisions
- * manifest; a held lease is a bounded busy result, never a silent race.
+ * lease, and 5 when the GLOBAL heavy-maintenance lease is held by another
+ * exclusive-heavy job (e.g. an active REM cycle) — tenant sync is substrate-heavy
+ * with no compatible pair, so the manual path competes for the same global lease
+ * as the scheduler instead of bypassing it. Every held lease is a bounded busy
+ * result with an owner receipt, never a silent race.
  *
  * Mirrors the operator-side pattern of `ai/scripts/maintenance/backup.mjs` and the
  * other `./maintenance/*` scripts — bootstrap Neo namespace then invoke a service.
@@ -31,11 +34,17 @@ import Neo             from '../../../src/Neo.mjs';
 import * as core       from '../../../src/core/_export.mjs';
 import {pathToFileURL} from 'url';
 
+import AiConfig              from '../../config.mjs';
 import TenantRepoSyncService from '../../daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {
     KB_TENANT_REPO_SYNC_LEASE_HELD,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED
 } from '../../daemons/orchestrator/services/TenantRepoSyncErrors.mjs';
+import {
+    acquireHeavyMaintenanceLeaseSync,
+    releaseHeavyMaintenanceLeaseSync,
+    resolveHeavyMaintenanceLeasePath
+} from '../../daemons/orchestrator/services/heavyMaintenanceLeasePrimitives.mjs';
 
 /**
  * @summary Parses manual tenant-repo-sync selectors and scoped replay intent.
@@ -92,6 +101,8 @@ Exit codes:
   1  failed (all repos failed) or skipped (no configured tenantRepos)
   3  --repo-slug requested but the named repo is not configured (KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)
   4  another process holds the tenant-repo-sync lease (KB_TENANT_REPO_SYNC_LEASE_HELD) — retry after it finishes
+  5  the GLOBAL heavy-maintenance lease is held (GLOBAL_HEAVY_LEASE_HELD) — another exclusive-heavy
+     job (e.g. REM) is active; retry after it finishes, never override
   2  argument-parse error`);
 }
 
@@ -157,11 +168,46 @@ async function main() {
     const taskStateService = createInMemoryTaskStateService();
     const writeLog         = (level, msg) => console.log(`[${level}] ${msg}`);
 
-    const result = await TenantRepoSyncService.runTask(buildRunTaskOptions({
-        parsed,
-        taskStateService,
-        writeLog
-    }));
+    // Global heavy-maintenance lease: tenant-repo-sync is an
+    // exclusive-heavy substrate job with no compatible pair, and this CLI previously acquired only
+    // the narrow tenant-sync lease — bypassing the cross-daemon serialization and making concurrent
+    // Chroma/SQLite maintenance possible against an active REM cycle. The manual path now competes
+    // for the SAME global lease as the orchestrator's scheduler; a held lease is a receipt and an
+    // exit code, never a race.
+    const leasePath   = resolveHeavyMaintenanceLeasePath({dataDir: AiConfig.orchestrator.dataDir});
+    const acquisition = acquireHeavyMaintenanceLeaseSync({
+        owner       : 'tenant-repo-sync',
+        reason      : 'manual-cli',
+        metadata    : {source: 'manual-cli'},
+        leasePath,
+        staleAfterMs: AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs
+    });
+
+    if (!acquisition.acquired) {
+        const holder = acquisition.lease || {};
+        console.error(
+            `GLOBAL_HEAVY_LEASE_HELD: the cross-daemon heavy-maintenance lease is held by ` +
+            `'${holder.owner || 'unknown'}' (pid: ${holder.pid ?? 'n/a'}, acquired: ${holder.acquiredAt ?? 'n/a'}, ` +
+            `expires: ${holder.expiresAt ?? 'n/a'}). Concurrent heavy substrate maintenance is unsafe — ` +
+            `retry after the holder finishes; do not override the lease.`
+        );
+        process.exit(5);
+    }
+
+    let result;
+    try {
+        result = await TenantRepoSyncService.runTask(buildRunTaskOptions({
+            parsed,
+            taskStateService,
+            writeLog
+        }));
+    } finally {
+        try {
+            releaseHeavyMaintenanceLeaseSync({token: acquisition.lease.token, leasePath});
+        } catch (e) {
+            console.error(`Heavy-maintenance lease release failed: ${e.message}`);
+        }
+    }
 
     console.log(JSON.stringify(result, null, 2));
 
