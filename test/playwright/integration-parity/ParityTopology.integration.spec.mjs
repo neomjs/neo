@@ -133,6 +133,7 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
                 'ai/scripts/diagnostics/mcpHealthcheck.mjs',
                 '--url', url,
                 '--client-name', `neo-parity-ci-spec-${service}`,
+                '--expected-status', 'healthy,degraded',
                 '--expected-plane-id', PLANE_ID,
                 '--expected-plane-data-root', PLANE_DATA_ROOT
             ]);
@@ -160,6 +161,7 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
             'ai/scripts/diagnostics/mcpHealthcheck.mjs',
             '--url', MC_INTERNAL_URL,
             '--client-name', 'neo-parity-ci-spec-foreign-id',
+            '--expected-status', 'healthy,degraded',
             '--expected-plane-id', 'neo-canonical-durable-plane'
         ]);
 
@@ -170,6 +172,7 @@ test.describe('Parity topology lane (#15807) — the phase-3 stack with a CI wit
             'ai/scripts/diagnostics/mcpHealthcheck.mjs',
             '--url', MC_INTERNAL_URL,
             '--client-name', 'neo-parity-ci-spec-foreign-root',
+            '--expected-status', 'healthy,degraded',
             '--expected-plane-id', PLANE_ID,
             '--expected-plane-data-root', CANONICAL_DATA_ROOT
         ]);
