@@ -937,10 +937,14 @@ export class DeploymentStateBridgeService extends Base {
             totalActivities           : null,
             totalInFlight             : null,
             totalRecentCompletions    : null,
+            totalReaped               : null,
             inFlightTruncated         : null,
             recentCompletionsTruncated: null,
+            reapedTruncated           : null,
+            reapedThisRead            : null,
             inFlight                  : null,
-            recentCompletions         : null
+            recentCompletions         : null,
+            reaped                    : null
         });
 
         if (typeof this.providerActivityProbe !== 'function') return unavailable('probe-unconfigured');

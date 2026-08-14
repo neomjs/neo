@@ -555,11 +555,36 @@ export class Orchestrator extends Base {
 
         if (!db) return {status: 'unavailable', unavailableReason: 'graph-database-unavailable'};
 
-        const projection = getProviderActivityMetrics(db, {sinceTs, limit, now: observedAt}),
-              observer   = this.providerActivityStatusReader({
-                  dbPath: memoryCoreConfig.storagePaths.graph,
-                  sinceTs
-              });
+        let projection;
+
+        try {
+            projection = getProviderActivityMetrics(db, {
+                limit,
+                now    : observedAt,
+                sinceTs,
+                // Reap-on-read bounds, read at this use site because the shared ledger must not
+                // import AiConfig. Same values the Memory Core recorder injects: the widest deadline
+                // per role class this reader can cite. Unknown classes are never reaped — the ledger
+                // over-reports demand rather than blinding it.
+                activityDeadlineMs: {
+                    chat     : memoryCoreConfig.sessionSummaryTimeoutMs,
+                    embedding: memoryCoreConfig.ollama.embeddingTimeoutMs
+                }
+            });
+        } catch (error) {
+            // Reap-on-read makes this a WRITING read: a lock storm or corruption now throws where
+            // the path previously only read. Degradation in this method is explicit by contract —
+            // an escaped throw would propagate through `isOllamaResidualRestartStillAdmitted` as an
+            // unstructured error instead of an unavailable state that can never mean idle.
+            this.deploymentStateBridgeWriteLog?.('ERROR', `provider-activity projection read failed: ${error?.message || error}`);
+
+            return {status: 'unavailable', unavailableReason: 'provider-activity-read-failed'};
+        }
+
+        const observer = this.providerActivityStatusReader({
+            dbPath: memoryCoreConfig.storagePaths.graph,
+            sinceTs
+        });
 
         return {
             ...projection,
