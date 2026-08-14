@@ -13,14 +13,15 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import fs             from 'fs';
-import http           from 'http';
-import os             from 'os';
-import path           from 'path';
-import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
+import {test, expect}             from '@playwright/test';
+import Neo                        from '../../../../../../src/Neo.mjs';
+import * as core                  from '../../../../../../src/core/_export.mjs';
+import fs                         from 'fs';
+import http                       from 'http';
+import os                         from 'os';
+import path                       from 'path';
+import aiConfig                   from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
+import {buildEmbeddingProbeBlock} from '../../../../../../ai/services/shared/embeddingProbe.mjs';
 import {
     clearLmsEmbeddingInputSuffixCache,
     readGgufTokenizerMetadata,
@@ -192,6 +193,11 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                     res.end(JSON.stringify({ data: [{ embedding: [1.4, 1.5, 1.6] }] }));
                 } else if (serverBehavior === 'timeout-all') {
                     return;
+                } else if (serverBehavior === 'delayed-single-succeed') {
+                    setTimeout(() => {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ data: [{ embedding: [1.4, 1.5, 1.6] }] }));
+                    }, 100);
                 } else if (serverBehavior === 'http-timeout-then-succeed') {
                     if (requestCount === 1) {
                         res.writeHead(503, { 'Content-Type': 'application/json' });
@@ -647,6 +653,117 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
         // Initial request + 1 contention retry = 2 total requests
         expect(requestCount).toBe(2);
+    });
+
+    test('a caller-owned probe deadline outlives the shorter contention ladder with one dispatch (#17111)', async () => {
+        serverBehavior = 'delayed-single-succeed';
+        aiConfig.openAiCompatible.contentionTimeoutMs       = 20;
+        aiConfig.openAiCompatible.contentionRetryCount      = 2;
+        aiConfig.openAiCompatible.contentionRetryDelayMs    = 10;
+
+        const startedAt = Date.now();
+        const result    = await buildEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText     : TextEmbeddingService.embedText.bind(TextEmbeddingService),
+            input         : 'deadline-owned-probe',
+            operationLabel: 'Deadline-owned embedding probe',
+            timeoutMs     : 200
+        });
+
+        expect(result).toMatchObject({
+            status    : 'healthy',
+            provider  : 'openAiCompatible',
+            dimensions: 3
+        });
+        expect(Date.now() - startedAt, 'the request remained alive beyond the old 80ms aggregate ladder')
+            .toBeGreaterThanOrEqual(85);
+        expect(requestCount, 'the caller deadline must not be converted into repeated provider aborts').toBe(1);
+    });
+
+    test('a caller deadline expires in the queue without dispatching behind active provider work (#17111)', async () => {
+        serverBehavior = 'delayed-single-succeed';
+        aiConfig.openAiCompatible.contentionTimeoutMs    = 250;
+        aiConfig.openAiCompatible.contentionRetryCount   = 0;
+
+        const laneHolder = TextEmbeddingService.embedText('active-provider-work', 'openAiCompatible');
+
+        await waitForCondition(() => requestCount === 1, 'the first request to hold the provider lane');
+
+        const result = await buildEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText     : TextEmbeddingService.embedText.bind(TextEmbeddingService),
+            input         : 'queued-deadline-probe',
+            operationLabel: 'Queued deadline embedding probe',
+            timeoutMs     : 40
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            errorClassification: 'consumer-probe-timeout',
+            errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+        });
+        expect(requestCount, 'the queued probe must make zero provider calls').toBe(1);
+
+        await expect(laneHolder).resolves.toEqual([1.4, 1.5, 1.6]);
+        await new Promise(resolve => setTimeout(resolve, 25));
+
+        expect(requestCount, 'releasing the lane must not dispatch the already-aborted probe').toBe(1);
+    });
+
+    test('a caller deadline shorter than one contention attempt aborts once with no post-abort retry (#17111)', async () => {
+        serverBehavior = 'timeout-all';
+        aiConfig.openAiCompatible.contentionTimeoutMs    = 100;
+        aiConfig.openAiCompatible.contentionRetryCount   = 2;
+        aiConfig.openAiCompatible.contentionRetryDelayMs = 25;
+
+        const result = await buildEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText     : TextEmbeddingService.embedText.bind(TextEmbeddingService),
+            input         : 'deadline-aborted-probe',
+            operationLabel: 'Deadline-aborted embedding probe',
+            timeoutMs     : 40
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            errorClassification: 'consumer-probe-timeout',
+            errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
+        });
+        expect(requestCount).toBe(1);
+
+        await new Promise(resolve => setTimeout(resolve, 75));
+        expect(requestCount, 'no retry may dispatch after the caller aborted the aggregate operation').toBe(1);
+    });
+
+    test('a deadline-bearing probe preserves an immediate terminal provider failure', async () => {
+        serverBehavior = 'fail-other';
+
+        const result = await buildEmbeddingProbeBlock({
+            cfg: {
+                embeddingProvider: 'openAiCompatible',
+                vectorDimension  : 3
+            },
+            embedText     : TextEmbeddingService.embedText.bind(TextEmbeddingService),
+            input         : 'terminal-failure-probe',
+            operationLabel: 'Terminal failure embedding probe',
+            timeoutMs     : 200
+        });
+
+        expect(result).toMatchObject({
+            status             : 'failed',
+            errorClassification: 'provider-failure',
+            errorCode          : 'EMBEDDING_PROVIDER_ERROR'
+        });
+        expect(requestCount).toBe(1);
     });
 
     test('HTTP contention status single embedding retries and succeeds', async () => {
