@@ -975,11 +975,19 @@ export class DeploymentStateBridgeService extends Base {
      * defaults cannot distinguish a declared value from a defaulted one and comparing against them
      * degrades a correctly-sized deployment.
      *
-     * @param {Object} options
-     * @param {Number} options.observedAt Epoch ms.
+     * **Take the reading BEFORE the first scheduling dispatch.** Memoization makes the first reading
+     * permanent, so a reading taken after admission freezes a load-contaminated result for the process
+     * lifetime — the starved-`/slots` condition this check was placed at boot to avoid, re-created
+     * through its own door and reported as an ordinary `unobservable`. The orchestrator therefore
+     * awaits this once during start, alongside the tenant-repo coverage prewarm and for the same
+     * reason; the snapshot path then re-publishes the cached receipt.
+     *
+     * @param {Object} [options]
+     * @param {Number} [options.observedAt=this.now()] Epoch ms. Defaults to the service clock so a
+     *     pre-poll caller need not thread one, and specs keep their injected `nowFn`.
      * @returns {Promise<Object|null>} The bounded receipt, or `null` when the lane is not applicable.
      */
-    async collectProviderLaneShape({observedAt}) {
+    async collectProviderLaneShape({observedAt = this.now()} = {}) {
         if (this.providerLaneShapeReceipt) {
             return this.providerLaneShapeReceipt;
         }

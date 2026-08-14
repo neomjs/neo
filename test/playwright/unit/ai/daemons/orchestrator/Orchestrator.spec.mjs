@@ -2953,3 +2953,100 @@ test.describe('Neo.ai.daemons.Orchestrator — supervised-child heap ceiling inj
         expect(witness.spawnedNodeOptions).toBe(`--max-old-space-size=${INJECTED}`);
     });
 });
+
+// The boot-order defect this guards: `runSchedulingPipeline` dispatches inside `poll()` BEFORE the
+// bridge's snapshot path runs, so a `/slots` read taken lazily from that path is issued after
+// tenant-repo-sync and friends are already admitted — under exactly the grind that starves the
+// endpoint. Because the receipt is memoized, that contaminated read becomes permanent and surfaces
+// as an ordinary unreachable lane. Gate and bound are exercised together here for the same reason
+// the sibling prewarm does it: an unbounded await on the boot path is its own outage.
+test.describe('observeProviderLaneShapeBeforeFirstPoll — boot-boundary gate and deadline', () => {
+    function orchestratorWithShapeProbe({owned = true, leaseLost = false, collectImpl}) {
+        const orchestrator = Neo.create(Orchestrator);
+        const logs         = [];
+
+        orchestrator.writeLog                        = (level, message) => logs.push({level, message});
+        orchestrator.isTaskAuthorityOwned            = taskName => owned && taskName === 'deployment-state-bridge';
+        orchestrator.authorityLeaseLost              = leaseLost;
+        orchestrator.deploymentStateBridgeService    = {collectProviderLaneShape: collectImpl};
+
+        return {orchestrator, logs}
+    }
+
+    test('a non-owning profile never reaches the probe', async () => {
+        let   calls          = 0;
+        const {orchestrator} = orchestratorWithShapeProbe({
+            owned: false, collectImpl: async () => { calls++; return {} }
+        });
+
+        await orchestrator.observeProviderLaneShapeBeforeFirstPoll(50);
+
+        expect(calls).toBe(0);
+        orchestrator.destroy()
+    });
+
+    test('a lost authority lease never reaches the probe', async () => {
+        let   calls          = 0;
+        const {orchestrator} = orchestratorWithShapeProbe({
+            leaseLost: true, collectImpl: async () => { calls++; return {} }
+        });
+
+        await orchestrator.observeProviderLaneShapeBeforeFirstPoll(50);
+
+        expect(calls).toBe(0);
+        orchestrator.destroy()
+    });
+
+    test('THE ORDERING PIN: an unresolved probe holds the boot path, so nothing after it can dispatch', async () => {
+        // `start()` awaits this immediately before `this.poll()`. While the probe is unresolved this
+        // promise must NOT settle — that pending state is what keeps `runSchedulingPipeline` from
+        // admitting load ahead of the reading. If this ever resolves early, the reading moves back
+        // behind admission and the memoized-contamination defect returns silently.
+        const {orchestrator} = orchestratorWithShapeProbe({collectImpl: () => new Promise(() => {})});
+
+        let settled = false;
+
+        const inFlight = orchestrator.observeProviderLaneShapeBeforeFirstPoll(10_000).then(() => { settled = true });
+
+        await new Promise(resolve => setTimeout(resolve, 40));
+
+        expect(settled, 'the boot path is still held while the probe is unresolved').toBe(false);
+
+        void inFlight;
+        orchestrator.destroy()
+    });
+
+    test('a never-settling probe cannot prevent the scheduler from starting', async () => {
+        // The other half of the same trade. The shipped reader bounds itself with AbortSignal.timeout;
+        // this deadline is the backstop for an injected or misbehaving one.
+        const {orchestrator} = orchestratorWithShapeProbe({collectImpl: () => new Promise(() => {})});
+        const startedAt      = Date.now();
+
+        await orchestrator.observeProviderLaneShapeBeforeFirstPoll(30);
+
+        expect(Date.now() - startedAt).toBeLessThan(2000);
+        orchestrator.destroy()
+    });
+
+    test('a throwing probe is fail-soft — boot proceeds and the failure is logged, never rethrown', async () => {
+        const {orchestrator, logs} = orchestratorWithShapeProbe({
+            collectImpl: async () => { throw new Error('slots exploded') }
+        });
+
+        await expect(orchestrator.observeProviderLaneShapeBeforeFirstPoll(50)).resolves.toBeUndefined();
+        expect(logs.some(entry => entry.level === 'ERROR' && entry.message.includes('slots exploded'))).toBe(true);
+        orchestrator.destroy()
+    });
+
+    test('an owning profile with a resolving probe takes the reading exactly once', async () => {
+        let   calls          = 0;
+        const {orchestrator} = orchestratorWithShapeProbe({
+            collectImpl: async () => { calls++; return {observable: true} }
+        });
+
+        await orchestrator.observeProviderLaneShapeBeforeFirstPoll(50);
+
+        expect(calls).toBe(1);
+        orchestrator.destroy()
+    });
+});
