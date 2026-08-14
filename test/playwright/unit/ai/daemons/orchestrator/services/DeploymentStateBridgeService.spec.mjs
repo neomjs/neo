@@ -3183,3 +3183,42 @@ test.describe('DeploymentStateBridgeService — a residency key the bridge never
         expect(model.providerResidency, 'and a partial misconfiguration does not suppress it').not.toBeNull();
     });
 });
+
+test.describe('#17049 — heavy-maintenance starvation projection (the consumed surface)', () => {
+    const collect = DeploymentStateBridgeService.prototype.collectHeavyMaintenanceStarvationSnapshot;
+
+    test('omits the block before the first verdict and projects a persisted verdict verbatim', () => {
+        expect(collect.call({}, {watchdogTaskState: null})).toBeNull();
+        expect(collect.call({}, {watchdogTaskState: {}})).toBeNull();
+        expect(collect.call({}, {})).toBeNull();
+
+        const verdict = {
+            posture        : 'degraded',
+            checkedAt      : '2026-08-14T09:00:00.000Z',
+            degradeAfterMs : 3600000,
+            waiterCount    : 1,
+            unreadableCount: 0,
+            leaseHolder    : 'dream',
+            breaches       : [{taskName: 'backup', priorityZero: true, bootstrapCritical: false, deferredSince: '2026-08-14T06:00:00.000Z', starvedForMs: 10800000, leaseHolder: 'dream'}]
+        };
+
+        expect(collect.call({}, {watchdogTaskState: {starvation: verdict}})).toEqual({
+            taskName: 'heavy-maintenance-starvation-watchdog',
+            ...verdict
+        });
+    });
+
+    test('the projection carries the healthy → degraded → healthy transition with no latch, and unknown is not a degradation', () => {
+        const healthy  = {posture: 'healthy', breaches: [], waiterCount: 0, unreadableCount: 0, leaseHolder: null, checkedAt: 'T1', degradeAfterMs: 3600000};
+        const degraded = {posture: 'degraded', breaches: [{taskName: 'backup'}], waiterCount: 1, unreadableCount: 0, leaseHolder: 'dream', checkedAt: 'T2', degradeAfterMs: 3600000};
+        const unknown  = {posture: 'unknown', breaches: [], waiterCount: 0, unreadableCount: 2, leaseHolder: null, checkedAt: 'T3', degradeAfterMs: 3600000};
+
+        expect(collect.call({}, {watchdogTaskState: {starvation: healthy}}).posture).toBe('healthy');
+        expect(collect.call({}, {watchdogTaskState: {starvation: degraded}}).posture).toBe('degraded');
+        expect(collect.call({}, {watchdogTaskState: {starvation: healthy}}).posture).toBe('healthy');
+
+        const projectedUnknown = collect.call({}, {watchdogTaskState: {starvation: unknown}});
+        expect(projectedUnknown.posture).toBe('unknown');
+        expect(projectedUnknown.breaches).toEqual([]);
+    });
+});

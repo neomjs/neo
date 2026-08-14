@@ -517,7 +517,7 @@ test.describe('wrapper lease/truth semantics (source contracts + projection shap
         expect(store).toContain('snapshot.maintenance = maintenance');
 
         // additive tolerance: the inspector tolerates absence of additive sections
-        expect(store).toContain("ADDITIVE_SNAPSHOT_SECTIONS = ['maintenance']");
+        expect(store).toContain("ADDITIVE_SNAPSHOT_SECTIONS = ['maintenance', 'heavyMaintenanceStarvation']");
     });
 
     test('the unreadable projection shape is one machine-consumable envelope', async () => {

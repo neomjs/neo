@@ -1,18 +1,18 @@
-import fs                       from 'fs/promises';
-import fsExtra                  from 'fs-extra';
-import path                     from 'path';
-import {fileURLToPath}          from 'url';
-import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import {isBundleRestorable}     from './helpers/bundleIntegrity.mjs';
-import {readDeployedRevision}   from '../shared/deployedRevision.mjs';
-import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
-import ChromaManager            from './managers/ChromaManager.mjs';
-import StorageRouter            from './managers/StorageRouter.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import logger                   from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
-import {createBoundedRetryGate} from '../shared/boundedRetryGate.mjs';
+import fs                            from 'fs/promises';
+import fsExtra                       from 'fs-extra';
+import path                          from 'path';
+import {fileURLToPath}               from 'url';
+import aiConfig                      from '../../mcp/server/memory-core/config.mjs';
+import Base                          from '../../../src/core/Base.mjs';
+import {isBundleRestorable}          from './helpers/bundleIntegrity.mjs';
+import {readDeployedRevision}        from '../shared/deployedRevision.mjs';
+import RuntimeFreshnessService       from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import ChromaManager                 from './managers/ChromaManager.mjs';
+import StorageRouter                 from './managers/StorageRouter.mjs';
+import ChromaLifecycleService        from './lifecycle/ChromaLifecycleService.mjs';
+import logger                        from '../../mcp/server/memory-core/logger.mjs';
+import {readGateState}               from '../../scripts/lifecycle/wakeSafetyGate.mjs';
+import {createBoundedRetryGate}      from '../shared/boundedRetryGate.mjs';
 import {
     buildEmbeddingProbeBlock,
     createEmbeddingProbeTimeoutError
@@ -920,6 +920,74 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
     }
 
     return state;
+}
+
+/**
+ * @summary Folds the orchestrator's heavy-maintenance starvation verdict into an aggregate health payload.
+ *
+ * Consumes the deployment-state snapshot's `heavyMaintenanceStarvation` section (the starvation
+ * watchdog's four-posture receipt) under every guard the contract names: only a PRESENT receipt from
+ * an `available` snapshot, with its own FRESH `checkedAt`, and `posture === 'degraded'` may degrade
+ * aggregate health. `healthy` / `disabled` / `unknown` postures change nothing — an inconclusive
+ * observation never authorizes degradation. A stale receipt, or a stale / schema-degraded /
+ * unavailable snapshot, cannot degrade either. An existing non-`healthy` verdict is never touched:
+ * the fold only ever moves `healthy` → `degraded`, so `unhealthy` wins by construction. Recovery
+ * needs no clearing logic — the watchdog recomputes its verdict from the live ledger each check, so
+ * a non-degraded receipt simply stops the fold from firing and cached-unhealthy semantics upstream
+ * guarantee a fresh re-read.
+ *
+ * Pure and injectable so the consumption matrix is unit-testable: the caller supplies the snapshot
+ * inspection and the clock; this function owns only the decision.
+ *
+ * @param {Object} options
+ * @param {Object} options.payload Aggregate health payload (mutated: `status`, `details`, and the
+ *   `heavyMaintenanceStarvation` consumed-observation descriptor).
+ * @param {Object|null} options.inspection `readDeploymentStateSnapshot()` result, or null when the read threw.
+ * @param {Number} options.now Epoch-ms clock for receipt freshness.
+ * @param {Number} options.staleAfterMs Freshness bound applied to the RECEIPT's `checkedAt` — the same
+ *   deployment-state authority that bounds the snapshot itself, so one config leaf governs the whole
+ *   consumed surface.
+ * @returns {Object} The consumed-observation descriptor written onto the payload.
+ */
+export function foldHeavyMaintenanceStarvation({payload, inspection, now, staleAfterMs}) {
+    const receipt     = inspection?.snapshot?.heavyMaintenanceStarvation ?? null;
+    const observation = {
+        state  : 'not-consumed',
+        posture: typeof receipt?.posture === 'string' ? receipt.posture : null
+    };
+
+    if (!inspection || inspection.status === 'unavailable') {
+        observation.state = 'snapshot-unavailable';
+    } else if (inspection.status !== 'available') {
+        // 'stale' and schema-'degraded' snapshots carry bytes but no degradation authority.
+        observation.state = `snapshot-${inspection.status}`;
+    } else if (!receipt || typeof receipt !== 'object') {
+        observation.state = 'absent';
+    } else {
+        const checkedAtMs = Date.parse(receipt.checkedAt);
+        const fresh       = Number.isFinite(checkedAtMs) && staleAfterMs > 0 && now - checkedAtMs <= staleAfterMs;
+
+        if (!fresh) {
+            observation.state = 'receipt-stale';
+        } else if (receipt.posture === 'degraded') {
+            observation.state       = 'consumed-degraded';
+            observation.breaches    = receipt.breaches ?? [];
+            observation.leaseHolder = receipt.leaseHolder ?? null;
+
+            if (payload.status === 'healthy') {
+                payload.status = 'degraded';
+            }
+            // A degraded verdict withdraws the all-clear line a cached-healthy payload carries —
+            // the two statements cannot coexist in one response.
+            payload.details = payload.details.filter(detail => detail !== 'All features are operational');
+            payload.details.push(`Heavy-maintenance starvation: ${(receipt.breaches ?? []).map(breach => `${breach.taskName} deferred since ${breach.deferredSince}`).join(', ') || 'degraded receipt'} (lease holder: ${receipt.leaseHolder ?? 'none'})`);
+        } else {
+            observation.state = 'consumed-clear';
+        }
+    }
+
+    payload.heavyMaintenanceStarvation = observation;
+    return observation;
 }
 
 class HealthService extends Base {

@@ -6,7 +6,7 @@ import ToolService                   from '../../ToolService.mjs';
 import GraphqlService                from '../../../services/github-workflow/GraphqlService.mjs';
 import PullRequestHistoryService     from '../../../services/github-workflow/PullRequestHistoryService.mjs';
 import GraphService                  from '../../../services/memory-core/GraphService.mjs';
-import HealthService                 from '../../../services/memory-core/HealthService.mjs';
+import HealthService, {foldHeavyMaintenanceStarvation} from '../../../services/memory-core/HealthService.mjs';
 import MemoryService                 from '../../../services/memory-core/MemoryService.mjs';
 import SessionService                from '../../../services/memory-core/SessionService.mjs';
 import SummaryService                from '../../../services/memory-core/SummaryService.mjs';
@@ -199,6 +199,8 @@ const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
  * @param {Object} options.plane Observed Memory Core plane identity.
  * @param {Object|null} [options.vectorGeneration=null] Vector-generation election health.
  * @param {Object|null} [options.deploymentInspection=null] Current orchestrator bridge inspection.
+ * @param {Number} [options.starvationNow=Date.now()] Receipt-freshness clock.
+ * @param {Number|null} [options.starvationStaleAfterMs=null] Receipt-freshness bound.
  * @returns {Object}
  */
 export function composeMemoryCoreHealthcheck({
@@ -206,7 +208,9 @@ export function composeMemoryCoreHealthcheck({
     memoryWalDrain,
     plane,
     vectorGeneration = null,
-    deploymentInspection = null
+    deploymentInspection = null,
+    starvationNow = Date.now(),
+    starvationStaleAfterMs = null
 }) {
     const
         backupHealth = deploymentInspection?.ok === true
@@ -220,35 +224,68 @@ export function composeMemoryCoreHealthcheck({
         drainStalled   = memoryWalDrain.state === 'stalled',
         backupDegraded = backupHealth?.status === 'degraded';
 
-    if (!drainStalled && !backupDegraded) {
-        return response
+    let composed = response;
+
+    if (drainStalled || backupDegraded) {
+        const details = Array.isArray(health.details)
+            ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
+            : [];
+
+        if (drainStalled) {
+            details.push(
+                `Memory WAL embed drain is stalled: ${memoryWalDrain.pendingDrainDepth} pending records; ` +
+                `oldest pending age ${memoryWalDrain.oldestPendingAgeMs} ms exceeds the ` +
+                `${memoryWalDrain.stallThresholdMs} ms threshold.`
+            )
+        }
+
+        if (backupDegraded) {
+            const reasonCodes = Array.isArray(backupHealth.reasonCodes) && backupHealth.reasonCodes.length > 0
+                ? backupHealth.reasonCodes.join(', ')
+                : 'see maintenance.backup';
+
+            details.push(`Backup maintenance is degraded: ${reasonCodes}.`)
+        }
+
+        composed = {
+            ...response,
+            status: health.status === 'unhealthy' ? 'unhealthy' : 'degraded',
+            details
+        }
     }
 
-    const details = Array.isArray(health.details)
-        ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
-        : [];
+    // Heavy-maintenance starvation rides the SAME request-fresh deployment inspection and folds at
+    // THIS composed surface — the MCP healthcheck tool, the Docker healthcheck, and the
+    // container-health controllers — and deliberately NOT into `HealthService`'s own payload:
+    // `ensureHealthy()` gates tool admission on that payload, and a starved maintenance lane must
+    // never block capabilities it does not affect (semantic recall stays dispatchable while this
+    // composed surface reports degraded). Per-tool-call composition makes the consumption
+    // request-fresh by construction — no cache can blind the verdict. All degradation-authority
+    // guards (fresh degraded receipt only; unknown/disabled/stale/unavailable never degrade;
+    // unhealthy wins; the all-clear line is withdrawn) live in the pure fold.
+    try {
+        const starvationPayload = {...composed};
 
-    if (drainStalled) {
-        details.push(
-            `Memory WAL embed drain is stalled: ${memoryWalDrain.pendingDrainDepth} pending records; ` +
-            `oldest pending age ${memoryWalDrain.oldestPendingAgeMs} ms exceeds the ` +
-            `${memoryWalDrain.stallThresholdMs} ms threshold.`
-        )
+        foldHeavyMaintenanceStarvation({
+            payload     : starvationPayload,
+            inspection  : deploymentInspection,
+            now         : starvationNow,
+            staleAfterMs: starvationStaleAfterMs
+        });
+
+        composed = starvationPayload
+    } catch (error) {
+        // The bridge section is additive observability, never healthcheck availability authority.
+        // Fold against a clone so a malformed receipt cannot partially degrade the response before
+        // failing; preserve the stronger base verdict and expose the bounded diagnostic instead.
+        composed.heavyMaintenanceStarvation = {
+            state  : 'fold-error',
+            posture: null,
+            error  : error?.message ?? String(error)
+        }
     }
 
-    if (backupDegraded) {
-        const reasonCodes = Array.isArray(backupHealth.reasonCodes) && backupHealth.reasonCodes.length > 0
-            ? backupHealth.reasonCodes.join(', ')
-            : 'see maintenance.backup';
-
-        details.push(`Backup maintenance is degraded: ${reasonCodes}.`)
-    }
-
-    return {
-        ...response,
-        status: health.status === 'unhealthy' ? 'unhealthy' : 'degraded',
-        details
-    }
+    return composed
 }
 
 /**
@@ -291,6 +328,9 @@ const serviceMapping = {
         // Fresh bridge truth only. `composeMemoryCoreHealthcheck` keeps stale/unavailable
         // observations explicit but prevents either from authorizing a backup degradation.
         deploymentInspection: await readDeploymentInspection(),
+        // The starvation receipt's own checkedAt freshness reads the same deployment-state
+        // authority that bounds the snapshot — one leaf governs the whole consumed surface.
+        starvationStaleAfterMs: AiConfig.orchestrator.deploymentStateBridge.staleAfterMs,
         // Elected + parked vector-generation identities (never throws; `missing` on a plane that
         // has not declared an election) — acceptance for a generation cutover reads this block.
         vectorGeneration: await projectVectorGenerationHealth({
