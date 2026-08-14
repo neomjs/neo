@@ -20,6 +20,25 @@ const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 export const PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION = 'provider-lane-composition.v1';
+
+/**
+ * @summary The exact steady-state liveness probe the embedding lane must run.
+ *
+ * Guard target for `embedding-probe-liveness-missing`: the analyzer asserts command equality,
+ * not token presence, so a probe that merely mentions the path (`true # /health`) cannot pass.
+ * @type {String}
+ */
+export const EMBEDDING_LIVENESS_PROBE_COMMAND = 'curl --fail --silent http://127.0.0.1:8080/health >/dev/null';
+
+/**
+ * @summary Upper bound for the embedding lane's pinned base HTTP pool.
+ *
+ * The engine's default derives the pool from host hardware (`hardware_concurrency - 1`); the
+ * bound refuses any host-sized value while leaving room above the canonical pin of 4. It bounds
+ * the configured BASE pool only — the engine may add dynamic HTTP workers under load.
+ * @type {Number}
+ */
+export const EMBEDDING_HTTP_THREADS_MAX = 8;
 export const PROVIDER_LANE_KEYS                        = Object.freeze(['chat', 'embedding']);
 export const PROVIDER_LANE_ROLE_KEYS                   = Object.freeze(['model', 'graph', 'kbAskSynthesis', 'embedding']);
 export const PROVIDER_LANE_SERVICE_KEYS                = Object.freeze({chat: 'chat-model', embedding: 'embedding-model'});
@@ -210,6 +229,11 @@ function parsedUrl(value) {
     } catch {
         return null
     }
+}
+
+function healthcheckText(service) {
+    const test = service?.healthcheck?.test;
+    return Array.isArray(test) ? test.join('\n') : String(test ?? '')
 }
 
 function commandText(service) {
@@ -577,6 +601,50 @@ export function analyzeProviderLaneComposition(composition, {
     fail(embeddingEnv.NEO_PROVIDER_LANE_MODEL_SHA256 === lanes.embedding.model.digest.replace(/^sha256:/, ''), 'embedding-model-digest-drift', 'services.embedding-model.environment.NEO_PROVIDER_LANE_MODEL_SHA256', lanes.embedding.model.digest.replace(/^sha256:/, ''), embeddingEnv.NEO_PROVIDER_LANE_MODEL_SHA256);
     fail(typeof embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL === 'string' && lanes.embedding.model.coordinate.includes('@69d0e58a13e463cd99a9b83e3f5fee7c10265fab/') && embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL.includes('/69d0e58a13e463cd99a9b83e3f5fee7c10265fab/'),
         'embedding-model-coordinate-drift', 'services.embedding-model.environment.NEO_PROVIDER_LANE_MODEL_URL', lanes.embedding.model.coordinate, embeddingEnv.NEO_PROVIDER_LANE_MODEL_URL);
+
+    // Steady-state probes must be liveness-only, and the embedding probe must BE the canonical
+    // executable — token presence proves nothing (`true # /health` is not a probe). Hashing
+    // multi-GB weights inside the lane's own CPU quota starves the probe under exactly the load
+    // it must tolerate, and the false unhealthy feeds the recovery actuator a restart that
+    // destroys in-flight work. The boot-time integrity checks stay asserted above via the
+    // entrypoint command assertions.
+    const chatProbe          = healthcheckText(chatService);
+    const embeddingProbeTest = embeddingService?.healthcheck?.test;
+    fail(!chatProbe.includes('sha256sum'), 'chat-probe-heavy-integrity',
+        'services.chat-model.healthcheck.test', 'liveness probe free of weight/manifest hashing', chatProbe);
+    fail(!healthcheckText(embeddingService).includes('sha256sum'), 'embedding-probe-heavy-integrity',
+        'services.embedding-model.healthcheck.test', 'liveness probe free of weight hashing', healthcheckText(embeddingService));
+    fail(Array.isArray(embeddingProbeTest) && embeddingProbeTest.length === 2 &&
+        embeddingProbeTest[0] === 'CMD-SHELL' &&
+        embeddingProbeTest[1] === EMBEDDING_LIVENESS_PROBE_COMMAND,
+        'embedding-probe-liveness-missing', 'services.embedding-model.healthcheck.test',
+        ['CMD-SHELL', EMBEDDING_LIVENESS_PROBE_COMMAND], embeddingProbeTest ?? null);
+
+    // Compute threads must equal the ELECTED CPU allocation exactly — the same closed deployment
+    // input the actor already exports, consumed twice. llama.cpp's -1 default resolves compute
+    // workers to the host's PHYSICAL cores and its HTTP pool to
+    // max(n_parallel + 4, hardware_concurrency - 1) — a CPU quota changes neither answer — so an
+    // unpinned lane runs host-sized pools inside its quota (observed: 98 threads in a 6-cpu
+    // cgroup on a 32c/64t host, ~5.3x compute oversubscription presenting as saturation). The
+    // HTTP value pins the base fixed pool (the engine may add dynamic HTTP workers; the bound
+    // exists to refuse host-derived defaults like hw-1, not to cap totals).
+    const embeddingThreads = integerAboveZero(embeddingEnv.LLAMA_ARG_THREADS);
+    fail(embeddingThreads !== null, 'embedding-threads-unpinned',
+        'services.embedding-model.environment.LLAMA_ARG_THREADS',
+        'integer equal to the elected CPU allocation', embeddingEnv.LLAMA_ARG_THREADS ?? null);
+    if (embeddingThreads !== null) {
+        fail(embeddingThreads === lanes.embedding.cpuCores, 'embedding-threads-cpu-mismatch',
+            'services.embedding-model.environment.LLAMA_ARG_THREADS',
+            `=== elected lane cpuCores (${lanes.embedding.cpuCores})`, embeddingThreads);
+    }
+    const embeddingHttpThreads = integerAboveZero(embeddingEnv.LLAMA_ARG_THREADS_HTTP);
+    fail(embeddingHttpThreads !== null, 'embedding-http-threads-unpinned',
+        'services.embedding-model.environment.LLAMA_ARG_THREADS_HTTP', 'positive integer', embeddingEnv.LLAMA_ARG_THREADS_HTTP ?? null);
+    if (embeddingHttpThreads !== null) {
+        fail(embeddingHttpThreads <= EMBEDDING_HTTP_THREADS_MAX, 'embedding-http-threads-oversized',
+            'services.embedding-model.environment.LLAMA_ARG_THREADS_HTTP',
+            `<= ${EMBEDDING_HTTP_THREADS_MAX} (a host-derived pool like hw-1 must not pass)`, embeddingHttpThreads);
+    }
 
     const applicationServices = ['kb-server', 'mc-server', 'orchestrator'];
     for (const serviceKey of applicationServices) {
