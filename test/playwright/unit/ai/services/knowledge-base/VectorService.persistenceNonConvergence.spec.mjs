@@ -551,7 +551,12 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
                 receivedTextCounts.push(texts.length);
 
                 // Sweep 1: a timeout-class provider failure carrying 10 completed embeddings — the
-                // carried prefix persists, then the timeout classification ends the sweep.
+                // carried prefix persists, then the timeout classification ends the sweep. The
+                // producer span (failedTextOffset/failedTextCount) is part of the real transport's
+                // contract on EVERY request failure: two completed width-5 chunks, so the failed
+                // request held texts [10, 15). A stub without the span models a transport that no
+                // longer exists — and trips the undeliverable classifier's conservative
+                // unknown-member fallback, which suspects the whole dispatch instead of the request.
                 if (embedTextsCalls === 1) {
                     const error = new Error('openAiCompatible request timed out');
 
@@ -559,6 +564,8 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
                     error.completedChunkCount = 2;
                     error.totalChunkCount     = 10;
                     error.completedTextCount  = 10;
+                    error.failedTextOffset    = 10;
+                    error.failedTextCount     = 5;
                     error.embeddings          = texts.slice(0, 10).map(() => new Array(384).fill(0.1));
                     throw error
                 }
@@ -579,17 +586,26 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
             expect(secondSweep, 'sweep 2 completes').toBeNull();
 
             // The witness AC-2 names: production selection — not a test-authored filter — excluded
-            // the persisted prefix, so the provider was paid for exactly the 40 missing chunks.
-            expect(receivedTextCounts, 'the deployed re-sweep purchased only the un-persisted remainder')
-                .toEqual([50, 40]);
+            // the persisted prefix, so the provider was paid for exactly the 40 missing chunks and
+            // not one more. The CALL SHAPE changed with the undeliverable classifier: the timed-out
+            // request's five members are timeout suspects, so the re-sweep offers each ALONE first
+            // (a single-input request is the only shape whose next timeout would name its cause
+            // exactly); the innocent suspects embed, clear, and the untainted remainder ships as one
+            // batch. Five cheap single-input successes is the price of never fencing an innocent.
+            expect(receivedTextCounts, 'the deployed re-sweep purchased only the un-persisted remainder — suspects isolated first, then one clean batch')
+                .toEqual([50, 1, 1, 1, 1, 1, 35]);
+            expect(
+                receivedTextCounts.slice(1).reduce((sum, count) => sum + count, 0),
+                'the re-purchase total is exactly the un-persisted remainder'
+            ).toBe(40);
             expect(collection.landed.size, 'the corpus completes').toBe(50);
 
-            // And the prefix ids are the ones sweep 2 skipped: the second upsert attempt starts
-            // exactly where the persisted prefix ends.
+            // And the prefix ids are the ones sweep 2 skipped: no re-sweep write may touch any id
+            // the carried-prefix persist already landed.
             expect(collection.upsertAttempts[0]).toHaveLength(10);
-            expect(collection.upsertAttempts[1]).toHaveLength(40);
+            expect(collection.upsertAttempts.slice(1).flat()).toHaveLength(40);
             expect(
-                collection.upsertAttempts[1].some(id => collection.upsertAttempts[0].includes(id)),
+                collection.upsertAttempts.slice(1).flat().some(id => collection.upsertAttempts[0].includes(id)),
                 'no persisted chunk may be re-purchased or re-written by the re-sweep'
             ).toBe(false);
         } finally {
