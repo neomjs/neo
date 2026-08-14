@@ -1586,18 +1586,58 @@ function reportComposeDefaultRestatements(violations) {
 }
 
 /**
- * @summary Tests whether a Compose source mentions an env name as a whole token.
+ * @summary Classifies a Compose source's projection of one clock leaf against its config default.
  *
- * Substring matching would let a longer neighbour satisfy a shorter requirement
- * (`…_KEEP_ALIVE_EXTENDED` standing in for `…_KEEP_ALIVE`), so the match is bounded on the right
- * by anything that is not a name character. The left side needs no guard: every generated name
- * carries its full namespace prefix, so a shorter name can never end where a longer one starts.
+ * ## Why a token search is not enough, and how it false-greens
+ *
+ * The first shape of this check asked only whether the env NAME appeared anywhere in the file. That
+ * proves an identifier is present; it proves nothing about what an operator reads. Three shapes
+ * passed it while publishing no usable information, and the middle one is the dangerous class:
+ *
+ * - a value that no longer matches the leaf (`"15000"` after the default moved to `20000`) — the
+ *   comment is now confidently WRONG, which is worse than absent, because an operator trusts a
+ *   number and only distrusts a blank;
+ * - prose that merely names the variable (`# …_TIMEOUT_MS exists somewhere`);
+ * - a contaminated token (`OLD_…_TIMEOUT_MS`), which slipped through because the earlier right-only
+ *   boundary was justified by reasoning about SHORTER-vs-LONGER generated names and never
+ *   considered a PREFIXED one.
+ *
+ * A documentation guard has to validate the information consumed, not the identifier carrying it,
+ * or visibility drifts while enforcement stays green — the same operator-blindness this rule exists
+ * to end, rebuilt one layer up.
+ *
+ * ## The canonical projection line
+ *
+ * Both boundaries are anchored, the line must be a COMMENT (never a live key — that is the sibling
+ * rule's territory), the value must equal the current config default, and a trailing guidance
+ * comment must be present and non-empty:
+ *
+ *     # NEO_X_TIMEOUT_MS: "15000"   # per-attempt ceiling, ONE single-input embed
+ *
+ * Requiring value-equality is what makes the projection self-invalidating: change the leaf and every
+ * stale comment fails on the next run, so the documentation cannot rot silently.
+ * One env name can bind more than one config path, so the accepted set is every row's default —
+ * the same tolerance the sibling restatement rule applies, for the same reason: the projection is
+ * correct if it names a value the leaf actually resolves to.
  * @param {String} source Raw Compose file text, comments included.
  * @param {String} env Environment variable name.
- * @returns {Boolean}
+ * @param {Array<Object>} rows The leaf's `{configPath, default}` rows.
+ * @returns {String|null} A violation kind, or `null` when the projection is valid.
  */
-function mentionsEnvToken(source, env) {
-    return new RegExp(`${env}(?![A-Z0-9_])`).test(source)
+function classifyProjection(source, env, rows) {
+    const
+        expected = (rows || []).map(row => serializeConfigDefault(row.default)),
+        line     = new RegExp(`^[^\\S\\n]*#[^\\S\\n]*(?<![A-Z0-9_])${env}(?![A-Z0-9_])[^\\S\\n]*:[^\\S\\n]*(\\S+?)[^\\S\\n]*(#[^\\n]*)?$`, 'm')
+            .exec(source);
+
+    if (!line) return 'unprojected-behavior-binding-clock';
+
+    const [, rawValue, guidance] = line;
+
+    if (!expected.includes(rawValue.replace(/^"|"$/g, ''))) return 'projection-default-mismatch';
+    if (!guidance || !guidance.slice(1).trim())             return 'projection-missing-guidance';
+
+    return null
 }
 
 /**
@@ -1627,11 +1667,11 @@ function mentionsEnvToken(source, env) {
  * keeps the decision reviewable instead of buried in a heuristic.
  * @param {Object} options
  * @param {Object} options.composeSources Raw file text keyed by repo-relative path.
- * @param {Object} options.envNamesByFile Env names available to each file, keyed by repo-relative path.
+ * @param {Object} options.envDefaultsByFile Env-name → config default, keyed by repo-relative path.
  * @param {Object} options.policy The `$behaviorBindingProjection` policy.
  * @returns {Array<Object>} Violations.
  */
-export function detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envNamesByFile, policy}) {
+export function detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envDefaultsByFile, policy}) {
     const
         suffixes   = policy?.clockSuffixes || [],
         violations = [];
@@ -1641,14 +1681,22 @@ export function detectUnprojectedBehaviorBindingClocksFromSources({composeSource
 
         if (typeof source !== 'string') continue;
 
-        const namespaces = profile.namespaces || [];
+        const
+            defaults   = envDefaultsByFile[file] || {},
+            namespaces = profile.namespaces || [];
 
-        for (const env of envNamesByFile[file] || []) {
+        for (const [env, rows] of Object.entries(defaults)) {
             if (!namespaces.some(namespace => env.startsWith(namespace))) continue;
             if (!suffixes.some(suffix => env.endsWith(suffix)))            continue;
-            if (mentionsEnvToken(source, env))                             continue;
 
-            violations.push({env, file, kind: 'unprojected-behavior-binding-clock'})
+            const kind = classifyProjection(source, env, rows);
+
+            if (kind) {
+                violations.push({
+                    configDefault: (rows || []).map(row => serializeConfigDefault(row.default)).join(' | '),
+                    env, file, kind
+                })
+            }
         }
     }
 
@@ -1674,9 +1722,9 @@ export async function detectUnprojectedBehaviorBindingClocks({rootDir = ROOT_DIR
     if (!policy) return [];
 
     const
-        composeSources = {},
-        envNamesByFile = {},
-        violations     = [];
+        composeSources    = {},
+        envDefaultsByFile = {},
+        violations        = [];
 
     for (const [file, profile] of Object.entries(policy.profiles || {})) {
         try {
@@ -1691,14 +1739,12 @@ export async function detectUnprojectedBehaviorBindingClocks({rootDir = ROOT_DIR
             continue
         }
 
-        envNamesByFile[file] = Object.keys(
-            await buildConfigEnvDefaultsForTemplate({rootDir, template: profile.template})
-        )
+        envDefaultsByFile[file] = await buildConfigEnvDefaultsForTemplate({rootDir, template: profile.template})
     }
 
     return [
         ...violations,
-        ...detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envNamesByFile, policy})
+        ...detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envDefaultsByFile, policy})
     ]
 }
 
@@ -1713,7 +1759,14 @@ function reportUnprojectedBehaviorBindingClocks(violations) {
     for (const violation of violations) {
         if (violation.kind === 'unprojected-behavior-binding-clock') {
             console.error(`  ${violation.file}: ${violation.env} binds behavior but is not projected`);
-            console.error('    fix: add a commented line with its default and plane-class guidance (do NOT restate the default as a live value)')
+            console.error(`    fix: add   # ${violation.env}: "${violation.configDefault}"   # <plane-class guidance>`);
+            console.error('    (a COMMENT, never a live key — a live value equal to the default is the sibling rule\'s violation)')
+        } else if (violation.kind === 'projection-default-mismatch') {
+            console.error(`  ${violation.file}: ${violation.env} is projected with a STALE value — config default is now ${violation.configDefault}`);
+            console.error('    an operator reads this number and trusts it; a wrong projection is worse than none')
+        } else if (violation.kind === 'projection-missing-guidance') {
+            console.error(`  ${violation.file}: ${violation.env} is projected without plane-class guidance`);
+            console.error('    add a trailing `# …` explaining what the knob does on a CPU-constrained vs GPU plane')
         } else {
             console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
         }
