@@ -29,7 +29,7 @@ export const FLEET_S1_METHOD_POLICY = Object.freeze({
     removeAgent           : 'awaiting-s5',
     fleetStatus           : 'awaiting-s3',
     fleetRuntimeStatus    : 'awaiting-s3',
-    getBootIdentity       : 'awaiting-s2',
+    getBootIdentity       : 'ready',
     fleetActivity         : 'awaiting-s3',
     fleetHistory          : 'awaiting-s3',
     fleetMemories         : 'awaiting-s5',
@@ -43,6 +43,48 @@ export const FLEET_S1_METHOD_POLICY = Object.freeze({
     fleetWakeRoutes       : 'awaiting-s3'
 });
 
+/**
+ * @summary The R3 verb-class ledger: every wire verb is `read-observe` or `lifecycle-write`, and
+ * the split is enforced AT ADMISSION — before availability negotiation — so authority shape never
+ * leaks feature topology to a caller the shape refuses. Read-observe verbs admit any
+ * authenticated context (possession-proven identity may look). Lifecycle-write verbs additionally
+ * require the forge-resolved admission subject (`ownerPrincipal`): possession admits the
+ * transport, identity owns the records — a caller without a stable subject cannot mutate what
+ * nothing stable would own. The grant families later hang their envelopes on exactly these
+ * classes; this ledger is the seam they consume.
+ *
+ * Same contract discipline as the slice ledger above: extending `FLEET_WIRE_METHODS` without
+ * classifying the verb here is a boot/test-visible breach, and an UNCLASSIFIED verb refuses
+ * fail-closed rather than defaulting into either class.
+ * @type {Readonly<Record<String, 'read-observe'|'lifecycle-write'>>}
+ */
+export const FLEET_METHOD_SCOPE_CLASSES = Object.freeze({
+    defineAgent           : 'lifecycle-write',
+    configureAgent        : 'lifecycle-write',
+    setRepo               : 'lifecycle-write',
+    setAvatar             : 'lifecycle-write',
+    listAgents            : 'read-observe',
+    getAgent              : 'read-observe',
+    startAgent            : 'lifecycle-write',
+    stopAgent             : 'lifecycle-write',
+    restartAgent          : 'lifecycle-write',
+    removeAgent           : 'lifecycle-write',
+    fleetStatus           : 'read-observe',
+    fleetRuntimeStatus    : 'read-observe',
+    getBootIdentity       : 'read-observe',
+    fleetActivity         : 'read-observe',
+    fleetHistory          : 'read-observe',
+    fleetMemories         : 'read-observe',
+    fleetRoster           : 'read-observe',
+    fleetMailboxMirror    : 'read-observe',
+    connectTenant         : 'lifecycle-write',
+    listTenants           : 'read-observe',
+    composeOperatorMessage: 'lifecycle-write',
+    markFleetCaughtUp     : 'lifecycle-write',
+    resolveViewerIdentity : 'read-observe',
+    fleetWakeRoutes       : 'read-observe'
+});
+
 const SLICE_LABELS = Object.freeze({
     'awaiting-s2': 'S2 admission policy',
     'awaiting-s3': 'S3 viewer projection',
@@ -52,7 +94,9 @@ const SLICE_LABELS = Object.freeze({
 });
 
 /**
- * @summary The exact Fleet wire operations S1 exposes; empty until data authorization exists.
+ * @summary The exact Fleet wire operations the composed service currently serves. The S2
+ * admission subject opened the first one: `getBootIdentity`, a read-observe advisory whose bridge
+ * answer degrades honestly when no boot-identity source is wired.
  * @type {ReadonlyArray<String>}
  */
 export const FLEET_S1_READY_METHODS = Object.freeze(
@@ -62,22 +106,45 @@ export const FLEET_S1_READY_METHODS = Object.freeze(
 );
 
 /**
- * @summary Negotiate one composed-service request before applying the S1 availability boundary.
- * Unknown verbs retain the canonical `unsupported-method` state; known future-slice verbs return a
- * versioned `degraded` state naming their semantic owner and never touch `FleetControlBridge`.
+ * @summary Negotiate one composed-service request: protocol, then the R3 verb-class boundary AT
+ * ADMISSION, then the S1 availability boundary. Unknown verbs retain the canonical
+ * `unsupported-method` state; a KNOWN verb missing from the scope-class ledger refuses fail-closed
+ * (never a defaulted class); a `lifecycle-write` verb without a forge-resolved admission subject
+ * refuses BEFORE availability is negotiated — authority shape precedes feature topology, so an
+ * unauthorized caller learns nothing about slice ownership; known future-slice verbs then return
+ * a versioned `degraded` state naming their semantic owner and never touch `FleetControlBridge`.
  * @param {Object} request Versioned Fleet wire request (`{method, params, protocol}`).
  * @param {Object} [bridge] Injectable bridge used by the canonical dispatcher.
- * @returns {Promise<Object>} Versioned finite-state response or named-slice degradation.
+ * @param {Object|null} [requestContext] Frozen admission context (`createFleetRequestContext`
+ *     shape); its `ownerPrincipal` is the derived subject the lifecycle-write class requires.
+ * @returns {Promise<Object>} Versioned finite-state response, refusal, or named-slice degradation.
  */
-export async function dispatchFleetS1Request(request={}, bridge) {
+export async function dispatchFleetS1Request(request={}, bridge, requestContext=null) {
     const
         selection   = selectFleetWireContract(request?.protocol),
-        disposition = Object.hasOwn(FLEET_S1_METHOD_POLICY, request?.method)
-        ? FLEET_S1_METHOD_POLICY[request.method]
-        : null;
+        known       = Object.hasOwn(FLEET_S1_METHOD_POLICY, request?.method),
+        disposition = known ? FLEET_S1_METHOD_POLICY[request.method] : null;
 
     if (!selection.ok) {
         return createFleetWireResponse(selection.state, selection)
+    }
+
+    if (known) {
+        const scopeClass = FLEET_METHOD_SCOPE_CLASSES[request.method];
+
+        if (scopeClass !== 'read-observe' && scopeClass !== 'lifecycle-write') {
+            return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error   : `fleet: '${request.method}' carries no scope class — the verb-class ledger must classify every wire verb`,
+                protocol: selection.protocol
+            })
+        }
+
+        if (scopeClass === 'lifecycle-write' && !requestContext?.ownerPrincipal) {
+            return createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error   : `fleet: '${request.method}' is a lifecycle-write verb and requires a forge-resolved admission subject — possession admits the transport, identity owns the records`,
+                protocol: selection.protocol
+            })
+        }
     }
 
     if (disposition?.startsWith('awaiting-')) {
