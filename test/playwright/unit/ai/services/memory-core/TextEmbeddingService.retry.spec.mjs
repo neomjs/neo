@@ -694,6 +694,65 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         ]);
     });
 
+    // Mutation-tested in both directions. Deleting the drain's notification turns this RED
+    // (`hookCalls` empty). Delaying that notification past `task.reject` by a microtask AND by a
+    // macrotask both leave it GREEN — so this test pins that the final queue rejection notifies the
+    // caller circuit exactly once with the source error, and deliberately does NOT claim to pin the
+    // notify-before-next-selection ORDERING. No delay injectable at this seam let the queued
+    // repository dispatch, which is a fact about the lane worth knowing before anyone writes an
+    // ordering guarantee against it.
+    test('a final queue timeout notifies the caller circuit once with the source provider error', async () => {
+        serverBehavior = 'timeout-all';
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 25;
+
+        const
+            controller   = new AbortController(),
+            circuitError = Object.assign(new Error('tenant sweep provider circuit is open'), {
+                code: 'KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN'
+            }),
+            hookCalls         = [],
+            onProviderTimeout = error => {
+                hookCalls.push(error);
+                controller.abort(circuitError)
+            };
+
+        // B must be GENUINELY QUEUED BEHIND A, not merely started second. An earlier draft launched
+        // both together and asserted `requestCount === 1`; it passed with the notification deleted
+        // AND with it delayed by a macrotask, because B was aborted before it ever reached the queue.
+        // The assertion was true for a reason that had nothing to do with this fix. So: dispatch A,
+        // wait until it actually holds the lane, and only then enqueue B.
+        const repoA = TextEmbeddingService.embedTexts(['repo-a'], 'openAiCompatible', {
+            onProviderTimeout,
+            signal: controller.signal
+        }).then(() => null, error => error);
+
+        await waitForCondition(() => requestCount === 1, 'repo A to hold the provider lane');
+
+        // Both callers are BATCH priority, so the interactive-overtake allowance in the selector
+        // cannot reorder them: with no interactive task queued, the selection after A's rejection
+        // is B. That is what makes `requestCount` a truthful statement about B.
+        const repoB = TextEmbeddingService.embedTexts(['repo-b'], 'openAiCompatible', {
+            onProviderTimeout,
+            signal: controller.signal
+        }).then(() => null, error => error);
+
+        const [errorA, errorB] = await Promise.all([repoA, repoB]);
+
+        expect(errorA?.message, 'the dispatched repository keeps its own provider timeout')
+            .toMatch(/openAiCompatible request timed out after 25ms/);
+
+        expect(hookCalls, 'the final timeout notifies the caller circuit exactly once').toHaveLength(1);
+        expect(hookCalls[0], 'the hook receives the source provider error, not a fabricated one').toBe(errorA);
+
+        // The whole point of the ticket: B was queued behind A and must never reach the provider that
+        // just proved broken. `timeout-all` never responds, so a dispatched B would have hung rather
+        // than failed fast — a second request here is the defect, not a flake.
+        expect(requestCount, 'repo B must make zero provider calls in this sweep').toBe(1);
+
+        expect(errorB, 'the queued repository fails, rather than silently succeeding').toBeTruthy();
+        expect(errorB, 'and it does not inherit A\'s timeout identity').not.toBe(errorA);
+    });
+
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {
         serverBehavior = 'chunked-batch-succeed';
         aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
