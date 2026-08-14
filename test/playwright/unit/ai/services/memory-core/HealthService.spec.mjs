@@ -1680,6 +1680,7 @@ test.describe('HealthService #12487 — buildEmbeddingWriteCanaryBlock', () => {
             embedText: async (input, provider, options) => {
                 expect(input).toBe('neo-healthcheck-embedding-write-canary');
                 expect(provider).toBe('openAiCompatible');
+                expect(options.deadlineMs).toBe(10);
                 expect(options.operationLabel).toBe('Embedding write canary');
                 expect(options.operationStage).toBe('embedding-canary');
                 expect(options.service).toBe('memory-core');
