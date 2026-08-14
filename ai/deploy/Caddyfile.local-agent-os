@@ -11,14 +11,16 @@
 			reverse_proxy kb-server:3000
 		}
 
-		@fleet path /fleet /fleet/probe
-		reverse_proxy @fleet fleet-server:8083
+		@fleet path /fleet /fleet/probe /fleet/events
+		reverse_proxy @fleet fleet-server:8083 {
+			flush_interval -1
+		}
 
 		respond 404
 	}
 
 	handle_errors 502 {
-		@fleet path /fleet /fleet/probe
+		@fleet path /fleet /fleet/probe /fleet/events
 		respond @fleet 404
 	}
 }

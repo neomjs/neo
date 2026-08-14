@@ -304,6 +304,37 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
                 /**
+                 * Exact hostnames this deployment vouches for as confidential internal hops for
+                 * plain-HTTP MC dialing (compose-network service DNS, e.g. `ingress`). Forwarded
+                 * to the shared secure-endpoint policy, whose loopback-or-TLS rule stays
+                 * unchanged when this is empty — an unnamed internal host remains refused, and
+                 * the credential requirement is untouched on every path. CSV-typed like
+                 * `cockpitOrigins`.
+                 * @type {string[]}
+                 */
+                planeInternalHosts: leaf([], 'NEO_FLEET_PLANE_INTERNAL_HOSTS', 'csv'),
+                /**
+                 * Absolute path of a file holding the plane bearer — the secret-file
+                 * indirection for containerized profiles, where the canonical composition
+                 * already mounts its admission token as a compose secret and env literals are
+                 * the wrong custody class for credentials. `planeBearer` (the direct value)
+                 * wins when both are set; empty means no file indirection. Read at the use
+                 * site by the Fleet entry, never at import.
+                 * @type {string}
+                 */
+                planeBearerFile: leaf('', 'NEO_FLEET_PLANE_BEARER_FILE', 'string'),
+                /**
+                 * Absolute path of the deployment's bootstrap/healthcheck admission token file
+                 * — bound to the SAME env name the MCP services already boot on (the
+                 * `wakeReceiverManifestPath` same-env-name precedent), so the Fleet entry can
+                 * enforce the credential-class non-alias rule with teeth: the plane bearer
+                 * (class 3) must never BE the admission/bootstrap token, and a deployment that
+                 * aliases them refuses to boot. Read-only comparison target; empty disables
+                 * the check, never the rule.
+                 * @type {string}
+                 */
+                admissionTokenFile: leaf('', 'NEO_MCP_HEALTHCHECK_TOKEN_FILE', 'string'),
+                /**
                  * Bearer credential for the app<->fleet TRANSPORT — a different credential from
                  * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
                  * the default is empty and never carries a value: `resolveFleetBearer` generates
@@ -362,6 +393,19 @@ class ConfigBase extends ConfigProvider {
                  * @type {string}
                  */
                 wakeReceiverManifestPath: leaf('', 'NEO_WAKE_RECEIVER_MANIFEST', 'string'),
+                /**
+                 * Externally-dialable base URL of THIS fleet server's own signed wake receiver —
+                 * the address the plane's Shape-B dispatcher (`WebhookDeliveryService`) POSTs
+                 * digests to (`<base>/wake` is derived at the use site). In the composed profile
+                 * this is the service-DNS origin (e.g. `http://fleet-server:8083`), reachable from
+                 * the Memory Core container by construction. EMPTY means the deployment declares
+                 * no dialable self-address: relay wake subscriptions are then NOT armed and the
+                 * SSE push lane renders its absence with that reason — never a guessed default,
+                 * because a wrong self-address turns every wake into a signed POST at a stranger.
+                 * Not a plane member — deployment-edge consumer config, exactly like `planeBase`.
+                 * @type {string}
+                 */
+                wakeSelfBase: leaf('', 'NEO_FLEET_WAKE_SELF_BASE', 'string'),
                 /**
                  * Patience for ONE tenant-plane probe request (initialize, the initialized
                  * notification, the identity proof) — a single declared bound replacing per-site
