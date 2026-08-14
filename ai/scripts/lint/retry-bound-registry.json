@@ -20,20 +20,129 @@
         "regenerate": "node ai/scripts/lint/lint-retry-bounds.mjs --list"
     },
     "sites": {
+        "ai/agent/Loop.mjs#processEvent:e3df926d": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-attempts",
+            "witness": "`retryCount < this.maxRetries` guard at ai/agent/Loop.mjs#processEvent; `maxRetries: 3` config member",
+            "note": "Recursive retry; the guard is the bound, the delay is uncapped by design (1s/2s/4s then stop)."
+        },
+        "ai/daemons/embed/drainCycle.mjs#getBackoffDelayMs:c791d8f6": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`MAX_RECORD_COOLDOWN_MS` clamp in the same expression; test/playwright/unit/ai/daemons/embed/drainCycle.spec.mjs",
+            "note": "Per-record attempt persists across cycles in retryState, so a delay cap is required — an attempt budget would not bound wall-clock."
+        },
+        "ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs:39b52338": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "caller loop `for (let attempt = 0; attempt <= maxRetries; attempt++)` at ai/daemons/message/drainCycle.mjs#processMessageBatch",
+            "note": "Returns a RAW exponential and is indistinguishable from a defect at the growth site; the bound is the caller. This is the case that defeats any returned-vs-consumed heuristic."
+        },
+        "ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs#isRepoDue:6475b546": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`backoffCapMs` leaf (ai/configBase.mjs orchestrator.tenantRepoSync); test/playwright/unit/ai/daemons/orchestrator/scheduling/tenantRepoSync.spec.mjs",
+            "note": "consecutiveFailures persists in the orchestrator state volume and survives restart; uncapped it stranded a deployment ~128h (#16224)."
+        },
+        "ai/daemons/orchestrator/services/RecoveryActuatorService.mjs#computeBackoffUntil:2cfb36dc": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(maxBackoffMs, ...)` in the same expression",
+            "note": "Heal-attempt backoff; cap is co-located with the growth."
+        },
         "ai/scripts/benchmark/setupClass-cold-start.mjs#roundMetric:1a518c5e": {
             "kind": "not-a-retry",
             "witness": "`10 ** decimals` is decimal-place rounding: the exponent is a formatting precision argument, not an attempt counter. No loop encloses it.",
             "note": "Classified because every growth expression is gated, not because it was suspected."
+        },
+        "ai/services/fleet/fleetWakeSseConsumer.mjs#runLoop:5f68f770": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeSseConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop."
+        },
+        "ai/services/github-workflow/GraphqlService.mjs##getRetryDelay:626883e2": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
+            "note": "GitHub GraphQL transport retry."
+        },
+        "ai/services/gitlab-workflow/GitLabClient.mjs##getRetryDelay:626883e2": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
+            "note": "GitLab transport retry; mirrors GraphqlService."
+        },
+        "ai/services/knowledge-base/ChromaManager.mjs##getCollectionResolveRetryDelay:247f4675": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-window",
+            "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
+            "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
+        },
+        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:a17aac7c": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`retries++` precedes the sleep and `if (retries >= maxRetries) throw writeError` exits before the delay can run again; the write retries spend the surrounding batch's shared `maxRetries` budget",
+            "note": "Carried-prefix WRITE retry shared by the yield AND failure arms (persistCarriedPrefix): vectors already in hand retry the upsert only — never the provider — and budget exhaustion rethrows the storage error so the sweep ends loudly. The backoff BASE is now the kb.backoffBaseMs leaf rather than a hardcoded 1000, so a test context pins it; the bound is unchanged because the base scales the delay and never the attempt count."
+        },
+        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:a17aac7c#1": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`retries < maxRetries` bounds non-timeout failures; timeout-class provider failures throw after their first provider offer",
+            "note": "Embedding batch retry inside one pass. A provider timeout terminates the whole sweep so the outer scheduler, not this exponential ladder, owns the later attempt. The backoff BASE is now the kb.backoffBaseMs leaf rather than a hardcoded 1000, so a test context pins it; the bound is unchanged because the base scales the delay and never the attempt count."
+        },
+        "ai/services/memory-core/MemoryService.mjs#_scheduleMemoryGraphProjection:f2eb13d7": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(..., aiConfig.memoryService.graphProjectionRetryMaxMs)` in the same expression"
+        },
+        "ai/services/memory-core/WebhookDeliveryService.mjs#deliver:f7f23e9f": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`attempt <= maxRetries` guard in the same loop",
+            "note": "Multiplicative mutation (`backoff *= 2`) — the syntax family a base-2 exponent census misses entirely."
+        },
+        "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
+            "kind": "retry-growth",
+            "lifetime": "persisted",
+            "boundCarrier": "terminal-state",
+            "witness": "`attempts >= maxUnfreezeAttempts` => status `contained` in the same function; test/playwright/unit/ai/services/memory-core/helpers/freezeReprobeDecision.spec.mjs",
+            "note": "The delay value GROWS without a cap by design (anti-thrash widening); the series is bounded because a terminal state stops it. No delay-shaped check can see this bound."
+        },
+        "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:092bcbf7": {
+            "kind": "not-a-retry",
+            "witness": "`16 * 1024 ** 3` — the same GiB-to-bytes unit arithmetic for the band cap; literal exponent 3, module-load constant.",
+            "note": "Sibling of bf9ea77a; the two constants ARE the bound a growth curve would need, which is why they look adjacent to one."
         },
         "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:bf9ea77a": {
             "kind": "not-a-retry",
             "witness": "`8 * 1024 ** 3` is byte-unit arithmetic — GiB to bytes for the container-memory-ceiling knob's band floor. The exponent is the literal 3 (KiB→MiB→GiB), evaluated once at module load; no loop, no attempt series.",
             "note": "The band itself is the anti-thrash VALUE bound: growth terminates at the registry max by thrown violation, asserted in recoveryKnobRegistry.spec.mjs."
         },
-        "ai/services/memory-core/helpers/recoveryKnobRegistry.mjs#<module>:092bcbf7": {
-            "kind": "not-a-retry",
-            "witness": "`16 * 1024 ** 3` — the same GiB-to-bytes unit arithmetic for the band cap; literal exponent 3, module-load constant.",
-            "note": "Sibling of bf9ea77a; the two constants ARE the bound a growth curve would need, which is why they look adjacent to one."
+        "ai/services/shared/boundedRetryGate.mjs#settleFlight:e1ea3176": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(failureTtlMaxMs, ...)` in the same expression",
+            "note": "The shared flight gate; #16307 records why it is NOT the right mechanism for persisted cadence state."
+        },
+        "apps/devindex/services/GitHub.mjs##getRetryDelay:41482917": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(this.restRetryMaxDelayMs, ...)` applied twice (pre- and post-jitter)"
         },
         "apps/devindex/services/Spider.mjs#pickStrategy:af20cfdb": {
             "kind": "not-a-retry",
@@ -135,6 +244,13 @@
             "witness": "Second term of the same squared distance — `(pointY - center.y) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
+        "src/data/connection/WebSocket.mjs#<module>:a5cd8f47": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(1000 * Math.pow(2, attempt - 1), 30000)` in the default backoffStrategy",
+            "note": "Body-side reconnect. One of three retry-growth sites outside ai/, alongside apps/devindex/services/GitHub.mjs and src/manager/DragCoordinator.mjs."
+        },
         "src/form/field/FileUpload.mjs#formatSize:38dbd980": {
             "kind": "not-a-retry",
             "witness": "`bytes / (1000 ** i)` converts to an SI magnitude; `i` is an index into the `sizes` unit array, bounded by that array's length.",
@@ -150,128 +266,12 @@
             "witness": "Second term of the same distance — `(y2 - y1) ** 2`.",
             "note": "Represented separately for occurrence multiplicity."
         },
-        "ai/agent/Loop.mjs#processEvent:e3df926d": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-attempts",
-            "witness": "`retryCount < this.maxRetries` guard at ai/agent/Loop.mjs#processEvent; `maxRetries: 3` config member",
-            "note": "Recursive retry; the guard is the bound, the delay is uncapped by design (1s/2s/4s then stop)."
-        },
-        "ai/daemons/embed/drainCycle.mjs#getBackoffDelayMs:c791d8f6": {
-            "kind": "retry-growth",
-            "lifetime": "persisted",
-            "boundCarrier": "max-delay",
-            "witness": "`MAX_RECORD_COOLDOWN_MS` clamp in the same expression; test/playwright/unit/ai/daemons/embed/drainCycle.spec.mjs",
-            "note": "Per-record attempt persists across cycles in retryState, so a delay cap is required — an attempt budget would not bound wall-clock."
-        },
-        "ai/daemons/message/drainCycle.mjs#getMessageDrainBackoffDelayMs:39b52338": {
-            "kind": "retry-growth",
-            "lifetime": "in-cycle",
-            "boundCarrier": "max-attempts",
-            "witness": "caller loop `for (let attempt = 0; attempt <= maxRetries; attempt++)` at ai/daemons/message/drainCycle.mjs#processMessageBatch",
-            "note": "Returns a RAW exponential and is indistinguishable from a defect at the growth site; the bound is the caller. This is the case that defeats any returned-vs-consumed heuristic."
-        },
-        "ai/daemons/orchestrator/scheduling/tenantRepoSync.mjs#isRepoDue:6475b546": {
-            "kind": "retry-growth",
-            "lifetime": "persisted",
-            "boundCarrier": "max-delay",
-            "witness": "`backoffCapMs` leaf (ai/configBase.mjs orchestrator.tenantRepoSync); test/playwright/unit/ai/daemons/orchestrator/scheduling/tenantRepoSync.spec.mjs",
-            "note": "consecutiveFailures persists in the orchestrator state volume and survives restart; uncapped it stranded a deployment ~128h (#16224)."
-        },
-        "ai/daemons/orchestrator/services/RecoveryActuatorService.mjs#computeBackoffUntil:2cfb36dc": {
-            "kind": "retry-growth",
-            "lifetime": "persisted",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(maxBackoffMs, ...)` in the same expression",
-            "note": "Heal-attempt backoff; cap is co-located with the growth."
-        },
-        "ai/services/github-workflow/GraphqlService.mjs##getRetryDelay:626883e2": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
-            "note": "GitHub GraphQL transport retry."
-        },
-        "ai/services/gitlab-workflow/GitLabClient.mjs##getRetryDelay:626883e2": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(this.retryMaxDelayMs, ...)` in the same expression",
-            "note": "GitLab transport retry; mirrors GraphqlService."
-        },
-        "ai/services/knowledge-base/ChromaManager.mjs##getCollectionResolveRetryDelay:247f4675": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-window",
-            "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
-            "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
-        },
-        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:2603053b": {
-            "kind": "retry-growth",
-            "lifetime": "in-cycle",
-            "boundCarrier": "max-attempts",
-            "witness": "`retries < maxRetries` bounds non-timeout failures; timeout-class provider failures throw after their first provider offer",
-            "note": "Embedding batch retry inside one pass. A provider timeout terminates the whole sweep so the outer scheduler, not this exponential ladder, owns the later attempt."
-        },
-        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:ca44af32": {
-            "kind": "retry-growth",
-            "lifetime": "in-cycle",
-            "boundCarrier": "max-attempts",
-            "witness": "`retries++` precedes the sleep and `if (retries >= maxRetries) throw writeError` exits before the delay can run again; the write retries spend the surrounding batch's shared `maxRetries` budget",
-            "note": "Carried-prefix WRITE retry shared by the yield AND failure arms (persistCarriedPrefix): vectors already in hand retry the upsert only — never the provider — and budget exhaustion rethrows the storage error so the sweep ends loudly."
-        },
-        "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
-            "kind": "retry-growth",
-            "lifetime": "persisted",
-            "boundCarrier": "terminal-state",
-            "witness": "`attempts >= maxUnfreezeAttempts` => status `contained` in the same function; test/playwright/unit/ai/services/memory-core/helpers/freezeReprobeDecision.spec.mjs",
-            "note": "The delay value GROWS without a cap by design (anti-thrash widening); the series is bounded because a terminal state stops it. No delay-shaped check can see this bound."
-        },
-        "ai/services/memory-core/MemoryService.mjs#_scheduleMemoryGraphProjection:f2eb13d7": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(..., aiConfig.memoryService.graphProjectionRetryMaxMs)` in the same expression"
-        },
-        "ai/services/memory-core/WebhookDeliveryService.mjs#deliver:f7f23e9f": {
-            "kind": "retry-growth",
-            "lifetime": "in-cycle",
-            "boundCarrier": "max-attempts",
-            "witness": "`attempt <= maxRetries` guard in the same loop",
-            "note": "Multiplicative mutation (`backoff *= 2`) — the syntax family a base-2 exponent census misses entirely."
-        },
-        "ai/services/shared/boundedRetryGate.mjs#settleFlight:e1ea3176": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(failureTtlMaxMs, ...)` in the same expression",
-            "note": "The shared flight gate; #16307 records why it is NOT the right mechanism for persisted cadence state."
-        },
-        "apps/devindex/services/GitHub.mjs##getRetryDelay:41482917": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(this.restRetryMaxDelayMs, ...)` applied twice (pre- and post-jitter)"
-        },
-        "src/data/connection/WebSocket.mjs#<module>:a5cd8f47": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(1000 * Math.pow(2, attempt - 1), 30000)` in the default backoffStrategy",
-            "note": "Body-side reconnect. One of three retry-growth sites outside ai/, alongside apps/devindex/services/GitHub.mjs and src/manager/DragCoordinator.mjs."
-        },
         "src/manager/DragCoordinator.mjs#settleNativeWindowDisposition:acca199c": {
             "kind": "retry-growth",
             "lifetime": "process-local",
             "boundCarrier": "max-delay",
             "witness": "`Math.min(5000, ...)` plus a clamped exponent `Math.min(dispositionAttempts - 1, 4)`",
             "note": "Bounded twice — the delay is capped AND the exponent itself is clamped."
-        },
-        "ai/services/fleet/fleetWakeSseConsumer.mjs#runLoop:5f68f770": {
-            "kind": "retry-growth",
-            "lifetime": "process-local",
-            "boundCarrier": "max-delay",
-            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeSseConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop."
         }
     }
 }

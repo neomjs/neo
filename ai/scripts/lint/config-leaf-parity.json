@@ -574,6 +574,7 @@
         "askSynthesis.timeoutMs",
         "askSynthesis.timeoutMsRemote",
         "authMiddleware",
+        "backoffBaseMs",
         "batchDelay",
         "batchSize",
         "chromaDatabaseProd",

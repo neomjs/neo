@@ -1262,6 +1262,9 @@ class VectorService extends Base {
                         retries++;
                         if (retries >= maxRetries) throw writeError;
                         console.error(`Persisting the carried prefix of ${arm.toLowerCase()} batch ${batchNumber} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
+                        // Same leaf as the embed retry below: a spec exercising this arm asserts the
+                        // retry depth, not the delay, so a test context pins the base rather than
+                        // paying the production wait. See kb.backoffBaseMs.
                         await new Promise(res => setTimeout(res, backoffBaseMs * 2 ** retries));
                     }
                 }
