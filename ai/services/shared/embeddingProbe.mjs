@@ -68,7 +68,9 @@ export function describeEmbeddingProbeFailure(error) {
  *
  * This module owns only the attempt boundary: deadline, abort propagation, dimension validation,
  * and bounded failure classification. Consumers own provider/config selection, scheduling,
- * backoff, and the policy that maps observations into their public health envelope.
+ * backoff, and the policy that maps observations into their public health envelope. The numeric
+ * deadline travels beside the signal so provider clients cannot substitute a shorter aggregate
+ * retry horizon; the signal remains the whole-call cancellation authority.
  *
  * @param {Object} options
  * @param {Object} options.cfg Provider config carrying `embeddingProvider` and `vectorDimension`.
@@ -120,7 +122,8 @@ export async function buildEmbeddingProbeBlock({
               }),
               embedding    = await Promise.race([
                   Promise.resolve(embedText(input, provider, {
-                      signal: controller.signal,
+                      deadlineMs: timeoutMs,
+                      signal    : controller.signal,
                       operationLabel
                   })),
                   deadline
