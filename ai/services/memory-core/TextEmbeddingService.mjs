@@ -7,6 +7,9 @@ import Base           from '../../../src/core/Base.mjs';
 import logger         from '../../mcp/server/memory-core/logger.mjs';
 import OllamaProvider from '../../provider/Ollama.mjs';
 import {
+    isEmbeddingContextBelowSafeBand
+}                           from '../../embeddingSafeBand.mjs';
+import {
     withLmsEmbeddingInputSuffix
 }                           from '../shared/vector/lmsEmbeddingInputSuffix.mjs';
 import {
@@ -80,6 +83,74 @@ function markEmbeddingModelNotResidentError(error) {
  * @type {String}
  */
 export const EMBEDDING_BATCH_YIELDED_CODE = 'EMBEDDING_BATCH_YIELDED';
+
+/**
+ * @summary Source-owned code for a current embedding input classified beyond provider context.
+ *
+ * Minted when Neo's bounded LM Studio token estimate exceeds an otherwise policy-compliant resident
+ * context, or when an OpenAI-compatible provider returns the exact structured
+ * `exceed_context_size_error` refusal. If the resident itself is below the declared lane policy,
+ * that repairable context cause takes precedence because reloading the model may make the same input
+ * fit. A truncated embedding must never be stored, so the KB boundary rejects only this input cause.
+ *
+ * This shared Memory Core service must not mint a downstream Knowledge Base `KB_*` code; the KB
+ * ingestion boundary translates this cause into its own durable vocabulary.
+ * @type {String}
+ */
+export const EMBEDDING_INPUT_TRUNCATED_CODE = 'EMBEDDING_INPUT_TRUNCATED';
+
+/**
+ * @summary Source-owned code for a loaded embedding context below Neo's active lane contract.
+ *
+ * A resident may be below the configured requirement or safe-processing band while still holding
+ * the current input. That is a repairable deployment/context-policy mismatch, not proof that this
+ * input was or would be truncated. Knowledge Base therefore translates it distinctly and keeps it
+ * deferrable rather than discarding work under the permanent-input refusal.
+ * @type {String}
+ */
+export const EMBEDDING_CONTEXT_INSUFFICIENT_CODE = 'EMBEDDING_CONTEXT_INSUFFICIENT';
+
+/**
+ * @summary Marks a bounded estimate-based or exact structured current-input overflow.
+ * @param {Error} error A trusted-metadata estimate failure or exact structured provider refusal.
+ * @returns {Error} The same typed error.
+ */
+function markEmbeddingInputTruncatedError(error) {
+    error.code = EMBEDDING_INPUT_TRUNCATED_CODE;
+    return error
+}
+
+/**
+ * @summary Marks a repairable loaded-context policy mismatch without claiming input truncation.
+ * @param {Error} error The trusted-metadata context-policy failure.
+ * @returns {Error} The same typed error.
+ */
+function markEmbeddingContextInsufficientError(error) {
+    error.code = EMBEDDING_CONTEXT_INSUFFICIENT_CODE;
+    return error
+}
+
+/**
+ * @summary Recognizes the pinned llama.cpp context-overflow refusal without provider-prose inference.
+ * @param {Number} statusCode HTTP status code.
+ * @param {String} body Raw response body.
+ * @returns {Boolean}
+ */
+function isStructuredEmbeddingContextOverflow(statusCode, body) {
+    if (statusCode !== 400 || typeof body !== 'string' || body.length === 0) return false;
+
+    try {
+        const payload = JSON.parse(body),
+              detail  = payload?.error ?? payload;
+
+        return detail?.code === 400 && detail?.type === 'exceed_context_size_error' &&
+            Number.isSafeInteger(detail.n_prompt_tokens) && detail.n_prompt_tokens > 0 &&
+            Number.isSafeInteger(detail.n_ctx) && detail.n_ctx > 0 &&
+            detail.n_prompt_tokens >= detail.n_ctx
+    } catch {
+        return false
+    }
+}
 
 /**
  * @summary Classifies a cooperative batch-yield abandonment at the consumer boundary.
@@ -925,7 +996,7 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Fails before OpenAI-compatible embeddings can be silently provider-truncated.
+     * @summary Enforces the loaded LM Studio context contract and refuses current-input overflow.
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {{configuredContextLength: Number, loadedModel: Object, model: String}|null} runtime LMS runtime metadata.
      * @returns {void}
@@ -938,10 +1009,16 @@ class TextEmbeddingService extends Base {
 
         const
             {configuredContextLength, loadedModel, model} = runtime,
+            safeProcessingLimitTokens                     = aiConfig.localModels.embedding.safeProcessingLimitTokens,
             estimate                                      = this.#getOpenAiCompatibleInputEstimate(inputData);
 
-        if (loadedModel.contextLength < configuredContextLength || estimate.inputTokensEstimate > loadedModel.contextLength) {
-            if (estimate.inputTokensEstimate > loadedModel.contextLength) {
+        const belowConfiguredContext = loadedModel.contextLength < configuredContextLength,
+              belowSafeBand          = isEmbeddingContextBelowSafeBand(loadedModel.contextLength, safeProcessingLimitTokens),
+              contextInsufficient    = belowConfiguredContext || belowSafeBand,
+              inputExceedsContext    = estimate.inputTokensEstimate > loadedModel.contextLength;
+
+        if (contextInsufficient || inputExceedsContext) {
+            if (!contextInsufficient && inputExceedsContext) {
                 emitConsumerFriction({
                     assetRef                 : `openAiCompatible:${model}`,
                     consumer                 : 'TextEmbeddingService.openAiCompatible',
@@ -958,14 +1035,19 @@ class TextEmbeddingService extends Base {
                 });
             }
 
-            logger.warn('[TextEmbeddingService] Refusing OpenAI-compatible embedding before provider-side truncation.', {
+            logger.warn('[TextEmbeddingService] Refusing OpenAI-compatible embedding after LM Studio context verification failed.', {
                 model,
                 loadedContextLength: loadedModel.contextLength,
                 configuredContextLength,
+                safeProcessingLimitTokens,
                 inputTokensEstimate: estimate.inputTokensEstimate
             });
 
-            throw new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, inputEstimate=${estimate.inputTokensEstimate})`);
+            const error = new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, safeProcessingLimitTokens=${safeProcessingLimitTokens}, inputEstimate=${estimate.inputTokensEstimate})`);
+
+            throw contextInsufficient
+                ? markEmbeddingContextInsufficientError(error)
+                : markEmbeddingInputTruncatedError(error)
         }
     }
 
@@ -1075,7 +1157,13 @@ class TextEmbeddingService extends Base {
                         // default vs :1234 LM Studio) or a non-resident model is diagnosable from the error
                         // alone — not a bare "resource could not be found". The `HTTP <status>:` prefix MUST
                         // stay verbatim: OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE classifies on it.
-                        rejectOnce(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`));
+                        const httpError = new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`);
+
+                        if (isStructuredEmbeddingContextOverflow(res.statusCode, body)) {
+                            markEmbeddingInputTruncatedError(httpError)
+                        }
+
+                        rejectOnce(httpError);
                     } else {
                         try {
                             const result = JSON.parse(body);
@@ -1111,7 +1199,7 @@ class TextEmbeddingService extends Base {
                 abortHandler();
             } else {
                 providerActivityLifecycle?.onDispatch({model: embeddingModel});
-                req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
+                req.write(JSON.stringify({model: embeddingModel, input: inputData}));
                 req.end();
             }
 

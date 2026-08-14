@@ -99,13 +99,15 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
  * Two timeout sources map to different codes on purpose: a consumer-owned deadline expiring
  * (`EMBEDDING_PROBE_TIMEOUT`, raised by our own caller) and the provider's own request timeout are
  * different faults with different fixes — raise our deadline, versus the provider is too slow or
- * wedged. The map also translates a source-owned model-residency code and Node's foreign transport
- * refusal code; neither is echoed. Collapsing them would rebuild the ambiguity this module removes.
+ * wedged. The map also translates source-owned context/residency codes and Node's foreign transport
+ * refusal code; none is echoed. Collapsing them would rebuild the ambiguity this module removes.
  * @type {Object}
  */
 const PROVIDER_ERROR_CODE_MAP = Object.freeze({
     ABORT_ERR                        : 'KB_VECTOR_EMBED_ABORTED',
     ECONNREFUSED                     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    EMBEDDING_CONTEXT_INSUFFICIENT   : 'KB_VECTOR_EMBED_CONTEXT_INSUFFICIENT',
+    EMBEDDING_INPUT_TRUNCATED        : 'KB_VECTOR_EMBED_INPUT_TRUNCATED',
     EMBEDDING_MODEL_NOT_RESIDENT     : 'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
     EMBEDDING_PROBE_TIMEOUT          : 'KB_VECTOR_EMBED_TIMEOUT',
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT',
@@ -221,16 +223,22 @@ export const EMBED_DISPOSITION = Object.freeze({
  * over the embedding budget is over it on every retry; a work-volume gate refused on purpose and a
  * silent requeue would launder that refusal; a rejected tenant must never be retried into success.
  *
- * These are exactly the codes {@link classifyEmbedFailureCode} passes through by membership, and
- * that is not a coincidence — a code we mint is one whose permanence we actually know. Everything
- * arriving in the provider's vocabulary describes a fault we are inferring about someone else's
- * process, which is not a basis for discarding a corpus.
+ * Most entries pass through {@link classifyEmbedFailureCode} directly. The truncation entry is the
+ * bounded translation of `TextEmbeddingService`'s source-owned current-input overflow: either its
+ * bounded estimate exceeds an otherwise policy-compliant trusted resident context, or the exact
+ * structured refusal proves the input/context relation. Arbitrary provider prose and foreign
+ * provider codes remain deferrable: inference about another process is not a basis for discarding a
+ * corpus.
  * @type {Set<String>}
  */
 const REJECTED_EMBED_ERROR_CODES = Object.freeze(new Set([
     'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
     'KB_SYNC_VOLUME_EXCEEDED',
-    'KB_TENANT_SPOOF_REJECTED'
+    'KB_TENANT_SPOOF_REJECTED',
+    // The current input is classified too large for a policy-compliant observed context, or the
+    // provider emitted the exact structured refusal. A context-policy mismatch takes precedence and
+    // uses the distinct deferrable code because repairing the resident may make the same input fit.
+    'KB_VECTOR_EMBED_INPUT_TRUNCATED'
 ]));
 
 /**
