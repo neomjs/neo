@@ -218,7 +218,6 @@ test.describe('LM Studio residency mutation queue (#17054)', () => {
                           loaded = true;
                           activeLoads -= 1;
                       },
-                      unloadModel: async () => {},
                       log        : {info() {}, warn() {}}
                   });
               },
@@ -264,7 +263,6 @@ test.describe('LM Studio residency mutation queue (#17054)', () => {
                       signalFirstStarted();
                       await firstGate;
                   },
-                  unloadModel: async () => {},
                   log        : {info() {}, warn() {}}
               });
 
@@ -284,7 +282,6 @@ test.describe('LM Studio residency mutation queue (#17054)', () => {
             async loadModel() {
                 secondLoads += 1;
             },
-            unloadModel    : async () => {},
             isAuthorityHeld: () => authorityHeld,
             log            : {info() {}, warn() {}}
         });
@@ -328,7 +325,6 @@ test.describe('LM Studio residency mutation queue (#17054)', () => {
                     return child;
                 }
             }),
-            unloadModel: async () => {},
             log        : {info() {}, warn() {}}
         });
 
@@ -350,7 +346,6 @@ test.describe('LM Studio residency mutation queue (#17054)', () => {
                 events.push('second-load');
                 secondResident = true;
             },
-            unloadModel: async () => {},
             log        : {info() {}, warn() {}}
         });
 
@@ -373,77 +368,35 @@ test.describe('provider residency helpers — production mutation authority fenc
         ensureOllamaModelsReady = mod.ensureOllamaModelsReady;
     });
 
-    test('LMS refuses the first unload after authority moves during awaited model metadata', async () => {
-        let   held    = true;
-        const unloads = [],
-              loads   = [];
+    test('LMS rechecks authority immediately before an additive load', async () => {
+        let held       = true,
+            probeCount = 0;
+        const loads = [];
 
         const repair = ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
+            host         : 'http://127.0.0.1:1234',
+            models       : ['chat-model'],
+            attempts     : 1,
+            delayMs      : 0,
+            timeoutMs    : 10,
+            fetchModelIds: async () => ['chat-model'],
             async fetchLoadedModels() {
-                held = false;
-                return [{id: 'chat-model', contextLength: 1024}];
+                probeCount++;
+                if (probeCount === 3) held = false;
+
+                return [];
             },
-            async unloadModel(model) {
-                unloads.push(model);
-            },
-            async loadModel(model) {
-                loads.push(model);
-            },
-            isAuthorityHeld      : () => held,
-            isEffectStillAdmitted: () => true,
-            log                  : {info() {}, warn() {}}
+            loadModel      : async model => loads.push(model),
+            isAuthorityHeld: () => held,
+            log            : {info() {}, warn() {}}
         });
 
         await expect(repair).rejects.toMatchObject({reason: 'runtime-authority-lost'});
-        expect(unloads).toEqual([]);
         expect(loads).toEqual([]);
     });
 
-    test('LMS completes mandatory replacement after authority moves during exact eviction', async () => {
-        let   held          = true,
-              contextLength = 1024;
-        const unloads = [],
-              loads   = [];
-
-        const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
-            fetchLoadedModels       : async () => [{id: 'chat-model', contextLength}],
-            async unloadModel(model) {
-                unloads.push(model);
-                held = false;
-            },
-            async loadModel(model) {
-                loads.push(model);
-                contextLength = 4096;
-            },
-            isAuthorityHeld      : () => held,
-            isEffectStillAdmitted: () => true,
-            log                  : {info() {}, warn() {}}
-        });
-
-        expect(unloads).toEqual(['chat-model']);
-        expect(loads).toEqual(['chat-model']);
-        expect(result.ready).toBe(true);
-    });
-
-    test('LMS routine repair never evicts when cached absence becomes a fresh mismatch (#17071)', async () => {
-        const unloads   = [],
-              loads     = [],
+    test('LMS routine repair never loads when cached absence becomes a fresh mismatch (#17079)', async () => {
+        const loads     = [],
               snapshots = [
                   [],
                   [{id: 'chat-model', contextLength: 1024}]
@@ -459,12 +412,10 @@ test.describe('provider residency helpers — production mutation authority fenc
             timeoutMs        : 10,
             fetchModelIds    : async () => ['chat-model'],
             fetchLoadedModels: async () => snapshots.shift() || [{id: 'chat-model', contextLength: 1024}],
-            unloadModel      : async model => unloads.push(model),
             loadModel        : async model => loads.push(model),
             log              : {info() {}, warn() {}}
         });
 
-        expect(unloads).toEqual([]);
         expect(loads).toEqual([]);
         expect(result).toMatchObject({
             ready            : false,
@@ -473,83 +424,34 @@ test.describe('provider residency helpers — production mutation authority fenc
         });
     });
 
-    test('LMS force-fresh sufficiency cancels a stale mismatch without mutation (#17071)', async () => {
-        const unloads = [],
-              loads   = [],
-              probes  = [];
-        let   contextLength = 1024;
+    test('LMS reports a suffixed resident without evicting or reloading it (#17079)', async () => {
+        const loads = [],
+              rows  = [{id: 'chat-model'}, {id: 'chat-model:2'}];
 
         const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
-            async fetchLoadedModels(options) {
-                probes.push(options);
-                const row = {id: 'chat-model', contextLength};
-
-                contextLength = 4096;
-                return [row];
-            },
-            unloadModel          : async model => unloads.push(model),
-            loadModel            : async model => loads.push(model),
-            isAuthorityHeld      : () => true,
-            isEffectStillAdmitted: () => true,
-            log                  : {info() {}, warn() {}}
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model'],
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            fetchModelIds    : async () => ['chat-model'],
+            fetchLoadedModels: async () => rows,
+            loadModel        : async model => loads.push(model),
+            log              : {info() {}, warn() {}}
         });
 
-        expect(unloads).toEqual([]);
         expect(loads).toEqual([]);
-        expect(probes[1]).toMatchObject({freshness: 'force', unshared: true});
         expect(result).toMatchObject({
-            ready          : true,
-            attemptedModels: [],
-            loadedContexts : {'chat-model': 4096}
+            ready              : true,
+            loadedModels       : [],
+            unloadedModels     : [],
+            cleanupFailedModels: [],
+            lmsLoadedModels    : rows
         });
     });
 
-    test('LMS force-fresh incomplete replacement metadata refuses every mutation (#17071)', async () => {
-        const unloads   = [],
-              loads     = [],
-              snapshots = [
-                  [{id: 'chat-model', contextLength: 1024, parallel: 1}],
-                  [{id: 'chat-model', contextLength: 1024, parallel: null}]
-              ];
-
-        const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            parallels               : {'chat-model': 1},
-            allowResidentReplacement: true,
-            allowPartial            : true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
-            fetchLoadedModels       : async () => snapshots.shift() || [],
-            unloadModel             : async model => unloads.push(model),
-            loadModel               : async model => loads.push(model),
-            isAuthorityHeld         : () => true,
-            isEffectStillAdmitted   : () => true,
-            log                     : {info() {}, warn() {}}
-        });
-
-        expect(unloads).toEqual([]);
-        expect(loads).toEqual([]);
-        expect(result).toMatchObject({
-            ready            : false,
-            observationStatus: 'metadata-unknown'
-        });
-    });
-
-    test('LMS force-fresh batch refuses all mutation when one required row is unknown (#17071)', async () => {
-        const unloads   = [],
-              loads     = [],
+    test('LMS force-fresh batch refuses all mutation when one required row is unknown (#17079)', async () => {
+        const loads     = [],
               snapshots = [
                   [],
                   [
@@ -559,24 +461,19 @@ test.describe('provider residency helpers — production mutation authority fenc
               ];
 
         const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model', 'embedding-model'],
-            contextLengths          : {'chat-model': 4096, 'embedding-model': 32768},
-            allowResidentReplacement: true,
-            allowPartial            : true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model', 'embedding-model'],
-            fetchLoadedModels       : async () => snapshots.shift() || [],
-            unloadModel             : async model => unloads.push(model),
-            loadModel               : async model => loads.push(model),
-            isAuthorityHeld         : () => true,
-            isEffectStillAdmitted   : () => true,
-            log                     : {info() {}, warn() {}}
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            contextLengths   : {'chat-model': 4096, 'embedding-model': 32768},
+            allowPartial     : true,
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            fetchLoadedModels: async () => snapshots.shift() || [],
+            loadModel        : async model => loads.push(model),
+            log              : {info() {}, warn() {}}
         });
 
-        expect(unloads).toEqual([]);
         expect(loads).toEqual([]);
         expect(result).toMatchObject({
             ready            : false,
@@ -585,122 +482,104 @@ test.describe('provider residency helpers — production mutation authority fenc
         });
     });
 
-    test('LMS compensates an exact unload whose CLI outcome is uncertain (#17071)', async () => {
-        let resident      = true,
-            contextLength = 1024,
-            admitted      = true;
-        const unloads = [],
-              loads   = [];
-
-        const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => resident ? ['chat-model'] : [],
-            fetchLoadedModels       : async () => resident
-                ? [{id: 'chat-model', contextLength}]
-                : [],
-            async unloadModel(model) {
-                unloads.push(model);
-                resident = false;
-                admitted = false;
-                throw new Error('CLI timed out after RPC applied');
-            },
-            async loadModel(model) {
-                loads.push(model);
-                resident = true;
-                contextLength = 4096;
-            },
-            isAuthorityHeld      : () => true,
-            isEffectStillAdmitted: () => admitted,
-            log                  : {info() {}, warn() {}}
-        });
-
-        expect(unloads).toEqual(['chat-model']);
-        expect(loads).toEqual(['chat-model']);
-        expect(resident).toBe(true);
-        expect(result.ready).toBe(true);
-    });
-
-    test('LMS cleanup degrades when the exact resident disappears after one suffix eviction (#17071)', async () => {
-        const residents = new Map([
-                  ['chat-model',   {id: 'chat-model', contextLength: 4096, parallel: 1}],
-                  ['chat-model:2', {id: 'chat-model:2', contextLength: 4096, parallel: 1}],
-                  ['chat-model:3', {id: 'chat-model:3', contextLength: 4096, parallel: 1}]
-              ]),
-              unloads = [];
-
-        const result = await ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            parallels               : {'chat-model': 1},
-            allowResidentReplacement: true,
-            allowPartial            : true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
-            fetchLoadedModels       : async () => [...residents.values()],
-            async unloadModel(model) {
-                unloads.push(model);
-                residents.delete(model);
-                residents.delete('chat-model');
-            },
-            loadModel            : async () => {},
-            isAuthorityHeld      : () => true,
-            isEffectStillAdmitted: () => true,
-            log                  : {info() {}, warn() {}}
-        });
-
-        expect(unloads).toEqual(['chat-model:2']);
-        expect(result).toMatchObject({
-            ready         : false,
-            degraded      : true,
-            missingModels : ['chat-model'],
-            unloadedModels: ['chat-model:2']
-        });
-        expect(result.lmsLoadedModels.map(item => item.id)).toEqual(['chat-model:3']);
-    });
-
-    test('LMS demand revocation during force-fresh preflight prevents every mutation (#17071)', async () => {
-        let   admitted = true;
-        const unloads  = [],
-              loads   = [],
-              snapshots = [
-                  [{id: 'chat-model', contextLength: 1024}],
-                  [{id: 'chat-model', contextLength: 1024}]
-              ];
+    test('LMS demand revocation immediately before an additive load prevents mutation (#17079)', async () => {
+        let admitted   = true,
+            probeCount = 0;
+        const loads = [];
 
         const repair = ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 4096},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 10,
-            fetchModelIds           : async () => ['chat-model'],
+            host         : 'http://127.0.0.1:1234',
+            models       : ['chat-model'],
+            attempts     : 1,
+            delayMs      : 0,
+            timeoutMs    : 10,
+            fetchModelIds: async () => ['chat-model'],
             async fetchLoadedModels() {
-                const snapshot = snapshots.shift() || [{id: 'chat-model', contextLength: 1024}];
+                probeCount++;
+                if (probeCount === 3) admitted = false;
 
-                if (snapshots.length === 0) admitted = false;
-                return snapshot;
+                return [];
             },
-            unloadModel          : async model => unloads.push(model),
             loadModel            : async model => loads.push(model),
-            isAuthorityHeld      : () => true,
             isEffectStillAdmitted: () => admitted,
             log                  : {info() {}, warn() {}}
         });
 
         await expect(repair).rejects.toMatchObject({reason: 'runtime-effect-not-admitted'});
-        expect(unloads).toEqual([]);
         expect(loads).toEqual([]);
+    });
+
+    test('LMS preserves a confirmed additive load as partial when demand changes before the next load (#17079)', async () => {
+        let   admitted = true;
+        const loads    = [],
+              resident = new Set();
+
+        const repair = ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            allowPartial     : true,
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            fetchLoadedModels: async () => [...resident].map(id => ({id})),
+            async loadModel(model) {
+                loads.push(model);
+                resident.add(model);
+                admitted = false;
+            },
+            isEffectStillAdmitted: () => admitted,
+            log                  : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({
+            reason           : 'runtime-effect-partially-applied',
+            effectDisposition: 'partial',
+            providerResidency: {
+                admission      : 'refused-after-partial',
+                refusedModel   : 'embedding-model',
+                attemptedModels: ['chat-model'],
+                loadedModels   : ['chat-model'],
+                failedModels   : []
+            }
+        });
+        expect(loads).toEqual(['chat-model']);
+    });
+
+    test('LMS preserves an unknown additive load outcome when demand changes before the next load (#17079)', async () => {
+        let   admitted = true;
+        const loads    = [];
+
+        const repair = ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model', 'embedding-model'],
+            allowPartial     : true,
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 10,
+            fetchModelIds    : async () => ['chat-model', 'embedding-model'],
+            fetchLoadedModels: async () => [],
+            async loadModel(model) {
+                loads.push(model);
+                admitted = false;
+                throw new Error('load outcome unknown');
+            },
+            isEffectStillAdmitted: () => admitted,
+            log                  : {info() {}, warn() {}}
+        });
+
+        await expect(repair).rejects.toMatchObject({
+            reason           : 'runtime-effect-disposition-uncertain',
+            effectDisposition: 'uncertain',
+            providerResidency: {
+                admission      : 'refused-after-uncertain-attempt',
+                refusedModel   : 'embedding-model',
+                attemptedModels: ['chat-model'],
+                loadedModels   : [],
+                failedModels   : [{model: 'chat-model', error: 'load outcome unknown'}]
+            }
+        });
+        expect(loads).toEqual(['chat-model']);
     });
 
     test('Ollama rechecks authority between role warms instead of authorizing the loop once', async () => {

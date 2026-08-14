@@ -51,8 +51,8 @@ const LMS_DEFAULT_BIN_DIR = path.join(os.homedir(), '.lmstudio', 'bin');
  * Augmenting PATH here makes the `lms` readiness probe (`fetchLmsLoadedModels`) robust to the launch
  * env, fixing `spawn lms ENOENT` false-negatives. Idempotent — never duplicates an already-present bin
  * dir. The caller's extra options are preserved, INCLUDING a caller-supplied `extra.env` (merged, not
- * clobbered). Probe and mutation children share this one PATH policy so readiness cannot discover
- * the CLI successfully and then fail to resolve it for the subsequent load or unload.
+ * clobbered). Probe and additive-load children share this one PATH policy so readiness cannot discover
+ * the CLI successfully and then fail to resolve it for the subsequent load.
  *
  * @param {Object} [extra={}] Extra execFile options (e.g. `{timeout}`, `{env}`) merged into the result.
  * @returns {Object} execFile options carrying an augmented `PATH` env (caller `extra.env` preserved).
@@ -349,38 +349,11 @@ function readNumericField(row, keys, {strict = false, fieldName = 'numeric metad
 }
 
 /**
- * @summary Checks whether an LM Studio loaded-model identifier belongs to a configured model.
- *
- * LM Studio appends numeric suffixes (`:2`, `:3`, etc.) when the same model is
- * loaded more than once. Matching only numeric suffixes avoids conflating
- * legitimate colon-bearing model keys with unrelated model identifiers.
- *
- * @param {String} id Loaded-model identifier reported by `lms ps`.
- * @param {String} model Configured model id.
- * @returns {Boolean}
- */
-function matchesLmsLoadedModelId(id, model) {
-    if (!id || !model) {
-        return false;
-    }
-
-    if (id === model) {
-        return true;
-    }
-
-    if (!id.startsWith(`${model}:`)) {
-        return false;
-    }
-
-    return /^[1-9]\d*$/.test(id.slice(model.length + 1));
-}
-
-/**
  * @summary Classifies one configured model from a trustworthy `lms ps` snapshot.
  *
  * `missing` is positive non-residency evidence and permits an additive load. `unknown` is never
  * mutation authority. LM Studio legitimately reports `parallel:null` for embedding residents, so
- * an unobservable parallel remains readiness-compatible but cannot authorize a destructive cleanup.
+ * an unobservable parallel remains readiness-compatible while numeric mismatches stay report-only.
  *
  * @param {Object} options
  * @param {Object[]} options.loadedModels Normalized loaded-model rows.
@@ -399,14 +372,13 @@ function classifyLmsLoadedModelObservation({
     const exactRows = (Array.isArray(loadedModels) ? loadedModels : []).filter(item => item?.id === model);
 
     if (exactRows.length === 0) {
-        return {status: 'missing', model, destructiveShapeVerified: false};
+        return {status: 'missing', model};
     }
     if (exactRows.length !== 1) {
         return {
-            status                  : 'unknown',
+            status: 'unknown',
             model,
-            reason                  : 'conflicting-exact-rows',
-            destructiveShapeVerified: false
+            reason: 'conflicting-exact-rows'
         };
     }
 
@@ -418,11 +390,10 @@ function classifyLmsLoadedModelObservation({
 
     if (hasContextGate && !Neo.isNumber(observed.contextLength)) {
         return {
-            status                  : 'unknown',
+            status: 'unknown',
             model,
             observed,
-            reason                  : 'context-metadata-unknown',
-            destructiveShapeVerified: false
+            reason: 'context-metadata-unknown'
         };
     }
 
@@ -431,23 +402,20 @@ function classifyLmsLoadedModelObservation({
 
     if (contextGap || parallelGap) {
         return {
-            status                  : 'mismatch',
+            status               : 'mismatch',
             model,
             observed,
-            contextLength           : observed.contextLength,
-            requiredContextLength   : hasContextGate ? requiredContext : undefined,
-            parallel                : observed.parallel,
-            requiredParallel        : hasParallelGate ? requiredParallel : undefined,
-            destructiveShapeVerified: !hasParallelGate || Neo.isNumber(observed.parallel)
+            contextLength        : observed.contextLength,
+            requiredContextLength: hasContextGate ? requiredContext : undefined,
+            parallel             : observed.parallel,
+            requiredParallel     : hasParallelGate ? requiredParallel : undefined
         };
     }
 
     return {
-        status                  : 'sufficient',
+        status: 'sufficient',
         model,
-        observed,
-        destructiveShapeVerified: (!hasContextGate || Neo.isNumber(observed.contextLength)) &&
-            (!hasParallelGate || Neo.isNumber(observed.parallel))
+        observed
     };
 }
 
@@ -552,8 +520,8 @@ export function getLmsLoadedModels(payload, {strict = false} = {}) {
  * @param {Number} [options.cacheTtlMs] Required for routine caching.
  * @param {AbortSignal} [options.signal] Caller-owned cancellation signal. Signal-bearing probes are
  *     intentionally not coalesced because one caller must not abort another caller's shared child.
- * @param {Boolean} [options.unshared=false] Bypass cache and in-flight coalescing for a destructive
- *     decision's immediate observation boundary.
+ * @param {Boolean} [options.unshared=false] Bypass cache and in-flight coalescing for an additive
+ *     load decision's immediate observation boundary.
  * @returns {Promise<Object[]>}
  */
 export function fetchLmsLoadedModels({
@@ -625,54 +593,6 @@ export function fetchLmsLoadedModels({
         caller: 'fetchLmsLoadedModels',
         runProbe
     });
-}
-
-/**
- * @summary Finds loaded LM Studio siblings superseded by a verified exact model id.
- *
- * The configured model id must stay resident because downstream OpenAI-compatible
- * calls target that id. Once that exact id has the desired context/parallel shape,
- * suffixed duplicate siblings are stale resident memory and should be unloaded.
- *
- * @param {Object} options
- * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
- * @param {String[]} options.requiredModels Required configured model ids.
- * @param {Object} [options.contextLengths] Per-model required context lengths.
- * @param {Object} [options.parallels] Per-model required parallel slots.
- * @returns {Object[]}
- */
-export function getSupersededLmsLoadedModels({
-    loadedModels,
-    requiredModels,
-    contextLengths = {},
-    parallels      = {}
-} = {}) {
-    const models     = Array.isArray(loadedModels) ? loadedModels : [],
-          superseded = [];
-
-    for (const model of requiredModels || []) {
-        const observation = classifyLmsLoadedModelObservation({
-            loadedModels: models,
-            model,
-            contextLengths,
-            parallels
-        });
-
-        if (observation.status !== 'sufficient' || observation.destructiveShapeVerified !== true) {
-            continue;
-        }
-
-        for (const item of models) {
-            if (!requiredModels.includes(item.id) && item.id !== model && matchesLmsLoadedModelId(item.id, model)) {
-                superseded.push({
-                    ...item,
-                    model
-                });
-            }
-        }
-    }
-
-    return superseded;
 }
 
 /**
@@ -1180,34 +1100,6 @@ export function loadLmsModel(model, {execFileFn = execFile, contextLength, paral
 }
 
 /**
- * @summary Invokes `lms unload <identifier>` for one LM Studio resident model.
- * @param {String} identifier LM Studio loaded-model identifier.
- * @param {Object} [options]
- * @param {Function} [options.execFileFn=execFile] Child-process seam for tests.
- * @param {Number} options.timeoutMs Bounded child lifetime.
- * @returns {Promise<{stdout: String, stderr: String}>}
- */
-export function unloadLmsModel(identifier, {execFileFn = execFile, timeoutMs} = {}) {
-    if (!identifier) {
-        return Promise.reject(new TypeError('unloadLmsModel: identifier is required'));
-    }
-    if (!Neo.isNumber(timeoutMs) || timeoutMs <= 0) {
-        return Promise.reject(new TypeError('unloadLmsModel: timeoutMs is required'));
-    }
-
-    return new Promise((resolve, reject) => {
-        execFileFn('lms', ['unload', identifier], lmsExecOptions({timeout: timeoutMs, killSignal: 'SIGKILL'}), (error, stdout = '', stderr = '') => {
-            if (error) {
-                reject(createLmsCliError(`lms unload ${identifier}`, error, stderr));
-                return;
-            }
-
-            resolve({stdout, stderr});
-        });
-    });
-}
-
-/**
  * @summary Builds the per-model `--context-length` override map for `ensureLmsModelsLoaded`.
  *
  * Composes the resolved chat + embedding model identifiers with their respective
@@ -1303,8 +1195,8 @@ export function buildLmsPreloadConfig(config = aiConfig) {
 
     // `--parallel` is a per-model request-slot count (each slot = an independent KV cache = a RAM
     // multiplier), distinct from `requireParallelModels` (how many DISTINCT models stay co-resident).
-    // Keyed by model id so it force-includes through the same path as contextLengths. When an operator
-    // points chat + embedding at one LM Studio id, keep the larger requested slot count.
+    // Keyed by model id so each selected role carries one additive-load option and shape expectation.
+    // When an operator points chat + embedding at one LM Studio id, keep the larger requested slot count.
     const parallels   = {};
     const setParallel = (model, value) => {
         if (!model || !Neo.isNumber(value)) {
@@ -1392,45 +1284,6 @@ export function buildOllamaReadinessConfig(config = aiConfig) {
 }
 
 /**
- * @summary Finds LM Studio models whose observed loaded context or parallel slots do not match config.
- * @param {Object} options
- * @param {Object[]} options.loadedModels Parsed `lms ps --json` models.
- * @param {String[]} options.requiredModels Required model identifiers.
- * @param {Object} [options.contextLengths] Per-model required context lengths.
- * @param {Object} [options.parallels] Per-model required parallel slots.
- * @returns {Object[]}
- */
-export function getInsufficientLmsLoadedModels({
-    loadedModels,
-    requiredModels,
-    contextLengths = {},
-    parallels      = {}
-} = {}) {
-    const insufficient = [];
-
-    for (const model of requiredModels || []) {
-        const observation = classifyLmsLoadedModelObservation({
-            loadedModels,
-            model,
-            contextLengths,
-            parallels
-        });
-
-        if (observation.status === 'mismatch') {
-            insufficient.push({
-                model                : observation.model,
-                contextLength        : observation.contextLength,
-                requiredContextLength: observation.requiredContextLength,
-                parallel             : observation.parallel,
-                requiredParallel     : observation.requiredParallel
-            });
-        }
-    }
-
-    return insufficient;
-}
-
-/**
  * @summary Ensures LM Studio has all configured OpenAI-compatible models loaded.
  *
  * The orchestrator-owned `lms server start` task gets the server process running;
@@ -1440,16 +1293,15 @@ export function getInsufficientLmsLoadedModels({
  * has no hidden retry or timeout defaults.
  *
  * Every call runs behind one process-wide FIFO so the supervisor readiness hook and recovery
- * actuator cannot overlap destructive `lms unload` / `lms load` sequences. Calls are serialized,
- * never coalesced: each queued caller re-probes with its own role set, shape requirements, and
- * authority oracle after its predecessor settles.
+ * actuator cannot overlap additive `lms load` operations. Calls are serialized, never coalesced:
+ * each queued caller re-probes with its own role set, shape requirements, and authority oracle after
+ * its predecessor settles. Exact mismatches and suffixed residents are report-only; this readiness
+ * surface never evicts a resident model.
  *
- * Per-model context-length overrides flow through the optional `contextLengths`
- * map (`{[modelId]: tokens}`). When present, the helper invokes
- * `lms load <model> --context-length <N>` for that model so the loaded context
- * window matches the neo-side `aiConfig.localModels.{chat,embedding}.contextLimitTokens`
- * threshold. Closes the silent context-mismatch failure mode (loaded-cap <
- * prompt-size → empty downstream body).
+ * Per-model context-length and parallel overrides apply only when a trustworthy residency snapshot
+ * proves the exact configured model absent. An additive load receives those shape options. When an
+ * exact resident is present with a numeric mismatch, the helper returns `replacement-required` and
+ * performs no mutation.
  *
  * @param {Object} options
  * @param {String} options.host OpenAI-compatible host.
@@ -1457,23 +1309,19 @@ export function getInsufficientLmsLoadedModels({
  * @param {Number} options.attempts Probe attempts after load.
  * @param {Number} options.delayMs Delay between probes.
  * @param {Number} options.timeoutMs HTTP probe timeout.
- * @param {Object} [options.contextLengths] Per-model context-length override map keyed by model id.
- * @param {Object} [options.parallels] Per-model `--parallel` slot-count override map keyed by model id. A
- * model present here is force-included in the load set (like `contextLengths`) so the slot count is
- * enforced on a resident model, not just a missing one.
+ * @param {Object} [options.contextLengths] Per-model additive-load context-length map keyed by model id.
+ * @param {Object} [options.parallels] Per-model additive-load `--parallel` map keyed by model id.
  * @param {Boolean} [options.allowPartial=false] Return degraded readiness instead of throwing when one model cannot be loaded.
- * @param {Boolean} [options.allowResidentReplacement=false] Explicit recovery-only authority to
- *     replace a positively mismatched exact resident after an unshared force-fresh recheck.
  * @param {Function} [options.fetchModelIds] Injectable model-list probe.
  * @param {Function} [options.fetchLoadedModels] Injectable loaded-model metadata probe.
  * @param {Function} [options.loadModel] Injectable model-load function.
- * @param {Function} [options.unloadModel] Injectable model-unload function.
  * @param {Function} [options.embeddingServingProbe] Optional bounded embedding-serving canary seam.
  * @param {String} [options.modelDiscoveryFreshness='force'] Routine callers may use `routine`; post-mutation probes force-refresh.
  * @param {Number} [options.modelDiscoveryCacheTtlMs] Required when `modelDiscoveryFreshness` is `routine`.
  * @param {Object} [options.log=logger] Logger seam.
- * @param {Function|null} [options.isEffectStillAdmitted] Required with resident replacement; checked
- *     immediately before every destructive effect.
+ * @param {Function|null} [options.isAuthorityHeld] Optional live recovery-authority oracle.
+ * @param {Function|null} [options.isEffectStillAdmitted] Optional demand oracle checked immediately
+ *     before each additive load.
  * @returns {Promise<Object>}
  */
 export function ensureLmsModelsLoaded(options = {}) {
@@ -1500,11 +1348,9 @@ async function ensureLmsModelsLoadedOnce({
     contextLengths = {},
     parallels      = {},
     allowPartial   = false,
-    allowResidentReplacement = false,
     fetchModelIds     = opts => fetchOpenAiCompatibleModelIds(opts),
     fetchLoadedModels = opts => fetchLmsLoadedModels(opts),
     loadModel         = null,
-    unloadModel       = null,
     embeddingServingProbe,
     modelDiscoveryFreshness = PROVIDER_DISCOVERY_FORCE,
     modelDiscoveryCacheTtlMs,
@@ -1515,35 +1361,8 @@ async function ensureLmsModelsLoadedOnce({
     if (!Array.isArray(models) || models.length === 0) {
         throw new TypeError('ensureLmsModelsLoaded: models must contain at least one configured model');
     }
-
-    /**
-     * Asserted before EACH unload and EACH load. This function evicts extra models, then unloads and
-     * reloads per configured model, so every mutation sits behind a fresh await and a single entry
-     * check would bind only the first. Null oracle is not a refusal — startup callers hold no lease.
-     */
-    const assertHeld = () => {
-        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
-            const error = new Error('Authority moved before an LMS model load/unload; refusing.');
-
-            error.reason = 'runtime-authority-lost';
-
-            throw error;
-        }
-    };
-    const assertEffectAdmitted = () => {
-        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
-            const error = new Error('Provider demand changed before an LMS model load/unload; refusing.');
-
-            error.reason = 'runtime-effect-not-admitted';
-
-            throw error;
-        }
-    };
     if (typeof attempts !== 'number' || typeof delayMs !== 'number' || typeof timeoutMs !== 'number') {
         throw new TypeError('ensureLmsModelsLoaded: attempts, delayMs, and timeoutMs are required');
-    }
-    if (allowResidentReplacement && (typeof isAuthorityHeld !== 'function' || typeof isEffectStillAdmitted !== 'function')) {
-        throw new TypeError('ensureLmsModelsLoaded: allowResidentReplacement requires isAuthorityHeld and isEffectStillAdmitted');
     }
 
     const requiredModels = [...new Set(models.filter(Boolean))];
@@ -1559,60 +1378,66 @@ async function ensureLmsModelsLoadedOnce({
         ...options,
         timeoutMs: mutationTimeoutMs
     }));
-    const invokeUnloadModel = unloadModel || ((identifier, options = {}) => unloadLmsModel(identifier, {
-        ...options,
-        timeoutMs: mutationTimeoutMs
-    }));
+    const assertMutationAdmitted = ({attemptedModels, loadedModels, failedModels, refusedModel}) => {
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            const error = new Error('Authority moved before an LMS model load; refusing.');
 
-    // EXACT, deliberately. LM Studio model ids carry no implicit tag, so the Ollama untagged→`:latest`
-    // equivalence would accept a model this deployment does not serve.
-    const getMissing          = available => requiredModels.filter(model => !available.includes(model));
-    const completeReadyResult = async result => {
-        if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
-            return result;
+            error.reason = 'runtime-authority-lost';
+            throw error;
         }
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            const error               = new Error('Provider demand changed before an LMS model load; refusing.');
+            const priorProviderEffect = loadedModels.length > 0,
+                  priorAttemptUncertain = !priorProviderEffect && failedModels.length > 0;
 
-        let embeddingServing;
+            error.reason = priorProviderEffect
+                ? 'runtime-effect-partially-applied'
+                : priorAttemptUncertain
+                    ? 'runtime-effect-disposition-uncertain'
+                    : 'runtime-effect-not-admitted';
 
-        try {
-            embeddingServing = await embeddingServingProbe({
-                host,
-                timeoutMs,
-                requiredModels,
-                availableModels     : result.availableModels,
-                lmsLoadedModels     : result.lmsLoadedModels || [],
-                loadedContexts      : result.loadedContexts || {},
-                loadedParallels     : result.loadedParallels || {},
-                loadedParallelsKnown: Object.fromEntries((result.lmsLoadedModels || []).map(item => [item.id, Neo.isNumber(item.parallel)]))
-            });
-        } catch (error) {
-            embeddingServing = {
-                ready   : false,
-                degraded: true,
-                error   : {message: error?.message || String(error)},
-                warning : `[provider/openAiCompatible] embedding-serving canary failed: ${error?.message || error}`
-            };
+            if (priorProviderEffect || priorAttemptUncertain) {
+                error.effectDisposition = priorProviderEffect ? 'partial' : 'uncertain';
+                error.providerResidency = {
+                    action         : 'warm-provider',
+                    provider       : 'openAiCompatible',
+                    ready          : false,
+                    admission      : priorProviderEffect ? 'refused-after-partial' : 'refused-after-uncertain-attempt',
+                    refusedModel,
+                    attemptedModels: [...attemptedModels],
+                    loadedModels   : [...loadedModels],
+                    failedModels   : [...failedModels]
+                };
+            }
+            throw error;
         }
-
-        if (embeddingServing?.ready === true) {
-            return {
-                ...result,
-                embeddingServing
-            };
-        }
-
-        if (embeddingServing?.warning) {
-            log.warn?.(`[ProviderReadinessHelper] ${embeddingServing.warning}`);
-        }
+    };
+    const loadedShape = rows => ({
+        lmsLoadedModels: rows,
+        loadedContexts : Object.fromEntries(rows.map(item => [item.id, item.contextLength])),
+        loadedParallels: Object.fromEntries(rows.map(item => [item.id, item.parallel]))
+    });
+    const assessResidency = rows => {
+        const observations = requiredModels.map(model => classifyLmsLoadedModelObservation({
+            loadedModels: rows,
+            model,
+            contextLengths,
+            parallels
+        }));
 
         return {
-            ...result,
-            ready   : false,
-            degraded: true,
-            embeddingServing
+            unknown     : observations.filter(item => item.status === 'unknown'),
+            missing     : observations.filter(item => item.status === 'missing').map(item => item.model),
+            insufficient: observations.filter(item => item.status === 'mismatch').map(item => ({
+                model                : item.model,
+                contextLength        : item.contextLength,
+                requiredContextLength: item.requiredContextLength,
+                parallel             : item.parallel,
+                requiredParallel     : item.requiredParallel
+            }))
         };
     };
-    const probeModels = async (phase, freshness = modelDiscoveryFreshness) => {
+    const probeCatalog = async (phase, freshness = modelDiscoveryFreshness) => {
         let lastError;
 
         for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -1637,704 +1462,272 @@ async function ensureLmsModelsLoadedOnce({
         throw new Error(`LM Studio model readiness failed during ${phase}: ${lastError?.message || lastError}`);
     };
 
-    let   {availableModels} = await probeModels('initial /v1/models probe');
-    const initialMissing    = getMissing(availableModels),
-          initialLoadedModels  = [],
-          failedModels         = [],
-          cleanupFailedModels  = [],
-          unloadedModels       = [];
-    let   initialLoadedProbeError = null;
-
-    try {
-        initialLoadedModels.push(...await fetchLoadedModels({
-            timeoutMs,
-            freshness : modelDiscoveryFreshness,
-            cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
-        }));
-    } catch (error) {
-        initialLoadedProbeError = error;
-        log.warn?.(`[ProviderReadinessHelper] Initial LM Studio loaded-model probe failed: ${error.message}; refusing mutation on unknown residency metadata.`);
-    }
-
-    const loadedShape = rows => ({
-        lmsLoadedModels: rows,
-        loadedContexts : Object.fromEntries(rows.map(item => [item.id, item.contextLength])),
-        loadedParallels: Object.fromEntries(rows.map(item => [item.id, item.parallel]))
-    });
-    const assessLoadedResidency = rows => {
-        const observations = requiredModels.map(model => classifyLmsLoadedModelObservation({
-                  loadedModels: rows,
-                  model,
-                  contextLengths,
-                  parallels
-              })),
-              unknownLoadedModels = observations.filter(item => item.status === 'unknown'),
-              missingResidentModels = observations
-                  .filter(item => item.status === 'missing')
-                  .map(item => item.model),
-              insufficientLoadedModels = observations
-                  .filter(item => item.status === 'mismatch')
-                  .map(item => ({
-                      model                : item.model,
-                      contextLength        : item.contextLength,
-                      requiredContextLength: item.requiredContextLength,
-                      parallel             : item.parallel,
-                      requiredParallel     : item.requiredParallel
-                  }));
-
-        return {
-            unknownLoadedModels,
-            missingResidentModels,
-            insufficientLoadedModels
-        };
-    };
-    const returnObservationFailure = ({
-        status,
-        warning,
-        observedLoadError,
+    let   availableModels    = (await probeCatalog('initial /v1/models probe')).availableModels;
+    let   activeLoadedModels = [];
+    const attemptedModels    = [],
+          loadedModels    = [],
+          failedModels    = [];
+    const buildResult = ({
+        ready,
+        observationStatus,
+        rows = activeLoadedModels,
+        missingModels = [],
         unknownLoadedModels = [],
         insufficientLoadedModels = [],
-        rows = initialLoadedModels,
-        attempted = [],
-        appliedLoads = [],
-        missing = initialMissing
+        observedLoadError,
+        attempt = 1,
+        elapsedMs
+    }) => ({
+        ready,
+        degraded: !ready,
+        ...(observationStatus ? {observationStatus} : {}),
+        loadedModels,
+        attemptedModels,
+        failedModels,
+        cleanupFailedModels: [],
+        unloadedModels     : [],
+        missingModels,
+        unknownLoadedModels,
+        insufficientLoadedModels,
+        ...(observedLoadError ? {observedLoadError} : {}),
+        requiredModels,
+        availableModels,
+        ...loadedShape(rows),
+        attempts: attempt,
+        ...(elapsedMs === undefined ? {} : {elapsedMs})
+    });
+    const failObservation = ({
+        status,
+        warning,
+        rows = activeLoadedModels,
+        missingModels = [],
+        unknownLoadedModels = [],
+        insufficientLoadedModels = [],
+        observedLoadError,
+        attempt,
+        elapsedMs
     }) => {
         log.warn?.(`[ProviderReadinessHelper] ${warning}`);
-
         if (!allowPartial) {
             throw new Error(warning);
         }
 
-        return {
+        return buildResult({
             ready            : false,
-            degraded         : true,
             observationStatus: status,
-            loadedModels     : appliedLoads,
-            attemptedModels  : attempted,
-            failedModels,
-            cleanupFailedModels,
-            unloadedModels,
-            missingModels    : missing,
+            rows,
+            missingModels,
             unknownLoadedModels,
             insufficientLoadedModels,
-            ...(observedLoadError ? {observedLoadError} : {}),
-            requiredModels,
-            availableModels,
-            ...loadedShape(rows),
-            attempts: 1
-        };
+            observedLoadError,
+            attempt,
+            elapsedMs
+        });
     };
+    const rejectNonAuthorizingObservation = (assessment, rows, context = 'loaded-model observation') => {
+        if (assessment.unknown.length) {
+            return failObservation({
+                status             : 'metadata-unknown',
+                warning            : `LM Studio ${context} failed: ${assessment.unknown.map(item => `${item.model} (${item.reason})`).join('; ')}`,
+                rows,
+                unknownLoadedModels: assessment.unknown
+            });
+        }
+        if (assessment.insufficient.length) {
+            return failObservation({
+                status                  : 'replacement-required',
+                warning                 : `LM Studio loaded-model replacement requires an explicit operator action: ${assessment.insufficient.map(item => item.model).join(', ')}`,
+                rows,
+                insufficientLoadedModels: assessment.insufficient
+            });
+        }
+    };
+    const completeReadyResult = async result => {
+        if (result.ready !== true || typeof embeddingServingProbe !== 'function') {
+            return result;
+        }
 
-    if (initialLoadedProbeError) {
-        return returnObservationFailure({
-            status           : 'metadata-unknown',
-            warning          : `LM Studio loaded-model readiness failed: ${initialLoadedProbeError.message}`,
-            observedLoadError: initialLoadedProbeError.message
-        });
-    }
-
-    const initialObservations = new Map(requiredModels.map(model => [model, classifyLmsLoadedModelObservation({
-        loadedModels: initialLoadedModels,
-        model,
-        contextLengths,
-        parallels
-    })]));
-    const unknownLoadedModels = [...initialObservations.values()].filter(item => item.status === 'unknown');
-
-    if (unknownLoadedModels.length) {
-        return returnObservationFailure({
-            status : 'metadata-unknown',
-            warning: `LM Studio loaded-model readiness failed: ${unknownLoadedModels.map(item => `${item.model} (${item.reason})`).join('; ')}`,
-            unknownLoadedModels
-        });
-    }
-
-    const initialMismatches = [...initialObservations.values()].filter(item => item.status === 'mismatch');
-
-    if (initialMismatches.length && !allowResidentReplacement) {
-        return returnObservationFailure({
-            status                  : 'replacement-required',
-            warning                 : `LM Studio loaded-model replacement requires explicit recovery: ${initialMismatches.map(item => item.model).join(', ')}`,
-            insufficientLoadedModels: initialMismatches.map(item => ({
-                model                : item.model,
-                contextLength        : item.contextLength,
-                requiredContextLength: item.requiredContextLength,
-                parallel             : item.parallel,
-                requiredParallel     : item.requiredParallel
-            }))
-        });
-    }
-
-    // `/v1/models` is a catalog, not residency authority. Successful `lms ps` absence permits an
-    // additive load; a proven mismatch enters only the explicit recovery path above.
-    let activeLoadedModels = initialLoadedModels,
-        activeObservations = initialObservations;
-    const initialModelsToLoad = requiredModels.filter(model => {
-        const status = initialObservations.get(model)?.status;
-
-        return status === 'missing' || status === 'mismatch';
-    });
-    const attemptedModels = [],
-          loadedModels    = [];
-
-    // Cached routine metadata is diagnostic only. Before any load or unload, take one unshared
-    // batch snapshot and classify every candidate so unknown telemetry cannot appear after a sibling
-    // has already been evicted.
-    if (initialModelsToLoad.length) {
-        let freshLoadedModels;
+        let embeddingServing;
 
         try {
-            freshLoadedModels = await fetchLoadedModels({
+            embeddingServing = await embeddingServingProbe({
+                host,
                 timeoutMs,
-                freshness: PROVIDER_DISCOVERY_FORCE,
-                unshared : true
+                requiredModels,
+                availableModels     : result.availableModels,
+                lmsLoadedModels     : result.lmsLoadedModels,
+                loadedContexts      : result.loadedContexts,
+                loadedParallels     : result.loadedParallels,
+                loadedParallelsKnown: Object.fromEntries(result.lmsLoadedModels.map(item => [item.id, Neo.isNumber(item.parallel)]))
             });
         } catch (error) {
-            return returnObservationFailure({
+            embeddingServing = {
+                ready   : false,
+                degraded: true,
+                error   : {message: error?.message || String(error)},
+                warning : `[provider/openAiCompatible] embedding-serving canary failed: ${error?.message || error}`
+            };
+        }
+
+        if (embeddingServing?.ready === true) {
+            return {...result, embeddingServing};
+        }
+        if (embeddingServing?.warning) {
+            log.warn?.(`[ProviderReadinessHelper] ${embeddingServing.warning}`);
+        }
+
+        return {...result, ready: false, degraded: true, embeddingServing};
+    };
+    const fetchResidency = async options => {
+        try {
+            return await fetchLoadedModels(options);
+        } catch (error) {
+            return failObservation({
                 status           : 'metadata-unknown',
-                warning          : `LM Studio force-fresh loaded-model preflight failed: ${error.message}`,
+                warning          : `LM Studio loaded-model readiness failed: ${error.message}`,
                 observedLoadError: error.message
             });
         }
-
-        activeLoadedModels = freshLoadedModels;
-        activeObservations = new Map(requiredModels.map(model => [model, classifyLmsLoadedModelObservation({
-            loadedModels: freshLoadedModels,
-            model,
-            contextLengths,
-            parallels
-        })]));
-
-        const freshUnknown = [...activeObservations.values()].filter(item => item.status === 'unknown' ||
-            (item.status === 'mismatch' && item.destructiveShapeVerified !== true));
-
-        if (freshUnknown.length) {
-            return returnObservationFailure({
-                status             : 'metadata-unknown',
-                warning            : `LM Studio force-fresh loaded-model preflight was non-authorizing: ${freshUnknown.map(item => item.model).join(', ')}`,
-                unknownLoadedModels: freshUnknown.map(item => ({
-                    ...item,
-                    reason: item.reason || 'destructive-shape-incomplete'
-                })),
-                rows: freshLoadedModels
-            });
-        }
-
-        const freshMismatches = [...activeObservations.values()].filter(item => item.status === 'mismatch');
-
-        if (freshMismatches.length && !allowResidentReplacement) {
-            return returnObservationFailure({
-                status                  : 'replacement-required',
-                warning                 : `LM Studio loaded-model replacement requires explicit recovery: ${freshMismatches.map(item => item.model).join(', ')}`,
-                insufficientLoadedModels: freshMismatches.map(item => ({
-                    model                : item.model,
-                    contextLength        : item.contextLength,
-                    requiredContextLength: item.requiredContextLength,
-                    parallel             : item.parallel,
-                    requiredParallel     : item.requiredParallel
-                })),
-                rows: freshLoadedModels
-            });
-        }
-    }
-
-    const modelsToLoad = requiredModels.filter(model => ['missing', 'mismatch'].includes(activeObservations.get(model)?.status));
-
-    const cleanupSupersededModels = async () => {
-        if (!allowResidentReplacement) {
-            return activeLoadedModels;
-        }
-
-        let lmsLoadedModels;
-
-        try {
-            lmsLoadedModels = await fetchLoadedModels({
-                timeoutMs,
-                freshness: PROVIDER_DISCOVERY_FORCE,
-                unshared : true
-            });
-        } catch (error) {
-            cleanupFailedModels.push({
-                model: null,
-                id   : null,
-                error: `fresh cleanup witness failed: ${error.message}`
-            });
-
-            return activeLoadedModels;
-        }
-
-        const superseded = getSupersededLmsLoadedModels({
-            loadedModels: lmsLoadedModels,
-            requiredModels,
-            contextLengths,
-            parallels
-        });
-
-        for (const item of superseded) {
-            try {
-                lmsLoadedModels = await fetchLoadedModels({
-                    timeoutMs,
-                    freshness: PROVIDER_DISCOVERY_FORCE,
-                    unshared : true
-                });
-            } catch (error) {
-                cleanupFailedModels.push({
-                    model: item.model,
-                    id   : item.id,
-                    error: `immediate cleanup witness failed: ${error.message}`
-                });
-                break;
-            }
-
-            const exactObservation = classifyLmsLoadedModelObservation({
-                loadedModels: lmsLoadedModels,
-                model       : item.model,
-                contextLengths,
-                parallels
-            });
-            const siblingStillResident = lmsLoadedModels.some(row => row.id === item.id);
-
-            if (!siblingStillResident || exactObservation.status !== 'sufficient' ||
-                exactObservation.destructiveShapeVerified !== true) {
-                continue;
-            }
-
-            log.info?.(`[ProviderReadinessHelper] Unloading superseded LM Studio model '${item.id}' after '${item.model}' reached the configured shape.`);
-
-            try {
-                assertHeld();                       // last point owned before this eviction
-                assertEffectAdmitted();
-                await invokeUnloadModel(item.id);
-                unloadedModels.push(item.id);
-            } catch (error) {
-                const failure = {
-                    model: item.model,
-                    id   : item.id,
-                    error: error.message
-                };
-
-                cleanupFailedModels.push(failure);
-                log.warn?.(`[ProviderReadinessHelper] LM Studio model '${item.id}' unload failed: ${error.message}`);
-
-                if (!allowPartial) {
-                    throw error;
-                }
-            }
-        }
-
-        try {
-            return await fetchLoadedModels({
-                timeoutMs,
-                freshness: PROVIDER_DISCOVERY_FORCE,
-                unshared : true
-            });
-        } catch (error) {
-            cleanupFailedModels.push({
-                model: null,
-                id   : null,
-                error: `post-cleanup witness failed: ${error.message}`
-            });
-
-            return lmsLoadedModels;
-        }
     };
 
-    if (modelsToLoad.length === 0 && initialMissing.length === 0) {
-        if (allowResidentReplacement) {
-            activeLoadedModels = await cleanupSupersededModels();
-        }
-
-        const finalResidency = assessLoadedResidency(activeLoadedModels),
-              missingModels  = finalResidency.missingResidentModels,
-              ready          = cleanupFailedModels.length === 0 &&
-                  missingModels.length === 0 &&
-                  finalResidency.unknownLoadedModels.length === 0 &&
-                  finalResidency.insufficientLoadedModels.length === 0;
-
-        return completeReadyResult({
-            ready,
-            degraded                : !ready,
-            loadedModels            : [],
-            attemptedModels,
-            failedModels,
-            cleanupFailedModels,
-            unloadedModels,
-            missingModels,
-            unknownLoadedModels     : finalResidency.unknownLoadedModels,
-            insufficientLoadedModels: finalResidency.insufficientLoadedModels,
-            requiredModels,
-            availableModels,
-            lmsLoadedModels         : activeLoadedModels,
-            loadedContexts          : Object.fromEntries(activeLoadedModels.map(item => [item.id, item.contextLength])),
-            loadedParallels         : Object.fromEntries(activeLoadedModels.map(item => [item.id, item.parallel])),
-            attempts                : 1
-        });
+    activeLoadedModels = await fetchResidency({
+        timeoutMs,
+        freshness : modelDiscoveryFreshness,
+        cacheTtlMs: modelDiscoveryFreshness === PROVIDER_DISCOVERY_ROUTINE ? modelDiscoveryCacheTtlMs : undefined
+    });
+    if (!Array.isArray(activeLoadedModels)) {
+        return activeLoadedModels;
     }
 
-    for (const model of modelsToLoad) {
-        const contextLength = contextLengths?.[model];
-        const parallel      = parallels?.[model];
-        const contextSuffix = Neo.isNumber(contextLength)
-            ? ` --context-length ${contextLength}`
-            : '';
-        const parallelSuffix = Neo.isNumber(parallel)
-            ? ` --parallel ${parallel}`
-            : '';
-        let immediateLoadedModels;
+    let   assessment     = assessResidency(activeLoadedModels);
+    const initialRefusal = rejectNonAuthorizingObservation(assessment, activeLoadedModels);
 
-        try {
-            immediateLoadedModels = await fetchLoadedModels({
-                timeoutMs,
-                freshness: PROVIDER_DISCOVERY_FORCE,
-                unshared : true
-            });
-        } catch (error) {
-            return returnObservationFailure({
-                status           : 'metadata-unknown',
-                warning          : `LM Studio immediate loaded-model witness failed for '${model}': ${error.message}`,
-                observedLoadError: error.message,
-                rows             : activeLoadedModels,
-                attempted        : attemptedModels,
-                appliedLoads     : loadedModels
-            });
-        }
+    if (initialRefusal) {
+        return initialRefusal;
+    }
 
-        activeLoadedModels = immediateLoadedModels;
-
-        const observation = classifyLmsLoadedModelObservation({
-            loadedModels: immediateLoadedModels,
-            model,
-            contextLengths,
-            parallels
+    if (assessment.missing.length) {
+        const fresh = await fetchResidency({
+            timeoutMs,
+            freshness: PROVIDER_DISCOVERY_FORCE,
+            unshared : true
         });
 
-        if (observation.status === 'unknown' ||
-            (observation.status === 'mismatch' && observation.destructiveShapeVerified !== true)) {
-            return returnObservationFailure({
-                status             : 'metadata-unknown',
-                warning            : `LM Studio immediate loaded-model witness was non-authorizing for '${model}'.`,
-                unknownLoadedModels: [{
-                    ...observation,
-                    reason: observation.reason || 'destructive-shape-incomplete'
-                }],
-                rows        : immediateLoadedModels,
-                attempted   : attemptedModels,
-                appliedLoads: loadedModels
-            });
+        if (!Array.isArray(fresh)) {
+            return fresh;
         }
 
-        if (observation.status === 'sufficient') {
+        activeLoadedModels = fresh;
+        assessment = assessResidency(fresh);
+        const freshRefusal = rejectNonAuthorizingObservation(assessment, fresh, 'force-fresh loaded-model preflight');
+
+        if (freshRefusal) {
+            return freshRefusal;
+        }
+    }
+
+    for (const model of assessment.missing) {
+        const immediate = await fetchResidency({
+            timeoutMs,
+            freshness: PROVIDER_DISCOVERY_FORCE,
+            unshared : true
+        });
+
+        if (!Array.isArray(immediate)) {
+            return immediate;
+        }
+
+        activeLoadedModels = immediate;
+        const immediateAssessment = assessResidency(immediate),
+              immediateRefusal    = rejectNonAuthorizingObservation(
+                  immediateAssessment,
+                  immediate,
+                  `immediate loaded-model witness for '${model}'`
+              );
+
+        if (immediateRefusal) {
+            return immediateRefusal;
+        }
+        if (!immediateAssessment.missing.includes(model)) {
             continue;
         }
 
-        if (observation.status === 'mismatch' && !allowResidentReplacement) {
-            return returnObservationFailure({
-                status                  : 'replacement-required',
-                warning                 : `LM Studio loaded-model replacement requires explicit recovery: ${model}`,
-                insufficientLoadedModels: [{
-                    model,
-                    contextLength        : observation.contextLength,
-                    requiredContextLength: observation.requiredContextLength,
-                    parallel             : observation.parallel,
-                    requiredParallel     : observation.requiredParallel
-                }],
-                rows        : immediateLoadedModels,
-                attempted   : attemptedModels,
-                appliedLoads: loadedModels
-            });
-        }
+        const contextLength = contextLengths?.[model],
+              parallel      = parallels?.[model],
+              loadOptions   = {identifier: model};
 
-        const reason = observation?.status === 'missing'
-            ? 'absent from lms ps residency'
-            : 'force-fresh context-length / parallel recovery';
-        log.info?.(`[ProviderReadinessHelper] Loading LM Studio model '${model}' via lms load${contextSuffix}${parallelSuffix} (${reason}).`);
-        attemptedModels.push(model);
+        if (Neo.isNumber(contextLength)) loadOptions.contextLength = contextLength;
+        if (Neo.isNumber(parallel)) loadOptions.parallel = parallel;
+
         try {
-            const shouldReplaceExact = observation?.status === 'mismatch';
-
-            if (shouldReplaceExact) {
-                log.info?.(`[ProviderReadinessHelper] Unloading stale LM Studio model '${model}' before stable-identifier reload.`);
-                assertHeld();                       // last reversible boundary before eviction
-                assertEffectAdmitted();
-                let unloadError;
-
-                try {
-                    await invokeUnloadModel(model);
-                    unloadedModels.push(model);
-                } catch (error) {
-                    // An RPC timeout does not prove the server-side unload was unapplied. Compensation
-                    // is mandatory after every dispatched exact eviction, including uncertain outcomes.
-                    unloadError = error;
-                }
-
-                const loadOptions = {identifier: model};
-
-                if (Neo.isNumber(contextLength)) loadOptions.contextLength = contextLength;
-                if (Neo.isNumber(parallel)) loadOptions.parallel = parallel;
-
-                try {
-                    await invokeLoadModel(model, loadOptions);
-                    loadedModels.push(model);
-                } catch (loadError) {
-                    loadError.unloadError = unloadError?.message;
-                    loadError.effectDisposition = 'replacement-compensation-failed';
-                    throw loadError;
-                }
-
-                if (unloadError) {
-                    log.warn?.(`[ProviderReadinessHelper] LM Studio exact unload outcome was uncertain, but compensating load completed: ${unloadError.message}`);
-                }
-
-                continue;
-            }
-
-            const loadOptions = {identifier: model};
-
-            if (Neo.isNumber(contextLength)) {
-                loadOptions.contextLength = contextLength;
-            }
-            if (Neo.isNumber(parallel)) {
-                loadOptions.parallel = parallel;
-            }
-
-            if (!shouldReplaceExact) {
-                assertHeld();                       // additive loads remain admission-bound
-                assertEffectAdmitted();
-            }
+            assertMutationAdmitted({attemptedModels, loadedModels, failedModels, refusedModel: model});
+            attemptedModels.push(model);
             await invokeLoadModel(model, loadOptions);
             loadedModels.push(model);
         } catch (error) {
-            failedModels.push({
-                model,
-                contextLength,
-                parallel,
-                error: error.message
-            });
+            if (error?.reason?.startsWith('runtime-authority-') || error?.reason?.startsWith('runtime-effect-')) {
+                throw error;
+            }
+
+            failedModels.push({model, contextLength, parallel, error: error.message});
             log.warn?.(`[ProviderReadinessHelper] LM Studio model '${model}' preload failed: ${error.message}`);
 
-            if (observation?.status === 'mismatch' || !allowPartial) {
+            if (!allowPartial) {
                 throw error;
             }
         }
     }
 
-    let missingModels = initialMissing;
+    const startedAt     = Date.now();
+    let   missingModels = [];
 
-    const startedAt = Date.now();
     for (let attempt = 1; attempt <= attempts; attempt++) {
-        ({availableModels} = await probeModels('post-load /v1/models probe', PROVIDER_DISCOVERY_FORCE));
-        missingModels = getMissing(availableModels);
+        availableModels = (await probeCatalog('post-load /v1/models probe', PROVIDER_DISCOVERY_FORCE)).availableModels;
 
-        const knownUnavailable = new Set([
-            ...failedModels.map(item => item.model)
-        ]);
-        const serviceableMissing = missingModels.filter(model => !knownUnavailable.has(model));
+        const finalRows = await fetchResidency({
+            timeoutMs,
+            freshness: PROVIDER_DISCOVERY_FORCE,
+            unshared : true
+        });
 
+        if (!Array.isArray(finalRows)) {
+            return finalRows;
+        }
+
+        activeLoadedModels = finalRows;
+        assessment = assessResidency(finalRows);
+        const finalRefusal = rejectNonAuthorizingObservation(assessment, finalRows, 'post-load observation');
+
+        if (finalRefusal) {
+            return finalRefusal;
+        }
+
+        const catalogMissing = requiredModels.filter(model => !availableModels.includes(model));
+
+        missingModels = [...new Set([...catalogMissing, ...assessment.missing])];
         if (missingModels.length === 0) {
-            let lmsLoadedModels = [];
+            const ready = failedModels.length === 0;
 
-            try {
-                lmsLoadedModels = await fetchLoadedModels({
-                    timeoutMs,
-                    freshness: PROVIDER_DISCOVERY_FORCE,
-                    unshared : true
-                });
-            } catch (error) {
-                const warning = `LM Studio loaded-model readiness failed: ${error.message}`;
-
-                log.warn?.(`[ProviderReadinessHelper] ${warning}`);
-
-                if (!allowPartial) {
-                    throw new Error(warning);
-                }
-
-                return {
-                    ready            : false,
-                    degraded         : true,
-                    observationStatus: 'metadata-unknown',
-                    loadedModels,
-                    attemptedModels,
-                    failedModels,
-                    cleanupFailedModels,
-                    unloadedModels,
-                    missingModels,
-                    observedLoadError: error.message,
-                    requiredModels,
-                    availableModels,
-                    attempts         : attempt,
-                    elapsedMs        : Date.now() - startedAt
-                };
-            }
-
-            const postObservations = requiredModels.map(model => classifyLmsLoadedModelObservation({
-                loadedModels: lmsLoadedModels,
-                model,
-                contextLengths,
-                parallels
-            }));
-            const unknownLoadedModels = postObservations.filter(item => item.status === 'unknown');
-
-            if (unknownLoadedModels.length) {
-                const warning = `LM Studio loaded-model readiness failed: ${unknownLoadedModels.map(item => `${item.model} (${item.reason})`).join('; ')}`;
-
-                log.warn?.(`[ProviderReadinessHelper] ${warning}`);
-
-                if (!allowPartial) {
-                    throw new Error(warning);
-                }
-
-                return {
-                    ready            : false,
-                    degraded         : true,
-                    observationStatus: 'metadata-unknown',
-                    loadedModels,
-                    attemptedModels,
-                    failedModels,
-                    cleanupFailedModels,
-                    unloadedModels,
-                    missingModels,
-                    unknownLoadedModels,
-                    requiredModels,
-                    availableModels,
-                    ...loadedShape(lmsLoadedModels),
-                    attempts : attempt,
-                    elapsedMs: Date.now() - startedAt
-                };
-            }
-
-            const missingResidents = postObservations
-                .filter(item => item.status === 'missing')
-                .map(item => item.model);
-
-            if (missingResidents.length) {
-                missingModels = [...new Set([...missingModels, ...missingResidents])];
-
-                if (attempt < attempts) {
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
-                    continue;
-                }
-            }
-
-            const insufficientLoadedModels = postObservations
-                .filter(item => item.status === 'mismatch')
-                .map(item => ({
-                    model                : item.model,
-                    contextLength        : item.contextLength,
-                    requiredContextLength: item.requiredContextLength,
-                    parallel             : item.parallel,
-                    requiredParallel     : item.requiredParallel
-                }));
-
-            if (insufficientLoadedModels.length) {
-                const warning = `LM Studio loaded-model readiness failed: ${insufficientLoadedModels.map(item => {
-                    const context = item.requiredContextLength !== undefined
-                        ? `context observed=${item.contextLength ?? 'unknown'} required>=${item.requiredContextLength}`
-                        : null;
-                    const parallel = item.requiredParallel !== undefined
-                        ? `parallel observed=${item.parallel ?? 'unknown'} required=${item.requiredParallel}`
-                        : null;
-
-                    return `${item.model} (${[context, parallel].filter(Boolean).join(', ')})`
-                }).join('; ')}`;
-
-                log.warn?.(`[ProviderReadinessHelper] ${warning}`);
-
-                if (!allowPartial) {
-                    throw new Error(warning);
-                }
-
-                return {
-                    ready          : false,
-                    degraded       : true,
-                    loadedModels,
-                    attemptedModels,
-                    failedModels,
-                    cleanupFailedModels,
-                    unloadedModels,
-                    missingModels,
-                    insufficientLoadedModels,
-                    requiredModels,
-                    availableModels,
-                    lmsLoadedModels,
-                    loadedContexts : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
-                    loadedParallels: Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
-                    attempts       : attempt,
-                    elapsedMs      : Date.now() - startedAt
-                };
-            }
-
-            if (allowResidentReplacement) {
-                lmsLoadedModels = await cleanupSupersededModels();
-            }
-
-            const finalResidency = assessLoadedResidency(lmsLoadedModels);
-
-            missingModels = [...new Set([...missingModels, ...finalResidency.missingResidentModels])];
-
-            const ready = missingModels.length === 0 &&
-                failedModels.length === 0 &&
-                cleanupFailedModels.length === 0 &&
-                finalResidency.unknownLoadedModels.length === 0 &&
-                finalResidency.insufficientLoadedModels.length === 0;
-            return completeReadyResult({
+            return completeReadyResult(buildResult({
                 ready,
-                degraded                : !ready,
-                loadedModels,
-                attemptedModels,
-                failedModels,
-                cleanupFailedModels,
-                unloadedModels,
-                missingModels,
-                unknownLoadedModels     : finalResidency.unknownLoadedModels,
-                insufficientLoadedModels: finalResidency.insufficientLoadedModels,
-                requiredModels,
-                availableModels,
-                lmsLoadedModels,
-                loadedContexts          : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.contextLength])),
-                loadedParallels         : Object.fromEntries(lmsLoadedModels.map(item => [item.id, item.parallel])),
-                attempts                : attempt,
-                elapsedMs               : Date.now() - startedAt
-            });
-        }
-
-        if (allowPartial && serviceableMissing.length === 0) {
-            const ready = false;
-            return {
-                ready,
-                degraded : !ready,
-                loadedModels,
-                attemptedModels,
-                failedModels,
-                cleanupFailedModels,
-                unloadedModels,
-                missingModels,
-                requiredModels,
-                availableModels,
-                attempts : attempt,
+                rows     : finalRows,
+                attempt,
                 elapsedMs: Date.now() - startedAt
-            };
+            }));
         }
-
         if (attempt < attempts) {
             await new Promise(resolve => setTimeout(resolve, delayMs));
         }
     }
 
     if (allowPartial) {
-        return {
+        return buildResult({
             ready    : false,
-            degraded : true,
-            loadedModels,
-            attemptedModels,
-            failedModels,
-            cleanupFailedModels,
-            unloadedModels,
+            rows     : activeLoadedModels,
             missingModels,
-            requiredModels,
-            availableModels,
-            attempts,
+            attempt  : attempts,
             elapsedMs: Date.now() - startedAt
-        };
+        });
     }
 
     throw new Error(
@@ -2873,7 +2266,7 @@ export async function repairProviderRoleSetResidency({
             };
         }
 
-        // Last point owned before the unload/load/warm sequence leaves this process. The role
+        // Last point owned before the warm sequence leaves this process. The role
         // resolution above is read-only, so nothing has been mutated if this refuses.
         assertHeld();
 
@@ -2929,10 +2322,10 @@ export async function repairProviderRoleSetResidency({
         assertHeld();
 
         const result = await lmsRepairFn({
-            // Same reason as the ollama arm: the default helper unloads and loads per model.
+            // Same reason as the ollama arm: the default helper may add missing models one by one.
             isAuthorityHeld,
             ...(typeof isEffectStillAdmitted === 'function'
-                ? {isEffectStillAdmitted, allowResidentReplacement: true}
+                ? {isEffectStillAdmitted}
                 : {}),
             host          : getOpenAiCompatibleHost(config),
             models        : preloadConfig.models,
