@@ -187,6 +187,7 @@
         "fleet.instanceRoot",
         "fleet.planeBase",
         "fleet.planeBearer",
+        "fleet.planeBearerFile",
         "fleet.planeInternalHosts",
         "fleet.port",
         "fleet.tenantProbeTimeoutMs",

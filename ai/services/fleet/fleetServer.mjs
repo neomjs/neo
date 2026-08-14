@@ -1,17 +1,17 @@
 // Neo namespace bootstrap (entry-point invariant): FleetControlBridge and its Neo classes are
 // evaluated only after the namespace/core/instance aliases have been installed.
-import Neo                               from '../../../src/Neo.mjs';
-import * as core                         from '../../../src/core/_export.mjs';
-import InstanceManager                   from '../../../src/manager/Instance.mjs';
-import express                           from 'express';
-import {rateLimit}                       from 'express-rate-limit';
-import cors                              from 'cors';
-import path                              from 'node:path';
-import {accessSync, constants, statSync} from 'node:fs';
-import {fileURLToPath, pathToFileURL}    from 'node:url';
-import {hostHeaderValidation}            from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
-import AiConfig                          from '../../config.mjs';
-import ConfigBase, {PLANE_MEMBER_PATHS}  from '../../configBase.mjs';
+import Neo                                             from '../../../src/Neo.mjs';
+import * as core                                       from '../../../src/core/_export.mjs';
+import InstanceManager                                 from '../../../src/manager/Instance.mjs';
+import express                                         from 'express';
+import {rateLimit}                                     from 'express-rate-limit';
+import cors                                            from 'cors';
+import path                                            from 'node:path';
+import {accessSync, constants, readFileSync, statSync} from 'node:fs';
+import {fileURLToPath, pathToFileURL}                  from 'node:url';
+import {hostHeaderValidation}                          from '@modelcontextprotocol/sdk/server/middleware/hostHeaderValidation.js';
+import AiConfig                                        from '../../config.mjs';
+import ConfigBase, {PLANE_MEMBER_PATHS}                from '../../configBase.mjs';
 import {
     assertPlaneCoherence,
     assertPlaneMemberCoherence,
@@ -407,19 +407,32 @@ export async function createFleetServerApp({
             return
         }
 
-        // Connect-time arming: ensure/rotate the viewer's relay subscription through the
-        // arming context (authorized today for exactly the plane-proven caller identity — MC
-        // subscriptions are caller-owned and delegation is refused there, so any other viewer
-        // lands in the honest per-viewer not-armed state rather than a relabeled route).
+        // Connect-time arming, per viewer, with the viewer's OWN presented bearer: the
+        // subscription is created by the viewer's credential (MC's caller-owned model holds
+        // per viewer, no delegation surface), the bearer is used in-flight only, and the
+        // stream registers under the identity MC PROVED for it — never the request's claim.
+        // A viewer without a usable bearer falls back to the service-proven path (which arms
+        // exactly the proven caller) and otherwise lands in the honest not-armed state.
+        let registrationKey = streamKey;
+
         if (app.fleetWakeArming) {
             try {
-                await app.fleetWakeArming.ensureArmedFor(streamKey)
+                const
+                    bearer         = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+                    canonicalClaim = normalizeAgentIdentity(req.fleetRequestContext.providerUsername ?? req.fleetRequestContext.username),
+                    outcome        = bearer && canonicalClaim
+                        ? await app.fleetWakeArming.ensureArmedForViewer({viewerKey: streamKey, canonicalClaim, bearer})
+                        : await app.fleetWakeArming.ensureArmedFor(streamKey);
+
+                if (outcome.armed && outcome.identity) {
+                    registrationKey = outcome.identity
+                }
             } catch (error) {
                 logger.warn(`[FleetServer] connect-time arming failed for a viewer stream: ${error?.message ?? error}`)
             }
         }
 
-        const admitted = fanout.registerStream(streamKey, res);
+        const admitted = fanout.registerStream(registrationKey, res);
 
         // A handshake-rejected stream may already be headers-sent or destroyed — only answer
         // the refusal envelope on a response that can still carry one.
@@ -474,6 +487,35 @@ export async function createFleetServerApp({
     });
 
     return app
+}
+
+/**
+ * @summary Resolves the Fleet service's plane bearer from its two declared homes: the direct
+ * `fleet.planeBearer` value wins; otherwise `fleet.planeBearerFile` names a secret file (the
+ * containerized custody class — the canonical composition mounts its admission token as a
+ * compose secret, and a credential does not belong in an env literal). Returns `''` when
+ * neither yields a value — the caller decides whether that is an honest unarmed state or a
+ * refused boot.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The resolved bearer, or `''`.
+ */
+export function resolveFleetPlaneBearer({aiConfig = AiConfig, readFile = null} = {}) {
+    const direct = aiConfig.fleet.planeBearer.trim();
+
+    if (direct) return direct;
+
+    const bearerFile = aiConfig.fleet.planeBearerFile.trim();
+
+    if (!bearerFile) return '';
+
+    try {
+        const read = readFile ?? (target => readFileSync(target, 'utf8'));
+        return String(read(bearerFile)).trim()
+    } catch {
+        return ''
+    }
 }
 
 /**
@@ -558,7 +600,7 @@ export function createWakeArmingContext({
 
                 client = createPlaneClient({
                     baseUrl            : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
-                    credential         : aiConfig.fleet.planeBearer,
+                    credential         : resolveFleetPlaneBearer({aiConfig}),
                     allowPlainHttpHosts: aiConfig.fleet.planeInternalHosts
                 });
 
@@ -599,41 +641,130 @@ export function createWakeArmingContext({
         },
 
         /**
-         * @summary Ensures the relay subscription for one viewer key — cached per viewer, safe
-         * to call on every connect. Establish-class failures are reflected into the fan-out's
-         * described state so the SSE `state` event and the wake-routes axis carry the reason.
+         * @summary Ensures the relay subscription for one viewer key — single-flight per
+         * viewer (a settled ARMED outcome is cached; a failure clears its latch so the next
+         * connect retries), safe to call on every connect. Establish-class failures are
+         * reflected into the fan-out's described state so the SSE `state` event and the
+         * wake-routes axis carry the reason.
          * @param {String} viewerKey Stream key from {@link resolveViewerStreamKey}.
          * @returns {Promise<Object>} `{armed, reason}` outcome for this viewer.
          */
-        async ensureArmedFor(viewerKey) {
-            const cached = outcomesByViewer.get(viewerKey);
+        ensureArmedFor(viewerKey) {
+            const pending = outcomesByViewer.get(viewerKey);
 
-            if (cached?.armed) return cached;
+            if (pending) return pending;
 
-            const ready = await establish();
+            const mutation = (async () => {
+                const ready = await establish();
 
-            let outcome;
+                if (!ready.ok) {
+                    return fanout.armRelaySubscription({
+                        identity    : null,
+                        wakeSelfBase: ready.reason.includes('wakeSelfBase') ? '' : wakeSelfBase,
+                        callTool    : null
+                    })
+                }
 
-            if (!ready.ok) {
-                outcome = await fanout.armRelaySubscription({
-                    identity    : null,
-                    wakeSelfBase: ready.reason.includes('wakeSelfBase') ? '' : wakeSelfBase,
-                    callTool    : null
-                })
-            } else if (viewerKey !== proven) {
-                outcome = {armed: false, reason: 'not-armed: MC subscriptions are caller-owned; this viewer is not the proven plane identity'}
-            } else {
-                outcome = await fanout.armRelaySubscription({
+                if (viewerKey !== proven) {
+                    return {armed: false, reason: 'not-armed: MC subscriptions are caller-owned; this viewer is not the proven plane identity'}
+                }
+
+                const outcome = await fanout.armRelaySubscription({
                     identity: proven,
                     wakeSelfBase,
                     callTool: (name, args) => client.callTool(name, args)
                 });
 
-                logger.info(`[FleetServer] wake push lane (${viewerKey}): ${outcome.reason}`)
-            }
+                logger.info(`[FleetServer] wake push lane (${viewerKey}): ${outcome.reason}`);
+                return outcome
+            })().then(outcome => {
+                if (!outcome.armed) {
+                    outcomesByViewer.delete(viewerKey)
+                }
 
-            outcomesByViewer.set(viewerKey, outcome);
-            return outcome
+                return outcome
+            }, error => {
+                outcomesByViewer.delete(viewerKey);
+                throw error
+            });
+
+            outcomesByViewer.set(viewerKey, mutation);
+            return mutation
+        },
+
+        /**
+         * @summary Arms one ADMITTED viewer with the viewer's OWN presented plane bearer — the
+         * MC-authorized per-viewer ownership path: the subscription is created by the viewer's
+         * credential, so MC's caller-owned model holds per viewer with no delegation surface
+         * and no privilege beyond what the viewer already presented to this server. The bearer
+         * is used in-flight for exactly one ephemeral session (init proof → subscribe →
+         * rotate-key → close) and never stored; the route binds to the identity MC PROVES for
+         * that bearer, never to the request's claim. Single-flight + retry semantics per
+         * viewer, same as {@link ensureArmedFor}.
+         * @param {Object} options
+         * @param {String} options.viewerKey Pre-arming stream key (latch + cache key).
+         * @param {String} options.canonicalClaim The viewer's canonical `@login` claim, proven
+         *     against MC by the session init.
+         * @param {String} options.bearer The viewer's own presented plane credential.
+         * @returns {Promise<Object>} `{armed, reason, identity?}` — `identity` is MC-proven.
+         */
+        ensureArmedForViewer({viewerKey, canonicalClaim, bearer}) {
+            const pending = outcomesByViewer.get(viewerKey);
+
+            if (pending) return pending;
+
+            const mutation = (async () => {
+                if (!wakeSelfBase) {
+                    return fanout.armRelaySubscription({identity: null, wakeSelfBase: '', callTool: null})
+                }
+
+                if (!planeBase || typeof bearer !== 'string' || bearer.length === 0 || !canonicalClaim) {
+                    return {armed: false, reason: 'not-armed: no per-viewer plane credential presented'}
+                }
+
+                let viewerClient;
+
+                try {
+                    viewerClient = createPlaneClient({
+                        baseUrl            : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
+                        credential         : bearer,
+                        allowPlainHttpHosts: aiConfig.fleet.planeInternalHosts
+                    });
+
+                    const admission = await viewerClient.init({expectedIdentity: canonicalClaim});
+
+                    if (!admission.ok) {
+                        return {armed: false, reason: `not-armed: viewer admission refused (${admission.reason})`}
+                    }
+
+                    const identity = normalizeAgentIdentity(admission.identity);
+
+                    const outcome = await fanout.armRelaySubscription({
+                        identity,
+                        wakeSelfBase,
+                        callTool: (name, args) => viewerClient.callTool(name, args)
+                    });
+
+                    logger.info(`[FleetServer] wake push lane (${identity}): ${outcome.reason}`);
+                    return {...outcome, identity}
+                } catch (error) {
+                    return {armed: false, reason: `not-armed: ${error?.message ?? error}`}
+                } finally {
+                    await viewerClient?.close?.()
+                }
+            })().then(outcome => {
+                if (!outcome.armed) {
+                    outcomesByViewer.delete(viewerKey)
+                }
+
+                return outcome
+            }, error => {
+                outcomesByViewer.delete(viewerKey);
+                throw error
+            });
+
+            outcomesByViewer.set(viewerKey, mutation);
+            return mutation
         },
 
         /**
@@ -699,6 +830,20 @@ export async function startFleetServer(options={}) {
 
     if (typeof host !== 'string' || host.trim().length === 0) {
         throw new Error('Fleet listener host is required')
+    }
+
+    // A DECLARED wake push lane with no service credential is a dead feature wearing a live
+    // topology — this boot refuses loudly instead of arming nothing and letting the first
+    // plane witness discover it. Per-viewer bearers still arm viewers at connect; this gate
+    // is about the service's own lane, whose declaration promised it works.
+    if (aiConfig.fleet.wakeSelfBase.trim() && aiConfig.fleet.planeBase.trim() &&
+        resolveFleetPlaneBearer({aiConfig}) === ''
+    ) {
+        throw new Error(
+            '[FleetServer] wake push lane is declared (fleet.wakeSelfBase + fleet.planeBase) but no ' +
+            'plane credential resolves — set fleet.planeBearer or fleet.planeBearerFile, or unset ' +
+            'fleet.wakeSelfBase. Refusing to boot a dead feature.'
+        )
     }
 
     const app = await createFleetServerApp({...options, aiConfig, logger});

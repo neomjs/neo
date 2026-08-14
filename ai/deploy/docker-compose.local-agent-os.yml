@@ -93,6 +93,10 @@ services:
       # compose time — absent, the push lane boots honestly unarmed and says so.
       NEO_FLEET_PLANE_BASE: http://ingress:8080
       NEO_FLEET_PLANE_INTERNAL_HOSTS: ingress
+      # The service credential rides the SAME mounted secret the profile's admission already
+      # uses — a real, identity-bound bearer in the canonical render, with secret-file custody
+      # (never an env literal). The direct-value override stays available for non-compose runs.
+      NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/mcp-auth-token
       NEO_FLEET_PLANE_BEARER: ${NEO_FLEET_PLANE_BEARER:-}
       NEO_AGENT_IDENTITY: ${NEO_AGENT_IDENTITY:-}
     secrets:

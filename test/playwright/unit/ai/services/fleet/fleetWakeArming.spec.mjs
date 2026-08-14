@@ -22,7 +22,9 @@ import {normalizeSecureMcpEndpoint} from '../../../../../../ai/services/fleet/mc
 import {
     armFleetWakePushLane,
     createWakeArmingContext,
-    resolveViewerStreamKey
+    resolveFleetPlaneBearer,
+    resolveViewerStreamKey,
+    startFleetServer
 } from '../../../../../../ai/services/fleet/fleetServer.mjs';
 
 const QUIET = {info: () => {}, warn: () => {}, error: () => {}};
@@ -37,6 +39,7 @@ function armingFixture({initOk = true, provenIdentity = '@viewer'} = {}) {
         fleet: {
             planeBase         : 'http://ingress:8080',
             planeBearer       : 'operator-supplied',
+            planeBearerFile   : '',
             planeInternalHosts: ['ingress'],
             wakeSelfBase      : 'http://fleet-server:8083'
         }
@@ -137,6 +140,106 @@ test.describe('fleet wake arming - the boot-path falsifier and the caller-owned 
 
         await context.ensureArmedFor('@viewer');
         expect(toolCalls.length).toBe(after)
+    })
+});
+
+test.describe('fleet wake arming - whole-mutation serialization (the key-divergence regression)', () => {
+    test('two racing armings for one identity run ONE subscribe + ONE rotation, share the outcome, and the route key equals MC\'s active key', async () => {
+        const
+            fanout    = createFleetWakeFanout({logger: QUIET, heartbeatMs: 0}),
+            toolCalls = [];
+
+        let rotationCount = 0;
+
+        // The measured falsifier shape: rotate answers are DELAYED, so an unserialized second
+        // caller overlaps the first mutation and mints a second key.
+        const callTool = async (name, args) => {
+            toolCalls.push(args.action);
+
+            if (args.action === 'subscribe') {
+                await new Promise(resolve => setTimeout(resolve, 20));
+                return {subscriptionId: 'WAKE_SUB:race'}
+            }
+
+            if (args.action === 'rotate-key') {
+                rotationCount++;
+                const key = String(rotationCount).repeat(64).slice(0, 64);
+                await new Promise(resolve => setTimeout(resolve, 30));
+                return {subscriptionId: 'WAKE_SUB:race', signingKey: key}
+            }
+        };
+
+        const arm = () => fanout.armRelaySubscription({
+            identity    : '@viewer',
+            wakeSelfBase: 'http://fleet-server:8083',
+            callTool
+        });
+
+        const [first, second] = await Promise.all([arm(), arm()]);
+
+        expect(toolCalls).toEqual(['subscribe', 'rotate-key']);
+        expect(rotationCount).toBe(1);
+        expect(first).toEqual(second);
+
+        // MC's active key IS the single rotation's key, and the route holds exactly it.
+        expect(fanout.resolveRoute('WAKE_SUB:race').signingKey).toBe('1'.repeat(64))
+    });
+
+    test('the context latch is shared by boot arming and a concurrent connect-time ensure', async () => {
+        const {context, toolCalls} = armingFixture();
+
+        await Promise.all([
+            armFleetWakePushLane({armingContext: context, logger: QUIET}),
+            (async () => {
+                await context.establish();
+                return context.ensureArmedFor(context.provenIdentity())
+            })()
+        ]);
+
+        expect(toolCalls.map(call => call.args.action)).toEqual(['subscribe', 'rotate-key'])
+    })
+});
+
+test.describe('fleet wake arming - the service credential chain', () => {
+    test('the direct bearer value wins; the secret file is the fallback; absence resolves empty', () => {
+        const base = {planeBearer: '', planeBearerFile: ''};
+
+        expect(resolveFleetPlaneBearer({aiConfig: {fleet: {...base, planeBearer: ' direct '}}})).toBe('direct');
+
+        expect(resolveFleetPlaneBearer({
+            aiConfig: {fleet: {...base, planeBearerFile: '/run/secrets/token'}},
+            readFile: target => (target === '/run/secrets/token' ? 'from-file\n' : '')
+        })).toBe('from-file');
+
+        expect(resolveFleetPlaneBearer({aiConfig: {fleet: base}})).toBe('');
+
+        expect(resolveFleetPlaneBearer({
+            aiConfig: {fleet: {...base, planeBearerFile: '/missing'}},
+            readFile: () => {
+                throw new Error('ENOENT')
+            }
+        })).toBe('')
+    });
+
+    test('a declared wake lane with no resolvable credential refuses to boot instead of arming nothing', async () => {
+        await expect(startFleetServer({
+            host    : '127.0.0.1',
+            port    : 0,
+            aiConfig: {
+                mcpListenHost: '127.0.0.1',
+                fleet        : {
+                    port              : 0,
+                    dataDir           : '/unused',
+                    wakeSelfBase      : 'http://fleet-server:8083',
+                    planeBase         : 'http://ingress:8080',
+                    planeBearer       : '',
+                    planeBearerFile   : '',
+                    planeInternalHosts: ['ingress']
+                }
+            },
+            planeGuard: () => {},
+            logger    : QUIET
+        })).rejects.toThrow(/Refusing to boot a dead feature/)
     })
 });
 

@@ -62,7 +62,9 @@ export function createFleetWakeFanout({
         totalStreams = 0,
         heartbeatRef = null;
 
-    const cleanupByStream = new Map(); // res -> idempotent cleanup fn
+    const
+        cleanupByStream  = new Map(), // res -> idempotent cleanup fn
+        armingByIdentity = new Map(); // identity -> in-flight arming mutation promise
 
     /**
      * One faulty consumer must never take the lane down: a throwing write or a consumer whose
@@ -250,6 +252,32 @@ export function createFleetWakeFanout({
                 armReason = 'not-armed: no authenticated plane client';
                 return {armed, reason: armReason}
             }
+
+            // The WHOLE mutation — subscribe → rotate-key → route install — is serialized per
+            // identity: two racing callers (boot arming and the first SSE connect are the
+            // measured pair) would otherwise run two rotations, leaving MC on the second key
+            // while this registry holds the first — every subsequent signed delivery then
+            // fails verification. One in-flight promise per identity; concurrent callers share
+            // its outcome, and the latch clears on settle so a FAILED arming stays retryable.
+            const inFlight = armingByIdentity.get(identity);
+
+            if (inFlight) return inFlight;
+
+            const mutation = this._armRelaySubscription({identity, wakeSelfBase, callTool, trigger})
+                .finally(() => armingByIdentity.delete(identity));
+
+            armingByIdentity.set(identity, mutation);
+            return mutation
+        },
+
+        /**
+         * @summary The unserialized arming mutation — reach it only through
+         * {@link armRelaySubscription}'s per-identity latch.
+         * @param {Object} options See {@link armRelaySubscription}.
+         * @returns {Promise<Object>} `{armed, reason, subscriptionId?}`
+         * @private
+         */
+        async _armRelaySubscription({identity, wakeSelfBase, callTool, trigger}) {
 
             let url;
 

@@ -314,6 +314,16 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeInternalHosts: leaf([], 'NEO_FLEET_PLANE_INTERNAL_HOSTS', 'csv'),
                 /**
+                 * Absolute path of a file holding the plane bearer — the secret-file
+                 * indirection for containerized profiles, where the canonical composition
+                 * already mounts its admission token as a compose secret and env literals are
+                 * the wrong custody class for credentials. `planeBearer` (the direct value)
+                 * wins when both are set; empty means no file indirection. Read at the use
+                 * site by the Fleet entry, never at import.
+                 * @type {string}
+                 */
+                planeBearerFile: leaf('', 'NEO_FLEET_PLANE_BEARER_FILE', 'string'),
+                /**
                  * Bearer credential for the app<->fleet TRANSPORT — a different credential from
                  * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
                  * the default is empty and never carries a value: `resolveFleetBearer` generates
