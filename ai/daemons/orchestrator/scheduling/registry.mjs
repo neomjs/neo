@@ -1,16 +1,17 @@
-import {getDueTask as getSummaryDueTask}                          from './summary.mjs';
-import {getDueTask as getBackupDueTask}                           from './backup.mjs';
-import {getDueTask as getDreamDueTask}                            from './dream.mjs';
-import {getDueTask as getGraphLogCompactionDueTask}               from './graphLogCompaction.mjs';
-import {getDueTask as getGoldenPathDueTask}                       from './goldenPath.mjs';
-import {getDueTask as getMemorySummaryBackfillDueTask}            from './memorySummaryBackfill.mjs';
-import {getDueTask as getPrimaryDevSyncDueTask}                   from './primaryDevSync.mjs';
-import {getDueTask as getSwarmHeartbeatDueTask}                   from './swarmHeartbeat.mjs';
-import {getDueTask as getTenantRepoSyncDueTask}                   from './tenantRepoSync.mjs';
-import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}       from './embedDrainLivenessWatchdog.mjs';
-import {getDueTask as getRemConsolidationLivenessWatchdogDueTask} from './remConsolidationLivenessWatchdog.mjs';
-import {getDueTask as getDataIntegritySweepDueTask}               from './dataIntegritySweep.mjs';
-import {getTaskAuthorityClass}                                    from '../taskAuthority.mjs';
+import {getDueTask as getSummaryDueTask}                            from './summary.mjs';
+import {getDueTask as getBackupDueTask}                             from './backup.mjs';
+import {getDueTask as getDreamDueTask}                              from './dream.mjs';
+import {getDueTask as getGraphLogCompactionDueTask}                 from './graphLogCompaction.mjs';
+import {getDueTask as getGoldenPathDueTask}                         from './goldenPath.mjs';
+import {getDueTask as getMemorySummaryBackfillDueTask}              from './memorySummaryBackfill.mjs';
+import {getDueTask as getPrimaryDevSyncDueTask}                     from './primaryDevSync.mjs';
+import {getDueTask as getSwarmHeartbeatDueTask}                     from './swarmHeartbeat.mjs';
+import {getDueTask as getTenantRepoSyncDueTask}                     from './tenantRepoSync.mjs';
+import {getDueTask as getEmbedDrainLivenessWatchdogDueTask}         from './embedDrainLivenessWatchdog.mjs';
+import {getDueTask as getRemConsolidationLivenessWatchdogDueTask}   from './remConsolidationLivenessWatchdog.mjs';
+import {getDueTask as getHeavyMaintenanceStarvationWatchdogDueTask} from './heavyMaintenanceStarvationWatchdog.mjs';
+import {getDueTask as getDataIntegritySweepDueTask}                 from './dataIntegritySweep.mjs';
+import {getTaskAuthorityClass}                                      from '../taskAuthority.mjs';
 
 function toTimestampMs(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -317,6 +318,20 @@ const taskRegistry = [
                 state                          : state['rem-consolidation-liveness-watchdog'] ?? {},
                 now,
                 remConsolidationWatchdogCheckMs: intervals.remConsolidationWatchdogCheck
+            });
+        }
+    },
+    {
+        taskName        : 'heavy-maintenance-starvation-watchdog',
+        executionKind   : 'health-check',
+        maintenanceClass: 'health-monitor',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals, hooks}) {
+            return (hooks.heavyMaintenanceStarvationWatchdogGetDueTask || getHeavyMaintenanceStarvationWatchdogDueTask)({
+                state                                    : state['heavy-maintenance-starvation-watchdog'] ?? {},
+                now,
+                heavyMaintenanceStarvationWatchdogCheckMs: intervals.heavyMaintenanceStarvationWatchdogCheck
             });
         }
     },

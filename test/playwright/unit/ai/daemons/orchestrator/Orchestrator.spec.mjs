@@ -22,6 +22,7 @@ import {
 import {
     ORCHESTRATOR_AUTHORITY_PROFILE
 } from '../../../../../../ai/daemons/orchestrator/taskAuthority.mjs';
+import {TASK_REGISTRY}                              from '../../../../../../ai/daemons/orchestrator/scheduling/registry.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 import {CONTAINER_HEALTH_ACTION_CLASSES}            from '../../../../../../ai/daemons/orchestrator/services/ContainerHealthDiagnosisService.mjs';
 import os                                           from 'os';
@@ -573,7 +574,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog', 'heavy-maintenance-starvation-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -613,7 +614,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         orchestrator.poll();
 
-        expect(outcomes).toEqual([{
+        // Health-check lanes dispatch alongside the winner by contract — the starvation monitor
+        // must not be starvable by a monopolizing pick — so their outcomes are scoped out of this
+        // test's subject: scheduling-failure isolation among maintenance candidates.
+        const healthCheckTasks = new Set(TASK_REGISTRY.filter(d => d.executionKind === 'health-check').map(d => d.taskName));
+
+        expect(outcomes.filter(outcome => !healthCheckTasks.has(outcome.taskName))).toEqual([{
             taskName: 'summary',
             status  : 'failed',
             details : {
@@ -658,7 +664,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'summary',
             reason  : 'periodic-sweep:600000'
         }]);
-        expect(outcomes).toEqual([]);
+
+        // One MAINTENANCE candidate per poll is the invariant; health-check lanes dispatch
+        // alongside by contract and are scoped out of this census.
+        const healthCheckTasks = new Set(TASK_REGISTRY.filter(d => d.executionKind === 'health-check').map(d => d.taskName));
+
+        expect(outcomes.filter(outcome => !healthCheckTasks.has(outcome.taskName))).toEqual([]);
         expect(logs).toEqual([]);
     });
 

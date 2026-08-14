@@ -3393,6 +3393,50 @@ components:
           format: date-time
           description: The ISO 8601 timestamp of when the health check was performed.
           example: "2025-10-24T10:00:00.000Z"
+        heavyMaintenanceStarvation:
+          type: object
+          description: "Consumed heavy-maintenance starvation observation, request-fresh on every response including cached and unhealthy paths. `state` records what the aggregate verdict consumed: `consumed-degraded` (a fresh degraded watchdog receipt lowered `status` to degraded), `consumed-clear`, `receipt-stale`, `absent`, `snapshot-stale`, `snapshot-degraded`, `snapshot-unavailable`, or `fold-error` — only `consumed-degraded` ever changes `status`. `posture` echoes the watchdog receipt's four-state verdict when present; `breaches` and `leaseHolder` carry the consumed receipt on `consumed-degraded`."
+          properties:
+            state:
+              type: string
+              example: "consumed-clear"
+            posture:
+              type: string
+              nullable: true
+              enum: [degraded, healthy, unknown, disabled, null]
+              example: "healthy"
+            leaseHolder:
+              type: string
+              nullable: true
+              description: "Owner of the active heavy-maintenance lease at check time; null when no active lease. Present on consumed-degraded."
+              example: "dream"
+            breaches:
+              type: array
+              description: "Starved-waiter receipt on consumed-degraded: one entry per live waiter whose deferral streak exceeded the bound."
+              items:
+                type: object
+                properties:
+                  taskName:
+                    type: string
+                    example: "backup"
+                  priorityZero:
+                    type: boolean
+                    example: true
+                  bootstrapCritical:
+                    type: boolean
+                    example: false
+                  deferredSince:
+                    type: string
+                    format: date-time
+                    example: "2026-08-14T06:00:00.000Z"
+                  starvedForMs:
+                    type: integer
+                    description: "Age of the unbroken deferral streak at check time."
+                    example: 7200000
+                  leaseHolder:
+                    type: string
+                    nullable: true
+                    example: "dream"
         memoryWalDrain:
           type: object
           description: "Memory WAL EMBED-drain backlog — the instrument `add_memory`'s `visibility` envelope tells callers to poll. Scoped to semantic recall: recency reads (`query_recent_turns`) are served from the WAL overlay and never wait on this backlog, so a non-zero depth does NOT mean recent turns are unreadable. Always present."
