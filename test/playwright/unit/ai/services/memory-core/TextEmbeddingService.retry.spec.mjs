@@ -997,4 +997,61 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             [4, 0]
         ]);
     });
+
+    test('a waiting batch is admitted after one overtake with an interactive backlog (#17062)', async () => {
+        serverBehavior = 'qos-priority';
+
+        const enqueuedStages = [];
+        let   activityId     = 0;
+        const recorder       = {
+            beginProviderActivity(entry) {
+                enqueuedStages.push(entry.operationStage);
+                return `activity-${++activityId}`;
+            },
+            startProviderActivity() {},
+            refineProviderActivity() {},
+            completeProviderActivity() {}
+        };
+        const blockerPromise = TextEmbeddingService.embedTexts(['a'], 'openAiCompatible', {
+            operationStage          : 'blocker-batch',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
+        await waitForCondition(() => allRequests.length === 1, 'active blocker request');
+
+        const waitingBatchPromise = TextEmbeddingService.embedTexts(['waiting-batch'], 'openAiCompatible', {
+            operationStage          : 'waiting-batch',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
+        await waitForCondition(() => enqueuedStages.includes('waiting-batch'), 'waiting batch queue admission');
+
+        const firstInteractivePromise = TextEmbeddingService.embedText('interactive-1', 'openAiCompatible', {
+            operationStage          : 'interactive-1',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+        const secondInteractivePromise = TextEmbeddingService.embedText('interactive-2', 'openAiCompatible', {
+            operationStage          : 'interactive-2',
+            providerActivityRecorder: recorder,
+            service                 : 'knowledge-base'
+        });
+
+        await Promise.all([
+            blockerPromise,
+            waitingBatchPromise,
+            firstInteractivePromise,
+            secondInteractivePromise
+        ]);
+
+        expect(maxInFlightRequests).toBe(1);
+        expect(allRequests.map(item => item.body.input)).toEqual([
+            ['a'],
+            'interactive-1',
+            ['waiting-batch'],
+            'interactive-2'
+        ]);
+    });
 });

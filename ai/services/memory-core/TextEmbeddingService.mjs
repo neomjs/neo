@@ -619,13 +619,14 @@ class TextEmbeddingService extends Base {
 
         return new Promise((resolve, reject) => {
             const task = {
-                dispatched: false,
+                dispatched            : false,
                 inputData,
+                interactiveBypassCount: 0,
                 options,
                 priority,
                 lifecycle,
                 enqueuedAt,
-                settled   : false
+                settled               : false
             };
 
             const cleanup = () => {
@@ -712,23 +713,43 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Selects the next OpenAI-compatible queue item, FIFO within each priority lane.
+     * @summary Selects the next OpenAI-compatible queue item without starving either priority lane.
+     *
+     * One interactive item may overtake an already-waiting batch item. If both lanes remain queued,
+     * the next selection admits the oldest batch before another interactive item can overtake it.
+     * The counter advances on selections rather than elapsed time, keeping the fairness guarantee
+     * deterministic and local to the queue that owns admission.
+     *
      * @returns {Number}
      * @private
      */
     #getNextOpenAiCompatiblePostQueueIndex() {
-        let bestIndex = 0;
+        let firstBatchIndex       = -1,
+            firstInteractiveIndex = -1;
 
-        for (let i = 1; i < this.#openAiCompatiblePostQueue.length; i++) {
-            const best = this.#openAiCompatiblePostQueue[bestIndex],
-                  item = this.#openAiCompatiblePostQueue[i];
+        for (let index = 0; index < this.#openAiCompatiblePostQueue.length; index++) {
+            const item = this.#openAiCompatiblePostQueue[index];
 
-            if (best.priority === 'batch' && item.priority === 'interactive') {
-                bestIndex = i;
+            if (item.priority === 'batch' && firstBatchIndex === -1) {
+                firstBatchIndex = index;
+            } else if (item.priority === 'interactive' && firstInteractiveIndex === -1) {
+                firstInteractiveIndex = index;
             }
         }
 
-        return bestIndex;
+        if (firstBatchIndex === -1 || firstInteractiveIndex === -1) {
+            return firstInteractiveIndex === -1 ? firstBatchIndex : firstInteractiveIndex;
+        }
+
+        const oldestBatch = this.#openAiCompatiblePostQueue[firstBatchIndex];
+
+        if (oldestBatch.interactiveBypassCount > 0) {
+            return firstBatchIndex;
+        }
+
+        oldestBatch.interactiveBypassCount++;
+
+        return firstInteractiveIndex;
     }
 
     /**
