@@ -1849,6 +1849,9 @@ test.describe('AuthService — GitHub-PAT stale-serve boundary', () => {
         stubFetch([{status: 200}]);
         await verifier.verifyAccessToken('tok');
 
+        // wall-clock-under-test: this crosses a real TTL boundary — the point is that the token is
+        // past expiry and still inside grace, which only a real clock can put it on the far side of.
+        // out-waits: the verifier's access-token TTL.
         await new Promise(resolve => setTimeout(resolve, 1100));   // past ttl, inside grace
         stubFetch([{throws: new Error('unreachable')}]);
 

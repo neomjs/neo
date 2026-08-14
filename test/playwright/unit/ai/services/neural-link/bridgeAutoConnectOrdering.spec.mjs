@@ -270,6 +270,9 @@ test.describe('ai/services/neural-link — Bridge auto-connect ordering (#16429)
 
         // Longer than `spawnBridge`'s 2000ms startupDelayMs, so a server that dies during the spawn
         // attempt has finished dying before the assertion reads.
+        // out-waits: spawnBridge's 2000ms startupDelayMs, named in the comment above. That constant is
+        // hardcoded, so this spec can only guess a number larger than it — the leaf candidate is the
+        // delay itself, not this wait.
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         try {
