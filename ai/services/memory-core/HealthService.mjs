@@ -12,8 +12,6 @@ import StorageRouter                 from './managers/StorageRouter.mjs';
 import ChromaLifecycleService        from './lifecycle/ChromaLifecycleService.mjs';
 import logger                        from '../../mcp/server/memory-core/logger.mjs';
 import {readGateState}               from '../../scripts/lifecycle/wakeSafetyGate.mjs';
-import AiConfig                      from '../../config.mjs';
-import {readDeploymentStateSnapshot} from './helpers/deploymentStateBridgeStore.mjs';
 import {createBoundedRetryGate}      from '../shared/boundedRetryGate.mjs';
 import {
     buildEmbeddingProbeBlock,
@@ -1003,16 +1001,7 @@ class HealthService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Injectable deployment-state snapshot reader for the request-time starvation overlay —
-         * a function seam (same discipline as other collaborator seams), NOT config data: production
-         * leaves it null and resolves the canonical `readDeploymentStateSnapshot`, while the
-         * production-chain witness injects inspection fixtures to drive the PUBLIC `healthcheck()`
-         * through cached-healthy → degraded → clear without a live orchestrator plane.
-         * @member {Function|null} deploymentSnapshotReader_=null
-         */
-        deploymentSnapshotReader_: null
+        singleton: true
     }
 
     /**
@@ -2217,51 +2206,6 @@ class HealthService extends Base {
      * @param {Number} [options.chromaProbeTimeoutMs=aiConfig.healthcheck.chromaProbeTimeoutMs] Chroma probe timeout budget.
      * @returns {Promise<object>} A health status payload with session information
      */
-    /**
-     * @summary Request-time starvation overlay — the unconditional final boundary of every healthcheck response.
-     *
-     * Applied to EVERY public healthcheck return path (fresh, cached-healthy, in-flight join, and
-     * the unhealthy/error responses), because the consumption must be request-fresh: the healthy
-     * cache must never blind the verdict — a cached-healthy payload combined with a fresh degraded
-     * watchdog receipt returns degraded NOW, not after cache expiry — and the unhealthy early
-     * returns must still carry the consumed observation. All degradation-authority guards live in
-     * the pure {@link foldHeavyMaintenanceStarvation}; this wrapper owns only the request-fresh
-     * snapshot read (through the injectable `deploymentSnapshotReader` seam) and copy semantics:
-     * the fold mutates a shallow COPY (payload + details), so a pristine cached object is never
-     * poisoned by a transient degrade and recovery needs no cache surgery.
-     *
-     * @param {Object} payload A composed health payload; never mutated.
-     * @returns {Promise<Object>} A response copy carrying the consumed starvation observation.
-     */
-    async #withStarvationOverlay(payload) {
-        const copy = {
-            ...payload,
-            details: Array.isArray(payload?.details) ? [...payload.details] : []
-        };
-
-        try {
-            const bridgeConfig = AiConfig.orchestrator.deploymentStateBridge;
-            const foldNow      = Date.now();
-            const reader       = this.deploymentSnapshotReader ?? readDeploymentStateSnapshot;
-
-            foldHeavyMaintenanceStarvation({
-                payload   : copy,
-                inspection: await reader({
-                    filePath    : bridgeConfig.snapshotPath,
-                    staleAfterMs: bridgeConfig.staleAfterMs,
-                    maxBytes    : bridgeConfig.maxSnapshotBytes,
-                    now         : foldNow
-                }),
-                now         : foldNow,
-                staleAfterMs: bridgeConfig.staleAfterMs
-            });
-        } catch (e) {
-            copy.heavyMaintenanceStarvation = {state: 'fold-error', posture: null, error: e.message};
-        }
-
-        return copy;
-    }
-
     async healthcheck({
         freshObservability = true,
         chromaProbeTimeoutMs = aiConfig.healthcheck.chromaProbeTimeoutMs
@@ -2282,7 +2226,7 @@ class HealthService extends Base {
                     logger.fileDebug(`[HealthService] Using cached health status (age: ${Math.round(age / 1000)}s)`);
 
                     if (!freshObservability) {
-                        return this.#withStarvationOverlay(this.#applyEmbeddingWriteCanary(this.#cachedHealth));
+                        return this.#applyEmbeddingWriteCanary(this.#cachedHealth);
                     }
 
                     const freshCachedHealth = await this.#buildRequestFreshCachedHealth(this.#cachedHealth, now, {
@@ -2290,7 +2234,7 @@ class HealthService extends Base {
                     });
 
                     if (freshCachedHealth) {
-                        return this.#withStarvationOverlay(freshCachedHealth);
+                        return freshCachedHealth;
                     }
 
                     this.clearCache();
@@ -2300,7 +2244,7 @@ class HealthService extends Base {
             // Check for in-flight request (deduplication)
             if (this.#healthCheckPromise) {
                 logger.fileDebug('[HealthService] Joining in-flight health check...');
-                return this.#withStarvationOverlay(await this.#healthCheckPromise);
+                return await this.#healthCheckPromise;
             }
 
             // Cache is stale, was unhealthy, or doesn't exist - perform a fresh check
@@ -2336,16 +2280,16 @@ class HealthService extends Base {
             this.#lastCheckTime  = now;
             this.#previousStatus = health.status;
 
-            return this.#withStarvationOverlay(health);
+            return health;
         } catch (error) {
             logger.error('[HealthService] Unexpected error during health check:', error);
-            return this.#withStarvationOverlay(this.#applyEmbeddingWriteCanary({
+            return this.#applyEmbeddingWriteCanary({
                 status : 'unhealthy',
                 details: [`Unexpected error: ${error.message}`],
                 error  : 'Health check failed unexpectedly',
                 message: error.message,
                 code   : 'HEALTH_CHECK_ERROR'
-            }));
+            });
         }
     }
 

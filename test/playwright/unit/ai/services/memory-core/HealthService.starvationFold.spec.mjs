@@ -171,17 +171,13 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         expect(payload.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
     });
 
-    test('PRODUCTION CHAIN through the public healthcheck(): cached healthy → fresh degraded receipt degrades and withdraws the all-clear → clear receipt recovers', async () => {
-        const HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+    test('PRODUCTION CHAIN at the composed MCP surface — degraded receipt degrades the response while ensureHealthy() tool admission stays open', async () => {
+        const HealthService                  = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+        const {composeMemoryCoreHealthcheck} = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs');
 
-        const originalReader = HealthService.deploymentSnapshotReader;
-        let   currentPosture = 'healthy';
-
-        // The seam builds a request-fresh inspection per call, so receipt freshness holds against
-        // the real clock and the only variable across the chain is the watchdog's posture.
-        HealthService.deploymentSnapshotReader = async () => {
+        const makeInspectionFor = posture => {
             const nowIso   = new Date().toISOString();
-            const degraded = currentPosture === 'degraded';
+            const degraded = posture === 'degraded';
 
             return {
                 ok      : true,
@@ -189,7 +185,7 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
                 snapshot: {
                     generatedAt               : Date.now(),
                     heavyMaintenanceStarvation: {
-                        posture        : currentPosture,
+                        posture,
                         checkedAt      : nowIso,
                         degradeAfterMs : 3_600_000,
                         waiterCount    : degraded ? 1 : 0,
@@ -203,34 +199,49 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
             };
         };
 
-        try {
-            HealthService.clearCache();
+        const compose = (health, posture) => composeMemoryCoreHealthcheck({
+            health,
+            memoryWalDrain        : {state: 'idle'},
+            plane                 : {id: 'test-plane', dataRoot: '/tmp/test-plane'},
+            deploymentInspection  : makeInspectionFor(posture),
+            starvationStaleAfterMs: STALE_AFTER_MS
+        });
 
-            // Environment gate, asserted loudly: the chain needs a healthy base composition, so an
-            // environment regression reads as THIS line failing rather than a mystery downstream.
-            const first = await HealthService.healthcheck();
-            expect(first.status).toBe('healthy');
-            expect(first.details).toContain('All features are operational');
-            expect(first.heavyMaintenanceStarvation.state).toBe('consumed-clear');
+        const healthyBase = {status: 'healthy', details: ['Connected to the orchestrator-managed ChromaDB instance', 'All features are operational']};
 
-            // Cached-healthy + fresh DEGRADED receipt: the healthy cache must not blind the verdict.
-            currentPosture = 'degraded';
-            const second = await HealthService.healthcheck();
-            expect(second.status).toBe('degraded');
-            expect(second.details).not.toContain('All features are operational');
-            expect(second.details.some(detail => detail.includes('Heavy-maintenance starvation: backup'))).toBe(true);
-            expect(second.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-degraded', posture: 'degraded', leaseHolder: 'dream'});
+        // Fresh degraded receipt at the COMPOSED surface: degraded, all-clear withdrawn, receipt in
+        // details — this is what the MCP healthcheck tool, Docker healthcheck, and container-health
+        // controllers observe.
+        const degradedResponse = compose(healthyBase, 'degraded');
+        expect(degradedResponse.status).toBe('degraded');
+        expect(degradedResponse.details).not.toContain('All features are operational');
+        expect(degradedResponse.details.some(detail => detail.includes('Heavy-maintenance starvation: backup'))).toBe(true);
+        expect(degradedResponse.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-degraded', posture: 'degraded', leaseHolder: 'dream'});
 
-            // Clear receipt against the SAME cached-healthy base: latch-free recovery, and the
-            // pristine cached object was never poisoned by the transient degrade.
-            currentPosture = 'healthy';
-            const third = await HealthService.healthcheck();
-            expect(third.status).toBe('healthy');
-            expect(third.details).toContain('All features are operational');
-            expect(third.heavyMaintenanceStarvation.state).toBe('consumed-clear');
-        } finally {
-            HealthService.deploymentSnapshotReader = originalReader;
-            HealthService.clearCache();
-        }
+        // The base payload was never mutated (a cached object upstream stays pristine), and a clear
+        // receipt composes healthy again — latch-free by per-request construction.
+        expect(healthyBase.status).toBe('healthy');
+        expect(healthyBase.details).toContain('All features are operational');
+        const clearResponse = compose(healthyBase, 'healthy');
+        expect(clearResponse.status).toBe('healthy');
+        expect(clearResponse.details).toContain('All features are operational');
+        expect(clearResponse.heavyMaintenanceStarvation.state).toBe('consumed-clear');
+
+        // Unhealthy wins at the composed surface too.
+        const unhealthyResponse = compose({status: 'unhealthy', details: ['db down']}, 'degraded');
+        expect(unhealthyResponse.status).toBe('unhealthy');
+        expect(unhealthyResponse.heavyMaintenanceStarvation.state).toBe('consumed-degraded');
+
+        // THE ADMISSION PIN: starvation-only degradation must never block tool capability.
+        // `ensureHealthy()` consumes HealthService.healthcheck() — which never carries the fold —
+        // so with the plane's only degradation being starvation, semantic recall stays
+        // dispatchable: ensureHealthy resolves rather than throwing.
+        HealthService.clearCache();
+        const base = await HealthService.healthcheck();
+        // Environment gate, asserted loudly: the admission pin needs a healthy base composition.
+        expect(base.status).toBe('healthy');
+        expect(base.heavyMaintenanceStarvation).toBeUndefined();
+        await expect(HealthService.ensureHealthy()).resolves.toBeUndefined();
+        HealthService.clearCache();
     });
 });
