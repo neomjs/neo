@@ -1,33 +1,16 @@
 import Base from '../../../../src/core/Base.mjs';
 
+import {CONTAINER_HEALTH_ACTION_CLASSES, CONTAINER_HEALTH_FACT_TYPES} from './containerHealthFactTypes.mjs';
+
 import {
     createRecoveryDiagnosisEvent,
     createRecoveryTargetIdentity
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 
-export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
-    configDrift               : 'config-drift',
-    containerDown             : 'container-down',
-    containerUnhealthy        : 'container-unhealthy',
-    endpointProbeFailed       : 'endpoint-probe-failed',
-    evalContention            : 'ollama-eval-contention',
-    heapObservationUnavailable: 'heap-observation-unavailable',
-    memorySaturation          : 'memory-saturation',
-    ollamaResidualLoad        : 'ollama-residual-load',
-    providerLaneShape         : 'provider-lane-shape-diverged',
-    providerResidency         : 'provider-residency-degraded',
-    resourceSaturation        : 'resource-saturation',
-    restartChurn              : 'restart-churn',
-    runtimeReadFailed         : 'runtime-read-failed'
-});
+// Re-exported from a Neo-free module so a PURE consumer can name a fact type without importing this
+// class. One definition, unchanged import paths.
+export {CONTAINER_HEALTH_ACTION_CLASSES, CONTAINER_HEALTH_FACT_TYPES} from './containerHealthFactTypes.mjs';
 
-export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
-    raiseCeiling: 'raise-ceiling',
-    record      : 'record',
-    restart     : 'restart',
-    throttleShed: 'throttle-shed',
-    warmProvider: 'warm-provider'
-});
 
 /**
  * @summary Proves that the configured native-Ollama endpoint is the Compose service this diagnosis

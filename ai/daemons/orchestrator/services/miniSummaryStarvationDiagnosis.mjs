@@ -295,9 +295,9 @@ export function buildMiniSummaryStarvationDiagnosis({
           unresolvedProviderTarget = recoveryClass === 'ambiguous' && holdsMajority(totals.noModel, total);
 
     return createRecoveryDiagnosisEvent({
-        diagnosisId   : `${recoveryClass}:${serviceId}:mini-summary-starvation:${observedAt}`,
+        diagnosisId: `${recoveryClass}:${serviceId}:mini-summary-starvation:${observedAt}`,
         recoveryClass,
-        confidence    : 1,
+        confidence : 1,
         // `RecoveryActuatorService` derives its action target from `targetIdentity.id`, so a provider-side
         // class MUST carry the provider — targeting the reporting service would warm a provider on a
         // container that hosts none.
