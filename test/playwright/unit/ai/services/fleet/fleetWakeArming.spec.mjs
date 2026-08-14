@@ -21,8 +21,10 @@ import {createFleetWakeFanout}      from '../../../../../../ai/services/fleet/fl
 import {normalizeSecureMcpEndpoint} from '../../../../../../ai/services/fleet/mcpWireParsing.mjs';
 import {
     armFleetWakePushLane,
+    assertFleetPlaneAdmissionBearerClass,
     assertFleetPlaneBearerClass,
     createWakeArmingContext,
+    resolveFleetPlaneAdmissionBearer,
     resolveFleetPlaneBearer,
     resolveViewerStreamKey,
     startFleetServer
@@ -324,6 +326,75 @@ test.describe('fleet wake arming - the service credential chain', () => {
                 return ''
             }
         })).toBe('direct-mint')
+    })
+});
+
+test.describe('fleet wake arming - the fleet-client plane-admission credential chain', () => {
+    const cleanFleet = overrides => ({
+        planeBearer             : '',
+        planeBearerFile         : '',
+        planeAdmissionBearer    : '',
+        planeAdmissionBearerFile: '',
+        admissionTokenFile      : '',
+        ...overrides
+    });
+
+    test('the direct value wins; the secret file is the fallback; absence resolves empty — never a fallback onto the plane-MCP bearer', () => {
+        expect(resolveFleetPlaneAdmissionBearer({
+            aiConfig: {fleet: cleanFleet({planeAdmissionBearer: ' direct-pat '})}
+        })).toBe('direct-pat');
+
+        expect(resolveFleetPlaneAdmissionBearer({
+            aiConfig: {fleet: cleanFleet({planeAdmissionBearerFile: '/run/secrets/fleet-admission'})},
+            readFile: target => (target === '/run/secrets/fleet-admission' ? 'from-file\n' : '')
+        })).toBe('from-file');
+
+        // The shipped-defect regression pinned: a deployment that declares ONLY the plane-MCP
+        // bearer resolves NO fleet-surface credential — absence, not substitution.
+        expect(resolveFleetPlaneAdmissionBearer({
+            aiConfig: {fleet: cleanFleet({planeBearer: 'class-3-mint'})}
+        })).toBe('');
+
+        expect(resolveFleetPlaneAdmissionBearer({
+            aiConfig: {fleet: cleanFleet({planeAdmissionBearerFile: '/missing'})},
+            readFile: () => {
+                throw new Error('ENOENT')
+            }
+        })).toBe('')
+    });
+
+    test('a fleet-surface bearer that IS the plane-MCP bearer is refused — the MC credential never dials the fleet surface', () => {
+        expect(() => assertFleetPlaneAdmissionBearerClass({
+            aiConfig: {fleet: cleanFleet({
+                planeAdmissionBearer: 'one-mint-two-audiences',
+                planeBearer         : 'one-mint-two-audiences'
+            })}
+        })).toThrow(/credential-class ledger forbids/)
+    });
+
+    test('a fleet-surface bearer that IS the bootstrap admission token is refused', () => {
+        const files = {'/run/secrets/mcp-auth-token': 'bootstrap-token\n'};
+
+        expect(() => assertFleetPlaneAdmissionBearerClass({
+            aiConfig: {fleet: cleanFleet({
+                planeAdmissionBearer: 'bootstrap-token',
+                admissionTokenFile  : '/run/secrets/mcp-auth-token'
+            })},
+            readFile: target => files[target]
+        })).toThrow(/credential-class ledger forbids/)
+    });
+
+    test('a genuinely distinct fleet-client mint passes the teeth; absence passes as empty (the honest-unarmed path)', () => {
+        expect(assertFleetPlaneAdmissionBearerClass({
+            aiConfig: {fleet: cleanFleet({
+                planeAdmissionBearer: 'distinct-fleet-client-pat',
+                planeBearer         : 'distinct-class-3-mint'
+            })}
+        })).toBe('distinct-fleet-client-pat');
+
+        expect(assertFleetPlaneAdmissionBearerClass({
+            aiConfig: {fleet: cleanFleet({planeBearer: 'class-3-mint'})}
+        })).toBe('')
     })
 });
 

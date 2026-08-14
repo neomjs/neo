@@ -445,3 +445,153 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
         }
     })
 });
+
+test.describe('FleetServerComposition - the relay stream consumer against the composed admission chain', () => {
+    test('the production credential chain end-to-end: the resolved fleet-client mint is admitted and drives cold catch-up; the plane-MCP mint is refused with an honest observation', async () => {
+        const {startFleetServer, assertFleetPlaneAdmissionBearerClass} = await import('../../../../../../ai/services/fleet/fleetServer.mjs');
+        const {createFleetWakeSseConsumer}                             = await import('../../../../../../ai/services/fleet/fleetWakeSseConsumer.mjs');
+
+        const waitUntil = async (predicate, timeoutMs = 2000) => {
+            const deadline = Date.now() + timeoutMs;
+
+            while (Date.now() < deadline) {
+                if (predicate()) return true;
+                await new Promise(resolve => setTimeout(resolve, 20))
+            }
+
+            return predicate()
+        };
+
+        // The deployed plane's admission shape, mirrored: the fleet surface admits the relay
+        // viewer's fleet-client mint and does NOT admit the relay's plane-MCP mint — a minted
+        // MC credential resolves to no provider subject there.
+        const server = await startFleetServer({
+            host    : '127.0.0.1',
+            port    : 0,
+            aiConfig: {
+                publicUrl    : 'http://127.0.0.1:3102/fleet',
+                mcpHttpHost  : '127.0.0.1',
+                mcpListenHost: '127.0.0.1',
+                fleet        : {
+                    port              : 0,
+                    dataDir           : '/unused',
+                    wakeSelfBase      : 'http://fleet-server:8083',
+                    planeBase         : 'http://ingress:8080',
+                    planeBearer       : 'service-token',
+                    planeBearerFile   : '',
+                    admissionTokenFile: '',
+                    planeInternalHosts: ['ingress']
+                }
+            },
+            planeGuard       : () => {},
+            logger           : QUIET,
+            createPlaneClient: ({credential}) => ({
+                async init() {
+                    return credential === 'service-token'
+                        ? {ok: true, identity: '@svc'}
+                        : {ok: false, reason: 'unknown bearer'}
+                },
+                async callTool(name, args) {
+                    if (args.action === 'subscribe')  return {subscriptionId: 'WAKE_SUB:svc'};
+                    if (args.action === 'rotate-key') return {subscriptionId: 'WAKE_SUB:svc', signingKey: 'b'.repeat(64)}
+                },
+                async close() {}
+            }),
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@svc'}),
+            authService       : {
+                setupPreCors() {},
+                async setup({app: target}) {
+                    target.use((req, res, next) => {
+                        const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim();
+
+                        if (bearer === 'relay-fleet-pat') {
+                            req.auth = {
+                                userId          : 'svc',
+                                username        : 'svc display',
+                                providerUsername: 'svc',
+                                authProvider    : 'github',
+                                providerUserId  : 9
+                            }
+                        }
+
+                        next()
+                    })
+                }
+            },
+            transportService: {
+                computeAllowedHosts: () => ['127.0.0.1'],
+                installCors() {}
+            }
+        });
+
+        const base = `http://127.0.0.1:${server.address().port}`;
+
+        // The RELAY's own config, resolved the way production resolves it: a distinct
+        // fleet-client mint declared BESIDE the plane-MCP mint. The class teeth pass exactly
+        // because the mints differ.
+        const credential = assertFleetPlaneAdmissionBearerClass({
+            aiConfig: {fleet: {
+                planeBearer             : 'relay-mc-mint',
+                planeBearerFile         : '',
+                planeAdmissionBearer    : 'relay-fleet-pat',
+                planeAdmissionBearerFile: '',
+                admissionTokenFile      : ''
+            }}
+        });
+
+        expect(credential).toBe('relay-fleet-pat');
+
+        const pollCalls = [];
+
+        const consumer = createFleetWakeSseConsumer({
+            eventsUrl   : `${base}/fleet/events`,
+            credential,
+            retryFloorMs: 50,
+            logger      : QUIET,
+            pollDigest  : async args => {
+                pollCalls.push(args);
+                return {counts: {pending: 4}, watermark: 30}
+            }
+        });
+
+        // The pre-repair defect, pinned at the wire: production used to hand this consumer the
+        // plane-MCP credential, which the fleet surface refuses — and the axis must render that
+        // refusal, never a fabricated verdict. The long floor keeps the retry loop out of the
+        // assertion window.
+        const wrongClass = createFleetWakeSseConsumer({
+            eventsUrl   : `${base}/fleet/events`,
+            credential  : 'relay-mc-mint',
+            retryFloorMs: 5000,
+            logger      : QUIET
+        });
+
+        try {
+            consumer.start();
+
+            // The composed handshake vouches the boot-armed subscription id, and that alone
+            // drives the cold catch-up — no live wake exists anywhere in this test.
+            await waitUntil(() => consumer.resolveDeliveryLiveness().reason?.includes?.('caught up'));
+
+            expect(consumer.describe().subscriptionId).toBe('WAKE_SUB:svc');
+            expect(pollCalls).toEqual([{subscriptionId: 'WAKE_SUB:svc', sinceLogId: 0}]);
+            expect(consumer.describe().watermark).toBe(30);
+
+            const liveness = consumer.resolveDeliveryLiveness();
+
+            expect(liveness.alive).toBe(true);
+            expect(liveness.reason).toContain('armed for this viewer');
+            expect(liveness.reason).toContain('4 pending caught up');
+
+            wrongClass.start();
+            await waitUntil(() => wrongClass.describe().lastDisconnect === 'stream refused: HTTP 401');
+
+            expect(wrongClass.describe().lastDisconnect).toBe('stream refused: HTTP 401');
+            expect(wrongClass.resolveDeliveryLiveness().alive).toBe('unknown');
+            expect(wrongClass.describe().subscriptionId).toBeNull()
+        } finally {
+            consumer.stop();
+            wrongClass.stop();
+            await new Promise(resolve => server.close(resolve))
+        }
+    })
+});
