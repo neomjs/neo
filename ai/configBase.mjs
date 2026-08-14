@@ -1169,9 +1169,16 @@ class ConfigBase extends ConfigProvider {
                  */
                 memorySaturation: {
                     /**
-                     * Sustained container-memory percentage at which a transient service is reported
-                     * saturated. 90 leaves headroom to act while sitting well above ordinary working
-                     * peaks.
+                     * Sustained memory percentage at which a transient service is reported saturated.
+                     * 90 leaves headroom to act while sitting well above ordinary working peaks.
+                     *
+                     * Applied against whichever denominator the diagnosis service resolves as
+                     * AUTHORITATIVE for the service — a Node service is measured against its own heap,
+                     * never the container, because a cgroup total aggregates PID 1 plus every fork and
+                     * would report a service as saturating on a child's footprint. Calling this
+                     * "container memory" describes only one of the two scopes it governs, and the
+                     * receipt publishes which one was used precisely because the two are not
+                     * comparable.
                      * @type {Number}
                      */
                     percent: leaf(90, 'NEO_MEMORY_SATURATION_PERCENT', 'number'),
@@ -1188,9 +1195,22 @@ class ConfigBase extends ConfigProvider {
                      * window is what licenses a single memory fact to degrade a service on its own:
                      * it is the corroboration a second fact would otherwise have supplied, so a
                      * transient spike cannot degrade a healthy lane.
+                     *
+                     * MEMORY'S OWN clock, deliberately not the diagnosis service's shared
+                     * `sampleWindowMs`. Folding the two put a memory-named value in charge of the CPU
+                     * sustained window, the container cold-start gate and three provider-activity
+                     * freshness bounds at once — widening memory silently retimed provider diagnosis
+                     * from 30s to 120s.
+                     *
+                     * BOUNDED BY RETENTION: the observed span cannot exceed
+                     * `(deploymentStateBridge.statsSampleWindow - 1) × deploymentStateBridge.writeIntervalMs`,
+                     * so at shipped defaults (2 samples, 30s apart) 30000 is the widest satisfiable
+                     * window. A larger value here needs a larger `statsSampleWindow` with it;
+                     * `describeMemoryWindowReachability` validates the pair at orchestrator start
+                     * rather than letting an unspannable window ship as a detector that never fires.
                      * @type {Number}
                      */
-                    sampleWindowMs: leaf(120000, 'NEO_MEMORY_SATURATION_WINDOW_MS', 'number')
+                    windowMs: leaf(30000, 'NEO_MEMORY_SATURATION_WINDOW_MS', 'number')
                 },
                 restartChurn: {
                     /**

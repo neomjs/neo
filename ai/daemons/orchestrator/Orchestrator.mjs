@@ -15,6 +15,7 @@ import MaintenanceBackpressureService, {
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
 import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport}   from './services/ConfiguredTaskDefinitionsService.mjs';
+import {describeMemoryWindowReachability}                                         from './services/memoryPressureDisposition.mjs';
 import PrimaryRepoSyncService                                                     from './services/PrimaryRepoSyncService.mjs';
 import TenantRepoSyncService                                                      from './services/TenantRepoSyncService.mjs';
 import {getDueTask as summaryGetDueTaskImport}                                    from './scheduling/summary.mjs';
@@ -462,7 +463,28 @@ export class Orchestrator extends Base {
     beforeSetContainerHealthDiagnosisService(value) {
         // Resolved at the use site and injected — the service holds no env reader of its own.
         // ticket-ref-ok: the config SSOT decision assigns env/default resolution to the leaf
-        const {memorySaturation, restartChurn} = AiConfig.orchestrator;
+        const {deploymentStateBridge, memorySaturation, restartChurn} = AiConfig.orchestrator;
+
+        // An unspannable memory window is not a tuning choice — it is a detector that cannot fire on
+        // any scheduling path, and it looks identical from the outside to a service that is never
+        // saturated. Refusing to start is the honest response: the operator gets both numbers and the
+        // two leaves that produce them, instead of a green plane with a dead ceiling watch. This
+        // exact pair shipped once (120000ms against a permanent 30000ms span) and CI was green.
+        const reachability = describeMemoryWindowReachability({
+            windowMs         : memorySaturation.windowMs,
+            statsSampleWindow: deploymentStateBridge.statsSampleWindow,
+            writeIntervalMs  : deploymentStateBridge.writeIntervalMs
+        });
+
+        if (!reachability.reachable) {
+            throw new Error(
+                `Orchestrator: memory-saturation window ${reachability.windowMs}ms cannot be spanned. ` +
+                `Retaining ${deploymentStateBridge.statsSampleWindow} samples at a ` +
+                `${deploymentStateBridge.writeIntervalMs}ms cadence measures at most ` +
+                `${reachability.maxSpannableMs}ms, so the fact would never be emitted. Lower ` +
+                'NEO_MEMORY_SATURATION_WINDOW_MS or raise NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW.'
+            );
+        }
 
         return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService, {
             diagnosisConfig: {
@@ -470,10 +492,13 @@ export class Orchestrator extends Base {
                 // so they are leaves resolved here rather than constants inside the service — same
                 // reason and same shape as the churn trio beside them.
                 memorySaturationPercent     : memorySaturation.percent,
+                // Memory's own window. The service's shared `sampleWindowMs` is deliberately NOT
+                // injected from here: it clocks CPU saturation and provider-activity freshness, and
+                // a memory leaf has no business moving either.
+                memorySaturationWindowMs    : memorySaturation.windowMs,
                 restartChurnSeverity        : restartChurn.severity,
                 restartChurnThreshold       : restartChurn.threshold,
                 restartChurnWindowMs        : restartChurn.windowMs,
-                sampleWindowMs              : memorySaturation.sampleWindowMs,
                 storeMemorySaturationPercent: memorySaturation.storePercent
             },
             // Preserve AiConfig as the source of truth while keeping this service free of a

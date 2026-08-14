@@ -783,12 +783,28 @@ export class DeploymentStateBridgeService extends Base {
                 baselineWrite !== 'failed'
         };
 
+        const classification = this.diagnosisService?.describeClassification
+            ? this.diagnosisService.describeClassification({
+                serviceKey,
+                statsSamples,
+                // Decides heap-vs-container scope, so the projection measures memory's window on the
+                // same clock the saturation fact does. Omitting it made the projection report a
+                // container-scope span for a heap-scope service.
+                nodeCommand: inspectSummary?.nodeCommand ?? null
+            })
+            : null;
+
         // A container AT its memory ceiling produces no error: it is alive, it answers probes, and it
         // is simply not doing useful work while the kernel re-faults its evicted pages. So a status
         // derived from `errors.length` alone read `available` through the whole observed incident,
         // beside a diagnosis that had already crossed its threshold and sustained it across a
         // measured window. The fact was computed and published; nothing consumed it.
-        const memoryPressure = deriveMemoryPressure({diagnosis});
+        //
+        // The classification travels with it because the ABSENCE of a saturation fact is ambiguous on
+        // its own: it means either "measured, below the ceiling" or "never measurable". Only the
+        // projection's memory-clock span separates them, and answering `below` for the second is an
+        // all-clear nobody observed.
+        const memoryPressure = deriveMemoryPressure({classification, diagnosis});
 
         return {
             schemaVersion : 1,
@@ -831,9 +847,7 @@ export class DeploymentStateBridgeService extends Base {
             // it, and the measured window state used to live only inside a sustained-saturation fact,
             // so a healthy store exposed none of them and no load-independent claim about the
             // classification machinery was verifiable from outside the process.
-            classification: this.diagnosisService?.describeClassification
-                ? this.diagnosisService.describeClassification({serviceKey, statsSamples})
-                : null,
+            classification,
             diagnosis     : diagnosis ? publishedDiagnosis : null,
             proofs,
             errors
