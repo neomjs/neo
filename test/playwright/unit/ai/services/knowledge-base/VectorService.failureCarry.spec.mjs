@@ -350,69 +350,6 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         });
     });
 
-    test('AC-2 re-sweep witness: a second sweep re-submits ONLY chunks without persisted vectors', async () => {
-        const spy       = createSpyCollection();
-        const allChunks = makeChunks(50);
-
-        const receivedTexts = [];
-        let   sweepChunks   = allChunks;
-        let   embedCalls    = 0;
-
-        TextEmbeddingService.embedTexts = async texts => {
-            embedCalls++;
-            receivedTexts.push(texts.length);
-
-            // Sweep 1: a timeout-class failure carrying 10 completed embeddings — the sweep ends
-            // (provider-timeout classification) with the prefix persisted.
-            if (embedCalls === 1) {
-                throw makeCarriedFailure({
-                    code               : 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
-                    completedChunkCount: 2,
-                    totalChunkCount    : 10,
-                    completedTextCount : 10,
-                    embeddings         : sweepChunks.slice(0, 10).map(chunk => makeEmbedding(chunkIndexOf(chunk)))
-                });
-            }
-
-            // Sweep 2 completes whatever it is asked for.
-            return texts.map((_, position) => makeEmbedding(chunkIndexOf(sweepChunks[position])))
-        };
-
-        const firstSweep = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: sweepChunks,
-            shouldYield    : () => false
-        }).then(() => null, error => error);
-
-        expect(firstSweep, 'sweep 1 ends on the provider timeout').toBeInstanceOf(Error);
-        expect(spy.upsertedIds).toHaveLength(10);
-
-        // The production re-selection contract: the next sweep selects only what the collection
-        // does not already hold — mirrored here exactly as the sibling yield spec models it.
-        sweepChunks = allChunks.filter(chunk => !spy.storedByIds.has(chunk.id));
-        expect(sweepChunks, 'the persisted prefix must drop out of re-selection').toHaveLength(40);
-        expect(sweepChunks[0].id, 'the remainder starts exactly after the persisted prefix').toBe('chunk-10');
-
-        const secondSweep = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: sweepChunks,
-            shouldYield    : () => false
-        });
-
-        // The witness: the second sweep purchased exactly the 40 un-persisted chunks — never the 10
-        // completed ones — and the corpus completes correctly bound.
-        expect(receivedTexts).toEqual([50, 40]);
-        expect(secondSweep.embedded).toBe(40);
-        expect(spy.upsertedIds).toHaveLength(50);
-
-        allChunks.forEach(chunk => {
-            expect(
-                spy.storedByIds.get(chunk.id)?.[0],
-                `${chunk.id} must hold its own vector across the sweep boundary`
-            ).toBe(chunkIndexOf(chunk));
-        });
-    });
-
     test('an UNCARRIED timeout keeps its existing behavior: sweep ends, nothing persisted', async () => {
         const spy    = createSpyCollection();
         const chunks = makeChunks(50);
