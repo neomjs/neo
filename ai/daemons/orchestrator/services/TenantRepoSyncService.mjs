@@ -22,6 +22,7 @@ import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedDisposition,
     isEmbedFailureCode
 }                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
@@ -370,11 +371,26 @@ function classifyIngestionOutcome(summary) {
         );
 
         if (deferrable) {
-            return {
-                outcome      : 'deferred',
-                summary,
-                deferredCodes: [...new Set(summary.errors.map(item => item.code))]
+            // Deferral means "incomplete, come back": the checkpoint holds because a later run may
+            // finish the work. The undeliverable-at-geometry fence asserts the OPPOSITE — the chunk
+            // is durably excised until the geometry, ceiling, or content changes, so no amount of
+            // coming back changes anything. A run whose every error is that fence therefore
+            // COMPLETES: the checkpoint advances, sibling rotation proceeds, and the census below
+            // (not a held checkpoint) is what keeps the fenced chunks visible to the operator.
+            // One live deferrable failure beside the fences still defers the run as before.
+            const undeliverableOnly = summary.errors.every(item =>
+                item.code === KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY
+            );
+
+            if (!undeliverableOnly) {
+                return {
+                    outcome      : 'deferred',
+                    summary,
+                    deferredCodes: [...new Set(summary.errors.map(item => item.code))]
+                }
             }
+
+            return {outcome: 'complete', summary, deferredCodes: []}
         }
 
         const error = new Error('Knowledge Base ingestion returned an error-bearing summary.');
@@ -458,6 +474,51 @@ function buildCorpusOutstandingObservation({summary, priorState, observedAt}) {
         observedAt,
         previous   : priorState?.corpusOutstanding ?? null
     })
+}
+
+/**
+ * @summary Retention cap for the census id list persisted per repository checkpoint.
+ *
+ * The count always carries the true total; the id list is what an operator pastes into a replay or
+ * a parser ticket, and past this bound the poison-store marker (which retains up to 256 rows) is the
+ * right surface to enumerate from. Checkpoint rows project to a remote client, so they stay small.
+ * @type {Number}
+ */
+export const UNDELIVERABLE_CENSUS_MAX_IDS = 32;
+
+/**
+ * @summary Builds the AC-3 undeliverable census (`{count, ids}`) from one run's own ingestion summary.
+ *
+ * The census answers "how many documents is this plane's geometry deferring, and which" — the
+ * observable that replaces silence when a monster chunk is fenced instead of blocking the corpus.
+ * Derived from the summary's fence rows rather than re-reading the poison store: the run's summary
+ * is what the sync lane already trusts for every other scheduling decision, and a second reader
+ * could disagree with the writer that produced it.
+ *
+ * Ids are tenant-aware chunk hashes — bounded by construction — and re-validated here anyway; a row
+ * whose id fails the gate is COUNTED but not enumerated, so a malformed writer can inflate nothing
+ * into the projection. `null` means "no census observed" (no fence rows), never "zero measured".
+ *
+ * @param {Object} summary Ingestion summary returned by the run.
+ * @returns {{count: Number, ids: String[]}|null}
+ */
+function buildUndeliverableCensus(summary) {
+    const rows = (Array.isArray(summary?.errors) ? summary.errors : [])
+        .filter(item => item?.code === KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY);
+
+    if (rows.length === 0) {
+        return null;
+    }
+
+    const ids = [...new Set(
+        rows.map(item => item?.details?.chunkId)
+            .filter(id => typeof id === 'string' && /^[a-f0-9]{64}$/u.test(id))
+    )].sort();
+
+    return {
+        count: rows.length,
+        ids  : ids.slice(0, UNDELIVERABLE_CENSUS_MAX_IDS)
+    };
 }
 
 /**
@@ -2175,8 +2236,15 @@ class TenantRepoSyncService extends Base {
                     //
                     // Bounded `KB_*` codes only, never messages or details: identical credential
                     // boundary to the failure path, which is why these are safe to persist at all.
-                    const deferredCauseCode = ingestOutcome.deferredCodes.find(isEmbeddingRecoverySourceCode)
-                        ?? ingestOutcome.deferredCodes[0]
+                    // The undeliverable fence is excluded from cause selection: it is a durable
+                    // disposition, not a live failure, and letting it arm the embedding-recovery
+                    // canary would probe for a health change that cannot re-offer the chunk — only a
+                    // generation change can. A deferred outcome always carries at least one live
+                    // code beside any fences (fence-only runs classify as complete above).
+                    const liveDeferredCodes = ingestOutcome.deferredCodes
+                        .filter(code => code !== KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY);
+                    const deferredCauseCode = liveDeferredCodes.find(isEmbeddingRecoverySourceCode)
+                        ?? liveDeferredCodes[0]
                         ?? priorState?.lastSourceErrorCode
                         ?? null;
 
@@ -2192,6 +2260,15 @@ class TenantRepoSyncService extends Base {
                         observedAt: startedMs
                     });
 
+                    // A deferred run may have died BEFORE the fence rows are reported (a live
+                    // timeout throws out of `embed()` and the poison census never reaches the
+                    // summary), so an absent census here is "not observed this run", never "no
+                    // fences". Carrying the prior census forward keeps AC-3 visibility through the
+                    // deferral; the next completed or fence-bearing run replaces it authoritatively.
+                    const deferredCensus = buildUndeliverableCensus(rawSummary)
+                        ?? priorState?.undeliverableChunks
+                        ?? null;
+
                     persistedRevisions[repoLabel] = {
                         ...priorState,
                         lastIngestedRev                   : priorState?.lastIngestedRev ?? null,
@@ -2201,6 +2278,7 @@ class TenantRepoSyncService extends Base {
                         lastSourceErrorCode               : deferredCauseCode,
                         lastErrorAt                       : startedMs,
                         corpusOutstanding                 : deferredOutstanding,
+                        undeliverableChunks               : deferredCensus,
                         // Recovery eligibility, on the SAME episode a failure would advance. A
                         // consumed generation folds into `lastConsumedGenerationId/At` and a newly
                         // healthy canary generation is required before another bypass, so a
@@ -2240,7 +2318,8 @@ class TenantRepoSyncService extends Base {
                             probeSnapshot     : this.getEmbeddingRecoveryProbeSnapshot(),
                             observedAt        : startedMs
                         }),
-                        corpusOutstanding  : deferredOutstanding
+                        corpusOutstanding  : deferredOutstanding,
+                        undeliverableChunks: deferredCensus
                     });
 
                     healthService?.recordTaskOutcome?.(taskName, 'deferred', {
@@ -2261,6 +2340,12 @@ class TenantRepoSyncService extends Base {
                     priorState,
                     observedAt: startedMs
                 });
+
+                // The completed path carries the census too — this is the AC-3 surface's load-bearing
+                // half: a fence-only run COMPLETES (checkpoint advances, rotation proceeds), so the
+                // held-checkpoint signal is gone by design and the census is the only thing standing
+                // between the operator and "N documents silently missing".
+                const completedCensus = buildUndeliverableCensus(ingestResult);
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
@@ -2295,7 +2380,8 @@ class TenantRepoSyncService extends Base {
                     // corpus is distinguishable from one whose delta was never computed. Omitting it here
                     // would leave `corpusOutstanding` absent on exactly the state that proves the
                     // observable can reach zero, and an absent field reads as unknown.
-                    corpusOutstanding  : completedOutstanding
+                    corpusOutstanding  : completedOutstanding,
+                    undeliverableChunks: completedCensus
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -2313,7 +2399,8 @@ class TenantRepoSyncService extends Base {
                     status              : 'active',
                     checkpointStatus    : TenantRepoCheckpointStatus.COMPLETE,
                     lastSyncDeletedCount: deleted,
-                    corpusOutstanding   : completedOutstanding
+                    corpusOutstanding   : completedOutstanding,
+                    undeliverableChunks : completedCensus
                 });
                 completedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'completed', {

@@ -206,7 +206,7 @@
             "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
             "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
         },
-        "ai/services/knowledge-base/VectorService.mjs#strikes:2603053b": {
+        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:2603053b": {
             "kind": "retry-growth",
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",

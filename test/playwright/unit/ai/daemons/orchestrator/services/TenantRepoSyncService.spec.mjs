@@ -326,6 +326,127 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(TenantRepoSyncService.getEmbeddingRecoveryProbeSnapshot().status).toBe('never-started');
     });
 
+    test('a fence-only summary COMPLETES with the undeliverable census; a live failure beside it still defers (#17129)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            fenceSlug        = 'org/fence-only',
+            mixedSlug        = 'org/fence-mixed',
+            monsterId        = 'd'.repeat(64),
+            startedAt        = Date.now(),
+            fenceRow         = {
+                code   : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                message: 'A chunk remains fenced as undeliverable at the current embedding geometry.',
+                details: {
+                    chunkId    : monsterId,
+                    reasonCode : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                    disposition: 'undeliverable-at-geometry'
+                }
+            };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: fenceSlug});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: mixedSlug});
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: Object.fromEntries([fenceSlug, mixedSlug].map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : startedAt - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]))
+        });
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [fenceSlug, mixedSlug].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory(payload) {
+                    // The fence-only repo embedded everything embeddable; its ONLY error rows are the
+                    // durable fence. The mixed repo carries the same fence PLUS a live timeout.
+                    return payload.repoSlug === fenceSlug
+                        ? {ingested: 2, deleted: 0, embeddingsGenerated: 2, errors: [{...fenceRow}]}
+                        : {ingested: 1, deleted: 0, embeddingsGenerated: 0, errors: [
+                            {...fenceRow},
+                            {code: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT', message: 'one timeout-class provider attempt ended'}
+                        ]}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 60_000,
+            seedBootstrap    : false
+        });
+
+        const persisted  = (await fs.readJson(revisionsFile)).revisions;
+        const fenceState = persisted[`t1/${fenceSlug}`];
+        const mixedState = persisted[`t1/${mixedSlug}`];
+
+        // Fence-only: COMPLETE. Deferral means "coming back may finish the work"; a durable fence is
+        // the opposite claim, so holding the checkpoint would re-materialize the same delta forever
+        // for a chunk no later sweep can change. The checkpoint advances, the streak resets, no live
+        // cause is retained — and the census is what keeps the fenced chunk visible.
+        expect(fenceState.lastIngestedRev).toBe(`sha-head-${fenceSlug}`);
+        expect(fenceState.ingestContractVersion).toBe(TENANT_REPO_INGEST_CONTRACT_VERSION);
+        expect(fenceState.consecutiveFailures).toBe(0);
+        expect(fenceState.lastSourceErrorCode).toBeNull();
+        expect(fenceState.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+
+        // The strict checkpoint reader admits the census it just round-tripped.
+        expect(normalizeTenantRepoCheckpointState(fenceState).undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+
+        // Mixed: DEFERRED, exactly as before — one live deferrable failure beside the fences holds
+        // the checkpoint. The retained cause is the LIVE code, never the fence: the fence must not
+        // arm an embedding-recovery canary whose health probe cannot re-offer the chunk.
+        expect(mixedState.lastIngestedRev).toBeNull();
+        expect(mixedState.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
+        expect(mixedState.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+
+        // Run-level projection: the fence-only repo completed; the mixed repo deferred and carries
+        // its census on the diagnostic row.
+        const fenceRow2 = result.details.repos.find(repo => repo.repoSlug === fenceSlug);
+        const mixedRow  = result.details.repos.find(repo => repo.repoSlug === mixedSlug);
+
+        expect(fenceRow2.status).toBe('active');
+        expect(fenceRow2.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+        expect(mixedRow.status).toBe('deferred');
+        expect(mixedRow.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+    });
+
+    test('the undeliverable census normalizer degrades torn records WHOLE (#17129)', () => {
+        const monsterId = 'e'.repeat(64);
+        const base      = {
+            lastIngestedRev                   : 'abc123',
+            lastRunAttemptAt                  : 1_000,
+            consecutiveFailures               : 0,
+            ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+            lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+        };
+        const censusOf = undeliverableChunks =>
+            normalizeTenantRepoCheckpointState({...base, undeliverableChunks}).undeliverableChunks;
+
+        // A valid census round-trips; ids may be FEWER than the count (the writer caps enumeration).
+        expect(censusOf({count: 1, ids: [monsterId]})).toEqual({count: 1, ids: [monsterId]});
+        expect(censusOf({count: 40, ids: [monsterId]})).toEqual({count: 40, ids: [monsterId]});
+
+        // Absent means unobserved — never zero.
+        expect(censusOf(undefined)).toBeNull();
+
+        // Torn records degrade whole: repairing any of these into a smaller census would assert an
+        // observation nobody made.
+        expect(censusOf({count: 0, ids: []}),               'zero-count census').toBeNull();
+        expect(censusOf({count: 1, ids: [monsterId, 'f'.repeat(64)]}), 'more ids than count').toBeNull();
+        expect(censusOf({count: 1, ids: ['not-a-hash']}),   'non-hash id').toBeNull();
+        expect(censusOf({count: 2, ids: [monsterId, monsterId]}), 'duplicate id').toBeNull();
+        expect(censusOf({count: '1', ids: [monsterId]}),    'stringly count').toBeNull();
+        expect(censusOf([monsterId]),                       'array shape').toBeNull();
+    });
+
     test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
         const
             taskStateService = createInMemoryTaskStateService(),

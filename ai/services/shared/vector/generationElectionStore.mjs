@@ -127,20 +127,31 @@ const writeQueues = new Map();
 /**
  * @summary Hashes the poison-store-compatible embedding-generation coordinates.
  *
- * This is the ONE implementation of the four-coordinate id-space shared with
- * `kbEmbeddingPoisonStore` (which re-exports it): the same tuple must always produce the same id in
- * both stores, so poison dispositions and election records join on generation without translation.
- * The full election identity ({@link createVectorGenerationIdentity}) hashes MORE coordinates; this
- * narrower id exists solely as that join key.
+ * This is the ONE implementation of the id-space shared with `kbEmbeddingPoisonStore` (which
+ * re-exports it): the same tuple must always produce the same id in both stores, so poison
+ * dispositions and election records join on generation without translation. The full election
+ * identity ({@link createVectorGenerationIdentity}) hashes MORE coordinates; this narrower id
+ * exists solely as that join key.
+ *
+ * `embedCallCeilingMs` is an OPTIONAL fifth coordinate, and the optionality is load-bearing in both
+ * directions. The poison fence passes it because suppression evidence is only valid under the
+ * ceiling it was gathered at — an undeliverable-at-geometry disposition proven against a 30-minute
+ * ceiling is void under a 60-minute one, so folding the ceiling into the hash is what makes an
+ * operator ceiling raise re-offer previously fenced chunks automatically. (The first draft carried
+ * the field on the coordinate OBJECT but this function silently dropped it from the hash — the
+ * re-offer guarantee held in prose and nowhere else, which is why the production-path spec now pins
+ * the hash property itself.) The election callers do NOT pass it, so their four-coordinate hashes —
+ * and every persisted election record keyed by them — are untouched.
  *
  * @param {Object} options
  * @param {String} options.provider Embedding provider identity (never persisted verbatim by the poison store).
  * @param {String} options.model Embedding model identity.
  * @param {Number} options.vectorDimension Expected vector dimension.
  * @param {String} options.strategyVersion Input/chunking strategy version.
+ * @param {Number} [options.embedCallCeilingMs] Effective per-call embed ceiling this evidence was gathered under.
  * @returns {String} Lowercase SHA-256 generation id.
  */
-export function createEmbeddingGenerationId({provider, model, vectorDimension, strategyVersion} = {}) {
+export function createEmbeddingGenerationId({provider, model, vectorDimension, strategyVersion, embedCallCeilingMs} = {}) {
     assertHashInput(provider, 'createEmbeddingGenerationId: provider');
     assertHashInput(model, 'createEmbeddingGenerationId: model');
     assertHashInput(strategyVersion, 'createEmbeddingGenerationId: strategyVersion');
@@ -149,7 +160,15 @@ export function createEmbeddingGenerationId({provider, model, vectorDimension, s
         throw new TypeError('createEmbeddingGenerationId: vectorDimension must be a positive integer')
     }
 
-    return sha256(JSON.stringify({provider, model, vectorDimension, strategyVersion}))
+    if (embedCallCeilingMs === undefined) {
+        return sha256(JSON.stringify({provider, model, vectorDimension, strategyVersion}))
+    }
+
+    if (!Number.isFinite(embedCallCeilingMs) || embedCallCeilingMs <= 0) {
+        throw new TypeError('createEmbeddingGenerationId: embedCallCeilingMs must be a positive finite number when provided')
+    }
+
+    return sha256(JSON.stringify({provider, model, vectorDimension, strategyVersion, embedCallCeilingMs}))
 }
 
 /**

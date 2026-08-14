@@ -110,7 +110,9 @@ export function normalizeTenantRepoCheckpointState(value) {
             embeddingRecovery  : null,
             // A bare SHA also predates the outstanding-work observable. Null means "never measured",
             // which is the honest reading — not a corpus with nothing left to do.
-            corpusOutstanding  : null
+            corpusOutstanding  : null,
+            // And the undeliverable census: null is "never observed", never "zero fenced".
+            undeliverableChunks: null
         };
     }
 
@@ -144,8 +146,44 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastAccessCode     : normalizeBoundedErrorCode(value.lastAccessCode),
         lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null,
         embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery),
-        corpusOutstanding  : normalizeCorpusOutstanding(value.corpusOutstanding)
+        corpusOutstanding  : normalizeCorpusOutstanding(value.corpusOutstanding),
+        undeliverableChunks: normalizeUndeliverableChunks(value.undeliverableChunks)
     };
+}
+
+/**
+ * @summary Normalizes one persisted undeliverable census without manufacturing an observation.
+ *
+ * The census carries "N chunks are fenced as undeliverable at the current geometry, these are (up
+ * to a cap) their ids". Same reader discipline as `normalizeCorpusOutstanding`: a record that does
+ * not cohere degrades WHOLE to `null` (unobserved), never to a smaller census — repairing a torn
+ * row into a count would assert an observation nobody made. Ids are tenant-aware chunk hashes and
+ * pass the same bounded gate the writer applied; the id list may be shorter than the count (the
+ * writer caps enumeration) but never longer, and never contains a non-hash or a duplicate.
+ *
+ * @param {*} value Candidate persisted census.
+ * @returns {{count: Number, ids: String[]}|null}
+ */
+function normalizeUndeliverableChunks(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const {count, ids} = value;
+
+    if (!Number.isInteger(count) || count <= 0)  return null;
+    if (!Array.isArray(ids) || ids.length > count) return null;
+
+    const seen = new Set();
+
+    for (const id of ids) {
+        if (typeof id !== 'string' || !/^[a-f0-9]{64}$/u.test(id) || seen.has(id)) {
+            return null;
+        }
+        seen.add(id);
+    }
+
+    return {count, ids: [...ids]};
 }
 
 /**
