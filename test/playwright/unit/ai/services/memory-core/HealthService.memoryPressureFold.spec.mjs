@@ -128,6 +128,32 @@ test.describe('foldServiceMemoryPressure (#17121)', () => {
         expect(payload.status).toBe('healthy');
     });
 
+    test('a fresh at-cap with an unusable receipt does not authorize degradation, and is not silent about it', () => {
+        // The disposition alone is a CLAIM; the receipt is the evidence for it. Authorizing on
+        // disposition plus a timestamp degrades the plane on a source-invalid state and prints an
+        // all-null detail line — "sustained null% of its null limit" — which is worse than not
+        // degrading, because it looks like a measurement.
+        //
+        // The earlier malformed case passed for the wrong reason: its at-cap row carried an invalid
+        // DATE, so the freshness check excluded it and the receipt was never examined at all.
+        for (const receipt of [
+            null,
+            {serviceKey: 'embedding-model', metric: 'memory', scope: 'container', threshold: 90},   // no minPercent
+            {serviceKey: 'embedding-model', metric: 'memory', minPercent: 99.8, threshold: 90},     // no scope
+            {serviceKey: 'embedding-model', metric: 'memory', scope: 'container', minPercent: 99.8} // no threshold
+        ]) {
+            const service                = {...makeService(), memoryPressure: {disposition: 'at-cap', reason: null, receipt}};
+            const {observation, payload} = fold(makeInspection({services: [service]}));
+
+            expect(payload.status).toBe('healthy');
+            expect(payload.details).toContain('All features are operational');
+            expect(observation.atCap).toEqual([]);
+            // Not silent: an at-cap claim we refused to act on is exactly the thing an operator needs
+            // to see, because it means the producer and the consumer disagree about the evidence.
+            expect(observation.incompleteReceipts).toEqual(['embedding-model']);
+        }
+    });
+
     test('a snapshot without a services array is absent, not clear', () => {
         expect(fold(makeInspection({})).observation.state).toBe('absent');
     });

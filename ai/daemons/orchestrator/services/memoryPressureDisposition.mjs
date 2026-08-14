@@ -185,7 +185,18 @@ export function deriveMemoryPressure({classification = null, diagnosis} = {}) {
 export function describeMemoryWindowReachability({windowMs, statsSampleWindow, writeIntervalMs}) {
     const finite = [windowMs, statsSampleWindow, writeIntervalMs].every(Number.isFinite);
 
-    if (!finite || statsSampleWindow < 1 || writeIntervalMs <= 0 || windowMs < 0) {
+    // `windowMs <= 0` is rejected rather than trivially satisfied. A zero window asserts NO sustained
+    // requirement at all: every complete sample set clears it, so a single spike becomes `at-cap` and
+    // the corroboration that licenses one memory fact to degrade a service alone silently disappears.
+    // A disabled detector and a detector with no floor are different failures, and only one of them
+    // is loud — so the quiet one has to be refused here.
+    //
+    // Retention must also be a whole number of samples: a fractional `statsSampleWindow` produces a
+    // spannable span nothing can actually observe, which is the same unspannable-geometry class this
+    // function exists to catch, arriving through a different door.
+    if (!finite || !Number.isInteger(statsSampleWindow) || statsSampleWindow < 1 ||
+        writeIntervalMs <= 0 || windowMs <= 0
+    ) {
         return {reachable: false, maxSpannableMs: 0, windowMs};
     }
 
@@ -194,6 +205,37 @@ export function describeMemoryWindowReachability({windowMs, statsSampleWindow, w
     const maxSpannableMs = (statsSampleWindow - 1) * writeIntervalMs;
 
     return {reachable: windowMs <= maxSpannableMs, maxSpannableMs, windowMs}
+}
+
+/**
+ * @summary Reports whether the saturation thresholds sit inside the domain a percentage can occupy.
+ *
+ * Both leaves are declared `number`, which accepts values that are not wrong-ish but INVALID, and
+ * each fails in a direction the other does not:
+ *
+ * - `0` makes every complete sample set saturated, because a ratio is always `>= 0`. The detector
+ *   fires constantly and degrades a healthy plane.
+ * - anything `> 100` can never be reached by a percentage of a limit, so the detector is disabled —
+ *   and disabled looks exactly like a plane that is never saturated. That is the failure this whole
+ *   surface exists to close, reintroduced through a config value.
+ *
+ * The second is the dangerous one and the reason this is a startup refusal rather than a clamp:
+ * clamping `101` to `100` would silently substitute a threshold nobody chose, and the operator would
+ * never learn their configuration was impossible.
+ * @param {Object} options
+ * @param {Number} options.percent Transient-service saturation threshold.
+ * @param {Number} options.storePercent Store-service saturation threshold.
+ * @returns {{valid: Boolean, invalid: String[]}} Names of the leaves outside `0 < n <= 100`.
+ */
+export function describeSaturationThresholdDomain({percent, storePercent}) {
+    const
+        inDomain = value => Number.isFinite(value) && value > 0 && value <= 100,
+        invalid  = [];
+
+    if (!inDomain(percent))      invalid.push('percent');
+    if (!inDomain(storePercent)) invalid.push('storePercent');
+
+    return {valid: invalid.length === 0, invalid}
 }
 
 /**

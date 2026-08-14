@@ -6,6 +6,7 @@ import {
     MEMORY_PRESSURE_UNKNOWN_REASONS,
     deriveMemoryPressure,
     describeMemoryWindowReachability,
+    describeSaturationThresholdDomain,
     foldMemoryPressureIntoStatus
 } from '../../../../../../../ai/daemons/orchestrator/services/memoryPressureDisposition.mjs';
 
@@ -218,6 +219,39 @@ test.describe('memoryPressureDisposition (#17121)', () => {
         expect(types).not.toContain('memory-saturation');
     });
 
+    test.describe('threshold domain — a percentage that cannot mean anything', () => {
+        test('the shipped thresholds are in domain', () => {
+            expect(describeSaturationThresholdDomain({percent: 90, storePercent: 80}))
+                .toEqual({valid: true, invalid: []});
+        });
+
+        test('0 is refused — it reports every complete sample set as saturated', () => {
+            // A ratio is always >= 0, so a zero threshold fires constantly and degrades a healthy
+            // plane. Loud, but wrong.
+            expect(describeSaturationThresholdDomain({percent: 0, storePercent: 80}).invalid)
+                .toEqual(['percent']);
+        });
+
+        test('above 100 is refused — an unreachable threshold DISABLES the detector silently', () => {
+            // The dangerous direction, and the reason this refuses rather than clamps. A percentage
+            // of a limit can never exceed 100, so the fact is never emitted — and a detector that
+            // never fires is indistinguishable from a plane that is never saturated, which is the
+            // exact failure this whole surface exists to close. Clamping 101 to 100 would substitute
+            // a threshold nobody chose and the operator would never learn the config was impossible.
+            expect(describeSaturationThresholdDomain({percent: 101, storePercent: 80}).invalid)
+                .toEqual(['percent']);
+        });
+
+        test('both leaves are checked, and each is named', () => {
+            expect(describeSaturationThresholdDomain({percent: -1, storePercent: 1000}).invalid)
+                .toEqual(['percent', 'storePercent']);
+            expect(describeSaturationThresholdDomain({percent: 90, storePercent: NaN}).invalid)
+                .toEqual(['storePercent']);
+            // The boundary is inclusive at 100: a lane pinned AT its limit is the incident.
+            expect(describeSaturationThresholdDomain({percent: 100, storePercent: 100}).valid).toBe(true);
+        });
+    });
+
     test.describe('window reachability — the guard for the defect that shipped', () => {
         test('the shipped window is spannable by the shipped retention', () => {
             // The pair, asserted together. Either default moving alone silently re-creates a detector
@@ -250,6 +284,24 @@ test.describe('memoryPressureDisposition (#17121)', () => {
                 statsSampleWindow: 5,
                 writeIntervalMs  : 30_000
             }).reachable).toBe(true);
+        });
+
+        test('a zero window is refused, not trivially satisfied', () => {
+            // The subtle one, and the reason it is refused rather than accepted: `0 <= maxSpannable`
+            // is true, so a zero window READS as reachable while asserting no sustained requirement
+            // at all. Every complete sample set clears it, a single spike becomes at-cap, and the
+            // corroboration that licenses one memory fact to degrade a service alone disappears
+            // silently. A disabled detector and a floorless one are different failures; only one is
+            // loud, so the quiet one is rejected here.
+            expect(describeMemoryWindowReachability({
+                windowMs: 0, statsSampleWindow: 2, writeIntervalMs: 30_000
+            }).reachable).toBe(false);
+        });
+
+        test('a fractional retention is refused — it spans a window nothing observes', () => {
+            expect(describeMemoryWindowReachability({
+                windowMs: 30_000, statsSampleWindow: 2.5, writeIntervalMs: 30_000
+            }).reachable).toBe(false);
         });
 
         test('a degenerate retention cannot span any positive window', () => {

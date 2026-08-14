@@ -15,7 +15,10 @@ import MaintenanceBackpressureService, {
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 } from './services/MaintenanceBackpressureService.mjs';
 import {buildConfiguredTaskDefinitions as buildConfiguredTaskDefinitionsImport}   from './services/ConfiguredTaskDefinitionsService.mjs';
-import {describeMemoryWindowReachability}                                         from './services/memoryPressureDisposition.mjs';
+import {
+    describeMemoryWindowReachability,
+    describeSaturationThresholdDomain
+}                                                                                from './services/memoryPressureDisposition.mjs';
 import PrimaryRepoSyncService                                                     from './services/PrimaryRepoSyncService.mjs';
 import TenantRepoSyncService                                                      from './services/TenantRepoSyncService.mjs';
 import {getDueTask as summaryGetDueTaskImport}                                    from './scheduling/summary.mjs';
@@ -475,6 +478,23 @@ export class Orchestrator extends Base {
             statsSampleWindow: deploymentStateBridge.statsSampleWindow,
             writeIntervalMs  : deploymentStateBridge.writeIntervalMs
         });
+
+        // Domain before geometry: an impossible threshold makes the window question moot, and the
+        // clearer error is the one naming the leaf that cannot mean anything.
+        const thresholds = describeSaturationThresholdDomain({
+            percent     : memorySaturation.percent,
+            storePercent: memorySaturation.storePercent
+        });
+
+        if (!thresholds.valid) {
+            throw new Error(
+                `Orchestrator: memory-saturation threshold(s) outside 0 < n <= 100: ` +
+                thresholds.invalid.map(key => `${key}=${memorySaturation[key]}`).join(', ') +
+                '. A threshold of 0 reports every sample set as saturated; above 100 can never be ' +
+                'reached, which disables the detector and is indistinguishable from a healthy plane. ' +
+                'Set NEO_MEMORY_SATURATION_PERCENT / NEO_STORE_MEMORY_SATURATION_PERCENT inside the domain.'
+            );
+        }
 
         if (!reachability.reachable) {
             throw new Error(

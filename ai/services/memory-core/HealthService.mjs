@@ -951,7 +951,7 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
  * @returns {Object} The consumed-observation descriptor written onto the payload.
  */
 export function foldServiceMemoryPressure({payload, inspection, now, staleAfterMs}) {
-    const observation = {state: 'not-consumed', atCap: []};
+    const observation = {state: 'not-consumed', atCap: [], incompleteReceipts: []};
 
     if (!inspection || inspection.status === 'unavailable') {
         observation.state = 'snapshot-unavailable';
@@ -967,7 +967,8 @@ export function foldServiceMemoryPressure({payload, inspection, now, staleAfterM
             // riding a file, and one malformed entry must not decide the health of the plane. A
             // record that fails any check is simply not evidence of a ceiling — it is never counted
             // as one, and never throws the whole fold away either.
-            const atCap = services.filter(service => {
+            // A fresh at-cap CLAIM. The claim is not yet authority — see the receipt check below.
+            const claimed = services.filter(service => {
                 const
                     pressure   = service?.memoryPressure,
                     observedAt = Date.parse(service?.observedAt);
@@ -975,6 +976,26 @@ export function foldServiceMemoryPressure({payload, inspection, now, staleAfterM
                 return pressure?.disposition === 'at-cap' &&
                     Number.isFinite(observedAt) && staleAfterMs > 0 && now - observedAt <= staleAfterMs;
             });
+
+            // The disposition says a ceiling was crossed; the RECEIPT is the evidence for it, and the
+            // detail line below is built entirely from receipt fields. Degrading on a claim whose
+            // receipt is absent or partial publishes "sustained null% of its null limit" — which is
+            // worse than not degrading, because an all-null sentence still reads as a measurement.
+            //
+            // A refused claim is NOT dropped. Producer and consumer disagreeing about the evidence is
+            // itself the operator-visible condition, and a fold that stayed silent about it would
+            // reproduce, one layer up, the exact defect this whole surface exists to close: a fact
+            // computed, published, and consumed by nothing.
+            const complete = receipt => receipt !== null && typeof receipt === 'object' &&
+                typeof receipt.scope === 'string' &&
+                Number.isFinite(receipt.minPercent) &&
+                Number.isFinite(receipt.threshold);
+
+            const atCap = claimed.filter(service => complete(service.memoryPressure?.receipt));
+
+            observation.incompleteReceipts = claimed
+                .filter(service => !complete(service.memoryPressure?.receipt))
+                .map(service => service.serviceKey ?? null);
 
             if (atCap.length > 0) {
                 observation.state = 'consumed-degraded';
