@@ -14,7 +14,7 @@ import {createFleetWakeRoutesSource} from './fleetWakeRoutesSource.mjs';
  * @param {Object} options
  * @param {Function} options.listAgents
  * @param {Function} options.resolveViewerIdentity
- * @param {Function|null} [options.listActiveSubscriptionIdentities]
+ * @param {Function|null} [options.listActiveSubscriptionObservations]
  * @param {Function|null} [options.resolveDeliveryLiveness]
  * @param {Function|null} [options.resolveTerminalDeliveryFailures]
  * @param {Function|null} [options.resolveSeatArming] Explicit resolver override — wins over the
@@ -32,7 +32,7 @@ import {createFleetWakeRoutesSource} from './fleetWakeRoutesSource.mjs';
 export function wireFleetWakeRoutesSource({
     listAgents,
     resolveViewerIdentity,
-    listActiveSubscriptionIdentities = null,
+    listActiveSubscriptionObservations = null,
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
     resolveSeatArming = null,
@@ -50,7 +50,7 @@ export function wireFleetWakeRoutesSource({
     bridge.wakeRoutesSource = createSource({
         listAgents,
         resolveViewerIdentity,
-        listActiveSubscriptionIdentities,
+        listActiveSubscriptionObservations,
         resolveDeliveryLiveness,
         resolveTerminalDeliveryFailures,
         resolveSeatArming,

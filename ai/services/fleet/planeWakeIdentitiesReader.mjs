@@ -32,3 +32,37 @@ export function createPlaneWakeIdentitiesReader(planeClient) {
         return payload.identities
     }
 }
+
+/**
+ * @summary Builds the observation-carrying bulk reader over a proven plane client — the redacted
+ * `{identity, lastPollAt}` rows the route-health axis derives poll recency from.
+ *
+ * Deployment-lag tolerant by design: a plane that answers identities without `observations` rows
+ * (an image predating the recency disclosure) degrades to `lastPollAt: null` per identity —
+ * honest absence-of-signal, never a fabricated recency and never a broken subscription axis. A
+ * payload without even an identities array still throws, exactly like the sibling reader.
+ * @param {Object} planeClient A `planeMailboxClient`-contract client: `callTool(name, args)`
+ *     resolving to the parsed tool payload (never the wire envelope).
+ * @returns {Function} `() => Promise<Object[]>` yielding `[{identity, lastPollAt}]`, matching the
+ *     wake adapter's `listActiveSubscriptionObservations` bulk-reader seam.
+ */
+export function createPlaneWakeObservationsReader(planeClient) {
+    return async () => {
+        const payload = await planeClient.callTool('manage_wake_subscription', {action: 'fleet-identities'});
+
+        if (Array.isArray(payload?.observations)) {
+            return payload.observations
+                .filter(row => typeof row?.identity === 'string' && row.identity !== '')
+                .map(row => ({
+                    identity  : row.identity,
+                    lastPollAt: typeof row.lastPollAt === 'string' && row.lastPollAt !== '' ? row.lastPollAt : null
+                }))
+        }
+
+        if (!Array.isArray(payload?.identities)) {
+            throw new Error('plane wake fleet-identities answer unreadable')
+        }
+
+        return payload.identities.map(identity => ({identity, lastPollAt: null}))
+    }
+}

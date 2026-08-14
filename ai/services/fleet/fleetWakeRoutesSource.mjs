@@ -41,9 +41,11 @@ const
  * @param {Object} options
  * @param {Function} options.listAgents `() => Object[]` registry roster rows (each needs an `id`).
  * @param {Function} options.resolveViewerIdentity `() => String|null` — the authenticated viewer.
- * @param {Function|null} [options.listActiveSubscriptionIdentities] `() => Iterable<String>`
- *     (sync or async) yielding wake identities holding an ACTIVE subscription. Absent ⇒ the
- *     subscription axis is honestly unreadable for every seat.
+ * @param {Function|null} [options.listActiveSubscriptionObservations] `() =>
+ *     Iterable<{identity: String, lastPollAt: String|null}>` (sync or async) yielding one redacted
+ *     observation per wake identity holding an ACTIVE subscription — membership plus the most
+ *     recent authenticated-poll stamp (null until one lands: absence-of-signal, never a verdict).
+ *     Absent ⇒ the subscription axis is honestly unreadable for every seat.
  * @param {Function|null} [options.resolveDeliveryLiveness] `() => {alive: Boolean|'unknown',
  *     reason}` (sync or async) — the delivery-lane authority. Absent ⇒ axis unknown with reason.
  * @param {Function|null} [options.resolveTerminalDeliveryFailures] `() => {state:
@@ -72,7 +74,7 @@ const
 export function createFleetWakeRoutesSource({
     listAgents,
     resolveViewerIdentity,
-    listActiveSubscriptionIdentities = null,
+    listActiveSubscriptionObservations = null,
     resolveDeliveryLiveness = null,
     resolveTerminalDeliveryFailures = null,
     resolveSeatArming = null,
@@ -99,7 +101,7 @@ export function createFleetWakeRoutesSource({
     async function readWakeRoutes() {
         const
             viewer       = safeViewer(resolveViewerIdentity),
-            subscription = await readSubscriptionAxis(listActiveSubscriptionIdentities),
+            subscription = await readSubscriptionAxis(listActiveSubscriptionObservations),
             arming       = await readArmingAxis(resolveSeatArming),
             delivery     = await readDeliveryAxis(resolveDeliveryLiveness),
             failures     = await readFailuresAxis(resolveTerminalDeliveryFailures),
@@ -185,28 +187,45 @@ export function createFleetWakeRoutesSource({
 }
 
 /**
- * @summary Resolves the subscription axis once per snapshot: a bulk identity scan becomes a
- * per-seat membership answer. A missing reader or a failed scan degrades EVERY seat's axis with
- * the same reason — never a fabricated `none`.
- * @param {Function|null} listActiveSubscriptionIdentities
+ * @summary Resolves the subscription axis once per snapshot: a bulk observation scan becomes a
+ * per-seat membership + poll-recency answer. Active rows carry `lastPollAt` — the route-health
+ * derivation input for poll-only routes ("healthy, polls elsewhere" vs "nobody ever polls") —
+ * with null staying null: absence of polls renders absence-of-signal, never a verdict. A missing
+ * reader or a failed scan degrades EVERY seat's axis with the same reason — never a fabricated
+ * `none`.
+ * @param {Function|null} listActiveSubscriptionObservations
  * @returns {Promise<{ok: Boolean, reason: String|null, rowFor: Function}>}
  * @private
  */
-async function readSubscriptionAxis(listActiveSubscriptionIdentities) {
-    if (typeof listActiveSubscriptionIdentities !== 'function') {
+async function readSubscriptionAxis(listActiveSubscriptionObservations) {
+    if (typeof listActiveSubscriptionObservations !== 'function') {
         const reason = 'subscription read path unavailable'
 
         return {ok: false, reason, rowFor: () => ({state: 'unknown', reason})}
     }
 
     try {
-        const identities = new Set(await listActiveSubscriptionIdentities())
+        const observations = new Map();
+
+        for (const observation of await listActiveSubscriptionObservations()) {
+            // A malformed entry (a bare identity string from a pre-observation supplier included)
+            // fails the WHOLE axis: skipping it would render that seat `none` — a fabricated
+            // no-subscription verdict — where honest degradation is `unknown` with a reason.
+            if (typeof observation?.identity !== 'string' || observation.identity === '') {
+                throw new Error('subscription observations unreadable')
+            }
+
+            observations.set(
+                observation.identity,
+                typeof observation.lastPollAt === 'string' && observation.lastPollAt !== '' ? observation.lastPollAt : null
+            )
+        }
 
         return {
             ok    : true,
             reason: null,
-            rowFor: identity => identities.has(identity)
-                ? {state: 'active', reason: null}
+            rowFor: identity => observations.has(identity)
+                ? {state: 'active', reason: null, lastPollAt: observations.get(identity)}
                 : {state: 'none', reason: null}
         }
     } catch (error) {
