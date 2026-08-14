@@ -59,11 +59,14 @@ import {
  *     custom-fetch option; defaults to global `fetch`.
  * @param {Function} [options.createSession] Full session-factory override for tests:
  *     `() => {client, transport}` with SDK-compatible shapes. Defaults to the real SDK pair.
+ * @param {String[]} [options.allowPlainHttpHosts=[]] Deployment-declared confidential internal
+ *     hostnames forwarded to the shared endpoint policy (compose-internal service DNS); empty
+ *     keeps the strict loopback-or-TLS rule unchanged.
  * @returns {Object} `{init, callTool, listMessages, addMessage, close}`
  * @throws {Error} When the endpoint fails the shared secure-endpoint policy.
  */
-export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = null, createSession = null}) {
-    const endpoint = normalizeSecureMcpEndpoint(baseUrl);
+export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = null, createSession = null, allowPlainHttpHosts = []}) {
+    const endpoint = normalizeSecureMcpEndpoint(baseUrl, {allowPlainHttpHosts});
 
     if (!endpoint) {
         throw new Error(
