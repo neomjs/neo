@@ -52,6 +52,7 @@ export function createDeploymentStateSnapshot({
     selfHeal = null,
     tenantRepoSync = null,
     maintenance = null,
+    heavyMaintenanceStarvation = null,
     producer = CURRENT_PRODUCER_METADATA
 } = {}) {
     if (!Number.isFinite(generatedAt)) {
@@ -79,6 +80,13 @@ export function createDeploymentStateSnapshot({
     // tolerate the absence, and the schema inspector treats additive sections as tolerated-absent.
     if (maintenance !== null && maintenance !== undefined) {
         snapshot.maintenance = maintenance
+    }
+
+    // Same tolerated-absent contract: present only once the starvation watchdog has produced a
+    // verdict, so a snapshot predating the lane (or a plane with the lane disabled and never run)
+    // is indistinguishable from before this section existed.
+    if (heavyMaintenanceStarvation !== null && heavyMaintenanceStarvation !== undefined) {
+        snapshot.heavyMaintenanceStarvation = heavyMaintenanceStarvation
     }
 
     return snapshot

@@ -339,6 +339,13 @@ export class DeploymentStateBridgeService extends Base {
             backupTaskState: this.taskStateService?.getTaskState?.('backup') || null,
             now            : generatedAt
         });
+        // Same detached-collector contract: the starvation watchdog persists its verdict onto its
+        // own durable task-state envelope, and THIS projection is what makes that verdict consumed —
+        // `inspect_deployment` / `get_deployment_state_snapshot` serve the snapshot even while the
+        // plane is degraded, which is exactly when the receipt is wanted.
+        const heavyMaintenanceStarvation = this.collectHeavyMaintenanceStarvationSnapshot({
+            watchdogTaskState: this.taskStateService?.getTaskState?.('heavy-maintenance-starvation-watchdog') || null
+        });
 
         return createDeploymentStateSnapshot({
             generatedAt,
@@ -347,8 +354,37 @@ export class DeploymentStateBridgeService extends Base {
             recoveryRuns,
             selfHeal,
             tenantRepoSync,
-            maintenance
+            maintenance,
+            heavyMaintenanceStarvation
         });
+    }
+
+    /**
+     * @summary Projects the heavy-maintenance starvation watchdog's persisted verdict into the snapshot.
+     *
+     * Contractually detached like `collectMaintenanceSnapshot` — takes the watchdog's task state as an
+     * argument and reads nothing else, so specs can drive the healthy → degraded → healthy transition
+     * through the exact projection consumers read. Returns `null` (block omitted) until the watchdog
+     * has produced a verdict; after that the persisted `starvation` stamp is projected verbatim: its
+     * `posture` is the consumable word (`degraded` / `healthy` / `unknown` / `disabled`), `breaches`
+     * carries the receipt (waiter, class, `deferredSince`, lease holder), and an `unknown` posture is
+     * explicitly NOT a degradation — it marks a reading that could not assert green.
+     *
+     * @param {Object} options
+     * @param {Object|null} options.watchdogTaskState Persisted task-state envelope for the watchdog lane.
+     * @returns {Object|null} The snapshot block, or `null` before the first verdict.
+     */
+    collectHeavyMaintenanceStarvationSnapshot({watchdogTaskState} = {}) {
+        const verdict = watchdogTaskState?.starvation;
+
+        if (!verdict || typeof verdict !== 'object') {
+            return null;
+        }
+
+        return {
+            taskName: 'heavy-maintenance-starvation-watchdog',
+            ...verdict
+        };
     }
 
     /**

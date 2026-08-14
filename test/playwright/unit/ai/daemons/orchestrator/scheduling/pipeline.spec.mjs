@@ -1153,3 +1153,87 @@ test.describe('orchestrator/scheduling/pipeline — data-integrity-sweep never-f
         });
     });
 });
+
+test.describe('orchestrator/scheduling/pipeline — heavy-maintenance starvation watchdog runner (#17049)', () => {
+    test('persists the verdict on the task-state envelope through healthy → degraded → healthy, over the REAL ledger', async () => {
+        const fs   = (await import('fs')).default;
+        const os   = (await import('os')).default;
+        const path = (await import('path')).default;
+
+        const dir        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-starvation-watchdog-'));
+        const leasePath  = path.join(dir, 'heavy-maintenance.lease');
+        const waitersDir = path.join(dir, 'heavy-maintenance-waiters');
+        fs.mkdirSync(waitersDir, {recursive: true});
+
+        const watchdogState = {};
+        const outcomes      = [];
+
+        const drive = () => {
+            const result = runSchedulingPipeline({
+                registry: [
+                    makeCandidateDescriptor({
+                        taskName        : 'heavy-maintenance-starvation-watchdog',
+                        executionKind   : 'health-check',
+                        maintenanceClass: 'health-monitor'
+                    })
+                ],
+                context : makeContext(),
+                services: makeServices({
+                    healthService: {
+                        recordTaskOutcome(taskName, status, details) {
+                            if (status !== 'running') outcomes.push({status, posture: details?.posture});
+                        }
+                    },
+                    maintenanceBackpressureService: {
+                        resolveLeasePath             : () => leasePath,
+                        getActiveHeavyMaintenanceTask: () => null
+                    },
+                    taskStateService: {
+                        getTaskState : () => watchdogState,
+                        markCompleted() {},
+                        markFailed() {},
+                        markSkipped() {},
+                        markStarted() {}
+                    }
+                }),
+                runtime: makeRuntime({
+                    heavyMaintenanceLeaseStaleAfterMs       : 6 * 60 * 60 * 1000,
+                    heavyMaintenanceStarvationDegradeAfterMs: 60 * 60 * 1000
+                })
+            });
+
+            return result.executed;
+        };
+
+        try {
+            // Healthy: an empty ledger.
+            await drive();
+            expect(watchdogState.starvation).toMatchObject({posture: 'healthy', waiterCount: 0, breaches: []});
+
+            // Degraded: a live waiter deferred two hours against a one-hour bound. No lease file
+            // exists, so the receipt's holder is honestly null rather than fabricated.
+            fs.writeFileSync(path.join(waitersDir, 'backup.json'), JSON.stringify({
+                taskName         : 'backup',
+                priorityZero     : true,
+                bootstrapCritical: false,
+                deferredSince    : new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+                updatedAt        : new Date().toISOString(),
+                pid              : 999999
+            }));
+            await drive();
+            expect(watchdogState.starvation.posture).toBe('degraded');
+            expect(watchdogState.starvation.breaches[0]).toMatchObject({taskName: 'backup', priorityZero: true, leaseHolder: null});
+
+            // Healthy again: the waiter acquired (entry cleared) — the verdict is recomputed from the
+            // live ledger, so no latch survives and no clear-logic exists to forget.
+            fs.rmSync(path.join(waitersDir, 'backup.json'));
+            await drive();
+            expect(watchdogState.starvation.posture).toBe('healthy');
+
+            expect(outcomes.map(outcome => outcome.status)).toEqual(['completed', 'failed', 'completed']);
+            expect(outcomes.map(outcome => outcome.posture)).toEqual(['healthy', 'degraded', 'healthy']);
+        } finally {
+            fs.rmSync(dir, {recursive: true, force: true});
+        }
+    });
+});

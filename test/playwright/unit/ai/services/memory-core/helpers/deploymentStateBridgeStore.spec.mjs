@@ -141,3 +141,13 @@ test.describe('deploymentStateBridgeStore', () => {
         });
     });
 });
+
+test.describe('#17049 — heavyMaintenanceStarvation snapshot section', () => {
+    test('tolerated-absent: omitted when null/undefined, carried verbatim when present', () => {
+        expect('heavyMaintenanceStarvation' in createDeploymentStateSnapshot({})).toBe(false);
+        expect('heavyMaintenanceStarvation' in createDeploymentStateSnapshot({heavyMaintenanceStarvation: null})).toBe(false);
+
+        const block = {taskName: 'heavy-maintenance-starvation-watchdog', posture: 'degraded', breaches: []};
+        expect(createDeploymentStateSnapshot({heavyMaintenanceStarvation: block}).heavyMaintenanceStarvation).toEqual(block);
+    });
+});

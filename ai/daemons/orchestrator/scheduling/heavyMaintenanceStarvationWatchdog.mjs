@@ -42,22 +42,29 @@
  * the former and reports the latter, and this evaluator surfaces `unreadableCount` so the caller can
  * log the fail-open skip instead of silently losing a waiter.
  *
+ * The verdict is a four-state `posture`, because a corrupt reading and a clean reading must never
+ * share a word: `degraded` (at least one READABLE breach — readable evidence always wins, even
+ * beside unreadable noise) · `healthy` (a clean reading with no breach) · `unknown` (nothing
+ * breached but part of the ledger was unreadable — the reading cannot assert green, and it never
+ * authorizes degradation) · `disabled` (the bound is off; nothing was judged).
+ *
  * @param {Object} options
  * @param {{waiters: Object[], unreadable: String[]}} options.ledgerReading Verbatim `listActiveWaitersSync` output.
  * @param {Number} options.now Current epoch milliseconds (injected clock).
  * @param {Number} options.degradeAfterMs Starvation bound; `<= 0` (or non-finite) disables — never degraded.
  * @param {String|null} [options.leaseHolder=null] Owner of the currently ACTIVE lease, or null when none.
- * @returns {{degraded: Boolean, breaches: Object[], waiterCount: Number, unreadableCount: Number,
- *   degradeAfterMs: Number, leaseHolder: (String|null)}} `breaches` entries carry
- *   `{taskName, priorityZero, bootstrapCritical, deferredSince, starvedForMs, leaseHolder}` — the
- *   receipt the health record publishes.
+ * @returns {{posture: String, degraded: Boolean, breaches: Object[], waiterCount: Number,
+ *   unreadableCount: Number, degradeAfterMs: Number, leaseHolder: (String|null)}} `breaches` entries
+ *   carry `{taskName, priorityZero, bootstrapCritical, deferredSince, starvedForMs, leaseHolder}` —
+ *   the receipt the consumed health projection publishes.
  */
 export function evaluateWaiterStarvation({ledgerReading, now, degradeAfterMs, leaseHolder = null} = {}) {
     const waiters    = Array.isArray(ledgerReading?.waiters)    ? ledgerReading.waiters    : [];
     const unreadable = Array.isArray(ledgerReading?.unreadable) ? ledgerReading.unreadable : [];
     const breaches   = [];
+    const enabled    = Number.isFinite(degradeAfterMs) && degradeAfterMs > 0;
 
-    if (Number.isFinite(degradeAfterMs) && degradeAfterMs > 0) {
+    if (enabled) {
         for (const entry of waiters) {
             const starvedForMs = now - Date.parse(entry.deferredSince);
 
@@ -74,8 +81,17 @@ export function evaluateWaiterStarvation({ledgerReading, now, degradeAfterMs, le
         }
     }
 
+    const posture = !enabled
+        ? 'disabled'
+        : breaches.length > 0
+            ? 'degraded'
+            : unreadable.length > 0
+                ? 'unknown'
+                : 'healthy';
+
     return {
-        degraded       : breaches.length > 0,
+        posture,
+        degraded       : posture === 'degraded',
         breaches,
         waiterCount    : waiters.length,
         unreadableCount: unreadable.length,

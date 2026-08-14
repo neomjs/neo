@@ -27,6 +27,7 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
             leaseHolder   : 'dream'
         });
 
+        expect(evaluation.posture).toBe('degraded');
         expect(evaluation.degraded).toBe(true);
         expect(evaluation.waiterCount).toBe(2);
         expect(evaluation.breaches).toHaveLength(1);
@@ -61,6 +62,7 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
             leaseHolder   : 'backup'
         });
 
+        expect(cleared.posture).toBe('healthy');
         expect(cleared.degraded).toBe(false);
         expect(cleared.breaches).toEqual([]);
     });
@@ -90,8 +92,28 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
 
         const evaluation = evaluateWaiterStarvation({ledgerReading, now, degradeAfterMs: HOUR, leaseHolder: null});
 
+        // One clean waiter under the bound beside one unreadable file: nothing breached, but the
+        // reading cannot assert green — unknown, which never authorizes degradation.
+        expect(evaluation.posture).toBe('unknown');
         expect(evaluation.degraded).toBe(false);
         expect(evaluation.waiterCount).toBe(1);
+        expect(evaluation.unreadableCount).toBe(1);
+    });
+
+    test('a readable breach beside unreadable noise still degrades — readable evidence wins (#17049)', () => {
+        const now        = 10 * HOUR;
+        const evaluation = evaluateWaiterStarvation({
+            ledgerReading: {
+                waiters   : [waiterEntry({taskName: 'backup', deferredSince: new Date(now - 2 * HOUR).toISOString(), priorityZero: true})],
+                unreadable: ['broken.json']
+            },
+            now,
+            degradeAfterMs: HOUR,
+            leaseHolder   : 'dream'
+        });
+
+        expect(evaluation.posture).toBe('degraded');
+        expect(evaluation.breaches).toHaveLength(1);
         expect(evaluation.unreadableCount).toBe(1);
     });
 
@@ -105,6 +127,7 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
         const ledgerReading = listActiveWaitersSync({leasePath: '/tmp/lease/heavy.lease', staleAfterMs: 6 * HOUR, fsModule, now});
         const evaluation    = evaluateWaiterStarvation({ledgerReading, now, degradeAfterMs: HOUR, leaseHolder: 'dream'});
 
+        expect(evaluation.posture).toBe('unknown');
         expect(evaluation.degraded).toBe(false);
         expect(evaluation.waiterCount).toBe(0);
         expect(evaluation.unreadableCount).toBe(2);
@@ -117,6 +140,7 @@ test.describe('orchestrator/scheduling/heavyMaintenanceStarvationWatchdog (#1704
         for (const degradeAfterMs of [0, -1, NaN, undefined]) {
             const evaluation = evaluateWaiterStarvation({ledgerReading: starved, now, degradeAfterMs});
 
+            expect(evaluation.posture).toBe('disabled');
             expect(evaluation.degraded).toBe(false);
             expect(evaluation.breaches).toEqual([]);
         }

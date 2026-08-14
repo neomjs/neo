@@ -763,8 +763,8 @@ async function runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, serv
             runtime.writeLog?.('WARN', `[Orchestrator] heavy-maintenance-starvation-watchdog: skipped ${evaluation.unreadableCount} unreadable waiter entr${evaluation.unreadableCount === 1 ? 'y' : 'ies'} (fail-open to the readable set).`);
         }
 
-        const details = {
-            reason,
+        const verdict = {
+            posture        : evaluation.posture,
             checkedAt      : new Date(now).toISOString(),
             degradeAfterMs : evaluation.degradeAfterMs,
             waiterCount    : evaluation.waiterCount,
@@ -773,28 +773,51 @@ async function runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, serv
             breaches       : evaluation.breaches
         };
 
-        if (evaluation.degraded) {
+        // Persist the verdict on the lane's durable task-state envelope BEFORE the terminal mark
+        // (whose writeState carries it to disk). This is the CONSUMED channel: the deployment-state
+        // bridge projects `state.starvation` into the snapshot that `inspect_deployment` /
+        // `get_deployment_state_snapshot` serve — the in-memory health record below is per-process
+        // telemetry and nothing reads it across the plane.
+        const state = services.taskStateService.getTaskState(taskName);
+        if (state) state.starvation = verdict;
+
+        const details = {reason, ...verdict};
+
+        if (evaluation.posture === 'degraded') {
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             runtime.writeLog?.('WARN', `[Orchestrator] heavy-maintenance-starvation-watchdog: ${evaluation.breaches.length} waiter(s) starved past ${evaluation.degradeAfterMs}ms under holder ${evaluation.leaseHolder ?? 'none'}: ${evaluation.breaches.map(breach => `${breach.taskName} (deferred since ${breach.deferredSince})`).join(', ')} — the fairness yield bound has been exceeded; the lease pipeline is not admitting its waiters.`);
+        } else if (evaluation.posture === 'unknown') {
+            // Inconclusive is neither green nor red: recorded as skipped (the check ran, the answer
+            // could not be asserted), and the posture — not the outcome word — is what consumers read.
+            services.healthService?.recordTaskOutcome?.(taskName, 'skipped', details);
         } else {
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
         }
 
         services.taskStateService.markCompleted(taskName);
     } catch (e) {
-        // Degrade to "no degradation": record the fault and clear running state, never rethrow —
-        // same never-fail guarantee as the sibling watchdogs.
+        // Degrade to "unknown", never to silence and never to a false red: the persisted verdict says
+        // the instrument failed (a broken watchdog is not a degraded plane), and the same never-fail
+        // guarantee as the sibling watchdogs holds — record and swallow, never rethrow.
         try {
             const state = services.taskStateService.getTaskState(taskName);
-            if (state) state.lastReason = e.message;
+            if (state) {
+                state.lastReason = e.message;
+                state.starvation = {
+                    posture  : 'unknown',
+                    checkedAt: new Date().toISOString(),
+                    error    : e.message
+                };
+            }
             services.taskStateService.markFailed(taskName, 1);
             services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
                 reason,
                 phase   : 'watchdog-error',
+                posture : 'unknown',
                 error   : e.message,
                 failedAt: new Date().toISOString()
             });
-            runtime.writeLog?.('ERROR', `[Orchestrator] heavy-maintenance-starvation-watchdog check failed (degraded to no-alarm): ${e.message}`);
+            runtime.writeLog?.('ERROR', `[Orchestrator] heavy-maintenance-starvation-watchdog check failed (verdict recorded as unknown): ${e.message}`);
         } catch {
             // Last-resort swallow: the never-fail guarantee dominates all observability.
         }
