@@ -38,13 +38,16 @@ const RATE     = 26,
       DEADLINE = 300_000,
       SLOT     = 28672,
       /** Slot-legal by a wide margin, and ~352s of service — outside the clock it runs under. */
-      UNDELIVERABLE_TOKENS = 9144;
+      UNDELIVERABLE_TOKENS = 9144,
+      /** A rate only authorizes for the capacity it was measured under; these two match. */
+      CAPACITY = Object.freeze({parallelSlots: 4, contextTokensPerSlot: 32768, cpus: 6}),
+      BOUND    = Object.freeze({measuredUnderCapacity: CAPACITY, currentCapacity: CAPACITY});
 
 test.describe('Neo.ai.embeddingServiceability — the ceiling', () => {
     test('derives tokens from rate x deadline x margin', () => {
         // 26 tok/s over 300s at 0.8 margin = 6240. Asserted as a number rather than recomputed from
         // the same expression, so a change to the formula fails here instead of agreeing with itself.
-        expect(resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE})).toBe(6240)
+        expect(resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, ...BOUND})).toBe(6240)
     });
 
     test('an UNDECLARED rate yields no opinion — never a fabricated default', () => {
@@ -64,22 +67,22 @@ test.describe('Neo.ai.embeddingServiceability — the ceiling', () => {
     });
 
     test('a non-positive deadline or out-of-range margin throws rather than inventing a ceiling', () => {
-        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: 0})).toThrow(/positive deadline/);
-        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, marginFactor: 0})).toThrow(/margin/);
-        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, marginFactor: 1.5})).toThrow(/margin/)
+        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: 0, ...BOUND})).toThrow(/positive deadline/);
+        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, marginFactor: 0, ...BOUND})).toThrow(/margin/);
+        expect(() => resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, marginFactor: 1.5, ...BOUND})).toThrow(/margin/)
     });
 
     test('the margin leaves real headroom under the clock', () => {
         // A ceiling at the raw product is wrong exactly at the boundary, and wrong there costs a whole
         // request: queueing, tokenizer drift, and a request finishing ON the deadline still loses.
-        const ceiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE});
+        const ceiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, ...BOUND});
 
         expect((ceiling / RATE) * 1000).toBeLessThan(DEADLINE)
     });
 });
 
 test.describe('Neo.ai.embeddingServiceability — admission', () => {
-    const ceiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE});
+    const ceiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: RATE, deadlineMs: DEADLINE, ...BOUND});
 
     test('THE DEFECT: a slot-legal chunk that cannot be delivered is refused, and says which ceiling it failed', () => {
         const verdict = classifyEmbeddingAdmission({
@@ -144,10 +147,69 @@ test.describe('Neo.ai.embeddingServiceability — admission', () => {
     test('a faster lane admits what a slow one refuses — the SAME chunk, no corpus change', () => {
         // The property that proves these are lane facts rather than chunk facts, and the reason the
         // declaration must be restated whenever the lane's CPU allocation changes.
-        const fastCeiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: 200, deadlineMs: DEADLINE});
+        const fastCeiling = resolveServiceabilityCeilingTokens({declaredTokensPerSecond: 200, deadlineMs: DEADLINE, ...BOUND});
 
         expect(classifyEmbeddingAdmission({
             tokens: UNDELIVERABLE_TOKENS, slotCeilingTokens: SLOT, serviceabilityCeilingTokens: fastCeiling
         }).admissible).toBe(true)
+    });
+});
+
+test.describe('Neo.ai.embeddingServiceability — a rate only authorizes for the capacity it was measured under', () => {
+    // A rate is not a property of the lane; it is a property of the lane AT AN ALLOCATION. Nothing in
+    // the value records that, so a rate measured on one shape stays readable and plausible after the
+    // shape moves — and wrong in the over-admitting direction, which is this module's defect returning
+    // through a config change nobody associates with admission. Documenting "restate it" is an
+    // instruction to a human; this is the check (@neo-gpt).
+    const measured = Object.freeze({parallelSlots: 4, contextTokensPerSlot: 32768, cpus: 6}),
+          args     = {declaredTokensPerSecond: RATE, deadlineMs: DEADLINE};
+
+    test('a matching capacity authorizes', () => {
+        expect(resolveServiceabilityCeilingTokens({
+            ...args, measuredUnderCapacity: measured, currentCapacity: {...measured}
+        })).toBe(6240)
+    });
+
+    test('THE STALE CASE: any differing member withdraws authorization', () => {
+        // Each of these is a real config move. None of them changes the rate, and all of them
+        // invalidate it.
+        [
+            {...measured, cpus: 24},                  // capacity raised
+            {...measured, cpus: 2},                   // capacity cut — the dangerous direction
+            {...measured, parallelSlots: 8},          // slots re-elected
+            {...measured, contextTokensPerSlot: 8192} // slot context resized
+        ].forEach(current => {
+            expect(resolveServiceabilityCeilingTokens({
+                ...args, measuredUnderCapacity: measured, currentCapacity: current
+            })).toBeNull()
+        })
+    });
+
+    test('an UNBOUND rate does not authorize — unverifiable is not the same as valid', () => {
+        // The whole point of the repair. A bare rate with no measurement context cannot be checked, so
+        // it must not be used; admission falls back to fit alone, which is today's behavior.
+        expect(resolveServiceabilityCeilingTokens(args)).toBeNull();
+        expect(resolveServiceabilityCeilingTokens({...args, measuredUnderCapacity: measured})).toBeNull();
+        expect(resolveServiceabilityCeilingTokens({...args, currentCapacity: measured})).toBeNull()
+    });
+
+    test('an EMPTY measurement context is a declaration that states nothing, not a wildcard', () => {
+        // The shape a well-meaning `{}` default would take. It must not match everything.
+        expect(resolveServiceabilityCeilingTokens({
+            ...args, measuredUnderCapacity: {}, currentCapacity: measured
+        })).toBeNull()
+    });
+
+    test('withdrawal is fail-SAFE: it costs today’s behavior, never a refusal of legal work', () => {
+        // Losing authorization must land on "no serviceability opinion", never on "ceiling of zero".
+        // A ceiling of 0 would refuse every chunk on a plane whose cores merely moved.
+        const withdrawn = resolveServiceabilityCeilingTokens({
+            ...args, measuredUnderCapacity: measured, currentCapacity: {...measured, cpus: 24}
+        });
+
+        expect(withdrawn).toBeNull();
+        expect(classifyEmbeddingAdmission({
+            tokens: UNDELIVERABLE_TOKENS, slotCeilingTokens: SLOT, serviceabilityCeilingTokens: withdrawn
+        }).admissible, 'a withdrawn rate admits exactly what fit admits').toBe(true)
     });
 });

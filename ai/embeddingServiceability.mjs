@@ -33,6 +33,40 @@ export const EMBEDDING_ADMISSION = Object.freeze({
 });
 
 /**
+ * @summary Whether a declared rate's measurement context still matches the lane it is being applied to.
+ *
+ * Fail-closed in both directions of doubt: a missing context, a missing current capacity, or any
+ * differing member all read as NO MATCH, so the rate does not authorize. The asymmetry is deliberate —
+ * declining to use a rate costs today's behavior (fit-only admission, which is what ships now), while
+ * using a stale one costs the defect back.
+ *
+ * **Bound worth stating rather than implying:** this compares a declaration against the *currently
+ * declared* capacity, not against the running lane. It catches a capacity change that did not restate
+ * the rate — the motivating case — and cannot catch a declaration that never matched reality. Observed
+ * capacity lives in the orchestrator's boot receipt, a different process from this call site.
+ *
+ * @param {Object|null} measuredUnderCapacity Capacity the rate was measured under.
+ * @param {Object|null} currentCapacity Capacity currently declared for the lane.
+ * @returns {Boolean}
+ * @private
+ */
+function capacityMatches(measuredUnderCapacity, currentCapacity) {
+    if (!measuredUnderCapacity || !currentCapacity ||
+        typeof measuredUnderCapacity !== 'object' || typeof currentCapacity !== 'object') {
+        return false
+    }
+
+    const keys = Object.keys(measuredUnderCapacity);
+
+    // An empty context is not a match-anything wildcard; it is a declaration that states nothing.
+    if (keys.length === 0) {
+        return false
+    }
+
+    return keys.every(key => String(measuredUnderCapacity[key]) === String(currentCapacity[key]))
+}
+
+/**
  * @summary Resolves the largest input this lane can serve inside its enforced deadline.
  *
  * The margin covers what the arithmetic cannot: queueing behind other slots, tokenizer drift between
@@ -48,7 +82,23 @@ export const EMBEDDING_ADMISSION = Object.freeze({
  * @returns {Number|null} Ceiling in tokens, or `null` when no rate is declared — *no opinion*, never
  *     "unlimited" and never a fabricated default.
  */
-export function resolveServiceabilityCeilingTokens({declaredTokensPerSecond, deadlineMs, marginFactor = 0.8}) {
+export function resolveServiceabilityCeilingTokens({
+    declaredTokensPerSecond,
+    deadlineMs,
+    marginFactor = 0.8,
+    measuredUnderCapacity = null,
+    currentCapacity = null
+}) {
+    // A rate is only authority for the capacity it was measured under. Nothing in the value itself
+    // records that, so a rate measured on 24 cores and left in place after a cut to 6 stays readable,
+    // plausible, and wrong in the over-admitting direction — silently re-opening the defect this
+    // module exists to close. Requiring the measurement context turns "is this still valid?" from an
+    // operator's memory into a comparison. Absence is NOT a pass: an unbound rate is unverifiable, and
+    // an unverifiable rate must not authorize admission (@neo-gpt).
+    if (!capacityMatches(measuredUnderCapacity, currentCapacity)) {
+        return null
+    }
+
     const rate = Number(declaredTokensPerSecond);
 
     // Absent, malformed or non-positive all collapse to "not declared". A rate of 0 is not a lane that
