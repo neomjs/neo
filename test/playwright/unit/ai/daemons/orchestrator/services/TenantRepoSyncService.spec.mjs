@@ -2611,6 +2611,151 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         }
     });
 
+    test('an OpenAI-compatible provider timeout stops the queued repo in this sweep and a fresh sweep dispatches it', async () => {
+        const
+            {default: embeddingConfig} = await import(
+                '../../../../../../../ai/mcp/server/memory-core/config.template.mjs'
+            ),
+            originalHost      = embeddingConfig.openAiCompatible.host,
+            originalTimeout   = embeddingConfig.openAiCompatible.batchEmbeddingTimeoutMs,
+            originalUnload    = embeddingConfig.openAiCompatible.unloadRetryCount,
+            originalProbe     = TextEmbeddingService.openAiCompatibleLoadedModelsProbe,
+            {default: http}   = await import('node:http'),
+            taskStateService  = createInMemoryTaskStateService(),
+            slugs             = ['org/oai-timeout-a', 'org/oai-timeout-b'],
+            serverRequests    = [],
+            ingestionEntries  = [],
+            controlsSeen      = [],
+            ingestionService  = makeFakeIngestionService();
+
+        let firstRunPromise, secondRunPromise, signalBothEntered, server;
+
+        const bothEntered = new Promise(resolve => signalBothEntered = resolve);
+
+        // The first request NEVER responds, so repo A holds the single-lane queue until its batch
+        // timeout fires. Every later request answers, so the second sweep can complete.
+        server = http.createServer((req, res) => {
+            let body = '';
+
+            req.on('data', chunk => body += chunk);
+            req.on('end', () => {
+                serverRequests.push(JSON.parse(body || '{}').input);
+
+                if (serverRequests.length === 1) return;
+
+                res.writeHead(200, {'Content-Type': 'application/json'});
+                res.end(JSON.stringify({data: [{index: 0, embedding: [0.1]}]}))
+            })
+        });
+
+        await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+        embeddingConfig.openAiCompatible.host                    = `http://127.0.0.1:${server.address().port}`;
+        embeddingConfig.openAiCompatible.batchEmbeddingTimeoutMs = 300;
+        embeddingConfig.openAiCompatible.unloadRetryCount        = 0;
+        TextEmbeddingService.openAiCompatibleLoadedModelsProbe    = async () => [{
+            id           : embeddingConfig.openAiCompatible.embeddingModel,
+            contextLength: embeddingConfig.localModels.embedding.contextLimitTokens
+        }];
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        ingestionService.ingestSourceFilesForTenantSync = async (payload, controls) => {
+            const embeddingPromise = TextEmbeddingService.embedTexts([payload.repoSlug], 'openAiCompatible', {
+                ...controls,
+                operationLabel          : 'tenant oai timeout circuit spec',
+                operationStage          : 'kb-tenant-ingestion-embedding',
+                providerActivityRecorder: null,
+                service                 : 'knowledge-base'
+            });
+
+            ingestionEntries.push(payload.repoSlug);
+            controlsSeen.push(controls);
+
+            if (ingestionEntries.length === 2) signalBothEntered();
+
+            try {
+                await embeddingPromise;
+                return {ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [], tenantId: payload.tenantId, durationMs: 1}
+            } catch (error) {
+                return {
+                    ingested           : 0,
+                    deleted            : 0,
+                    embeddingsGenerated: 0,
+                    errors             : [{code: classifyEmbedFailureCode(error.code)}],
+                    tenantId           : payload.tenantId,
+                    durationMs         : 1
+                }
+            }
+        };
+
+        const options = {
+            reason           : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: slugs.map((repoSlug, index) => ({
+                tenantId: 't1',
+                repoSlug,
+                mirrorRoot,
+                cloneUrl: `https://github.com/neomjs/oai-circuit-${index}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: ingestionService,
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        };
+
+        try {
+            for (const repoSlug of slugs) {
+                await provisionMirrorDir({tenantId: 't1', repoSlug});
+            }
+
+            firstRunPromise = TenantRepoSyncService.runTask({...options, onlyRepoSlugs: slugs});
+            await bothEntered;
+
+            expect(ingestionEntries).toHaveLength(2);
+            expect(controlsSeen[0].signal, 'both repos share one run-scoped circuit').toBe(controlsSeen[1].signal);
+
+            const first  = await firstRunPromise,
+                  bySlug = Object.fromEntries(first.details.repos.map(repo => [repo.repoSlug, repo]));
+
+            // The serialized queue admits exactly one repo; the other is genuinely queued behind it.
+            expect(serverRequests, 'the timed-out repo must not hand its lane to the queued repo').toHaveLength(1);
+
+            const dispatchedSlug = serverRequests[0][0],
+                  queuedSlug     = slugs.find(repoSlug => repoSlug !== dispatchedSlug);
+
+            expect(first).toMatchObject({status: 'deferred', details: {completedCount: 0, failedCount: 0}});
+            expect(bySlug[dispatchedSlug].lastSourceErrorCode, 'the dispatched repo keeps its own provider timeout')
+                .toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
+            expect(bySlug[queuedSlug].lastSourceErrorCode, 'the queued repo reports the circuit, not a fabricated timeout')
+                .toBe(KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN);
+
+            secondRunPromise = TenantRepoSyncService.runTask({
+                ...options,
+                reason       : 'manual-resume',
+                onlyRepoSlugs: [queuedSlug]
+            });
+
+            const second = await secondRunPromise;
+
+            expect(serverRequests, 'the later sweep, not the timed-out sweep, dispatches the queued repo')
+                .toEqual([[dispatchedSlug], [queuedSlug]]);
+            expect(controlsSeen[2].signal, 'a later sweep gets a fresh circuit').not.toBe(controlsSeen[0].signal);
+            expect(controlsSeen[2].signal.aborted).toBe(false);
+            expect(second).toMatchObject({
+                status : 'completed',
+                details: {completedCount: 1, deferredCount: 0, failedCount: 0}
+            });
+        } finally {
+            await Promise.allSettled([firstRunPromise, secondRunPromise].filter(Boolean));
+            embeddingConfig.openAiCompatible.host                    = originalHost;
+            embeddingConfig.openAiCompatible.batchEmbeddingTimeoutMs = originalTimeout;
+            embeddingConfig.openAiCompatible.unloadRetryCount        = originalUnload;
+            TextEmbeddingService.openAiCompatibleLoadedModelsProbe    = originalProbe;
+            await new Promise(resolve => server.close(resolve));
+        }
+    });
+
     test('a deferral at a capped failure streak retains its cause for the recovery lane', async () => {
         // The production shape the first cohort missed: it started every repo at
         // `consecutiveFailures: 0`, where the backoff multiplier is 1 and nothing about the capped

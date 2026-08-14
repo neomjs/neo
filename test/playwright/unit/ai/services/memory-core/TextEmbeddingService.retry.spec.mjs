@@ -752,22 +752,15 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
     });
 
     test('the queued repository stays protected even when the circuit-open is DEFERRED', async () => {
-        // Recorded because it falsifies a predicted falsifier, twice.
+        // Scope note, because an earlier version of this comment claimed the opposite and was wrong.
         //
-        // The ticket's ordering criterion predicts that if `onProviderTimeout` returns before opening
-        // the circuit and defers the caller-owned abort by one microtask — without awaiting or
-        // stalling the drain — the queue advances and B reaches the provider. It does not. Tried,
-        // with B confirmed
-        // enqueued behind A at a 400ms timeout: microtask deferral, macrotask deferral, and
-        // (separately) delaying the drain's own notification. B made zero provider calls in all of
-        // them.
-        //
-        // The mechanism: the drain's next dispatch is ITSELF asynchronous — `#postOpenAiCompatible`
-        // yields before it issues a request — so any deferral shorter than that gap still loses the
-        // race, and the caller's abort listener removes B from the queue first. Synchronous
-        // notification is the belt; the abort-listener removal is the braces, and the braces are
-        // what hold in every design tried. That is worth pinning: it means B's protection does not
-        // rest on hook timing, which is the more robust property of the two.
+        // At THIS level the queue's own abort-listener removal wins the race in every deferral I
+        // could construct (microtask and macrotask hook deferral, and delaying the drain's own
+        // notification), so B never dispatches and this fixture CANNOT exercise the ordering
+        // guarantee. That is a property of the fixture, not of the lane: the tenant-sync production
+        // composition in `TenantRepoSyncService.spec.mjs` DOES exercise it, and deleting the drain's
+        // notification there turns it red with B making a real provider call. Read that one for the
+        // ordering proof; read this one for the narrower fact below.
         serverBehavior = 'timeout-all';
         aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 400;
 
@@ -798,7 +791,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         await Promise.all([repoA, repoB]);
 
         expect(hookCalls.length, 'the deferred hook still received the timeout').toBeGreaterThanOrEqual(1);
-        expect(requestCount, 'B stays at zero provider calls even with a deferred circuit-open').toBe(1);
+        expect(requestCount, 'queue-level abort removal alone keeps B at zero calls here').toBe(1);
     });
 
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {
