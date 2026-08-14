@@ -69,8 +69,9 @@
  * than vanish (a sleep becomes a readiness poll), and a file count would silently absorb a conversion
  * that left the site present.
  */
-import fs   from 'node:fs';
-import path from 'node:path';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 const
     BASELINE_REL   = 'buildScripts/util/check-fixed-sleeps-baseline.json',
@@ -80,6 +81,15 @@ const
     SCAN_ROOT      = 'test/playwright/unit',
     SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*(\d+)\s*\)/,
     THRESHOLD_MS   = 1000;
+
+// The workflow-parity SSOT: every glob this guard READS, so the sibling scanned-subset-of-watched
+// spec can demand the workflow watch them. The baseline belongs here as much as the specs do — it is
+// an INPUT to the verdict, so a run that does not re-trigger on a baseline edit would let a site be
+// blessed by editing the record of what exists, with nothing re-reading reality.
+export const SCAN_SURFACE = Object.freeze([
+    `${SCAN_ROOT}/**/*.mjs`,
+    BASELINE_REL
+]);
 
 /**
  * @summary Recursively collects `.mjs` files under one directory.
@@ -174,62 +184,79 @@ export function reconcile({found, baseline}) {
     }
 }
 
-const
-    baselinePath   = path.join(ROOT_DIR, BASELINE_REL),
-    baseline       = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [],
-    found          = findUnjustifiedSleeps({}),
-    {fresh, stale} = reconcile({found, baseline});
+/**
+ * @summary Runs the guard as a CLI and exits with its verdict.
+ *
+ * Guarded on direct invocation, and that guard is load-bearing rather than tidy. This module EXPORTS
+ * its scan surface so the workflow-parity spec can import it as authority instead of hand-copying
+ * globs — and an unguarded top-level body then runs the entire lint, including `process.exit()`,
+ * inside every process that imports it. Inside a Playwright worker that exit kills the worker with no
+ * failure message: the suite reports NOTHING rather than reporting red, which is strictly worse than
+ * a normal failure because nobody can see it.
+ * @returns {void}
+ */
+function main() {
+    const
+        baselinePath   = path.join(ROOT_DIR, BASELINE_REL),
+        baseline       = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [],
+        found          = findUnjustifiedSleeps({}),
+        {fresh, stale} = reconcile({found, baseline});
 
-const backlogMs = (found.backlog || []).reduce((sum, row) => sum + row.ms, 0);
+    const backlogMs = (found.backlog || []).reduce((sum, row) => sum + row.ms, 0);
 
-if (fresh.length === 0 && stale.length === 0) {
-    console.log(`check-fixed-sleeps: OK — ${found.length} unaccounted site(s) baselined, 0 new, 0 stale.`);
+    if (fresh.length === 0 && stale.length === 0) {
+        console.log(`check-fixed-sleeps: OK — ${found.length} unaccounted site(s) baselined, 0 new, 0 stale.`);
 
-    // TWO numbers, opposite meanings, printed together because a reader consumes the printed line and
-    // not the docstring. The baseline measures ANNOTATION DEBT and should reach zero. The backlog
-    // measures WALL CLOCK STILL BEING PAID and reaching zero is a different, harder thing: every
-    // `out-waits:` site can be annotated truthfully, emptying the baseline, without the suite getting
-    // one millisecond faster. A zeroed baseline means every wait is accounted for. It does NOT mean
-    // the suite is fast, and anything reading it as a speed metric is reading the wrong number.
-    if (found.backlog?.length) {
-        console.log(`check-fixed-sleeps: ${found.backlog.length} site(s) carry \`out-waits:\` — ~${(backlogMs / 1000).toFixed(1)}s of wall clock still paid to hardcoded constants.`);
-        console.log('  This is a LEAF-CANDIDATE BACKLOG, not a failure. It rising is a finding; it falling means a constant became injectable.')
+        // TWO numbers, opposite meanings, printed together because a reader consumes the printed line and
+        // not the docstring. The baseline measures ANNOTATION DEBT and should reach zero. The backlog
+        // measures WALL CLOCK STILL BEING PAID and reaching zero is a different, harder thing: every
+        // `out-waits:` site can be annotated truthfully, emptying the baseline, without the suite getting
+        // one millisecond faster. A zeroed baseline means every wait is accounted for. It does NOT mean
+        // the suite is fast, and anything reading it as a speed metric is reading the wrong number.
+        if (found.backlog?.length) {
+            console.log(`check-fixed-sleeps: ${found.backlog.length} site(s) carry \`out-waits:\` — ~${(backlogMs / 1000).toFixed(1)}s of wall clock still paid to hardcoded constants.`);
+            console.log('  This is a LEAF-CANDIDATE BACKLOG, not a failure. It rising is a finding; it falling means a constant became injectable.')
+        }
+
+        process.exit(0)
     }
 
-    process.exit(0)
-}
+    if (fresh.length) {
+        console.error(`check-fixed-sleeps: ${fresh.length} fixed sleep(s) >= ${THRESHOLD_MS}ms with nothing said about what they wait for:\n`);
 
-if (fresh.length) {
-    console.error(`check-fixed-sleeps: ${fresh.length} fixed sleep(s) >= ${THRESHOLD_MS}ms with nothing said about what they wait for:\n`);
+        for (const row of fresh) {
+            console.error(`  ${row.file}:${row.line}  (${row.ms}ms)`);
+            console.error(`    ${row.text}`)
+        }
 
-    for (const row of fresh) {
-        console.error(`  ${row.file}:${row.line}  (${row.ms}ms)`);
-        console.error(`    ${row.text}`)
+        console.error(`
+    Say what the wait is FOR. Either marker, on the line or within ${LOOKBEHIND} lines above it:
+
+      // out-waits: <the production constant this is larger than>
+      // wall-clock-under-test: <why elapsed time is the thing being asserted>
+
+    Both are legitimate outcomes. \`out-waits:\` is the one that pays forward — a named constant is a
+    constant somebody can make injectable, which is the repair that actually removes the wall clock.
+
+    Do NOT reach for deleting the wait. Where the surrounding code polls on a fixed interval, removing a
+    sleep pushes injection before the next watermark and costs a WHOLE extra cycle: one measured spec went
+    6.4s -> 12.2s on deletion, with every assertion still passing. A sleep you cannot explain is a finding;
+    a sleep you delete without measuring is a slower suite that reports green.`)
     }
 
-    console.error(`
-Say what the wait is FOR. Either marker, on the line or within ${LOOKBEHIND} lines above it:
+    if (stale.length) {
+        console.error(`\ncheck-fixed-sleeps: ${stale.length} baseline row(s) no longer match a live site — the baseline may only shrink:\n`);
 
-  // out-waits: <the production constant this is larger than>
-  // wall-clock-under-test: <why elapsed time is the thing being asserted>
+        for (const row of stale) console.error(`  ${row.file}  ${row.text}`);
 
-Both are legitimate outcomes. \`out-waits:\` is the one that pays forward — a named constant is a
-constant somebody can make injectable, which is the repair that actually removes the wall clock.
+        console.error(`
+    Remove these rows. A site that was converted (a sleep becoming a readiness poll) or removed leaves its
+    row behind, and a baseline permitted to outlive its sites stops describing anything.`)
+    }
 
-Do NOT reach for deleting the wait. Where the surrounding code polls on a fixed interval, removing a
-sleep pushes injection before the next watermark and costs a WHOLE extra cycle: one measured spec went
-6.4s -> 12.2s on deletion, with every assertion still passing. A sleep you cannot explain is a finding;
-a sleep you delete without measuring is a slower suite that reports green.`)
+    process.exit(1)
 }
 
-if (stale.length) {
-    console.error(`\ncheck-fixed-sleeps: ${stale.length} baseline row(s) no longer match a live site — the baseline may only shrink:\n`);
-
-    for (const row of stale) console.error(`  ${row.file}  ${row.text}`);
-
-    console.error(`
-Remove these rows. A site that was converted (a sleep becoming a readiness poll) or removed leaves its
-row behind, and a baseline permitted to outlive its sites stops describing anything.`)
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    main()
 }
-
-process.exit(1)
