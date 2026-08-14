@@ -382,6 +382,14 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
             expect(toolCallsByIdentity['@ada']).toBeUndefined();
             await classOneOnly.cancel();
 
+            // The identical-token mutant: PATs carry no audience claim, so the SAME bytes in
+            // both headers would be admitted by both verifiers — the arming seam must refuse
+            // equality itself. Zero MC calls, honest unarmed stream.
+            const sameToken = await connectSse('ada-token', 'ada-token');
+
+            expect(toolCallsByIdentity['@ada']).toBeUndefined();
+            await sameToken.cancel();
+
             // Per-viewer arming rides the SEPARATELY CARRIED class-3 credential.
             const
                 adaReader   = await connectSse('ada-token', 'ada-mc-token'),

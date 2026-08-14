@@ -277,6 +277,41 @@ test.describe('fleet wake arming - the service credential chain', () => {
         })).toBe('distinct-class-3-mint')
     });
 
+    test('a byte-identical viewer/fleet bearer pair is refused before any MC client exists', async () => {
+        let constructions = 0;
+
+        const fanout = createFleetWakeFanout({logger: QUIET, heartbeatMs: 0});
+
+        const context = createWakeArmingContext({
+            fanout,
+            aiConfig: {fleet: {
+                planeBase         : 'http://ingress:8080',
+                planeBearer       : 'service-token',
+                planeBearerFile   : '',
+                admissionTokenFile: '',
+                planeInternalHosts: ['ingress'],
+                wakeSelfBase      : 'http://fleet-server:8083'
+            }},
+            logger           : QUIET,
+            createPlaneClient: () => {
+                constructions++;
+                throw new Error('must never be reached for an aliased pair')
+            },
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@svc'})
+        });
+
+        const outcome = await context.ensureArmedForViewer({
+            viewerKey           : 'provider:github:1',
+            canonicalClaim      : '@ada',
+            bearer              : 'the-same-pat',
+            fleetAdmissionBearer: 'the-same-pat'
+        });
+
+        expect(outcome.armed).toBe(false);
+        expect(outcome.reason).toContain('byte-identical');
+        expect(constructions).toBe(0)
+    });
+
     test('an unreadable admission file disables the comparison, never the credential', () => {
         expect(assertFleetPlaneBearerClass({
             aiConfig: {fleet: {

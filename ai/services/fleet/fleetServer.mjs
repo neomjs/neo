@@ -410,21 +410,24 @@ export async function createFleetServerApp({
         // Connect-time arming, per viewer, with a SEPARATELY CARRIED class-3 credential: the
         // viewer's MC bearer travels in its own header, because the class-1 Fleet admission
         // bearer (the `Authorization` this route was admitted on) must NEVER be forwarded to
-        // the `/mc/mcp` audience — the ledger's non-alias rule, enforced here by simply never
-        // reading that header for this purpose. With the class-3 credential present, the
+        // the `/mc/mcp` audience. A header label alone is not a credential authority — PATs
+        // carry no audience claim and both surfaces share the verifier — so the class-1 bytes
+        // travel WITH the request into the arming context, which refuses a byte-identical pair
+        // before any MC client exists. With a genuinely distinct class-3 credential, the
         // subscription is created by the viewer's own MC authority (caller-owned per viewer),
         // used in-flight only, and the stream registers under the identity MC PROVED — never
-        // the request's claim. Without it, the service-proven path answers (arming exactly the
-        // proven caller) and every other viewer lands in the honest not-armed state.
+        // the request's claim. Without one, the service-proven path answers (arming exactly
+        // the proven caller) and every other viewer lands in the honest not-armed state.
         let registrationKey = streamKey;
 
         if (app.fleetWakeArming) {
             try {
                 const
+                    fleetBearer    = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
                     mcBearer       = (req.headers['x-neo-mc-authorization'] ?? '').replace(/^Bearer\s+/i, '').trim(),
                     canonicalClaim = normalizeAgentIdentity(req.fleetRequestContext.providerUsername ?? req.fleetRequestContext.username),
                     outcome        = mcBearer && canonicalClaim
-                        ? await app.fleetWakeArming.ensureArmedForViewer({viewerKey: streamKey, canonicalClaim, bearer: mcBearer})
+                        ? await app.fleetWakeArming.ensureArmedForViewer({viewerKey: streamKey, canonicalClaim, bearer: mcBearer, fleetAdmissionBearer: fleetBearer})
                         : await app.fleetWakeArming.ensureArmedFor(streamKey);
 
                 if (outcome.armed && outcome.identity) {
@@ -748,9 +751,14 @@ export function createWakeArmingContext({
          * @param {String} options.canonicalClaim The viewer's canonical `@login` claim, proven
          *     against MC by the session init.
          * @param {String} options.bearer The viewer's own presented plane credential.
+         * @param {String} [options.fleetAdmissionBearer=''] The class-1 bearer the request was
+         *     admitted on — supplied so THIS seam can refuse a byte-identical pair: a header
+         *     label is not a credential authority, and PATs carry no audience claim, so
+         *     equality here IS the forbidden class-1→class-3 forwarding, refused before any
+         *     MC client exists.
          * @returns {Promise<Object>} `{armed, reason, identity?}` — `identity` is MC-proven.
          */
-        ensureArmedForViewer({viewerKey, canonicalClaim, bearer}) {
+        ensureArmedForViewer({viewerKey, canonicalClaim, bearer, fleetAdmissionBearer = ''}) {
             const pending = outcomesByViewer.get(viewerKey);
 
             if (pending) return pending;
@@ -762,6 +770,10 @@ export function createWakeArmingContext({
 
                 if (!planeBase || typeof bearer !== 'string' || bearer.length === 0 || !canonicalClaim) {
                     return {armed: false, reason: 'not-armed: no per-viewer plane credential presented'}
+                }
+
+                if (fleetAdmissionBearer && bearer === fleetAdmissionBearer) {
+                    return {armed: false, reason: 'not-armed: the presented MC credential is byte-identical to the Fleet admission bearer — the credential-class ledger forbids the aliasing'}
                 }
 
                 let viewerClient;
