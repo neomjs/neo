@@ -1583,6 +1583,54 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('poll-digest stamps observational lastPollAt — a timestamp only, never the client watermark (#17102)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            });
+
+            await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: 424242});
+
+            const node = [...GraphService.db.nodes.items].find(candidate => candidate.id === subscriptionId);
+
+            expect(typeof node.properties.lastPollAt).toBe('string');
+            expect(Number.isNaN(Date.parse(node.properties.lastPollAt))).toBe(false);
+
+            // The plane stays cursor-stateless: the poll's watermark must never persist under
+            // any spelling — a stored cursor would silently convert the observational stamp
+            // into server-held delivery state.
+            for (const forbidden of ['lastPollWatermark', 'watermark', 'sinceLogId', 'cursor']) {
+                expect(node.properties[forbidden]).toBeUndefined()
+            }
+
+            // The owner's list projection carries the stamp — the exposure IS the placement.
+            const {subscriptions} = await WakeSubscriptionService.list({subscriptionId});
+
+            expect(subscriptions[0].lastPollAt).toBe(node.properties.lastPollAt)
+        });
+    });
+
+    test('a foreign-owner poll is refused BEFORE the stamp: rejection leaves no observational trace (#17102)', async () => {
+        let subscriptionId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            ({subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            }))
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@mallory'}, async () => {
+            await expect(WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: 0}))
+                .rejects.toThrow(/Permission denied/)
+        });
+
+        const node = [...GraphService.db.nodes.items].find(candidate => candidate.id === subscriptionId);
+
+        expect(node.properties.lastPollAt).toBeUndefined()
+    });
+
     test('poll-digest watermarks are client-held: advancing past events empties the next poll, replay still sees them', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const {subscriptionId} = await WakeSubscriptionService.subscribe({

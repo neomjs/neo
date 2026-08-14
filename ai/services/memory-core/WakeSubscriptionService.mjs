@@ -1592,6 +1592,20 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
         }
 
+        // Observational telemetry, never a cursor: an AUTHENTICATED poll stamps `lastPollAt` on
+        // the subscription row so pull-route health can derive recency ("healthy, polls
+        // elsewhere" vs "nobody ever polls") — while the watermark stays client-held by
+        // contract, so the plane remains cursor-stateless. Non-fatal by design: a failed stamp
+        // must never cost the caller its digest.
+        try {
+            const lastPollAt = new Date().toISOString();
+
+            GraphService.upsertNode({id: subscriptionId, properties: {lastPollAt}});
+            subscription.lastPollAt = lastPollAt;
+        } catch (error) {
+            logger.warn(`[WakeSubscription] lastPollAt stamp failed for ${subscriptionId}: ${error?.message ?? error}`);
+        }
+
         const {events, lastLogId} = this._collectSubscriptionEvents(subscription, sinceLogId);
 
         const messages = [], tasks = [], permissions = [], heartbeats = [];
