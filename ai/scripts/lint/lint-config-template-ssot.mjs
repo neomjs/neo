@@ -54,13 +54,14 @@ const ROOT_DIR   = path.resolve(__dirname, '../../..');
 const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
 // The Tier-1 root base: canonical default leaves live here since the template/base split — the
 // declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
-const CONFIG_BASE_BASENAME               = 'configBase.mjs';
-const CONFIG_LEAF_PARITY_REL             = 'ai/scripts/lint/config-leaf-parity.json';
-const COMPOSE_DEFAULT_PARITY_KEY         = '$composeDefaultParity';
-const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
-const SCAN_ROOT_REL                      = 'ai';
-const TEST_SCAN_ROOT_REL                 = 'test';
-const SELF_REL_FILE                      = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+const CONFIG_BASE_BASENAME            = 'configBase.mjs';
+const CONFIG_LEAF_PARITY_REL          = 'ai/scripts/lint/config-leaf-parity.json';
+const COMPOSE_DEFAULT_PARITY_KEY      = '$composeDefaultParity';
+const BEHAVIOR_BINDING_PROJECTION_KEY = '$behaviorBindingProjection';
+const CONFIG_OVERLAY_BASENAME         = 'config.mjs';
+const SCAN_ROOT_REL                   = 'ai';
+const TEST_SCAN_ROOT_REL              = 'test';
+const SELF_REL_FILE                   = 'ai/scripts/lint/lint-config-template-ssot.mjs';
 
 // The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
 // verdict to stay reproducible at PR time (scanned ⊆ watched as a mechanical fact, not YAML
@@ -1578,6 +1579,141 @@ function reportComposeDefaultRestatements(violations) {
 }
 
 /**
+ * @summary Tests whether a Compose source mentions an env name as a whole token.
+ *
+ * Substring matching would let a longer neighbour satisfy a shorter requirement
+ * (`…_KEEP_ALIVE_EXTENDED` standing in for `…_KEEP_ALIVE`), so the match is bounded on the right
+ * by anything that is not a name character. The left side needs no guard: every generated name
+ * carries its full namespace prefix, so a shorter name can never end where a longer one starts.
+ * @param {String} source Raw Compose file text, comments included.
+ * @param {String} env Environment variable name.
+ * @returns {Boolean}
+ */
+function mentionsEnvToken(source, env) {
+    return new RegExp(`${env}(?![A-Z0-9_])`).test(source)
+}
+
+/**
+ * @summary Detects behavior-binding clock leaves that a covered Compose template never projects.
+ *
+ * ## Why this is the inverse of `detectComposeDefaultRestatements`, not a duplicate of it
+ *
+ * The sibling rule bans a Compose value that RESTATES a config default, because a restated default
+ * is a second declaration site that silently pins the old number when the leaf changes. This rule
+ * bans the opposite failure: a clock that binds real behavior and appears in the deployment file
+ * NOWHERE, so an operator reading that file cannot see what governs the deployment. One says do not
+ * duplicate the value; this one says do not hide the knob. Together they leave exactly one
+ * declaration site and zero invisible clocks.
+ *
+ * Because the two rules pull in opposite directions, projection here is satisfied by a MENTION —
+ * a commented line counts, a live assignment counts. That is deliberate: the commented form is what
+ * lets a template document a clock without restating its default and tripping the sibling rule.
+ * The match therefore runs against raw file text rather than parsed YAML, since a YAML parse drops
+ * exactly the comments that carry the documentation.
+ *
+ * ## Scope is declared per profile, never inferred
+ *
+ * A blanket "every leaf must be projected" would flood a template with dozens of knobs irrelevant to
+ * it, and a check that produces noise gets routed around within a week. So each profile names the env
+ * NAMESPACES it is responsible for, and within those the `clockSuffixes` select the timing/retry
+ * leaves mechanically — no semantic judgment at lint time. Widening coverage is a policy edit, which
+ * keeps the decision reviewable instead of buried in a heuristic.
+ * @param {Object} options
+ * @param {Object} options.composeSources Raw file text keyed by repo-relative path.
+ * @param {Object} options.envNamesByFile Env names available to each file, keyed by repo-relative path.
+ * @param {Object} options.policy The `$behaviorBindingProjection` policy.
+ * @returns {Array<Object>} Violations.
+ */
+export function detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envNamesByFile, policy}) {
+    const
+        suffixes   = policy?.clockSuffixes || [],
+        violations = [];
+
+    for (const [file, profile] of Object.entries(policy?.profiles || {})) {
+        const source = composeSources[file];
+
+        if (typeof source !== 'string') continue;
+
+        const namespaces = profile.namespaces || [];
+
+        for (const env of envNamesByFile[file] || []) {
+            if (!namespaces.some(namespace => env.startsWith(namespace))) continue;
+            if (!suffixes.some(suffix => env.endsWith(suffix)))            continue;
+            if (mentionsEnvToken(source, env))                             continue;
+
+            violations.push({env, file, kind: 'unprojected-behavior-binding-clock'})
+        }
+    }
+
+    return violations
+}
+
+/**
+ * @summary Loads the behavior-binding projection surface and returns violations.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Object} [options.policy] Injected policy.
+ * @returns {Promise<Array<Object>>}
+ */
+export async function detectUnprojectedBehaviorBindingClocks({rootDir = ROOT_DIR, policy} = {}) {
+    if (!policy) {
+        const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
+              document     = fs.existsSync(snapshotPath) ?
+                  JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {};
+
+        policy = document[BEHAVIOR_BINDING_PROJECTION_KEY]
+    }
+
+    if (!policy) return [];
+
+    const
+        composeSources = {},
+        envNamesByFile = {},
+        violations     = [];
+
+    for (const [file, profile] of Object.entries(policy.profiles || {})) {
+        try {
+            composeSources[file] = fs.readFileSync(path.join(rootDir, file), 'utf8')
+        } catch (error) {
+            violations.push({
+                error: error?.message || String(error),
+                file,
+                kind : 'projection-profile-unreadable'
+            });
+
+            continue
+        }
+
+        envNamesByFile[file] = Object.keys(
+            await buildConfigEnvDefaultsForTemplate({rootDir, template: profile.template})
+        )
+    }
+
+    return [
+        ...violations,
+        ...detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envNamesByFile, policy})
+    ]
+}
+
+/**
+ * @summary Prints unprojected behavior-binding clock violations.
+ * @param {Array<Object>} violations Violations.
+ * @returns {void}
+ */
+function reportUnprojectedBehaviorBindingClocks(violations) {
+    console.error('[lint-config-template-ssot] Behavior-binding clock projection FAILED');
+
+    for (const violation of violations) {
+        if (violation.kind === 'unprojected-behavior-binding-clock') {
+            console.error(`  ${violation.file}: ${violation.env} binds behavior but is not projected`);
+            console.error('    fix: add a commented line with its default and plane-class guidance (do NOT restate the default as a live value)')
+        } else {
+            console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
+        }
+    }
+}
+
+/**
  * @summary Maps imported config identifiers in one implementation file to config path kinds.
  * @param {Object} options
  * @param {String} [options.rootDir] Repo root.
@@ -1989,6 +2125,7 @@ export async function runLint(options = {}) {
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
           parityResult     = await detectConfigLeafParityViolations({rootDir}),
           composeDefaultViolations = await detectComposeDefaultRestatements({rootDir}),
+          projectionViolations     = await detectUnprojectedBehaviorBindingClocks({rootDir}),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
               implementationResult.staleBaseline.length > 0,
@@ -1996,6 +2133,7 @@ export async function runLint(options = {}) {
               moduleScopeResult.staleBaseline.length > 0,
           hasTestConfigFailures = testConfigResult.violations.length > 0,
           hasComposeDefaultFailures = composeDefaultViolations.length > 0,
+          hasProjectionFailures     = projectionViolations.length > 0,
           hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
               Object.keys(parityResult.added).length > 0 ||
               Object.keys(parityResult.errors || {}).length > 0 ||
@@ -2009,9 +2147,13 @@ export async function runLint(options = {}) {
         reportComposeDefaultRestatements(composeDefaultViolations)
     }
 
+    if (hasProjectionFailures) {
+        reportUnprojectedBehaviorBindingClocks(projectionViolations)
+    }
+
     if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures &&
         !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures &&
-        !hasComposeDefaultFailures
+        !hasComposeDefaultFailures && !hasProjectionFailures
     ) {
         console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${testConfigResult.violations.length} test config-authority violation(s), all baselined or target-zero.`);
         return {
@@ -2020,7 +2162,8 @@ export async function runLint(options = {}) {
             implementation : implementationResult,
             moduleScope    : moduleScopeResult,
             testConfig     : testConfigResult,
-            composeDefaults: {violations: composeDefaultViolations}
+            composeDefaults: {violations: composeDefaultViolations},
+            projection     : {violations: projectionViolations}
         };
     }
 

@@ -15,6 +15,14 @@ on:
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
+      # Compose templates are SCANNED by two rules — the Compose/default parity check and the
+      # behavior-binding clock projection check (#17115) — so by the scanned ⊆ watched invariant
+      # stated below they must be watched. Without this, deleting a projected clock from a deploy
+      # template triggers nothing, which is precisely the "guard present, correct, and never run"
+      # class the filters above already call out twice. The projection rule exists because a clock
+      # went unprojected across two plane generations; leaving its own trigger unwatched would
+      # rebuild that blind spot one layer up.
+      - 'ai/deploy/**'
       # The invariant is scanned ⊆ watched: the lint's implementation/capture rules walk every
       # `ai/**/*.mjs` and its test config-authority (C3) rule walks every `test/**/*.mjs`, so a
       # filter without these lets an introducing PR land ungated and turns the NEXT unrelated
@@ -36,6 +44,14 @@ on:
       - 'ai/scripts/lint/config-leaf-parity.json'
       - 'ai/scripts/lint/lint-config-template-ssot.mjs'
       - '.github/workflows/config-template-ssot-lint.yml'
+      # Compose templates are SCANNED by two rules — the Compose/default parity check and the
+      # behavior-binding clock projection check (#17115) — so by the scanned ⊆ watched invariant
+      # stated below they must be watched. Without this, deleting a projected clock from a deploy
+      # template triggers nothing, which is precisely the "guard present, correct, and never run"
+      # class the filters above already call out twice. The projection rule exists because a clock
+      # went unprojected across two plane generations; leaving its own trigger unwatched would
+      # rebuild that blind spot one layer up.
+      - 'ai/deploy/**'
       # The invariant is scanned ⊆ watched: the lint's implementation/capture rules walk every
       # `ai/**/*.mjs` and its test config-authority (C3) rule walks every `test/**/*.mjs`, so a
       # filter without these lets an introducing PR land ungated and turns the NEXT unrelated

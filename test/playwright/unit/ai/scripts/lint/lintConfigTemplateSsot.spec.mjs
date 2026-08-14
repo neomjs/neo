@@ -19,6 +19,7 @@ import {
     detectModuleScopeAiConfigCaptures,
     detectTestConfigOverlayImports,
     detectTestConfigProviderExports,
+    detectUnprojectedBehaviorBindingClocksFromSources,
     lintAiConfigImplementationSsot,
     lintAiConfigModuleScopeCaptures,
     lintConfigTemplateSsot,
@@ -569,6 +570,127 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             expect(row.ticket).toBe('#14239');
             expect(row.reason).toContain('Frozen primitive');
         }
+    });
+
+    /**
+     * The behavior-binding projection rule.
+     *
+     * These cases exist for the DIRECTIONS the rule must distinguish, not for its branching, which is
+     * three predicates. The defect it was built for shipped on two successive plane generations: a
+     * contention ladder that governs every single-input embed while appearing in no template, so an
+     * operator read the outer deadlines and could not see the ~47s clock that actually bound.
+     *
+     * The load-bearing case is the FIRST one — a commented mention satisfies the rule. That is not a
+     * lenience, it is the whole design: the sibling `matches-config-default` rule bans restating a
+     * default as a live value, so a comment is the only form that documents a clock without creating
+     * a second declaration site. A version of this rule that demanded a live assignment would put the
+     * two rules in permanent contradiction and one of them would be deleted within a week.
+     */
+    const PROJECTION_POLICY = {
+        clockSuffixes: ['_TIMEOUT_MS', '_RETRY_COUNT', '_RETRY_DELAY_MS'],
+        profiles     : {
+            'compose.yml': {namespaces: ['NEO_DEMO_'], template: 'ai/config.template.mjs'}
+        }
+    };
+
+    const projectionViolations = ({source, envNames, policy = PROJECTION_POLICY}) =>
+        detectUnprojectedBehaviorBindingClocksFromSources({
+            composeSources: {'compose.yml': source},
+            envNamesByFile: {'compose.yml': envNames},
+            policy
+        });
+
+    test('a COMMENTED clock counts as projected — the rule that keeps it compatible with matches-config-default', () => {
+        const violations = projectionViolations({
+            envNames: ['NEO_DEMO_CONTENTION_TIMEOUT_MS'],
+            source  : '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # per-attempt ceiling\n'
+        });
+
+        expect(violations, 'a commented projection documents the clock without restating its default').toEqual([]);
+    });
+
+    test('an entirely absent clock is a violation — the two-generation blind-ship reproduced', () => {
+        const violations = projectionViolations({
+            envNames: ['NEO_DEMO_CONTENTION_TIMEOUT_MS'],
+            source  : '  NEO_DEMO_HOST: http://embedding-model:8080\n'
+        });
+
+        expect(violations).toEqual([{
+            env : 'NEO_DEMO_CONTENTION_TIMEOUT_MS',
+            file: 'compose.yml',
+            kind: 'unprojected-behavior-binding-clock'
+        }]);
+    });
+
+    test('every leaf of a three-leaf ladder is required — projecting two of three still fails', () => {
+        // The 47s ceiling is 15000x3 + 1000x2: it is the composition, not any single leaf. Projecting
+        // the timeout and the retry count while omitting the delay leaves the total underivable from
+        // the file, which is the exact shape of the original defect rather than a lesser version of it.
+        const violations = projectionViolations({
+            envNames: [
+                'NEO_DEMO_CONTENTION_TIMEOUT_MS',
+                'NEO_DEMO_CONTENTION_RETRY_COUNT',
+                'NEO_DEMO_CONTENTION_RETRY_DELAY_MS'
+            ],
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"\n  # NEO_DEMO_CONTENTION_RETRY_COUNT: "2"\n'
+        });
+
+        expect(violations.map(violation => violation.env)).toEqual(['NEO_DEMO_CONTENTION_RETRY_DELAY_MS']);
+    });
+
+    test('a longer neighbour does not satisfy a shorter requirement', () => {
+        // Substring matching would let `..._TIMEOUT_MS_EXTENDED` stand in for `..._TIMEOUT_MS`, which
+        // is the failure mode that makes a green projection gate meaningless.
+        const violations = projectionViolations({
+            envNames: ['NEO_DEMO_CONTENTION_TIMEOUT_MS'],
+            source  : '  # NEO_DEMO_CONTENTION_TIMEOUT_MS_EXTENDED: "1"\n'
+        });
+
+        expect(violations.map(violation => violation.env)).toEqual(['NEO_DEMO_CONTENTION_TIMEOUT_MS']);
+    });
+
+    test('scope is declared, never inferred: out-of-namespace and non-clock leaves are ignored', () => {
+        // A blanket "every leaf must be projected" floods a template with irrelevant knobs, and a
+        // noisy gate gets routed around. Namespace plus suffix are both required.
+        const violations = projectionViolations({
+            envNames: [
+                'NEO_OTHER_CONTENTION_TIMEOUT_MS',  // right suffix, wrong namespace
+                'NEO_DEMO_EMBEDDING_MODEL',         // right namespace, not a clock
+                'NEO_DEMO_HOST'
+            ],
+            source: '  NEO_DEMO_HOST: http://embedding-model:8080\n'
+        });
+
+        expect(violations, 'only in-namespace clock leaves are demanded').toEqual([]);
+    });
+
+    test('a profile with no namespaces demands nothing rather than everything', () => {
+        // Fail-open is correct HERE specifically: an unconfigured profile means coverage was never
+        // declared, and inventing a demand from an empty policy would fire on every template at once.
+        const violations = projectionViolations({
+            envNames: ['NEO_DEMO_CONTENTION_TIMEOUT_MS'],
+            policy  : {clockSuffixes: ['_TIMEOUT_MS'], profiles: {'compose.yml': {}}},
+            source  : ''
+        });
+
+        expect(violations).toEqual([]);
+    });
+
+    test('the shipped policy demands the contention ladder of the provider-lane template', async () => {
+        // Non-vacuity control against the REAL policy and the REAL file: if the shipped policy did not
+        // actually select these leaves, every case above would pass while guarding nothing.
+        const {detectUnprojectedBehaviorBindingClocks} = await import(
+            pathToFileURL(path.join(process.cwd(), 'ai/scripts/lint/lint-config-template-ssot.mjs')).href
+        );
+
+        expect(await detectUnprojectedBehaviorBindingClocks({}), 'dev tree must be clean').toEqual([]);
+
+        const stripped = projectionViolations({
+            envNames: ['NEO_DEMO_CONTENTION_TIMEOUT_MS'],
+            source  : ''
+        });
+
+        expect(stripped.length, 'and the detector must be able to fail at all').toBe(1);
     });
 
     test('Compose parity names both literal-default and retired/derived restatements', () => {
