@@ -1,15 +1,18 @@
-import fs   from 'fs-extra';
-import path from 'path';
+import {randomUUID} from 'node:crypto';
+import fs           from 'fs-extra';
+import path         from 'path';
 
 import Base                             from '../../../../src/core/Base.mjs';
 import AiConfig                         from '../../../config.mjs';
 import {repairProviderRoleSetResidency} from '../../../services/graph/providerReadinessHelper.mjs';
 import {
+    ACTIVE_RECOVERY_RUN_RETENTION_CLASS,
     appendRecoveryRunState,
     createRecoveryDiagnosisEvent,
     createRecoveryReobserveRequest,
     createRecoveryRunStateEntry,
-    createRecoveryTargetIdentity
+    createRecoveryTargetIdentity,
+    readActiveRecoveryRunStates
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {
     appendHealEvent,
@@ -27,8 +30,9 @@ import {
 } from '../../../services/memory-core/helpers/recoveryKnobRegistry.mjs';
 import {isStoreBackedService} from './ContainerHealthDiagnosisService.mjs';
 
-const DEFAULT_ACTIONS        = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider', 'raise-ceiling']);
-const DEFAULT_DEPLOY_TARGETS = Object.freeze(['cloud-deploy']);
+const DEFAULT_ACTIONS         = Object.freeze(['reconfigure', 'restart', 'redeploy', 'warm-provider', 'raise-ceiling']);
+const DEFAULT_DEPLOY_TARGETS  = Object.freeze(['cloud-deploy']);
+const COMPOSE_RESTART_ACTIONS = Object.freeze(['reconfigure', 'restart']);
 
 /**
  * @summary Normalizes string/object recovery-target entries into stable descriptors.
@@ -322,8 +326,27 @@ export class RecoveryActuatorService extends Base {
             return this.rejectAction({serviceKey, action, now, reasonCode: 'action-not-allowed-for-target', target});
         }
 
-        const attempts = await this.readHealAttempts(),
-              gate     = this.evaluateEnvelope({attempts, serviceKey, action, now});
+        const composeRestartAction = target.kind === 'compose-service' &&
+            COMPOSE_RESTART_ACTIONS.includes(action);
+
+        if (composeRestartAction) {
+            const pendingRestart = await this.readPendingRestartRun({serviceKey, target});
+
+            if (pendingRestart) {
+                return this.reconcileUncertainRestart({
+                    pending: pendingRestart,
+                    serviceKey,
+                    action : pendingRestart.details?.action || action,
+                    target,
+                    now,
+                    isAuthorityHeld
+                });
+            }
+        }
+
+        const attempts = await this.readHealAttempts();
+
+        const gate = this.evaluateEnvelope({attempts, serviceKey, action, now});
 
         // REVALIDATED HERE, after the awaited preparation above and before ANY write — not by the
         // caller before `apply` was entered. `readHealAttempts` is I/O, so a caller that checked
@@ -391,10 +414,74 @@ export class RecoveryActuatorService extends Base {
             };
         }
 
-        const startedAt = now;
+        const startedAt   = now,
+              diagnosis   = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
+              nextAttempt = gate.attempt + 1,
+              runId       = this.getRecoveryRunId({recoveryRunId, serviceKey, action, startedAt});
+
+        let restartDispatchMarker = null;
+
+        const onBeforeRestartDispatch = composeRestartAction &&
+            this.deploymentRuntimeAccessService?.supportsRestartDispatchInterlock === true
+            ? async ({baseline, clientTimeoutMs, restartTimeoutSeconds}) => {
+                  const requestedAt      = Date.now(),
+                        nextBackoffAt    = this.computeBackoffUntil({attempt: nextAttempt, now: requestedAt}),
+                        reobserveRequest = createRecoveryReobserveRequest({
+                            recoveryRunId : runId,
+                            diagnosisEvent: diagnosis,
+                            requestedAt,
+                            // A successor must not judge an in-flight Docker call before the
+                            // observer's own response window has elapsed.
+                            cooldownMs                 : Math.max(this.getVerifyCooldownMs(), clientTimeoutMs),
+                            healthyObservationThreshold: this.getHealthyObservationThreshold(),
+                            reason                     : 'effect-disposition-uncertain'
+                        }),
+                        restartReobserve = {
+                            schemaVersion : 1,
+                            diagnosisEvent: diagnosis,
+                            baseline,
+                            restartTimeoutSeconds,
+                            clientTimeoutMs
+                        },
+                        entry = createRecoveryRunStateEntry({
+                            recoveryRunId : runId,
+                            diagnosisEvent: diagnosis,
+                            rung          : this.getRungForTarget(target),
+                            attempt       : nextAttempt,
+                            status        : 'pending',
+                            startedAt,
+                            updatedAt     : requestedAt,
+                            completedAt   : null,
+                            backoffUntil  : nextBackoffAt,
+                            reobserveRequest,
+                            details       : {
+                                status           : 'pending',
+                                reasonCode       : 'restart-dispatch-pending',
+                                retentionClass   : ACTIVE_RECOVERY_RUN_RETENTION_CLASS,
+                                serviceKey,
+                                action,
+                                targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                                effectDisposition: 'uncertain',
+                                restartReobserve
+                            }
+                        });
+
+                  // This is the durable interlock, not post-hoc audit. It lands before the POST and
+                  // is read by every successor. If authority moves while it is being written, the
+                  // store refuses and the runtime never dispatches.
+                  await this.appendRecoveryRunEntry(entry, {
+                      isAuthorityHeld,
+                      preserveOnAuthorityLoss: false
+                  });
+
+                  restartDispatchMarker = {reobserveRequest, restartReobserve}
+              }
+            : null;
+
+        let result;
 
         try {
-            const result = await this.executeTargetAction({
+            result = await this.executeTargetAction({
                 target,
                 action,
                 knob,
@@ -402,75 +489,8 @@ export class RecoveryActuatorService extends Base {
                 reason,
                 isAuthorityHeld,
                 isEffectStillAdmitted,
-                expectedContainerId
-            });
-
-            const updatedAt     = Date.now(),
-                  diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
-                  nextAttempt   = gate.attempt + 1,
-                  nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
-
-            // POST-EFFECT, and the two shared surfaces get OPPOSITE treatment on purpose — this is the
-            // distinction four review cycles converged on, and collapsing it either way is wrong.
-            //
-            // `heal-attempts.json` is MUTABLE state the successor reads to make its own anti-thrash
-            // decisions. A displaced holder writing it corrupts a decision that is no longer its to
-            // make, so it is skipped outright.
-            //
-            // The recovery-run ledger is APPEND-ONLY audit. The action genuinely landed — refusing to
-            // record it would erase the only evidence that a restart happened, which is worse than a
-            // marked record. So it is written WITH provenance: `authorityLostAfterEffect` says this
-            // entry was produced by a holder that had been displaced by the time it wrote, which is
-            // exactly the "capability-bound receipt with explicit provenance" shape rather than an
-            // unbound post-loss success claim.
-            const heldAfterEffect = typeof isAuthorityHeld !== 'function' || isAuthorityHeld() === true;
-
-            if (heldAfterEffect) {
-                this.persistAttempt({
-                    attempts,
-                    serviceKey,
-                    action,
-                    attempt     : nextAttempt,
-                    backoffUntil: nextBackoffAt,
-                    now         : updatedAt,
-                    status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
-                });
-                await this.writeHealAttempts(attempts);
-            } else {
-                this.writeLog?.('WARN', `[RecoveryActuator] Authority moved during the ${serviceKey} ${action}; not writing the successor's heal-attempt state.`);
-            }
-
-            return this.finishAction({
-                action,
-                attempts,
-                attempt       : nextAttempt,
-                backoffUntil  : nextBackoffAt,
-                diagnosisEvent: diagnosis,
-                outcome       : {
-                    status        : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
-                    serviceKey,
-                    action,
-                    targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
-                    // Provenance, not a status. The action landed; this says under what authority the
-                    // RECORD of it was written, so a successor reading the ledger can tell its own
-                    // entries from a displaced predecessor's without inferring from timestamps.
-                    ...(heldAfterEffect ? {} : {authorityLostAfterEffect: true}),
-                    runtimeAccess    : result.runtimeAccess || null,
-                    supervisor       : result.supervisor || null,
-                    recorded         : result.recorded || null,
-                    providerResidency: result.providerResidency || null,
-                    // The raise receipt (previous + new ceiling in bytes) rides into the durable
-                    // recovery-run ledger, which is what makes a raise attempt observable without
-                    // reading logs — the origin ticket's post-merge observability criterion.
-                    ceilingRaise     : result.ceilingRaise || null
-                },
-                recoveryRunId,
-                serviceKey,
-                startedAt,
-                target,
-                taskStatus: 'completed',
-                updatedAt,
-                isAuthorityHeld
+                expectedContainerId,
+                onBeforeRestartDispatch
             });
         } catch (error) {
             // A refusal by the runtime's own authority guard is NOT an executor failure, and collapsing
@@ -486,8 +506,10 @@ export class RecoveryActuatorService extends Base {
             // here with an ordinary transport error and was reported `declined` with no audit at
             // all. A possibly-landed restart was erased — and erased silently, which is worse than
             // a loud failure because nothing observes it.
-            if (error?.reason === 'runtime-authority-lost' || error?.reason === 'runtime-effect-not-admitted' ||
+            if (!restartDispatchMarker && (
+                error?.reason === 'runtime-authority-lost' || error?.reason === 'runtime-effect-not-admitted' ||
                 error?.reason === 'runtime-target-incarnation-changed'
+            )
             ) {
                 return {
                     status    : 'declined',
@@ -506,18 +528,33 @@ export class RecoveryActuatorService extends Base {
             // UNKNOWN, not absent. Represented on the existing `failed` terminal with structured
             // detail rather than a new terminal value: the action set is closed (ADR-0026 AC-9 — // ticket-ref-ok: the ADR is the authority forbidding a widened action set) and
             // an unknown outcome is a property of this run, not a new kind of run.
-            const authorityLostAfterDispatch = typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true;
+            const authorityLostAfterDispatch = typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true,
+                  preparedButNotDispatched   = Boolean(restartDispatchMarker) && [
+                      'runtime-authority-lost',
+                      'runtime-effect-not-admitted',
+                      'runtime-target-incarnation-changed'
+                  ].includes(error?.reason);
 
-            const updatedAt     = Date.now(),
-                  diagnosis     = this.resolveDiagnosisEvent({diagnosisEvent, action, target, now: startedAt}),
-                  nextAttempt   = gate.attempt + 1,
-                  nextBackoffAt = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt});
+            const updatedAt        = Date.now(),
+                  nextBackoffAt    = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt}),
+                  uncertainRestart = composeRestartAction &&
+                      error?.effectDisposition === 'uncertain' && error?.restartObservationBaseline,
+                  reobserveRequest = uncertainRestart
+                      ? restartDispatchMarker?.reobserveRequest || createRecoveryReobserveRequest({
+                            recoveryRunId              : runId,
+                            diagnosisEvent             : diagnosis,
+                            requestedAt                : updatedAt,
+                            cooldownMs                 : this.getVerifyCooldownMs(),
+                            healthyObservationThreshold: this.getHealthyObservationThreshold(),
+                            reason                     : 'effect-disposition-uncertain'
+                        })
+                      : undefined;
 
             // The append-only audit below is written in BOTH cases; the mutable shared state is not.
             // A displaced holder must not charge an attempt against a budget the successor now owns
             // — that is the same reasoning the pre-effect refusal uses — but the record of a
             // possibly-landed effect belongs to the ledger regardless of who holds the lease now.
-            if (!authorityLostAfterDispatch) {
+            if (!authorityLostAfterDispatch && !preparedButNotDispatched) {
                 this.persistAttempt({
                     attempts,
                     serviceKey,
@@ -527,7 +564,8 @@ export class RecoveryActuatorService extends Base {
                     now         : updatedAt,
                     status      : 'failed'
                 });
-                await this.writeHealAttempts(attempts);
+
+                await this.writeHealAttempts(attempts, {isAuthorityHeld});
             }
 
             return this.finishAction({
@@ -537,11 +575,15 @@ export class RecoveryActuatorService extends Base {
                 backoffUntil  : nextBackoffAt,
                 diagnosisEvent: diagnosis,
                 outcome       : {
-                    status    : 'failed',
-                    reasonCode: error?.reason === 'runtime-effect-partially-applied'
+                    status    : preparedButNotDispatched ? 'declined' : 'failed',
+                    reasonCode: preparedButNotDispatched
+                        ? 'restart-effect-not-dispatched'
+                        : error?.reason === 'runtime-effect-partially-applied'
                         ? 'effect-no-longer-admitted-after-partial'
                         : error?.reason === 'runtime-effect-disposition-uncertain'
-                            ? 'effect-no-longer-admitted-after-uncertain-attempt'
+                            ? (error?.restartObservationBaseline
+                                ? 'restart-effect-disposition-uncertain'
+                                : 'effect-no-longer-admitted-after-uncertain-attempt')
                             : 'executor-failed',
                     serviceKey,
                     action,
@@ -550,20 +592,92 @@ export class RecoveryActuatorService extends Base {
                     // `not-applied` is a claim; `uncertain` is the absence of one. A reader that
                     // cannot tell them apart will assume the effect did not happen, which is the
                     // assumption that makes a duplicate restart look safe.
-                    effectDisposition         : error?.effectDisposition ||
-                        (authorityLostAfterDispatch ? 'uncertain' : 'not-applied'),
+                    effectDisposition         : preparedButNotDispatched
+                        ? 'not-applied'
+                        : error?.effectDisposition || (authorityLostAfterDispatch ? 'uncertain' : 'not-applied'),
+                    ...(error?.restartObservationBaseline
+                        ? {
+                            restartObservationBaseline: error.restartObservationBaseline,
+                            restartReobserve          : {
+                                schemaVersion        : 1,
+                                diagnosisEvent       : diagnosis,
+                                baseline             : error.restartObservationBaseline,
+                                restartTimeoutSeconds: restartDispatchMarker?.restartReobserve?.restartTimeoutSeconds ?? null,
+                                clientTimeoutMs      : restartDispatchMarker?.restartReobserve?.clientTimeoutMs ?? null
+                            }
+                        }
+                        : {}),
+                    ...(uncertainRestart
+                        ? {retentionClass: ACTIVE_RECOVERY_RUN_RETENTION_CLASS}
+                        : {}),
                     ...(error?.providerResidency ? {providerResidency: error.providerResidency} : {}),
                     authorityLostAfterDispatch
                 },
-                recoveryRunId,
+                recoveryRunId              : runId,
                 serviceKey,
                 startedAt,
                 target,
-                taskStatus: 'failed',
+                taskStatus                 : preparedButNotDispatched ? 'skipped' : 'failed',
                 updatedAt,
-                isAuthorityHeld
+                isAuthorityHeld,
+                reobserveRequest,
+                settlesPreDispatchInterlock: preparedButNotDispatched
             });
         }
+
+        // From this point onward the executor returned successfully. Persistence and audit failures
+        // are deliberately OUTSIDE the executor-classification catch above: no later bookkeeping
+        // failure may rewrite a known-applied effect as pre-dispatch `not-applied`. For production
+        // compose restarts, a failed mutable-state commit therefore leaves the pre-POST ledger
+        // interlock latest so a successor re-observes before any further POST.
+        const updatedAt       = Date.now(),
+              nextBackoffAt   = this.computeBackoffUntil({attempt: nextAttempt, now: updatedAt}),
+              heldAfterEffect = typeof isAuthorityHeld !== 'function' || isAuthorityHeld() === true;
+
+        // POST-EFFECT, and the two shared surfaces get OPPOSITE treatment on purpose. Mutable
+        // anti-thrash state is successor-owned and fenced; the append-only action audit survives a
+        // takeover with explicit provenance because the effect genuinely landed.
+        if (heldAfterEffect) {
+            this.persistAttempt({
+                attempts,
+                serviceKey,
+                action,
+                attempt     : nextAttempt,
+                backoffUntil: nextBackoffAt,
+                now         : updatedAt,
+                status      : target.kind === 'deploy-target' ? 'recorded' : 'actioned'
+            });
+            await this.writeHealAttempts(attempts, {isAuthorityHeld});
+        } else {
+            this.writeLog?.('WARN', `[RecoveryActuator] Authority moved during the ${serviceKey} ${action}; not writing the successor's heal-attempt state.`);
+        }
+
+        return this.finishAction({
+            action,
+            attempts,
+            attempt       : nextAttempt,
+            backoffUntil  : nextBackoffAt,
+            diagnosisEvent: diagnosis,
+            outcome       : {
+                status        : target.kind === 'deploy-target' ? 'recorded' : 'actioned',
+                serviceKey,
+                action,
+                targetIdentity: createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                ...(heldAfterEffect ? {} : {authorityLostAfterEffect: true}),
+                runtimeAccess    : result.runtimeAccess || null,
+                supervisor       : result.supervisor || null,
+                recorded         : result.recorded || null,
+                providerResidency: result.providerResidency || null,
+                ceilingRaise     : result.ceilingRaise || null
+            },
+            recoveryRunId: runId,
+            serviceKey,
+            startedAt,
+            target,
+            taskStatus   : 'completed',
+            updatedAt,
+            isAuthorityHeld
+        });
     }
 
     /**
@@ -776,7 +890,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async reconfigureComposeService({target, knob, knobValues, reason, isAuthorityHeld = null}) {
+    async reconfigureComposeService({target, knob, knobValues, reason, isAuthorityHeld = null, onBeforeRestartDispatch = null}) {
         const context = {};
 
         for (const leafPath of requiredContextForKnob(knob)) {
@@ -806,7 +920,12 @@ export class RecoveryActuatorService extends Base {
         // check in `executeTargetAction` is no longer the last point we own before this container is
         // actually restarted — and `restartComposeService` already re-asserts after it resolves the
         // container, which is the boundary that matters.
-        const restart = await this.restartComposeService({target, reason, isAuthorityHeld});
+        const restart = await this.restartComposeService({
+            target,
+            reason,
+            isAuthorityHeld,
+            onBeforeRestartDispatch
+        });
 
         return {...restart, knob, overridePath}
     }
@@ -963,7 +1082,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null}) {
+    async executeTargetAction({target, action, reason, knob, knobValues, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null, onBeforeRestartDispatch = null}) {
         // The last COMMON point before every effect kind dispatches — common in syntax, which is not
         // the same as last-owned in time. It fences an action whose effect begins immediately
         // (`warm-provider` awaits its repair as its first statement), and it is NOT sufficient for an
@@ -981,7 +1100,14 @@ export class RecoveryActuatorService extends Base {
         }
 
         if (action === 'reconfigure') {
-            return this.reconfigureComposeService({knob, knobValues, reason, target, isAuthorityHeld});
+            return this.reconfigureComposeService({
+                knob,
+                knobValues,
+                reason,
+                target,
+                isAuthorityHeld,
+                onBeforeRestartDispatch
+            });
         }
 
         if (action === 'raise-ceiling') {
@@ -994,7 +1120,8 @@ export class RecoveryActuatorService extends Base {
                 reason,
                 isAuthorityHeld,
                 isEffectStillAdmitted,
-                expectedContainerId
+                expectedContainerId,
+                onBeforeRestartDispatch
             });
         }
 
@@ -1035,7 +1162,7 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {Promise<Object>}
      */
-    async restartComposeService({target, reason, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null}) {
+    async restartComposeService({target, reason, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null, onBeforeRestartDispatch = null}) {
         if (!this.deploymentRuntimeAccessService?.applyLifecycle) {
             throw new Error('Deployment runtime access service is unavailable');
         }
@@ -1050,7 +1177,8 @@ export class RecoveryActuatorService extends Base {
             // to loosen to `toMatchObject` and stop noticing unexpected arguments.
             ...(typeof isAuthorityHeld === 'function' ? {isAuthorityHeld} : {}),
             ...(typeof isEffectStillAdmitted === 'function' ? {isEffectStillAdmitted} : {}),
-            ...(typeof expectedContainerId === 'string' ? {expectedContainerId} : {})
+            ...(typeof expectedContainerId === 'string' ? {expectedContainerId} : {}),
+            ...(typeof onBeforeRestartDispatch === 'function' ? {onBeforeRestartDispatch} : {})
         });
 
         return {
@@ -1152,6 +1280,211 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
+     * @summary Reads the newest recovery-run state for a compose restart and returns it only while
+     * dispatch or effect settlement is unresolved.
+     *
+     * The append-only run ledger is the interlock because it survives process recreation, authority
+     * handoff, and ordinary audit pruning. Only retention-protected active rows are considered; a
+     * terminal append in the same run omits the class and atomically releases the guard.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Recovery service key.
+     * @param {Object} options.target Typed compose target.
+     * @returns {Promise<Object|null>} Pending latest run state, or null.
+     */
+    async readPendingRestartRun({serviceKey, target}) {
+        const entries = await readActiveRecoveryRunStates({
+                  dir           : this.recoveryRunStateDir,
+                  retentionClass: ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+              }),
+              latest  = entries
+                  .filter(entry => (
+                      entry?.details?.serviceKey === serviceKey &&
+                      COMPOSE_RESTART_ACTIONS.includes(entry?.details?.action) &&
+                      entry?.targetIdentity?.kind === target.kind &&
+                      entry?.targetIdentity?.id === target.id
+                  ))
+                  .sort((left, right) => (right.updatedAt || 0) - (left.updatedAt || 0))[0] || null;
+
+        if (!latest) return null;
+
+        const dispatchPending = latest.status === 'pending' &&
+                  latest.details?.reasonCode === 'restart-dispatch-pending',
+              effectUncertain = latest.status === 'reobserve-requested' &&
+                  latest.reobserveRequest?.reason === 'effect-disposition-uncertain' &&
+                  latest.details?.reasonCode === 'restart-effect-disposition-uncertain';
+
+        return dispatchPending || effectUncertain ? latest : null
+    }
+
+    /**
+     * @summary Settles one durable uncertain Docker restart through fresh container inspection.
+     *
+     * No branch dispatches a restart. Before the requested cooldown, or while inspect evidence is
+     * unreadable/conflicting, the ledger interlock remains latest and the action defers. Only a
+     * positively moved `StartedAt` proves the effect landed; unchanged evidence remains uncertain.
+     * A replaced container supersedes the stale diagnosis without claiming service recovery.
+     *
+     * @param {Object} options
+     * @returns {Promise<Object>} Reconciliation outcome.
+     */
+    async reconcileUncertainRestart({pending, serviceKey, action, target, now, isAuthorityHeld = null}) {
+        const context     = pending.details?.restartReobserve || {},
+              request     = pending.reobserveRequest,
+              baseOutcome = {
+                  status           : 'deferred',
+                  serviceKey,
+                  action,
+                  targetIdentity   : createRecoveryTargetIdentity({kind: target.kind, id: target.id}),
+                  effectDisposition: 'uncertain',
+                  recoveryRunId    : pending.recoveryRunId,
+                  backoffUntil     : pending.backoffUntil || null,
+                  reobserveRequest : request
+              };
+
+        if (!request || !context.diagnosisEvent || !context.baseline) {
+            return {
+                ...baseOutcome,
+                reasonCode: 'restart-effect-reobserve-unreadable'
+            }
+        }
+
+        if (now < request.earliestObservationAt) {
+            return {
+                ...baseOutcome,
+                reasonCode: 'restart-effect-reobserve-pending'
+            }
+        }
+
+        let observation;
+
+        try {
+            observation = await this.deploymentRuntimeAccessService.readObserve({
+                serviceKey: target.id,
+                operation : 'inspect'
+            })
+        } catch (error) {
+            return {
+                ...baseOutcome,
+                reasonCode: 'restart-effect-reobserve-unreadable',
+                error     : error.message
+            }
+        }
+
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            return {
+                status        : 'declined',
+                reasonCode    : 'authority-lost',
+                serviceKey,
+                action,
+                targetIdentity: baseOutcome.targetIdentity
+            }
+        }
+
+        const baseline            = context.baseline,
+              observedContainerId = observation.proof?.target?.containerId || observation.data?.Id || null,
+              observedStartedAt   = normalizeObservedContainerTime(observation.data?.State?.StartedAt),
+              baselineStartedAt   = normalizeObservedContainerTime(baseline.startedAt),
+              reobservation       = {
+                  baseline,
+                  observed: {
+                      containerId: observedContainerId,
+                      startedAt  : observedStartedAt
+                  },
+                  runtimeAccess: observation.proof || null
+              };
+
+        if (!observedContainerId) {
+            return {
+                ...baseOutcome,
+                reasonCode : 'restart-effect-reobserve-unreadable',
+                reobservation
+            }
+        }
+
+        let outcome, taskStatus;
+
+        if (observedContainerId !== baseline.containerId) {
+            outcome = {
+                status           : 'recorded',
+                reasonCode       : 'restart-effect-superseded-by-incarnation-change',
+                serviceKey,
+                action,
+                targetIdentity   : baseOutcome.targetIdentity,
+                effectDisposition: 'uncertain',
+                reobservation
+            };
+            taskStatus = 'skipped'
+        } else {
+            const baselineMs = Date.parse(baselineStartedAt || ''),
+                  observedMs = Date.parse(observedStartedAt || '');
+
+            if (!Number.isFinite(baselineMs) || !Number.isFinite(observedMs) || observedMs < baselineMs) {
+                return {
+                    ...baseOutcome,
+                    reasonCode: 'restart-effect-reobserve-unreadable',
+                    reobservation
+                }
+            }
+
+            if (observedMs === baselineMs) {
+                return {
+                    ...baseOutcome,
+                    reasonCode: 'restart-effect-not-yet-observed',
+                    reobservation
+                }
+            }
+
+            outcome = {
+                status           : 'actioned',
+                reasonCode       : 'restart-effect-observed-applied',
+                serviceKey,
+                action,
+                targetIdentity   : baseOutcome.targetIdentity,
+                effectDisposition: 'applied',
+                reobservation
+            };
+            taskStatus = 'completed'
+        }
+
+        // Append FIRST and do not clear a second mutable marker: this terminal row supersedes the
+        // pending row atomically within the run's JSONL. An append failure leaves the pending row as
+        // latest, so the next cadence re-observes instead of redispatching.
+        return this.finishAction({
+            action,
+            attempt       : pending.attempt,
+            backoffUntil  : pending.backoffUntil || null,
+            diagnosisEvent: context.diagnosisEvent,
+            outcome,
+            recoveryRunId : pending.recoveryRunId,
+            serviceKey,
+            startedAt     : pending.startedAt,
+            target,
+            taskStatus,
+            updatedAt     : now,
+            isAuthorityHeld,
+            // This observation settles the dispatch question. Health recovery remains the next
+            // controller observation; emitting another dispatch-settlement request would recreate
+            // the write-only loop this method closes.
+            reobserveRequest: null
+        })
+    }
+
+    /**
+     * @summary Appends one recovery-run state through an overridable fault-injection seam.
+     * @param {Object} entry Recovery-run state entry.
+     * @param {Object} options Append options.
+     * @returns {Promise<String>} Written ledger path.
+     */
+    async appendRecoveryRunEntry(entry, options = {}) {
+        return appendRecoveryRunState(entry, {
+            dir           : this.recoveryRunStateDir,
+            retentionLimit: this.cfg.recoveryRunRetentionLimit,
+            ...options
+        })
+    }
+
+    /**
      * @summary Reads the persisted heal-attempt state file.
      * @returns {Promise<Object>}
      */
@@ -1167,13 +1500,43 @@ export class RecoveryActuatorService extends Base {
     }
 
     /**
-     * @summary Writes the persisted heal-attempt state file.
+     * @summary Atomically writes persisted heal-attempt state under a commit-adjacent authority fence.
+     *
+     * JSON is staged to a unique sibling path, then authority is sampled immediately before rename,
+     * the single commit point. A displaced holder may leave no successor-visible anti-thrash state.
+     * The unique name also prevents two independently initialized writers from sharing scratch data.
+     *
      * @param {Object} attempts Attempt state.
+     * @param {Object} [options]
+     * @param {Function|null} [options.isAuthorityHeld=null] Live authority oracle.
+     * @param {Object} [options.fileSystem=fs] File-system adapter for deterministic commit-boundary tests.
      * @returns {Promise<void>}
      */
-    async writeHealAttempts(attempts) {
-        await fs.ensureDir(path.dirname(this.healAttemptsPath));
-        await fs.writeJson(this.healAttemptsPath, attempts, {spaces: 2});
+    async writeHealAttempts(attempts, {isAuthorityHeld = null, fileSystem = fs} = {}) {
+        const targetPath = this.healAttemptsPath,
+              tempPath   = `${targetPath}.${randomUUID()}.tmp`;
+
+        const assertHeld = () => {
+            if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+                const error = new Error('Authority moved before the heal-attempt state commit; refusing.');
+
+                error.reason = 'runtime-authority-lost';
+
+                throw error
+            }
+        };
+
+        assertHeld();
+        await fileSystem.ensureDir(path.dirname(targetPath));
+        assertHeld();
+
+        try {
+            await fileSystem.writeJson(tempPath, attempts, {spaces: 2});
+            assertHeld();
+            await fileSystem.rename(tempPath, targetPath); // atomic-write-ok: assertHeld() fences the commit rename
+        } finally {
+            await fileSystem.remove(tempPath).catch(() => {})
+        }
     }
 
     /**
@@ -1281,7 +1644,9 @@ export class RecoveryActuatorService extends Base {
         target,
         taskStatus,
         updatedAt,
-        isAuthorityHeld = null
+        isAuthorityHeld = null,
+        reobserveRequest: requestedReobserve = undefined,
+        settlesPreDispatchInterlock = false
     }) {
         // FRESHLY CLASSIFIED, here rather than at the caller. Everything between the caller's own
         // measurement and this point is awaited — `writeHealAttempts`, the executor, the heal-event
@@ -1298,16 +1663,18 @@ export class RecoveryActuatorService extends Base {
                   : (heldAtAppend === null ? outcome : {...outcome, heldAtAppend});
 
         const runId            = this.getRecoveryRunId({recoveryRunId, serviceKey, action, startedAt}),
-              reobserveRequest = outcome.status === 'actioned'
-                  ? createRecoveryReobserveRequest({
-                        recoveryRunId              : runId,
-                        diagnosisEvent,
-                        requestedAt                : updatedAt,
-                        cooldownMs                 : this.getVerifyCooldownMs(),
-                        healthyObservationThreshold: this.getHealthyObservationThreshold()
-                    })
-                  : null,
-              ledgerStatus = this.getLedgerStatus({outcome}),
+              reobserveRequest = requestedReobserve === undefined
+                  ? (outcome.status === 'actioned'
+                      ? createRecoveryReobserveRequest({
+                            recoveryRunId              : runId,
+                            diagnosisEvent,
+                            requestedAt                : updatedAt,
+                            cooldownMs                 : this.getVerifyCooldownMs(),
+                            healthyObservationThreshold: this.getHealthyObservationThreshold()
+                        })
+                      : null)
+                  : requestedReobserve,
+              ledgerStatus = this.getLedgerStatus({outcome, reobserveRequest}),
               entry = createRecoveryRunStateEntry({
                   recoveryRunId: runId,
                   diagnosisEvent,
@@ -1322,9 +1689,7 @@ export class RecoveryActuatorService extends Base {
                   details      : finalOutcome
               });
 
-        await appendRecoveryRunState(entry, {
-            dir           : this.recoveryRunStateDir,
-            retentionLimit: this.cfg.recoveryRunRetentionLimit,
+        await this.appendRecoveryRunEntry(entry, {
             // Carried into the store so the refusal sits adjacent to the append itself: the
             // classification above is fresh, but `appendRecoveryRunState` awaits `mkdir` before it
             // writes — one more yield this method cannot see from here.
@@ -1334,11 +1699,12 @@ export class RecoveryActuatorService extends Base {
             // bought a dispatched audit its survival at the cost of the record no longer saying
             // whether the holder still held the lease when it landed.
             isAuthorityHeld,
-            // Whether an effect was DISPATCHED, which is what decides survival — not whether
-            // authority is still held. `actioned` and `failed` both mean the executor ran, so those
-            // records must outlive a takeover; `recorded`, `skipped` and `declined` mean nothing
-            // reached a container, so a displaced holder has nothing to attribute and must not write.
-            preserveOnAuthorityLoss: ['actioned', 'failed'].includes(finalOutcome.status)
+            // A dispatched effect must outlive takeover. The one safe non-dispatched exception is
+            // the terminal settlement of a pre-POST interlock already written by this run: refusing
+            // that append would leave `pending` authoritative forever. It is stamped as displaced,
+            // claims `not-applied`, and can only remove permission to infer that a POST occurred.
+            preserveOnAuthorityLoss: settlesPreDispatchInterlock ||
+                ['actioned', 'failed'].includes(finalOutcome.status)
         });
 
         this.recordTaskOutcome(serviceKey, taskStatus, {
@@ -1511,9 +1877,12 @@ export class RecoveryActuatorService extends Base {
      * @param {Object} options
      * @returns {String}
      */
-    getLedgerStatus({outcome}) {
-        if (outcome.status === 'actioned') {
+    getLedgerStatus({outcome, reobserveRequest = null}) {
+        if (reobserveRequest) {
             return 'reobserve-requested';
+        }
+        if (outcome.status === 'actioned') {
+            return 'actioned';
         }
         if (outcome.status === 'recorded') {
             return 'recorded';
@@ -1523,6 +1892,20 @@ export class RecoveryActuatorService extends Base {
         }
         return 'no-action';
     }
+}
+
+/**
+ * @summary Normalizes one Docker `StartedAt` value for exact incarnation comparison.
+ * @param {*} value Candidate Docker timestamp.
+ * @returns {String|null} Original timestamp when finite and positive, otherwise null.
+ */
+function normalizeObservedContainerTime(value) {
+    if (value === null || value === undefined) return null;
+
+    const stamp  = String(value),
+          parsed = Date.parse(stamp);
+
+    return Number.isFinite(parsed) && parsed > 0 ? stamp : null
 }
 
 export default Neo.setupClass(RecoveryActuatorService);

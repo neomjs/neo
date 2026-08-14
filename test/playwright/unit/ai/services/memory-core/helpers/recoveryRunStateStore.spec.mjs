@@ -13,6 +13,7 @@ import os   from 'os';
 import path from 'path';
 
 import {
+    ACTIVE_RECOVERY_RUN_RETENTION_CLASS,
     appendRecoveryRunState,
     createRecoveryDiagnosisEvent,
     createRecoveryRunGraphNodes,
@@ -26,6 +27,7 @@ import {
     getRecoveryRunStateFileName,
     publishRecoveryRunStateToGraph,
     pruneRecoveryRunStates,
+    readActiveRecoveryRunStates,
     readRecentRecoveryRunStates,
     RECOVERY_RUN_GRAPH_NODE_TYPES,
     selectRecoveryRunGraphRecords
@@ -436,6 +438,74 @@ test.describe('RecoveryRunStateStore', () => {
 
         const recent = await readRecentRecoveryRunStates({dir: tmpDir, limit: 3});
         expect(recent.map(entry => entry.recoveryRunId)).toEqual(['recovery-09', 'recovery-08', 'recovery-07']);
+    });
+
+    test('retention protects an active effect interlock outside the ordinary recency window', async () => {
+        const activeId   = 'recovery-active',
+              activePath = path.join(tmpDir, getRecoveryRunStateFileName(activeId));
+
+        await appendRecoveryRunState(runEntry(activeId, 1000, {
+            details: {retentionClass: ACTIVE_RECOVERY_RUN_RETENTION_CLASS}
+        }), {dir: tmpDir, retentionLimit: 2});
+        await utimes(activePath, new Date(1), new Date(1));
+
+        for (let i = 0; i < 6; i++) {
+            await appendRecoveryRunState(runEntry(`ordinary-${i}`, 2000 + i, {
+                status          : 'actioned',
+                completedAt     : 2000 + i,
+                reobserveRequest: null
+            }), {dir: tmpDir, retentionLimit: 2});
+        }
+
+        expect(await jsonlCount(tmpDir)).toBe(3);
+        expect(await readActiveRecoveryRunStates({dir: tmpDir})).toMatchObject([{
+            recoveryRunId: activeId,
+            details      : {retentionClass: ACTIVE_RECOVERY_RUN_RETENTION_CLASS}
+        }]);
+
+        await appendRecoveryRunState(runEntry(activeId, 3000, {
+            status          : 'actioned',
+            completedAt     : 3000,
+            reobserveRequest: null,
+            details         : {reasonCode: 'effect-settled'}
+        }), {dir: tmpDir, retentionLimit: 2});
+
+        expect(await readActiveRecoveryRunStates({dir: tmpDir})).toEqual([]);
+
+        await utimes(activePath, new Date(1), new Date(1));
+        await appendRecoveryRunState(runEntry('ordinary-final', 4000, {
+            status          : 'actioned',
+            completedAt     : 4000,
+            reobserveRequest: null
+        }), {dir: tmpDir, retentionLimit: 2});
+
+        expect((await readdir(tmpDir))).not.toContain(getRecoveryRunStateFileName(activeId));
+    });
+
+    test('active reader and pruning fall back across a torn final JSONL row', async () => {
+        const activeId   = 'recovery-torn',
+              activePath = path.join(tmpDir, getRecoveryRunStateFileName(activeId));
+
+        await appendRecoveryRunState(runEntry(activeId, 1000, {
+            details: {retentionClass: ACTIVE_RECOVERY_RUN_RETENTION_CLASS}
+        }), {dir: tmpDir, retentionLimit: 1});
+
+        const durable = await readFile(activePath, 'utf8');
+        await writeFile(activePath, `${durable}{"type":"recovery-run-state"`, 'utf8');
+        await utimes(activePath, new Date(1), new Date(1));
+
+        for (let i = 0; i < 3; i++) {
+            await appendRecoveryRunState(runEntry(`ordinary-torn-${i}`, 2000 + i, {
+                status          : 'actioned',
+                completedAt     : 2000 + i,
+                reobserveRequest: null
+            }), {dir: tmpDir, retentionLimit: 1});
+        }
+
+        expect(await readActiveRecoveryRunStates({dir: tmpDir})).toMatchObject([{
+            recoveryRunId: activeId
+        }]);
+        expect((await readdir(tmpDir))).toContain(getRecoveryRunStateFileName(activeId));
     });
 
     test('readRecentRecoveryRunStates tolerates corrupt diagnostic artifacts', async () => {

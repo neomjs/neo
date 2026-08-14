@@ -1,6 +1,7 @@
 import {test, expect}                   from '@playwright/test';
 import {existsSync, readdirSync}        from 'fs';
 import {mkdtemp, readdir, rm, readFile} from 'fs/promises';
+import fs                               from 'fs-extra';
 import os                               from 'os';
 import path                             from 'path';
 
@@ -13,6 +14,7 @@ import {
 } from '../../../../../../../ai/daemons/orchestrator/services/RecoveryActuatorService.mjs';
 import {
     createRecoveryDiagnosisEvent,
+    createRecoveryRunStateEntry,
     createRecoveryTargetIdentity
 } from '../../../../../../../ai/services/memory-core/helpers/recoveryRunStateStore.mjs';
 import {RECOVERY_OVERRIDE_FILENAME} from '../../../../../../../ai/services/memory-core/helpers/recoveryOverrideStore.mjs';
@@ -35,6 +37,7 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
 
     function createService(overrides = {}) {
         const runtimeCalls                 = [],
+              runtimeReadCalls             = [],
               supervisorCalls              = [],
               providerResidencyRepairCalls = [],
               taskOutcomes                 = [],
@@ -79,6 +82,17 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                               }
                           };
                       },
+                      async readObserve(options) {
+                          runtimeReadCalls.push(options);
+
+                          return {
+                              data : {
+                                  Id   : 'container-abc',
+                                  State: {StartedAt: '2026-08-13T20:00:00.000Z'}
+                              },
+                              proof: {target: {containerId: 'container-abc'}}
+                          }
+                      },
                       ...overrides.deploymentRuntimeAccessService
                   },
                   processSupervisorService: {
@@ -103,11 +117,30 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
                   ...overrides.serviceConfig
               });
 
-        return {service, runtimeCalls, supervisorCalls, providerResidencyRepairCalls, taskOutcomes, actuatorConfig};
+        return {
+            service,
+            runtimeCalls,
+            runtimeReadCalls,
+            supervisorCalls,
+            providerResidencyRepairCalls,
+            taskOutcomes,
+            actuatorConfig
+        };
     }
 
     async function readAttempts() {
         return JSON.parse(await readFile(path.join(tmpDir, 'heal-attempts.json'), 'utf8'));
+    }
+
+    function createUncertainRestartError() {
+        return Object.assign(new Error('Docker restart response timed out after dispatch'), {
+            reason                    : 'runtime-effect-disposition-uncertain',
+            effectDisposition         : 'uncertain',
+            restartObservationBaseline: {
+                containerId: 'container-abc',
+                startedAt  : '2026-08-13T20:00:00.000Z'
+            }
+        })
     }
 
     function createScratchSensitiveAuthorityOracle(overrideDir) {
@@ -138,6 +171,40 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             },
             ...overrides
         });
+    }
+
+    async function appendUnrelatedRecoveryRuns(service, count, startAt = 1_000_000) {
+        for (let index = 0; index < count; index++) {
+            const updatedAt = startAt + index,
+                  runId     = `unrelated-recovery-${startAt}-${index}`,
+                  diagnosis = createRecoveryDiagnosisEvent({
+                      diagnosisId   : `unrelated-diagnosis-${startAt}-${index}`,
+                      recoveryClass : 'crash',
+                      confidence    : 1,
+                      targetIdentity: createRecoveryTargetIdentity({
+                          kind: 'supervised-task',
+                          id  : `unrelated-${index}`
+                      }),
+                      evidenceFacts: [],
+                      observedAt   : updatedAt
+                  });
+
+            await service.appendRecoveryRunEntry(createRecoveryRunStateEntry({
+                recoveryRunId : runId,
+                diagnosisEvent: diagnosis,
+                rung          : 'rung-0',
+                attempt       : 1,
+                status        : 'actioned',
+                startedAt     : updatedAt,
+                updatedAt,
+                completedAt   : updatedAt,
+                details       : {
+                    status    : 'actioned',
+                    serviceKey: `unrelated-${index}`,
+                    action    : 'restart'
+                }
+            }));
+        }
     }
 
     test('normalizes string and object recovery target entries', () => {
@@ -393,6 +460,544 @@ test.describe('Neo.ai.daemons.services.RecoveryActuatorService', () => {
             .trim().split('\n').map(line => JSON.parse(line));
 
         expect(rows.at(-1).heldAtWrite).toBe(false);
+    });
+
+    test('an uncertain Docker restart survives actuator recreation and settles applied before redispatch', async () => {
+        const lifecycleCalls = [],
+              readCalls      = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      throw createUncertainRestartError()
+                  },
+                  async readObserve(options) {
+                      readCalls.push(options);
+
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:01:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              firstService = createService({
+                  actuatorConfig                : {recoveryRunRetentionLimit: 2},
+                  deploymentRuntimeAccessService: runtime
+              }).service,
+              first        = await firstService.apply('mc-server', 'restart', {now: 10_000});
+
+        expect(first).toMatchObject({
+            status           : 'failed',
+            reasonCode       : 'restart-effect-disposition-uncertain',
+            effectDisposition: 'uncertain',
+            reobserveRequest : {reason: 'effect-disposition-uncertain'}
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]);
+
+        await fs.utimes(runFile, new Date(1), new Date(1));
+        await appendUnrelatedRecoveryRuns(firstService, 6);
+
+        let rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.at(-1)).toMatchObject({
+            recoveryRunId: first.recoveryRunId,
+            status       : 'reobserve-requested',
+            details      : {
+                restartReobserve: {baseline: {containerId: 'container-abc'}}
+            }
+        });
+
+        // A fresh service instance proves the guard is durable, not an in-memory latch.
+        const recreated = createService({
+                  actuatorConfig                : {recoveryRunRetentionLimit: 2},
+                  deploymentRuntimeAccessService: runtime
+              }).service,
+              early     = await recreated.apply('mc-server', 'reconfigure', {
+                  now: first.reobserveRequest.earliestObservationAt - 1
+              });
+
+        expect(early).toMatchObject({
+            status           : 'deferred',
+            reasonCode       : 'restart-effect-reobserve-pending',
+            effectDisposition: 'uncertain'
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+        expect(readCalls).toHaveLength(0);
+
+        const settled = await recreated.apply('mc-server', 'reconfigure', {
+            now: first.reobserveRequest.earliestObservationAt
+        });
+
+        expect(settled).toMatchObject({
+            status           : 'actioned',
+            reasonCode       : 'restart-effect-observed-applied',
+            effectDisposition: 'applied',
+            recoveryRunId    : first.recoveryRunId,
+            reobserveRequest : null
+        });
+        expect(settled.reobservation.observed).toEqual({
+            containerId: 'container-abc',
+            startedAt  : '2026-08-13T20:01:00.000Z'
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+        expect(readCalls).toEqual([{serviceKey: 'mc-server', operation: 'inspect'}]);
+
+        rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.map(row => row.status)).toEqual(['reobserve-requested', 'actioned']);
+        expect(rows.at(-1).recoveryRunId).toBe(first.recoveryRunId);
+
+        await fs.utimes(runFile, new Date(1), new Date(1));
+        await appendUnrelatedRecoveryRuns(recreated, 3, 2_000_000);
+        expect(existsSync(runFile), 'terminal settlement makes the former interlock prunable').toBe(false);
+    });
+
+    test('timeout plus authority takeover hands the interlock to the successor before any redispatch', async () => {
+        let held = true;
+
+        const lifecycleCalls = [],
+              readCalls      = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      await options.onBeforeRestartDispatch({
+                          baseline: {
+                              containerId: 'container-abc',
+                              startedAt  : '2026-08-13T20:00:00.000Z'
+                          },
+                          clientTimeoutMs      : 15_000,
+                          restartTimeoutSeconds: 10
+                      });
+                      held = false;
+                      throw createUncertainRestartError()
+                  },
+                  async readObserve(options) {
+                      readCalls.push(options);
+
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:01:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              firstService = createService({deploymentRuntimeAccessService: runtime}).service,
+              first        = await firstService.apply('mc-server', 'restart', {
+                  now            : 15_000,
+                  isAuthorityHeld: () => held
+              });
+
+        expect(first).toMatchObject({
+            status           : 'failed',
+            effectDisposition: 'uncertain',
+            reobserveRequest : {reason: 'effect-disposition-uncertain'}
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+
+        held = true;
+
+        const successor = createService({deploymentRuntimeAccessService: runtime}).service,
+              settled   = await successor.apply('mc-server', 'restart', {
+                  now            : first.reobserveRequest.earliestObservationAt,
+                  isAuthorityHeld: () => held
+              });
+
+        expect(settled).toMatchObject({
+            status           : 'actioned',
+            reasonCode       : 'restart-effect-observed-applied',
+            effectDisposition: 'applied',
+            recoveryRunId    : first.recoveryRunId
+        });
+        expect(lifecycleCalls, 'the successor inspected the inherited uncertainty instead of POSTing').toHaveLength(1);
+        expect(readCalls).toEqual([{serviceKey: 'mc-server', operation: 'inspect'}]);
+    });
+
+    test('reconfigure inherits the Docker restart interlock and blocks a cross-action redispatch', async () => {
+        const readCalls = [],
+              runtime   = {
+                  supportsRestartDispatchInterlock: true,
+                  async readObserve(options) {
+                      readCalls.push(options);
+
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:01:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              firstService = createService({
+                  actuatorConfig                : {recoveryRunRetentionLimit: 2},
+                  deploymentRuntimeAccessService: runtime
+              }).service;
+
+        let reconfigureCalls = 0;
+
+        firstService.reconfigureComposeService = async ({onBeforeRestartDispatch}) => {
+            reconfigureCalls++;
+            await onBeforeRestartDispatch({
+                baseline: {
+                    containerId: 'container-abc',
+                    startedAt  : '2026-08-13T20:00:00.000Z'
+                },
+                clientTimeoutMs      : 15_000,
+                restartTimeoutSeconds: 10
+            });
+            throw createUncertainRestartError()
+        };
+
+        const first = await firstService.apply('mc-server', 'reconfigure', {now: 15_500});
+
+        expect(first).toMatchObject({
+            status           : 'failed',
+            action           : 'reconfigure',
+            reasonCode       : 'restart-effect-disposition-uncertain',
+            effectDisposition: 'uncertain',
+            reobserveRequest : {reason: 'effect-disposition-uncertain'}
+        });
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]);
+
+        await fs.utimes(runFile, new Date(1), new Date(1));
+        await appendUnrelatedRecoveryRuns(firstService, 6, 3_000_000);
+
+        // A different restart-bearing action for the same target must consume the unresolved
+        // reconfigure restart instead of bypassing it under a different outer action label.
+        const successor = createService({
+                  actuatorConfig                : {recoveryRunRetentionLimit: 2},
+                  deploymentRuntimeAccessService: runtime
+              }).service,
+              settled   = await successor.apply('mc-server', 'restart', {
+                  now: first.reobserveRequest.earliestObservationAt
+              });
+
+        expect(settled).toMatchObject({
+            status           : 'actioned',
+            action           : 'reconfigure',
+            reasonCode       : 'restart-effect-observed-applied',
+            effectDisposition: 'applied',
+            recoveryRunId    : first.recoveryRunId
+        });
+        expect(reconfigureCalls, 'the successor reconciled instead of issuing another restart').toBe(1);
+        expect(readCalls).toEqual([{serviceKey: 'mc-server', operation: 'inspect'}]);
+    });
+
+    test('post-effect attempt-store failure leaves the pre-POST interlock authoritative', async () => {
+        let held = true;
+
+        const lifecycleCalls = [],
+              readCalls      = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      await options.onBeforeRestartDispatch({
+                          baseline: {
+                              containerId: 'container-abc',
+                              startedAt  : '2026-08-13T20:00:00.000Z'
+                          },
+                          clientTimeoutMs      : 15_000,
+                          restartTimeoutSeconds: 10
+                      });
+
+                      return {runtimeAccess: {operation: 'restart'}}
+                  },
+                  async readObserve(options) {
+                      readCalls.push(options);
+
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:01:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              firstService = createService({deploymentRuntimeAccessService: runtime}).service;
+
+        firstService.writeHealAttempts = async () => {
+            held = false;
+            throw Object.assign(new Error('authority moved at the mutable-state commit'), {
+                reason: 'runtime-authority-lost'
+            })
+        };
+
+        await expect(firstService.apply('mc-server', 'restart', {
+            now            : 16_000,
+            isAuthorityHeld: () => held
+        })).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]);
+
+        let rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.map(row => row.status)).toEqual(['pending']);
+        expect(rows.at(-1).details).toMatchObject({
+            reasonCode       : 'restart-dispatch-pending',
+            effectDisposition: 'uncertain'
+        });
+
+        held = true;
+
+        const successor = createService({deploymentRuntimeAccessService: runtime}).service,
+              settled   = await successor.apply('mc-server', 'restart', {
+                  now            : rows.at(-1).reobserveRequest.earliestObservationAt,
+                  isAuthorityHeld: () => held
+              });
+
+        expect(settled).toMatchObject({
+            status           : 'actioned',
+            reasonCode       : 'restart-effect-observed-applied',
+            effectDisposition: 'applied'
+        });
+        expect(lifecycleCalls, 'the post-effect persistence failure never reopened restart dispatch').toHaveLength(1);
+        expect(readCalls).toEqual([{serviceKey: 'mc-server', operation: 'inspect'}]);
+
+        rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+        expect(rows.map(row => row.status)).toEqual(['pending', 'actioned']);
+    });
+
+    test('a failed settlement append leaves the uncertain ledger row as the redispatch guard', async () => {
+        const lifecycleCalls = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      throw createUncertainRestartError()
+                  },
+                  async readObserve() {
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:01:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              firstService = createService({deploymentRuntimeAccessService: runtime}).service,
+              first        = await firstService.apply('mc-server', 'restart', {now: 17_000}),
+              broken       = createService({deploymentRuntimeAccessService: runtime}).service;
+
+        broken.appendRecoveryRunEntry = async () => {
+            throw new Error('forced recovery-run append failure')
+        };
+
+        await expect(broken.apply('mc-server', 'restart', {
+            now: first.reobserveRequest.earliestObservationAt
+        })).rejects.toThrow('forced recovery-run append failure');
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]);
+
+        let rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.map(row => row.status)).toEqual(['reobserve-requested']);
+
+        const recovered = createService({deploymentRuntimeAccessService: runtime}).service,
+              settled   = await recovered.apply('mc-server', 'restart', {
+                  now: first.reobserveRequest.earliestObservationAt + 1
+              });
+
+        expect(settled.status).toBe('actioned');
+        expect(lifecycleCalls, 'neither settlement attempt redispatched the restart').toHaveLength(1);
+
+        rows = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+        expect(rows.map(row => row.status)).toEqual(['reobserve-requested', 'actioned']);
+    });
+
+    test('unchanged restart evidence stays uncertain without a second POST', async () => {
+        const lifecycleCalls = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      throw createUncertainRestartError()
+                  },
+                  async readObserve() {
+                      return {
+                          data : {
+                              Id   : 'container-abc',
+                              State: {StartedAt: '2026-08-13T20:00:00.000Z'}
+                          },
+                          proof: {target: {containerId: 'container-abc'}}
+                      }
+                  }
+              },
+              {service} = createService({deploymentRuntimeAccessService: runtime}),
+              first     = await service.apply('mc-server', 'restart', {now: 20_000}),
+              settled   = await service.apply('mc-server', 'restart', {
+                  now: first.reobserveRequest.earliestObservationAt
+              });
+
+        expect(settled).toMatchObject({
+            status           : 'deferred',
+            reasonCode       : 'restart-effect-not-yet-observed',
+            effectDisposition: 'uncertain',
+            recoveryRunId    : first.recoveryRunId
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]),
+              rows    = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.map(row => row.status)).toEqual(['reobserve-requested']);
+    });
+
+    test('unreadable restart reobservation stays uncertain and suppresses redispatch', async () => {
+        const lifecycleCalls = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      throw createUncertainRestartError()
+                  },
+                  async readObserve() {
+                      throw new Error('Docker inspect unavailable')
+                  }
+              },
+              {service} = createService({deploymentRuntimeAccessService: runtime}),
+              first     = await service.apply('mc-server', 'restart', {now: 30_000}),
+              deferred  = await service.apply('mc-server', 'restart', {
+                  now: first.reobserveRequest.earliestObservationAt
+              });
+
+        expect(deferred).toMatchObject({
+            status           : 'deferred',
+            reasonCode       : 'restart-effect-reobserve-unreadable',
+            effectDisposition: 'uncertain',
+            error            : 'Docker inspect unavailable'
+        });
+        expect(lifecycleCalls).toHaveLength(1);
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]),
+              rows    = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.at(-1).status).toBe('reobserve-requested');
+    });
+
+    test('a pre-dispatch restart error remains not-applied and creates no reobserve marker', async () => {
+        const {service} = createService({
+            deploymentRuntimeAccessService: {
+                async applyLifecycle() {
+                    throw new Error('Docker socket unavailable before dispatch')
+                }
+            }
+        });
+
+        const result = await service.apply('mc-server', 'restart', {now: 40_000});
+
+        expect(result).toMatchObject({
+            status           : 'failed',
+            reasonCode       : 'executor-failed',
+            effectDisposition: 'not-applied',
+            reobserveRequest : null
+        });
+        expect((await readAttempts())['mc-server:restart'].pendingRestartReobserve).toBeUndefined();
+    });
+
+    test('authority loss after the durable marker settles not-dispatched without leaving a stale guard', async () => {
+        let held = true;
+
+        const lifecycleCalls = [],
+              runtime        = {
+                  supportsRestartDispatchInterlock: true,
+                  async applyLifecycle(options) {
+                      lifecycleCalls.push(options);
+                      await options.onBeforeRestartDispatch({
+                          baseline: {
+                              containerId: 'container-abc',
+                              startedAt  : '2026-08-13T20:00:00.000Z'
+                          },
+                          clientTimeoutMs      : 15_000,
+                          restartTimeoutSeconds: 10
+                      });
+                      held = false;
+
+                      throw Object.assign(new Error('authority moved before POST'), {
+                          reason: 'runtime-authority-lost'
+                      })
+                  },
+                  async readObserve() {
+                      throw new Error('a terminal no-dispatch row must make reobservation unnecessary')
+                  }
+              },
+              firstService = createService({deploymentRuntimeAccessService: runtime}).service,
+              result       = await firstService.apply('mc-server', 'restart', {
+                  now            : 45_000,
+                  isAuthorityHeld: () => held
+              });
+
+        expect(result).toMatchObject({
+            status           : 'declined',
+            reasonCode       : 'restart-effect-not-dispatched',
+            effectDisposition: 'not-applied'
+        });
+        expect(await readAttempts().catch(error => error.code === 'ENOENT' ? {} : Promise.reject(error))).toEqual({});
+
+        const runDir  = path.join(tmpDir, 'recovery-runs'),
+              runFile = path.join(runDir, (await readdir(runDir))[0]),
+              rows    = (await readFile(runFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
+
+        expect(rows.map(row => row.status)).toEqual(['pending', 'no-action']);
+
+        held = true;
+        runtime.applyLifecycle = async options => {
+            lifecycleCalls.push(options);
+            return {proof: {operation: 'restart'}}
+        };
+
+        const successor = createService({deploymentRuntimeAccessService: runtime}).service,
+              next      = await successor.apply('mc-server', 'restart', {
+                  now            : 50_000,
+                  isAuthorityHeld: () => held
+              });
+
+        expect(next.status).toBe('actioned');
+        expect(lifecycleCalls).toHaveLength(2);
+    });
+
+    test('heal-attempt commit rechecks authority after staging and cannot overwrite successor state', async () => {
+        let held          = true,
+            renameReached = false;
+
+        const {service}  = createService(),
+              fileSystem = {
+                  ensureDir: (...args) => fs.ensureDir(...args),
+                  async writeJson(...args) {
+                      await fs.writeJson(...args);
+                      held = false
+                  },
+                  async rename(...args) {
+                      renameReached = true;
+                      return fs.rename(...args)
+                  },
+                  remove: (...args) => fs.remove(...args)
+              };
+
+        await expect(service.writeHealAttempts({successor: false}, {
+            isAuthorityHeld: () => held,
+            fileSystem
+        })).rejects.toMatchObject({reason: 'runtime-authority-lost'});
+
+        expect(renameReached, 'the ownership fence refused before the atomic commit').toBe(false);
+        expect(await readAttempts().catch(error => error.code === 'ENOENT' ? {} : Promise.reject(error))).toEqual({});
     });
 
     test('warm-provider carries the oracle into the selected repair adapter', async () => {
