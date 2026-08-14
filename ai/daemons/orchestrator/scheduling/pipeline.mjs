@@ -111,26 +111,28 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             state,
             now,
             intervals: {
-                summarySweep                   : config.orchestrator.intervals.summarySweepMs,
-                kbSync                         : config.orchestrator.intervals.kbSyncMs,
-                githubWorkflowSync             : config.orchestrator.intervals.githubWorkflowSyncMs,
-                backup                         : config.orchestrator.intervals.backupMs,
-                backupRetryDelay               : config.orchestrator.intervals.backupRetryDelayMs,
-                backupRetryWindow              : config.orchestrator.intervals.backupRetryWindowMs,
-                graphLogCompaction             : config.orchestrator.intervals.graphLogCompactionMs,
-                primaryDevSync                 : config.orchestrator.intervals.primaryDevSyncMs,
-                tenantRepoSync                 : config.orchestrator.tenantRepoSync.sweepCadenceMs,
-                dream                          : config.orchestrator.intervals.dreamMs,
-                messageConceptHarvest          : config.orchestrator.intervals.messageConceptHarvestMs,
-                dreamOverflowThreshold         : config.orchestrator.intervals.dreamOverflowThreshold,
-                remBacklogCatchupCooldown      : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
-                remStarvationBreaker           : config.orchestrator.intervals.remStarvationBreakerMs,
-                goldenPath                     : config.orchestrator.intervals.goldenPathMs,
-                swarmHeartbeat                 : config.orchestrator.intervals.swarmHeartbeatMs,
-                embedDrainLivenessWatchdogCheck: config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
-                remConsolidationWatchdogCheck  : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
-                dataIntegritySweepCheck        : config.orchestrator.intervals.dataIntegritySweepCheckMs,
-                temporalSummary                : config.temporalSummary.aggregationIntervalMs
+                summarySweep                     : config.orchestrator.intervals.summarySweepMs,
+                kbSync                           : config.orchestrator.intervals.kbSyncMs,
+                githubWorkflowSync               : config.orchestrator.intervals.githubWorkflowSyncMs,
+                backup                           : config.orchestrator.intervals.backupMs,
+                backupRetryDelay                 : config.orchestrator.intervals.backupRetryDelayMs,
+                backupRetryWindow                : config.orchestrator.intervals.backupRetryWindowMs,
+                graphLogCompaction               : config.orchestrator.intervals.graphLogCompactionMs,
+                primaryDevSync                   : config.orchestrator.intervals.primaryDevSyncMs,
+                tenantRepoSync                   : config.orchestrator.tenantRepoSync.sweepCadenceMs,
+                dream                            : config.orchestrator.intervals.dreamMs,
+                messageConceptHarvest            : config.orchestrator.intervals.messageConceptHarvestMs,
+                dreamOverflowThreshold           : config.orchestrator.intervals.dreamOverflowThreshold,
+                dreamBreathingGap                : config.orchestrator.intervals.dreamBreathingGapMs,
+                dreamIdleBacklogCadenceMultiplier: config.orchestrator.intervals.dreamIdleBacklogCadenceMultiplier,
+                remBacklogCatchupCooldown        : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
+                remStarvationBreaker             : config.orchestrator.intervals.remStarvationBreakerMs,
+                goldenPath                       : config.orchestrator.intervals.goldenPathMs,
+                swarmHeartbeat                   : config.orchestrator.intervals.swarmHeartbeatMs,
+                embedDrainLivenessWatchdogCheck  : config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
+                remConsolidationWatchdogCheck    : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
+                dataIntegritySweepCheck          : config.orchestrator.intervals.dataIntegritySweepCheckMs,
+                temporalSummary                  : config.temporalSummary.aggregationIntervalMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -538,13 +540,20 @@ async function runDreamTask({taskName, reason, services}) {
             });
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
             break;
-        case 'skipped':
+        case 'skipped': {
+            // Stamp the skip's TERMINAL edge before markSkipped persists (markSkipped stamps no
+            // timestamp itself): a zero-session skip still runs decay and can take minutes on a CPU
+            // plane, and the breathing gap in dream.mjs anchors on terminal time — without this
+            // stamp, a long skip would already have "spent" the gap while running.
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastSkippedAt = outcome.completedAt;
             services.taskStateService.markSkipped(taskName);
             services.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
                 ...recordPayload,
                 skipReason: outcome.skipReason
             });
             break;
+        }
         case 'failed': {
             const state = services.taskStateService.getTaskState(taskName);
             if (state) {

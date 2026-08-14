@@ -1202,6 +1202,128 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('processUndigestedSessions clips the session loop at the cycle budget with a one-session forward-progress floor (#17046)', async () => {
+        // The 2026-08-13 external-plane incident: one REM cycle held the heavy-maintenance lane for
+        // 5+ hours on a CPU-only plane. The budget is a cooperative clip at the session boundary —
+        // the caller-held lease releases when the method returns, and the saturated outcome
+        // re-queues the remainder through the existing backlog catch-up. Two arms on one harness:
+        // a mid-loop clip (budget 100ms, 60ms/session → 2 of 3 digested), then the floor (budget
+        // 1ms → the first session still digests). The clip is not an abort: cycle-scope ambient
+        // phases still run exactly once per cycle.
+        const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
+
+        const mockSessions = Array.from({length: 3}, (_, i) => ({
+            id      : `sess-${i}`,
+            document: 'mock-document',
+            meta    : {sessionId: `sess-${i}`, title: `Mock Session ${i}`}
+        }));
+
+        let fakeNow             = 0,
+            testGapCalls        = 0,
+            nlActionDigestCalls = 0,
+            conceptGapCalls     = 0;
+
+        const orig = {
+            findUndigested    : DreamService.findUndigestedSessions,
+            sessionsCollection: DreamService.sessionsCollection,
+            inferTest         : DreamService.inferTestGapsFromSession,
+            executeNlDigest   : DreamService.executeNLActionDigest,
+            inferConcept      : DreamService.inferConceptGraphGaps,
+            runGarbageCol     : DreamService.runGarbageCollection,
+            synthesizeGolden  : DreamService.synthesizeGoldenPath,
+            triVector         : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession       : MemorySessionIngestor.syncSessionToGraph,
+            syncAdrs          : AdrIngestor.syncAdrsToGraph,
+            syncConcepts      : ConceptIngestor.syncConceptsToGraph,
+            syncFs            : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo       : TopologyInferenceEngine.extractTopology,
+            isProcessing      : DreamService.isProcessing
+        };
+
+        try {
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions   = async () => mockSessions;
+            DreamService.sessionsCollection       = {update: async () => {}};
+            DreamService.inferTestGapsFromSession = async () => {
+                testGapCalls++;
+                fakeNow += 60; // each session costs 60ms on the injected clock
+            };
+            DreamService.executeNLActionDigest = async () => {
+                nlActionDigestCalls++;
+                return {status: 'completed'};
+            };
+            DreamService.inferConceptGraphGaps = async () => { conceptGapCalls++; };
+            DreamService.runGarbageCollection  = async () => {};
+            DreamService.synthesizeGoldenPath  = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
+                session_artifact: {graph: {nodes: [], edges: []}}
+            });
+            MemorySessionIngestor.syncSessionToGraph = async () => ({
+                errors          : [],
+                memoriesSkipped : 0,
+                memoriesUpserted: 0
+            });
+            AdrIngestor.syncAdrsToGraph             = async () => ({});
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+
+            // Arm 1 — mid-loop clip: session 1 (60ms) and session 2 (120ms) run; the check before
+            // session 3 sees 120 >= 100 and defers it.
+            const clipped = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => [],
+                cycleBudgetMs        : 100,
+                nowFn                : () => fakeNow
+            });
+
+            expect(clipped.sessionsProcessed).toBe(2);
+            expect(clipped.sessionsDeferred).toBe(1);
+            expect(testGapCalls).toBe(2); // the deferred session's work never ran
+
+            expect(clipped.perPhaseStates.find(phase => phase.phase === 'cycleBudget')).toMatchObject({
+                status : 'completed',
+                details: {reasonCode: 'budget-exhausted', budgetMs: 100, sessionsDeferred: 1}
+            });
+
+            expect(nlActionDigestCalls).toBe(1);
+            expect(conceptGapCalls).toBe(1);
+
+            // Arm 2 — forward-progress floor: a 1ms budget still digests exactly one session.
+            fakeNow = 0; testGapCalls = 0; nlActionDigestCalls = 0; conceptGapCalls = 0;
+
+            const floored = await DreamService.processUndigestedSessions({
+                fetchProviderModelIds: async () => [],
+                cycleBudgetMs        : 1,
+                nowFn                : () => fakeNow
+            });
+
+            expect(floored.sessionsProcessed).toBe(1);
+            expect(floored.sessionsDeferred).toBe(2);
+            expect(testGapCalls).toBe(1);
+            expect(nlActionDigestCalls).toBe(1);
+        } finally {
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.executeNLActionDigest                = orig.executeNlDigest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            AdrIngestor.syncAdrsToGraph                       = orig.syncAdrs;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
     test('processUndigestedSessions threads and attests one exact raw-turn snapshot (#12073, #16115)', async () => {
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         const AdrIngestor             = (await import('../../../../../../../ai/services/ingestion/AdrIngestor.mjs')).default;

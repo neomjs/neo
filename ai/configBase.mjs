@@ -1375,7 +1375,38 @@ class ConfigBase extends ConfigProvider {
                      * starvation trips it; `0` disables. Consumed by the starvation-breaker in `dream.mjs`.
                      */
                     remStarvationBreakerMs: leaf(2 * HOUR_MS, 'NEO_ORCHESTRATOR_REM_STARVATION_BREAKER_MS', 'number'),
-                    goldenPathMs          : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
+                    /**
+                     * Wall-clock budget for one REM cycle's session-digest loop. When a cycle exceeds
+                     * it, remaining sessions are deferred, the cycle returns saturated (so the
+                     * existing backlog catch-up re-queues it after its cooldown), and the caller-held
+                     * heavy-maintenance lease releases at the task boundary — waiters interleave
+                     * instead of starving for the whole span. At least one session is always digested
+                     * per cycle, so a small budget throttles without stalling forward progress.
+                     * `0` disables (default): GPU/local planes keep uninterrupted cycles. Sized for
+                     * CPU-only planes where a single cycle can hold a lane for hours.
+                     */
+                    dreamCycleBudgetMs: leaf(0, 'NEO_ORCHESTRATOR_DREAM_CYCLE_BUDGET_MS', 'number'),
+                    /**
+                     * Minimum idle gap after any dream run before the scheduler admits the next one,
+                     * regardless of trigger source (periodic, backlog catch-up, starvation breaker).
+                     * On CPU-only planes this makes cores visibly return to idle between cycles, so
+                     * monitors and humans can distinguish "working in pulses" from "wedged" — the
+                     * 2026-08-13 external-plane incident read 5+ hours of back-to-back REM as frozen
+                     * cores. `0` disables (default). Keep well below `remStarvationBreakerMs` so the
+                     * gap can never mask genuine starvation.
+                     */
+                    dreamBreathingGapMs: leaf(0, 'NEO_ORCHESTRATOR_DREAM_BREATHING_GAP_MS', 'number'),
+                    /**
+                     * Multiplier applied to `dreamMs` for the periodic trigger while the undigested
+                     * backlog is zero: an idle-corpus plane consolidates at reduced cadence instead
+                     * of burning heavy cycles over nothing. Backlog arrival restores the base cadence
+                     * on the next evaluation, and the catch-up / starvation-breaker triggers are
+                     * unaffected (both require a backlog by construction). `1` disables (default).
+                     * Keep `dreamMs × multiplier` below the 24h decay Algorithmic Lock window, since
+                     * cycle firing is what gives decay its chance to run.
+                     */
+                    dreamIdleBacklogCadenceMultiplier: leaf(1, 'NEO_ORCHESTRATOR_DREAM_IDLE_CADENCE_MULTIPLIER', 'number'),
+                    goldenPathMs                     : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS', 'number'),
                     /**
                      * Generic swarm-heartbeat / watchdog nudge cadence — the periodic pulse that fires a
                      * wake digest even with no new messages. Set to 20 min so the generic watchdog nudge
