@@ -320,6 +320,94 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(unobservable.memoryWalDrain.state).toBe('unobservable');
     });
 
+    test('healthcheck projects current degraded backup maintenance without trusting stale bridge state (#17068)', async () => {
+        const
+            plane        = {id: 'test-plane', dataRoot: '/test-data'},
+            healthyDrain = {
+                observable                    : true,
+                state                         : 'caught-up',
+                stallThresholdMs              : 6 * 60 * 60 * 1000,
+                pendingDrainDepth             : 0,
+                oldestPendingAgeMs            : null,
+                allWritesSemanticallyQueryable: true
+            },
+            baseHealth   = {
+                status : 'healthy',
+                details: ['Connected to ChromaDB', 'All features are operational']
+            },
+            inspection  = {
+                ok      : true,
+                status  : 'available',
+                snapshot: {
+                    maintenance: {
+                        health: {
+                            status      : 'degraded',
+                            reasonCodes : ['backup-retry-exhausted', 'backup-last-run-failed'],
+                            staleAfterMs: 90000000
+                        }
+                    }
+                }
+            };
+
+        const degraded = toolService.composeMemoryCoreHealthcheck({
+            health              : baseHealth,
+            memoryWalDrain      : healthyDrain,
+            plane,
+            deploymentInspection: inspection
+        });
+
+        expect(degraded.status).toBe('degraded');
+        expect(degraded.maintenance).toEqual({
+            observationStatus: 'available',
+            backup           : inspection.snapshot.maintenance.health
+        });
+        expect(degraded.details).not.toContain('All features are operational');
+        expect(degraded.details.at(-1)).toContain('backup-retry-exhausted, backup-last-run-failed');
+
+        const stale = toolService.composeMemoryCoreHealthcheck({
+            health              : baseHealth,
+            memoryWalDrain      : healthyDrain,
+            plane,
+            deploymentInspection: {...inspection, ok: false, status: 'stale'}
+        });
+
+        expect(stale.status).toBe('healthy');
+        expect(stale.maintenance).toEqual({observationStatus: 'stale', backup: null});
+        expect(stale.details).toContain('All features are operational');
+
+        const unhealthy = toolService.composeMemoryCoreHealthcheck({
+            health              : {...baseHealth, status: 'unhealthy'},
+            memoryWalDrain      : healthyDrain,
+            plane,
+            deploymentInspection: inspection
+        });
+
+        expect(unhealthy.status).toBe('unhealthy');
+
+        const combined = toolService.composeMemoryCoreHealthcheck({
+            health        : baseHealth,
+            memoryWalDrain: {
+                ...healthyDrain,
+                state             : 'stalled',
+                pendingDrainDepth : 3,
+                oldestPendingAgeMs: healthyDrain.stallThresholdMs + 1
+            },
+            plane,
+            deploymentInspection: inspection
+        });
+
+        expect(combined.details.some(detail => detail.includes('Memory WAL embed drain is stalled'))).toBe(true);
+        expect(combined.details.some(detail => detail.includes('Backup maintenance is degraded'))).toBe(true);
+
+        const {tools}  = await toolService.listTools();
+        const declared = tools.find(item => item.name === 'healthcheck').outputSchema.properties.maintenance;
+
+        expect(declared).toBeTruthy();
+        expect(declared.properties.observationStatus.enum).toEqual(['available', 'stale', 'degraded', 'unavailable']);
+        expect(declared.properties.backup.properties.status.enum).toEqual(['healthy', 'degraded', 'pending']);
+        expect(declared.properties.backup.properties.reasonCodes.items.type).toBe('string');
+    });
+
     test('healthcheck dispatch passes diagnostic options as one object (#13460)', async () => {
         const observedArgs   = [];
         const spyToolService = Neo.create(ToolService, {

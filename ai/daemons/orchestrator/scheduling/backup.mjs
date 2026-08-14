@@ -208,8 +208,9 @@ function resolveNextBackupAttemptAtMs({
  * @summary AC5 requires budget exhaustion to reach a surface. An edge-triggered log would need
  * its own persisted "already warned" flag and would be lost on restart; every field this reads
  * is already persisted by `TaskStateService.writeState()`, so the phase is recomputable at any
- * time by any reader — including after a restart — and needs no state of its own. Exposed on the
- * orchestrator health payload, which is the surface that can actually see the backup lane.
+ * time by any reader — including after a restart — and needs no state of its own. Exposed through
+ * the orchestrator deployment-state bridge, whose current verdict is projected into the Memory Core
+ * healthcheck without giving that process direct backup-path authority.
  * @param {Object} options
  * @param {Object} [options.taskState={}] Persisted `backup` task state.
  * @param {Number} options.now Current timestamp in milliseconds.
@@ -308,6 +309,8 @@ export function describeBackupMaintenanceHealth({
     } else if (lastBackup?.backup?.status === 'failed') {
         reasonCodes.push('backup-last-run-failed')
     }
+    // `unanchored` is the expected pre-first-run state: it stays pending rather than turning every
+    // fresh deployment into a never-succeeded incident before the lane has had one opportunity.
     if (retryState && retryState.phase !== BACKUP_RETRY_PHASE.unanchored && !retryState.lastSuccessAt) {
         reasonCodes.push('backup-never-succeeded')
     }

@@ -456,9 +456,9 @@ export class DeploymentStateBridgeService extends Base {
         // `retry` reports the backup lane's bounded-retry phase, and is omitted rather than nulled
         // when no task state was supplied so a detached invocation keeps its run-dependent shape.
         //
-        // Both ride HERE rather than on the Memory Core healthcheck's backup block: that block reads
-        // the backup DIRECTORY and `mc-server` holds no backup mount, so it reports from a blind
-        // container. This orchestrator owns the bind mount and the task state.
+        // Both are DERIVED here because the Memory Core process holds neither the backup mount nor
+        // the task state. The resulting bounded bridge verdict is then safe for Memory Core's
+        // operator healthcheck to consume without granting that container direct backup authority.
         const base = {
             durability,
             stagingResidue: await summarizeStagingResidue(stagingResidueRoot)

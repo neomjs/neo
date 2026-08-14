@@ -456,8 +456,9 @@ class ConfigBase extends ConfigProvider {
              * consumes these leaves only for transient `ChromaConnectionError` failures while
              * resolving the canonical collection name; not-found and shadow-swap promotion paths
              * keep their existing handling. `maxAttempts` includes the initial call. The shipped
-             * 15-second horizon spans a normal Chroma container restart while remaining bounded
-             * well below the orchestrator's outer 15-minute backup retry spacing.
+             * 15-second horizon is chosen to cover a typical Chroma container restart while remaining
+             * bounded well below the orchestrator's outer 15-minute backup retry spacing. A real
+             * external-plane restart witness remains outstanding.
              * @type {Object}
              */
             collectionResolveRetry: {
