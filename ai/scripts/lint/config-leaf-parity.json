@@ -190,6 +190,7 @@
         "fleet.port",
         "fleet.tenantProbeTimeoutMs",
         "fleet.wakeReceiverManifestPath",
+        "fleet.wakeSelfBase",
         "geminiApiKey",
         "graphProvider",
         "heapObservation",
