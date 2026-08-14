@@ -1,4 +1,24 @@
 {
+    "$behaviorBindingProjection": {
+        "clockSuffixes": [
+            "_CHUNK_SIZE",
+            "_KEEP_ALIVE",
+            "_RETRY_COUNT",
+            "_RETRY_DELAY_MS",
+            "_TIMEOUT_MS",
+            "_YIELD_MS"
+        ],
+        "profiles": {
+            "ai/deploy/docker-compose.provider-lanes.yml": {
+                "namespaces": [
+                    "NEO_OPENAI_COMPATIBLE_"
+                ],
+                "template": "ai/config.template.mjs",
+                "guidanceMarker": "Plane-class guidance",
+                "guidanceBlocks": 3
+            }
+        }
+    },
     "$composeDefaultParity": {
         "profiles": {
             "ai/deploy/docker-compose.yml": {
@@ -186,6 +206,8 @@
         "fleet.harnessBinaries.kimiCode",
         "fleet.harnessBinaries.openCode",
         "fleet.instanceRoot",
+        "fleet.planeAdmissionBearer",
+        "fleet.planeAdmissionBearerFile",
         "fleet.planeBase",
         "fleet.planeBearer",
         "fleet.planeBearerFile",

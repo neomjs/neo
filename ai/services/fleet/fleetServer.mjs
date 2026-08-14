@@ -101,10 +101,58 @@ export function assertFleetPlaneReady({aiConfig=AiConfig, rootDir=REPO_ROOT}={})
 }
 
 /**
+ * @summary Derives the stable admission subject — the opaque `ownerPrincipal` — from the frozen
+ * request context's provider-validated facts, and nothing else.
+ *
+ * The subject is the immutable tuple `(authProvider, normalizedProviderBaseUrl, providerUserId)`:
+ * the facts a forge cannot re-issue to someone else. The mutable login NEVER participates — a
+ * rename must not move ownership, and a login recycled to a different account must not inherit it.
+ * Fail-closed by construction: any absent tuple member (a possession-only admission mode, a
+ * provider answer without a numeric id, an unparseable base URL) derives NO subject — the caller
+ * renders the refusal; there is no login fallback and no partial principal.
+ *
+ * Base-URL normalization here is deliberately MINIMAL (URL-parse: lowercased scheme/host by the
+ * parser, trailing slashes stripped) and is documented as owned by the durable ownership
+ * normalization contract — that contract may reshape these internals; the call sites and the
+ * derived-key shape stay.
+ * @param {Object|null} requestContext Frozen context from {@link createFleetRequestContext}.
+ * @returns {String|null} The opaque principal key
+ *     `principal:<authProvider>:<encoded normalized base>:<providerUserId>`, or null.
+ */
+export function deriveOwnerPrincipal(requestContext) {
+    const
+        authProvider    = requestContext?.authProvider,
+        providerBaseUrl = requestContext?.providerBaseUrl,
+        providerUserId  = requestContext?.providerUserId;
+
+    if (typeof authProvider !== 'string' || authProvider === '' ||
+        typeof providerBaseUrl !== 'string' || providerBaseUrl === '' ||
+        typeof providerUserId !== 'string' || providerUserId === '') {
+        return null
+    }
+
+    let normalizedProviderBaseUrl;
+
+    try {
+        const url = new URL(providerBaseUrl.trim());
+
+        normalizedProviderBaseUrl = `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`
+    } catch {
+        return null
+    }
+
+    return `principal:${authProvider}:${encodeURIComponent(normalizedProviderBaseUrl)}:${providerUserId}`
+}
+
+/**
  * @summary Copies the provider-validated identity facts AuthService emitted into an immutable
- * Fleet request context. This is an explicit allowlist: credential/authz fields (`token`, scopes,
- * expiry, arbitrary SDK extras), graph subjects, and the future `ownerPrincipal` cannot cross the
- * S1 boundary by object spread or SDK evolution.
+ * Fleet request context, then stamps the DERIVED admission subject. This is an explicit
+ * allowlist: credential/authz fields (`token`, scopes, expiry, arbitrary SDK extras) and graph
+ * subjects cannot cross the S1 boundary by object spread or SDK evolution — and `ownerPrincipal`
+ * cannot arrive from the outside either: it exists on a context ONLY as this function's own
+ * derivation over the allowlisted facts. A context without a derivable subject stays admitted
+ * (possession-proven identity can still read); the verb-class policy decides what such a context
+ * may do.
  * @param {Object|undefined} authInfo AuthService-populated `req.auth`.
  * @returns {Readonly<Object>|null} Frozen safe projection, or null when admission proved no identity.
  */
@@ -121,6 +169,12 @@ export function createFleetRequestContext(authInfo) {
         if (value !== undefined && value !== null && ['string', 'number', 'boolean'].includes(typeof value)) {
             context[field] = value
         }
+    }
+
+    const ownerPrincipal = deriveOwnerPrincipal(context);
+
+    if (ownerPrincipal) {
+        context.ownerPrincipal = ownerPrincipal
     }
 
     return Object.freeze(context)
@@ -270,7 +324,7 @@ export async function createFleetServerApp({
     authService       = AuthService,
     transportService  = TransportService,
     logger            = defaultLogger,
-    dispatch          = request => dispatchFleetS1Request(request, FleetControlBridge),
+    dispatch          = (request, requestContext) => dispatchFleetS1Request(request, FleetControlBridge, requestContext),
     runInContext      = (context, callback) => RequestContextService.run(context, callback),
     planeGuard        = assertFleetPlaneReady,
     maxBodyBytes      = 1024 * 1024,
@@ -453,7 +507,7 @@ export async function createFleetServerApp({
         let envelope;
 
         try {
-            envelope = await runInContext(req.fleetRequestContext, () => dispatch(req.body ?? {}))
+            envelope = await runInContext(req.fleetRequestContext, () => dispatch(req.body ?? {}, req.fleetRequestContext))
         } catch (error) {
             logger.error('[FleetServer] dispatch failed');
             envelope = createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.operationFailed, {
@@ -561,6 +615,85 @@ export function assertFleetPlaneBearerClass({aiConfig = AiConfig, readFile = nul
     }
 
     return planeBearer
+}
+
+/**
+ * @summary Resolves the credential this process presents to a containerized plane's FLEET
+ * surface — the fleet-client admission bearer, a DIFFERENT MINT from the plane-MCP bearer
+ * (`resolveFleetPlaneBearer`). Same two declared homes, same precedence: the direct
+ * `fleet.planeAdmissionBearer` value wins; otherwise `fleet.planeAdmissionBearerFile` names a
+ * secret file. Returns `''` when neither yields a value — the caller renders that as an honest
+ * unarmed state, never a fallback onto a different credential class.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The resolved fleet-surface bearer, or `''`.
+ */
+export function resolveFleetPlaneAdmissionBearer({aiConfig = AiConfig, readFile = null} = {}) {
+    const direct = aiConfig.fleet.planeAdmissionBearer.trim();
+
+    if (direct) return direct;
+
+    const bearerFile = aiConfig.fleet.planeAdmissionBearerFile.trim();
+
+    if (!bearerFile) return '';
+
+    try {
+        const read = readFile ?? (target => readFileSync(target, 'utf8'));
+        return String(read(bearerFile)).trim()
+    } catch {
+        return ''
+    }
+}
+
+/**
+ * @summary The non-alias teeth for the fleet-client admission bearer: the resolved value must
+ * not BE the plane-MCP bearer, and must not BE the bootstrap/healthcheck admission token. Both
+ * surfaces can share a verifier, so byte-identity is exactly how one mint silently serves two
+ * audiences — this refuses the aliasing at resolution time, at the one moment someone can mint
+ * the distinct credential.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The class-clean resolved bearer (may be `''`).
+ * @throws {Error} When the fleet-surface bearer aliases the plane-MCP bearer or the admission token.
+ */
+export function assertFleetPlaneAdmissionBearerClass({aiConfig = AiConfig, readFile = null} = {}) {
+    const
+        read            = readFile ?? (target => readFileSync(target, 'utf8')),
+        admissionBearer = resolveFleetPlaneAdmissionBearer({aiConfig, readFile: read});
+
+    if (!admissionBearer) return admissionBearer;
+
+    const planeBearer = resolveFleetPlaneBearer({aiConfig, readFile: read});
+
+    if (planeBearer && admissionBearer === planeBearer) {
+        throw new Error(
+            '[FleetServer] fleet.planeAdmissionBearer resolves to the same bytes as the plane-MCP ' +
+            'bearer — the credential-class ledger forbids presenting the MC credential to the ' +
+            'fleet surface. Mint a distinct fleet-client admission credential.'
+        )
+    }
+
+    const admissionFile = aiConfig.fleet.admissionTokenFile.trim();
+
+    let admissionToken = '';
+
+    if (admissionFile) {
+        try {
+            admissionToken = String(read(admissionFile)).trim()
+        } catch {/* an unreadable admission file leaves the comparison disabled, not the rule */}
+    }
+
+    if (admissionToken && admissionBearer === admissionToken) {
+        throw new Error(
+            '[FleetServer] fleet.planeAdmissionBearer resolves to the deployment\'s ' +
+            'bootstrap/healthcheck admission token — the credential-class ledger forbids that ' +
+            'aliasing. Mint a distinct fleet-client admission credential.'
+        )
+    }
+
+    return admissionBearer
 }
 
 /**

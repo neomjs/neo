@@ -32,6 +32,33 @@ client → Authorization: Bearer <GitLab OAuth token | PAT> → MCP server
 
 `/api/v4/user` validation proves the bearer belongs to **a valid user on the configured GitLab instance**. It does **not** prove the token was minted *for this MCP server*: GitLab issues no audience-bound ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)) token, so there is no `aud` to match — the MCP spec permits this *"when the Authorization Server supports the capability."* For a deployment that needs per-app / per-user **authorization** (an enterprise bar), an opt-in server-side hardening is planned: bind the token's owning OAuth app via GitLab's `/oauth/token/info`, and gate access on a user / group allowlist. It stays **off by default** so the zero-config path keeps working; the client-id-binding and user-allowlist env knobs ship with that change.
 
+### The Fleet surface — same seat, plus a derived admission subject
+
+The composed Fleet service admits clients through the **same `AuthService` modes** as the MCP
+surfaces — no separate issuance machinery exists, deliberately. What Fleet adds sits *after*
+authentication, at its own boundary:
+
+- **The admission subject is derived, never claimed.** Every admitted request context carries an
+  opaque `ownerPrincipal` derived from the provider-stable tuple
+  `(authProvider, normalizedProviderBaseUrl, providerUserId)` — the facts a forge cannot re-issue
+  to someone else. The **mutable login never participates**: a rename does not move ownership,
+  and a recycled login cannot inherit it; the login is retained strictly as a display projection.
+  The subject cannot be injected from the outside — it exists on a context only as the Fleet
+  boundary's own derivation, and the caller's `/fleet/probe` launch receipt echoes it back for
+  verification.
+- **Verb classes are enforced at admission.** Every Fleet wire verb is classified `read-observe`
+  or `lifecycle-write`. Read-observe verbs admit any authenticated context. Lifecycle-write verbs
+  additionally require the forge-resolved subject — **possession admits the transport, identity
+  owns the records** — and the refusal fires *before* feature-availability negotiation, so an
+  unauthorized caller learns nothing about which slice serves a verb. The Fleet grant families
+  later hang their per-verb-class envelopes on exactly this split.
+- **`local-bearer` stays, bounded by the split.** The possession-only local-bearer mode remains
+  the sanctioned dev-transport admission (the loopback cockpit path needs it), but it resolves no
+  provider tuple, so it derives **no subject**: a local-bearer caller can observe, and every
+  lifecycle-write verb refuses it. Requiring a PAT everywhere was considered and rejected — it
+  would break the zero-config local loop for zero authority gain, because the subject requirement
+  already closes the mutation surface the PAT requirement was for.
+
 ## Server configuration
 
 Set these on the MCP server (Knowledge Base and/or Memory Core):

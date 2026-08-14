@@ -237,6 +237,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     }
 
     const allowedKeys = [
+        'deadlineMs',
         'operationLabel',
         'operationStage',
         'onProviderTimeout',
@@ -256,6 +257,12 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
         typeof options.signal?.removeEventListener !== 'function'
     )) {
         throw new TypeError('TextEmbeddingService: options.signal must be an AbortSignal');
+    }
+    if (options.deadlineMs !== undefined && (!Number.isFinite(options.deadlineMs) || options.deadlineMs <= 0)) {
+        throw new TypeError('TextEmbeddingService: options.deadlineMs must be a positive number');
+    }
+    if (options.deadlineMs !== undefined && options.signal === undefined) {
+        throw new TypeError('TextEmbeddingService: options.deadlineMs requires options.signal');
     }
     if (options.operationLabel !== undefined && typeof options.operationLabel !== 'string') {
         throw new TypeError('TextEmbeddingService: options.operationLabel must be a string');
@@ -279,6 +286,7 @@ function normalizeEmbeddingOptions(options, defaultOperationLabel) {
     const requestedLabel = options.operationLabel?.trim() || defaultOperationLabel;
 
     return {
+        deadlineMs              : options.deadlineMs,
         operationLabel          : requestedLabel.substring(0, EMBEDDING_OPERATION_LABEL_MAX_LENGTH),
         operationStage          : options.operationStage || 'unknown',
         onProviderTimeout       : options.onProviderTimeout,
@@ -1831,17 +1839,46 @@ class TextEmbeddingService extends Base {
 
             recordEmbeddingSubmissions(providerActivityRecorder, chunk);
 
-            const
-                  result = await this.#enqueueOpenAiCompatiblePost(chunk, {
-                      unloadRetriesLeft: unloadRetryCount,
-                      requestTimeoutMs,
-                      signal,
-                      operationLabel,
-                      onProviderTimeout,
-                      operation,
-                      providerActivity,
-                      providerActivityRecorder
-                  }, 'batch');
+            let result;
+
+            try {
+                result = await this.#enqueueOpenAiCompatiblePost(chunk, {
+                    unloadRetriesLeft: unloadRetryCount,
+                    requestTimeoutMs,
+                    signal,
+                    operationLabel,
+                    onProviderTimeout,
+                    operation,
+                    providerActivity,
+                    providerActivityRecorder
+                }, 'batch');
+            } catch (err) {
+                // Work conservation on the FAILURE path. The yield-point above carries its
+                // completed prefix; a provider failure mid-batch used to discard it, so the caller's
+                // retry — and every later sweep — re-purchased vectors the provider had already
+                // returned. The ORIGINAL error is decorated rather than replaced: its `code` is what
+                // the caller's timeout/circuit classification reads. Completed chunks are full-width
+                // by the same boundary argument the yield error makes (only a batch's final chunk can
+                // be short, and a completed final chunk leaves nothing to fail), so the expected count
+                // derives from what was SENT. If the accumulated data cannot satisfy the positional-
+                // binding guard, the error travels undecorated — carrying nothing beats binding
+                // vectors to the wrong ids.
+                if (completedChunkCount > 0) {
+                    try {
+                        const completedTextCount = completedChunkCount * chunkSize,
+                              embeddings         = toOrderedEmbeddings(data, completedTextCount);
+
+                        err.completedChunkCount = completedChunkCount;
+                        err.totalChunkCount     = totalChunkCount;
+                        err.completedTextCount  = completedTextCount;
+                        err.embeddings          = embeddings;
+                    } catch {
+                        // Positional binding could not be proven; the failure travels uncarried.
+                    }
+                }
+
+                throw err;
+            }
 
             data.push(...(result.data || []).map(item => ({
                 ...item,
@@ -1864,11 +1901,16 @@ class TextEmbeddingService extends Base {
      *
      * The OpenAI-compatible branch uses the contention retry budget because single embeddings are
      * latency-sensitive (`add_memory`, query, frontier) and must fail/retry inside the service before
-     * the MCP request envelope times out.
+     * the MCP request envelope times out. A caller that supplies `deadlineMs` alongside its abort
+     * signal owns the aggregate deadline instead: that call receives one timed contention attempt
+     * whose socket timeout matches the caller budget, so a shorter fixed contention ladder cannot
+     * silently replace the declared deadline or multiply abandoned work. Model-residency failures
+     * retain their separate bounded retry semantics.
      *
      * @param {String} text The text to embed.
      * @param {String} explicitProvider The embedding provider to use.
      * @param {Object} [options={}] Abort/diagnostic options.
+     * @param {Number} [options.deadlineMs] Caller-owned whole-call deadline carried by `options.signal`.
      * @param {AbortSignal} [options.signal] Caller-owned cancellation signal.
      * @param {String} [options.operationLabel] Bounded diagnostic label.
      * @param {String} [options.operationStage='unknown'] Stable low-cardinality stage.
@@ -1884,6 +1926,7 @@ class TextEmbeddingService extends Base {
                   ? 'TextEmbeddingService.embedText native Ollama embedding'
                   : `TextEmbeddingService.embedText ${explicitProvider} embedding`,
               {
+                  deadlineMs,
                   operationLabel,
                   operationStage,
                   onProviderTimeout,
@@ -1910,11 +1953,12 @@ class TextEmbeddingService extends Base {
                     contentionRetryCount      = 2,
                     contentionTimeoutMs       = 15000
                 } = aiConfig.openAiCompatible;
-                const requestText = await this.#prepareOpenAiCompatibleEmbeddingInput(text, signal, operationLabel, operation);
-                const result      = await this.#enqueueOpenAiCompatiblePost(requestText, {
+                const requestText       = await this.#prepareOpenAiCompatibleEmbeddingInput(text, signal, operationLabel, operation);
+                const hasCallerDeadline = deadlineMs !== undefined;
+                const result            = await this.#enqueueOpenAiCompatiblePost(requestText, {
                     unloadRetriesLeft    : unloadRetryCount,
-                    contentionRetriesLeft: contentionRetryCount,
-                    requestTimeoutMs     : contentionTimeoutMs,
+                    contentionRetriesLeft: hasCallerDeadline ? 0 : contentionRetryCount,
+                    requestTimeoutMs     : hasCallerDeadline ? deadlineMs : contentionTimeoutMs,
                     signal,
                     operationLabel,
                     onProviderTimeout,

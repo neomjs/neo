@@ -324,6 +324,25 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeBearerFile: leaf('', 'NEO_FLEET_PLANE_BEARER_FILE', 'string'),
                 /**
+                 * Bearer credential for the PLANE'S FLEET SURFACE (`/fleet`, `/fleet/probe`,
+                 * `/fleet/events`) when this process consumes a containerized plane as a fleet
+                 * client — a DIFFERENT MINT from `planeBearer`, which serves the plane's MCP
+                 * resources. The two audiences can share a verifier, so only distinct mints keep
+                 * the credential classes apart: the Fleet entry refuses a value whose bytes alias
+                 * either `planeBearer` or the bootstrap admission token. Empty means the
+                 * deployment declares no fleet-surface credential; plane-stream consumers then
+                 * stay honestly unarmed with that reason instead of dialing with the wrong class.
+                 * @type {string}
+                 */
+                planeAdmissionBearer: leaf('', 'NEO_FLEET_PLANE_ADMISSION_BEARER', 'string'),
+                /**
+                 * Secret-file indirection for `planeAdmissionBearer` — the same custody split as
+                 * `planeBearerFile`: the direct value wins when both are set, empty means no file
+                 * indirection, and the Fleet entry reads it at the use site, never at import.
+                 * @type {string}
+                 */
+                planeAdmissionBearerFile: leaf('', 'NEO_FLEET_PLANE_ADMISSION_BEARER_FILE', 'string'),
+                /**
                  * Absolute path of the deployment's bootstrap/healthcheck admission token file
                  * — bound to the SAME env name the MCP services already boot on (the
                  * `wakeReceiverManifestPath` same-env-name precedent), so the Fleet entry can

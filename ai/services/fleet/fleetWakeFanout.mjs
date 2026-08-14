@@ -379,16 +379,27 @@ export function createFleetWakeFanout({
          * @returns {Object} `describeState()` plus `{armedForViewer: Boolean}`
          */
         describeStateFor(identity) {
-            let armedForViewer = false;
+            let
+                armedForViewer = false,
+                subscriptionId = null;
 
-            for (const route of routes.values()) {
+            // The routes map is keyed by subscription id, so the armed viewer's own key IS the
+            // id this frame vouches. Carrying it lets a stream consumer run poll-digest catch-up
+            // from a COLD start — before any live wake has taught it which subscription the
+            // stream serves — instead of silently skipping pending wakes until one arrives.
+            for (const [routeSubscriptionId, route] of routes) {
                 if (route.agentIdentity === identity) {
                     armedForViewer = true;
+                    subscriptionId = routeSubscriptionId;
                     break
                 }
             }
 
-            return {...this.describeState(), armedForViewer}
+            return {
+                ...this.describeState(),
+                armedForViewer,
+                ...(subscriptionId ? {subscriptionId} : {})
+            }
         },
 
         /**

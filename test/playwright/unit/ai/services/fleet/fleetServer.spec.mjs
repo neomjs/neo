@@ -22,11 +22,13 @@ import {
     assertFleetPlaneReady,
     createFleetRequestContext,
     createFleetServerApp,
+    deriveOwnerPrincipal,
     resolveFleetResourceUrl,
     startFleetServer
 }                                  from '../../../../../../ai/services/fleet/fleetServer.mjs';
 import {
     dispatchFleetS1Request,
+    FLEET_METHOD_SCOPE_CLASSES,
     FLEET_S1_METHOD_POLICY,
     FLEET_S1_READY_METHODS
 }                                  from '../../../../../../ai/services/fleet/fleetServerPolicy.mjs';
@@ -166,7 +168,10 @@ test.describe('composed Fleet S1 server', () => {
                         providerBaseUrl    : 'https://api.github.test',
                         providerUserId     : '280105177',
                         providerUsername   : 'neo-gpt',
-                        providerDisplayName: 'Euclid'
+                        providerDisplayName: 'Euclid',
+                        // The launch receipt carries the caller's own DERIVED admission subject —
+                        // the immutable-tuple key, never the mutable login.
+                        ownerPrincipal     : 'principal:github:https%3A%2F%2Fapi.github.test:280105177'
                     },
                     fleetDataDir: '/app/.neo-ai-data/fleet',
                     pid         : expect.any(Number),
@@ -659,8 +664,43 @@ test.describe('composed Fleet S1 server', () => {
         expect(context).not.toHaveProperty('expiresAt');
         expect(context).not.toHaveProperty('extra');
         expect(context).not.toHaveProperty('agentIdentityNodeId');
-        expect(context).not.toHaveProperty('ownerPrincipal');
+
+        // The subject cannot be INJECTED: the fixture's poisoned `ownerPrincipal` is discarded by
+        // the allowlist, and the context carries only this boundary's OWN derivation over the
+        // provider-validated facts.
+        expect(context.ownerPrincipal).toBe('principal:github:https%3A%2F%2Fapi.github.test:280105177');
         expect(createFleetRequestContext({source: 'local-bearer'})).toBeNull()
+    });
+
+    test('deriveOwnerPrincipal: immutable facts only — login mutation cannot move the subject, absent members derive nothing', () => {
+        const facts = {
+            authProvider   : 'github',
+            providerBaseUrl: 'https://API.github.test/',
+            providerUserId : '280105177'
+        };
+
+        // Minimal normalization pinned: parser-lowercased scheme/host, trailing slashes stripped,
+        // the base encoded into the opaque key.
+        const principal = deriveOwnerPrincipal(facts);
+
+        expect(principal).toBe('principal:github:https%3A%2F%2Fapi.github.test:280105177');
+
+        // The rename invariance the mutable login can never break: no login-bearing field
+        // participates in the derivation at all.
+        expect(deriveOwnerPrincipal({...facts, providerUsername: 'renamed-login', username: 'New Display'}))
+            .toBe(principal);
+
+        // Fail-closed: any absent tuple member derives NO subject — never a partial principal,
+        // never a login fallback.
+        expect(deriveOwnerPrincipal({...facts, providerUserId: undefined})).toBeNull();
+        expect(deriveOwnerPrincipal({...facts, providerBaseUrl: ''})).toBeNull();
+        expect(deriveOwnerPrincipal({...facts, authProvider: undefined})).toBeNull();
+        expect(deriveOwnerPrincipal({...facts, providerBaseUrl: 'not a url'})).toBeNull();
+        expect(deriveOwnerPrincipal(null)).toBeNull();
+
+        // The possession-only admission mode carries no provider tuple: transport admitted,
+        // subject absent — the verb-class policy owns what such a caller may do.
+        expect(deriveOwnerPrincipal({userId: 'local', source: 'local-bearer'})).toBeNull()
     });
 
     test('identityless admitted middleware refuses with zero dispatch', async () => {
@@ -838,12 +878,19 @@ test.describe('composed Fleet S1 server', () => {
 });
 
 test.describe('Fleet S1 wire policy', () => {
-    test('classifies every wire verb and exposes no authentication-only data reads', () => {
+    const PRINCIPAL_CONTEXT = Object.freeze({ownerPrincipal: 'principal:github:https%3A%2F%2Fapi.github.com:9'});
+
+    test('classifies every wire verb in BOTH ledgers — slice ownership and scope class — with getBootIdentity as the one served verb', () => {
         expect(Object.keys(FLEET_S1_METHOD_POLICY).sort()).toEqual([...FLEET_WIRE_METHODS].sort());
-        expect(FLEET_S1_READY_METHODS).toEqual([])
+        expect(Object.keys(FLEET_METHOD_SCOPE_CLASSES).sort()).toEqual([...FLEET_WIRE_METHODS].sort());
+        expect(FLEET_S1_READY_METHODS).toEqual(['getBootIdentity']);
+
+        for (const scopeClass of Object.values(FLEET_METHOD_SCOPE_CLASSES)) {
+            expect(['read-observe', 'lifecycle-write']).toContain(scopeClass)
+        }
     });
 
-    test('refuses every data verb with its owning semantic slice and never dispatches the bridge', async () => {
+    test('serves ready verbs, refuses lifecycle-write without a subject BEFORE naming slices, and degrades the rest with their owning slice', async () => {
         const calls  = [];
         const bridge = Object.fromEntries(FLEET_WIRE_METHODS.map(method => [method, params => {
             calls.push([method, params]);
@@ -856,7 +903,6 @@ test.describe('Fleet S1 wire policy', () => {
         }
 
         const expectedSlices = {
-            getBootIdentity       : 'awaiting-s2',
             listAgents            : 'awaiting-s3',
             getAgent              : 'awaiting-s3',
             fleetStatus           : 'awaiting-s3',
@@ -883,11 +929,30 @@ test.describe('Fleet S1 wire policy', () => {
         };
 
         for (const [method, degraded] of Object.entries(expectedSlices)) {
-            expect(await dispatchFleetS1Request(createFleetWireRequest(method, 'x'), bridge)).toMatchObject({
+            const withSubject = await dispatchFleetS1Request(createFleetWireRequest(method, 'x'), bridge, PRINCIPAL_CONTEXT);
+
+            // WITH a forge-resolved subject, every awaiting verb names its owning slice.
+            expect(withSubject).toMatchObject({
                 ok   : false,
                 state: FLEET_WIRE_RESPONSE_STATES.degraded,
                 degraded
-            })
+            });
+
+            const withoutSubject = await dispatchFleetS1Request(createFleetWireRequest(method, 'x'), bridge);
+
+            if (FLEET_METHOD_SCOPE_CLASSES[method] === 'lifecycle-write') {
+                // WITHOUT one, a lifecycle-write verb refuses at the authority boundary and the
+                // slice name never leaks — authority shape precedes feature topology.
+                expect(withoutSubject.state).toBe(FLEET_WIRE_RESPONSE_STATES.refused);
+                expect(withoutSubject.error).toContain('forge-resolved admission subject');
+                expect(withoutSubject.error).not.toContain('awaits')
+            } else {
+                expect(withoutSubject).toMatchObject({
+                    ok   : false,
+                    state: FLEET_WIRE_RESPONSE_STATES.degraded,
+                    degraded
+                })
+            }
         }
 
         expect(Object.keys(expectedSlices).sort())

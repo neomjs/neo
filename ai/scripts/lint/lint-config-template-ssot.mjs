@@ -54,13 +54,15 @@ const ROOT_DIR   = path.resolve(__dirname, '../../..');
 const CONFIG_TEMPLATE_BASENAME = 'config.template.mjs';
 // The Tier-1 root base: canonical default leaves live here since the template/base split — the
 // declarative-SSOT rules must cover it exactly like a template, or base-only leaves bypass the lint.
-const CONFIG_BASE_BASENAME               = 'configBase.mjs';
-const CONFIG_LEAF_PARITY_REL             = 'ai/scripts/lint/config-leaf-parity.json';
-const COMPOSE_DEFAULT_PARITY_KEY         = '$composeDefaultParity';
-const CONFIG_OVERLAY_BASENAME            = 'config.mjs';
-const SCAN_ROOT_REL                      = 'ai';
-const TEST_SCAN_ROOT_REL                 = 'test';
-const SELF_REL_FILE                      = 'ai/scripts/lint/lint-config-template-ssot.mjs';
+const CONFIG_BASE_BASENAME            = 'configBase.mjs';
+const CONFIG_LEAF_PARITY_REL          = 'ai/scripts/lint/config-leaf-parity.json';
+const COMPOSE_DEFAULT_PARITY_KEY      = '$composeDefaultParity';
+const BEHAVIOR_BINDING_PROJECTION_KEY = '$behaviorBindingProjection';
+const CONFIG_OVERLAY_BASENAME         = 'config.mjs';
+const SCAN_ROOT_REL                   = 'ai';
+const TEST_SCAN_ROOT_REL              = 'test';
+const DEPLOY_SCAN_ROOT_REL            = 'ai/deploy';
+const SELF_REL_FILE                   = 'ai/scripts/lint/lint-config-template-ssot.mjs';
 
 // The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
 // verdict to stay reproducible at PR time (scanned ⊆ watched as a mechanical fact, not YAML
@@ -68,7 +70,13 @@ const SELF_REL_FILE                      = 'ai/scripts/lint/lint-config-template
 // so a new root cannot silently widen the scan without widening this surface.
 export const SCAN_SURFACE = Object.freeze([
     `${SCAN_ROOT_REL}/**/*.mjs`,
-    `${TEST_SCAN_ROOT_REL}/**/*.mjs`
+    `${TEST_SCAN_ROOT_REL}/**/*.mjs`,
+    // The Compose/default parity and behavior-binding projection rules both read deploy templates,
+    // so this lint's scan is wider than its `.mjs` roots. Declaring it here is what makes the
+    // sibling parity spec DEMAND the workflow watch it; leaving it undeclared would let the spec
+    // report a satisfied invariant over an incomplete picture of what this lint actually reads —
+    // the same shape as the unprojected clock these rules exist to catch, one layer up.
+    `${DEPLOY_SCAN_ROOT_REL}/**`
 ]);
 const CONFIG_TEMPLATE_KIND_CACHE         = new Map();
 const SERVICE_EXPORT_CONFIG_TEMPLATE_REL = Object.freeze({
@@ -1578,6 +1586,216 @@ function reportComposeDefaultRestatements(violations) {
 }
 
 /**
+ * @summary Classifies a Compose source's projection of one clock leaf against its config default.
+ *
+ * ## Why a token search is not enough, and how it false-greens
+ *
+ * The first shape of this check asked only whether the env NAME appeared anywhere in the file. That
+ * proves an identifier is present; it proves nothing about what an operator reads. Three shapes
+ * passed it while publishing no usable information, and the middle one is the dangerous class:
+ *
+ * - a value that no longer matches the leaf (`"15000"` after the default moved to `20000`) — the
+ *   comment is now confidently WRONG, which is worse than absent, because an operator trusts a
+ *   number and only distrusts a blank;
+ * - prose that merely names the variable (`# …_TIMEOUT_MS exists somewhere`);
+ * - a contaminated token (`OLD_…_TIMEOUT_MS`), which slipped through because the earlier right-only
+ *   boundary was justified by reasoning about SHORTER-vs-LONGER generated names and never
+ *   considered a PREFIXED one.
+ *
+ * A documentation guard has to validate the information consumed, not the identifier carrying it,
+ * or visibility drifts while enforcement stays green — the same operator-blindness this rule exists
+ * to end, rebuilt one layer up.
+ *
+ * ## The canonical projection line
+ *
+ * Both boundaries are anchored, the line must be a COMMENT (never a live key — that is the sibling
+ * rule's territory), the value must equal the current config default, and a trailing guidance
+ * comment must be present and non-empty:
+ *
+ *     # NEO_X_TIMEOUT_MS: "15000"   # per-attempt ceiling, ONE single-input embed
+ *
+ * Requiring value-equality is what makes the projection self-invalidating: change the leaf and every
+ * stale comment fails on the next run, so the documentation cannot rot silently.
+ * One env name can bind more than one config path, so the accepted set is every row's default —
+ * the same tolerance the sibling restatement rule applies, for the same reason: the projection is
+ * correct if it names a value the leaf actually resolves to.
+ * @param {String} source Raw Compose file text, comments included.
+ * @param {String} env Environment variable name.
+ * @param {Array<Object>} rows The leaf's `{configPath, default}` rows.
+ * @returns {String|null} A violation kind, or `null` when the projection is valid.
+ */
+function classifyProjection(source, env, rows) {
+    const
+        expected = (rows || []).map(row => serializeConfigDefault(row.default)),
+        line     = new RegExp(`^[^\\S\\n]*#[^\\S\\n]*(?<![A-Z0-9_])${env}(?![A-Z0-9_])[^\\S\\n]*:[^\\S\\n]*(\\S+?)[^\\S\\n]*(#[^\\n]*)?$`, 'm')
+            .exec(source);
+
+    if (!line) return 'unprojected-behavior-binding-clock';
+
+    const [, rawValue, guidance] = line;
+
+    if (!expected.includes(rawValue.replace(/^"|"$/g, ''))) return 'projection-default-mismatch';
+    if (!guidance || !guidance.slice(1).trim())             return 'projection-missing-guidance';
+
+    return null
+}
+
+/**
+ * @summary Detects behavior-binding clock leaves that a covered Compose template never projects.
+ *
+ * ## Why this is the inverse of `detectComposeDefaultRestatements`, not a duplicate of it
+ *
+ * The sibling rule bans a Compose value that RESTATES a config default, because a restated default
+ * is a second declaration site that silently pins the old number when the leaf changes. This rule
+ * bans the opposite failure: a clock that binds real behavior and appears in the deployment file
+ * NOWHERE, so an operator reading that file cannot see what governs the deployment. One says do not
+ * duplicate the value; this one says do not hide the knob. Together they leave exactly one
+ * declaration site and zero invisible clocks.
+ *
+ * Because the two rules pull in opposite directions, projection here is satisfied by a MENTION —
+ * a commented line counts, a live assignment counts. That is deliberate: the commented form is what
+ * lets a template document a clock without restating its default and tripping the sibling rule.
+ * The match therefore runs against raw file text rather than parsed YAML, since a YAML parse drops
+ * exactly the comments that carry the documentation.
+ *
+ * ## Scope is declared per profile, never inferred
+ *
+ * A blanket "every leaf must be projected" would flood a template with dozens of knobs irrelevant to
+ * it, and a check that produces noise gets routed around within a week. So each profile names the env
+ * NAMESPACES it is responsible for, and within those the `clockSuffixes` select the timing/retry
+ * leaves mechanically — no semantic judgment at lint time. Widening coverage is a policy edit, which
+ * keeps the decision reviewable instead of buried in a heuristic.
+ * @param {Object} options
+ * @param {Object} options.composeSources Raw file text keyed by repo-relative path.
+ * @param {Object} options.envDefaultsByFile Env-name → config default, keyed by repo-relative path.
+ * @param {Object} options.policy The `$behaviorBindingProjection` policy.
+ * @returns {Array<Object>} Violations.
+ */
+export function detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envDefaultsByFile, policy}) {
+    const
+        suffixes   = policy?.clockSuffixes || [],
+        violations = [];
+
+    for (const [file, profile] of Object.entries(policy?.profiles || {})) {
+        const source = composeSources[file];
+
+        if (typeof source !== 'string') continue;
+
+        const
+            defaults   = envDefaultsByFile[file] || {},
+            namespaces = profile.namespaces || [];
+
+        // The per-line trailing comment proves a line was annotated; it cannot prove the file still
+        // explains what the knobs DO. Deleting every prose guidance block while leaving the one-line
+        // annotations intact left this check green — visibility enforced down to the identifier and
+        // the value, and silent about the only part an operator actually reads to make a decision.
+        // The expected count is DECLARED per profile rather than inferred, so removing a block is a
+        // policy edit someone reviews instead of a silent deletion.
+        if (profile.guidanceMarker && profile.guidanceBlocks) {
+            const found = source.split(profile.guidanceMarker).length - 1;
+
+            if (found < profile.guidanceBlocks) {
+                violations.push({
+                    configDefault: `${found}/${profile.guidanceBlocks}`,
+                    env          : profile.guidanceMarker,
+                    file,
+                    kind         : 'projection-guidance-blocks-missing'
+                })
+            }
+        }
+
+        for (const [env, rows] of Object.entries(defaults)) {
+            if (!namespaces.some(namespace => env.startsWith(namespace))) continue;
+            if (!suffixes.some(suffix => env.endsWith(suffix)))            continue;
+
+            const kind = classifyProjection(source, env, rows);
+
+            if (kind) {
+                violations.push({
+                    configDefault: (rows || []).map(row => serializeConfigDefault(row.default)).join(' | '),
+                    env, file, kind
+                })
+            }
+        }
+    }
+
+    return violations
+}
+
+/**
+ * @summary Loads the behavior-binding projection surface and returns violations.
+ * @param {Object} [options]
+ * @param {String} [options.rootDir] Repo root.
+ * @param {Object} [options.policy] Injected policy.
+ * @returns {Promise<Array<Object>>}
+ */
+export async function detectUnprojectedBehaviorBindingClocks({rootDir = ROOT_DIR, policy} = {}) {
+    if (!policy) {
+        const snapshotPath = path.join(rootDir, CONFIG_LEAF_PARITY_REL),
+              document     = fs.existsSync(snapshotPath) ?
+                  JSON.parse(fs.readFileSync(snapshotPath, 'utf8')) : {};
+
+        policy = document[BEHAVIOR_BINDING_PROJECTION_KEY]
+    }
+
+    if (!policy) return [];
+
+    const
+        composeSources    = {},
+        envDefaultsByFile = {},
+        violations        = [];
+
+    for (const [file, profile] of Object.entries(policy.profiles || {})) {
+        try {
+            composeSources[file] = fs.readFileSync(path.join(rootDir, file), 'utf8')
+        } catch (error) {
+            violations.push({
+                error: error?.message || String(error),
+                file,
+                kind : 'projection-profile-unreadable'
+            });
+
+            continue
+        }
+
+        envDefaultsByFile[file] = await buildConfigEnvDefaultsForTemplate({rootDir, template: profile.template})
+    }
+
+    return [
+        ...violations,
+        ...detectUnprojectedBehaviorBindingClocksFromSources({composeSources, envDefaultsByFile, policy})
+    ]
+}
+
+/**
+ * @summary Prints unprojected behavior-binding clock violations.
+ * @param {Array<Object>} violations Violations.
+ * @returns {void}
+ */
+function reportUnprojectedBehaviorBindingClocks(violations) {
+    console.error('[lint-config-template-ssot] Behavior-binding clock projection FAILED');
+
+    for (const violation of violations) {
+        if (violation.kind === 'unprojected-behavior-binding-clock') {
+            console.error(`  ${violation.file}: ${violation.env} binds behavior but is not projected`);
+            console.error(`    fix: add   # ${violation.env}: "${violation.configDefault}"   # <plane-class guidance>`);
+            console.error('    (a COMMENT, never a live key — a live value equal to the default is the sibling rule\'s violation)')
+        } else if (violation.kind === 'projection-default-mismatch') {
+            console.error(`  ${violation.file}: ${violation.env} is projected with a STALE value — config default is now ${violation.configDefault}`);
+            console.error('    an operator reads this number and trusts it; a wrong projection is worse than none')
+        } else if (violation.kind === 'projection-guidance-blocks-missing') {
+            console.error(`  ${violation.file}: only ${violation.configDefault} "${violation.env}" blocks remain`);
+            console.error('    the per-line annotations survive deletion of the prose that explains the knobs; restore the block')
+        } else if (violation.kind === 'projection-missing-guidance') {
+            console.error(`  ${violation.file}: ${violation.env} is projected without plane-class guidance`);
+            console.error('    add a trailing `# …` explaining what the knob does on a CPU-constrained vs GPU plane')
+        } else {
+            console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
+        }
+    }
+}
+
+/**
  * @summary Maps imported config identifiers in one implementation file to config path kinds.
  * @param {Object} options
  * @param {String} [options.rootDir] Repo root.
@@ -1989,6 +2207,7 @@ export async function runLint(options = {}) {
           testConfigResult = lintTestConfigAuthority({rootDir, files: testConfigFiles}),
           parityResult     = await detectConfigLeafParityViolations({rootDir}),
           composeDefaultViolations = await detectComposeDefaultRestatements({rootDir}),
+          projectionViolations     = await detectUnprojectedBehaviorBindingClocks({rootDir}),
           {violations, newViolations, staleBaseline} = result,
           hasImplementationFailures = implementationResult.newViolations.length > 0 ||
               implementationResult.staleBaseline.length > 0,
@@ -1996,6 +2215,7 @@ export async function runLint(options = {}) {
               moduleScopeResult.staleBaseline.length > 0,
           hasTestConfigFailures = testConfigResult.violations.length > 0,
           hasComposeDefaultFailures = composeDefaultViolations.length > 0,
+          hasProjectionFailures     = projectionViolations.length > 0,
           hasParityFailures = Object.keys(parityResult.missing).length > 0 ||
               Object.keys(parityResult.added).length > 0 ||
               Object.keys(parityResult.errors || {}).length > 0 ||
@@ -2009,9 +2229,13 @@ export async function runLint(options = {}) {
         reportComposeDefaultRestatements(composeDefaultViolations)
     }
 
+    if (hasProjectionFailures) {
+        reportUnprojectedBehaviorBindingClocks(projectionViolations)
+    }
+
     if (newViolations.length === 0 && staleBaseline.length === 0 && !hasImplementationFailures &&
         !hasModuleScopeFailures && !hasTestConfigFailures && !hasParityFailures &&
-        !hasComposeDefaultFailures
+        !hasComposeDefaultFailures && !hasProjectionFailures
     ) {
         console.log(`[lint-config-template-ssot] OK - ${violations.length} inline-env leaf default(s), ${implementationResult.violations.length} AiConfig implementation SSOT hit(s), ${moduleScopeResult.violations.length} module-scope AiConfig capture(s), ${testConfigResult.violations.length} test config-authority violation(s), all baselined or target-zero.`);
         return {
@@ -2020,7 +2244,8 @@ export async function runLint(options = {}) {
             implementation : implementationResult,
             moduleScope    : moduleScopeResult,
             testConfig     : testConfigResult,
-            composeDefaults: {violations: composeDefaultViolations}
+            composeDefaults: {violations: composeDefaultViolations},
+            projection     : {violations: projectionViolations}
         };
     }
 

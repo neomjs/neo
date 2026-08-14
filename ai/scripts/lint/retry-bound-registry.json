@@ -206,12 +206,19 @@
             "witness": "`retry.maxTotalDelayMs - totalDelayMs` remaining-budget clamp in #getCollectionResolveRetryDelay",
             "note": "The only max-window instance: bounded by TOTAL delay spent, not by a per-delay cap alone (it also carries maxDelayMs)."
         },
-        "ai/services/knowledge-base/VectorService.mjs#createFirstBatchAbort:2603053b": {
+        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:2603053b": {
             "kind": "retry-growth",
             "lifetime": "in-cycle",
             "boundCarrier": "max-attempts",
             "witness": "`retries < maxRetries` bounds non-timeout failures; timeout-class provider failures throw after their first provider offer",
             "note": "Embedding batch retry inside one pass. A provider timeout terminates the whole sweep so the outer scheduler, not this exponential ladder, owns the later attempt."
+        },
+        "ai/services/knowledge-base/VectorService.mjs#persistCarriedPrefix:ca44af32": {
+            "kind": "retry-growth",
+            "lifetime": "in-cycle",
+            "boundCarrier": "max-attempts",
+            "witness": "`retries++` precedes the sleep and `if (retries >= maxRetries) throw writeError` exits before the delay can run again; the write retries spend the surrounding batch's shared `maxRetries` budget",
+            "note": "Carried-prefix WRITE retry shared by the yield AND failure arms (persistCarriedPrefix): vectors already in hand retry the upsert only — never the provider — and budget exhaustion rethrows the storage error so the sweep ends loudly."
         },
         "ai/services/memory-core/helpers/freezeReprobeDecision.mjs#decideFreezeReprobe:5b01edc6": {
             "kind": "retry-growth",
@@ -259,6 +266,12 @@
             "boundCarrier": "max-delay",
             "witness": "`Math.min(5000, ...)` plus a clamped exponent `Math.min(dispositionAttempts - 1, 4)`",
             "note": "Bounded twice — the delay is capped AND the exponent itself is clamped."
+        },
+        "ai/services/fleet/fleetWakeSseConsumer.mjs#runLoop:5f68f770": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeSseConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop."
         }
     }
 }

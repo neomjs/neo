@@ -521,4 +521,80 @@ test.describe('VectorService — persistence failure is an unbounded re-embed lo
             .toEqual([3, 0]);
         expect(converging.landed.size, 'because the first one actually landed').toBe(3);
     });
+
+    test('a carried-prefix persist bounds the DEPLOYED re-sweep: embed() re-selects only un-persisted chunks (#17112 AC-2)', async () => {
+        // The failure-carry siblings prove persist/retry mechanics against a hand-supplied chunk
+        // array; per this file's charter, THIS arm is the one that may claim re-selection — because
+        // nothing in it selects anything. `embed()` reads its own corpus off disk, reads existing ids
+        // off the collection, and decides what to embed. The only stub is the provider-response seam
+        // one layer up (`embedTexts`, where the carry contract is produced — its production construction
+        // is pinned by the real-transport retry spec), so sweep 1 can end on a carried timeout exactly
+        // as the constrained plane's sweeps did.
+        writeFixtureJsonl(corpusPath, 50);
+
+        const collection          = createCollection({persists: true});
+        const receivedTextCounts  = [];
+        const originalEmbedTexts  = TextEmbeddingService.embedTexts;
+        const originalBatchLeaves = {
+            batchSize : KB_Config.data.batchSize,
+            batchDelay: KB_Config.data.batchDelay,
+            maxRetries: KB_Config.data.maxRetries
+        };
+
+        let embedTextsCalls = 0;
+
+        try {
+            Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
+
+            TextEmbeddingService.embedTexts = async texts => {
+                embedTextsCalls++;
+                receivedTextCounts.push(texts.length);
+
+                // Sweep 1: a timeout-class provider failure carrying 10 completed embeddings — the
+                // carried prefix persists, then the timeout classification ends the sweep.
+                if (embedTextsCalls === 1) {
+                    const error = new Error('openAiCompatible request timed out');
+
+                    error.code                = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+                    error.completedChunkCount = 2;
+                    error.totalChunkCount     = 10;
+                    error.completedTextCount  = 10;
+                    error.embeddings          = texts.slice(0, 10).map(() => new Array(384).fill(0.1));
+                    throw error
+                }
+
+                return texts.map(() => new Array(384).fill(0.1))
+            };
+
+            KB_ChromaManager.getKnowledgeBaseCollection = async () => collection;
+            KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            const firstSweep = await KB_VectorService.embed(corpusPath).then(() => null, error => error);
+
+            expect(firstSweep, 'sweep 1 ends on the carried provider timeout').toBeInstanceOf(Error);
+            expect(collection.landed.size, 'the carried prefix is durable before the sweep ends').toBe(10);
+
+            const secondSweep = await KB_VectorService.embed(corpusPath).then(() => null, error => error);
+
+            expect(secondSweep, 'sweep 2 completes').toBeNull();
+
+            // The witness AC-2 names: production selection — not a test-authored filter — excluded
+            // the persisted prefix, so the provider was paid for exactly the 40 missing chunks.
+            expect(receivedTextCounts, 'the deployed re-sweep purchased only the un-persisted remainder')
+                .toEqual([50, 40]);
+            expect(collection.landed.size, 'the corpus completes').toBe(50);
+
+            // And the prefix ids are the ones sweep 2 skipped: the second upsert attempt starts
+            // exactly where the persisted prefix ends.
+            expect(collection.upsertAttempts[0]).toHaveLength(10);
+            expect(collection.upsertAttempts[1]).toHaveLength(40);
+            expect(
+                collection.upsertAttempts[1].some(id => collection.upsertAttempts[0].includes(id)),
+                'no persisted chunk may be re-purchased or re-written by the re-sweep'
+            ).toBe(false);
+        } finally {
+            TextEmbeddingService.embedTexts = originalEmbedTexts;
+            Object.assign(KB_Config.data, originalBatchLeaves);
+        }
+    });
 });

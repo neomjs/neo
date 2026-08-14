@@ -378,9 +378,11 @@ test.describe('Neo.ai.services.knowledge-base.HealthService observed embedding r
             errorCode          : 'EMBEDDING_PROBE_TIMEOUT'
         });
         expect(observedOptions).toMatchObject({
+            deadlineMs    : 5,
             operationStage: 'embedding-canary',
             service       : 'knowledge-base'
         });
+        expect(observedOptions.signal).toBeInstanceOf(AbortSignal);
     });
 
     test('public receipts distinguish transport refusal and a non-resident embedding model', async () => {
