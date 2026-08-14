@@ -4,10 +4,7 @@ import TextEmbeddingService, {
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig from '../../mcp/server/memory-core/config.mjs';
-import {
-    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
-    PROVIDER_TIMEOUT_CODE
-}               from '../../provider/createTimeoutError.mjs';
+import {isProviderTimeoutCode} from '../../provider/createTimeoutError.mjs';
 import Base     from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
@@ -727,11 +724,13 @@ class VectorService extends Base {
         for (let depth = 0; depth < 4 && current && typeof current === 'object' && !visited.has(current); depth++) {
             visited.add(current);
 
+            // Composed, never collapsed: the timeout half is the shared predicate, while abort and
+            // circuit-open stay explicit terms here. They are caller-owned facts with different
+            // outcomes, so folding them into the timeout predicate would make a cancelled request
+            // read as a provider timeout at every consumer of that predicate at once.
             if (isEmbeddingBatchYieldError(current) || current.name === 'AbortError' ||
                 current.code === 'ABORT_ERR' || current.code === KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN ||
-                current.code === PROVIDER_TIMEOUT_CODE ||
-                current.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
-                current.code === 'ETIMEDOUT' || current.code === 'ESOCKETTIMEDOUT') {
+                isProviderTimeoutCode(current.code)) {
                 return true
             }
 
@@ -1164,12 +1163,7 @@ class VectorService extends Base {
                     // never be misclassified as provider work that might still be running.
                     const
                         providerCircuitOpen = embeddings === null && err?.code === KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
-                        providerTimedOut    = embeddings === null && (
-                            err?.code === PROVIDER_TIMEOUT_CODE ||
-                            err?.code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
-                            err?.code === 'ETIMEDOUT' ||
-                            err?.code === 'ESOCKETTIMEDOUT'
-                        );
+                        providerTimedOut    = embeddings === null && isProviderTimeoutCode(err?.code);
 
                     if (providerCircuitOpen || providerTimedOut) {
                         const disposition = providerCircuitOpen
