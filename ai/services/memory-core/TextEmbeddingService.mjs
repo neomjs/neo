@@ -1839,17 +1839,46 @@ class TextEmbeddingService extends Base {
 
             recordEmbeddingSubmissions(providerActivityRecorder, chunk);
 
-            const
-                  result = await this.#enqueueOpenAiCompatiblePost(chunk, {
-                      unloadRetriesLeft: unloadRetryCount,
-                      requestTimeoutMs,
-                      signal,
-                      operationLabel,
-                      onProviderTimeout,
-                      operation,
-                      providerActivity,
-                      providerActivityRecorder
-                  }, 'batch');
+            let result;
+
+            try {
+                result = await this.#enqueueOpenAiCompatiblePost(chunk, {
+                    unloadRetriesLeft: unloadRetryCount,
+                    requestTimeoutMs,
+                    signal,
+                    operationLabel,
+                    onProviderTimeout,
+                    operation,
+                    providerActivity,
+                    providerActivityRecorder
+                }, 'batch');
+            } catch (err) {
+                // Work conservation on the FAILURE path. The yield-point above carries its
+                // completed prefix; a provider failure mid-batch used to discard it, so the caller's
+                // retry — and every later sweep — re-purchased vectors the provider had already
+                // returned. The ORIGINAL error is decorated rather than replaced: its `code` is what
+                // the caller's timeout/circuit classification reads. Completed chunks are full-width
+                // by the same boundary argument the yield error makes (only a batch's final chunk can
+                // be short, and a completed final chunk leaves nothing to fail), so the expected count
+                // derives from what was SENT. If the accumulated data cannot satisfy the positional-
+                // binding guard, the error travels undecorated — carrying nothing beats binding
+                // vectors to the wrong ids.
+                if (completedChunkCount > 0) {
+                    try {
+                        const completedTextCount = completedChunkCount * chunkSize,
+                              embeddings         = toOrderedEmbeddings(data, completedTextCount);
+
+                        err.completedChunkCount = completedChunkCount;
+                        err.totalChunkCount     = totalChunkCount;
+                        err.completedTextCount  = completedTextCount;
+                        err.embeddings          = embeddings;
+                    } catch {
+                        // Positional binding could not be proven; the failure travels uncarried.
+                    }
+                }
+
+                throw err;
+            }
 
             data.push(...(result.data || []).map(item => ({
                 ...item,
