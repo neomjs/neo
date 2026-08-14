@@ -153,4 +153,84 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         expect(second.status).toBe('healthy');
         expect(second.details).toEqual([]);
     });
+
+    test('a degraded fold WITHDRAWS the all-clear line a cached-healthy payload carries', () => {
+        const payload = makePayload();
+        payload.details.push('Connected to the orchestrator-managed ChromaDB instance');
+        payload.details.push('All features are operational');
+
+        foldHeavyMaintenanceStarvation({
+            payload,
+            inspection  : makeInspection({receipt: makeReceipt()}),
+            now         : NOW,
+            staleAfterMs: STALE_AFTER_MS
+        });
+
+        expect(payload.status).toBe('degraded');
+        expect(payload.details).not.toContain('All features are operational');
+        expect(payload.details).toContain('Connected to the orchestrator-managed ChromaDB instance');
+    });
+
+    test('PRODUCTION CHAIN through the public healthcheck(): cached healthy → fresh degraded receipt degrades and withdraws the all-clear → clear receipt recovers', async () => {
+        const HealthService = (await import('../../../../../../ai/services/memory-core/HealthService.mjs')).default;
+
+        const originalReader = HealthService.deploymentSnapshotReader;
+        let   currentPosture = 'healthy';
+
+        // The seam builds a request-fresh inspection per call, so receipt freshness holds against
+        // the real clock and the only variable across the chain is the watchdog's posture.
+        HealthService.deploymentSnapshotReader = async () => {
+            const nowIso   = new Date().toISOString();
+            const degraded = currentPosture === 'degraded';
+
+            return {
+                ok      : true,
+                status  : 'available',
+                snapshot: {
+                    generatedAt               : Date.now(),
+                    heavyMaintenanceStarvation: {
+                        posture        : currentPosture,
+                        checkedAt      : nowIso,
+                        degradeAfterMs : 3_600_000,
+                        waiterCount    : degraded ? 1 : 0,
+                        unreadableCount: 0,
+                        leaseHolder    : degraded ? 'dream' : null,
+                        breaches       : degraded
+                            ? [{taskName: 'backup', priorityZero: true, bootstrapCritical: false, deferredSince: nowIso, starvedForMs: 7_200_000, leaseHolder: 'dream'}]
+                            : []
+                    }
+                }
+            };
+        };
+
+        try {
+            HealthService.clearCache();
+
+            // Environment gate, asserted loudly: the chain needs a healthy base composition, so an
+            // environment regression reads as THIS line failing rather than a mystery downstream.
+            const first = await HealthService.healthcheck();
+            expect(first.status).toBe('healthy');
+            expect(first.details).toContain('All features are operational');
+            expect(first.heavyMaintenanceStarvation.state).toBe('consumed-clear');
+
+            // Cached-healthy + fresh DEGRADED receipt: the healthy cache must not blind the verdict.
+            currentPosture = 'degraded';
+            const second = await HealthService.healthcheck();
+            expect(second.status).toBe('degraded');
+            expect(second.details).not.toContain('All features are operational');
+            expect(second.details.some(detail => detail.includes('Heavy-maintenance starvation: backup'))).toBe(true);
+            expect(second.heavyMaintenanceStarvation).toMatchObject({state: 'consumed-degraded', posture: 'degraded', leaseHolder: 'dream'});
+
+            // Clear receipt against the SAME cached-healthy base: latch-free recovery, and the
+            // pristine cached object was never poisoned by the transient degrade.
+            currentPosture = 'healthy';
+            const third = await HealthService.healthcheck();
+            expect(third.status).toBe('healthy');
+            expect(third.details).toContain('All features are operational');
+            expect(third.heavyMaintenanceStarvation.state).toBe('consumed-clear');
+        } finally {
+            HealthService.deploymentSnapshotReader = originalReader;
+            HealthService.clearCache();
+        }
+    });
 });

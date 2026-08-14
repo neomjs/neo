@@ -1335,4 +1335,50 @@ test.describe('orchestrator/scheduling/pipeline — heavy-maintenance starvation
         expect(outcomes.filter(outcome => outcome.taskName === 'heavy-maintenance-starvation-watchdog')).toHaveLength(1);
         expect(outcomes.at(-1)).toMatchObject({taskName: 'heavy-maintenance-starvation-watchdog', status: 'completed', posture: 'healthy'});
     });
+
+    test('the alongside lane preserves same-task overlap protection: an already-running async health-check is NOT re-dispatched', async () => {
+        const os   = (await import('os')).default;
+        const path = (await import('path')).default;
+
+        const dispatched = [];
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'heavy-maintenance-starvation-watchdog',
+                    executionKind   : 'health-check',
+                    maintenanceClass: 'health-monitor'
+                })
+            ],
+            // The check outran its cadence: state still says running. The picker's running-filter
+            // rejects it for the winner slot, and the alongside lane must honor the SAME eligibility
+            // instead of relaunching it on every poll.
+            context : makeContext({state: {'heavy-maintenance-starvation-watchdog': {running: true}}}),
+            services: makeServices({
+                healthService: {
+                    recordTaskOutcome(taskName, status) {
+                        dispatched.push({taskName, status});
+                    }
+                },
+                maintenanceBackpressureService: {
+                    resolveHeavyMaintenanceLeasePath: () => path.join(os.tmpdir(), `neo-overlap-${process.pid}`, 'heavy.lease'),
+                    getActiveHeavyMaintenanceTask   : () => null,
+                    isHeavyMaintenanceTask          : () => false
+                },
+                taskStateService: {
+                    getTaskState : () => ({running: true}),
+                    markCompleted() {},
+                    markFailed() {},
+                    markSkipped() {},
+                    markStarted() {}
+                }
+            }),
+            runtime: makeRuntime({heavyMaintenanceStarvationDegradeAfterMs: 60 * 60 * 1000})
+        });
+
+        await result.executed;
+
+        expect(result.winner).toBeNull();
+        expect(dispatched).toEqual([]);
+    });
 });

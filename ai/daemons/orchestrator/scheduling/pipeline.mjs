@@ -267,9 +267,15 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
     // out-of-process lease, exactly the starved state the starvation watchdog exists to report —
     // wins every poll and silences every monitor. Heavy-task admission semantics are untouched: the
     // winner path above is unchanged, and these dispatches acquire no lease and defer to nothing.
+    // Same-task overlap protection is preserved: an async check still marked running (one that
+    // outran its cadence) must not re-enter on every poll — the same eligibility the picker's
+    // running-filter enforces for the winner slot.
+    const runningSet = new Set(getRunningTaskNames(context.state));
+
     for (const candidate of candidates) {
         if (candidate.descriptor?.executionKind !== 'health-check') continue;
         if (winner && candidate.taskName === winner.taskName) continue;
+        if (runningSet.has(candidate.taskName)) continue;
 
         executeCandidate({
             candidate,
