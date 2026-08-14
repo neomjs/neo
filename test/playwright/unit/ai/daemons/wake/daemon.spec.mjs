@@ -23,6 +23,58 @@ import { withOutboxLock }                                                       
  * @param {String} binDir
  * @param {String} [psOutput='']
  */
+// The daemon's poll cadence gates BOTH the poll loop and the retry backoff, so this file's wall clock
+// is quantized by it: at the shipped 3000ms, a wait shortened anywhere else lands before the same poll
+// boundary and recovers nothing. Every spawn below spreads `process.env`, so setting it once here
+// reaches all 66 of them. Production is untouched — the daemon's default is still 3000.
+//
+// 50ms is chosen to be far below the smallest interval any assertion in this file cares about; tests
+// that assert on retry ORDERING or COUNTS still hold, because those are counted in cycles rather than
+// milliseconds. Any test that genuinely needs the real cadence should set it back explicitly on its
+// own spawn rather than raising this floor for everyone.
+process.env.WAKE_POLL_INTERVAL_MS = process.env.WAKE_POLL_INTERVAL_MS || '50';
+
+/**
+ * @summary Resolves once the spawned daemon has read its GraphLog watermark and entered the poll loop.
+ *
+ * Replaces the fixed boot sleeps, and the ordering it preserves is the whole point rather than an
+ * optimization. The daemon emits this line immediately after `lastSyncId = getLastSyncId(...)` and
+ * immediately before `pollLoop()`, so it is the exact instant the watermark exists. A row injected
+ * before that instant is not a delta the daemon will see on its first pass — it waits a full
+ * `POLL_INTERVAL_MS` (3s) or more, which is why simply deleting the sleeps makes this file SLOWER
+ * while every assertion still passes.
+ *
+ * Strictly better than the 1s sleep in both directions: it returns as soon as boot completes rather
+ * than always paying 1s, and it cannot under-wait on a loaded CI box, where a fixed 1s is a latent
+ * flake that silently degrades into the same multi-second poll penalty.
+ *
+ * Attach BEFORE any await on the process, so no output is missed between spawn and subscription.
+ *
+ * @param {Object} daemonProcess Spawned daemon child process.
+ * @param {Number} [timeoutMs=15000] Bound; a daemon that never announces is a failure, not a wait.
+ * @returns {Promise<void>}
+ */
+function waitForDaemonReady(daemonProcess, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const done = error => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            daemonProcess.stdout.off('data', onData);
+            error ? reject(error) : resolve()
+        };
+
+        const timer  = setTimeout(() => done(new Error('Daemon did not announce readiness within timeout')), timeoutMs),
+              onData = data => { if (data.toString().includes('[Wake Daemon] Started.')) done() };
+
+        daemonProcess.stdout.on('data', onData);
+        daemonProcess.on('error', done);
+        daemonProcess.on('exit', code => done(new Error(`Daemon exited (code ${code}) before announcing readiness`)))
+    })
+}
+
 function writeMockPs(binDir, psOutput = '') {
     const mockPsPath = path.join(binDir, 'ps');
 
@@ -291,8 +343,9 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        // Wait a short moment to ensure daemon initializes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Ordering, not padding: the row must be injected AFTER the daemon has read its watermark,
+        // or it is not a delta the first poll sees. See waitForDaemonReady.
+        await waitForDaemonReady(daemonProcess);
 
         // Inject MESSAGE and SENT_TO edge
         const msgId = 'msg_' + crypto.randomUUID();
@@ -842,7 +895,14 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR,
+                     // out-waits: POLL_INTERVAL_MS — this test asserts that a SECOND failure
+                     // arriving mid-cycle coalesces into the first's pending retry, so the 4s
+                     // gap below must straddle exactly one poll boundary. Under the file's
+                     // shortened cadence that gap becomes ~80 cycles and both failures settle
+                     // before the second is enqueued, which is a real behaviour change rather
+                     // than a flake. Pinned to the shipped value for this test alone.
+                     WAKE_POLL_INTERVAL_MS: '3000' }
         });
 
         // First flush ("1 message events") fails + enqueues; the second flush coalesces; the RETRY

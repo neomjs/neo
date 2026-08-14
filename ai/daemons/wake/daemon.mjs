@@ -103,16 +103,22 @@ let DELIVERY_FAILURE_STATE_FILE;
 let   terminalDeliveryFailures           = {};
 let   terminalDeliveryFailuresNeedRepair = false;
 const LOG_RETENTION_DAYS                 = 30;
-const POLL_INTERVAL_MS                   = 3000;
-const CODEX_APP_SERVER_ADAPTER           = 'codex-app-server';
-const OPENCODE_SERVER_ADAPTER            = 'opencode-server';
-const OPENCODE_REBIND_SETTLE_MS          = 50;
-const KIMI_SERVER_ADAPTER                = 'kimi-server';
-const KIMI_PULL_BRIDGE_ADAPTER           = 'kimi-pull-bridge';
-const CODEX_TURN_START_PROOF_TIMEOUT_MS  = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
-const CODEX_TURN_START_PROOF_POLL_MS     = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
-const CODEX_WAKE_SUBMIT_NONCE_PREFIX     = 'NEO_WAKE_SUBMIT_NONCE:';
-const WOKEN_MESSAGE_IDS_STATE_KEY        = '__messageIdsByIdentity';
+// Injectable for the same reason `CODEX_TURN_START_PROOF_TIMEOUT_MS` below is: a test that cannot
+// shorten this constant has to out-wait it, and this one is the daemon's whole cadence — it gates
+// both the poll loop and the retry backoff (`nextAttemptAt`), so every spec near it pays multiples of
+// 3s in wall clock. Production is unchanged: the default IS the shipped value, and nothing sets the
+// override outside tests. Measured: the wake daemon spec's runtime is quantized by this number, so
+// shortening a wait anywhere else in that file recovers nothing while this stays fixed.
+const POLL_INTERVAL_MS                  = Number(process.env.WAKE_POLL_INTERVAL_MS) || 3000;
+const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
+const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
+const OPENCODE_REBIND_SETTLE_MS         = 50;
+const KIMI_SERVER_ADAPTER               = 'kimi-server';
+const KIMI_PULL_BRIDGE_ADAPTER          = 'kimi-pull-bridge';
+const CODEX_TURN_START_PROOF_TIMEOUT_MS = Number(process.env.WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS) || 45000;
+const CODEX_TURN_START_PROOF_POLL_MS    = Number(process.env.WAKE_CODEX_TURN_START_PROOF_POLL_MS) || 1000;
+const CODEX_WAKE_SUBMIT_NONCE_PREFIX    = 'NEO_WAKE_SUBMIT_NONCE:';
+const WOKEN_MESSAGE_IDS_STATE_KEY       = '__messageIdsByIdentity';
 
 const identityParticipationById = new Map(
     IDENTITIES
