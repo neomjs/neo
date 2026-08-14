@@ -1557,11 +1557,59 @@ export class Orchestrator extends Base {
         }
 
         await this.prewarmConfiguredTenantRepoCoverage();
+        await this.observeProviderLaneShapeBeforeFirstPoll();
 
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. authorityProfile=${this.authorityProfile} authorityReceipt=${this.authorityReceiptFile} summaryInterval=${AiConfig.orchestrator.intervals.summarySweepMs}ms kbSyncInterval=${AiConfig.orchestrator.intervals.kbSyncMs}ms poll=${AiConfig.orchestrator.intervals.pollMs}ms.`);
         this.announceDisabledLanes();
         this.poll();
+    }
+
+    /**
+     * @summary Takes the one-shot provider-lane shape reading before the first scheduling dispatch.
+     *
+     * Sibling of {@link prewarmConfiguredTenantRepoCoverage} in placement and in reason: both resolve
+     * a bounded fact the first cycle would otherwise run without. Here the stake is sharper, because
+     * the reading is MEMOIZED — `runSchedulingPipeline` admits tenant-repo-sync and other heavy work,
+     * and a `/slots` read issued after that admission is taken under exactly the grind that starves
+     * the endpoint. Cached, it would freeze a load-contaminated `unobservable` for the process
+     * lifetime and report it as an ordinary unreachable lane. Boot is only "before the grind" if
+     * something puts it there; this is that something.
+     *
+     * Fail-soft by construction: an unreadable lane is already an explicit unobservable verdict, and
+     * the catch covers an injected probe that throws. Observation never gates the boot it precedes.
+     *
+     * **Deadline-bounded, for the reason the sibling prewarm is** — a never-settling probe must not
+     * stop the daemon polling at all. The shipped reader is already bounded by its own
+     * `AbortSignal.timeout`, so this is a backstop against an injected or misbehaving probe rather
+     * than the primary bound. The trade it makes is deliberate and worth stating: on deadline the
+     * boot proceeds while the read is still in flight, so a very slow lane can still memoize a
+     * post-admission reading. That is strictly better than today — the request is *issued* before
+     * any dispatch, so the engine handles it ahead of the load — and strictly better than a boot
+     * that never completes.
+     *
+     * @param {Number} [deadlineMs] Bound on the boot-path wait. Defaults to the provider-readiness timeout.
+     * @returns {Promise<void>}
+     */
+    async observeProviderLaneShapeBeforeFirstPoll(deadlineMs = AiConfig.orchestrator.providerReadiness.timeoutMs) {
+        if (!this.isTaskAuthorityOwned('deployment-state-bridge') || this.authorityLeaseLost) {
+            return;
+        }
+
+        let timer;
+
+        try {
+            await Promise.race([
+                // A rejection here is caught below; the receipt itself is memoized inside the bridge,
+                // so a read that lands after the deadline is still published on the next snapshot.
+                this.deploymentStateBridgeService?.collectProviderLaneShape(),
+                new Promise(resolve => { timer = setTimeout(resolve, deadlineMs) })
+            ]);
+        } catch (error) {
+            this.writeLog('ERROR', `[Orchestrator] Provider-lane shape observation failed: ${error.message}`);
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     /**

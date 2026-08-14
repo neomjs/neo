@@ -137,6 +137,18 @@ x-provider-lane-env: &provider-lane-env
   NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context required}
   NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: ${NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS:?embedding safe-processing band required}
   NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+  # The DECLARATION channel (#17069), forwarded verbatim rather than translated. Everything above is
+  # the CONSUMPTION namespace: operational values carrying non-null defaults, so once resolved they
+  # cannot tell a declared 4 from a defaulted 1 — and comparing a live lane against a default degrades
+  # a correctly-sized deployment. These two keep the raw names so the boot shape check can distinguish
+  # "the operator stated an intent" from "nothing was said". A deployment that vendors its own compose
+  # omits this anchor, the leaves resolve null, and the declared arm records `not-declared` while the
+  # safe-band floor still runs.
+  #
+  # Both are already required `:?` inputs above, so forwarding them to one more consumer service
+  # widens NO deployment-input set.
+  NEO_PROVIDER_LANE_EMBEDDING_SLOTS: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
+  NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context requirement required}
 
 services:
   chat-model:
