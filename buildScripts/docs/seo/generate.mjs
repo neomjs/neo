@@ -53,6 +53,7 @@ const PRIORITIES = new Map([
     ['agentos/FlatPeerInstitution'                  , 1.0],
     ['agentos/SwarmIntelligence'                    , 1.0],
     ['agentos/A2A'                                  , 1.0],
+    ['agentos/FleetManagerArchitecture'             , 1.0],
     ['agentos/IdentityFirewall'                     , 1.0],
     ['agentos/Hooks'                                , 1.0],
     ['agentos/SeatMemoryLayer'                      , 0.9],
