@@ -1096,6 +1096,44 @@ class VectorService extends Base {
             // grows — indistinguishable from progress from the outside.
             let embeddings = null;
 
+            // One persistence contract for EVERY carried prefix — the yield arm and the failure arm
+            // alike: validate positional binding against the count the PRODUCER states (a short
+            // payload sliced positionally shifts every later vector onto its neighbour's id with no
+            // length mismatch to catch it), then write under the batch's shared retry budget — the
+            // write retries with the vectors in hand, never re-entering the provider. Budget
+            // exhaustion rethrows the storage error so a carry is never silently dropped; an
+            // un-persisted prefix is re-selected by a later sweep.
+            const persistCarriedPrefix = async (carried, expected, arm) => {
+                if (carried.length !== expected) {
+                    throw new Error(`${arm} batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${expected} completed input(s); refusing to bind vectors to chunk ids by position.`);
+                }
+
+                if (carried.length === 0) return 0;
+
+                const partialChunks = batchToEmbed.slice(0, carried.length);
+
+                for (;;) {
+                    try {
+                        await collection.upsert({
+                            ids       : partialChunks.map(chunk => chunk.id),
+                            embeddings: carried,
+                            metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                        });
+                        break;
+                    } catch (writeError) {
+                        lastError = writeError;
+                        retries++;
+                        if (retries >= maxRetries) throw writeError;
+                        console.error(`Persisting the carried prefix of ${arm.toLowerCase()} batch ${i / batchSize + 1} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
+                        await new Promise(res => setTimeout(res, 2 ** retries * 1000));
+                    }
+                }
+
+                embeddedCount += partialChunks.length;
+
+                return partialChunks.length
+            };
+
             while (retries < maxRetries && !success) {
                 try {
                     embeddings ??= await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
@@ -1129,29 +1167,12 @@ class VectorService extends Base {
                         // Persist what the yield already paid for. Without this the acquisition completes
                         // provider chunks, stores zero ids, and the next sweep re-selects the identical
                         // prefix — so a holder that yields at the same chunk every time never advances.
-                        // A reached checkpoint is not a durable one.
-                        // Sliced by the count the PRODUCER states it completed, and only after asserting the
-                        // payload matches it. Deriving the slice from `carried.length` alone would let a
-                        // short provider response define its own correctness: one missing vector shifts every
-                        // later one onto its neighbour's id, with no length mismatch to catch it.
-                        const carried  = err.embeddings || [],
-                              expected = err.completedTextCount;
+                        // A reached checkpoint is not a durable one — and durable includes surviving a
+                        // TRANSIENT write failure, which is why the shared carry contract (positional
+                        // guard + budgeted write retry) applies here exactly as on the failure arm.
+                        const carried = err.embeddings || [];
 
-                        if (carried.length !== expected) {
-                            throw new Error(`Yielded batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${expected} completed input(s); refusing to bind vectors to chunk ids by position.`);
-                        }
-
-                        if (carried.length > 0) {
-                            const partialChunks = batchToEmbed.slice(0, carried.length);
-
-                            await collection.upsert({
-                                ids       : partialChunks.map(chunk => chunk.id),
-                                embeddings: carried,
-                                metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
-                            });
-
-                            embeddedCount += partialChunks.length;
-                        }
+                        await persistCarriedPrefix(carried, err.completedTextCount, 'Yielded');
 
                         logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
@@ -1168,42 +1189,14 @@ class VectorService extends Base {
                     // refuse-loudly guard as the yield arm: a payload disagreeing with its stated count
                     // would bind vectors to wrong ids if sliced positionally.
                     if (embeddings === null && Number.isInteger(err?.completedTextCount) && err.completedTextCount > 0) {
-                        const carried = err.embeddings || [];
+                        const persistedCount = await persistCarriedPrefix(err.embeddings || [], err.completedTextCount, 'Failed');
 
-                        if (carried.length !== err.completedTextCount) {
-                            throw new Error(`Failed batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${err.completedTextCount} completed input(s); refusing to bind vectors to chunk ids by position.`);
+                        if (persistedCount > 0) {
+                            batchToEmbed = batchToEmbed.slice(persistedCount);
+                            textsToEmbed = textsToEmbed.slice(persistedCount);
+
+                            logger.log(`Persisted ${persistedCount} carried embedding(s) from failed batch ${i / batchSize + 1} (${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) completed before the failure); ${batchToEmbed.length} chunk(s) remain for the retry or a later sweep.`);
                         }
-
-                        const partialChunks = batchToEmbed.slice(0, carried.length);
-
-                        // The prefix write rides the SHARED retry budget — with the vectors in hand it
-                        // retries the WRITE, never re-entering the provider, matching the cached-vector
-                        // invariant of the ordinary path: a persistence failure must neither re-purchase
-                        // provider work nor escape retry accounting. Exhaustion surfaces the storage
-                        // error loudly; an un-persisted prefix is re-selected by a later sweep, never
-                        // silently dropped under a provider error it did not cause.
-                        for (;;) {
-                            try {
-                                await collection.upsert({
-                                    ids       : partialChunks.map(chunk => chunk.id),
-                                    embeddings: carried,
-                                    metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
-                                });
-                                break;
-                            } catch (writeError) {
-                                lastError = writeError;
-                                retries++;
-                                if (retries >= maxRetries) throw writeError;
-                                console.error(`Persisting the carried prefix of batch ${i / batchSize + 1} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
-                                await new Promise(res => setTimeout(res, 2 ** retries * 1000));
-                            }
-                        }
-
-                        embeddedCount += partialChunks.length;
-                        batchToEmbed   = batchToEmbed.slice(carried.length);
-                        textsToEmbed   = textsToEmbed.slice(carried.length);
-
-                        logger.log(`Persisted ${partialChunks.length} carried embedding(s) from failed batch ${i / batchSize + 1} (${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) completed before the failure); ${batchToEmbed.length} chunk(s) remain for the retry or a later sweep.`);
                     }
 
                     // A provider timeout is evidence that OUR wait ended, not that the provider work did.

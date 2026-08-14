@@ -15,9 +15,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import {test, expect}                 from '@playwright/test';
+import Neo                            from '../../../../../../src/Neo.mjs';
+import * as core                      from '../../../../../../src/core/_export.mjs';
+import {EMBEDDING_BATCH_YIELDED_CODE} from '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
 
 /**
  * Work conservation on the FAILURE path of `VectorService.embedChunks`.
@@ -294,6 +295,122 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         expect(outcome).toBeInstanceOf(Error);
         expect(outcome.message).toContain('refusing to bind vectors to chunk ids by position');
         expect(spy.calls.upsert, 'nothing may be written on a disagreement').toBe(0);
+    });
+
+    test('a transient YIELD-prefix write failure retries the write under the same shared contract', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50); // 1 batch
+
+        // The symmetry gap a reviewer named: the failure arm got the budgeted write retry while the
+        // yield arm still wrote bare — a transient rejection there escaped before `yielded: true`
+        // could return with durable progress, so the next acquisition re-purchased the prefix.
+        const realUpsert  = spy.upsert.bind(spy);
+        let   upsertCalls = 0;
+
+        spy.upsert = async payload => {
+            upsertCalls++;
+            if (upsertCalls === 1) throw new Error('transient storage failure');
+            return realUpsert(payload)
+        };
+
+        let embedCalls = 0;
+
+        TextEmbeddingService.embedTexts = async () => {
+            embedCalls++;
+
+            const error = new Error('openAiCompatible batch embedding yielded the heavy-maintenance lease after 2/10 provider chunk(s), 10 embedding(s) carried');
+
+            error.code                = EMBEDDING_BATCH_YIELDED_CODE;
+            error.completedChunkCount = 2;
+            error.totalChunkCount     = 10;
+            error.completedTextCount  = 10;
+            error.embeddings          = chunks.slice(0, 10).map(chunk => makeEmbedding(chunkIndexOf(chunk)));
+            throw error
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // One rejected write, one successful retry, ZERO extra provider entries — the yield stays a
+        // decision, and its paid-for prefix survives the storage hiccup.
+        expect(upsertCalls).toBe(2);
+        expect(embedCalls, 'a write retry must never re-enter the provider').toBe(1);
+        expect(result.yielded).toBe(true);
+        expect(result.embedded).toBe(10);
+        expect(spy.upsertedIds).toEqual(chunks.slice(0, 10).map(chunk => chunk.id));
+
+        chunks.slice(0, 10).forEach(chunk => {
+            expect(
+                spy.storedByIds.get(chunk.id)?.[0],
+                `${chunk.id} must store its own vector across the yield write-retry boundary`
+            ).toBe(chunkIndexOf(chunk));
+        });
+    });
+
+    test('AC-2 re-sweep witness: a second sweep re-submits ONLY chunks without persisted vectors', async () => {
+        const spy       = createSpyCollection();
+        const allChunks = makeChunks(50);
+
+        const receivedTexts = [];
+        let   sweepChunks   = allChunks;
+        let   embedCalls    = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            embedCalls++;
+            receivedTexts.push(texts.length);
+
+            // Sweep 1: a timeout-class failure carrying 10 completed embeddings — the sweep ends
+            // (provider-timeout classification) with the prefix persisted.
+            if (embedCalls === 1) {
+                throw makeCarriedFailure({
+                    code               : 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
+                    completedChunkCount: 2,
+                    totalChunkCount    : 10,
+                    completedTextCount : 10,
+                    embeddings         : sweepChunks.slice(0, 10).map(chunk => makeEmbedding(chunkIndexOf(chunk)))
+                });
+            }
+
+            // Sweep 2 completes whatever it is asked for.
+            return texts.map((_, position) => makeEmbedding(chunkIndexOf(sweepChunks[position])))
+        };
+
+        const firstSweep = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: sweepChunks,
+            shouldYield    : () => false
+        }).then(() => null, error => error);
+
+        expect(firstSweep, 'sweep 1 ends on the provider timeout').toBeInstanceOf(Error);
+        expect(spy.upsertedIds).toHaveLength(10);
+
+        // The production re-selection contract: the next sweep selects only what the collection
+        // does not already hold — mirrored here exactly as the sibling yield spec models it.
+        sweepChunks = allChunks.filter(chunk => !spy.storedByIds.has(chunk.id));
+        expect(sweepChunks, 'the persisted prefix must drop out of re-selection').toHaveLength(40);
+        expect(sweepChunks[0].id, 'the remainder starts exactly after the persisted prefix').toBe('chunk-10');
+
+        const secondSweep = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: sweepChunks,
+            shouldYield    : () => false
+        });
+
+        // The witness: the second sweep purchased exactly the 40 un-persisted chunks — never the 10
+        // completed ones — and the corpus completes correctly bound.
+        expect(receivedTexts).toEqual([50, 40]);
+        expect(secondSweep.embedded).toBe(40);
+        expect(spy.upsertedIds).toHaveLength(50);
+
+        allChunks.forEach(chunk => {
+            expect(
+                spy.storedByIds.get(chunk.id)?.[0],
+                `${chunk.id} must hold its own vector across the sweep boundary`
+            ).toBe(chunkIndexOf(chunk));
+        });
     });
 
     test('an UNCARRIED timeout keeps its existing behavior: sweep ends, nothing persisted', async () => {
