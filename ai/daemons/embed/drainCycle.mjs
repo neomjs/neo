@@ -4,10 +4,10 @@ import {
     pruneReconciledWalSegments,
     readPendingWalRecords
 } from '../../services/memory-core/helpers/memoryWalStore.mjs';
-import {classifyRowVector, VECTOR_REJECTION_REASONS}                   from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
-import {createDrainDispositionTracker}                                 from '../shared/drainDisposition.mjs';
-import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
-import {runWithProviderActivityContext}                                from '../../services/shared/providerActivityLedger.mjs';
+import {classifyRowVector, VECTOR_REJECTION_REASONS} from '../../services/memory-core/helpers/vectorWriteInvariant.mjs';
+import {createDrainDispositionTracker}               from '../shared/drainDisposition.mjs';
+import {isProviderTimeoutCode}                       from '../../provider/createTimeoutError.mjs';
+import {runWithProviderActivityContext}              from '../../services/shared/providerActivityLedger.mjs';
 
 /**
  * @summary One durable drain pass over the `add_memory` write-ahead log.
@@ -96,38 +96,34 @@ export function getBackoffDelayMs(backoffBaseMs, attempt) {
 }
 
 /**
- * @summary Typed provider error codes meaning "the provider is BUSY", never "the request was bad".
+ * @summary Default contention predicate — is this failure the provider being saturated, never
+ * "the request was bad"?
  *
  * Both local inference providers stamp a code on their own timeout: the OpenAI-compatible transport
  * emits `OPENAI_COMPATIBLE_REQUEST_TIMEOUT`, native Ollama owns the shared `PROVIDER_TIMEOUT` shape,
  * and the socket layer contributes the two `*TIMEDOUT` codes. Keyed on `error.code` rather than on
  * message text: codes are a provider-owned protocol constant, whereas the message-shaped half of
  * the classification in `TextEmbeddingService` is coupled to a message THIS module never sees
- * (that file pins its own log string verbatim precisely because its regex reads it). Duplicating
- * the coupled half here would split a matched pair across modules; duplicating the codes does not.
+ * (that file pins its own log string verbatim precisely because its regex reads it). Splitting that
+ * matched pair across modules is what must not happen; sharing the codes is not that.
  *
- * **Both codes are IMPORTED from their single owner** (`ai/provider/createTimeoutError.mjs`), so a
- * rename at the source is a compile-visible event in this classifier rather than a silent behaviour
- * change. That matters more here than tidiness: while the value was repeated at the producer and at
- * each consumer, a coordinated producer-plus-producer-test rename could have left this classifier
- * and its fixtures green while restoring the exact retry amplification the classifier exists to
- * prevent. Independently-pinned literals cannot detect coordinated drift; a shared import can.
- * @type {Set<String>}
- */
-const PROVIDER_CONTENTION_CODES = Object.freeze(new Set([
-    'ESOCKETTIMEDOUT',
-    'ETIMEDOUT',
-    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
-    PROVIDER_TIMEOUT_CODE
-]));
-
-/**
- * @summary Default contention predicate — is this failure the provider being saturated?
+ * **The membership test itself now comes from the codes' single owner**
+ * ({@link Neo.ai.provider.createTimeoutError.isProviderTimeoutCode}), which strengthens an argument
+ * this classifier already made. Importing the two constants made a *rename* compile-visible here;
+ * importing the predicate makes an *added timeout code* arrive here too. That distinction is the
+ * whole point: a coordinated producer-plus-producer-test change could previously have left this
+ * classifier and its fixtures green while restoring the exact retry amplification the classifier
+ * exists to prevent. Independently-pinned lists cannot detect coordinated drift, and a list that is
+ * merely *built from* shared constants still silently disagrees when a fifth code is added.
+ *
+ * This daemon's contention question is exactly "did the provider attempt time out", so the shared
+ * predicate is consumed whole rather than composed with extra terms.
+ *
  * @param {Error} error Failure raised by `collection.add`.
  * @returns {Boolean}
  */
 export function isProviderContentionError(error) {
-    return PROVIDER_CONTENTION_CODES.has(error?.code);
+    return isProviderTimeoutCode(error?.code);
 }
 
 /**

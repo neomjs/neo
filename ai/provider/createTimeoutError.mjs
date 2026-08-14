@@ -35,6 +35,45 @@ const PROVIDER_TIMEOUT_CODE = 'PROVIDER_TIMEOUT';
 const OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
 
 /**
+ * Every code that means "a provider request ran out of time", across both local transports.
+ *
+ * Two of these are ours ({@link PROVIDER_TIMEOUT_CODE}, {@link OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE})
+ * and two are Node's socket-layer codes that surface when the transport gives up before either of ours
+ * is stamped. Consumers care about the union — "did this attempt time out" — while the individual codes
+ * stay distinct facts about WHICH layer gave up, which is why the union lives beside them rather than
+ * collapsing them.
+ * @type {Set<String>}
+ */
+const PROVIDER_TIMEOUT_CODES = Object.freeze(new Set([
+    'ESOCKETTIMEDOUT',
+    'ETIMEDOUT',
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE
+]));
+
+/**
+ * @summary Whether an error code is a provider timeout — the one classifier both local providers share.
+ *
+ * The membership test itself is trivial; housing it here is the point. This exact four-code list had
+ * been re-typed at four call sites with three different shapes (a frozen Set, two inline `||` chains,
+ * and a chain that also matches an HTTP contention pattern), so adding a fifth timeout code meant
+ * finding all four — and the JSDoc above {@link OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE} already records
+ * why a coordinated rename can keep every test green while silently restoring retry amplification.
+ *
+ * **Deliberately narrow.** This answers "did the attempt time out", nothing else. Callers that also
+ * treat aborts, an open circuit, or provider-busy responses as terminal COMPOSE those terms around this
+ * predicate rather than folding them in: an abort and an open circuit are caller-owned facts with
+ * different outcomes, and a predicate that quietly absorbed them would let a cancelled request read as
+ * a provider timeout at every consumer at once.
+ *
+ * @param {String|undefined|null} code The `error.code` to classify.
+ * @returns {Boolean} `true` only for a known provider-timeout code.
+ */
+function isProviderTimeoutCode(code) {
+    return PROVIDER_TIMEOUT_CODES.has(code);
+}
+
+/**
  * @summary The shared provider-request options contract honored by local providers.
  *
  * @typedef {Object} ProviderTimeoutOptions
@@ -71,4 +110,10 @@ function createTimeoutError({provider, operationLabel, timeoutMs, host, modelNam
     return error;
 }
 
-export {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE, createTimeoutError};
+export {
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODES,
+    createTimeoutError,
+    isProviderTimeoutCode
+};
