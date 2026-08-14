@@ -42,6 +42,12 @@ const OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE = 'OPENAI_COMPATIBLE_REQUEST_TIMEOU
  * is stamped. Consumers care about the union — "did this attempt time out" — while the individual codes
  * stay distinct facts about WHICH layer gave up, which is why the union lives beside them rather than
  * collapsing them.
+ *
+ * **Module-private on purpose.** Only {@link isProviderTimeoutCode} crosses the boundary. A `Set` is
+ * not protected by `Object.freeze` — `.add()` still succeeds on a frozen one — so an exported set would
+ * be a shared mutable classifier that any consumer could widen for every other consumer at once. That
+ * is the drift this SSOT exists to remove, so the set does not leave this module and no consumer needs
+ * it to: all three ask the same question, and the predicate is that question.
  * @type {Set<String>}
  */
 const PROVIDER_TIMEOUT_CODES = Object.freeze(new Set([
@@ -113,7 +119,6 @@ function createTimeoutError({provider, operationLabel, timeoutMs, host, modelNam
 export {
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
     PROVIDER_TIMEOUT_CODE,
-    PROVIDER_TIMEOUT_CODES,
     createTimeoutError,
     isProviderTimeoutCode
 };

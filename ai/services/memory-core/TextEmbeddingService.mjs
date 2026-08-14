@@ -14,7 +14,11 @@ import {
     observeUnqueuedProviderActivity
 }                           from '../shared/providerActivityLedger.mjs';
 import MemoryCoreRecorderService                                       from './MemoryCoreRecorderService.mjs';
-import {OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE, PROVIDER_TIMEOUT_CODE} from '../../provider/createTimeoutError.mjs';
+import {
+    OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE,
+    PROVIDER_TIMEOUT_CODE,
+    isProviderTimeoutCode
+}                           from '../../provider/createTimeoutError.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -463,10 +467,63 @@ export function isOpenAiCompatibleContentionTimeoutError(error) {
     const message = error?.message || '',
           code    = error?.code    || '';
 
+    // Deliberately NOT `isProviderTimeoutCode`: this predicate answers "should the interactive
+    // single-embed retry", which is a superset on one axis (the HTTP contention message) and a
+    // subset on another — `PROVIDER_TIMEOUT` is absent because the OpenAI-compatible embedding
+    // transport never stamps it. Swapping in the shared four-code predicate would widen contention
+    // retry rather than deduplicate it, so the two classifiers stay separate on purpose.
     return code === OPENAI_COMPATIBLE_REQUEST_TIMEOUT_CODE ||
         code === 'ETIMEDOUT' ||
         code === 'ESOCKETTIMEDOUT' ||
         OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE.test(message);
+}
+
+/**
+ * @summary Runs the caller-owned provider-timeout circuit hook BEFORE local admission advances —
+ * the one ordered notification both local embedding providers share.
+ *
+ * **Why one helper rather than a branch per provider.** The two paths have genuinely different
+ * admission machinery (native Ollama: a capped slot released on provider settlement; OpenAI-compatible:
+ * a single-lane queue whose drain selects the next task immediately after a rejection), but they owe
+ * the caller the identical *ordering* guarantee: if this attempt timed out, the caller's circuit is
+ * told before anything else can be dispatched into the provider that just failed. Expressing that
+ * ordering twice is what let it exist in only one of them.
+ *
+ * **What this helper does NOT own.** It does not create, hold, or reason about the tenant-run circuit;
+ * it does not author the circuit-open reason; and it never converts a hook failure into an outcome.
+ * The caller owns its `AbortController` and its distinct circuit-open error — this layer owns only
+ * "typed timeout detected → notify synchronously → let the source error stand".
+ *
+ * **The containment cell, stated exactly.** A hook
+ * that synchronously opens its circuit and *then* throws is contained here — the source provider error
+ * survives, admission is not stalled, and a queued task's synchronous removal is not undone. A hook
+ * that throws *before* opening its circuit is explicitly outside the guarantee: this layer will not
+ * invent fallback circuit authority, so a later dispatch is possible and is the caller's contract to
+ * keep, not this helper's to synthesize.
+ *
+ * @param {Object} options
+ * @param {Error} options.error The settled provider failure to classify.
+ * @param {Function} [options.onProviderTimeout] Caller-owned synchronous circuit hook.
+ * @param {String} options.providerLabel Bounded provider name for the diagnostic log only.
+ * @returns {Boolean} `true` when the error was a typed provider timeout (whether or not a hook ran).
+ */
+export function notifyProviderTimeout({error, onProviderTimeout, providerLabel}) {
+    if (!isProviderTimeoutCode(error?.code)) {
+        return false;
+    }
+
+    try {
+        onProviderTimeout?.(error);
+    } catch (hookError) {
+        // The hook is an advisory circuit signal, never a replacement for the source provider error.
+        // Preserve the timing-out repository's timeout identity even when a caller supplied a broken
+        // hook, and keep the log bounded to structural error identity — never hook or prompt content.
+        logger.warn(`[TextEmbeddingService] ${providerLabel} provider-timeout hook failed.`, {
+            errorName: hookError?.name || 'Error'
+        });
+    }
+
+    return true;
 }
 
 /**
@@ -703,6 +760,19 @@ class TextEmbeddingService extends Base {
                     task.resolve(result);
                 } catch (err) {
                     task.lifecycle.onSettled({completedAt: Date.now(), success: false});
+
+                    // The queue task — not each transport attempt — owns final failure, so by the
+                    // time this catch runs `#postOpenAiCompatible` has already exhausted its
+                    // contention/unload retries. This is therefore the FINAL logical timeout, and it
+                    // is the last point before `while` selects another task and dispatches into the
+                    // provider that just failed. Notify before `reject` so the caller's circuit is
+                    // open before any continuation of theirs can observe the rejection.
+                    notifyProviderTimeout({
+                        error            : err,
+                        onProviderTimeout: task.options?.onProviderTimeout,
+                        providerLabel    : 'OpenAI-compatible'
+                    });
+
                     task.reject(err);
                 }
             }
@@ -1553,16 +1623,14 @@ class TextEmbeddingService extends Base {
                     // listeners synchronously remove never-dispatched waiters from the admission
                     // queue; releasing first would let the next repository acquire the slot behind
                     // work whose provider-side settlement is not known to imply compute idleness.
-                    if (error?.code === PROVIDER_TIMEOUT_CODE) {
-                        onProviderTimeout?.(error);
-                    }
-                } catch (hookError) {
-                    // The hook is an advisory circuit signal, never a replacement for the source
-                    // provider error. Preserve A's timeout identity even if a caller supplied a
-                    // broken hook, and keep the log bounded to structural error identity.
-                    logger.warn('[TextEmbeddingService] Native Ollama provider-timeout hook failed.', {
-                        errorName: hookError?.name || 'Error'
-                    });
+                    //
+                    // The same helper runs at the OpenAI-compatible queue's final rejection, so both
+                    // lanes share one ordering guarantee. Note this fires on the full typed-timeout
+                    // set rather than `PROVIDER_TIMEOUT` alone:
+                    // a native request that dies at the socket layer (`ETIMEDOUT`/`ESOCKETTIMEDOUT`)
+                    // was previously invisible to the circuit here, which is the same defect in the
+                    // native path that this ticket fixes in the queued one.
+                    notifyProviderTimeout({error, onProviderTimeout, providerLabel: 'Native Ollama'});
                 } finally {
                     this.#releaseOllamaEmbeddingSlot();
                 }
@@ -1589,12 +1657,15 @@ class TextEmbeddingService extends Base {
      *
      * @param {String[]} texts The texts to embed.
      * @param {Object} options Abort and observability context.
+     * @param {Function} [options.onProviderTimeout] Caller-owned synchronous provider-timeout circuit
+     *     hook, carried to the queue task so the drain can notify before selecting another task.
      * @param {Function} [options.shouldYield] Cooperative heavy-maintenance-lease yield predicate.
      * @returns {Promise<number[][]>}
      * @private
      */
     async #embedOpenAiCompatibleBatch(texts, options) {
         const {
+            onProviderTimeout,
             operation,
             operationLabel,
             providerActivity,
@@ -1648,6 +1719,7 @@ class TextEmbeddingService extends Base {
                       requestTimeoutMs,
                       signal,
                       operationLabel,
+                      onProviderTimeout,
                       operation,
                       providerActivity,
                       providerActivityRecorder
@@ -1727,6 +1799,7 @@ class TextEmbeddingService extends Base {
                     requestTimeoutMs     : contentionTimeoutMs,
                     signal,
                     operationLabel,
+                    onProviderTimeout,
                     operation,
                     providerActivity,
                     providerActivityRecorder
@@ -1842,6 +1915,7 @@ class TextEmbeddingService extends Base {
                 return this.#embedOpenAiCompatibleBatch(requestTexts, {
                     operation,
                     operationLabel,
+                    onProviderTimeout,
                     providerActivity,
                     providerActivityRecorder,
                     shouldYield,
