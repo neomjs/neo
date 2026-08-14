@@ -110,10 +110,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         expect(config.collectionName).toBe('neo-knowledge-base');
         expect(config.path).toBe(tier1Template.engines.chroma.dataDir);
         expect(tier1Template.engines.chroma.dataDir).toBe(tier1Template.engines.chroma.dataDirTest);
-        expect(config.collectionResolveRetry.maxAttempts).toBe(5);
+        expect(config.collectionResolveRetry.maxAttempts).toBe(10);
         expect(config.collectionResolveRetry.initialDelayMs).toBe(500);
         expect(config.collectionResolveRetry.maxDelayMs).toBe(2000);
-        expect(config.collectionResolveRetry.maxTotalDelayMs).toBe(5000);
+        expect(config.collectionResolveRetry.maxTotalDelayMs).toBe(15000);
         expect(config.memoryCoreDbUseTestDatabase).toBe(true);
         expect(config.memoryCoreDbUseTestHarness).toBe(true);
         expect(config.memoryCoreDbPath).toBe(config.memoryCoreDbPathTest);

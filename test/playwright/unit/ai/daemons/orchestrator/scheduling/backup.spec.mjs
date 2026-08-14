@@ -3,6 +3,7 @@ import {
     BACKUP_RETRY_PHASE,
     buildBackupTrigger,
     countRemainingRetries,
+    describeBackupMaintenanceHealth,
     describeBackupRetryState,
     getDueTask,
     isFailedRunRetryDue
@@ -231,12 +232,36 @@ test.describe('orchestrator/scheduling/backup — retry phase reporting (#16348 
     test('reports exhausted once the window has closed, with no retries remaining', () => {
         const state = describeBackupRetryState({
             ...retryOpts(),
-            now      : T + DAY_MS + 1000 + WINDOW_MS + 1,
-            taskState: productionFailure()
+            intervalMs: DAY_MS,
+            now       : T + DAY_MS + 1000 + WINDOW_MS + 1,
+            taskState : productionFailure()
         });
 
         expect(state.phase).toBe(BACKUP_RETRY_PHASE.exhausted);
         expect(state.retriesRemaining).toBe(0);
+        expect(state.nextAttemptAtMs).toBe(T + DAY_MS * 2);
+        expect(state.lastSuccessAt).toBe(iso(T));
+        expect(state.lastSuccessAgeMs).toBe(DAY_MS + 1000 + WINDOW_MS + 1);
+    });
+
+    test('#17068: exhaustion exposes the existing periodic fallback and becomes due at that cadence', () => {
+        const
+            lastRunAt   = T + DAY_MS,
+            state       = productionFailure({lastRunAt}),
+            exhaustedAt = Date.parse(state.failureStreakStartedAt) + WINDOW_MS + 1,
+            retry       = describeBackupRetryState({
+                ...retryOpts(), intervalMs: DAY_MS, now: exhaustedAt, taskState: state
+            });
+
+        expect(retry.phase).toBe(BACKUP_RETRY_PHASE.exhausted);
+        expect(retry.nextAttemptAtMs).toBe(lastRunAt + DAY_MS);
+        expect(getDueTask({
+            state              : {backup: state},
+            now                : retry.nextAttemptAtMs,
+            backupIntervalMs   : DAY_MS,
+            backupRetryDelayMs : DELAY_MS,
+            backupRetryWindowMs: WINDOW_MS
+        })).toMatchObject({source: 'periodic-sweep'});
     });
 
     /**
@@ -274,5 +299,47 @@ test.describe('orchestrator/scheduling/backup — retry phase reporting (#16348 
             now      : T,
             taskState: {failureStreakStartedAt: 'not-a-date', lastSuccessAt: 'not-a-date'}
         }).phase).toBe(BACKUP_RETRY_PHASE.unanchored);
+    });
+});
+
+test.describe('orchestrator/scheduling/backup — maintenance health (#17068)', () => {
+    test('degrades with bounded reason codes for the observed failed/exhausted/unmet shape', () => {
+        const health = describeBackupMaintenanceHealth({
+            backupIntervalMs: DAY_MS,
+            durability      : {posture: 'unmet'},
+            lastBackup      : {backup: {status: 'failed'}},
+            retryState      : {
+                phase           : BACKUP_RETRY_PHASE.exhausted,
+                lastSuccessAgeMs: DAY_MS + WINDOW_MS + 1,
+                lastSuccessAt   : iso(T)
+            },
+            retryWindowMs: WINDOW_MS
+        });
+
+        expect(health).toEqual({
+            reasonCodes: [
+                'off-host-durability-unmet',
+                'backup-retry-exhausted',
+                'backup-last-run-failed',
+                'backup-success-overdue'
+            ],
+            staleAfterMs: DAY_MS + WINDOW_MS,
+            status      : 'degraded'
+        });
+    });
+
+    test('reports pending before a first receipt and healthy after a fresh successful run', () => {
+        expect(describeBackupMaintenanceHealth({durability: {posture: 'configured'}}).status).toBe('pending');
+        expect(describeBackupMaintenanceHealth({
+            backupIntervalMs: DAY_MS,
+            durability      : {posture: 'configured'},
+            lastBackup      : {backup: {status: 'success'}},
+            retryState      : {
+                phase           : BACKUP_RETRY_PHASE.healthy,
+                lastSuccessAgeMs: 1000,
+                lastSuccessAt   : iso(T)
+            },
+            retryWindowMs: WINDOW_MS
+        })).toEqual({reasonCodes: [], staleAfterMs: DAY_MS + WINDOW_MS, status: 'healthy'});
     });
 });

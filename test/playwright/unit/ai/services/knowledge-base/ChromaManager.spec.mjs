@@ -158,6 +158,33 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         expect(ChromaManager.knowledgeBaseCollection).toBe(null);
     });
 
+    test('#17068: the bounded resolver spans a dependency restart longer than the prior five-second horizon', async () => {
+        const delays   = [];
+        let   getCount = 0;
+
+        ChromaManager.collectionResolveRetrySleepFn = async delayMs => { delays.push(delayMs); };
+        ChromaManager.client = {
+            getCollection: async options => {
+                getCount++;
+
+                if (delays.reduce((total, delayMs) => total + delayMs, 0) <= 6000) {
+                    const error = new Error('Failed to connect to chromadb');
+                    error.name  = 'ChromaConnectionError';
+                    throw error;
+                }
+
+                return {name: options.name};
+            }
+        };
+
+        await expect(ChromaManager.getKnowledgeBaseCollection())
+            .resolves.toMatchObject({name: aiConfig.collectionName});
+        expect(getCount).toBeGreaterThan(aiConfig.collectionResolveRetry.maxAttempts / 2);
+        expect(delays.reduce((total, delayMs) => total + delayMs, 0)).toBeGreaterThan(6000);
+        expect(delays.reduce((total, delayMs) => total + delayMs, 0))
+            .toBeLessThanOrEqual(aiConfig.collectionResolveRetry.maxTotalDelayMs);
+    });
+
     test('getKnowledgeBaseCollection treats ChromaNotFoundError as missing canonical collection', async () => {
         let createCount = 0;
         let capturedOptions;

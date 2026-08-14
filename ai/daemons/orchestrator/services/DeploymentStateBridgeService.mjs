@@ -68,7 +68,10 @@ import {
     readBackupReceipt,
     validateOffHostSyncConfig
 } from '../../../services/memory-core/helpers/offHostSyncStore.mjs';
-import {describeBackupRetryState}    from '../scheduling/backup.mjs';
+import {
+    describeBackupMaintenanceHealth,
+    describeBackupRetryState
+} from '../scheduling/backup.mjs';
 import {resolveDurabilityPosture}    from './deploymentDurabilityPosture.mjs';
 import {summarizeStagingResidue}     from '../../../scripts/maintenance/backupStagingResidueCore.mjs';
 import {readRecentRecoveryRunStates} from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
@@ -461,42 +464,51 @@ export class DeploymentStateBridgeService extends Base {
             stagingResidue: await summarizeStagingResidue(stagingResidueRoot)
         };
 
+        let retryState = null,
+            lastBackup = null;
+
         if (backupTaskState) {
-            base.retry = describeBackupRetryState({
+            retryState = describeBackupRetryState({
                 now,
+                intervalMs   : AiConfig.orchestrator.intervals.backupMs,
                 retryDelayMs : AiConfig.orchestrator.intervals.backupRetryDelayMs,
                 retryWindowMs: AiConfig.orchestrator.intervals.backupRetryWindowMs,
                 taskState    : backupTaskState
-            })
+            });
+            base.retry = retryState
         }
 
         try {
             const outcome = await readBackupReceipt({filePath: receiptPath});
 
-            if (outcome.status === 'missing') return base;
-
             if (outcome.status === 'unreadable') {
-                return {
-                    ...base,
-                    lastBackup: {
-                        finishedAt: outcome.finishedAt,
-                        kind      : outcome.kind,
-                        status    : 'unreadable'
-                    }
-                }
-            }
-
-            return {...base, lastBackup: outcome.receipt}
-        } catch (error) {
-            return {
-                ...base,
-                lastBackup: {
-                    finishedAt: null,
-                    kind      : 'corrupt',
+                lastBackup = {
+                    finishedAt: outcome.finishedAt,
+                    kind      : outcome.kind,
                     status    : 'unreadable'
                 }
+            } else if (outcome.status === 'ok') {
+                lastBackup = outcome.receipt
+            }
+        } catch (error) {
+            lastBackup = {
+                finishedAt: null,
+                kind      : 'corrupt',
+                status    : 'unreadable'
             }
         }
+
+        if (lastBackup) base.lastBackup = lastBackup;
+
+        base.health = describeBackupMaintenanceHealth({
+            durability,
+            lastBackup,
+            retryState,
+            backupIntervalMs: AiConfig.orchestrator.intervals.backupMs,
+            retryWindowMs   : AiConfig.orchestrator.intervals.backupRetryWindowMs
+        });
+
+        return base
     }
 
 

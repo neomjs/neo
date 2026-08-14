@@ -161,7 +161,49 @@ export function isFailedRunRetryDue({
 }
 
 /**
- * Reports the lane's retry phase as durable, readable STATE rather than a log edge.
+ * @summary Derives the backup lane's next scheduler eligibility from the same persisted facts and
+ * cadence bounds consumed by {@link buildBackupTrigger}.
+ *
+ * A closed retry burst is not a terminal lane: the ordinary periodic sweep remains eligible. This
+ * projection makes that fallback visible instead of asking an operator to infer it from
+ * `phase: exhausted`. `now` is returned when a path is already due; admission/backpressure may
+ * still defer its actual dispatch.
+ * @param {Object} options
+ * @param {Number} options.now Current timestamp in milliseconds.
+ * @param {Number} options.lastRunAt Last backup attempt timestamp.
+ * @param {Number} options.streakStartedAtMs Failure-streak anchor.
+ * @param {Number} options.intervalMs Ordinary periodic cadence.
+ * @param {Number} options.retryDelayMs Failed-run retry spacing.
+ * @param {Number} options.retryWindowMs Failed-run retry window.
+ * @returns {Number|null}
+ */
+function resolveNextBackupAttemptAtMs({
+    now,
+    lastRunAt,
+    streakStartedAtMs,
+    intervalMs,
+    retryDelayMs,
+    retryWindowMs
+}) {
+    const candidates = [];
+
+    if (intervalMs > 0) {
+        candidates.push(Math.max(now, lastRunAt + intervalMs))
+    }
+
+    if (retryDelayMs > 0 && isRetryWindowOpen({now, streakStartedAtMs, retryWindowMs})) {
+        const retryAtMs = Math.max(now, lastRunAt + retryDelayMs);
+
+        if (retryAtMs < streakStartedAtMs + retryWindowMs) {
+            candidates.push(retryAtMs)
+        }
+    }
+
+    return candidates.length > 0 ? Math.min(...candidates) : null
+}
+
+/**
+ * @summary Reports the lane's retry phase as durable, readable STATE rather than a log edge.
  *
  * @summary AC5 requires budget exhaustion to reach a surface. An edge-triggered log would need
  * its own persisted "already warned" flag and would be lost on restart; every field this reads
@@ -171,15 +213,33 @@ export function isFailedRunRetryDue({
  * @param {Object} options
  * @param {Object} [options.taskState={}] Persisted `backup` task state.
  * @param {Number} options.now Current timestamp in milliseconds.
+ * @param {Number} [options.intervalMs=0] Ordinary periodic cadence.
  * @param {Number} [options.retryDelayMs=0] Minimum spacing between retries.
  * @param {Number} [options.retryWindowMs=0] Retry window measured from the streak anchor.
- * @returns {{phase: String, retriesRemaining: Number, windowEndsAtMs: Number|null, streakStartedAtMs: Number, interruptedAt: String|null}}
+ * @returns {{phase: String, retriesRemaining: Number, windowEndsAtMs: Number|null, streakStartedAtMs: Number, interruptedAt: String|null, lastSuccessAt: String|null, lastSuccessAgeMs: Number|null, nextAttemptAtMs: Number|null}}
  */
-export function describeBackupRetryState({taskState = {}, now, retryDelayMs = 0, retryWindowMs = 0} = {}) {
+export function describeBackupRetryState({
+    taskState     = {},
+    now,
+    intervalMs    = 0,
+    retryDelayMs  = 0,
+    retryWindowMs = 0
+} = {}) {
     const streakStartedAtMs = toEpochMs(taskState.failureStreakStartedAt),
           lastSuccessAtMs   = toEpochMs(taskState.lastSuccessAt),
           interruptedAt     = taskState.interruptedAt || null,
-          base              = {retriesRemaining: 0, windowEndsAtMs: null, streakStartedAtMs, interruptedAt};
+          lastRunAt         = Number.isFinite(Number(taskState.lastRunAt)) ? Number(taskState.lastRunAt) : 0,
+          base              = {
+              interruptedAt,
+              lastSuccessAgeMs: lastSuccessAtMs > 0 ? Math.max(0, now - lastSuccessAtMs) : null,
+              lastSuccessAt   : lastSuccessAtMs > 0 ? taskState.lastSuccessAt : null,
+              nextAttemptAtMs : resolveNextBackupAttemptAtMs({
+                  now, lastRunAt, streakStartedAtMs, intervalMs, retryDelayMs, retryWindowMs
+              }),
+              retriesRemaining: 0,
+              streakStartedAtMs,
+              windowEndsAtMs  : null
+          };
 
     // No open streak: either known-good, or never ran at all. Both are reported, never conflated —
     // an interrupted run opens a streak (`readState` normalizes fail-closed), so it cannot land here.
@@ -195,11 +255,75 @@ export function describeBackupRetryState({taskState = {}, now, retryDelayMs = 0,
         phase           : open ? BACKUP_RETRY_PHASE.retrying : BACKUP_RETRY_PHASE.exhausted,
         retriesRemaining: open
             ? countRemainingRetries({
-                now, lastRunAt: taskState.lastRunAt || 0, streakStartedAtMs, retryDelayMs, retryWindowMs
+                now, lastRunAt, streakStartedAtMs, retryDelayMs, retryWindowMs
             })
             : 0,
         windowEndsAtMs
     };
+}
+
+/**
+ * @summary Reports a bounded, machine-readable maintenance-health verdict from backup facts the
+ * deployment snapshot already owns.
+ *
+ * The verdict adds no scheduler or persistence. It translates the existing retry state, last
+ * receipt, and durability posture into stable reason codes so consumers do not reverse-engineer a
+ * safety decision from several fields. Backup freshness becomes overdue after one ordinary cadence
+ * plus its bounded recovery window — the existing two configuration authorities, not a new hidden
+ * threshold.
+ * @param {Object} options
+ * @param {Object} [options.durability={}] Deployment durability posture.
+ * @param {Object|null} [options.lastBackup=null] Validated last-backup receipt projection.
+ * @param {Object|null} [options.retryState=null] Output of {@link describeBackupRetryState}.
+ * @param {Number} [options.backupIntervalMs=0] Ordinary backup cadence.
+ * @param {Number} [options.retryWindowMs=0] Bounded failed-run recovery window.
+ * @returns {{status: 'healthy'|'degraded'|'pending', reasonCodes: String[], staleAfterMs: Number|null}}
+ */
+export function describeBackupMaintenanceHealth({
+    durability       = {},
+    lastBackup       = null,
+    retryState       = null,
+    backupIntervalMs = 0,
+    retryWindowMs    = 0
+} = {}) {
+    const
+        reasonCodes  = [],
+        staleAfterMs = backupIntervalMs > 0
+            ? backupIntervalMs + Math.max(0, retryWindowMs)
+            : null;
+
+    if (durability.posture === 'unmet') {
+        reasonCodes.push('off-host-durability-unmet')
+    }
+    if (durability.configErrorCode) {
+        reasonCodes.push('off-host-config-invalid')
+    }
+    if (retryState?.phase === BACKUP_RETRY_PHASE.retrying) {
+        reasonCodes.push('backup-retry-open')
+    } else if (retryState?.phase === BACKUP_RETRY_PHASE.exhausted) {
+        reasonCodes.push('backup-retry-exhausted')
+    }
+    if (lastBackup?.status === 'unreadable') {
+        reasonCodes.push('backup-receipt-unreadable')
+    } else if (lastBackup?.backup?.status === 'failed') {
+        reasonCodes.push('backup-last-run-failed')
+    }
+    if (retryState && retryState.phase !== BACKUP_RETRY_PHASE.unanchored && !retryState.lastSuccessAt) {
+        reasonCodes.push('backup-never-succeeded')
+    }
+    if (staleAfterMs !== null && retryState?.lastSuccessAgeMs > staleAfterMs) {
+        reasonCodes.push('backup-success-overdue')
+    }
+
+    return {
+        reasonCodes: [...new Set(reasonCodes)],
+        staleAfterMs,
+        status     : reasonCodes.length > 0
+            ? 'degraded'
+            : (!lastBackup && (!retryState || retryState.phase === BACKUP_RETRY_PHASE.unanchored)
+                ? 'pending'
+                : 'healthy')
+    }
 }
 
 /**
