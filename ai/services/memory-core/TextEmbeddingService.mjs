@@ -1585,7 +1585,8 @@ class TextEmbeddingService extends Base {
      * Local OpenAI-compatible embedding servers often serialize model requests. Sending the whole
      * KB-sync batch as one provider call can monopolize that server for minutes. Chunking keeps
      * batch ingestion moving while yielding between chunks so interactive single embeddings can
-     * enter the provider queue before the next batch chunk.
+     * enter the provider queue before the next batch chunk. Multi-slot lanes additionally reserve
+     * one declared slot from each batch request so another provider request remains admissible.
      *
      * @param {String[]} texts The texts to embed.
      * @param {Object} options Abort and observability context.
@@ -1608,10 +1609,18 @@ class TextEmbeddingService extends Base {
             batchEmbeddingTimeoutMs = DEFAULT_OPENAI_COMPATIBLE_REQUEST_TIMEOUT_MS,
             batchEmbeddingYieldMs   = 0
         } = aiConfig.openAiCompatible;
-        const chunkSize        = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
-              requestTimeoutMs = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
-              totalChunkCount  = Math.ceil(texts.length / chunkSize),
-              data             = [];
+        const configuredChunkSize = Math.max(1, Math.floor(batchEmbeddingChunkSize || texts.length)),
+              embeddingParallel   = aiConfig.localModels.embedding.parallel,
+              // llama.cpp expands a multi-input embedding POST into one task per input. Keeping one
+              // declared slot outside this request makes interleaving possible without inventing a
+              // second slot-count authority or collapsing single-slot / generic remote endpoints.
+              slotHeadroomWidth = Number.isInteger(embeddingParallel) && embeddingParallel > 1 ?
+                  embeddingParallel - 1 :
+                  configuredChunkSize,
+              chunkSize          = Math.min(configuredChunkSize, slotHeadroomWidth),
+              requestTimeoutMs   = assertPositiveTimeoutMs(batchEmbeddingTimeoutMs, 'openAiCompatible.batchEmbeddingTimeoutMs'),
+              totalChunkCount    = Math.ceil(texts.length / chunkSize),
+              data               = [];
 
         let completedChunkCount = 0;
 
