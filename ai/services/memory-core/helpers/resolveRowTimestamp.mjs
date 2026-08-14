@@ -5,7 +5,8 @@
  * `Date#toISOString()` raises `RangeError: Invalid time value` on an Invalid Date. Every Memory Core
  * result projection calls it once per row *inside* a result map, where the surrounding method-level
  * `catch` escalates a single row's defect into a whole-call error and discards every well-formed
- * co-resident row. A per-record data condition becomes a per-call outage.
+ * co-resident row. A per-record data condition becomes a per-call outage — on the summaries
+ * surface that surfaced as a whole-call `SUMMARY_QUERY_ERROR`.
  *
  * The exposure is not uniform across read paths. An id-scoped list projects a bounded, caller-named
  * slice, while a semantic query is width-amplified — `StorageRouter.injectQueryReRanker` widens Pass 1

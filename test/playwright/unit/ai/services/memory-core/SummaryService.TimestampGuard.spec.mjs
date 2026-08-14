@@ -18,6 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import SummaryService from '../../../../../../ai/services/memory-core/SummaryService.mjs';
 import StorageRouter  from '../../../../../../ai/services/memory-core/managers/StorageRouter.mjs';
+import {resolveRowTimestamp} from '../../../../../../ai/services/memory-core/helpers/resolveRowTimestamp.mjs';
 
 /**
  * Summary-row timestamp projection guard.
@@ -184,9 +185,10 @@ test.describe('Neo.ai.services.memory-core.SummaryService — timestamp projecti
         expect(listed.count).toBe(2);
     });
 
-    test('resolveSummaryTimestamp projects, nulls, and keeps null-coercion parity (unit-level)', () => {
-        // The default export is the singleton instance → the static helper lives on .constructor.
-        const resolve = metadata => SummaryService.constructor.resolveSummaryTimestamp(metadata);
+    test('resolveRowTimestamp projects, nulls, and keeps null-coercion parity (unit-level)', () => {
+        // Both projections in SummaryService call the shared helper, so the unit-level arm
+        // targets it directly rather than a service-local copy.
+        const resolve = metadata => resolveRowTimestamp(metadata);
 
         expect(resolve({timestamp: 1700000000000})).toBe(new Date(1700000000000).toISOString());
         expect(resolve({timestamp: '2026-08-13T22:00:00.000Z'})).toBe('2026-08-13T22:00:00.000Z');
