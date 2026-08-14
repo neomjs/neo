@@ -78,14 +78,22 @@ test.describe('FleetServerComposition - ingress and compose polarity for the wak
         expect(composeYaml).not.toMatch(/NEO_FLEET_PLANE_BEARER: (?!\$\{)[^\s]/)
     });
 
-    test('the canonical render carries a REAL service credential: the mounted admission secret, by file custody', () => {
-        expect(composeYaml).toContain('NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/mcp-auth-token');
+    test('the canonical render carries a DEDICATED class-3 service credential by file custody — never the admission token', () => {
+        expect(composeYaml).toContain('NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/fleet-plane-token');
 
-        // The fleet-server service already mounts that exact secret. Anchored on the service
-        // KEY's line shape — the wake self-base URL contains the same literal mid-line.
+        // Separated-token teeth at the render level: the plane bearer's file and the
+        // bootstrap/healthcheck admission token's file are DISTINCT paths.
+        expect(composeYaml).not.toContain('NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/mcp-auth-token');
+
+        // Anchored on the service KEY's line shape — the wake self-base URL contains the same
+        // literal mid-line.
         const fleetService = composeYaml.split(/\n  fleet-server:\n/)[1].split(/\n  \S+:\n/)[0];
 
-        expect(fleetService).toContain('- mcp-auth-token')
+        expect(fleetService).toContain('- fleet-plane-token');
+
+        // And the secret itself is declared with the profile's loud-at-start custody shape.
+        expect(composeYaml).toContain('fleet-plane-token:');
+        expect(composeYaml).toContain('${NEO_FLEET_PLANE_TOKEN_FILE:-${HOME}/.neo-ai/secrets/fleet-plane-token}')
     });
 
     test('the ingress the arming path dials is the address the local Caddyfile actually binds', () => {
@@ -261,7 +269,11 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
             viewersByBearer = {
                 'ada-token'    : {login: 'ada', providerUserId: 1, identity: '@ada'},
                 'grace-token'  : {login: 'grace', providerUserId: 2, identity: '@grace'},
-                'service-token': {login: 'svc', providerUserId: 9, identity: '@svc'}
+                'service-token': {login: 'svc', providerUserId: 9, identity: '@svc'},
+                // The class-3 mints — DISTINCT credentials for the same viewers, because the
+                // ledger forbids the class-1 admission bearer from serving the MC audience.
+                'ada-mc-token'  : {login: 'ada', providerUserId: 1, identity: '@ada'},
+                'grace-mc-token': {login: 'grace', providerUserId: 2, identity: '@grace'}
             },
             keysByIdentity = {},
             toolCallsByIdentity = {};
@@ -306,6 +318,7 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
                         planeBase         : 'http://ingress:8080',
                         planeBearer       : 'service-token',
                         planeBearerFile   : '',
+                        admissionTokenFile: '',
                         planeInternalHosts: ['ingress']
                     }
                 },
@@ -343,10 +356,14 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
 
         const base = `http://127.0.0.1:${server.address().port}`;
 
-        async function connectSse(bearer) {
-            const response = await fetch(`${base}/fleet/events`, {
-                headers: {accept: 'text/event-stream', authorization: `Bearer ${bearer}`}
-            });
+        async function connectSse(fleetBearer, mcBearer = null) {
+            const headers = {accept: 'text/event-stream', authorization: `Bearer ${fleetBearer}`};
+
+            if (mcBearer) {
+                headers['x-neo-mc-authorization'] = `Bearer ${mcBearer}`
+            }
+
+            const response = await fetch(`${base}/fleet/events`, {headers});
 
             expect(response.status).toBe(200);
 
@@ -358,11 +375,19 @@ test.describe('FleetServerComposition - per-viewer ownership through the real se
         }
 
         try {
-            const
-                adaReader   = await connectSse('ada-token'),
-                graceReader = await connectSse('grace-token');
+            // The non-alias falsifier FIRST: a viewer presenting ONLY the class-1 Fleet
+            // admission bearer arms NOTHING — that header is never forwarded to /mc/mcp.
+            const classOneOnly = await connectSse('ada-token');
 
-            // Both viewers armed their OWN MC-owned routes with their OWN bearers.
+            expect(toolCallsByIdentity['@ada']).toBeUndefined();
+            await classOneOnly.cancel();
+
+            // Per-viewer arming rides the SEPARATELY CARRIED class-3 credential.
+            const
+                adaReader   = await connectSse('ada-token', 'ada-mc-token'),
+                graceReader = await connectSse('grace-token', 'grace-mc-token');
+
+            // Both viewers armed their OWN MC-owned routes with their OWN class-3 bearers.
             expect(toolCallsByIdentity['@ada']).toEqual(['subscribe', 'rotate-key']);
             expect(toolCallsByIdentity['@grace']).toEqual(['subscribe', 'rotate-key']);
 

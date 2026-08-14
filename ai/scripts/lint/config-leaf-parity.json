@@ -172,6 +172,7 @@
         "engines.chroma.useTestHarness",
         "engines.chroma.useUnitTestDatabase",
         "fleet",
+        "fleet.admissionTokenFile",
         "fleet.bearer",
         "fleet.bearerHandshake",
         "fleet.cockpitOrigins",

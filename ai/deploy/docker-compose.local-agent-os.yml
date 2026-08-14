@@ -93,14 +93,16 @@ services:
       # compose time — absent, the push lane boots honestly unarmed and says so.
       NEO_FLEET_PLANE_BASE: http://ingress:8080
       NEO_FLEET_PLANE_INTERNAL_HOSTS: ingress
-      # The service credential rides the SAME mounted secret the profile's admission already
-      # uses — a real, identity-bound bearer in the canonical render, with secret-file custody
-      # (never an env literal). The direct-value override stays available for non-compose runs.
-      NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/mcp-auth-token
+      # The service credential is a DEDICATED class-3 mint with secret-file custody — never the
+      # bootstrap/healthcheck admission token (the credential-class ledger forbids that
+      # aliasing, and the server enforces it at boot: an aliased token refuses to start). The
+      # direct-value override stays available for non-compose runs.
+      NEO_FLEET_PLANE_BEARER_FILE: /run/secrets/fleet-plane-token
       NEO_FLEET_PLANE_BEARER: ${NEO_FLEET_PLANE_BEARER:-}
       NEO_AGENT_IDENTITY: ${NEO_AGENT_IDENTITY:-}
     secrets:
       - mcp-auth-token
+      - fleet-plane-token
 
   ingress:
     restart: unless-stopped
@@ -137,3 +139,11 @@ secrets:
   # moment someone can act, rather than a silent fallback that restores the single-seat dependency.
   mcp-auth-token: !override
     file: ${NEO_MCP_AUTH_TOKEN_FILE:-${HOME}/.neo-ai/secrets/mcp-auth-token}
+  # The Fleet service's OWN class-3 plane credential — a DISTINCT mint from the admission
+  # token above, because the credential-class ledger forbids one secret serving both classes
+  # (and the fleet server refuses to boot on an aliased value). Same custody shape and the
+  # same loud-at-start philosophy: the wake push lane is declared by this profile, so its
+  # credential is required by it — mint once: a forge PAT for the fleet service's MC sessions,
+  # written to the path below.
+  fleet-plane-token:
+    file: ${NEO_FLEET_PLANE_TOKEN_FILE:-${HOME}/.neo-ai/secrets/fleet-plane-token}

@@ -324,6 +324,17 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeBearerFile: leaf('', 'NEO_FLEET_PLANE_BEARER_FILE', 'string'),
                 /**
+                 * Absolute path of the deployment's bootstrap/healthcheck admission token file
+                 * — bound to the SAME env name the MCP services already boot on (the
+                 * `wakeReceiverManifestPath` same-env-name precedent), so the Fleet entry can
+                 * enforce the credential-class non-alias rule with teeth: the plane bearer
+                 * (class 3) must never BE the admission/bootstrap token, and a deployment that
+                 * aliases them refuses to boot. Read-only comparison target; empty disables
+                 * the check, never the rule.
+                 * @type {string}
+                 */
+                admissionTokenFile: leaf('', 'NEO_MCP_HEALTHCHECK_TOKEN_FILE', 'string'),
+                /**
                  * Bearer credential for the app<->fleet TRANSPORT — a different credential from
                  * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
                  * the default is empty and never carries a value: `resolveFleetBearer` generates

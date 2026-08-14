@@ -21,6 +21,7 @@ import {createFleetWakeFanout}      from '../../../../../../ai/services/fleet/fl
 import {normalizeSecureMcpEndpoint} from '../../../../../../ai/services/fleet/mcpWireParsing.mjs';
 import {
     armFleetWakePushLane,
+    assertFleetPlaneBearerClass,
     createWakeArmingContext,
     resolveFleetPlaneBearer,
     resolveViewerStreamKey,
@@ -40,6 +41,7 @@ function armingFixture({initOk = true, provenIdentity = '@viewer'} = {}) {
             planeBase         : 'http://ingress:8080',
             planeBearer       : 'operator-supplied',
             planeBearerFile   : '',
+            admissionTokenFile: '',
             planeInternalHosts: ['ingress'],
             wakeSelfBase      : 'http://fleet-server:8083'
         }
@@ -234,12 +236,59 @@ test.describe('fleet wake arming - the service credential chain', () => {
                     planeBase         : 'http://ingress:8080',
                     planeBearer       : '',
                     planeBearerFile   : '',
+                    admissionTokenFile: '',
                     planeInternalHosts: ['ingress']
                 }
             },
             planeGuard: () => {},
             logger    : QUIET
         })).rejects.toThrow(/Refusing to boot a dead feature/)
+    });
+
+    test('the separated-token teeth: a plane bearer that IS the admission token is refused as an aliased credential', () => {
+        const files = {
+            '/run/secrets/fleet-plane-token': 'the-same-token\n',
+            '/run/secrets/mcp-auth-token'   : 'the-same-token\n'
+        };
+
+        expect(() => assertFleetPlaneBearerClass({
+            aiConfig: {fleet: {
+                planeBearer       : '',
+                planeBearerFile   : '/run/secrets/fleet-plane-token',
+                admissionTokenFile: '/run/secrets/mcp-auth-token'
+            }},
+            readFile: target => files[target]
+        })).toThrow(/credential-class ledger forbids/)
+    });
+
+    test('the separated-token teeth admit a genuinely distinct class-3 credential', () => {
+        const files = {
+            '/run/secrets/fleet-plane-token': 'distinct-class-3-mint',
+            '/run/secrets/mcp-auth-token'   : 'the-admission-token'
+        };
+
+        expect(assertFleetPlaneBearerClass({
+            aiConfig: {fleet: {
+                planeBearer       : '',
+                planeBearerFile   : '/run/secrets/fleet-plane-token',
+                admissionTokenFile: '/run/secrets/mcp-auth-token'
+            }},
+            readFile: target => files[target]
+        })).toBe('distinct-class-3-mint')
+    });
+
+    test('an unreadable admission file disables the comparison, never the credential', () => {
+        expect(assertFleetPlaneBearerClass({
+            aiConfig: {fleet: {
+                planeBearer       : 'direct-mint',
+                planeBearerFile   : '',
+                admissionTokenFile: '/missing'
+            }},
+            readFile: target => {
+                if (target === '/missing') throw new Error('ENOENT');
+                return ''
+            }
+        })).toBe('direct-mint')
     })
 });
 

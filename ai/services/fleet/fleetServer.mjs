@@ -407,21 +407,24 @@ export async function createFleetServerApp({
             return
         }
 
-        // Connect-time arming, per viewer, with the viewer's OWN presented bearer: the
-        // subscription is created by the viewer's credential (MC's caller-owned model holds
-        // per viewer, no delegation surface), the bearer is used in-flight only, and the
-        // stream registers under the identity MC PROVED for it — never the request's claim.
-        // A viewer without a usable bearer falls back to the service-proven path (which arms
-        // exactly the proven caller) and otherwise lands in the honest not-armed state.
+        // Connect-time arming, per viewer, with a SEPARATELY CARRIED class-3 credential: the
+        // viewer's MC bearer travels in its own header, because the class-1 Fleet admission
+        // bearer (the `Authorization` this route was admitted on) must NEVER be forwarded to
+        // the `/mc/mcp` audience — the ledger's non-alias rule, enforced here by simply never
+        // reading that header for this purpose. With the class-3 credential present, the
+        // subscription is created by the viewer's own MC authority (caller-owned per viewer),
+        // used in-flight only, and the stream registers under the identity MC PROVED — never
+        // the request's claim. Without it, the service-proven path answers (arming exactly the
+        // proven caller) and every other viewer lands in the honest not-armed state.
         let registrationKey = streamKey;
 
         if (app.fleetWakeArming) {
             try {
                 const
-                    bearer         = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '').trim(),
+                    mcBearer       = (req.headers['x-neo-mc-authorization'] ?? '').replace(/^Bearer\s+/i, '').trim(),
                     canonicalClaim = normalizeAgentIdentity(req.fleetRequestContext.providerUsername ?? req.fleetRequestContext.username),
-                    outcome        = bearer && canonicalClaim
-                        ? await app.fleetWakeArming.ensureArmedForViewer({viewerKey: streamKey, canonicalClaim, bearer})
+                    outcome        = mcBearer && canonicalClaim
+                        ? await app.fleetWakeArming.ensureArmedForViewer({viewerKey: streamKey, canonicalClaim, bearer: mcBearer})
                         : await app.fleetWakeArming.ensureArmedFor(streamKey);
 
                 if (outcome.armed && outcome.identity) {
@@ -519,6 +522,45 @@ export function resolveFleetPlaneBearer({aiConfig = AiConfig, readFile = null} =
 }
 
 /**
+ * @summary The credential-class non-alias teeth: a resolved plane bearer that IS the
+ * deployment's bootstrap/healthcheck admission token is refused. The ledger's load-bearing rule
+ * (class 3 ≠ bootstrap/healthcheck PAT) is otherwise only prose — this makes an aliased
+ * deployment fail at boot, at the one moment someone can mint the distinct credential.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The class-clean resolved bearer (may be `''`).
+ * @throws {Error} When the plane bearer equals the admission token.
+ */
+export function assertFleetPlaneBearerClass({aiConfig = AiConfig, readFile = null} = {}) {
+    const
+        read        = readFile ?? (target => readFileSync(target, 'utf8')),
+        planeBearer = resolveFleetPlaneBearer({aiConfig, readFile: read});
+
+    if (!planeBearer) return planeBearer;
+
+    const admissionFile = aiConfig.fleet.admissionTokenFile.trim();
+
+    let admissionToken = '';
+
+    if (admissionFile) {
+        try {
+            admissionToken = String(read(admissionFile)).trim()
+        } catch {/* an unreadable admission file leaves the comparison disabled, not the rule */}
+    }
+
+    if (admissionToken && planeBearer === admissionToken) {
+        throw new Error(
+            '[FleetServer] fleet.planeBearer resolves to the deployment\'s bootstrap/healthcheck ' +
+            'admission token — the credential-class ledger forbids that aliasing. Mint a distinct ' +
+            'class-3 credential for the Fleet service\'s plane sessions.'
+        )
+    }
+
+    return planeBearer
+}
+
+/**
  * @summary Derives the ONE stream/limiter key for an admitted viewer, from immutable facts only.
  *
  * The plane-proven canonical identity (`@login`, MC's own subject for the arming caller) is the
@@ -600,7 +642,7 @@ export function createWakeArmingContext({
 
                 client = createPlaneClient({
                     baseUrl            : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
-                    credential         : resolveFleetPlaneBearer({aiConfig}),
+                    credential         : assertFleetPlaneBearerClass({aiConfig}),
                     allowPlainHttpHosts: aiConfig.fleet.planeInternalHosts
                 });
 
@@ -834,10 +876,11 @@ export async function startFleetServer(options={}) {
 
     // A DECLARED wake push lane with no service credential is a dead feature wearing a live
     // topology — this boot refuses loudly instead of arming nothing and letting the first
-    // plane witness discover it. Per-viewer bearers still arm viewers at connect; this gate
-    // is about the service's own lane, whose declaration promised it works.
+    // plane witness discover it. The class teeth run in the same breath: an ALIASED credential
+    // (the bootstrap/healthcheck admission token standing in for the class-3 plane bearer)
+    // throws its own refusal before the dead-feature check can even read it.
     if (aiConfig.fleet.wakeSelfBase.trim() && aiConfig.fleet.planeBase.trim() &&
-        resolveFleetPlaneBearer({aiConfig}) === ''
+        assertFleetPlaneBearerClass({aiConfig}) === ''
     ) {
         throw new Error(
             '[FleetServer] wake push lane is declared (fleet.wakeSelfBase + fleet.planeBase) but no ' +
