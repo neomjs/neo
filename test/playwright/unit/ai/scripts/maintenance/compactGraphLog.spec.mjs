@@ -37,53 +37,25 @@ import {
 test.describe('compactGraphLog maintenance guard', () => {
     let tmpRoot, dbPath, bridgeStateFile, wakeStateFile, db;
 
+    /**
+     * @summary Runs a callback against a construction-isolated Memory Core config proxy.
+     * @param {Function} callback The operation that consumes the isolated config.
+     * @returns {Promise<*>} The callback result.
+     */
     async function withMemoryCoreConfigTemplate(callback) {
-        const originalTier1Config         = Neo.ai?.Config;
-        const originalTier1ClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
-        const originalConfig              = Neo.ai?.mcp?.server?.['memory-core']?.Config;
-        const originalClassHierarchy      = Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config'];
-
-        if (Neo.ai?.Config) {
-            delete Neo.ai.Config;
-        }
-        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
-            delete Neo.classHierarchyMap['Neo.ai.Config'];
-        }
-        if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
-            delete Neo.ai.mcp.server['memory-core'].Config;
-        }
-        if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
-            delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
-        }
-
-        const config = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
+        const [
+                  {default: ConfigBase},
+                  {createConfigProxy}
+              ]      = await Promise.all([
+                  import('../../../../../../ai/mcp/server/memory-core/configBase.mjs'),
+                  import('../../../../../../ai/ConfigProvider.mjs')
+              ]),
+              config = createConfigProxy(Neo.create(ConfigBase));
 
         try {
             return await callback(config);
         } finally {
-            if (originalTier1Config !== undefined) {
-                Neo.ai.Config = originalTier1Config;
-            } else if (Neo.ai?.Config) {
-                delete Neo.ai.Config;
-            }
-
-            if (originalTier1ClassHierarchy !== undefined) {
-                Neo.classHierarchyMap['Neo.ai.Config'] = originalTier1ClassHierarchy;
-            } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
-                delete Neo.classHierarchyMap['Neo.ai.Config'];
-            }
-
-            if (originalConfig !== undefined) {
-                Neo.ai.mcp.server['memory-core'].Config = originalConfig;
-            } else if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
-                delete Neo.ai.mcp.server['memory-core'].Config;
-            }
-
-            if (originalClassHierarchy !== undefined) {
-                Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'] = originalClassHierarchy;
-            } else if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
-                delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
-            }
+            config.destroy();
         }
     }
 
@@ -135,6 +107,8 @@ test.describe('compactGraphLog maintenance guard', () => {
     }
 
     test('resolves CLI defaults from the Memory Core template config in tests', async () => {
+        const runtimeConfigBefore = Neo.ai?.mcp?.server?.['memory-core']?.Config;
+
         await withMemoryCoreConfigTemplate(async MemoryCoreConfigTemplate => {
             const defaults = getDefaultGraphLogCompactionOptions({aiConfig: MemoryCoreConfigTemplate});
             const command  = createCommand({aiConfig: MemoryCoreConfigTemplate});
@@ -149,6 +123,11 @@ test.describe('compactGraphLog maintenance guard', () => {
             expect(command.opts().bridgeStateFile).toBe(defaults.bridgeStateFile);
             expect(command.opts().wakeStateFile).toBe(defaults.wakeStateFile);
         });
+
+        // The fixture is construction-isolated. Deleting and later restoring this singleton while
+        // importing config.template.mjs can strand its cached proxy on a different instance from
+        // config.mjs, so later specs refresh one config while production services read another.
+        expect(Neo.ai?.mcp?.server?.['memory-core']?.Config).toBe(runtimeConfigBefore);
     });
 
     test('#16681: standalone CLI boots runtime config and distinguishes structured apply outcomes', async () => {
@@ -255,11 +234,11 @@ test.describe('compactGraphLog maintenance guard', () => {
 
     test('computes cutoff from the minimum known consumer watermark plus safety margin', () => {
         const plan = computeCompactionPlan({
-            stats          : {maxLogId: 20},
+            stats              : {maxLogId: 20},
             wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
-            subscriptions  : [{id: 'WAKE_SUB:1', harnessTarget: 'bridge-daemon'}],
-            extraWatermarks: [parseConsumerWatermark('remote-worker=12')],
-            safetyMarginRows: 2
+            subscriptions      : [{id: 'WAKE_SUB:1', harnessTarget: 'bridge-daemon'}],
+            extraWatermarks    : [parseConsumerWatermark('remote-worker=12')],
+            safetyMarginRows   : 2
         });
 
         expect(plan.canApply).toBe(true);
@@ -269,10 +248,10 @@ test.describe('compactGraphLog maintenance guard', () => {
 
     test('blocks when an active mcp-notifications consumer has no durable cursor', () => {
         const plan = computeCompactionPlan({
-            stats          : {maxLogId: 20},
+            stats              : {maxLogId: 20},
             wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
-            subscriptions  : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
-            safetyMarginRows: 2
+            subscriptions      : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
+            safetyMarginRows   : 2
         });
 
         expect(plan.canApply).toBe(false);
@@ -282,11 +261,11 @@ test.describe('compactGraphLog maintenance guard', () => {
 
     test('uses a durable wake cursor when active mcp-notifications consumers exist', () => {
         const plan = computeCompactionPlan({
-            stats          : {maxLogId: 20},
+            stats              : {maxLogId: 20},
             wakeDaemonWatermark: {name: 'bridge-daemon', watermark: 18},
-            wakeWatermark  : {name: 'wake-subscription-live-cursor', watermark: 15},
-            subscriptions  : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
-            safetyMarginRows: 2
+            wakeWatermark      : {name: 'wake-subscription-live-cursor', watermark: 15},
+            subscriptions      : [{id: 'WAKE_SUB:2', harnessTarget: 'mcp-notifications'}],
+            safetyMarginRows   : 2
         });
 
         expect(plan.canApply).toBe(true);
@@ -401,8 +380,8 @@ test.describe('compactGraphLog maintenance guard', () => {
         const subscriptions = listActiveWakeSubscriptions({db});
         expect(subscriptions.map(sub => sub.id)).toEqual(['WAKE_SUB:bridge']);
 
-        const stats = getGraphLogStats({db, dbPath});
-        const bridge = readWakeDaemonWatermark({stateFile: bridgeStateFile, latestLogId: stats.maxLogId});
+        const stats       = getGraphLogStats({db, dbPath});
+        const bridge      = readWakeDaemonWatermark({stateFile: bridgeStateFile, latestLogId: stats.maxLogId});
         const missingWake = readWakeSubscriptionWatermark({stateFile: wakeStateFile});
 
         expect(bridge.watermark).toBe(4);
