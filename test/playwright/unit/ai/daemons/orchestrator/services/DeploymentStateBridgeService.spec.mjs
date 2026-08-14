@@ -2161,7 +2161,16 @@ test.describe('restart churn reaches the deployment record', () => {
             defaultRestartTimeoutSeconds: 10,
             auditMode                   : 'metadata'
         },
-        dockerRequestFn: async () => ({statusCode: 204, headers: {}, body: ''}),
+        dockerRequestFn: async ({method}) => method === 'GET'
+            ? {
+                  statusCode: 200,
+                  headers   : {},
+                  body      : JSON.stringify({
+                      Id   : 'c1',
+                      State: {StartedAt: new Date(at - 1000).toISOString()}
+                  })
+              }
+            : {statusCode: 204, headers: {}, body: ''},
         nowFn          : () => at
     });
 

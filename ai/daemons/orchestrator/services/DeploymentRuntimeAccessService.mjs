@@ -72,6 +72,24 @@ export function dockerSocketRequest({
     maxBytes = DEFAULT_RESPONSE_MAX_BYTES
 }) {
     return new Promise((resolve, reject) => {
+        let requestFinished     = false,
+            requestSocket       = null,
+            socketBytesAtAttach = 0;
+
+        const asTransportFailure = error => {
+            const wroteRequestBytes = requestSocket &&
+                Number.isFinite(requestSocket.bytesWritten) &&
+                requestSocket.bytesWritten > socketBytesAtAttach;
+
+            error.dockerTransportFailure = true;
+            // `finish` proves the full request reached Node's transport. A positive byte delta is
+            // deliberately weaker but still enough to make a negative effect claim unsafe: Docker
+            // may have received a partial or complete request before the socket failed.
+            error.requestDispatched = requestFinished || Boolean(wroteRequestBytes);
+
+            return error
+        };
+
         const req = http.request({
             socketPath,
             method,
@@ -107,10 +125,35 @@ export function dockerSocketRequest({
                     body      : responseBody
                 });
             });
+            res.on('aborted', () => {
+                const error = new Error(`Docker API ${method} ${path} response aborted before completion`);
+
+                error.code   = 'ECONNRESET';
+                error.reason = 'docker-api-response-aborted';
+
+                reject(asTransportFailure(error))
+            });
+            res.on('error', error => reject(asTransportFailure(error)));
         });
 
-        req.on('timeout', () => req.destroy(new Error(`Docker API ${method} ${path} timed out after ${timeoutMs}ms`)));
-        req.on('error', reject);
+        req.on('socket', socket => {
+            requestSocket       = socket;
+            socketBytesAtAttach = Number.isFinite(socket.bytesWritten) ? socket.bytesWritten : 0
+        });
+        // `finish` proves the complete request left Node's writable side. It does NOT prove Docker
+        // acknowledged or applied it — that is precisely why any later transport loss is uncertain.
+        req.on('finish', () => {
+            requestFinished = true
+        });
+        req.on('timeout', () => {
+            const error = new Error(`Docker API ${method} ${path} timed out after ${timeoutMs}ms`);
+
+            error.code   = 'ETIMEDOUT';
+            error.reason = 'docker-api-timeout';
+
+            req.destroy(asTransportFailure(error))
+        });
+        req.on('error', error => reject(asTransportFailure(error)));
 
         if (body !== null) {
             req.write(body);
@@ -209,6 +252,14 @@ export class DeploymentRuntimeAccessService extends Base {
     }
 
     /**
+     * @summary Declares support for the pre-dispatch durable restart interlock callback.
+     * @returns {Boolean}
+     */
+    get supportsRestartDispatchInterlock() {
+        return true
+    }
+
+    /**
      * Resolves the bounded response cap.
      * @returns {Number}
      */
@@ -263,9 +314,10 @@ export class DeploymentRuntimeAccessService extends Base {
      * keeps today's behaviour exactly.
      * @param {Function|null} [options.isEffectStillAdmitted=null] Live effect-admission oracle.
      * @param {String|null} [options.expectedContainerId=null] Diagnosed container incarnation.
+     * @param {Function|null} [options.onBeforeRestartDispatch=null] Durable restart-interlock writer.
      * @returns {Promise<Object>} Lifecycle result plus structured proof metadata.
      */
-    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null} = {}) {
+    async applyLifecycle({serviceKey, operation = 'restart', reason = 'manual', restartTimeoutSeconds, memoryLimitBytes, isAuthorityHeld = null, isEffectStillAdmitted = null, expectedContainerId = null, onBeforeRestartDispatch = null} = {}) {
         this.assertEnabled();
         this.assertMechanismSupported();
         this.assertOperationAllowed('lifecycle-write', operation);
@@ -313,7 +365,13 @@ export class DeploymentRuntimeAccessService extends Base {
         }
 
         if (operation === 'restart') {
-            return this.restartTarget(target, {reason, restartTimeoutSeconds});
+            return this.restartTarget(target, {
+                reason,
+                restartTimeoutSeconds,
+                isAuthorityHeld,
+                isEffectStillAdmitted,
+                onBeforeRestartDispatch
+            });
         }
 
         if (operation === 'update-memory-limit') {
@@ -770,14 +828,125 @@ export class DeploymentRuntimeAccessService extends Base {
      * @param {Object} options
      * @param {String} options.reason Audit reason.
      * @param {Number} [options.restartTimeoutSeconds] Docker restart timeout.
+     * @param {Function|null} [options.isAuthorityHeld=null] Current-authority oracle.
+     * @param {Function|null} [options.isEffectStillAdmitted=null] Live effect-admission oracle.
+     * @param {Function|null} [options.onBeforeRestartDispatch=null] Durable restart-interlock writer.
      * @returns {Promise<Object>}
      */
-    async restartTarget(target, {reason, restartTimeoutSeconds} = {}) {
-        const timeoutSeconds = restartTimeoutSeconds ?? this.configValues.defaultRestartTimeoutSeconds ?? 10,
-              response       = await this.dockerRequest({
-                  method: 'POST',
-                  path  : `/containers/${encodeURIComponent(target.containerId)}/restart?t=${encodeURIComponent(String(timeoutSeconds))}`
-              });
+    async restartTarget(target, {
+        reason,
+        restartTimeoutSeconds,
+        isAuthorityHeld = null,
+        isEffectStillAdmitted = null,
+        onBeforeRestartDispatch = null
+    } = {}) {
+        const timeoutSeconds  = restartTimeoutSeconds ?? this.configValues.defaultRestartTimeoutSeconds ?? 10,
+              requestMarginMs = this.timeoutMs;
+
+        if (!Number.isInteger(timeoutSeconds) || timeoutSeconds < 0) {
+            throw new TypeError('Docker restart timeout must be a non-negative integer number of seconds');
+        }
+        if (!Number.isFinite(requestMarginMs) || requestMarginMs <= 0) {
+            throw new TypeError('Docker runtime-access timeout margin must be a positive finite number of milliseconds');
+        }
+
+        const clientTimeoutMs = timeoutSeconds * 1000 + requestMarginMs;
+
+        if (!Number.isSafeInteger(clientTimeoutMs) || clientTimeoutMs <= timeoutSeconds * 1000) {
+            throw new TypeError('Docker restart client timeout must safely exceed the daemon stop budget');
+        }
+
+        const inspection  = await this.inspectTarget(target),
+              inspectedId = inspection.data?.Id || target.containerId,
+              baseline    = {
+                  containerId: inspectedId,
+                  startedAt  : normalizeDockerTime(inspection.data?.State?.StartedAt)
+              };
+
+        if (inspectedId !== target.containerId) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-target-incarnation-changed',
+                message: `Container '${target.serviceKey}' changed from '${target.containerId}' to '${inspectedId}' before restart dispatch.`,
+                details: {serviceKey: target.serviceKey, operation: 'restart', expectedContainerId: target.containerId, actualContainerId: inspectedId}
+            });
+        }
+
+        // The baseline inspect above is awaited, so the guards in `applyLifecycle` are no longer at
+        // the last-owned boundary. Re-ask both immediately before the POST; no await separates these
+        // checks from the mutating request.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-authority-lost',
+                message: `Authority moved while preparing '${target.serviceKey}'; refusing the restart.`,
+                details: {serviceKey: target.serviceKey, operation: 'restart'}
+            });
+        }
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-effect-not-admitted',
+                message: `Lifecycle write for '${target.serviceKey}' is no longer admitted by live evidence.`,
+                details: {serviceKey: target.serviceKey, operation: 'restart'}
+            });
+        }
+
+        if (typeof onBeforeRestartDispatch === 'function') {
+            await onBeforeRestartDispatch({
+                baseline,
+                clientTimeoutMs,
+                restartTimeoutSeconds: timeoutSeconds
+            })
+        }
+
+        // The durable marker above is awaited. Re-ask both guards so neither the marker write nor its
+        // filesystem latency opens a stale-holder / stale-admission window before the POST.
+        if (typeof isAuthorityHeld === 'function' && isAuthorityHeld() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-authority-lost',
+                message: `Authority moved after preparing '${target.serviceKey}'; refusing the restart.`,
+                details: {serviceKey: target.serviceKey, operation: 'restart'}
+            });
+        }
+        if (typeof isEffectStillAdmitted === 'function' && isEffectStillAdmitted() !== true) {
+            throw createRuntimeAccessError({
+                reason : 'runtime-effect-not-admitted',
+                message: `Lifecycle write for '${target.serviceKey}' is no longer admitted after preparation.`,
+                details: {serviceKey: target.serviceKey, operation: 'restart'}
+            });
+        }
+
+        // Docker's `t` is the daemon-side graceful-stop budget. The HTTP client remains alive for
+        // that whole interval PLUS its validated ordinary request margin.
+        let response;
+
+        try {
+            response = await this.dockerRequest({
+                method   : 'POST',
+                path     : `/containers/${encodeURIComponent(target.containerId)}/restart?t=${encodeURIComponent(String(timeoutSeconds))}`,
+                timeoutMs: clientTimeoutMs
+            });
+        } catch (error) {
+            if (error?.dockerTransportFailure === true && error.requestDispatched === true) {
+                const uncertain = createRuntimeAccessError({
+                    reason : 'runtime-effect-disposition-uncertain',
+                    message: error.message,
+                    code   : error.code || 'ETIMEDOUT',
+                    details: {
+                        serviceKey           : target.serviceKey,
+                        operation            : 'restart',
+                        baseline,
+                        restartTimeoutSeconds: timeoutSeconds,
+                        clientTimeoutMs
+                    }
+                });
+
+                uncertain.effectDisposition         = 'uncertain';
+                uncertain.restartObservationBaseline = baseline;
+
+                throw uncertain
+            }
+
+            throw error
+        }
 
         return {
             ok        : true,

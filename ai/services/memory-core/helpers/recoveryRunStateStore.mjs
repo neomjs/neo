@@ -34,6 +34,8 @@ export const RECOVERY_RUN_STATUSES = Object.freeze([
     'reobserve-requested'
 ]);
 
+export const ACTIVE_RECOVERY_RUN_RETENTION_CLASS = 'active-effect-interlock';
+
 export const RECOVERY_RUN_GRAPH_NODE_TYPES = Object.freeze({
     diagnosis       : 'RECOVERY_DIAGNOSIS',
     recoveryRun     : 'RECOVERY_RUN',
@@ -468,12 +470,22 @@ export async function pruneRecoveryRunStates({dir, retentionLimit} = {}) {
     }
 
     const files = await Promise.all(jsonlNames.map(async name => {
-        const filePath = path.join(dir, name);
-        const stat     = await fs.stat(filePath);
-        return {filePath, mtimeMs: stat.mtimeMs};
+        const filePath            = path.join(dir, name);
+        const [stat, latestEntry] = await Promise.all([
+            fs.stat(filePath),
+            readLatestValidRecoveryRunState(filePath)
+        ]);
+
+        return {filePath, mtimeMs: stat.mtimeMs, latestEntry};
     }));
 
-    const toRemove = files
+    // An unresolved effect is not audit history yet: it is a live, fail-safe dispatch interlock.
+    // Count only ordinary/settled files against the audit retention window. A terminal append to
+    // the same JSONL omits the retention class and automatically makes the artifact prunable again.
+    const ordinaryFiles = files.filter(file =>
+              file.latestEntry?.details?.retentionClass !== ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+          ),
+          toRemove = ordinaryFiles
         .sort((a, b) => b.mtimeMs - a.mtimeMs)
         .slice(retentionLimit);
 
@@ -600,21 +612,85 @@ export async function readRecentRecoveryRunStates({dir, limit} = {}) {
     for (const file of files.sort((a, b) => b.mtimeMs - a.mtimeMs)) {
         if (entries.length >= limit) break;
 
-        const text  = await fs.readFile(file.filePath, 'utf8');
-        const lines = text.trim().split('\n').filter(Boolean);
-        const line  = lines.length > 0 ? lines[lines.length - 1] : null;
-        if (!line) continue;
+        const entry = await readLatestValidRecoveryRunState(file.filePath);
 
-        try {
-            entries.push(JSON.parse(line));
-        } catch (e) {
-            // A corrupt recovery artifact should not take down the healthcheck surface.
-        }
+        if (entry) entries.push(entry);
     }
 
     return entries
         .sort((a, b) => getEntrySortTime(b) - getEntrySortTime(a))
         .slice(0, limit);
+}
+
+/**
+ * @summary Reads every active recovery-run interlock independently of the ordinary recency window.
+ *
+ * Active effect interlocks are retention-exempt until a terminal row supersedes them in the same
+ * JSONL file. Reading the complete directory is deliberate: admission safety cannot depend on the
+ * volume of unrelated recovery audit traffic.
+ *
+ * @param {Object} options
+ * @param {String} options.dir Directory for per-run state files.
+ * @param {String} [options.retentionClass=ACTIVE_RECOVERY_RUN_RETENTION_CLASS] Active class to read.
+ * @returns {Promise<Object[]>} Active latest entries, newest first.
+ */
+export async function readActiveRecoveryRunStates({
+    dir,
+    retentionClass = ACTIVE_RECOVERY_RUN_RETENTION_CLASS
+} = {}) {
+    if (!dir || typeof retentionClass !== 'string' || retentionClass.length === 0) {
+        return [];
+    }
+
+    let names;
+    try {
+        names = await fs.readdir(dir);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return [];
+        throw error;
+    }
+
+    const entries = await Promise.all(names
+        .filter(name => name.endsWith('.jsonl'))
+        .map(name => readLatestValidRecoveryRunState(path.join(dir, name))));
+
+    return entries
+        .filter(entry => entry?.details?.retentionClass === retentionClass)
+        .sort((left, right) => getEntrySortTime(right) - getEntrySortTime(left));
+}
+
+/**
+ * @summary Reads the newest valid JSONL row, falling back across a torn final append.
+ * @param {String} filePath Recovery-run JSONL path.
+ * @returns {Promise<Object|null>} Latest valid object row, or null.
+ * @private
+ */
+async function readLatestValidRecoveryRunState(filePath) {
+    let text;
+    try {
+        text = await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error;
+    }
+
+    const lines = text.split('\n');
+
+    for (let index = lines.length - 1; index >= 0; index--) {
+        const line = lines[index].trim();
+
+        if (!line) continue;
+
+        try {
+            const entry = JSON.parse(line);
+
+            if (entry && typeof entry === 'object' && !Array.isArray(entry)) return entry;
+        } catch (error) {
+            // A torn final append cannot erase the preceding durable interlock.
+        }
+    }
+
+    return null;
 }
 
 function getEntrySortTime(entry) {
