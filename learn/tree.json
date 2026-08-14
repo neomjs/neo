@@ -37,6 +37,7 @@
     {"name": "Agent OS & Conversational UIs",                          "parentId": null,                                 "isLeaf": false, "id": "AgentOS"},
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
         {"name": "The Flat-Peer Institution",                          "parentId": "AgentOS",                                             "id": "agentos/FlatPeerInstitution"},
+        {"name": "Fleet Manager Architecture",                        "parentId": "AgentOS",                                             "id": "agentos/FleetManagerArchitecture"},
         {"name": "Running the Fleet Cockpit",                          "parentId": "AgentOS",                                             "id": "agentos/RunningTheFleetCockpit"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
         {"name": "A2A Messaging & Wake Routing",                       "parentId": "AgentOS",                                             "id": "agentos/A2A"},
