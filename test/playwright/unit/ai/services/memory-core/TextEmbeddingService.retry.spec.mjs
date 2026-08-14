@@ -434,7 +434,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         ]);
     });
 
-    test('openAiCompatible refuses single embeddings when LM Studio loaded context is below the configured embedding context (#13944)', async () => {
+    test('LM Studio context-policy insufficiency wins over an input that only exceeds the invalid resident (#13944)', async () => {
         serverBehavior = 'succeed';
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
             id           : aiConfig.openAiCompatible.embeddingModel,
@@ -444,7 +444,10 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         const providerTruncatedInput = 'x'.repeat(12746 * 3);
 
         await expect(TextEmbeddingService.embedText(providerTruncatedInput, 'openAiCompatible'))
-            .rejects.toThrow(/loaded=8192, configured>=32768, inputEstimate=12746/);
+            .rejects.toMatchObject({
+                code   : 'EMBEDDING_CONTEXT_INSUFFICIENT',
+                message: expect.stringMatching(/loaded=8192, configured>=32768, safeProcessingLimitTokens=28672, inputEstimate=12746/)
+            });
 
         expect(requestCount).toBe(0);
     });
@@ -495,15 +498,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
             expect(result).toEqual([0.1, 0.2, 0.3]);
 
-            // The standing contract: no LMS-specific probing (the `lms` CLI loaded-models spawn) on a
-            // non-LMS endpoint. The flavor-agnostic slot-floor probe (one GET /slots per embed
-            // call) is a different, newer class — the mock answers it with the embeddings payload,
-            // which parses as unobservable, so the floor stays out of the way.
-            const embedPosts = allRequests.filter(request => request.url === '/v1/embeddings');
-            const slotProbes = allRequests.filter(request => request.url === '/slots');
-
-            expect(embedPosts).toHaveLength(1);
-            expect(slotProbes.length).toBeLessThanOrEqual(1);
+            expect(requestCount).toBe(1);
             expect(lastRequest.body.input).toBe('hello');
         } finally {
             Neo.config.unitTestMode = originalUnitTestMode;

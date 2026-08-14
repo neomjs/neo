@@ -1,12 +1,16 @@
-import {test, expect}                           from '@playwright/test';
-import fs                                       from 'node:fs';
-import path                                     from 'node:path';
-import {load as loadYaml}                       from 'js-yaml';
-import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS} from '../../../../../../ai/embeddingSafeBand.mjs';
+import {test, expect}     from '@playwright/test';
+import {spawnSync}        from 'node:child_process';
+import fs                 from 'node:fs';
+import path               from 'node:path';
+import {load as loadYaml} from 'js-yaml';
+import {
+    EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS,
+    isEmbeddingContextBelowSafeBand
+} from '../../../../../../ai/embeddingSafeBand.mjs';
 import {
     PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION,
     PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS,
-    analyzeProviderLaneComposition,
+    analyzeProviderLaneComposition as analyzeProviderLaneCompositionRaw,
     parseArgs,
     validateProviderLaneCompositionReceipt
 } from '../../../../../../ai/scripts/diagnostics/providerLaneComposition.mjs';
@@ -24,10 +28,18 @@ const FIXTURE_ENV = Object.freeze({
     NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES                    : '17179869184',
     NEO_PROVIDER_LANE_EMBEDDING_SLOTS                           : '1',
     NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : '32768',
-    NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
+    NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768',
     NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : '32768',
-    NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768'
+    NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768',
+    NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS     : String(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS)
 });
+
+function analyzeProviderLaneComposition(composition, options = {}) {
+    return analyzeProviderLaneCompositionRaw(composition, {
+        safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS,
+        ...options
+    })
+}
 
 function renderRequiredInputs(source, overrides = {}) {
     const values = {...FIXTURE_ENV, ...overrides};
@@ -209,7 +221,13 @@ test.describe('provider-lane composition receipt (#17021)', () => {
 
         const parallelMutation = loadComposition();
         parallelMutation.services['orchestrator'].environment.NEO_LOCAL_MODELS_CHAT_PARALLEL = '2';
-        expect(errorCodes(analyzeProviderLaneComposition(parallelMutation))).toContain('application-runtime-contract-drift')
+        expect(errorCodes(analyzeProviderLaneComposition(parallelMutation))).toContain('application-runtime-contract-drift');
+
+        const safeBandMutation = loadComposition();
+        safeBandMutation.services['mc-server'].environment[
+            PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingSafeProcessingLimitTokens
+        ] = '20000';
+        expect(errorCodes(analyzeProviderLaneComposition(safeBandMutation))).toContain('application-runtime-contract-drift')
     });
 
     test('chat parallelism stays one and embedding total context cannot masquerade as per-slot context', () => {
@@ -290,15 +308,16 @@ test.describe('provider-lane composition receipt (#17021)', () => {
     });
 
     test('the safe-band floor ties the embedding lane to the band Neo sends, naming both numbers', () => {
-        // Fixture lanes run at toy scale and never carry safe-band inputs: without an injected band
-        // there is no floor, and the fixture composition analyzes clean.
-        const unfloored = analyzeProviderLaneComposition(loadComposition());
-        expect(unfloored.ready).toBe(true);
-        expect(unfloored.errors).toEqual([]);
+        expect(() => analyzeProviderLaneCompositionRaw(loadComposition()))
+            .toThrow(/requires a positive integer safeProcessingLimitTokensEmbedding/);
+        expect(() => isEmbeddingContextBelowSafeBand(32768, 1.5))
+            .toThrow(/safe-processing limit must be a positive integer/);
 
-        // With the canonical band supplied, the fixture's 8,192 per-slot requirement IS the defect
+        // The fixture's 8,192 per-slot requirement IS the defect
         // shape: it passes every self-referential gate while being unable to hold a safe-band input.
-        const floored = analyzeProviderLaneComposition(loadComposition(), {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS});
+        const floored = analyzeProviderLaneComposition(loadComposition({
+            NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192'
+        }));
 
         expect(floored.ready).toBe(false);
 
@@ -312,8 +331,17 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         // correct by construction — the floor is a floor, not an equality pin. The override flows
         // through the one env var the template binds to BOTH the contract and the runtime context
         // leaf, so the composition stays internally consistent.
-        const compliantComposition = loadComposition({NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768'});
-        expect(analyzeProviderLaneComposition(compliantComposition, {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS}))
+        const compliantComposition = loadComposition();
+        expect(analyzeProviderLaneComposition(compliantComposition))
+            .toMatchObject({ready: true, errors: []});
+
+        const exactBandComposition = loadComposition({
+            NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : '28672',
+            NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '28672',
+            NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : '28672',
+            NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '28672'
+        });
+        expect(analyzeProviderLaneComposition(exactBandComposition))
             .toMatchObject({ready: true, errors: []});
 
         // The floor never leaks onto the chat lane, whose band is a different leaf entirely: with
@@ -322,8 +350,41 @@ test.describe('provider-lane composition receipt (#17021)', () => {
             NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS                       : '8192',
             NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768'
         });
-        expect(analyzeProviderLaneComposition(chatBelow, {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS})
+        expect(analyzeProviderLaneComposition(chatBelow)
             .errors.map(error => error.code)).not.toContain('lane-slot-context-below-safe-band')
+    });
+
+    test('the real CLI consumes and records the resolved non-default safe band in the v2 receipt', () => {
+        const scriptPath = path.join(repoRoot, 'ai/scripts/diagnostics/providerLaneComposition.mjs');
+        const runCli     = safeBand => spawnSync(process.execPath, [scriptPath, '--skip-source-census'], {
+            cwd     : repoRoot,
+            encoding: 'utf8',
+            env     : {
+                ...process.env,
+                NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: String(safeBand)
+            },
+            input: JSON.stringify(loadComposition({
+                NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: String(safeBand)
+            }))
+        });
+
+        const refused = runCli(40000);
+        expect(refused.status, refused.stderr).toBe(1);
+        const refusedReceipt = JSON.parse(refused.stdout);
+        expect(refusedReceipt.errors).toContainEqual(expect.objectContaining({
+            code    : 'lane-slot-context-below-safe-band',
+            actual  : 32768,
+            expected: expect.stringContaining('40000')
+        }));
+
+        const accepted = runCli(30000);
+        expect(accepted.status, accepted.stderr).toBe(0);
+        const acceptedReceipt = JSON.parse(accepted.stdout);
+        expect(acceptedReceipt.ready).toBe(true);
+        expect(acceptedReceipt.deploymentInputs.embeddingSafeProcessingLimitTokens).toEqual({
+            env  : 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS',
+            value: 30000
+        })
     });
 
     test('the pure validator binds every deployment input name and value to receipt authority', () => {
@@ -444,7 +505,7 @@ test.describe('provider-lane composition receipt (#17021)', () => {
     test('the pure downstream validator rejects unknown and unready receipts without Compose', () => {
         const good    = analyzeProviderLaneComposition(loadComposition());
         const unknown = clone(good);
-        unknown.schemaVersion = 'provider-lane-composition.v2';
+        unknown.schemaVersion = 'provider-lane-composition.v3';
         expect(validateProviderLaneCompositionReceipt(unknown).errors.map(error => error.code)).toContain('schema-version');
 
         const unready = clone(good);

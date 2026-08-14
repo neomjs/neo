@@ -324,6 +324,61 @@ test.describe('Orchestrator config getters delegate to AiConfig (data env/parse 
         }).lms).toBeUndefined();
     });
 
+    test('the production LMS postSpawn owner applies the embedding safe band without a recurring canary', async () => {
+        const script = `
+            import './src/Neo.mjs';
+            const {buildConfiguredTaskDefinitions} = await import('./ai/daemons/orchestrator/services/ConfiguredTaskDefinitionsService.mjs');
+
+            let observedContextLength = 8192;
+            let ensureOptions;
+            const tasks = buildConfiguredTaskDefinitions({
+                scriptDir: '/repo/ai/scripts',
+                nodeBin: '/node',
+                neuralLinkBridgeLivenessTimeoutMs: 100,
+                ensureLmsModelsLoadedFn: async options => {
+                    ensureOptions = options;
+                    return options.embeddingServingProbe({
+                        host: options.host,
+                        timeoutMs: options.timeoutMs,
+                        lmsLoadedModels: [{id: 'embedding-from-config', contextLength: observedContextLength}]
+                    });
+                }
+            });
+
+            const belowBand = await tasks.lms.postSpawn();
+            if (ensureOptions.contextLengths['embedding-from-config'] !== 8192 ||
+                belowBand.ready !== false || belowBand.reason !== 'embedding-context-below-safe-band' ||
+                !belowBand.warning.includes('8192') || !belowBand.warning.includes('28672')) {
+                throw new Error('production LMS owner did not apply the resolved embedding safe band');
+            }
+
+            observedContextLength = 32768;
+            const sufficient = await tasks.lms.postSpawn();
+            if (sufficient.ready !== true || sufficient.observedContextLength !== 32768) {
+                throw new Error('production LMS owner issued a canary instead of the metadata-only sufficient check');
+            }
+        `;
+
+        await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: REPO_ROOT,
+            env: {
+                ...process.env,
+                NEO_EMBEDDING_PROVIDER                                 : 'openAiCompatible',
+                NEO_GRAPH_PROVIDER                                     : 'gemini',
+                NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS        : '8192',
+                NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: '28672',
+                NEO_MODEL_PROVIDER                                     : 'gemini',
+                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL                  : 'embedding-from-config',
+                NEO_OPENAI_COMPATIBLE_HOST                             : 'http://127.0.0.1:4242',
+                NEO_ORCHESTRATOR_LMS_ENABLED                           : 'true',
+                NEO_ORCHESTRATOR_LMS_MODEL                             : 'unused',
+                NEO_ORCHESTRATOR_LMS_PORT                              : '4242',
+                UNIT_TEST_MODE                                         : 'true'
+            },
+            maxBuffer: 1024 * 1024
+        })
+    });
+
     test('buildConfiguredTaskDefinitions composes native Ollama from AiConfig provider-role selectors', () => {
         AiConfig.orchestrator.ollama = {enabled: true};
         AiConfig.ollama = {

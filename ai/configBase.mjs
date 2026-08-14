@@ -827,7 +827,7 @@ class ConfigBase extends ConfigProvider {
                  */
                 embedding: {
                     contextLimitTokens       : leaf(32768, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'positiveInt'),
                     // lms `--parallel` request-slot count for the embedding model. Same primitive as
                     // `localModels.chat.parallel`: each slot carries its own KV cache, so slot count
                     // multiplies resident RAM. Default 1 keeps the embedding role resident without

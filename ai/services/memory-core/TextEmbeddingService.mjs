@@ -85,21 +85,72 @@ function markEmbeddingModelNotResidentError(error) {
 export const EMBEDDING_BATCH_YIELDED_CODE = 'EMBEDDING_BATCH_YIELDED';
 
 /**
- * @summary Source-owned code for an embedding input the provider could only answer by truncating.
+ * @summary Source-owned code for a current embedding input classified beyond provider context.
  *
- * Minted on two arms of the same fact: a pre-dispatch refusal when the observed per-slot context
- * cannot hold the input (or cannot hold the safe band at all), and a provider refusal after the
- * request asked for `truncate: false`. A truncated embedding must never be stored — a vector
- * computed from a prefix does not represent the document it is indexed under, and the failure is
- * silent, permanent, and invisible to every later stage. Retry cannot help: the same input under the
- * same lane shape truncates again, so the KB boundary classifies the bounded translation as
- * rejected, not deferrable.
+ * Minted when Neo's bounded LM Studio token estimate exceeds an otherwise policy-compliant resident
+ * context, or when an OpenAI-compatible provider returns the exact structured
+ * `exceed_context_size_error` refusal. If the resident itself is below the declared lane policy,
+ * that repairable context cause takes precedence because reloading the model may make the same input
+ * fit. A truncated embedding must never be stored, so the KB boundary rejects only this input cause.
  *
  * This shared Memory Core service must not mint a downstream Knowledge Base `KB_*` code; the KB
  * ingestion boundary translates this cause into its own durable vocabulary.
  * @type {String}
  */
 export const EMBEDDING_INPUT_TRUNCATED_CODE = 'EMBEDDING_INPUT_TRUNCATED';
+
+/**
+ * @summary Source-owned code for a loaded embedding context below Neo's active lane contract.
+ *
+ * A resident may be below the configured requirement or safe-processing band while still holding
+ * the current input. That is a repairable deployment/context-policy mismatch, not proof that this
+ * input was or would be truncated. Knowledge Base therefore translates it distinctly and keeps it
+ * deferrable rather than discarding work under the permanent-input refusal.
+ * @type {String}
+ */
+export const EMBEDDING_CONTEXT_INSUFFICIENT_CODE = 'EMBEDDING_CONTEXT_INSUFFICIENT';
+
+/**
+ * @summary Marks a bounded estimate-based or exact structured current-input overflow.
+ * @param {Error} error A trusted-metadata estimate failure or exact structured provider refusal.
+ * @returns {Error} The same typed error.
+ */
+function markEmbeddingInputTruncatedError(error) {
+    error.code = EMBEDDING_INPUT_TRUNCATED_CODE;
+    return error
+}
+
+/**
+ * @summary Marks a repairable loaded-context policy mismatch without claiming input truncation.
+ * @param {Error} error The trusted-metadata context-policy failure.
+ * @returns {Error} The same typed error.
+ */
+function markEmbeddingContextInsufficientError(error) {
+    error.code = EMBEDDING_CONTEXT_INSUFFICIENT_CODE;
+    return error
+}
+
+/**
+ * @summary Recognizes the pinned llama.cpp context-overflow refusal without provider-prose inference.
+ * @param {Number} statusCode HTTP status code.
+ * @param {String} body Raw response body.
+ * @returns {Boolean}
+ */
+function isStructuredEmbeddingContextOverflow(statusCode, body) {
+    if (statusCode !== 400 || typeof body !== 'string' || body.length === 0) return false;
+
+    try {
+        const payload = JSON.parse(body),
+              detail  = payload?.error ?? payload;
+
+        return detail?.code === 400 && detail?.type === 'exceed_context_size_error' &&
+            Number.isSafeInteger(detail.n_prompt_tokens) && detail.n_prompt_tokens > 0 &&
+            Number.isSafeInteger(detail.n_ctx) && detail.n_ctx > 0 &&
+            detail.n_prompt_tokens >= detail.n_ctx
+    } catch {
+        return false
+    }
+}
 
 /**
  * @summary Classifies a cooperative batch-yield abandonment at the consumer boundary.
@@ -945,7 +996,7 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * @summary Fails before OpenAI-compatible embeddings can be silently provider-truncated.
+     * @summary Enforces the loaded LM Studio context contract and refuses current-input overflow.
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {{configuredContextLength: Number, loadedModel: Object, model: String}|null} runtime LMS runtime metadata.
      * @returns {void}
@@ -958,10 +1009,16 @@ class TextEmbeddingService extends Base {
 
         const
             {configuredContextLength, loadedModel, model} = runtime,
+            safeProcessingLimitTokens                     = aiConfig.localModels.embedding.safeProcessingLimitTokens,
             estimate                                      = this.#getOpenAiCompatibleInputEstimate(inputData);
 
-        if (loadedModel.contextLength < configuredContextLength || estimate.inputTokensEstimate > loadedModel.contextLength) {
-            if (estimate.inputTokensEstimate > loadedModel.contextLength) {
+        const belowConfiguredContext = loadedModel.contextLength < configuredContextLength,
+              belowSafeBand          = isEmbeddingContextBelowSafeBand(loadedModel.contextLength, safeProcessingLimitTokens),
+              contextInsufficient    = belowConfiguredContext || belowSafeBand,
+              inputExceedsContext    = estimate.inputTokensEstimate > loadedModel.contextLength;
+
+        if (contextInsufficient || inputExceedsContext) {
+            if (!contextInsufficient && inputExceedsContext) {
                 emitConsumerFriction({
                     assetRef                 : `openAiCompatible:${model}`,
                     consumer                 : 'TextEmbeddingService.openAiCompatible',
@@ -978,114 +1035,19 @@ class TextEmbeddingService extends Base {
                 });
             }
 
-            logger.warn('[TextEmbeddingService] Refusing OpenAI-compatible embedding before provider-side truncation.', {
+            logger.warn('[TextEmbeddingService] Refusing OpenAI-compatible embedding after LM Studio context verification failed.', {
                 model,
                 loadedContextLength: loadedModel.contextLength,
                 configuredContextLength,
+                safeProcessingLimitTokens,
                 inputTokensEstimate: estimate.inputTokensEstimate
             });
 
-            throw new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, inputEstimate=${estimate.inputTokensEstimate})`);
-        }
-    }
+            const error = new Error(`TextEmbeddingService: LM Studio embedding context too small for '${model}' (loaded=${loadedModel.contextLength}, configured>=${configuredContextLength}, safeProcessingLimitTokens=${safeProcessingLimitTokens}, inputEstimate=${estimate.inputTokensEstimate})`);
 
-    /**
-     * @summary Observes the provider's per-slot context on non-LM-Studio OpenAI-compatible lanes.
-     *
-     * The LMS preflight above is blind on every other flavor — llama.cpp, vLLM, fixture servers —
-     * because its metadata comes from the `lms` CLI. Those flavors publish per-slot context over
-     * HTTP instead: llama.cpp's `/slots` endpoint (enabled on the canonical lane) reports `n_ctx`
-     * per slot. A lane that cannot answer `/slots` reports `null` here and the wire-level
-     * `truncate: false` request flag remains the only defense — documented, not silent.
-     *
-     * Test seam: tests set `TextEmbeddingService.openAiCompatibleSlotContextProbe` directly with a
-     * fake to bypass the network, mirroring `openAiCompatibleLoadedModelsProbe`.
-     *
-     * @param {AbortSignal|undefined} signal Upstream cancellation signal.
-     * @param {String} operationLabel Bounded operation label.
-     * @returns {Promise<Number|null>} The smallest per-slot context in tokens, or null when unobservable.
-     * @private
-     */
-    async #getOpenAiCompatibleSlotContextTokens(signal, operationLabel) {
-        if (this.openAiCompatibleSlotContextProbe) {
-            return this.openAiCompatibleSlotContextProbe();
-        }
-        if (Neo.config.unitTestMode) {
-            return null;
-        }
-
-        const
-            host      = aiConfig.openAiCompatible.host,
-            timeoutMs = aiConfig.orchestrator.providerReadiness.timeoutMs;
-
-        let response;
-
-        try {
-            response = await fetch(new URL('/slots', host).toString(), {
-                signal: signal && typeof AbortSignal.any === 'function'
-                    ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
-                    : AbortSignal.timeout(timeoutMs)
-            });
-        } catch {
-            return null; // endpoint absent or unreachable: unobservable, not zero
-        }
-
-        if (!response.ok) return null;
-
-        let slots;
-
-        try {
-            slots = await response.json();
-        } catch {
-            return null;
-        }
-
-        if (!Array.isArray(slots) || slots.length === 0) return null;
-
-        const contexts = slots
-            .map(slot => Number(slot?.n_ctx))
-            .filter(value => Number.isFinite(value) && value > 0);
-
-        return contexts.length > 0 ? Math.min(...contexts) : null;
-    }
-
-    /**
-     * @summary Refuses an embedding input the provider could only answer by truncating, on any flavor.
-     *
-     * Two distinct floors, one code, because both name the same operator action — raise the lane's
-     * per-slot context or lower the band:
-     *
-     * - **Lane floor:** a per-slot context below `safeProcessingLimitTokens` can never hold a
-     *   safe-band input; embedding into it manufactures silently-wrong vectors at scale.
-     * - **Input floor:** this input's estimate exceeds the observed per-slot context right now.
-     *
-     * @param {String|String[]} inputData The provider-bound text input.
-     * @param {AbortSignal|undefined} signal Upstream cancellation signal.
-     * @param {String} operationLabel Bounded operation label.
-     * @returns {Promise<void>}
-     * @private
-     */
-    async #assertOpenAiCompatibleSlotFloor(inputData, signal, operationLabel) {
-        const slotContextTokens = await this.#getOpenAiCompatibleSlotContextTokens(signal, operationLabel);
-
-        if (slotContextTokens === null) return; // unobservable lane: the wire flag is the defense
-
-        const
-            band     = aiConfig.localModels.embedding.safeProcessingLimitTokens,
-            estimate = this.#getOpenAiCompatibleInputEstimate(inputData);
-
-        if (isEmbeddingContextBelowSafeBand(slotContextTokens, band)) {
-            const error = new Error(`TextEmbeddingService: provider per-slot context cannot hold a safe-band input (slotContext=${slotContextTokens}, safeProcessingLimitTokens=${band})`);
-
-            error.code = EMBEDDING_INPUT_TRUNCATED_CODE;
-            throw error;
-        }
-
-        if (estimate.inputTokensEstimate > slotContextTokens) {
-            const error = new Error(`TextEmbeddingService: embedding input would be truncated by the provider (inputEstimate=${estimate.inputTokensEstimate}, slotContext=${slotContextTokens})`);
-
-            error.code = EMBEDDING_INPUT_TRUNCATED_CODE;
-            throw error;
+            throw contextInsufficient
+                ? markEmbeddingContextInsufficientError(error)
+                : markEmbeddingInputTruncatedError(error)
         }
     }
 
@@ -1105,13 +1067,6 @@ class TextEmbeddingService extends Base {
 
         throwIfEmbeddingAborted(signal, operationLabel);
         this.#assertOpenAiCompatibleEmbeddingContext(requestInputData, runtime);
-
-        if (!runtime) {
-            // Non-LMS flavors have no `lms`-CLI metadata, so the runtime getter above returns null
-            // and skips its context assert entirely. The slot floor runs against the provider's
-            // HTTP-reported per-slot context instead; an unobservable lane keeps only the wire flag.
-            await this.#assertOpenAiCompatibleSlotFloor(requestInputData, signal, operationLabel);
-        }
 
         return requestInputData;
     }
@@ -1204,14 +1159,8 @@ class TextEmbeddingService extends Base {
                         // stay verbatim: OPENAI_COMPATIBLE_CONTENTION_HTTP_ERROR_RE classifies on it.
                         const httpError = new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body} [endpoint=${parsedUrl.href}, model='${embeddingModel}']`);
 
-                        // The request asked for `truncate: false`, so a refusal whose body names the
-                        // input/context bound is the provider REPORTING truncation rather than
-                        // performing it — translate that report into the source-owned typed code
-                        // instead of leaving it an unclassified HTTP error.
-                        if (res.statusCode === 400 || res.statusCode === 413) {
-                            if (/truncat|too (large|long|many)|context.*(exceed|overflow|length)|exceed.*context/i.test(body)) {
-                                httpError.code = EMBEDDING_INPUT_TRUNCATED_CODE;
-                            }
+                        if (isStructuredEmbeddingContextOverflow(res.statusCode, body)) {
+                            markEmbeddingInputTruncatedError(httpError)
                         }
 
                         rejectOnce(httpError);
@@ -1250,11 +1199,7 @@ class TextEmbeddingService extends Base {
                 abortHandler();
             } else {
                 providerActivityLifecycle?.onDispatch({model: embeddingModel});
-                // `truncate: false` asks the provider to REFUSE an over-context input rather than
-                // silently answering it with a prefix-computed vector (llama.cpp honors the flag;
-                // spec-tolerant servers ignore it, and the slot-floor refusal above is the guard
-                // that does not depend on provider cooperation).
-                req.write(JSON.stringify({ model: embeddingModel, input: inputData, truncate: false }));
+                req.write(JSON.stringify({model: embeddingModel, input: inputData}));
                 req.end();
             }
 

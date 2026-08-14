@@ -10,7 +10,7 @@
 #   | node ai/scripts/diagnostics/providerLaneComposition.mjs
 
 x-provider-lane-contract:
-  schemaVersion: provider-lane-composition.v1
+  schemaVersion: provider-lane-composition.v2
   envelope:
     cpus: ${NEO_PROVIDER_LANES_CPU_TOTAL:?total provider CPU envelope required}
     memoryBytes: ${NEO_PROVIDER_LANES_MEMORY_BYTES_TOTAL:?total provider memory envelope required}
@@ -135,6 +135,7 @@ x-provider-lane-env: &provider-lane-env
   NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat context required}
   NEO_LOCAL_MODELS_CHAT_PARALLEL: "1"
   NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context required}
+  NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: ${NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS:?embedding safe-processing band required}
   NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: ${NEO_PROVIDER_LANE_EMBEDDING_SLOTS:?embedding slots required}
 
 services:

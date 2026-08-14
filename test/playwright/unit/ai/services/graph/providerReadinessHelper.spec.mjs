@@ -7,13 +7,13 @@ setup({
     appConfig: {name: appName, isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect}                           from '@playwright/test';
-import {execFile}                               from 'child_process';
-import Neo                                      from '../../../../../../src/Neo.mjs';
-import * as core                                from '../../../../../../src/core/_export.mjs';
-import os                                       from 'os';
-import path                                     from 'path';
-import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS} from '../../../../../../ai/embeddingSafeBand.mjs';
+import {test, expect} from '@playwright/test';
+import {execFile}     from 'child_process';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import os             from 'os';
+import path           from 'path';
+import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.template.mjs';
 
 // Pure helper (no I/O) — imported dynamically after the Neo bootstrap (the module's import chain
 // references Neo at load). It guarantees LM Studio's CLI bin dir (~/.lmstudio/bin) is on the
@@ -838,12 +838,16 @@ test.describe('provider readiness follows declared lane ownership (#17021)', () 
 });
 
 test.describe('embedding serving canary — safe-band floor (#17070)', () => {
-    let checkOpenAiCompatibleEmbeddingServing;
+    let checkOpenAiCompatibleEmbeddingServing,
+        ensureLmsModelsLoaded,
+        resolvedSafeProcessingLimitTokens;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
 
         checkOpenAiCompatibleEmbeddingServing = mod.checkOpenAiCompatibleEmbeddingServing;
+        ensureLmsModelsLoaded                  = mod.ensureLmsModelsLoaded;
+        resolvedSafeProcessingLimitTokens     = aiConfig.localModels.embedding.safeProcessingLimitTokens;
     });
 
     test('a loaded context below the safe band is NOT ready, names both numbers, and never probes', async () => {
@@ -854,7 +858,10 @@ test.describe('embedding serving canary — safe-band floor (#17070)', () => {
             model          : 'qwen3-embedding',
             input          : 'probe',
             timeoutMs      : 1000,
-            lmsLoadedModels: [{id: 'qwen3-embedding', contextLength: 8192}],
+            lmsLoadedModels: [{
+                id           : 'qwen3-embedding',
+                contextLength: resolvedSafeProcessingLimitTokens - 1
+            }],
             fetchFn        : async () => {
                 probed = true;
                 throw new Error('the floor must fire before any provider probe');
@@ -863,8 +870,8 @@ test.describe('embedding serving canary — safe-band floor (#17070)', () => {
 
         expect(result.ready).toBe(false);
         expect(result.reason).toBe('embedding-context-below-safe-band');
-        expect(result.warning).toContain('8192');
-        expect(result.warning).toContain(String(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS));
+        expect(result.warning).toContain(String(resolvedSafeProcessingLimitTokens - 1));
+        expect(result.warning).toContain(String(resolvedSafeProcessingLimitTokens));
         expect(probed, 'a too-small lane must not even be probed — the tiny canary would pass it').toBe(false);
     });
 
@@ -874,16 +881,66 @@ test.describe('embedding serving canary — safe-band floor (#17070)', () => {
             model          : 'qwen3-embedding',
             input          : 'probe',
             timeoutMs      : 1000,
-            lmsLoadedModels: [{id: 'qwen3-embedding', contextLength: 32768}],
+            lmsLoadedModels: [{
+                id           : 'qwen3-embedding',
+                contextLength: resolvedSafeProcessingLimitTokens
+            }],
             fetchFn        : async () => ({ok: true, json: async () => ({data: [{embedding: [0.1, 0.2]}]})})
         });
 
         expect(result).toMatchObject({ready: true, degraded: false, vectorLength: 2});
     });
 
+    test('ensureLmsModelsLoaded propagates a metadata-only below-band result to outer readiness', async () => {
+        const model = 'qwen3-embedding',
+              rows  = [{id: model, contextLength: resolvedSafeProcessingLimitTokens}];
+        let   loads = 0,
+              servingProbeOptions,
+              servingProbes = 0;
+
+        const result = await ensureLmsModelsLoaded({
+            host             : 'http://embedding-model:8080',
+            models           : [model],
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 1000,
+            contextLengths   : {[model]: resolvedSafeProcessingLimitTokens},
+            fetchModelIds    : async () => [model],
+            fetchLoadedModels: async () => rows,
+            loadModel        : async () => loads++,
+            embeddingServingProbe(options) {
+                servingProbes++;
+                servingProbeOptions = options;
+
+                return {
+                    ready   : false,
+                    degraded: true,
+                    reason  : 'embedding-context-below-safe-band',
+                    warning : 'metadata-only embedding context is below the safe band'
+                }
+            },
+            log: {info() {}, warn() {}}
+        });
+
+        expect(result).toMatchObject({
+            ready           : false,
+            degraded        : true,
+            embeddingServing: {
+                ready : false,
+                reason: 'embedding-context-below-safe-band'
+            }
+        });
+        expect(servingProbeOptions).toMatchObject({
+            host           : 'http://embedding-model:8080',
+            requiredModels : [model],
+            lmsLoadedModels: rows
+        });
+        expect({loads, servingProbes}).toEqual({loads: 0, servingProbes: 1})
+    });
+
     test('a lane without discovered context metadata answers the probe question only (fail-open)', async () => {
-        // The floor fires on knowledge, not on doubt: a lane whose context is unobservable keeps
-        // the pre-existing behavior, and the wire-level truncate flag is the remaining defense.
+        // The floor fires on knowledge, not on doubt: this generic readiness helper preserves the
+        // pre-existing serving probe. Live non-LMS lane-shape verification belongs at provider boot.
         const result = await checkOpenAiCompatibleEmbeddingServing({
             host           : 'http://embedding-model:8080',
             model          : 'qwen3-embedding',

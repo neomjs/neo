@@ -66,7 +66,7 @@ function buildFixture() {
 function buildCandidateProfile(embeddingSlots) {
     const profile = {
         compositionReceiptDigest: `sha256:${String(embeddingSlots).repeat(64)}`,
-        compositionSchemaVersion: 'provider-lane-composition.v1',
+        compositionSchemaVersion: 'provider-lane-composition.v2',
         embeddingSlots,
         lanes                   : {
             chat: {
