@@ -837,6 +837,37 @@ class ConfigBase extends ConfigProvider {
                 }
             },
             /**
+             * @summary What THIS DEPLOYMENT declared its provider-lane shape to be — provenance, not
+             * an operational value. Nothing reads these to configure anything; the boot shape check
+             * reads them to answer "did the operator state an intent I can verify against?".
+             *
+             * **`null` is the load-bearing default: it means NOT DECLARED.** Every leaf here binds the
+             * raw `NEO_PROVIDER_LANE_*` DECLARATION namespace, which a deployment sets only when it is
+             * declaring an envelope. The `localModels.embedding.*` leaves above are the CONSUMPTION
+             * namespace and are contractually never a comparison authority: they carry non-null
+             * operational defaults (`parallel` is 1 for LM Studio residency, per its comment above), so
+             * a plane that declares its shape to the engine alone would be compared against a default
+             * it never chose — observing 4 slots against a defaulted 1 degrades a correctly-sized
+             * deployment. Resolved-vs-declared is exactly the distinction those leaves cannot make.
+             *
+             * `positiveInt` rather than `number` is deliberate: an out-of-domain declaration (`0`, a
+             * typo) returns `undefined` from the parser, so the `null` default stands and the value
+             * reads as not-declared. With `number` a declared `0` would be a real declaration and would
+             * degrade a healthy lane — a malformed declaration must fail toward silence, never toward
+             * a verdict about a lane that is fine.
+             *
+             * Env overrides: `NEO_PROVIDER_LANE_EMBEDDING_SLOTS`,
+             * `NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED`.
+             *
+             * @type {Object}
+             */
+            providerLaneDeclaration: {
+                embedding: {
+                    parallelSlots       : leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS', 'positiveInt'),
+                    contextTokensPerSlot: leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED', 'positiveInt')
+                }
+            },
+            /**
              * Memory Core repair strategy controls that participate in durable accepted-loss fingerprints.
              *
              * `strategyVersion` must change whenever repair embeddability behavior changes in a way that can

@@ -14,6 +14,7 @@ export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
     heapObservationUnavailable: 'heap-observation-unavailable',
     memorySaturation          : 'memory-saturation',
     ollamaResidualLoad        : 'ollama-residual-load',
+    providerLaneShape         : 'provider-lane-shape-diverged',
     providerResidency         : 'provider-residency-degraded',
     resourceSaturation        : 'resource-saturation',
     restartChurn              : 'restart-churn',
@@ -301,6 +302,7 @@ export class ContainerHealthDiagnosisService extends Base {
         ollamaEvalAttribution = null,
         providerResidency = null,
         providerActivity = null,
+        providerLaneShape = null,
         providerResidencyEligible = false,
         runtimeContainerId = null,
         churnBaseline = null,
@@ -343,7 +345,8 @@ export class ContainerHealthDiagnosisService extends Base {
             ...this.collectEndpointProbeFacts({serviceKey, endpointProbe, observedAt}),
             ...this.collectConfigFacts({serviceKey, configCheck, observedAt}),
             ...this.collectEvalAttributionFacts({serviceKey, ollamaEvalAttribution, observedAt}),
-            ...this.collectProviderResidencyFacts({serviceKey, providerResidency, observedAt})
+            ...this.collectProviderResidencyFacts({serviceKey, providerResidency, observedAt}),
+            ...this.collectProviderLaneShapeFacts({serviceKey, providerLaneShape, observedAt})
         ];
 
         facts.push(...this.collectOllamaResidualLoadFacts({
@@ -811,6 +814,54 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @returns {Object[]}
      */
+    /**
+     * @summary Turns the one-shot provider-lane shape receipt into a health fact.
+     *
+     * Emits ONLY on a degraded verdict. The two silent cases are deliberate and are not the same
+     * thing as healthy:
+     *
+     * - **not observable** — the engine could not be read. Nothing was measured, so a fact here would
+     *   assert a divergence nobody witnessed. The receipt still reaches the snapshot carrying its
+     *   `unobservable` reason, which is where "we could not tell" belongs.
+     * - **not declared** — the deployment stated no intent for the declared arm to check. The
+     *   safe-band floor has already run inside the classifier and would have set `degraded` on its
+     *   own, so silence here means the lane cleared the floor, never that the check was skipped.
+     *
+     * `authoritative: false` because this is a boot reading republished on every snapshot: it is
+     * evidence about how the lane was shaped at start, not a live statement about this instant, and
+     * an actuator must not restart a container on its age.
+     *
+     * @param {Object} options
+     * @param {String} options.serviceKey Compose service key.
+     * @param {Object|null} options.providerLaneShape Receipt from the deployment-state bridge.
+     * @param {Number} options.observedAt Epoch ms.
+     * @returns {Object[]}
+     */
+    collectProviderLaneShapeFacts({serviceKey, providerLaneShape, observedAt}) {
+        if (!providerLaneShape || providerLaneShape.degraded !== true) return [];
+
+        return [this.createFact({
+            type         : CONTAINER_HEALTH_FACT_TYPES.providerLaneShape,
+            serviceKey,
+            observedAt,
+            severity     : 'warning',
+            authoritative: false,
+            // Both numbers on every reason, because the actionable surface is whichever one is wrong:
+            // an undersized engine and a stale declaration produce the same verdict and need opposite
+            // fixes.
+            details      : {
+                reasons                     : toSafeArray(providerLaneShape.reasons),
+                declaration                 : providerLaneShape.declaration ?? null,
+                observedParallelism         : toSafeNumber(providerLaneShape.observed?.parallelism),
+                observedContextTokensPerSlot: toSafeNumber(providerLaneShape.observed?.contextTokensPerSlot),
+                declaredParallelSlots       : toSafeNumber(providerLaneShape.declared?.parallelSlots),
+                declaredContextTokensPerSlot: toSafeNumber(providerLaneShape.declared?.contextTokensPerSlot),
+                safeProcessingLimitTokens   : toSafeNumber(providerLaneShape.safeProcessingLimitTokens),
+                host                        : typeof providerLaneShape.host === 'string' ? providerLaneShape.host : null
+            }
+        })];
+    }
+
     collectProviderResidencyFacts({serviceKey, providerResidency, observedAt}) {
         if (!providerResidency || typeof providerResidency !== 'object') return [];
 

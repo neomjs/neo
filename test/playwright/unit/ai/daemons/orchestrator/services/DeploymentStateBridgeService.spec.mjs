@@ -95,6 +95,7 @@ function createService({
     diagnosisService,
     directProbeFn = null,
     providerResidencyProbe = async () => null,
+    providerLaneShapeProbe = null,
     providerActivityProbe = null,
     providerActivityWindowMs = 24 * 60 * 60 * 1000,
     providerActivityLimit = 50,
@@ -114,6 +115,7 @@ function createService({
         tenantRepoSyncEnabledReader,
         directProbeFn,
         providerResidencyProbe,
+        providerLaneShapeProbe,
         providerActivityProbe,
         providerActivityWindowMs,
         providerActivityLimit,
@@ -3220,5 +3222,99 @@ test.describe('#17049 — heavy-maintenance starvation projection (the consumed 
         const projectedUnknown = collect.call({}, {watchdogTaskState: {starvation: unknown}});
         expect(projectedUnknown.posture).toBe('unknown');
         expect(projectedUnknown.breaches).toEqual([]);
+    });
+});
+
+test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — provider-lane boot shape (#17069)', () => {
+    const HEALTHY_SLOTS = [{n_ctx: 32768}, {n_ctx: 32768}, {n_ctx: 32768}, {n_ctx: 32768}],
+          THIN_SLOTS    = [{n_ctx: 8192}, {n_ctx: 8192}];
+
+    test.beforeEach(() => {
+        restoreBridgeConfig = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+    });
+
+    test.afterEach(() => {
+        restoreBridgeConfig?.();
+    });
+
+    test('the probe runs ONCE and the receipt is republished — never a recurring /slots caller', async () => {
+        // The hard constraint of this feature. Per-request `/slots` probing was deliberately deleted
+        // because the endpoint starves under grind, and a recurring probe is forbidden outright. The
+        // bridge writes snapshots on a cadence, so without memoization this collector WOULD become
+        // that recurring caller — this test is the thing preventing it.
+        let calls = 0;
+
+        const bridge = createService({
+            providerLaneShapeProbe: async () => { calls++; return HEALTHY_SLOTS }
+        });
+
+        const first  = await bridge.collectProviderLaneShape({observedAt: 1}),
+              second = await bridge.collectProviderLaneShape({observedAt: 2}),
+              third  = await bridge.collectProviderLaneShape({observedAt: 3});
+
+        expect(calls, 'one reading, three publications').toBe(1);
+        expect(second).toBe(first);
+        expect(third).toBe(first);
+        // The timestamp stays at the READING, so a reader cannot mistake a republished receipt for a
+        // fresh measurement.
+        expect(first.observedAt).toBe(1);
+    });
+
+    test('a lane below the safe band degrades even with nothing declared, naming both numbers', async () => {
+        const bridge  = createService({providerLaneShapeProbe: async () => THIN_SLOTS}),
+              receipt = await bridge.collectProviderLaneShape({observedAt: 1});
+
+        expect(receipt.degraded).toBe(true);
+        expect(receipt.reasons).toContain('lane-context-below-safe-band');
+        expect(receipt.declaration).toBe('not-declared');
+        expect(receipt.observed.contextTokensPerSlot).toBe(8192);
+        expect(receipt.safeProcessingLimitTokens).toBe(28672);
+    });
+
+    test('an undeclared correctly-sized lane is clean — the false-degrade this design exists to avoid', async () => {
+        const bridge  = createService({providerLaneShapeProbe: async () => HEALTHY_SLOTS}),
+              receipt = await bridge.collectProviderLaneShape({observedAt: 1});
+
+        expect(receipt.degraded).toBe(false);
+        expect(receipt.declaration).toBe('not-declared');
+        expect(receipt.observed).toEqual({parallelism: 4, contextTokensPerSlot: 32768});
+    });
+
+    test('an unreachable engine is explicitly unobservable, not degraded and not thrown', async () => {
+        // `fetchEmbeddingLaneSlots` returns null on any transport failure; an exception at boot is a
+        // restart lever. Silence and divergence must stay distinguishable in the artifact.
+        const bridge  = createService({providerLaneShapeProbe: async () => null}),
+              receipt = await bridge.collectProviderLaneShape({observedAt: 1});
+
+        expect(receipt.observable).toBe(false);
+        expect(receipt.degraded).toBe(false);
+        expect(receipt.unobservable).toBe('slots-payload-not-an-array');
+    });
+
+    test('the diagnosis service raises a fact only on divergence, never on unobservable or clean', () => {
+        const diagnosis = Neo.create(ContainerHealthDiagnosisService, {}),
+              factsFor  = providerLaneShape => diagnosis.collectProviderLaneShapeFacts({
+                  serviceKey: 'local-model', providerLaneShape, observedAt: OBSERVED_AT
+              });
+
+        expect(factsFor(null), 'no receipt').toEqual([]);
+        expect(factsFor({observable: false, degraded: false}), 'unobservable is not a divergence').toEqual([]);
+        expect(factsFor({observable: true, degraded: false}), 'clean lane').toEqual([]);
+
+        const [fact] = factsFor({
+            observable               : true,
+            degraded                 : true,
+            declaration              : 'declared',
+            reasons                  : ['lane-context-differs-from-declared'],
+            observed                 : {parallelism: 4, contextTokensPerSlot: 8192},
+            declared                 : {parallelSlots: 4, contextTokensPerSlot: 32768},
+            safeProcessingLimitTokens: 28672,
+            host                     : 'http://embedding-model:8080'
+        });
+
+        expect(fact.type).toBe('provider-lane-shape-diverged');
+        expect(fact.authoritative, 'a boot reading must not drive an actuator').toBe(false);
+        expect(fact.details.observedContextTokensPerSlot).toBe(8192);
+        expect(fact.details.declaredContextTokensPerSlot).toBe(32768);
     });
 });
