@@ -1,8 +1,9 @@
-import {expect, test}                from '@playwright/test';
-import fs                            from 'node:fs/promises';
-import os                            from 'node:os';
-import path                          from 'node:path';
-import {createFleetWakeRoutesSource} from '../../../../../../ai/services/fleet/fleetWakeRoutesSource.mjs';
+import {expect, test}                      from '@playwright/test';
+import fs                                  from 'node:fs/promises';
+import os                                  from 'node:os';
+import path                                from 'node:path';
+import {createFleetWakeRoutesSource}       from '../../../../../../ai/services/fleet/fleetWakeRoutesSource.mjs';
+import {createPlaneWakeObservationsReader} from '../../../../../../ai/services/fleet/planeWakeIdentitiesReader.mjs';
 
 const ROSTER = [
     {id: 'ada',  githubUsername: 'neo-opus-ada'},
@@ -30,13 +31,13 @@ const PRESENCE_PAYLOAD = {
  */
 function harness(overrides = {}) {
     return createFleetWakeRoutesSource({
-        listAgents                      : () => ROSTER,
-        resolveViewerIdentity           : () => '@e2e-operator',
-        listActiveSubscriptionIdentities: () => ['@neo-fable-clio'],
-        resolveDeliveryLiveness         : () => ({alive: true, reason: null}),
-        resolveTerminalDeliveryFailures : () => ({state: 'observed', reason: null, byIdentity: new Map()}),
-        readPresence                    : () => PRESENCE_PAYLOAD,
-        now                             : () => new Date('2026-08-03T20:01:00.000Z'),
+        listAgents                        : () => ROSTER,
+        resolveViewerIdentity             : () => '@e2e-operator',
+        listActiveSubscriptionObservations: () => [{identity: '@neo-fable-clio', lastPollAt: '2026-08-03T19:58:00.000Z'}],
+        resolveDeliveryLiveness           : () => ({alive: true, reason: null}),
+        resolveTerminalDeliveryFailures   : () => ({state: 'observed', reason: null, byIdentity: new Map()}),
+        readPresence                      : () => PRESENCE_PAYLOAD,
+        now                               : () => new Date('2026-08-03T20:01:00.000Z'),
         ...overrides
     })
 }
@@ -85,7 +86,9 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
         expect(ada.armed).toEqual({state: 'none', reason: null});
 
         expect(ada.subscription).toEqual({state: 'none', reason: null});
-        expect(clio.subscription).toEqual({state: 'active', reason: null});
+        // The active row carries the redacted poll-recency observation — the route-health
+        // derivation input this axis exists to deliver.
+        expect(clio.subscription).toEqual({state: 'active', reason: null, lastPollAt: '2026-08-03T19:58:00.000Z'});
         expect(clio.delivery).toEqual({state: 'alive', reason: null});
         expect(clio.lastFailure).toEqual({state: 'observed', reason: null, receipt: null});
         expect(clio.presence).toEqual({
@@ -199,7 +202,7 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
 
     test('a throwing subscription scan degrades EVERY seat axis with the same reason, never a fabricated none', async () => {
         const snapshot = await harness({
-            listActiveSubscriptionIdentities: () => { throw new Error('plane wake fleet-identities answer unreadable') }
+            listActiveSubscriptionObservations: () => { throw new Error('plane wake fleet-identities answer unreadable') }
         }).readWakeRoutes();
 
         expect(snapshot.capability.state).toBe('degraded');
@@ -210,6 +213,72 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
             expect(seat.subscription.state).toBe('unknown');
             expect(seat.subscription.reason).toContain('unreadable')
         }
+    });
+
+    test('an active subscription no poll has touched renders lastPollAt null — absence-of-signal, never a verdict', async () => {
+        const snapshot = await harness({
+            listActiveSubscriptionObservations: () => [{identity: '@neo-fable-clio', lastPollAt: null}]
+        }).readWakeRoutes();
+
+        const clio = snapshot.seats.find(seat => seat.agentIdentity === '@neo-fable-clio');
+
+        expect(clio.subscription).toEqual({state: 'active', reason: null, lastPollAt: null})
+    });
+
+    test('a pre-observation supplier (bare identity strings) fails the WHOLE axis honestly — a skipped entry would fabricate none', async () => {
+        const snapshot = await harness({
+            listActiveSubscriptionObservations: () => ['@neo-fable-clio']
+        }).readWakeRoutes();
+
+        for (const seat of snapshot.seats) {
+            expect(seat.subscription.state).toBe('unknown');
+            expect(seat.subscription.reason).toContain('unreadable')
+        }
+    });
+
+    test('the production chain pin: the fleet-identities wire shape → plane observations reader → routes source → recency on the seat row', async () => {
+        // The exact plane answer `WakeSubscriptionService.fleetIdentities` serves (identities plus
+        // redacted observations), consumed through the REAL plane reader into the REAL source —
+        // the reachability Memory Core → plane reader → fleetWakeRoutesSource, pinned hermetically.
+        const planeClient = {
+            async callTool(name, args) {
+                expect(name).toBe('manage_wake_subscription');
+                expect(args).toEqual({action: 'fleet-identities'});
+
+                return {
+                    identities  : ['@neo-fable-clio', '@neo-opus-ada'],
+                    observations: [
+                        {identity: '@neo-fable-clio', lastPollAt: '2026-08-03T19:59:30.000Z'},
+                        {identity: '@neo-opus-ada',   lastPollAt: null}
+                    ]
+                }
+            }
+        };
+
+        const snapshot = await harness({
+            listActiveSubscriptionObservations: createPlaneWakeObservationsReader(planeClient)
+        }).readWakeRoutes();
+
+        const
+            clio = snapshot.seats.find(seat => seat.agentIdentity === '@neo-fable-clio'),
+            ada  = snapshot.seats.find(seat => seat.agentIdentity === '@neo-opus-ada');
+
+        expect(clio.subscription).toEqual({state: 'active', reason: null, lastPollAt: '2026-08-03T19:59:30.000Z'});
+        expect(ada.subscription).toEqual({state: 'active', reason: null, lastPollAt: null})
+    });
+
+    test('a plane predating the recency disclosure (identities only) degrades to null recency — never a broken axis', async () => {
+        const snapshot = await harness({
+            listActiveSubscriptionObservations: createPlaneWakeObservationsReader({
+                async callTool() {
+                    return {identities: ['@neo-fable-clio']}
+                }
+            })
+        }).readWakeRoutes();
+
+        const clio = snapshot.seats.find(seat => seat.agentIdentity === '@neo-fable-clio');
+
+        expect(clio.subscription).toEqual({state: 'active', reason: null, lastPollAt: null})
     });
 
     test('typed-unknown delivery axes (the plane mode reality) degrade honestly and name themselves', async () => {
@@ -319,10 +388,10 @@ test.describe('fleetWakeRoutesSource — the decomposed per-seat wake-route read
 
     test('every axis silent still answers rows: all-unknown seats under degraded/none-adjacent truth', async () => {
         const snapshot = await harness({
-            listActiveSubscriptionIdentities: null,
-            resolveDeliveryLiveness         : null,
-            resolveTerminalDeliveryFailures : null,
-            readPresence                    : null
+            listActiveSubscriptionObservations: null,
+            resolveDeliveryLiveness           : null,
+            resolveTerminalDeliveryFailures   : null,
+            readPresence                      : null
         }).readWakeRoutes();
 
         expect(snapshot.capability.state).toBe('degraded');

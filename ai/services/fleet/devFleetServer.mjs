@@ -54,12 +54,14 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {assertFleetPlaneAdmissionBearerClass}                            from './fleetServer.mjs';
-import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
-import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
-import {createFleetWakeSseConsumer}                                      from './fleetWakeSseConsumer.mjs';
-import {createPlaneWhoIsOnlineReader}                                    from './planeWhoIsOnlineReader.mjs';
-import {readActiveWakeSubscriptionIdentities}                            from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
+import {assertFleetPlaneAdmissionBearerClass} from './fleetServer.mjs';
+import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
+import {createPlaneWakeIdentitiesReader,
+        createPlaneWakeObservationsReader}                               from './planeWakeIdentitiesReader.mjs';
+import {createFleetWakeSseConsumer}   from './fleetWakeSseConsumer.mjs';
+import {createPlaneWhoIsOnlineReader} from './planeWhoIsOnlineReader.mjs';
+import {readActiveWakeSubscriptionIdentities,
+        readActiveWakeSubscriptionObservations}                          from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
 import {wireBootIdentityReadSource}                                      from './wireBootIdentityReadSource.mjs';
 import {wireFleetActivityReadSource}                                     from './wireFleetActivityReadSource.mjs';
@@ -172,15 +174,18 @@ async function boot() {
         FleetManager.wakeStateOptions = {
             // The proven client returns PARSED payloads (its mapToolResult owns envelope handling)
             // — the reader consumes them directly; a second parse here would reject every healthy
-            // answer and silently blind the whole axis.
-            listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
-            resolveDeliveryLiveness         : fleetWakeStreamConsumer
+            // answer and silently blind the whole axis. Two projections of the ONE fleet-identities
+            // read: membership for the fused S2 axis, redacted per-identity poll observations for
+            // the decomposed routes verb's recency derivation.
+            listActiveSubscriptionIdentities  : createPlaneWakeIdentitiesReader(planeClient),
+            listActiveSubscriptionObservations: createPlaneWakeObservationsReader(planeClient),
+            resolveDeliveryLiveness           : fleetWakeStreamConsumer
                 ? () => fleetWakeStreamConsumer.resolveDeliveryLiveness()
                 : () => ({
                     alive : 'unknown',
                     reason: 'no fleet-surface credential declared (fleet.planeAdmissionBearer / fleet.planeAdmissionBearerFile) — poll remains the truth lane'
                 }),
-            resolveTerminalDeliveryFailures : () => ({
+            resolveTerminalDeliveryFailures   : () => ({
                 state     : 'unknown',
                 reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
                 byIdentity: new Map()
@@ -198,12 +203,15 @@ async function boot() {
         // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
         // (`ai/daemons/wake/daemon.mjs`) is the one to mirror here.
         FleetManager.wakeStateOptions = {
-            pidFilePath                     : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
-            deliveryFailureFilePath         : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
-            listActiveSubscriptionIdentities: readActiveWakeSubscriptionIdentities,
+            pidFilePath            : path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-daemon.pid'),
+            deliveryFailureFilePath: path.join(memoryCoreConfig.wakeDaemon.dataDir, 'wake-delivery-failures.json'),
+            // The same two projections of the shared host-graph scan the plane branch reads over
+            // MCP — one query, both modes, no second copy free to drift.
+            listActiveSubscriptionIdentities  : readActiveWakeSubscriptionIdentities,
+            listActiveSubscriptionObservations: readActiveWakeSubscriptionObservations,
             // Same mode-independent receiver-manifest coordinate as the plane branch — the signed
             // host receiver is host-bound truth either way (see the plane-branch comment).
-            wakeReceiverManifestPath        : AiConfig.fleet.wakeReceiverManifestPath
+            wakeReceiverManifestPath          : AiConfig.fleet.wakeReceiverManifestPath
         };
 
         console.log('[fleet] wake-state seam stays host-local (host plane: daemon PID file + host graph subscription scan)')
@@ -222,10 +230,10 @@ async function boot() {
     // proven client; host mode wraps the daemon PID-file liveness read and leaves presence and
     // terminal receipts honestly unbound until host surfaces exist for them.
     wireFleetWakeRoutesSource({
-        listAgents                      : () => FleetManager.getLifecycleService().getRegistry().listAgents(),
-        resolveViewerIdentity           : () => RequestContextService.getAgentIdentityNodeId(),
-        listActiveSubscriptionIdentities: FleetManager.wakeStateOptions.listActiveSubscriptionIdentities ?? null,
-        resolveDeliveryLiveness         : FleetManager.wakeStateOptions.resolveDeliveryLiveness ??
+        listAgents                        : () => FleetManager.getLifecycleService().getRegistry().listAgents(),
+        resolveViewerIdentity             : () => RequestContextService.getAgentIdentityNodeId(),
+        listActiveSubscriptionObservations: FleetManager.wakeStateOptions.listActiveSubscriptionObservations ?? null,
+        resolveDeliveryLiveness           : FleetManager.wakeStateOptions.resolveDeliveryLiveness ??
             (FleetManager.wakeStateOptions.pidFilePath
                 ? () => resolveDaemonLiveness({pidFilePath: FleetManager.wakeStateOptions.pidFilePath})
                 : null),

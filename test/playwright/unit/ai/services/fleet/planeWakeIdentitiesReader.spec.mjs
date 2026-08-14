@@ -17,8 +17,9 @@ import {test, expect} from '@playwright/test'
 import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
-import {createPlaneWakeIdentitiesReader} from '../../../../../../ai/services/fleet/planeWakeIdentitiesReader.mjs'
-import {readFleetWakeStateSnapshot}      from '../../../../../../ai/services/fleet/fleetWakeStateAdapter.mjs'
+import {createPlaneWakeIdentitiesReader,
+        createPlaneWakeObservationsReader} from '../../../../../../ai/services/fleet/planeWakeIdentitiesReader.mjs'
+import {readFleetWakeStateSnapshot}        from '../../../../../../ai/services/fleet/fleetWakeStateAdapter.mjs'
 
 /**
  * The client→reader→adapter composition witnesses. The proven plane client returns PARSED tool
@@ -85,6 +86,45 @@ test.describe('planeWakeIdentitiesReader — the plane-mode client→adapter com
 
     test('a payload without a top-level identities array throws the named contract error', async () => {
         const reader = createPlaneWakeIdentitiesReader({callTool: async () => ({})})
+
+        await expect(reader()).rejects.toThrow('plane wake fleet-identities answer unreadable')
+    })
+})
+
+test.describe('planeWakeObservationsReader — the redacted recency projection over the same read', () => {
+    test('observations rows pass through normalized: identity + lastPollAt only, empty stamps become null, junk rows are dropped', async () => {
+        const reader = createPlaneWakeObservationsReader({
+            callTool: async (name, args) => {
+                expect([name, args]).toEqual(['manage_wake_subscription', {action: 'fleet-identities'}])
+
+                return {
+                    identities  : ['@neo-gpt', '@neo-opus-vega'],
+                    observations: [
+                        {identity: '@neo-gpt',       lastPollAt: '2026-08-14T15:00:00.000Z'},
+                        {identity: '@neo-opus-vega', lastPollAt: ''},
+                        {identity: '',               lastPollAt: '2026-08-14T15:00:00.000Z'},
+                        {lastPollAt: '2026-08-14T15:00:00.000Z'}
+                    ]
+                }
+            }
+        })
+
+        expect(await reader()).toEqual([
+            {identity: '@neo-gpt',       lastPollAt: '2026-08-14T15:00:00.000Z'},
+            {identity: '@neo-opus-vega', lastPollAt: null}
+        ])
+    })
+
+    test('the deployment-lag fallback: an identities-only plane answers null recency per identity — honest absence, never a broken read', async () => {
+        const reader = createPlaneWakeObservationsReader({
+            callTool: async () => ({identities: ['@neo-gpt']})
+        })
+
+        expect(await reader()).toEqual([{identity: '@neo-gpt', lastPollAt: null}])
+    })
+
+    test('a payload with neither observations nor identities throws the same named contract error as the sibling', async () => {
+        const reader = createPlaneWakeObservationsReader({callTool: async () => ({})})
 
         await expect(reader()).rejects.toThrow('plane wake fleet-identities answer unreadable')
     })
