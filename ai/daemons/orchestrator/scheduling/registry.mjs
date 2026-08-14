@@ -193,15 +193,17 @@ const taskRegistry = [
         dependencies    : [],
         getDueTask({state, now, intervals, hooks}) {
             return (hooks.dreamGetDueTask || getDreamDueTask)({
-                state                      : state.dream ?? {},
+                state                       : state.dream ?? {},
                 now,
-                dreamIntervalMs            : intervals.dream,
-                dreamOverflowThreshold     : intervals.dreamOverflowThreshold,
-                remBacklogCatchupCooldownMs: intervals.remBacklogCatchupCooldown,
-                remStarvationBreakerMs     : intervals.remStarvationBreaker,
+                dreamIntervalMs             : intervals.dream,
+                dreamOverflowThreshold      : intervals.dreamOverflowThreshold,
+                remBacklogCatchupCooldownMs : intervals.remBacklogCatchupCooldown,
+                remStarvationBreakerMs      : intervals.remStarvationBreaker,
+                breathingGapMs              : intervals.dreamBreathingGap,
+                idleBacklogCadenceMultiplier: intervals.dreamIdleBacklogCadenceMultiplier,
                 // The undigested-backlog count the watchdog pairs with staleness, persisted to the dream
                 // task state each pipeline tick (see the watchdog eval) so this pure projection stays I/O-free.
-                undigestedBacklog          : state.dream?.undigestedCount ?? 0
+                undigestedBacklog           : state.dream?.undigestedCount ?? 0
             });
         }
     },

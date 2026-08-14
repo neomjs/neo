@@ -88,9 +88,17 @@ export function isRemBacklogCatchupEligible({state, dreamIntervalMs, dreamOverfl
  * cadence, never every tick. `0` (default / unwired) disables it — fail-open, never fail-loud.
  * @param {Number} [options.undigestedBacklog=0] Current undigested-session backlog count (the same signal the
  * consolidation-liveness watchdog pairs with staleness); `0` means nothing to rescue, so the breaker holds.
+ * @param {Number} [options.breathingGapMs=0] Minimum idle gap after ANY dream run before the next admission,
+ * applied to every trigger source so CPU-plane cores visibly return to idle between cycles. Sized in minutes —
+ * keep it well below `remStarvationBreakerMs` so the gap can never mask genuine starvation. `0` (default /
+ * unwired) disables — fail-open, never fail-loud.
+ * @param {Number} [options.idleBacklogCadenceMultiplier=1] Stretches the periodic interval while
+ * `undigestedBacklog` is zero, so an idle-corpus plane consolidates at reduced cadence. Catch-up and the
+ * starvation breaker are unaffected (both require a backlog by construction). Values `<= 0` or non-finite
+ * behave as `1` — fail-open, never fail-loud.
  * @returns {Object|null} A dream task trigger or null when no work is due.
  */
-export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold, remBacklogCatchupCooldownMs, remStarvationBreakerMs = 0, undigestedBacklog = 0}) {
+export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold, remBacklogCatchupCooldownMs, remStarvationBreakerMs = 0, undigestedBacklog = 0, breathingGapMs = 0, idleBacklogCadenceMultiplier = 1}) {
     requireFiniteNumber('dreamIntervalMs', dreamIntervalMs);
     requireFiniteNumber('dreamOverflowThreshold', dreamOverflowThreshold);
     requireFiniteNumber('remBacklogCatchupCooldownMs', remBacklogCatchupCooldownMs);
@@ -101,7 +109,24 @@ export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold,
         return null;
     }
 
-    if (now - cadenceAnchor >= dreamIntervalMs) {
+    // Breathing gap: a hard idle floor after the most recent dream activity, ahead of EVERY trigger
+    // source. lastRunAt covers failed/clipped runs, lastSuccessAt covers the completion edge of an
+    // overflowed cycle; whichever is latest anchors the gap. A never-run lane (both null) never holds.
+    if (breathingGapMs > 0) {
+        const lastActivityAt = Math.max(toTimestampMs(state?.lastRunAt) ?? 0, toTimestampMs(state?.lastSuccessAt) ?? 0);
+
+        if (lastActivityAt > 0 && now - lastActivityAt < breathingGapMs) {
+            return null;
+        }
+    }
+
+    // Idle-backlog cadence: with nothing undigested, the periodic trigger stretches by the multiplier;
+    // any backlog restores the base cadence on this same evaluation. Guarded fail-open so an unwired or
+    // nonsensical multiplier can never slow a plane that has real work queued.
+    const idleMultiplier            = Number.isFinite(idleBacklogCadenceMultiplier) && idleBacklogCadenceMultiplier > 0 ? idleBacklogCadenceMultiplier : 1;
+    const effectivePeriodicInterval = undigestedBacklog === 0 ? dreamIntervalMs * idleMultiplier : dreamIntervalMs;
+
+    if (now - cadenceAnchor >= effectivePeriodicInterval) {
         return {
             taskName: 'dream',
             source  : 'periodic-dream',
