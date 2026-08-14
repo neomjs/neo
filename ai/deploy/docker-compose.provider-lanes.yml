@@ -132,6 +132,55 @@ x-provider-lane-env: &provider-lane-env
   NEO_OPENAI_COMPATIBLE_HOST: http://embedding-model:8080
   NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL: qwen3-embedding-8b
   NEO_OPENAI_COMPATIBLE_REQUIRE_PARALLEL_MODELS: "1"
+  # ── Embedding-lane behavior-binding clocks (#17115) ────────────────────────────────────────────
+  # PROJECTED AS COMMENTS, DELIBERATELY. These leaves bind embedding timing on every deployment,
+  # but their values live in `ai/configBase.mjs` and nowhere else: writing a default into this file
+  # creates a second declaration site, so a later change to the leaf would leave this file silently
+  # pinning the old number. That is the failure `matches-config-default` in the config-leaf-parity
+  # gate exists to prevent, and it is why these are documented rather than restated. Uncomment a
+  # line ONLY to override — a value present here is then a deliberate deviation, which is the one
+  # case where compose is the right home for it.
+  #
+  # THE LADDER THAT ACTUALLY BINDS A SINGLE-INPUT EMBED. Reading only the 300s/900s deadlines
+  # elsewhere in a deployment gives the wrong picture: every single-input embed is governed first by
+  # this ~47s ceiling, which is not any one leaf but the composition of three:
+  #
+  #     contentionTimeoutMs x (contentionRetryCount + 1 attempts) + contentionRetryDelayMs x retries
+  #     15000 x 3 + 1000 x 2 = 47000ms
+  #
+  # `contentionRetryCount` is a RETRY count, not an attempt count — the dispatcher enters with
+  # `contentionRetriesLeft = contentionRetryCount` and decrements per retry, so 2 yields 3 attempts.
+  # Omitting `_RETRY_DELAY_MS` from this block would leave the 47s underivable from the file.
+  #
+  # NEO_OPENAI_COMPATIBLE_CONTENTION_TIMEOUT_MS: "15000"     # per-attempt ceiling, ONE single-input embed
+  # NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT: "2"        # retries after the first attempt (2 -> 3 attempts)
+  # NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_DELAY_MS: "1000"  # wait between attempts; x retryCount in the total
+  #
+  # Plane-class guidance: on a CPU-constrained plane a single embed can exceed 15000ms under load,
+  # so the ladder burns all three attempts and returns a contention timeout after ~47s rather than a
+  # result. Raising `_TIMEOUT_MS` before raising `_RETRY_COUNT` is the ordering that shortens
+  # total latency for the same tolerance. On a GPU plane the defaults are typically slack and the
+  # ladder should never engage — if it does, that is a capacity signal, not a tuning opportunity.
+  #
+  # BATCH PATH — a separate clock set from the single-input ladder above; neither bounds the other.
+  # NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_TIMEOUT_MS: "300000"  # ceiling for ONE batch call
+  # NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: "5"       # inputs per batch call
+  # NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_YIELD_MS: "0"         # pause between chunks; >0 to cede CPU
+  #
+  # Plane-class guidance: chunk size and yield are the CPU-plane levers. A smaller chunk lowers
+  # per-call wall time and lets other work interleave; a non-zero yield trades throughput for
+  # responsiveness on a shared quota. The batch timeout is backpressure, not generosity — sizing it
+  # above the plane's real capacity converts a fast failure into a long stall.
+  #
+  # MODEL-RESIDENCY RETRIES — engage when the endpoint drops the model between calls.
+  # NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT: "3"       # retries after a model-unloaded/404 response
+  # NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS: "500"  # wait before each residency retry
+  # NEO_OPENAI_COMPATIBLE_KEEP_ALIVE: "-1"              # -1 keeps the model resident indefinitely
+  #
+  # Plane-class guidance: `-1` is what keeps a co-resident embedding model from being evicted by
+  # chat traffic. A finite keep-alive on a multi-model plane reintroduces the unload retries as a
+  # steady-state cost rather than an exception.
+  # ──────────────────────────────────────────────────────────────────────────────────────────────
   NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat context required}
   NEO_LOCAL_MODELS_CHAT_PARALLEL: "1"
   NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED:?embedding per-slot context required}
