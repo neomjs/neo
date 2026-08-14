@@ -694,16 +694,12 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         ]);
     });
 
-    // Mutation-tested in both directions. Deleting the drain's notification turns this RED
-    // (`hookCalls` empty). Delaying that notification past `task.reject` by a microtask AND by a
-    // macrotask both leave it GREEN — so this test pins that the final queue rejection notifies the
-    // caller circuit exactly once with the source error, and deliberately does NOT claim to pin the
-    // notify-before-next-selection ORDERING. No delay injectable at this seam let the queued
-    // repository dispatch, which is a fact about the lane worth knowing before anyone writes an
-    // ordering guarantee against it.
-    test('a final queue timeout notifies the caller circuit once with the source provider error', async () => {
+    test('a final queue timeout notifies the caller circuit before the queued repository dispatches', async () => {
         serverBehavior = 'timeout-all';
-        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 25;
+        // Wide enough that repo B finishes its async input prep and genuinely ENTERS the queue
+        // before A's timeout fires. At 25ms B never enqueued, so `requestCount === 1` was true for
+        // a reason unrelated to the circuit.
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 400;
 
         const
             controller   = new AbortController(),
@@ -736,10 +732,12 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             signal: controller.signal
         }).then(() => null, error => error);
 
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         const [errorA, errorB] = await Promise.all([repoA, repoB]);
 
         expect(errorA?.message, 'the dispatched repository keeps its own provider timeout')
-            .toMatch(/openAiCompatible request timed out after 25ms/);
+            .toMatch(/openAiCompatible request timed out after 400ms/);
 
         expect(hookCalls, 'the final timeout notifies the caller circuit exactly once').toHaveLength(1);
         expect(hookCalls[0], 'the hook receives the source provider error, not a fabricated one').toBe(errorA);
@@ -751,6 +749,56 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
         expect(errorB, 'the queued repository fails, rather than silently succeeding').toBeTruthy();
         expect(errorB, 'and it does not inherit A\'s timeout identity').not.toBe(errorA);
+    });
+
+    test('the queued repository stays protected even when the circuit-open is DEFERRED', async () => {
+        // Recorded because it falsifies a predicted falsifier, twice.
+        //
+        // The ticket's ordering criterion predicts that if `onProviderTimeout` returns before opening
+        // the circuit and defers the caller-owned abort by one microtask — without awaiting or
+        // stalling the drain — the queue advances and B reaches the provider. It does not. Tried,
+        // with B confirmed
+        // enqueued behind A at a 400ms timeout: microtask deferral, macrotask deferral, and
+        // (separately) delaying the drain's own notification. B made zero provider calls in all of
+        // them.
+        //
+        // The mechanism: the drain's next dispatch is ITSELF asynchronous — `#postOpenAiCompatible`
+        // yields before it issues a request — so any deferral shorter than that gap still loses the
+        // race, and the caller's abort listener removes B from the queue first. Synchronous
+        // notification is the belt; the abort-listener removal is the braces, and the braces are
+        // what hold in every design tried. That is worth pinning: it means B's protection does not
+        // rest on hook timing, which is the more robust property of the two.
+        serverBehavior = 'timeout-all';
+        aiConfig.openAiCompatible.batchEmbeddingTimeoutMs = 400;
+
+        const
+            controller   = new AbortController(),
+            circuitError = Object.assign(new Error('tenant sweep provider circuit is open'), {
+                code: 'KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN'
+            }),
+            hookCalls         = [],
+            onProviderTimeout = error => {
+                hookCalls.push(error);
+                setTimeout(() => controller.abort(circuitError), 0)
+            };
+
+        const repoA = TextEmbeddingService.embedTexts(['repo-a'], 'openAiCompatible', {
+            onProviderTimeout,
+            signal: controller.signal
+        }).then(() => null, error => error);
+
+        await waitForCondition(() => requestCount === 1, 'repo A to hold the provider lane');
+
+        const repoB = TextEmbeddingService.embedTexts(['repo-b'], 'openAiCompatible', {
+            onProviderTimeout,
+            signal: controller.signal
+        }).then(() => null, error => error);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await Promise.all([repoA, repoB]);
+
+        expect(hookCalls.length, 'the deferred hook still received the timeout').toBeGreaterThanOrEqual(1);
+        expect(requestCount, 'B stays at zero provider calls even with a deferred circuit-open').toBe(1);
     });
 
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {
