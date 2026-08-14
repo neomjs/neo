@@ -4,6 +4,7 @@ import os                                from 'os';
 import path                              from 'path';
 import aiConfig                          from '../../mcp/server/memory-core/config.mjs';
 import {isEmbeddingContextBelowSafeBand} from '../../embeddingSafeBand.mjs';
+import {PROVIDER_LANE_ENDPOINT_CONTRACT} from '../../scripts/diagnostics/providerLaneComposition.mjs';
 import logger                            from '../../mcp/server/memory-core/logger.mjs';
 import {
     buildOllamaEvalAttribution,
@@ -876,6 +877,50 @@ export async function checkOpenAiCompatibleEmbeddingServing({
     openAiCompatibleEmbeddingServingProbeQueue = queuedProbe.catch(() => {});
 
     return queuedProbe;
+}
+
+/**
+ * @summary Reads the embedding engine's live slot shape from `/slots` — ONE SHOT, never per request.
+ *
+ * The path and field names come from `PROVIDER_LANE_ENDPOINT_CONTRACT.embedding.slotContext` rather
+ * than being spelled here, so the endpoint has one owner.
+ *
+ * **Why one-shot is load-bearing:** every per-request `/slots` probe was deliberately removed from
+ * the dispatch path, because the endpoint starves under full embedding grind and gating on it
+ * manufactures failures out of expected state. That reasoning is about the REQUEST PATH. At boot the
+ * lane is not under grind, which is the one moment the reading is trustworthy. Callers must therefore
+ * invoke this exactly once and cache the result; a recurring caller re-creates the removed pattern.
+ *
+ * Returns `null` on any transport or status failure rather than throwing: the caller records an
+ * explicit unobservable verdict, and an exception at orchestrator boot degrades container liveness
+ * into a restart lever.
+ *
+ * @param {Object} options
+ * @param {String} options.host Embedding provider host.
+ * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
+ * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
+ * @returns {Promise<Object[]|null>} Decoded `/slots` payload, or `null` when unreadable.
+ */
+export async function fetchEmbeddingLaneSlots({host, timeoutMs, fetchFn = fetch} = {}) {
+    if (!host) {
+        throw new TypeError('fetchEmbeddingLaneSlots: host is required');
+    }
+    if (typeof timeoutMs !== 'number') {
+        throw new TypeError('fetchEmbeddingLaneSlots: timeoutMs is required');
+    }
+
+    const {path, method} = PROVIDER_LANE_ENDPOINT_CONTRACT.embedding.slotContext;
+
+    try {
+        const response = await fetchFn(new URL(path, host).toString(), {
+            method,
+            signal: AbortSignal.timeout(timeoutMs)
+        });
+
+        return response?.ok ? await response.json() : null
+    } catch {
+        return null
+    }
 }
 
 /**

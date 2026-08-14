@@ -881,6 +881,37 @@ class ConfigBase extends ConfigProvider {
                 }
             },
             /**
+             * @summary What THIS DEPLOYMENT declared its provider-lane shape to be — provenance, not
+             * an operational value. Nothing reads these to configure anything; the boot shape check
+             * reads them to answer "did the operator state an intent I can verify against?".
+             *
+             * **`null` is the load-bearing default: it means NOT DECLARED.** Every leaf here binds the
+             * raw `NEO_PROVIDER_LANE_*` DECLARATION namespace, which a deployment sets only when it is
+             * declaring an envelope. The `localModels.embedding.*` leaves above are the CONSUMPTION
+             * namespace and are contractually never a comparison authority: they carry non-null
+             * operational defaults (`parallel` is 1 for LM Studio residency, per its comment above), so
+             * a plane that declares its shape to the engine alone would be compared against a default
+             * it never chose — observing 4 slots against a defaulted 1 degrades a correctly-sized
+             * deployment. Resolved-vs-declared is exactly the distinction those leaves cannot make.
+             *
+             * `positiveInt` rather than `number` is deliberate: an out-of-domain declaration (`0`, a
+             * typo) returns `undefined` from the parser, so the `null` default stands and the value
+             * reads as not-declared. With `number` a declared `0` would be a real declaration and would
+             * degrade a healthy lane — a malformed declaration must fail toward silence, never toward
+             * a verdict about a lane that is fine.
+             *
+             * Env overrides: `NEO_PROVIDER_LANE_EMBEDDING_SLOTS`,
+             * `NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED`.
+             *
+             * @type {Object}
+             */
+            providerLaneDeclaration: {
+                embedding: {
+                    parallelSlots       : leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS', 'positiveInt'),
+                    contextTokensPerSlot: leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED', 'positiveInt')
+                }
+            },
+            /**
              * Memory Core repair strategy controls that participate in durable accepted-loss fingerprints.
              *
              * `strategyVersion` must change whenever repair embeddability behavior changes in a way that can
@@ -1298,6 +1329,23 @@ class ConfigBase extends ConfigProvider {
                     logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
                     providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
+                    /**
+                     * @summary Services the EMBEDDING-lane shape receipt attaches to — deliberately its
+                     * own key rather than a reuse of `providerResidencyServiceKeys`.
+                     *
+                     * Those two sets name different lanes on a split-lane plane: residency observes the
+                     * CHAT provider (`chat-model` in the provider-lanes profile), while the shape reading
+                     * is taken against the EMBEDDING host and compared to the embedding declaration.
+                     * Gating the receipt on the residency predicate publishes embedding-lane facts on the
+                     * chat service's record and degrades the wrong container, while the service the data
+                     * describes carries nothing. Widening the residency set instead would misroute
+                     * residency and provider-activity onto the embedding lane — the same error inverted.
+                     *
+                     * The default covers both shipped topologies without a compose entry: `local-model`
+                     * where one service holds both roles, `embedding-model` where the lanes are split.
+                     * @type {String[]}
+                     */
+                    providerLaneShapeServiceKeys: leaf(['local-model', 'embedding-model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_LANE_SHAPE_SERVICE_KEYS', 'csv'),
                     recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
                     // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
                     // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no

@@ -3,7 +3,15 @@ import fs                                   from 'fs-extra';
 import path                                 from 'node:path';
 import Base                                 from '../../../../src/core/Base.mjs';
 import AiConfig                             from '../../../config.mjs';
-import {probeProviderParallelModelCapacity} from '../../../services/graph/providerReadinessHelper.mjs';
+import {
+    fetchEmbeddingLaneSlots,
+    getOpenAiCompatibleHost,
+    probeProviderParallelModelCapacity
+}                                          from '../../../services/graph/providerReadinessHelper.mjs';
+import {
+    classifyProviderLaneLiveShape,
+    parseEmbeddingLaneSlots
+}                                          from '../../../providerLaneLiveShape.mjs';
 import {runHealthcheck}                     from '../../../scripts/diagnostics/mcpHealthcheck.mjs';
 import {writeFileAtomicSync}                from '../../../services/shared/atomicFileWrite.mjs';
 
@@ -188,6 +196,22 @@ export class DeploymentStateBridgeService extends Base {
          * @protected
          */
         providerResidencyProbe: null,
+        /**
+         * One-shot embedding-lane `/slots` reader: `async ({host, timeoutMs}) => payload`.
+         * Injected so specs can drive every shape — undersized, non-uniform, unreachable — without a
+         * live engine. Falls back to {@link fetchEmbeddingLaneSlots}.
+         * @member {Function|null} providerLaneShapeProbe=null
+         * @protected
+         */
+        providerLaneShapeProbe: null,
+        /**
+         * Memoized boot receipt from {@link collectProviderLaneShape}. Holding it here rather than in
+         * a module-scope cache keeps it per-instance, so a spec gets a clean bridge without resetting
+         * shared state — and makes the one-shot contract visible on the service surface.
+         * @member {Object|null} providerLaneShapeReceipt=null
+         * @protected
+         */
+        providerLaneShapeReceipt: null,
         /**
          * Read-only provider-activity seam. The orchestrator injects the recorder-owned ledger
          * projection; this service never opens or mutates the telemetry database itself.
@@ -605,6 +629,15 @@ export class DeploymentStateBridgeService extends Base {
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt: observationNow()});
 
+        // Gated by its OWN predicate, not residency's. On a split-lane plane residency names the CHAT
+        // service while this reading is taken against the EMBEDDING host — sharing the predicate
+        // publishes embedding-lane facts on the chat record and leaves the service the data describes
+        // with none. Memoized inside the collector: this call re-publishes a boot reading, it does not
+        // take a new one.
+        const providerLaneShape = this.isProviderLaneShapeServiceKey(serviceKey)
+            ? await this.collectProviderLaneShape({observedAt: observationNow()})
+            : null;
+
         // The SECOND evidence channel. Until this existed, `endpointProbe` had no producer anywhere in
         // the orchestrator, so ADR-0025 §2.4's authoritative pair could never form and a wedged // ticket-ref-ok: the ADR clause is the reason this call exists at all
         // container was diagnosed and never acted on.
@@ -691,6 +724,7 @@ export class DeploymentStateBridgeService extends Base {
                 endpointProbe,
                 providerResidency,
                 providerActivity,
+                providerLaneShape,
                 providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
                 churnBaseline            : churnBaseline?.unreadable ? undefined : churnBaseline,
                 plannedRestarts          : plannedRestarts.count,
@@ -767,6 +801,11 @@ export class DeploymentStateBridgeService extends Base {
             // every reader outside this process had strictly less information than the producer.
             providerResidencyEligible: this.isProviderResidencyServiceKey(serviceKey),
             providerActivity,
+            // AC-3: published on a HEALTHY plane too, not only on mismatch. Proving a lane is shaped
+            // right previously took a shell on the host and a multi-session investigation; the whole
+            // point is that the answer is now in the artifact either way. `observable: false` carries
+            // its own reason, so a blank shape is never mistaken for a verified one.
+            providerLaneShape,
             heapObservation,
             restartChurn,
             // EVERY snapshot, independent of load. The classification, the threshold that applies to
@@ -921,12 +960,87 @@ export class DeploymentStateBridgeService extends Base {
     }
 
     /**
+     * @summary Collects the ONE-SHOT embedding provider-lane shape receipt.
+     *
+     * The bridge writes snapshots on a cadence, so an uncached probe here would restore per-request
+     * `/slots` polling — the pattern deliberately removed from the request path, because the endpoint
+     * starves under full embedding grind and a recurring caller manufactures failures out of expected
+     * state. The receipt is therefore memoized on first collection and re-published unchanged on
+     * every later snapshot — a boot observation with a boot timestamp, not a live gauge. `observedAt`
+     * is stamped once, at the reading, so a reader can never mistake a republished receipt for a
+     * fresh measurement.
+     *
+     * Both comparison inputs are read from resolved config HERE, at the entrypoint, and injected into
+     * the pure classifier. The declared arm reads the DECLARATION namespace, whose leaves default to
+     * `null`; `localModels.embedding.*` is deliberately not consulted, because its operational
+     * defaults cannot distinguish a declared value from a defaulted one and comparing against them
+     * degrades a correctly-sized deployment.
+     *
+     * **Take the reading BEFORE the first scheduling dispatch.** Memoization makes the first reading
+     * permanent, so a reading taken after admission freezes a load-contaminated result for the process
+     * lifetime — the starved-`/slots` condition this check was placed at boot to avoid, re-created
+     * through its own door and reported as an ordinary `unobservable`. The orchestrator therefore
+     * awaits this once during start, alongside the tenant-repo coverage prewarm and for the same
+     * reason; the snapshot path then re-publishes the cached receipt.
+     *
+     * @param {Object} [options]
+     * @param {Number} [options.observedAt=this.now()] Epoch ms. Defaults to the service clock so a
+     *     pre-poll caller need not thread one, and specs keep their injected `nowFn`.
+     * @returns {Promise<Object|null>} The bounded receipt, or `null` when the lane is not applicable.
+     */
+    async collectProviderLaneShape({observedAt = this.now()} = {}) {
+        if (this.providerLaneShapeReceipt) {
+            return this.providerLaneShapeReceipt;
+        }
+
+        const host = getOpenAiCompatibleHost(AiConfig);
+
+        if (!host) {
+            return null;
+        }
+
+        const probe   = this.providerLaneShapeProbe || fetchEmbeddingLaneSlots,
+              payload = await probe({
+                  host,
+                  timeoutMs: AiConfig.orchestrator.providerReadiness.timeoutMs
+              }),
+              declaration = AiConfig.providerLaneDeclaration.embedding;
+
+        this.providerLaneShapeReceipt = {
+            ...classifyProviderLaneLiveShape({
+                observed                    : parseEmbeddingLaneSlots(payload),
+                safeProcessingLimitTokens   : AiConfig.localModels.embedding.safeProcessingLimitTokens,
+                declaredParallelSlots       : declaration.parallelSlots,
+                declaredContextTokensPerSlot: declaration.contextTokensPerSlot
+            }),
+            host,
+            observedAt
+        };
+
+        return this.providerLaneShapeReceipt;
+    }
+
+    /**
      * @summary Resolves whether a Compose service participates in provider-residency observation.
      * The same predicate gates residency and adjacent provider-activity collection so a configured
      * service can never receive one half of the residual-load evidence pair without the other.
      * @param {String} serviceKey Compose service key.
      * @returns {Boolean}
      */
+    /**
+     * @summary Resolves whether a Compose service carries the embedding-lane shape receipt.
+     *
+     * Deliberately separate from {@link isProviderResidencyServiceKey}: the two predicates name
+     * different lanes wherever chat and embedding are split across services, and collapsing them
+     * misroutes one lane's evidence onto the other's record in whichever direction they are merged.
+     *
+     * @param {String} serviceKey Compose service key.
+     * @returns {Boolean}
+     */
+    isProviderLaneShapeServiceKey(serviceKey) {
+        return AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys.includes(serviceKey);
+    }
+
     isProviderResidencyServiceKey(serviceKey) {
         return AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey);
     }
