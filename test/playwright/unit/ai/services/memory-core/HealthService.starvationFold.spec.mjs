@@ -14,6 +14,8 @@ setup({
 });
 
 import {test, expect}                   from '@playwright/test';
+import Neo                              from '../../../../../../src/Neo.mjs';
+import * as core                        from '../../../../../../src/core/_export.mjs';
 import {foldHeavyMaintenanceStarvation} from '../../../../../../ai/services/memory-core/HealthService.mjs';
 
 const NOW            = 1_000_000_000;
@@ -226,6 +228,27 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         expect(clearResponse.status).toBe('healthy');
         expect(clearResponse.details).toContain('All features are operational');
         expect(clearResponse.heavyMaintenanceStarvation.state).toBe('consumed-clear');
+
+        for (const breaches of [{}, [null]]) {
+            const malformedInspection = makeInspectionFor('degraded');
+            malformedInspection.snapshot.heavyMaintenanceStarvation.breaches = breaches;
+
+            const malformedResponse = composeMemoryCoreHealthcheck({
+                health                : healthyBase,
+                memoryWalDrain        : {state: 'idle'},
+                plane                 : {id: 'test-plane', dataRoot: '/tmp/test-plane'},
+                deploymentInspection  : malformedInspection,
+                starvationStaleAfterMs: STALE_AFTER_MS
+            });
+
+            expect(malformedResponse.status).toBe('healthy');
+            expect(malformedResponse.details).toContain('All features are operational');
+            expect(malformedResponse.heavyMaintenanceStarvation).toMatchObject({
+                state  : 'fold-error',
+                posture: null
+            });
+            expect(malformedResponse.heavyMaintenanceStarvation.error).toBeTruthy();
+        }
 
         // Unhealthy wins at the composed surface too.
         const unhealthyResponse = compose({status: 'unhealthy', details: ['db down']}, 'degraded');

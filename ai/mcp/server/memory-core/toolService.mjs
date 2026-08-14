@@ -199,6 +199,8 @@ const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
  * @param {Object} options.plane Observed Memory Core plane identity.
  * @param {Object|null} [options.vectorGeneration=null] Vector-generation election health.
  * @param {Object|null} [options.deploymentInspection=null] Current orchestrator bridge inspection.
+ * @param {Number} [options.starvationNow=Date.now()] Receipt-freshness clock.
+ * @param {Number|null} [options.starvationStaleAfterMs=null] Receipt-freshness bound.
  * @returns {Object}
  */
 export function composeMemoryCoreHealthcheck({
@@ -261,12 +263,27 @@ export function composeMemoryCoreHealthcheck({
     // request-fresh by construction — no cache can blind the verdict. All degradation-authority
     // guards (fresh degraded receipt only; unknown/disabled/stale/unavailable never degrade;
     // unhealthy wins; the all-clear line is withdrawn) live in the pure fold.
-    foldHeavyMaintenanceStarvation({
-        payload     : composed,
-        inspection  : deploymentInspection,
-        now         : starvationNow,
-        staleAfterMs: starvationStaleAfterMs
-    });
+    try {
+        const starvationPayload = {...composed};
+
+        foldHeavyMaintenanceStarvation({
+            payload     : starvationPayload,
+            inspection  : deploymentInspection,
+            now         : starvationNow,
+            staleAfterMs: starvationStaleAfterMs
+        });
+
+        composed = starvationPayload
+    } catch (error) {
+        // The bridge section is additive observability, never healthcheck availability authority.
+        // Fold against a clone so a malformed receipt cannot partially degrade the response before
+        // failing; preserve the stronger base verdict and expose the bounded diagnostic instead.
+        composed.heavyMaintenanceStarvation = {
+            state  : 'fold-error',
+            posture: null,
+            error  : error?.message ?? String(error)
+        }
+    }
 
     return composed
 }
