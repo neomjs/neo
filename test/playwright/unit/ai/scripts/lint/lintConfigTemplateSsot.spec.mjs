@@ -19,6 +19,7 @@ import {
     detectModuleScopeAiConfigCaptures,
     detectTestConfigOverlayImports,
     detectTestConfigProviderExports,
+    detectUnprojectedBehaviorBindingClocksFromSources,
     lintAiConfigImplementationSsot,
     lintAiConfigModuleScopeCaptures,
     lintConfigTemplateSsot,
@@ -569,6 +570,159 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
             expect(row.ticket).toBe('#14239');
             expect(row.reason).toContain('Frozen primitive');
         }
+    });
+
+    /**
+     * The behavior-binding projection rule.
+     *
+     * These cases exist for the DIRECTIONS the rule must distinguish, not for its branching, which is
+     * three predicates. The defect it was built for shipped on two successive plane generations: a
+     * contention ladder that governs every single-input embed while appearing in no template, so an
+     * operator read the outer deadlines and could not see the ~47s clock that actually bound.
+     *
+     * The load-bearing case is the FIRST one — a commented mention satisfies the rule. That is not a
+     * lenience, it is the whole design: the sibling `matches-config-default` rule bans restating a
+     * default as a live value, so a comment is the only form that documents a clock without creating
+     * a second declaration site. A version of this rule that demanded a live assignment would put the
+     * two rules in permanent contradiction and one of them would be deleted within a week.
+     */
+    const PROJECTION_POLICY = {
+        clockSuffixes: ['_TIMEOUT_MS', '_RETRY_COUNT', '_RETRY_DELAY_MS'],
+        profiles     : {
+            'compose.yml': {namespaces: ['NEO_DEMO_'], template: 'ai/config.template.mjs'}
+        }
+    };
+
+    const TIMEOUT_ROWS = [{configPath: 'demo.contentionTimeoutMs', default: 15000}];
+
+    const projectionKinds = ({source, envDefaults = {NEO_DEMO_CONTENTION_TIMEOUT_MS: TIMEOUT_ROWS}, policy = PROJECTION_POLICY}) =>
+        detectUnprojectedBehaviorBindingClocksFromSources({
+            composeSources   : {'compose.yml': source},
+            envDefaultsByFile: {'compose.yml': envDefaults},
+            policy
+        }).map(violation => violation.kind);
+
+    test('the canonical projection line passes: comment + exact name + current default + guidance', () => {
+        expect(projectionKinds({
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # per-attempt ceiling, ONE single-input embed'
+        })).toEqual([]);
+    });
+
+    test('RED: a STALE value fails — the class that makes a green gate publish a wrong number', () => {
+        // The dangerous shape, and the one a token-presence check cannot see. An operator trusts a
+        // number and only distrusts a blank, so a projection that outlived its leaf is worse than no
+        // projection at all. Value-equality is what makes the documentation self-invalidating.
+        expect(projectionKinds({
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "20000"   # per-attempt ceiling'
+        })).toEqual(['projection-default-mismatch']);
+    });
+
+    test('RED: prose that merely names the variable is not a projection', () => {
+        expect(projectionKinds({
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS exists somewhere'
+        })).toEqual(['unprojected-behavior-binding-clock']);
+    });
+
+    test('RED: a PREFIXED token does not satisfy the requirement', () => {
+        // The first shape of this check bounded the match on the right only, justified by reasoning
+        // about shorter-vs-longer generated names — which never considered a contaminated prefix.
+        // Both boundaries are anchored now.
+        expect(projectionKinds({
+            source: '  # OLD_NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # retired'
+        })).toEqual(['unprojected-behavior-binding-clock']);
+    });
+
+    test('RED: a correct value without plane-class guidance still fails', () => {
+        expect(projectionKinds({
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"'
+        })).toEqual(['projection-missing-guidance']);
+    });
+
+    test('a LIVE key is not a projection — that is the sibling rule\'s territory', () => {
+        // Projection must be commented. A live assignment equal to the default is precisely what
+        // matches-config-default bans, so accepting it here would put the two rules in contradiction.
+        expect(projectionKinds({
+            source: '  NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # guidance'
+        })).toEqual(['unprojected-behavior-binding-clock']);
+    });
+
+    test('every leaf of a three-leaf ladder is required — projecting two of three still fails', () => {
+        // The 47s ceiling is 15000x3 + 1000x2: the composition, not any single leaf.
+        expect(projectionKinds({
+            envDefaults: {
+                NEO_DEMO_CONTENTION_TIMEOUT_MS    : TIMEOUT_ROWS,
+                NEO_DEMO_CONTENTION_RETRY_COUNT   : [{configPath: 'demo.retryCount', default: 2}],
+                NEO_DEMO_CONTENTION_RETRY_DELAY_MS: [{configPath: 'demo.retryDelayMs', default: 1000}]
+            },
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"  # a\n  # NEO_DEMO_CONTENTION_RETRY_COUNT: "2"  # b\n'
+        })).toEqual(['unprojected-behavior-binding-clock']);
+    });
+
+    test('one env binding several config paths accepts any of its resolved defaults', () => {
+        expect(projectionKinds({
+            envDefaults: {
+                NEO_DEMO_CONTENTION_TIMEOUT_MS: [
+                    {configPath: 'a.timeoutMs', default: 15000},
+                    {configPath: 'b.timeoutMs', default: 30000}
+                ]
+            },
+            source: '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "30000"   # the other binding'
+        })).toEqual([]);
+    });
+
+    test('scope is declared, never inferred: out-of-namespace and non-clock leaves are ignored', () => {
+        expect(projectionKinds({
+            envDefaults: {
+                NEO_OTHER_CONTENTION_TIMEOUT_MS: TIMEOUT_ROWS,
+                NEO_DEMO_EMBEDDING_MODEL       : [{configPath: 'demo.model', default: 'x'}]
+            },
+            source: '  NEO_DEMO_HOST: http://embedding-model:8080\n'
+        })).toEqual([]);
+    });
+
+    test('a profile with no namespaces demands nothing rather than everything', () => {
+        expect(projectionKinds({
+            policy: {clockSuffixes: ['_TIMEOUT_MS'], profiles: {'compose.yml': {}}},
+            source: ''
+        })).toEqual([]);
+    });
+
+    test('RED: deleting a prose guidance block fails, even with every per-line annotation intact', () => {
+        // The per-line trailing comment proves a line was annotated; it cannot prove the file still
+        // explains what the knobs DO. A gate satisfied by annotations alone enforces visibility down
+        // to the identifier and the value while staying silent about the only part an operator reads
+        // to make a decision. The expected count is DECLARED, so removing a block is a reviewed edit.
+        const policy = {
+            clockSuffixes: ['_TIMEOUT_MS'],
+            profiles     : {
+                'compose.yml': {
+                    guidanceBlocks: 2,
+                    guidanceMarker: 'Plane-class guidance',
+                    namespaces    : ['NEO_DEMO_'],
+                    template      : 'ai/config.template.mjs'
+                }
+            }
+        };
+        const projected = '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # per-attempt ceiling\n';
+
+        expect(projectionKinds({
+            policy,
+            source: `${projected}  # Plane-class guidance: CPU\n  # Plane-class guidance: GPU\n`
+        }), 'both blocks present').toEqual([]);
+
+        expect(projectionKinds({
+            policy,
+            source: `${projected}  # Plane-class guidance: CPU\n`
+        })).toEqual(['projection-guidance-blocks-missing']);
+    });
+
+    test('the shipped policy is clean on dev and the detector can still fail', async () => {
+        const {detectUnprojectedBehaviorBindingClocks} = await import(
+            pathToFileURL(path.join(process.cwd(), 'ai/scripts/lint/lint-config-template-ssot.mjs')).href
+        );
+
+        expect(await detectUnprojectedBehaviorBindingClocks({}), 'dev tree must be clean').toEqual([]);
+        expect(projectionKinds({source: ''}).length, 'and the detector must be able to fail').toBe(1);
     });
 
     test('Compose parity names both literal-default and retired/derived restatements', () => {
