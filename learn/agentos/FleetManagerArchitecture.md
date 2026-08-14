@@ -21,38 +21,39 @@ flowchart TD
         Page["AgentOS app<br/>(App Worker)"]
     end
 
-    subgraph Host["Host machine (relay · seats · actuation)"]
+    subgraph Host["Host machine (relay · seats · wake · actuation)"]
         Transport["Transitional fleet relay<br/>devFleetServer :8083"]
         Seat["Managed harness seat<br/>+ its signed wake receiver"]
+        HostWake["Wake daemon — launchd<br/>mini-orchestrator (osascript/tmux<br/>prompt injection is host-only)"]
         Actuator["Host actuator<br/>(spawn/stop, signed receipts)"]
     end
 
     subgraph Plane["Dockerized Agent OS (the plane — local or cloud)"]
         Ingress["Caddy ingress :3102"]
-        MC["Memory Core service"]
+        MC["Memory Core service<br/>+ signed wake dispatcher"]
         KB["Knowledge Base service"]
         FS["Composed fleet-server<br/>(optional per profile — #16168)"]
-        WakeD["Wake daemon"]
     end
 
     Forge["Forge<br/>(GitHub / GitLab)"]
     GraphStore[("Graph + WAL<br/>(named volumes)")]
 
-    Main -- "class-2 IPC session capability<br/>(in-process, never a network hop)" --> Page
-    Page -- "process-lifetime bearer<br/>(handshake-redeemed, in-memory only)" --> Transport
-    Transport -- "PAT-class plane credential<br/>(one process's deployment input)" --> Ingress
-    Page -. "class-1 FM admission bearer —<br/>the cutover: the cockpit dials ingress" .-> Ingress
-    Seat -- "class-3 seat MCP bearer<br/>(/mc/mcp · /kb/mcp)" --> Ingress
-    Seat -- "class-4 repo-workflow PAT<br/>(forge writes, never plane admission)" --> Forge
-    Ingress -- "routes /fleet + /fleet/probe<br/>to the optional service" --> FS
+    Main -- "class-2 IPC capability<br/>(never a network hop)" --> Page
+    Page -- "process-lifetime bearer<br/>(handshake-redeemed, in-memory)" --> Transport
+    Transport -- "PAT-class plane credential<br/>(deployment input)" --> Ingress
+    Page -. "class-1 FM admission bearer —<br/>the cutover: cockpit dials ingress" .-> Ingress
+    Seat -- "class-3 seat MCP bearer" --> Ingress
+    Seat -- "class-4 repo PAT" --> Forge
+    Ingress -- "routes /fleet*" --> FS
     Ingress --> MC
     Ingress --> KB
     MC --> GraphStore
+    MC -. "class-6 signed-wake HMAC<br/>(per subscription, Shape B)" .-> Seat
+    HostWake -- "Shape-C harness injection<br/>(unsigned, host-local)" --> Seat
     FS -. "class-5 signed command envelope<br/>(per-command, replay-bounded)" .-> Actuator
-    WakeD -. "class-6 signed-wake HMAC<br/>(per subscription; host-local today,<br/>ingress-wake = S7 #16741)" .-> Seat
 ```
 
-*Authority: ADR 0038 §2.1 (topology) and §2.5.1 (the six-row credential-class ledger — all six rows placed at their boundaries above, numbered as the ledger numbers them; the page→relay process-lifetime bearer is the transitional pre-cutover credential, ADR 0019 §10.8's process-bearer class, and retires with the relay). The ingress routes `/fleet` + `/fleet/probe` to the optional composed service today (`ai/deploy/Caddyfile`; optionality per §2.7). Live receipt: [#16694's closing trail](https://github.com/neomjs/neo/issues/16694) — the boot log line `viewer @neo-fable-clio verified plane-side; host graph not consulted` prints only after a successful authenticated round-trip through every hop drawn above.*
+*Authority: ADR 0038 §2.1 (topology) and §2.5.1 (the six-row credential-class ledger — all six rows placed at their boundaries above, numbered as the ledger numbers them; the page→relay process-lifetime bearer is the transitional pre-cutover credential, ADR 0019 §10.8's process-bearer class, and retires with the relay). The ingress routes `/fleet` + `/fleet/probe` to the optional composed service today (`ai/deploy/Caddyfile`; optionality per §2.7). **The wake corner is two actors, two homes** — the plane's signed dispatcher (`WebhookDeliveryService`, in the Memory Core container) POSTs class-6-signed Shape-B digests at seat receivers, while the host-side wake daemon — a launchd mini-orchestrator pair on client machines — owns Shape-C harness injection, because `osascript` prompt delivery can only execute at the host, never from inside a container. Live receipt: [#16694's closing trail](https://github.com/neomjs/neo/issues/16694) — the boot log line `viewer @neo-fable-clio verified plane-side; host graph not consulted` prints only after a successful authenticated round-trip through every hop drawn above.*
 
 Walk the hops. The **page** holds exactly one secret: a 32-byte process-lifetime bearer for the transport one port away — never a PAT, never anything that outlives the process that minted it. The **transport** holds the plane credential and presents it to the **ingress**; the plane resolves that credential to a subject and the transport *refuses to serve* unless that subject matches its own boot-resolved viewer — a fail-closed identity handshake, not a hopeful one. And the browser never touches the plane credential at all. The remaining ledger rows live off the cockpit path, each at its own boundary: every managed seat holds a plane MCP bearer (class 3) and a separate repo-workflow PAT (class 4) — the same forge may mint both, and neither ever serves the other's audience; lifecycle commands reach a host only as class-5 signed one-shot envelopes, replay-bounded, with no standing bearer on that hop; and wake delivery carries class-6 per-subscription HMACs bearing zero read or write authority. When the composed fleet-server takes over the relay's job — [#16168](https://github.com/neomjs/neo/issues/16168), Euclid's epic, authored and steered by him on its own record, its service already composed and ingress-routed at `/fleet` today — the cutover is the dashed class-1 arrow above: the cockpit authenticates to the plane as the *operator's* provider identity, a different credential class with its own custody rules, and the relay retires.
 
