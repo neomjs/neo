@@ -11,14 +11,14 @@ setup({
     }
 });
 
-import Neo                                                             from '../../../../../../src/Neo.mjs';
-import * as core                                                       from '../../../../../../src/core/_export.mjs';
-import {test, expect}                                                  from '@playwright/test';
+import Neo                                                                        from '../../../../../../src/Neo.mjs';
+import * as core                                                                  from '../../../../../../src/core/_export.mjs';
+import {test, expect}                                                             from '@playwright/test';
 import {mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync} from 'node:fs';
-import {open, rename}                                                  from 'node:fs/promises';
-import {spawn}                                                         from 'node:child_process';
-import {tmpdir}                                                        from 'node:os';
-import path                                                            from 'node:path';
+import {open, rename}                                                             from 'node:fs/promises';
+import {spawn}                                                                    from 'node:child_process';
+import {tmpdir}                                                                   from 'node:os';
+import path                                                                       from 'node:path';
 
 import {
     buildBackupReceipt,
@@ -694,6 +694,7 @@ test.describe('wrapper + projection behavioral witnesses', () => {
             expect(beforeFirstRun).not.toBe(null);
             expect(beforeFirstRun.lastBackup).toBeUndefined();
             expect(beforeFirstRun.durability.posture).toBeTruthy();
+            expect(beforeFirstRun.health.status).toBeTruthy();
 
             await writeBackupReceipt({
                 filePath: receiptPath,
@@ -707,10 +708,12 @@ test.describe('wrapper + projection behavioral witnesses', () => {
             const projected = await collect({receiptPath});
             expect(projected.lastBackup.bundleName).toBe('backup-2026-07-22');
             expect(projected.lastBackup.backup.status).toBe('success');
+            expect(projected.health.status).toBeTruthy();
 
             writeFileSync(receiptPath, 'not json{');
             const unreadable = await collect({receiptPath});
             expect(unreadable.lastBackup).toEqual({finishedAt: null, kind: 'corrupt', status: 'unreadable'});
+            expect(unreadable.health.reasonCodes).toContain('backup-receipt-unreadable');
         } finally {
             rmSync(root, {force: true, recursive: true})
         }

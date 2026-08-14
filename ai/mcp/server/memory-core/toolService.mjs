@@ -184,24 +184,43 @@ const explorePullRequestHistoryOp = args => PullRequestHistoryService.explorePul
 const ALL_FEATURES_OPERATIONAL_DETAIL = 'All features are operational';
 
 /**
- * @summary Reconciles the base Memory Core health verdict with its measured WAL-drain state.
+ * @summary Reconciles base Memory Core health with measured WAL and orchestrator maintenance state.
  *
  * A fresh asynchronous backlog is expected and leaves the base verdict unchanged. Once the shared
- * drain classifier reports `stalled`, the composed response cannot still claim every feature is
- * operational: healthy/degraded becomes degraded, an existing unhealthy verdict wins, and the
- * reason names the measured depth and age. This projection is diagnostic-only and never repairs or
- * mutates the WAL.
+ * drain classifier reports `stalled`, or the current orchestrator bridge reports degraded backup
+ * maintenance, the composed response cannot still claim every feature is operational:
+ * healthy/degraded becomes degraded, an existing unhealthy verdict wins, and the details name the
+ * observed cause. Stale/unavailable bridge state is explicit but cannot authorize a current backup
+ * degradation. This projection is diagnostic-only and never repairs either subsystem.
  *
  * @param {Object} options
  * @param {Object} options.health Base HealthService response.
  * @param {Object} options.memoryWalDrain Measured MemoryService drain response.
  * @param {Object} options.plane Observed Memory Core plane identity.
+ * @param {Object|null} [options.vectorGeneration=null] Vector-generation election health.
+ * @param {Object|null} [options.deploymentInspection=null] Current orchestrator bridge inspection.
  * @returns {Object}
  */
-export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane, vectorGeneration = null}) {
-    const response = {...health, memoryWalDrain, plane, vectorGeneration};
+export function composeMemoryCoreHealthcheck({
+    health,
+    memoryWalDrain,
+    plane,
+    vectorGeneration = null,
+    deploymentInspection = null
+}) {
+    const
+        backupHealth = deploymentInspection?.ok === true
+            ? deploymentInspection.snapshot?.maintenance?.health ?? null
+            : null,
+        maintenance  = {
+            observationStatus: deploymentInspection?.status ?? 'unavailable',
+            backup           : backupHealth
+        },
+        response       = {...health, memoryWalDrain, plane, vectorGeneration, maintenance},
+        drainStalled   = memoryWalDrain.state === 'stalled',
+        backupDegraded = backupHealth?.status === 'degraded';
 
-    if (memoryWalDrain.state !== 'stalled') {
+    if (!drainStalled && !backupDegraded) {
         return response
     }
 
@@ -209,11 +228,21 @@ export function composeMemoryCoreHealthcheck({health, memoryWalDrain, plane, vec
         ? health.details.filter(detail => detail !== ALL_FEATURES_OPERATIONAL_DETAIL)
         : [];
 
-    details.push(
-        `Memory WAL embed drain is stalled: ${memoryWalDrain.pendingDrainDepth} pending records; ` +
-        `oldest pending age ${memoryWalDrain.oldestPendingAgeMs} ms exceeds the ` +
-        `${memoryWalDrain.stallThresholdMs} ms threshold.`
-    );
+    if (drainStalled) {
+        details.push(
+            `Memory WAL embed drain is stalled: ${memoryWalDrain.pendingDrainDepth} pending records; ` +
+            `oldest pending age ${memoryWalDrain.oldestPendingAgeMs} ms exceeds the ` +
+            `${memoryWalDrain.stallThresholdMs} ms threshold.`
+        )
+    }
+
+    if (backupDegraded) {
+        const reasonCodes = Array.isArray(backupHealth.reasonCodes) && backupHealth.reasonCodes.length > 0
+            ? backupHealth.reasonCodes.join(', ')
+            : 'see maintenance.backup';
+
+        details.push(`Backup maintenance is degraded: ${reasonCodes}.`)
+    }
 
     return {
         ...response,
@@ -259,6 +288,9 @@ const serviceMapping = {
         health        : await HealthService.healthcheck(args),
         memoryWalDrain: await MemoryService.describeDrainState(),
         plane         : {id: mcConfig.plane.id, dataRoot: mcConfig.plane.dataRoot},
+        // Fresh bridge truth only. `composeMemoryCoreHealthcheck` keeps stale/unavailable
+        // observations explicit but prevents either from authorizing a backup degradation.
+        deploymentInspection: await readDeploymentInspection(),
         // Elected + parked vector-generation identities (never throws; `missing` on a plane that
         // has not declared an election) — acceptance for a generation cutover reads this block.
         vectorGeneration: await projectVectorGenerationHealth({
