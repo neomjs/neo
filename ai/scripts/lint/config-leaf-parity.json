@@ -53,7 +53,8 @@
                     "NEO_LOCAL_MODELS_CHAT_PARALLEL": "lane shape: sits with the required per-lane context/slot interpolations and states that the chat lane runs one slot. On a split-lane plane the slot count is the thing being declared, not a tuning knob.",
                     "NEO_OLLAMA_KEEP_ALIVE": "co-residency identity: -1 is what keeps a co-resident embedding model from being evicted by chat traffic, and this file's own guidance block explains that. Hiding the value would delete the operator's view of the most co-residency-critical number on the plane.",
                     "NEO_OLLAMA_MODEL": "model identity: an operator reading a deployment file expects to see which model it runs. Explicit value-pinning of an identity is legitimate documentation; the rule's subject is a tuning knob that can silently drift.",
-                    "NEO_OPENAI_COMPATIBLE_API_KEY": "keyless-endpoint declaration: see GEMINI_API_KEY."
+                    "NEO_OPENAI_COMPATIBLE_API_KEY": "keyless-endpoint declaration: see GEMINI_API_KEY.",
+                    "NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE": "benchmark reproducibility: the provider-lane election compares embedding throughput across candidate slot counts, and batch chunk size moves that throughput directly. A value inherited from config would make runs taken either side of a config change incomparable, with the drift invisible in the report. ProviderLaneElectionRunner.spec.mjs asserts the pinned value."
                 }
             }
         },

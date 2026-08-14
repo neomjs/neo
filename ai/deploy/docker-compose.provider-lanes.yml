@@ -425,6 +425,12 @@ services:
       NEO_KB_ASK_API_KEY: ""
       NEO_KB_ASK_BASE_URL: http://chat-model:11434
       NEO_OPENAI_COMPATIBLE_API_KEY: ""
+      # PINNED FOR BENCHMARK REPRODUCIBILITY, not a tuning knob. The election benchmark compares
+      # embedding throughput across candidate slot counts; batch chunk size moves that throughput
+      # directly, so a value inherited from config would make runs taken either side of a config
+      # change incomparable — and the drift would be invisible in the report. Restated here on
+      # purpose, and `ProviderLaneElectionRunner.spec.mjs` asserts it.
+      NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: "5"
     volumes: []
     networks:
       - neo-mcp-network
