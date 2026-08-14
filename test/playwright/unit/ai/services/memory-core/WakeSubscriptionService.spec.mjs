@@ -1583,6 +1583,54 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
+    test('poll-digest stamps observational lastPollAt — a timestamp only, never the client watermark (#17102)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const {subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            });
+
+            await WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: 424242});
+
+            const node = [...GraphService.db.nodes.items].find(candidate => candidate.id === subscriptionId);
+
+            expect(typeof node.properties.lastPollAt).toBe('string');
+            expect(Number.isNaN(Date.parse(node.properties.lastPollAt))).toBe(false);
+
+            // The plane stays cursor-stateless: the poll's watermark must never persist under
+            // any spelling — a stored cursor would silently convert the observational stamp
+            // into server-held delivery state.
+            for (const forbidden of ['lastPollWatermark', 'watermark', 'sinceLogId', 'cursor']) {
+                expect(node.properties[forbidden]).toBeUndefined()
+            }
+
+            // The owner's list projection carries the stamp — the exposure IS the placement.
+            const {subscriptions} = await WakeSubscriptionService.list({subscriptionId});
+
+            expect(subscriptions[0].lastPollAt).toBe(node.properties.lastPollAt)
+        });
+    });
+
+    test('a foreign-owner poll is refused BEFORE the stamp: rejection leaves no observational trace (#17102)', async () => {
+        let subscriptionId;
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            ({subscriptionId} = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            }))
+        });
+
+        await RequestContextService.run({agentIdentityNodeId: '@mallory'}, async () => {
+            await expect(WakeSubscriptionService.pollDigest({subscriptionId, sinceLogId: 0}))
+                .rejects.toThrow(/Permission denied/)
+        });
+
+        const node = [...GraphService.db.nodes.items].find(candidate => candidate.id === subscriptionId);
+
+        expect(node.properties.lastPollAt).toBeUndefined()
+    });
+
     test('poll-digest watermarks are client-held: advancing past events empties the next poll, replay still sees them', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const {subscriptionId} = await WakeSubscriptionService.subscribe({
@@ -3160,8 +3208,8 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             const res = await RequestContextService.run({agentIdentityNodeId: '@alice'},
                 () => callTool('manage_wake_subscription', {action: 'fleet-identities'}));
 
-            // Identities only — no rows, no properties, nothing beside the one declared key.
-            expect(Object.keys(res)).toEqual(['identities']);
+            // The two declared keys and NOTHING else — no rows, no owner properties.
+            expect(Object.keys(res).sort()).toEqual(['identities', 'observations']);
 
             const {identities} = res;
 
@@ -3169,6 +3217,47 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(identities).toContain('@fleet-xico');
             expect(identities).not.toContain('@fleet-yara');
             expect(identities).toEqual([...identities].sort());
+        });
+
+        test('the fleet-wide recency disclosure: another caller reads an identity\'s poll stamp as the REDACTED observation pair — never owner row material', async () => {
+            GraphService.upsertNode({id: '@fleet-poller', type: 'AGENT', name: 'Poller', properties: {}});
+            GraphService.upsertNode({id: '@fleet-silent', type: 'AGENT', name: 'Silent', properties: {}});
+
+            let subscriptionId;
+
+            await RequestContextService.run({agentIdentityNodeId: '@fleet-poller'}, async () => {
+                ({subscriptionId} = await callTool('manage_wake_subscription', bridgeArgs));
+
+                await callTool('manage_wake_subscription', {action: 'poll-digest', subscriptionId})
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@fleet-silent'}, async () => {
+                await callTool('manage_wake_subscription', bridgeArgs)
+            });
+
+            // A THIRD party — neither owner — derives recency from the fleet read: the exact
+            // reachability the owner-only `list` cannot provide (storage is not exposure).
+            const {observations} = await RequestContextService.run({agentIdentityNodeId: '@alice'},
+                () => callTool('manage_wake_subscription', {action: 'fleet-identities'}));
+
+            const
+                poller = observations.find(row => row.identity === '@fleet-poller'),
+                silent = observations.find(row => row.identity === '@fleet-silent');
+
+            // Every observation row is EXACTLY the redacted pair — endpoint, filter, and
+            // key-adjacent owner material must never ride the roster read.
+            for (const row of observations) {
+                expect(Object.keys(row).sort()).toEqual(['identity', 'lastPollAt'])
+            }
+
+            expect(typeof poller.lastPollAt).toBe('string');
+            expect(Number.isNaN(Date.parse(poller.lastPollAt))).toBe(false);
+
+            // Absence of polls stays absence-of-signal for the route-health consumer.
+            expect(silent.lastPollAt).toBeNull();
+
+            // Sorted by identity, and the identities projection is the observations projection.
+            expect(observations.map(row => row.identity)).toEqual(observations.map(row => row.identity).sort())
         });
 
         test('an unbound caller is refused — authenticated-caller telemetry, not an open scan', async () => {

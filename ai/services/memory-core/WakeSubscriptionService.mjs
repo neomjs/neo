@@ -13,7 +13,7 @@ import {DELIVERABLE_HARNESS_TARGET}                                             
 import {buildWakeDigest, getHighestWakePriority}                                                from '../../daemons/wake/wakeDigestBuilder.mjs';
 import {HEARTBEAT_PULSE_ENTITY_PREFIX, HEARTBEAT_PULSE_ENTITY_TYPE, match, matchHeartbeatPulse} from './heartbeatPulseEvaluator.mjs';
 import {resolveResidentFamilyById}                                                              from '../graph/agentFamilyResolution.mjs';
-import {readActiveWakeSubscriptionIdentities}                                                   from './readActiveWakeSubscriptionIdentities.mjs';
+import {readActiveWakeSubscriptionObservations}                                                 from './readActiveWakeSubscriptionIdentities.mjs';
 import {
     activeWakeSubscriptionStatusSql,
     isActiveWakeSubscriptionStatus
@@ -1463,23 +1463,33 @@ class WakeSubscriptionService extends Base {
 
     /**
      * Fleet-wide wake-observation telemetry: the deduplicated identities holding an ACTIVE
-     * subscription — and nothing else. The disclosure contract is deliberately the `whoIsOnline`
-     * class (any authenticated caller, fleet-scoped operational telemetry), NOT the caller-owner
-     * `list` class: owner rows carry endpoint/filter/key-adjacent material a roster read has no
-     * business seeing, so this action never returns row properties. The scan itself is the shared
-     * `readActiveWakeSubscriptionIdentities` — the same one query the fleet dev-server runs
+     * subscription, each with its redacted poll-recency observation — and nothing else. The
+     * disclosure contract is deliberately the `whoIsOnline` class (any authenticated caller,
+     * fleet-scoped operational telemetry), NOT the caller-owner `list` class: owner rows carry
+     * endpoint/filter/key-adjacent material a roster read has no business seeing, so this action
+     * never returns row properties beyond the observation pair. `lastPollAt` is the most recent
+     * observational stamp across the identity's active subscriptions — a timestamp only, never
+     * the client-held watermark — and null until an authenticated poll has landed, so absence of
+     * polls stays absence-of-signal for the route-health consumer. The scan itself is the shared
+     * `readActiveWakeSubscriptionObservations` — the same one query the fleet dev-server runs
      * in-process against a host plane — with the absent-status meaning owned by
      * `wakeSubscriptionStatusPolicy` in both.
      *
-     * @returns {Promise<{identities: String[]}>} Sorted for deterministic wire output.
+     * @returns {Promise<{identities: String[], observations: Object[]}>} Both sorted by identity
+     *     for deterministic wire output; `observations` rows are `{identity, lastPollAt}`.
      */
     async fleetIdentities() {
         const caller = RequestContextService.getAgentIdentityNodeId();
         if (!caller) throw RequestContextService.unboundIdentityError('list fleet wake identities');
 
-        const identities = await readActiveWakeSubscriptionIdentities({graphService: GraphService});
+        const observations = await readActiveWakeSubscriptionObservations({graphService: GraphService});
 
-        return {identities: identities.sort()}
+        observations.sort((a, b) => a.identity.localeCompare(b.identity));
+
+        return {
+            identities: observations.map(observation => observation.identity),
+            observations
+        }
     }
 
     /**
@@ -1590,6 +1600,20 @@ class WakeSubscriptionService extends Base {
         if (!subscription) throw new Error(`Subscription not found: ${subscriptionId}`);
         if (subscription.agentIdentity !== caller) {
             throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
+        }
+
+        // Observational telemetry, never a cursor: an AUTHENTICATED poll stamps `lastPollAt` on
+        // the subscription row so pull-route health can derive recency ("healthy, polls
+        // elsewhere" vs "nobody ever polls") — while the watermark stays client-held by
+        // contract, so the plane remains cursor-stateless. Non-fatal by design: a failed stamp
+        // must never cost the caller its digest.
+        try {
+            const lastPollAt = new Date().toISOString();
+
+            GraphService.upsertNode({id: subscriptionId, properties: {lastPollAt}});
+            subscription.lastPollAt = lastPollAt;
+        } catch (error) {
+            logger.warn(`[WakeSubscription] lastPollAt stamp failed for ${subscriptionId}: ${error?.message ?? error}`);
         }
 
         const {events, lastLogId} = this._collectSubscriptionEvents(subscription, sinceLogId);
