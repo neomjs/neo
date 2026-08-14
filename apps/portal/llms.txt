@@ -406,6 +406,7 @@ Here you find the full history of Neo.mjs updates.
 
 - [Strategic Workflows](https://neomjs.com/raw/learn/agentos/StrategicWorkflows.md)
 - [The Flat-Peer Institution](https://neomjs.com/raw/learn/agentos/FlatPeerInstitution.md)
+- [Fleet Manager Architecture](https://neomjs.com/raw/learn/agentos/FleetManagerArchitecture.md)
 - [Running the Fleet Cockpit](https://neomjs.com/raw/learn/agentos/RunningTheFleetCockpit.md)
 - [Swarm Intelligence & Sub-Agents](https://neomjs.com/raw/learn/agentos/SwarmIntelligence.md)
 - [A2A Messaging & Wake Routing](https://neomjs.com/raw/learn/agentos/A2A.md)
@@ -585,6 +586,11 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #17102](https://neomjs.com/raw/news/tickets/17102.md)
+- [Ticket #17101](https://neomjs.com/raw/news/tickets/17101.md)
+- [Ticket #17100](https://neomjs.com/raw/news/tickets/17100.md)
+- [Ticket #17098](https://neomjs.com/raw/news/tickets/17098.md)
+- [Ticket #17094](https://neomjs.com/raw/news/tickets/17094.md)
 - [Ticket #17087](https://neomjs.com/raw/news/tickets/17087.md)
 - [Ticket #17082](https://neomjs.com/raw/news/tickets/17082.md)
 - [Ticket #17081](https://neomjs.com/raw/news/tickets/17081.md)
@@ -11868,6 +11874,10 @@ Here you find historical technical discussions and GitHub issues.
 
 Here you find problem-to-solution records from Neo.mjs pull requests.
 
+- [Pull Request #17099](https://neomjs.com/raw/news/pulls/17099.md)
+- [Pull Request #17097](https://neomjs.com/raw/news/pulls/17097.md)
+- [Pull Request #17096](https://neomjs.com/raw/news/pulls/17096.md)
+- [Pull Request #17095](https://neomjs.com/raw/news/pulls/17095.md)
 - [Pull Request #17093](https://neomjs.com/raw/news/pulls/17093.md)
 - [Pull Request #17092](https://neomjs.com/raw/news/pulls/17092.md)
 - [Pull Request #17091](https://neomjs.com/raw/news/pulls/17091.md)
