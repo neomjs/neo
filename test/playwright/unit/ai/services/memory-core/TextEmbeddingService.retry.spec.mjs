@@ -954,6 +954,12 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(outcome.totalChunkCount).toBe(2);
         expect(outcome.completedTextCount).toBe(2);
         expect(outcome.embeddings).toEqual([[100], [101]]);
+
+        // The producer span: the failed REQUEST held texts [2, 4) — the consumer's undeliverable
+        // attribution needs the member set, because blaming the batch head for a multi-input
+        // request failure is how an innocent neighbour inherits a monster's strikes.
+        expect(outcome.failedTextOffset).toBe(2);
+        expect(outcome.failedTextCount).toBe(2);
     });
 
     test('a prefix that cannot prove positional binding leaves the failure UNCARRIED (#17112)', async () => {
@@ -972,6 +978,11 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         expect(outcome.message).toContain('Some other bad request error');
         expect(outcome.completedTextCount).toBeUndefined();
         expect(outcome.embeddings).toBeUndefined();
+
+        // The producer span survives even when the carry cannot: it binds nothing (pure indices into
+        // what was sent), so an unprovable prefix must not strip the failed request's identity.
+        expect(outcome.failedTextOffset).toBe(2);
+        expect(outcome.failedTextCount).toBe(2);
     });
 
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {

@@ -1,0 +1,216 @@
+import {setup} from '../../../../setup.mjs';
+
+const appName = 'KBUndeliverableGeometryTest';
+
+setup({
+    neoConfig: {
+        allowVdomUpdatesInTests: false,
+        unitTestMode           : true,
+        useDomApiRenderer      : false
+    },
+    appConfig: {
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+
+/**
+ * The undeliverable-at-geometry production-path proof, driven through `VectorService.embed()` — NOT
+ * `embedChunks()` directly — so every link the direct harness bypasses is exercised for real: corpus re-selection
+ * against the collection, the REAL poison store on disk (write at graduation, generation-keyed read,
+ * batch-assembly filter on the next sweep), and the census returned to the ingest caller.
+ *
+ * The matrix is the Round-1 reviewer's falsifier: `[typical-A, monster, typical-B]` under a
+ * MULTI-input transport shape (one provider request holding all three texts). Only the monster may
+ * graduate; both typicals must persist; the fenced monster must never be dispatched again; and an
+ * operator ceiling change must re-offer it automatically via the generation.
+ */
+test.describe.configure({mode: 'serial'});
+
+function createSpyCollection() {
+    const storedByIds = new Map();
+
+    return {
+        storedByIds,
+        name: 'spy-knowledge-base',
+        async upsert({ids, embeddings}) {
+            ids.forEach((id, position) => storedByIds.set(id, embeddings?.[position]));
+        },
+        async get({limit = 2000, offset = 0} = {}) {
+            return {ids: Array.from(storedByIds.keys()).slice(offset, offset + limit)}
+        },
+        async count() {
+            return storedByIds.size
+        },
+        async delete({ids}) {
+            ids.forEach(id => storedByIds.delete(id));
+        }
+    };
+}
+
+test.describe('VectorService.embed — undeliverable-at-geometry through the production path (#17129)', () => {
+    let SDK, KB_VectorService, KB_Config, Memory_Config, TextEmbeddingService, ChromaManager;
+    let originalEmbedTexts, originalBatchConfig, originalGetCollection, originalResumeStateDir, originalCeiling;
+    let tmpDir, corpusFile;
+
+    const isMonsterText = text => text.includes('monster body');
+
+    const chunks = [
+        {id: 'raw-a', type: 'guide', name: 'typical-a', hash: 'a'.repeat(64), content: 'typical body a'},
+        {id: 'raw-m', type: 'guide', name: 'monster',   hash: 'b'.repeat(64), content: 'monster body'},
+        {id: 'raw-b', type: 'guide', name: 'typical-b', hash: 'c'.repeat(64), content: 'typical body b'}
+    ];
+
+    const tenantContext = {tenantId: 't-undeliverable', repoSlug: 'org/undeliverable-geometry'};
+
+    test.beforeAll(async () => {
+        SDK                  = await import('../../../../../../ai/services.mjs');
+        KB_Config            = SDK.KB_Config;
+        Memory_Config        = SDK.Memory_Config;
+        TextEmbeddingService = SDK.Memory_TextEmbeddingService;
+
+        const VectorServiceModule = await import('../../../../../../ai/services/knowledge-base/VectorService.mjs');
+        const ChromaManagerModule = await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs');
+
+        KB_VectorService = VectorServiceModule.default;
+        ChromaManager    = ChromaManagerModule.default;
+
+        originalEmbedTexts     = TextEmbeddingService.embedTexts.bind(TextEmbeddingService);
+        originalGetCollection  = ChromaManager.getKnowledgeBaseCollection;
+        originalResumeStateDir = KB_VectorService.resumeStateDir;
+        originalBatchConfig    = {
+            batchSize : KB_Config.data.batchSize,
+            batchDelay: KB_Config.data.batchDelay,
+            maxRetries: KB_Config.data.maxRetries
+        };
+        originalCeiling = Memory_Config.embeddingProvider === 'ollama'
+            ? Memory_Config.ollama.embeddingTimeoutMs
+            : Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs;
+
+        tmpDir     = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-kb-undeliverable-'));
+        corpusFile = path.join(tmpDir, 'corpus.jsonl');
+
+        await fs.writeFile(corpusFile, chunks.map(chunk => JSON.stringify(chunk)).join('\n') + '\n');
+
+        KB_VectorService.resumeStateDir = path.join(tmpDir, 'state');
+        Object.assign(KB_Config.data, {batchSize: 50, batchDelay: 0, maxRetries: 3});
+    });
+
+    test.afterAll(async () => {
+        TextEmbeddingService.embedTexts           = originalEmbedTexts;
+        ChromaManager.getKnowledgeBaseCollection  = originalGetCollection;
+        KB_VectorService.resumeStateDir           = originalResumeStateDir;
+        Object.assign(KB_Config.data, originalBatchConfig);
+
+        if (Memory_Config.embeddingProvider === 'ollama') {
+            Memory_Config.ollama.embeddingTimeoutMs = originalCeiling;
+        } else {
+            Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs = originalCeiling;
+        }
+
+        await fs.remove(tmpDir);
+    });
+
+    test('the monster graduates with the real poison store; typicals persist; a ceiling raise re-offers it', async () => {
+        const spy              = createSpyCollection();
+        const dispatchedInputs = [];
+
+        ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        // The multi-input transport shape: one provider request holds every text it is given, and a
+        // request timeout is decorated with the producer span naming the WHOLE request — exactly what
+        // `#embedOpenAiCompatibleBatch` stamps. Single-input requests answer exactly.
+        TextEmbeddingService.embedTexts = async texts => {
+            dispatchedInputs.push([...texts]);
+
+            if (!texts.some(isMonsterText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            const error = new Error('request timed out');
+
+            error.code             = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            error.failedTextOffset = 0;
+            error.failedTextCount  = texts.length;
+            throw error
+        };
+
+        const runSweep = () => KB_VectorService.embed(corpusFile, {
+            deleteStale: false,
+            tenantContext
+        }).then(value => value, error => error);
+
+        // Sweep 1: one three-input request times out — suspicion only, no disposition may exist yet.
+        const first = await runSweep();
+        expect(first).toBeInstanceOf(Error);
+        expect(first.undeliverableGraduation).toBeUndefined();
+        expect(spy.storedByIds.size, 'a multi-input timeout persists nothing and fences nothing').toBe(0);
+
+        // Sweep 2: isolation — typical-A embeds alone and persists; the monster's single-input
+        // request earns its first exact strike; the sweep still ends on the timeout.
+        const second = await runSweep();
+        expect(second).toBeInstanceOf(Error);
+        expect(second.undeliverableGraduation).toBeUndefined();
+        expect(spy.storedByIds.size, 'the innocent isolation neighbour persists').toBe(1);
+
+        // Sweep 3: second exact strike — graduation writes the REAL poison-store marker, and the
+        // receipt rides the original timeout.
+        const third = await runSweep();
+        expect(third).toBeInstanceOf(Error);
+        expect(third.code, 'the original timeout identity survives graduation').toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(third.undeliverableGraduation).toMatchObject({attempts: 2});
+        expect(third.undeliverableGraduation.chunkId).toMatch(/^[a-f0-9]{64}$/);
+        expect(third.undeliverableGraduation.tokenEstimate).toBeGreaterThan(0);
+        expect(third.undeliverableGraduation.effectiveCeilingMs).toBe(Number(originalCeiling));
+
+        const monsterChunkId = third.undeliverableGraduation.chunkId;
+
+        // Sweep 4: the persisted disposition filters the monster out of batch assembly — the store
+        // read, the re-selection, and the census all run the production flow. Typical-B completes,
+        // the repo attempt RETURNS (sibling rotation is possible), and the census names the monster.
+        const monsterDispatchesBefore = dispatchedInputs.filter(texts => texts.some(isMonsterText)).length;
+        const fourth                  = await runSweep();
+
+        expect(fourth).not.toBeInstanceOf(Error);
+        expect(fourth.embedded).toBe(1);
+        expect(spy.storedByIds.size, 'both typicals persist; only the monster is excised').toBe(2);
+        expect(fourth.poisonedChunks).toEqual([expect.objectContaining({
+            chunkId   : monsterChunkId,
+            reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'
+        })]);
+        expect(
+            dispatchedInputs.filter(texts => texts.some(isMonsterText)).length,
+            'a fenced chunk must never re-dispatch to the provider'
+        ).toBe(monsterDispatchesBefore);
+
+        // Sweep 5: a no-op sweep against the fence keeps returning the census rather than silence.
+        const fifth = await runSweep();
+        expect(fifth).not.toBeInstanceOf(Error);
+        expect(fifth.embedded).toBe(0);
+        expect(fifth.poisonedChunks.map(entry => entry.chunkId)).toEqual([monsterChunkId]);
+
+        // Operator ceiling raise: the effective call ceiling is part of the poison GENERATION, so the
+        // stored disposition goes stale and the monster is re-offered automatically — no replay flag.
+        if (Memory_Config.embeddingProvider === 'ollama') {
+            Memory_Config.ollama.embeddingTimeoutMs = Number(originalCeiling) + 60_000;
+        } else {
+            Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs = Number(originalCeiling) + 60_000;
+        }
+
+        const sixth = await runSweep();
+
+        expect(sixth, 'a raised ceiling re-offers the chunk, so the sweep meets the timeout again').toBeInstanceOf(Error);
+        expect(
+            dispatchedInputs.filter(texts => texts.some(isMonsterText)).length,
+            'the generation change re-offered the previously fenced chunk'
+        ).toBeGreaterThan(monsterDispatchesBefore);
+    });
+});

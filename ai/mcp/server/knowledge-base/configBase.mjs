@@ -710,6 +710,24 @@ class ConfigBase extends ConfigProvider {
              */
             maxRetries: leaf(5, 'NEO_KB_EMBEDDING_MAX_RETRIES', 'positiveInt'),
             /**
+             * Consecutive call-ceiling expiries at one batch head before the chunk graduates to a
+             * durable undeliverable-at-geometry disposition and stops being offered to the provider.
+             *
+             * A timeout is lane evidence, not content evidence — but a chunk whose call ceiling fires
+             * on every attempt is deterministically undeliverable at the current geometry, and each
+             * further offer costs a full ceiling of head-of-line blocking for every chunk and
+             * repository behind it. Two strikes separate a transient stall (queue depth, cold cache,
+             * memory pressure) from an intrinsic cost that exceeds the ceiling.
+             *
+             * Strike memory is process-local: a daemon restart re-offers the chunk and it pays its
+             * strikes again — bounded extra cost, never a correctness loss. The graduated disposition
+             * itself is durable (poison store) and invalidates when the embedding generation —
+             * provider, model, dimension, or effective call ceiling — changes, so raising the ceiling
+             * automatically re-offers previously undeliverable chunks.
+             * @type {number}
+             */
+            undeliverableTimeoutStrikes: leaf(2, 'NEO_KB_EMBEDDING_UNDELIVERABLE_TIMEOUT_STRIKES', 'positiveInt'),
+            /**
              * The number of results to fetch from ChromaDB for a query.
              * @type {number}
              */

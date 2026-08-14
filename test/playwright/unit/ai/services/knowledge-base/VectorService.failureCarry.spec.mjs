@@ -21,21 +21,22 @@ import * as core                      from '../../../../../../src/core/_export.m
 import {EMBEDDING_BATCH_YIELDED_CODE} from '../../../../../../ai/services/memory-core/TextEmbeddingService.mjs';
 
 /**
- * Work conservation on the FAILURE path of `VectorService.embedChunks`.
+ * Work conservation and undeliverable-at-geometry attribution on the failure path of
+ * `VectorService.embedChunks`.
  *
- * The yield arm already persists the completed prefix a lease-yield carries. A provider FAILURE
- * mid-batch discarded it: the timeout arm ended the sweep with the prefix unpersisted, and the retry
- * arm re-ran the whole batch — so every completed-but-unpersisted embedding was re-purchased on every
- * attempt and on every later sweep. On a slow lane that composes into full compute at a constant
- * corpus count: the plane-observed "all discarded" loop.
+ * The carry half: the yield arm already persists the completed prefix a lease-yield carries; a
+ * provider FAILURE mid-batch used to discard it, so every completed-but-unpersisted embedding was
+ * re-purchased on every attempt and every later sweep.
  *
- * These tests drive `embedChunks` with the leaseYield spec's spy-collection harness and a stubbed
- * embedder that throws errors decorated with the carry contract (`completedTextCount`, `embeddings`),
- * asserting the four load-bearing properties:
- *   - a timeout-class failure persists its carried prefix BEFORE the sweep ends,
- *   - a retryable failure persists the prefix and retries ONLY the remainder,
- *   - a payload disagreeing with its stated count is refused, never sliced positionally,
- *   - an uncarried failure keeps its existing behavior (nothing persisted, classification unchanged).
+ * The attribution half: a provider timeout names the REQUEST, not a member. Strikes therefore accrue
+ * only from requests that held exactly one input — via a single-chunk dispatch or the producer's
+ * `failedTextOffset`/`failedTextCount` span — while a multi-input timeout only marks its members as
+ * isolation suspects, each of which is then offered alone to earn exact evidence. Strikes are
+ * generation-keyed, reset on any dispatched non-timeout provider outcome, and guarded against
+ * overlapping attempts counting one wall-clock failure twice.
+ *
+ * Every arm passes its own `poisonGenerationId`: the automaton is deliberately process-local and
+ * generation-scoped, so per-arm generations are what keep arms hermetic.
  */
 test.describe.configure({mode: 'serial'});
 
@@ -84,6 +85,14 @@ function makeChunks(count) {
 }
 
 /**
+ * Per-arm embedding-generation id. The undeliverable automaton is generation-scoped module state,
+ * so giving each arm its own generation is the hermetic-isolation mechanism, not a convenience.
+ */
+function makeGenerationId(seed) {
+    return seed.repeat(64).slice(0, 64)
+}
+
+/**
  * Builds a failure decorated with the carry contract the producer attaches: the ORIGINAL
  * error identity (message + code) with the completed prefix alongside it.
  */
@@ -99,7 +108,22 @@ function makeCarriedFailure({code, completedChunkCount, totalChunkCount, complet
     return error
 }
 
-test.describe('VectorService.embedChunks — failure-path work conservation (#17112)', () => {
+/**
+ * Builds a timeout decorated with the producer's failed-request span — what the OpenAI-compatible
+ * transport now stamps on every request failure. `failedTextCount: 1` is the exact-attribution shape.
+ */
+function makeTimeout({failedTextOffset, failedTextCount} = {}) {
+    const error = new Error('request timed out');
+
+    error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+
+    if (Number.isInteger(failedTextOffset)) error.failedTextOffset = failedTextOffset;
+    if (Number.isInteger(failedTextCount))  error.failedTextCount  = failedTextCount;
+
+    return error
+}
+
+test.describe('VectorService.embedChunks — failure-path work conservation (#17112) + undeliverable attribution (#17129)', () => {
     let SDK, KB_VectorService, KB_Config, TextEmbeddingService;
     let originalEmbedTexts, originalBatchConfig;
 
@@ -143,9 +167,10 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         };
 
         const outcome = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('a')
         }).then(() => null, error => error);
 
         // The sweep still ends — a timeout means OUR wait ended, not the provider's work, and queueing
@@ -192,9 +217,10 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         };
 
         const result = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('b')
         });
 
         // The retry must not re-purchase the 10 persisted embeddings: attempt 1 sees all 50 inputs,
@@ -250,9 +276,10 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         };
 
         const result = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('c')
         });
 
         // Three write calls: the rejected prefix attempt, the successful prefix retry, and the
@@ -285,9 +312,10 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         };
 
         const outcome = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('d')
         }).then(() => null, error => error);
 
         // One missing vector slides every later one onto its neighbour's id with no length mismatch
@@ -329,9 +357,10 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         };
 
         const result = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('e')
         });
 
         // One rejected write, one successful retry, ZERO extra provider entries — the yield stays a
@@ -354,21 +383,371 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         const spy    = createSpyCollection();
         const chunks = makeChunks(50);
 
-        TextEmbeddingService.embedTexts = async () => {
-            const error = new Error('request timed out');
-
-            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
-            throw error
-        };
+        TextEmbeddingService.embedTexts = async () => { throw makeTimeout() };
 
         const outcome = await KB_VectorService.embedChunks({
-            collection     : spy,
-            chunksToProcess: chunks,
-            shouldYield    : () => false
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            poisonGenerationId: makeGenerationId('f')
         }).then(() => null, error => error);
 
         expect(outcome).toBeInstanceOf(Error);
         expect(outcome.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
         expect(spy.calls.upsert).toBe(0);
+    });
+
+    test('a MID-BATCH monster graduates via the producer span — the carry pins it, innocents persist, the receipt is exact', async () => {
+        const spy = createSpyCollection();
+        // The monster is DELIBERATELY at index 1, not 0: under head-blame attribution the first
+        // timeout would strike sig-0 (an innocent), and this arm's graduation assertion would fail.
+        // This is the mutation-sensitivity the Round-1 review demanded.
+        const chunks = Array.from({length: 5}, (_, i) => ({
+            id: `sig-${i}`, type: 'guide', name: `s${i}`, content: i === 1 ? 'monster body' : `typical body ${i}`
+        }));
+        const isMonsterText = text => text.includes('monster body');
+
+        const persisted    = [];
+        const generationId = makeGenerationId('0');
+
+        // A chunkSize=1 transport (the constrained plane's llama.cpp shape): every input is its own
+        // provider request, so the producer span always names exactly one text. A monster at
+        // position N fails with the first N requests completed and carried.
+        TextEmbeddingService.embedTexts = async texts => {
+            const monsterIndex = texts.findIndex(isMonsterText);
+
+            if (monsterIndex === -1) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            if (monsterIndex === 0) {
+                throw makeTimeout({failedTextOffset: 0, failedTextCount: 1})
+            }
+
+            throw Object.assign(makeTimeout({failedTextOffset: monsterIndex, failedTextCount: 1}), {
+                completedChunkCount: monsterIndex,
+                totalChunkCount    : texts.length,
+                completedTextCount : monsterIndex,
+                embeddings         : Array.from({length: monsterIndex}, () => new Array(384).fill(0))
+            })
+        };
+
+        // Production re-selection: a later sweep only offers what the collection does not hold.
+        const remaining = () => chunks.filter(chunk => !spy.storedByIds.has(chunk.id));
+
+        const runSweep = (extra = {}) => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : remaining(),
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId,
+            ...extra
+        }).then(value => value, error => error);
+
+        // Sweep 1: the carry persists sig-0, the span names sig-1 exactly — strike 1, no graduation.
+        const first = await runSweep();
+        expect(first).toBeInstanceOf(Error);
+        expect(persisted).toHaveLength(0);
+        expect(spy.upsertedIds, 'the innocent prefix persists before the sweep ends').toEqual(['sig-0']);
+
+        // Sweep 2: the monster is now first; a single-input span strikes it again — graduation, with
+        // the exact receipt ON the original timeout, whose identity survives.
+        const second = await runSweep();
+        expect(second).toBeInstanceOf(Error);
+        expect(second.code, 'the original timeout identity survives graduation').toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(persisted).toEqual([{chunkId: 'sig-1', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+        expect(second.undeliverableGraduation).toMatchObject({chunkId: 'sig-1', attempts: 2});
+        expect(second.undeliverableGraduation.tokenEstimate).toBeGreaterThan(0);
+        expect(second.undeliverableGraduation.effectiveCeilingMs).toBeGreaterThan(0);
+
+        // Sweep 3 with the graduated chunk excluded (the production filter is the existing
+        // knownPoisonEntries flow): the remainder completes — the head-of-line block is gone.
+        const third = await runSweep({knownPoisonEntries: persisted.map(entry => ({...entry}))});
+
+        expect(third.embedded, 'every chunk behind the excised monster embeds').toBe(3);
+        expect(spy.upsertedIds).toEqual(['sig-0', 'sig-2', 'sig-3', 'sig-4']);
+        expect(third.poisonedChunks.map(entry => entry.chunkId), 'the census carries the excised chunk').toEqual(['sig-1']);
+    });
+
+    test('a MULTI-input timeout never strikes: [typical-A, monster, typical-B] isolates, only the monster graduates', async () => {
+        const spy    = createSpyCollection();
+        const chunks = [
+            {id: 'mx-a', type: 'guide', name: 'a', content: 'typical body a'},
+            {id: 'mx-m', type: 'guide', name: 'm', content: 'monster body'},
+            {id: 'mx-b', type: 'guide', name: 'b', content: 'typical body b'}
+        ];
+        const isMonsterText = text => text.includes('monster body');
+
+        const persisted        = [];
+        const dispatchedInputs = [];
+        const generationId     = makeGenerationId('1');
+
+        // A multi-input transport (parallel=4 → one POST holding all three texts): a timeout names
+        // the whole request via the producer span. Single-input requests behave exactly.
+        TextEmbeddingService.embedTexts = async texts => {
+            dispatchedInputs.push([...texts]);
+
+            if (!texts.some(isMonsterText)) {
+                return texts.map(() => new Array(384).fill(0))
+            }
+
+            throw makeTimeout({failedTextOffset: 0, failedTextCount: texts.length})
+        };
+
+        const remaining = () => chunks.filter(chunk => !spy.storedByIds.has(chunk.id));
+
+        const runSweep = (extra = {}) => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : remaining(),
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId,
+            ...extra
+        }).then(value => value, error => error);
+
+        // Sweep 1: one three-input POST times out. NOTHING may be struck — under head-blame, typical-A
+        // would take this strike and a second sweep would fence an innocent durably.
+        const first = await runSweep();
+        expect(first).toBeInstanceOf(Error);
+        expect(persisted).toHaveLength(0);
+        expect(spy.upsertedIds).toEqual([]);
+
+        // Sweep 2: isolation — typical-A is offered ALONE, embeds, and clears; the monster is offered
+        // alone, times out, and earns its FIRST exact strike; the sweep ends on that timeout.
+        const second = await runSweep();
+        expect(second).toBeInstanceOf(Error);
+        expect(persisted, 'one exact strike is not graduation').toHaveLength(0);
+        expect(spy.upsertedIds, 'the innocent neighbour persists during isolation').toEqual(['mx-a']);
+
+        // Sweep 3: the monster isolates again — second exact strike, graduation with the receipt.
+        const third = await runSweep();
+        expect(third).toBeInstanceOf(Error);
+        expect(persisted).toEqual([{chunkId: 'mx-m', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+        expect(third.undeliverableGraduation).toMatchObject({chunkId: 'mx-m', attempts: 2});
+
+        // Sweep 4: the fence filters the monster; typical-B completes; the census carries the monster.
+        const monsterDispatchesBefore = dispatchedInputs.filter(texts => texts.some(isMonsterText)).length;
+        const fourth                  = await runSweep({knownPoisonEntries: persisted.map(entry => ({...entry}))});
+
+        expect(fourth.embedded).toBe(1);
+        expect(spy.upsertedIds).toEqual(['mx-a', 'mx-b']);
+        expect(fourth.poisonedChunks.map(entry => entry.chunkId)).toEqual(['mx-m']);
+        expect(
+            dispatchedInputs.filter(texts => texts.some(isMonsterText)).length,
+            'a graduated chunk must never be dispatched to the provider again'
+        ).toBe(monsterDispatchesBefore);
+
+        // Terminal accounting: only the monster ever graduated; both typicals persisted.
+        expect(persisted).toHaveLength(1);
+    });
+
+    test('a dispatched NON-timeout failure resets the consecutive chain: timeout → 500 → timeout never graduates', async () => {
+        const spy    = createSpyCollection();
+        const chunks = [{id: 'rst-0', type: 'guide', name: 'r0', content: 'reset body'}];
+
+        Object.assign(KB_Config.data, {maxRetries: 1}); // one 500 exhausts the batch without backoff sleeps
+
+        const persisted    = [];
+        const generationId = makeGenerationId('2');
+        let   mode         = 'timeout';
+
+        TextEmbeddingService.embedTexts = async texts => {
+            if (mode === 'timeout') throw makeTimeout({failedTextOffset: 0, failedTextCount: 1});
+            if (mode === 'http500') throw new Error('HTTP 500: provider hiccup');
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId
+        }).then(value => value, error => error);
+
+        await runSweep();                    // timeout — exact strike 1
+        mode = 'http500';
+        await runSweep();                    // dispatched non-timeout outcome — the chain RESETS
+        mode = 'timeout';
+        const third = await runSweep();      // timeout — strike 1 again, NOT 2
+
+        expect(third).toBeInstanceOf(Error);
+        expect(persisted, 'a non-timeout outcome between two timeouts breaks "consecutive"').toHaveLength(0);
+
+        const fourth = await runSweep();     // timeout — NOW consecutive: strike 2, graduation
+
+        expect(fourth).toBeInstanceOf(Error);
+        expect(persisted).toEqual([{chunkId: 'rst-0', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+    });
+
+    test('provider success followed by a STORAGE failure still resets: timeout → success/write-fail → timeout never graduates', async () => {
+        const spy    = createSpyCollection();
+        const chunks = [{id: 'psf-0', type: 'guide', name: 'p0', content: 'storage-failure body'}];
+
+        Object.assign(KB_Config.data, {maxRetries: 1});
+
+        const persisted    = [];
+        const generationId = makeGenerationId('3');
+        let   mode         = 'timeout';
+
+        TextEmbeddingService.embedTexts = async texts => {
+            if (mode === 'timeout') throw makeTimeout({failedTextOffset: 0, failedTextCount: 1});
+            return texts.map(() => new Array(384).fill(0))
+        };
+
+        const realUpsert = spy.upsert.bind(spy);
+        let   failWrites = false;
+
+        spy.upsert = async payload => {
+            if (failWrites) throw new Error('storage refused the write');
+            return realUpsert(payload)
+        };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId
+        }).then(value => value, error => error);
+
+        await runSweep();                    // timeout — exact strike 1
+
+        mode = 'success'; failWrites = true;
+        const storageFail = await runSweep(); // provider SUCCEEDS, storage fails — non-timeout outcome, chain resets
+        expect(storageFail).toBeInstanceOf(Error);
+
+        mode = 'timeout'; failWrites = false;
+        const third = await runSweep();      // timeout — strike 1 again, NOT 2
+
+        expect(third).toBeInstanceOf(Error);
+        expect(persisted, 'the provider half succeeded, so two timeouts around it are not consecutive').toHaveLength(0);
+
+        const fourth = await runSweep();     // timeout — consecutive now: graduation
+
+        expect(fourth).toBeInstanceOf(Error);
+        expect(persisted).toEqual([{chunkId: 'psf-0', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+    });
+
+    test('two OVERLAPPING timeouts count once: attempts dispatched before either strike cannot fabricate a consecutive pair', async () => {
+        const spy    = createSpyCollection();
+        const chunks = [{id: 'ovl-0', type: 'guide', name: 'o0', content: 'overlap body'}];
+
+        const persisted    = [];
+        const generationId = makeGenerationId('4');
+        const rejecters    = [];
+        let   deferred     = true;
+
+        TextEmbeddingService.embedTexts = async () => {
+            if (!deferred) throw makeTimeout({failedTextOffset: 0, failedTextCount: 1});
+
+            return new Promise((_, reject) => rejecters.push(reject))
+        };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId
+        }).then(value => value, error => error);
+
+        const waitFor = async predicate => {
+            for (let i = 0; i < 200 && !predicate(); i++) {
+                await new Promise(resolve => setTimeout(resolve, 5));
+            }
+            expect(predicate()).toBe(true);
+        };
+
+        // Both attempts dispatch BEFORE either observes a failure — the overlapping shape.
+        const sweepA = runSweep();
+        await waitFor(() => rejecters.length === 1);
+        const sweepB = runSweep();
+        await waitFor(() => rejecters.length === 2);
+
+        rejecters[0](makeTimeout({failedTextOffset: 0, failedTextCount: 1}));
+        const outcomeA = await sweepA;
+        rejecters[1](makeTimeout({failedTextOffset: 0, failedTextCount: 1}));
+        const outcomeB = await sweepB;
+
+        expect(outcomeA).toBeInstanceOf(Error);
+        expect(outcomeB).toBeInstanceOf(Error);
+        expect(persisted, 'two overlapping observations of one failure window are ONE strike, not a pair').toHaveLength(0);
+
+        // A genuinely sequential third attempt completes the pair honestly.
+        deferred = false;
+        const third = await runSweep();
+
+        expect(third).toBeInstanceOf(Error);
+        expect(persisted).toEqual([{chunkId: 'ovl-0', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+    });
+
+    test('strikes are GENERATION-keyed: a timeout under generation A and one under generation B never combine', async () => {
+        const spy    = createSpyCollection();
+        const chunks = [{id: 'gen-0', type: 'guide', name: 'g0', content: 'generation body'}];
+
+        const persisted = [];
+
+        TextEmbeddingService.embedTexts = async () => { throw makeTimeout({failedTextOffset: 0, failedTextCount: 1}) };
+
+        const runSweep = generationId => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            onPoisonEntries   : async entries => { persisted.push(...entries) },
+            poisonGenerationId: generationId
+        }).then(value => value, error => error);
+
+        const genA = makeGenerationId('5');
+        const genB = makeGenerationId('6');
+
+        await runSweep(genA);                // strike 1 under A
+        await runSweep(genB);                // generation change resets — strike 1 under B, NOT 2
+
+        expect(persisted, 'evidence gathered under one ceiling is not evidence under another').toHaveLength(0);
+
+        await runSweep(genB);                // consecutive under B: graduation
+
+        expect(persisted).toEqual([{chunkId: 'gen-0', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+    });
+
+    test('a failing disposition writer FAILS OPEN: the original timeout propagates and the chunk stays offered', async () => {
+        const spy    = createSpyCollection();
+        const chunks = Array.from({length: 2}, (_, i) => ({
+            id: `fo-${i}`, type: 'guide', name: `f${i}`, content: `fail-open body ${i}`
+        }));
+
+        // The producer span names the head exactly, so the strikes are exact — the writer is the
+        // only thing failing in this arm.
+        TextEmbeddingService.embedTexts = async () => { throw makeTimeout({failedTextOffset: 0, failedTextCount: 1}) };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            shouldYield       : () => false,
+            onPoisonEntries   : async () => { throw new Error('disposition store unavailable') },
+            poisonGenerationId: makeGenerationId('7')
+        }).then(() => null, error => error);
+
+        await runSweep();              // exact strike 1
+        const second = await runSweep(); // exact strike 2 — graduation attempted, writer throws
+
+        // The persist failure must neither mask the timeout nor suppress the chunk.
+        expect(second).toBeInstanceOf(Error);
+        expect(second.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(second.message).not.toContain('disposition store unavailable');
+        expect(second.undeliverableGraduation, 'no receipt may be minted for a disposition that did not persist').toBeUndefined();
+    });
+
+    test('the poison generation carries the effective embed call ceiling, so a ceiling change re-offers suppressed chunks', async () => {
+        const Memory_Config = SDK.Memory_Config;
+        const generation    = KB_VectorService.resolveEmbeddingPoisonGeneration();
+
+        const expectedCeiling = Memory_Config.embeddingProvider === 'ollama'
+            ? Number(Memory_Config.ollama.embeddingTimeoutMs)
+            : Number(Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs);
+
+        expect(generation.embedCallCeilingMs, 'suppression evidence is only valid under the ceiling it was gathered at').toBe(expectedCeiling);
+        expect(Number.isFinite(generation.embedCallCeilingMs)).toBe(true);
     });
 });
