@@ -35,10 +35,20 @@ const HEARTBEAT_COMMENT = ':hb\n\n';
  * @param {Object} [options.logger=console]
  * @param {Number} [options.heartbeatMs=25000] SSE keep-alive comment cadence; bounds proxy
  *     idle-timeout kills without pretending to be a liveness proof.
+ * @param {Number} [options.maxStreamsPerIdentity=8] Concurrent open streams one viewer may
+ *     hold (tabs, reconnect races); the excess is refused with its reason, not queued.
+ * @param {Number} [options.maxStreamsTotal=64] Process-wide held-connection ceiling — the
+ *     resource bound a request-rate limiter cannot express.
  * @param {Function} [options.now=Date.now] Injection seam for observational timestamps.
  * @returns {Object} The fan-out surface consumed by the fleet server boot entry.
  */
-export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, now = Date.now} = {}) {
+export function createFleetWakeFanout({
+    logger               = console,
+    heartbeatMs          = 25000,
+    maxStreamsPerIdentity = 8,
+    maxStreamsTotal      = 64,
+    now                  = Date.now
+} = {}) {
     const
         streamsByIdentity = new Map(), // identity -> Set<res>
         routes            = new Map(); // subscriptionId -> {signingKey, agentIdentity}
@@ -47,6 +57,7 @@ export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, no
         armed        = false,
         armReason    = 'not-armed: arming has not run',
         lastPushAt   = null,
+        totalStreams = 0,
         heartbeatRef = null;
 
     function ensureHeartbeat() {
@@ -71,11 +82,24 @@ export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, no
     return {
         /**
          * @summary Registers one authenticated SSE stream and takes over the response for its
-         * lifetime. The caller has already proven `identity` through the fleet admission chain.
+         * lifetime — unless a held-connection cap refuses it, in which case NOTHING is written
+         * and the caller answers the refusal on the still-untouched response. The caller has
+         * already proven `identity` through the fleet admission chain.
          * @param {String} identity Viewer identity the admission chain proved.
          * @param {Object} res Node `ServerResponse`-shaped writable to convert to SSE.
+         * @returns {Object} `{accepted: true}`, or `{accepted: false, reason}` with the cap named.
          */
         registerStream(identity, res) {
+            const existing = streamsByIdentity.get(identity);
+
+            if (totalStreams >= maxStreamsTotal) {
+                return {accepted: false, reason: 'stream cap reached (total)'}
+            }
+
+            if ((existing?.size ?? 0) >= maxStreamsPerIdentity) {
+                return {accepted: false, reason: 'stream cap reached (per viewer)'}
+            }
+
             res.writeHead(200, {
                 'content-type'     : 'text/event-stream',
                 'cache-control'    : 'no-cache, no-transform',
@@ -86,7 +110,7 @@ export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, no
             res.write('retry: 5000\n\n');
             writeEvent(res, 'state', this.describeStateFor(identity));
 
-            let streams = streamsByIdentity.get(identity);
+            let streams = existing;
 
             if (!streams) {
                 streams = new Set();
@@ -94,15 +118,20 @@ export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, no
             }
 
             streams.add(res);
+            totalStreams++;
             ensureHeartbeat();
 
             res.on('close', () => {
-                streams.delete(res);
+                if (streams.delete(res)) {
+                    totalStreams--
+                }
 
                 if (streams.size === 0) {
                     streamsByIdentity.delete(identity)
                 }
-            })
+            });
+
+            return {accepted: true}
         },
 
         /**
@@ -266,7 +295,8 @@ export function createFleetWakeFanout({logger = console, heartbeatMs = 25000, no
             }
 
             streamsByIdentity.clear();
-            routes.clear()
+            routes.clear();
+            totalStreams = 0
         }
     }
 }

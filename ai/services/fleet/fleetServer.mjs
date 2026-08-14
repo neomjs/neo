@@ -4,6 +4,7 @@ import Neo                               from '../../../src/Neo.mjs';
 import * as core                         from '../../../src/core/_export.mjs';
 import InstanceManager                   from '../../../src/manager/Instance.mjs';
 import express                           from 'express';
+import {rateLimit}                       from 'express-rate-limit';
 import cors                              from 'cors';
 import path                              from 'node:path';
 import {accessSync, constants, statSync} from 'node:fs';
@@ -294,7 +295,26 @@ export async function createFleetServerApp({
 
     app.fleetWakeFanout = fanout;
 
-    app.post('/wake', createFleetWakeReceiver({
+    // Rate bound for the signature-admitted receiver: per KNOWN subscription (their population
+    // bounds the store), while every unknown-id request shares ONE bucket — an id-rotating
+    // flood cannot inflate the key store and throttles itself into the shared bucket. The
+    // window is generous against real coalesced wake cadence and still bounds the per-request
+    // HMAC work an unauthenticated caller can demand. Keys never derive from ip, so the
+    // X-Forwarded-For validation is explicitly off rather than trusting proxy topology.
+    const wakeLimiter = rateLimit({
+        windowMs       : 60_000,
+        limit          : 120,
+        standardHeaders: false,
+        legacyHeaders  : false,
+        validate       : {xForwardedForHeader: false},
+        keyGenerator   : req => {
+            const id = req.headers['x-neo-wake-subscription-id'];
+            return (typeof id === 'string' && fanout.resolveRoute(id)) ? id : 'unknown-subscription'
+        },
+        handler: (req, res) => res.status(429).json({error: 'rate-limited'})
+    });
+
+    app.post('/wake', wakeLimiter, createFleetWakeReceiver({
         resolveRoute: id => fanout.resolveRoute(id),
         onDigest    : digest => fanout.handleDigest(digest),
         logger
@@ -359,7 +379,22 @@ export async function createFleetServerApp({
     // identity; digests only ever route to the streams of their subscription's identity, so a
     // viewer the push lane is not armed for receives the honest per-viewer `state` event and
     // keeps poll-digest as the truth lane.
-    app.get('/fleet/events', (req, res) => {
+    // Connection-attempt bound per authenticated viewer (the key is the admission-proven
+    // identity, never an ip behind the ingress); the held-resource bound — concurrent open
+    // streams — is the fan-out's own cap, which a request limiter cannot express.
+    const eventsLimiter = rateLimit({
+        windowMs       : 60_000,
+        limit          : 30,
+        standardHeaders: false,
+        legacyHeaders  : false,
+        validate       : {xForwardedForHeader: false},
+        keyGenerator   : req => req.fleetRequestContext?.username ?? 'unidentified',
+        handler        : (req, res) => res.status(429).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+            error: 'fleet: too many stream attempts'
+        }))
+    });
+
+    app.get('/fleet/events', eventsLimiter, (req, res) => {
         const identity = normalizeAgentIdentity(req.fleetRequestContext.username);
 
         if (!identity) {
@@ -369,7 +404,13 @@ export async function createFleetServerApp({
             return
         }
 
-        fanout.registerStream(identity, res)
+        const admitted = fanout.registerStream(identity, res);
+
+        if (!admitted.accepted) {
+            res.status(429).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: `fleet: ${admitted.reason}`
+            }))
+        }
     });
 
     app.post('/fleet', async (req, res) => {

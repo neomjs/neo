@@ -202,6 +202,40 @@ test.describe('fleetWakeFanout - identity-keyed SSE fan-out + relay-subscription
         expect(fanout.describeState().connectedIdentities).toBe(0)
     });
 
+    test('the per-viewer stream cap refuses the excess connection untouched, and a close frees the slot', async () => {
+        const fanout = createFleetWakeFanout({logger: {error: () => {}}, heartbeatMs: 0, maxStreamsPerIdentity: 2, maxStreamsTotal: 10});
+
+        const
+            first  = createStream(),
+            second = createStream(),
+            third  = createStream(),
+            fourth = createStream();
+
+        expect(fanout.registerStream('@viewer', first).accepted).toBe(true);
+        expect(fanout.registerStream('@viewer', second).accepted).toBe(true);
+
+        const refused = fanout.registerStream('@viewer', third);
+
+        expect(refused).toEqual({accepted: false, reason: 'stream cap reached (per viewer)'});
+        // The refused response was never converted to SSE — the route still owns it.
+        expect(third.head).toBeNull();
+        expect(third.chunks).toHaveLength(0);
+
+        first.close();
+        expect(fanout.registerStream('@viewer', fourth).accepted).toBe(true)
+    });
+
+    test('the total stream cap bounds the process across identities', async () => {
+        const fanout = createFleetWakeFanout({logger: {error: () => {}}, heartbeatMs: 0, maxStreamsPerIdentity: 8, maxStreamsTotal: 2});
+
+        expect(fanout.registerStream('@a', createStream()).accepted).toBe(true);
+        expect(fanout.registerStream('@b', createStream()).accepted).toBe(true);
+        expect(fanout.registerStream('@c', createStream())).toEqual({
+            accepted: false,
+            reason  : 'stream cap reached (total)'
+        })
+    });
+
     test('lastPushAt is observational: recorded on delivery even when no stream is connected', async () => {
         let tick = 1000;
 
