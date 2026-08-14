@@ -327,6 +327,85 @@ test.describe('fleet wake arming - the service credential chain', () => {
     })
 });
 
+test.describe('fleet wake arming - the shutdown fence (delayed mutations cross a CLOSED epoch)', () => {
+    test('a delayed rotate that outlives shutdown ends unarmed: no route survives, registration is refused, close resolves', async () => {
+        const fanout = createFleetWakeFanout({logger: QUIET, heartbeatMs: 0});
+
+        let releaseRotate;
+
+        const rotateGate = new Promise(resolve => {
+            releaseRotate = resolve
+        });
+
+        const context = createWakeArmingContext({
+            fanout,
+            aiConfig: {fleet: {
+                planeBase         : 'http://ingress:8080',
+                planeBearer       : 'service-token',
+                planeBearerFile   : '',
+                admissionTokenFile: '',
+                planeInternalHosts: ['ingress'],
+                wakeSelfBase      : 'http://fleet-server:8083'
+            }},
+            logger           : QUIET,
+            createPlaneClient: () => ({
+                async init() {
+                    return {ok: true, identity: '@viewer'}
+                },
+                async callTool(name, args) {
+                    if (args.action === 'subscribe') return {subscriptionId: 'WAKE_SUB:zombie'};
+
+                    if (args.action === 'rotate-key') {
+                        await rotateGate;
+                        return {subscriptionId: 'WAKE_SUB:zombie', signingKey: 'd'.repeat(64)}
+                    }
+                },
+                async close() {}
+            }),
+            resolveViewerClaim: async () => ({agentIdentityNodeId: '@viewer'})
+        });
+
+        // The mutation crosses the shutdown boundary: arming starts, then the WHOLE shutdown
+        // sweep runs (context close + fan-out disposal, the server-close wrapper's order)
+        // while the rotate response is still pending.
+        const pending = armFleetWakePushLane({armingContext: context, logger: QUIET});
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        await context.close();
+        fanout.dispose();
+
+        releaseRotate();
+        const outcome = await pending;
+
+        // Unarmed outcome, no resurrected route, no post-disposal registration — and both
+        // shutdown calls above already RESOLVED, which is the fence itself.
+        expect(outcome.armed).toBe(false);
+        expect(fanout.resolveRoute('WAKE_SUB:zombie')).toBeNull();
+        expect(fanout.describeState().armed).toBe(false);
+
+        const late = {head: null, chunks: [], writeHead(s, h) {this.head = {s, h}}, write(c) {this.chunks.push(c)}, on() {}};
+
+        expect(fanout.registerStream('@viewer', late)).toEqual({
+            accepted: false,
+            reason  : 'stream registry disposed'
+        });
+        expect(late.head).toBeNull()
+    });
+
+    test('a closed context refuses new ensures outright — both doors', async () => {
+        const {context} = armingFixture();
+
+        await context.close();
+
+        expect((await context.ensureArmedFor('@viewer')).reason).toContain('arming context closed');
+        expect((await context.ensureArmedForViewer({
+            viewerKey     : 'provider:github:1',
+            canonicalClaim: '@ada',
+            bearer        : 'mc-mint'
+        })).reason).toContain('arming context closed')
+    })
+});
+
 test.describe('resolveViewerStreamKey - immutable-fact keying, never display names', () => {
     const proven = '@viewer';
 

@@ -58,6 +58,7 @@ export function createFleetWakeFanout({
     let
         armed        = false,
         armReason    = 'not-armed: arming has not run',
+        disposed     = false,
         lastPushAt   = null,
         totalStreams = 0,
         heartbeatRef = null;
@@ -128,6 +129,12 @@ export function createFleetWakeFanout({
          * @returns {Object} `{accepted: true}`, or `{accepted: false, reason}` with the cap named.
          */
         registerStream(identity, res) {
+            // Disposal is a closed epoch: a handler that awaited across the shutdown boundary
+            // must not hand this registry a response the sweep can never end again.
+            if (disposed) {
+                return {accepted: false, reason: 'stream registry disposed'}
+            }
+
             const existing = streamsByIdentity.get(identity);
 
             if (totalStreams >= maxStreamsTotal) {
@@ -241,6 +248,10 @@ export function createFleetWakeFanout({
          * @returns {Promise<Object>} `{armed: Boolean, reason: String, subscriptionId?}`
          */
         async armRelaySubscription({identity, wakeSelfBase, callTool, trigger = 'SENT_TO_ME'}) {
+            if (disposed) {
+                return {armed: false, reason: 'not-armed: fan-out disposed'}
+            }
+
             if (typeof wakeSelfBase !== 'string' || wakeSelfBase.trim().length === 0) {
                 armed     = false;
                 armReason = 'not-armed: fleet.wakeSelfBase undeclared';
@@ -322,6 +333,15 @@ export function createFleetWakeFanout({
                     return {armed, reason: armReason}
                 }
 
+                // The epoch re-check AFTER the awaits is the load-bearing one: a delayed
+                // subscribe/rotate must never resurrect a route into a disposed registry — the
+                // mutation that crossed the shutdown boundary ends unarmed, not undead.
+                if (disposed) {
+                    armed     = false;
+                    armReason = 'not-armed: fan-out disposed';
+                    return {armed, reason: armReason}
+                }
+
                 routes.set(subscriptionId, {signingKey: rotated.signingKey, agentIdentity: identity});
 
                 armed     = true;
@@ -377,6 +397,13 @@ export function createFleetWakeFanout({
          * all streams and routes.
          */
         dispose() {
+            // The epoch closes FIRST, synchronously: everything still in flight — a delayed
+            // arming mutation, an awaited connect handler — resolves into refusals from this
+            // instant, so the sweep below is the LAST one this registry ever needs.
+            disposed  = true;
+            armed     = false;
+            armReason = 'not-armed: fan-out disposed';
+
             if (heartbeatRef) {
                 clearInterval(heartbeatRef);
                 heartbeatRef = null

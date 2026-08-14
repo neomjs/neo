@@ -629,12 +629,14 @@ export function createWakeArmingContext({
 
     let
         client       = null,
+        closed       = false,
         proven       = null,
         establishing = null;
 
     const outcomesByViewer = new Map(); // viewer key -> settled arming outcome
 
     async function establish() {
+        if (closed) return {ok: false, reason: 'not-armed: arming context closed'};
         if (proven) return {ok: true};
         if (!wakeSelfBase) return {ok: false, reason: 'not-armed: fleet.wakeSelfBase undeclared'};
         if (!planeBase) return {ok: false, reason: 'not-armed: no authenticated plane client'};
@@ -695,6 +697,10 @@ export function createWakeArmingContext({
          * @returns {Promise<Object>} `{armed, reason}` outcome for this viewer.
          */
         ensureArmedFor(viewerKey) {
+            if (closed) {
+                return Promise.resolve({armed: false, reason: 'not-armed: arming context closed'})
+            }
+
             const pending = outcomesByViewer.get(viewerKey);
 
             if (pending) return pending;
@@ -759,6 +765,10 @@ export function createWakeArmingContext({
          * @returns {Promise<Object>} `{armed, reason, identity?}` — `identity` is MC-proven.
          */
         ensureArmedForViewer({viewerKey, canonicalClaim, bearer, fleetAdmissionBearer = ''}) {
+            if (closed) {
+                return Promise.resolve({armed: false, reason: 'not-armed: arming context closed'})
+            }
+
             const pending = outcomesByViewer.get(viewerKey);
 
             if (pending) return pending;
@@ -826,6 +836,11 @@ export function createWakeArmingContext({
          * @returns {Promise<void>}
          */
         async close() {
+            // The epoch closes synchronously BEFORE any teardown await: an in-flight mutation
+            // that resolves after this instant finds a closed context and a disposed fan-out,
+            // and ends unarmed instead of resurrecting state into a shutdown.
+            closed = true;
+
             outcomesByViewer.clear();
             proven = null;
 
