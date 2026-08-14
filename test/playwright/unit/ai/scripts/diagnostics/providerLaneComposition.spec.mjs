@@ -4,6 +4,7 @@ import path               from 'node:path';
 import {load as loadYaml} from 'js-yaml';
 import {
     PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION,
+    PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS,
     analyzeProviderLaneComposition,
     parseArgs,
     validateProviderLaneCompositionReceipt
@@ -326,6 +327,78 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         const receipt = analyzeProviderLaneComposition(composition);
         expect(receipt.ready).toBe(false);
         expect(errorCodes(receipt)).toContain('slots-endpoint-disabled')
+    });
+
+    test('a steady-state probe that hashes model weights is refused on either lane (#17063)', () => {
+        const hashedEmbedding = loadComposition();
+        hashedEmbedding.services['embedding-model'].healthcheck.test = [
+            'CMD-SHELL',
+            'curl --fail --silent http://127.0.0.1:8080/health >/dev/null && echo "x  /models/model.gguf" | sha256sum -c - >/dev/null'
+        ];
+        expect(errorCodes(analyzeProviderLaneComposition(hashedEmbedding))).toContain('embedding-probe-heavy-integrity');
+
+        const hashedChat = loadComposition();
+        hashedChat.services['chat-model'].healthcheck.test = [
+            'CMD-SHELL',
+            'ollama show "$NEO_PROVIDER_LANE_MODEL" >/dev/null && echo "x  manifest" | sha256sum -c - >/dev/null'
+        ];
+        expect(errorCodes(analyzeProviderLaneComposition(hashedChat))).toContain('chat-probe-heavy-integrity')
+    });
+
+    test('the embedding liveness guard requires the exact executable probe, not token presence (#17063)', () => {
+        for (const fake of [
+            ['CMD-SHELL', 'true'],
+            ['CMD-SHELL', 'true # /health'],
+            ['CMD-SHELL', 'echo /health >/dev/null'],
+            ['CMD-SHELL', 'curl --fail --silent http://embedding-model:8080/health >/dev/null'],
+            ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:8080/health']
+        ]) {
+            const composition = loadComposition();
+            composition.services['embedding-model'].healthcheck.test = fake;
+            expect(errorCodes(analyzeProviderLaneComposition(composition)), JSON.stringify(fake))
+                .toContain('embedding-probe-liveness-missing')
+        }
+    });
+
+    test('embedding compute threads must equal the elected CPU allocation exactly (#17073)', () => {
+        const unpinned = loadComposition();
+        delete unpinned.services['embedding-model'].environment.LLAMA_ARG_THREADS;
+        const unpinnedReceipt = analyzeProviderLaneComposition(unpinned);
+        expect(unpinnedReceipt.ready).toBe(false);
+        expect(errorCodes(unpinnedReceipt)).toContain('embedding-threads-unpinned');
+
+        for (const mismatched of ['1', '3', '64']) {
+            const drifted = loadComposition();
+            drifted.services['embedding-model'].environment.LLAMA_ARG_THREADS = mismatched;
+            expect(errorCodes(analyzeProviderLaneComposition(drifted)), `threads=${mismatched}`)
+                .toContain('embedding-threads-cpu-mismatch')
+        }
+
+        const fractional = loadComposition();
+        fractional.services['embedding-model'].environment.LLAMA_ARG_THREADS = '2.5';
+        expect(errorCodes(analyzeProviderLaneComposition(fractional))).toContain('embedding-threads-unpinned')
+    });
+
+    test('the embedding HTTP base pool must be pinned and refuses host-derived sizes (#17073)', () => {
+        const httpUnpinned = loadComposition();
+        delete httpUnpinned.services['embedding-model'].environment.LLAMA_ARG_THREADS_HTTP;
+        expect(errorCodes(analyzeProviderLaneComposition(httpUnpinned))).toContain('embedding-http-threads-unpinned');
+
+        const hostDerived = loadComposition();
+        hostDerived.services['embedding-model'].environment.LLAMA_ARG_THREADS_HTTP = '64';
+        expect(errorCodes(analyzeProviderLaneComposition(hostDerived))).toContain('embedding-http-threads-oversized')
+    });
+
+    test('the tracked profile renders from exactly the closed deployment-input set the election actor exports (#17073)', () => {
+        // The production actor exports ONLY `deploymentInputs` (env-file /dev/null): a required
+        // Compose value outside PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS cannot reach a real render.
+        // This arm fails whenever the profile grows a `:?` input the canonical set does not carry
+        // (loadComposition() throws on any unmapped required var), so a fixture can no longer
+        // smuggle a value production never receives.
+        expect(Object.keys(FIXTURE_ENV).sort()).toEqual(Object.values(PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS).sort());
+
+        const receipt = analyzeProviderLaneComposition(loadComposition());
+        expect(receipt.ready, JSON.stringify(receipt.errors, null, 2)).toBe(true)
     });
 
     test('the pure downstream validator rejects unknown and unready receipts without Compose', () => {
