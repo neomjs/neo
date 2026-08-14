@@ -908,7 +908,28 @@ class ConfigBase extends ConfigProvider {
             providerLaneDeclaration: {
                 embedding: {
                     parallelSlots       : leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS', 'positiveInt'),
-                    contextTokensPerSlot: leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED', 'positiveInt')
+                    contextTokensPerSlot: leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED', 'positiveInt'),
+                    /**
+                     * @summary Measured lane throughput in tokens/second — what the lane can SERVE, as
+                     * distinct from the geometry above, which is only what it can HOLD.
+                     *
+                     * Throughput is not derivable from the two members above: it depends on CPU
+                     * allocation, quantization, batch/ubatch sizing and the model, so two planes with
+                     * byte-identical slot shape can differ by an order of magnitude. It has to be
+                     * measured and stated; nothing here infers it.
+                     *
+                     * **`null` = not declared = no serviceability ceiling**, and admission falls back to
+                     * fit alone. A defaulted rate would fabricate a ceiling on a plane that stated
+                     * nothing and begin refusing legal work — and a false refusal is silent, where the
+                     * grind it replaces is at least visible.
+                     *
+                     * **Restate this whenever the lane's CPU allocation changes.** The value is a
+                     * property of the lane *at an allocation*, not of the lane. A stale-high rate after
+                     * a capacity reduction re-opens the exact defect this exists to close, and a stale
+                     * rate is indistinguishable from a current one in the receipt.
+                     * @type {Number|null}
+                     */
+                    tokensPerSecond: leaf(null, 'NEO_PROVIDER_LANE_EMBEDDING_TOKENS_PER_SECOND', 'positiveInt')
                 }
             },
             /**

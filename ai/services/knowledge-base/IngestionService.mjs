@@ -25,6 +25,9 @@ import {
 }
                             from './helpers/embedFailureClassification.mjs';
 import VectorService   from './VectorService.mjs';
+import {
+    resolveServiceabilityCeilingTokens
+}                      from '../../embeddingServiceability.mjs';
 import aiConfig        from '../../mcp/server/knowledge-base/config.mjs';
 import crypto          from 'crypto';
 import fs              from 'fs-extra';
@@ -1355,12 +1358,28 @@ class IngestionService extends Base {
                 ? aiConfig.openAiCompatible.embeddingModel
                 : embeddingProvider;
 
+        // Serviceability, alongside fit. Fit is a property of the slot; deliverability is a property of
+        // the lane, and on a slow lane they diverge — a chunk well inside the slot can need minutes of
+        // service against a seconds-long enforced clock, so it is admitted, ground on, abandoned by its
+        // caller, and re-submitted. The deadline is the per-request provider clock this path actually
+        // enforces, selected by provider rather than assumed.
+        const declaredTokensPerSecond = aiConfig.providerLaneDeclaration.embedding.tokensPerSecond;
+        const deadlineMs              = embeddingProvider === 'ollama'
+            ? Number(aiConfig.ollama.embeddingTimeoutMs)
+            : Number(aiConfig.openAiCompatible.batchEmbeddingTimeoutMs);
+
         return {
             enabled: LOCAL_EMBEDDING_PROVIDERS.has(embeddingProvider),
             embeddingProvider,
             contextLimitTokens,
             safeProcessingLimitTokens,
-            model
+            model,
+            // `null` when the deployment declared no rate — no serviceability opinion, and admission
+            // stays exactly as it is today. Carried explicitly so a diagnostic reader can tell an
+            // undeclared lane from one whose work simply cleared the ceiling.
+            serviceabilityCeilingTokens: resolveServiceabilityCeilingTokens({declaredTokensPerSecond, deadlineMs}),
+            declaredTokensPerSecond    : Number.isFinite(Number(declaredTokensPerSecond)) ? Number(declaredTokensPerSecond) : null,
+            deadlineMs
         };
     }
 

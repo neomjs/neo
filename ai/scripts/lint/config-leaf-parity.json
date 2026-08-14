@@ -431,6 +431,7 @@
         "providerLaneDeclaration.embedding",
         "providerLaneDeclaration.embedding.contextTokensPerSlot",
         "providerLaneDeclaration.embedding.parallelSlots",
+        "providerLaneDeclaration.embedding.tokensPerSecond",
         "publicUrl",
         "stopHook",
         "stopHook.deferenceMirror",
