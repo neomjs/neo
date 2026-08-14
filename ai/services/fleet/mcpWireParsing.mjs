@@ -35,12 +35,24 @@ function canonicalize(url) {
  * and TLS required for anything remote — plain `http:` survives only for exact loopback hosts,
  * where there is no network hop to intercept. Returns the canonical endpoint or `null`.
  *
- * One policy, two consumers: the tenant connect flow (`FleetTenantService.normalizeEndpoint`) and
- * the plane mailbox client validate through this single definition.
+ * One deliberate widening exists, and it is caller-declared rather than ambient:
+ * `allowPlainHttpHosts` names exact additional hostnames a DEPLOYMENT vouches for as
+ * confidential internal hops (compose-network service DNS, where the "network hop" is a
+ * container bridge the deployment itself owns). The default is empty, which keeps this function
+ * byte-for-byte the strict policy; an unnamed internal host is a shadow topology and stays
+ * refused. The hop still never substitutes for admission — the credential requirement is
+ * unchanged on every path.
+ *
+ * One policy, two consumers: the tenant connect flow (`FleetTenantService.normalizeEndpoint`)
+ * and the plane mailbox client validate through this single definition. The tenant flow passes
+ * no allowance and is therefore unwidened by construction.
  * @param {*} candidateUrl
+ * @param {Object} [options]
+ * @param {String[]} [options.allowPlainHttpHosts=[]] Exact hostnames the deployment declares as
+ *     confidential internal hops for plain `http:` dialing.
  * @returns {String|null}
  */
-export function normalizeSecureMcpEndpoint(candidateUrl) {
+export function normalizeSecureMcpEndpoint(candidateUrl, {allowPlainHttpHosts = []} = {}) {
     if (typeof candidateUrl !== 'string' || candidateUrl.trim() === '') return null;
 
     let url;
@@ -56,6 +68,10 @@ export function normalizeSecureMcpEndpoint(candidateUrl) {
     if (url.protocol === 'https:') return canonicalize(url);
 
     if (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname)) return canonicalize(url);
+
+    if (url.protocol === 'http:' && Array.isArray(allowPlainHttpHosts) && allowPlainHttpHosts.includes(url.hostname)) {
+        return canonicalize(url)
+    }
 
     return null
 }

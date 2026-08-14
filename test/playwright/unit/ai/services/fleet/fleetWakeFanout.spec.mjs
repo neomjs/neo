@@ -20,26 +20,44 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import {createFleetWakeFanout} from '../../../../../../ai/services/fleet/fleetWakeFanout.mjs';
 
 /**
- * A minimal SSE response double: collects head + frames, and lets the test fire the close
- * event exactly like a dropped EventSource does.
+ * A minimal SSE response double: collects head + frames, and lets the test fire the close /
+ * error events exactly like a dropped or faulted EventSource does. `failWrites` makes every
+ * write throw; `writableLength` simulates kernel-buffer backpressure.
  */
-function createStream() {
+function createStream({failWrites = false, writableLength = 0} = {}) {
     const listeners = {};
 
     return {
-        head  : null,
-        chunks: [],
+        head     : null,
+        chunks   : [],
+        ended    : false,
+        destroyed: false,
+        failWrites,
+        writableLength,
         writeHead(status, headers) {
             this.head = {status, headers}
         },
         write(chunk) {
+            if (this.failWrites) {
+                throw new Error('socket gone')
+            }
+
             this.chunks.push(chunk)
+        },
+        end() {
+            this.ended = true
+        },
+        destroy() {
+            this.destroyed = true
         },
         on(event, handler) {
             listeners[event] = handler
         },
         close() {
             listeners.close?.()
+        },
+        error() {
+            listeners.error?.()
         },
         events(name) {
             return this.chunks.filter(chunk => chunk.startsWith(`event: ${name}\n`))
@@ -234,6 +252,78 @@ test.describe('fleetWakeFanout - identity-keyed SSE fan-out + relay-subscription
             accepted: false,
             reason  : 'stream cap reached (total)'
         })
+    });
+
+    test('a faulty first stream is evicted without costing the healthy second its delivery', async () => {
+        const {fanout, arm} = createArmedFanout();
+        await arm();
+
+        const
+            faulty  = createStream(),
+            healthy = createStream();
+
+        fanout.registerStream('@viewer', faulty);
+        fanout.registerStream('@viewer', healthy);
+
+        faulty.failWrites = true;
+
+        fanout.handleDigest({
+            subscriptionId: 'WAKE_SUB:relay',
+            agentIdentity : '@viewer',
+            envelope      : {digest: 'wake up'}
+        });
+
+        expect(healthy.events('wake')).toHaveLength(1);
+        expect(faulty.destroyed).toBe(true);
+        // The evicted slot is freed: connectedIdentities still names the viewer via the healthy stream.
+        expect(fanout.describeState().connectedIdentities).toBe(1)
+    });
+
+    test('a stream past the backpressure bound is evicted instead of buffered forever', async () => {
+        const {fanout, arm} = createArmedFanout();
+        await arm();
+
+        const bloated = createStream({writableLength: 512 * 1024});
+
+        // Registration writes ride the same bound, so the overfull stream is evicted at the
+        // first write — nothing is ever queued behind a consumer that stopped reading.
+        fanout.registerStream('@viewer', bloated);
+
+        expect(bloated.destroyed).toBe(true);
+        expect(fanout.describeState().connectedIdentities).toBe(0)
+    });
+
+    test('close and error cleanups are idempotent: no double-decrement can corrupt the caps', async () => {
+        const fanout = createFleetWakeFanout({logger: {error: () => {}}, heartbeatMs: 0, maxStreamsPerIdentity: 8, maxStreamsTotal: 2});
+
+        const stream = createStream();
+
+        fanout.registerStream('@a', stream);
+        stream.close();
+        stream.error();
+        stream.close();
+
+        expect(fanout.registerStream('@b', createStream()).accepted).toBe(true);
+        expect(fanout.registerStream('@c', createStream()).accepted).toBe(true);
+        expect(fanout.registerStream('@d', createStream()).accepted).toBe(false)
+    });
+
+    test('dispose ends every held stream so a server can terminate with open SSE clients', async () => {
+        const {fanout, arm} = createArmedFanout();
+        await arm();
+
+        const
+            one = createStream(),
+            two = createStream();
+
+        fanout.registerStream('@viewer', one);
+        fanout.registerStream('@someone-else', two);
+
+        fanout.dispose();
+
+        expect(one.ended).toBe(true);
+        expect(two.ended).toBe(true);
+        expect(fanout.describeState().connectedIdentities).toBe(0)
     });
 
     test('lastPushAt is observational: recorded on delivery even when no stream is connected', async () => {

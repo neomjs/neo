@@ -27,7 +27,9 @@
  * event says so. Absence of signal, never a verdict — the tier-degradation presence contract.
  */
 
-const HEARTBEAT_COMMENT = ':hb\n\n';
+const
+    HEARTBEAT_COMMENT  = ':hb\n\n',
+    MAX_BUFFERED_BYTES = 256 * 1024;
 
 /**
  * @summary Creates the fan-out registry.
@@ -60,13 +62,47 @@ export function createFleetWakeFanout({
         totalStreams = 0,
         heartbeatRef = null;
 
+    const cleanupByStream = new Map(); // res -> idempotent cleanup fn
+
+    /**
+     * One faulty consumer must never take the lane down: a throwing write or a consumer whose
+     * kernel buffer has grown past the bound is EVICTED — its response destroyed, its slot
+     * freed — and delivery continues to the remaining healthy streams. The bound is what makes
+     * backpressure finite: SSE has no per-client replay (poll-digest is the catch-up), so
+     * buffering an unread client indefinitely would trade one slow consumer for process memory.
+     */
+    function safeWrite(res, chunk) {
+        try {
+            if ((res.writableLength ?? 0) > MAX_BUFFERED_BYTES) {
+                evictStream(res);
+                return false
+            }
+
+            res.write(chunk);
+            return true
+        } catch {
+            evictStream(res);
+            return false
+        }
+    }
+
+    function evictStream(res) {
+        const cleanup = cleanupByStream.get(res);
+
+        cleanup?.();
+
+        try {
+            res.destroy?.()
+        } catch {/* eviction is best-effort teardown of an already-faulty stream */}
+    }
+
     function ensureHeartbeat() {
         if (heartbeatRef || heartbeatMs <= 0) return;
 
         heartbeatRef = setInterval(() => {
             for (const streams of streamsByIdentity.values()) {
-                for (const res of streams) {
-                    res.write(HEARTBEAT_COMMENT)
+                for (const res of [...streams]) {
+                    safeWrite(res, HEARTBEAT_COMMENT)
                 }
             }
         }, heartbeatMs);
@@ -76,7 +112,7 @@ export function createFleetWakeFanout({
     }
 
     function writeEvent(res, event, payload) {
-        res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`)
+        return safeWrite(res, `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`)
     }
 
     return {
@@ -100,15 +136,27 @@ export function createFleetWakeFanout({
                 return {accepted: false, reason: 'stream cap reached (per viewer)'}
             }
 
-            res.writeHead(200, {
-                'content-type'     : 'text/event-stream',
-                'cache-control'    : 'no-cache, no-transform',
-                connection         : 'keep-alive',
-                'x-accel-buffering': 'no'
-            });
+            // The whole handshake must land before the stream is registered: a socket that
+            // faults or is already past the backpressure bound during these writes is refused
+            // (and destroyed by the eviction path) WITHOUT ever entering the registry — a
+            // dead-at-birth stream must not hold a cap slot until a close event that may never
+            // fire on it.
+            try {
+                res.writeHead(200, {
+                    'content-type'     : 'text/event-stream',
+                    'cache-control'    : 'no-cache, no-transform',
+                    connection         : 'keep-alive',
+                    'x-accel-buffering': 'no'
+                })
+            } catch {
+                return {accepted: false, reason: 'stream rejected at handshake'}
+            }
 
-            res.write('retry: 5000\n\n');
-            writeEvent(res, 'state', this.describeStateFor(identity));
+            if (!safeWrite(res, 'retry: 5000\n\n') ||
+                !writeEvent(res, 'state', this.describeStateFor(identity))
+            ) {
+                return {accepted: false, reason: 'stream rejected at handshake'}
+            }
 
             let streams = existing;
 
@@ -121,7 +169,9 @@ export function createFleetWakeFanout({
             totalStreams++;
             ensureHeartbeat();
 
-            res.on('close', () => {
+            // ONE idempotent cleanup shared by every exit — client close, socket error, cap
+            // eviction, shutdown disposal — so no path can double-decrement or leak a slot.
+            const cleanup = () => {
                 if (streams.delete(res)) {
                     totalStreams--
                 }
@@ -129,7 +179,13 @@ export function createFleetWakeFanout({
                 if (streams.size === 0) {
                     streamsByIdentity.delete(identity)
                 }
-            });
+
+                cleanupByStream.delete(res)
+            };
+
+            cleanupByStream.set(res, cleanup);
+            res.on('close', cleanup);
+            res.on('error', cleanup);
 
             return {accepted: true}
         },
@@ -160,7 +216,9 @@ export function createFleetWakeFanout({
 
             if (!streams || streams.size === 0) return;
 
-            for (const res of streams) {
+            // A snapshot copy: an eviction mutates the live Set mid-loop, and a faulty first
+            // stream must never cost the healthy second its delivery.
+            for (const res of [...streams]) {
                 writeEvent(res, 'wake', {subscriptionId, envelope})
             }
         },
@@ -286,7 +344,9 @@ export function createFleetWakeFanout({
         },
 
         /**
-         * @summary Test/shutdown hook: stops the heartbeat and forgets all streams and routes.
+         * @summary Shutdown/test hook: stops the heartbeat and ENDS every held SSE response —
+         * a held stream would otherwise keep `server.close()` waiting forever — then forgets
+         * all streams and routes.
          */
         dispose() {
             if (heartbeatRef) {
@@ -294,7 +354,20 @@ export function createFleetWakeFanout({
                 heartbeatRef = null
             }
 
+            for (const streams of streamsByIdentity.values()) {
+                for (const res of [...streams]) {
+                    try {
+                        res.end()
+                    } catch {/* a stream that cannot end cleanly is destroyed below */}
+
+                    try {
+                        res.destroy?.()
+                    } catch {/* best-effort */}
+                }
+            }
+
             streamsByIdentity.clear();
+            cleanupByStream.clear();
             routes.clear();
             totalStreams = 0
         }

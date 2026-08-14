@@ -86,6 +86,15 @@ services:
       # ingress. Declared explicitly because a guessed self-address would aim signed wake POSTs
       # at a stranger; empty (the default) keeps the push lane honestly unarmed.
       NEO_FLEET_WAKE_SELF_BASE: http://fleet-server:8083
+      # The wake arming path: this service dials its own plane's MC over the compose-internal
+      # ingress to ensure/rotate the relay wake subscription. The internal-hosts declaration
+      # NAMES the plain-HTTP hop this deployment vouches for (an unnamed internal host stays
+      # refused by the shared endpoint policy); bearer and identity are operator-supplied at
+      # compose time — absent, the push lane boots honestly unarmed and says so.
+      NEO_FLEET_PLANE_BASE: http://ingress:8080
+      NEO_FLEET_PLANE_INTERNAL_HOSTS: ingress
+      NEO_FLEET_PLANE_BEARER: ${NEO_FLEET_PLANE_BEARER:-}
+      NEO_AGENT_IDENTITY: ${NEO_AGENT_IDENTITY:-}
     secrets:
       - mcp-auth-token
 

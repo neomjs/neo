@@ -72,7 +72,7 @@
 	# Fleet is optional and ingress deliberately has no hard dependency on it. Convert only an
 	# absent Fleet upstream to the cockpit's disconnected 404; preserve KB/MC 502 diagnostics.
 	handle_errors 502 {
-		@fleet path /fleet /fleet/probe
+		@fleet path /fleet /fleet/probe /fleet/events
 		respond @fleet 404
 	}
 }

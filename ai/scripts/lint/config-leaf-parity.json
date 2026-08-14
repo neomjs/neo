@@ -187,6 +187,7 @@
         "fleet.instanceRoot",
         "fleet.planeBase",
         "fleet.planeBearer",
+        "fleet.planeInternalHosts",
         "fleet.port",
         "fleet.tenantProbeTimeoutMs",
         "fleet.wakeReceiverManifestPath",

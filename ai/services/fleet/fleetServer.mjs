@@ -388,25 +388,42 @@ export async function createFleetServerApp({
         standardHeaders: false,
         legacyHeaders  : false,
         validate       : {xForwardedForHeader: false},
-        keyGenerator   : req => req.fleetRequestContext?.username ?? 'unidentified',
+        keyGenerator   : req => resolveViewerStreamKey(req.fleetRequestContext, app.fleetWakeArming?.provenIdentity?.() ?? null)
+            ?? 'unidentified',
         handler        : (req, res) => res.status(429).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
             error: 'fleet: too many stream attempts'
         }))
     });
 
-    app.get('/fleet/events', eventsLimiter, (req, res) => {
-        const identity = normalizeAgentIdentity(req.fleetRequestContext.username);
+    app.get('/fleet/events', eventsLimiter, async (req, res) => {
+        const
+            proven    = app.fleetWakeArming?.provenIdentity?.() ?? null,
+            streamKey = resolveViewerStreamKey(req.fleetRequestContext, proven);
 
-        if (!identity) {
+        if (!streamKey) {
             res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
-                error: 'fleet: viewer identity is not canonicalizable'
+                error: 'fleet: viewer identity carries no stable subject'
             }));
             return
         }
 
-        const admitted = fanout.registerStream(identity, res);
+        // Connect-time arming: ensure/rotate the viewer's relay subscription through the
+        // arming context (authorized today for exactly the plane-proven caller identity — MC
+        // subscriptions are caller-owned and delegation is refused there, so any other viewer
+        // lands in the honest per-viewer not-armed state rather than a relabeled route).
+        if (app.fleetWakeArming) {
+            try {
+                await app.fleetWakeArming.ensureArmedFor(streamKey)
+            } catch (error) {
+                logger.warn(`[FleetServer] connect-time arming failed for a viewer stream: ${error?.message ?? error}`)
+            }
+        }
 
-        if (!admitted.accepted) {
+        const admitted = fanout.registerStream(streamKey, res);
+
+        // A handshake-rejected stream may already be headers-sent or destroyed — only answer
+        // the refusal envelope on a response that can still carry one.
+        if (!admitted.accepted && !res.headersSent && !res.destroyed) {
             res.status(429).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
                 error: `fleet: ${admitted.reason}`
             }))
@@ -460,25 +477,59 @@ export async function createFleetServerApp({
 }
 
 /**
- * @summary Arms the wake push lane's relay subscription over the authenticated plane MC surface.
+ * @summary Derives the ONE stream/limiter key for an admitted viewer, from immutable facts only.
+ *
+ * The plane-proven canonical identity (`@login`, MC's own subject for the arming caller) is the
+ * key exactly when the request's provider login resolves to it — the same fact compared with
+ * itself, never an alias. Every other admitted viewer keys on the immutable ownership
+ * coordinates (`authProvider` + `providerUserId`): a mutable display name is never a key, a
+ * display name with spaces cannot forge one (it canonicalizes to null and falls through to the
+ * provider tuple), and a colliding display name cannot cross two viewers onto one key because
+ * the tuple differs. Digests only ever carry MC-proven owner identities, so a provider-tuple
+ * stream can never receive another owner's digest — it can only be honestly not-armed.
+ * @param {Object|null} context Frozen fleet request context.
+ * @param {String|null} provenIdentity The arming context's plane-proven canonical identity.
+ * @returns {String|null} Stream key, or null when no stable subject exists.
+ */
+export function resolveViewerStreamKey(context, provenIdentity) {
+    if (!context) return null;
+
+    const canonical = normalizeAgentIdentity(context.providerUsername ?? context.username);
+
+    if (provenIdentity && canonical && canonical === provenIdentity) {
+        return provenIdentity
+    }
+
+    if (context.authProvider && (context.providerUserId ?? '') !== '') {
+        return `provider:${context.authProvider}:${context.providerUserId}`
+    }
+
+    return null
+}
+
+/**
+ * @summary Creates the persistent wake-arming context: one proven plane client shared by the
+ * boot arming step and every connect-time ensure, with single-flight per-viewer outcomes.
  *
  * FAIL-SOFT by contract: serving never waits on arming, and every refusal path lands as the
  * fan-out's described state (rendered with its reason by the SSE `state` event and the
  * wake-routes axis) rather than a boot failure — an unarmed push lane is a truthful topology,
  * because poll-digest remains the truth lane regardless: push is latency, poll is truth.
  *
- * The plane client lives exactly as long as arming needs it: the subscription row is durable
- * MC state and the rotated signing key is already in fan-out process memory, so the session
- * closes on every exit. A restart re-arms with a fresh key (the one sanctioned rotation door).
+ * Authorization boundary, stated where it binds: MC wake subscriptions are CALLER-owned and MC
+ * refuses delegation, so this context can arm exactly one viewer — the identity the plane
+ * client's `init` proof establishes. `ensureArmedFor(anyOtherViewer)` answers the honest
+ * not-armed-for-this-viewer outcome without touching MC; it never relabels the caller-owned
+ * subscription as someone else's route.
  * @param {Object} options
  * @param {Object} options.fanout The app's wake fan-out registry.
- * @param {Object} options.aiConfig Resolved Tier-1 config tree.
- * @param {Object} options.logger Redaction-safe logger.
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Object} [options.logger=defaultLogger] Redaction-safe logger.
  * @param {Function} [options.createPlaneClient] Injection seam for tests.
  * @param {Function} [options.resolveViewerClaim] Injection seam for tests.
- * @returns {Promise<Object>} The fan-out's `{armed, reason}` arming outcome.
+ * @returns {Object} `{ensureArmedFor, provenIdentity, close}`
  */
-export async function armFleetWakePushLane({
+export function createWakeArmingContext({
     fanout,
     aiConfig           = AiConfig,
     logger             = defaultLogger,
@@ -489,44 +540,144 @@ export async function armFleetWakePushLane({
         planeBase    = aiConfig.fleet.planeBase.trim(),
         wakeSelfBase = aiConfig.fleet.wakeSelfBase.trim();
 
-    if (!wakeSelfBase) {
-        return fanout.armRelaySubscription({identity: null, wakeSelfBase: '', callTool: null})
+    let
+        client       = null,
+        proven       = null,
+        establishing = null;
+
+    const outcomesByViewer = new Map(); // viewer key -> settled arming outcome
+
+    async function establish() {
+        if (proven) return {ok: true};
+        if (!wakeSelfBase) return {ok: false, reason: 'not-armed: fleet.wakeSelfBase undeclared'};
+        if (!planeBase) return {ok: false, reason: 'not-armed: no authenticated plane client'};
+
+        establishing ??= (async () => {
+            try {
+                const viewer = await resolveViewerClaim();
+
+                client = createPlaneClient({
+                    baseUrl            : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
+                    credential         : aiConfig.fleet.planeBearer,
+                    allowPlainHttpHosts: aiConfig.fleet.planeInternalHosts
+                });
+
+                const admission = await client.init({expectedIdentity: viewer.agentIdentityNodeId});
+
+                if (!admission.ok) {
+                    client = null;
+                    return {ok: false, reason: `not-armed: plane admission refused (${admission.reason})`}
+                }
+
+                proven = normalizeAgentIdentity(admission.identity);
+                return {ok: true}
+            } catch (error) {
+                client = null;
+                return {ok: false, reason: `not-armed: ${error?.message ?? error}`}
+            } finally {
+                establishing = null
+            }
+        })();
+
+        return establishing
     }
 
-    if (!planeBase) {
-        return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
-    }
+    return {
+        /**
+         * @summary Establishes (once, single-flight) the proven plane session. Safe to call
+         * repeatedly; failures are returned, never thrown.
+         * @returns {Promise<Object>} `{ok, reason?}`
+         */
+        establish,
 
-    let client;
+        /**
+         * @summary The plane-proven canonical identity, or null before/without proof.
+         * @returns {String|null}
+         */
+        provenIdentity() {
+            return proven
+        },
+
+        /**
+         * @summary Ensures the relay subscription for one viewer key — cached per viewer, safe
+         * to call on every connect. Establish-class failures are reflected into the fan-out's
+         * described state so the SSE `state` event and the wake-routes axis carry the reason.
+         * @param {String} viewerKey Stream key from {@link resolveViewerStreamKey}.
+         * @returns {Promise<Object>} `{armed, reason}` outcome for this viewer.
+         */
+        async ensureArmedFor(viewerKey) {
+            const cached = outcomesByViewer.get(viewerKey);
+
+            if (cached?.armed) return cached;
+
+            const ready = await establish();
+
+            let outcome;
+
+            if (!ready.ok) {
+                outcome = await fanout.armRelaySubscription({
+                    identity    : null,
+                    wakeSelfBase: ready.reason.includes('wakeSelfBase') ? '' : wakeSelfBase,
+                    callTool    : null
+                })
+            } else if (viewerKey !== proven) {
+                outcome = {armed: false, reason: 'not-armed: MC subscriptions are caller-owned; this viewer is not the proven plane identity'}
+            } else {
+                outcome = await fanout.armRelaySubscription({
+                    identity: proven,
+                    wakeSelfBase,
+                    callTool: (name, args) => client.callTool(name, args)
+                });
+
+                logger.info(`[FleetServer] wake push lane (${viewerKey}): ${outcome.reason}`)
+            }
+
+            outcomesByViewer.set(viewerKey, outcome);
+            return outcome
+        },
+
+        /**
+         * @summary Closes the proven plane session and forgets per-viewer outcomes.
+         * @returns {Promise<void>}
+         */
+        async close() {
+            outcomesByViewer.clear();
+            proven = null;
+
+            const closing = client;
+            client = null;
+
+            await closing?.close?.()
+        }
+    }
+}
+
+/**
+ * @summary Boot arming step: establishes the proven plane session and arms the push lane for
+ * the proven identity through the SAME context connect-time ensures ride. Kept as the named
+ * boot-path falsifier surface — a spec drives THIS function (with its seams) to `armed`.
+ * @param {Object} options Options of {@link createWakeArmingContext}, plus:
+ * @param {Object} [options.armingContext] Existing context override (the server's own).
+ * @returns {Promise<Object>} The `{armed, reason}` arming outcome for the proven identity.
+ */
+export async function armFleetWakePushLane({armingContext = null, ...contextOptions}) {
+    const
+        context = armingContext ?? createWakeArmingContext(contextOptions),
+        logger  = contextOptions.logger ?? defaultLogger;
 
     try {
-        const viewer = await resolveViewerClaim();
+        const ready = await context.establish();
 
-        client = createPlaneClient({
-            baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
-            credential: aiConfig.fleet.planeBearer
-        });
-
-        const admission = await client.init({expectedIdentity: viewer.agentIdentityNodeId});
-
-        if (!admission.ok) {
-            logger.warn(`[FleetServer] wake push lane not armed: plane admission refused (${admission.reason})`);
-            return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
+        if (!ready.ok) {
+            logger.warn(`[FleetServer] wake push lane: ${ready.reason}`);
+            // Reflect the refusal into the fan-out's rendered state through the same door.
+            return context.ensureArmedFor(context.provenIdentity() ?? 'unproven')
         }
 
-        const outcome = await fanout.armRelaySubscription({
-            identity: normalizeAgentIdentity(admission.identity),
-            wakeSelfBase,
-            callTool: (name, args) => client.callTool(name, args)
-        });
-
-        logger.info(`[FleetServer] wake push lane: ${outcome.reason}`);
-        return outcome
+        return context.ensureArmedFor(context.provenIdentity())
     } catch (error) {
         logger.warn(`[FleetServer] wake push lane not armed: ${error?.message ?? error}`);
-        return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
-    } finally {
-        await client?.close?.()
+        return {armed: false, reason: `not-armed: ${error?.message ?? error}`}
     }
 }
 
@@ -552,16 +703,35 @@ export async function startFleetServer(options={}) {
 
     const app = await createFleetServerApp({...options, aiConfig, logger});
 
+    app.fleetWakeArming = options.wakeArmingContext ?? createWakeArmingContext({
+        fanout: app.fleetWakeFanout,
+        aiConfig,
+        logger,
+        ...(options.createPlaneClient  ? {createPlaneClient : options.createPlaneClient}  : {}),
+        ...(options.resolveViewerClaim ? {resolveViewerClaim: options.resolveViewerClaim} : {})
+    });
+
     return new Promise((resolve, reject) => {
         const server = app.listen(port, host, () => {
             logger.info(`[FleetServer] listening on ${host}:${server.address().port}`);
 
-            armFleetWakePushLane({fanout: app.fleetWakeFanout, aiConfig, logger}).catch(error => {
+            armFleetWakePushLane({armingContext: app.fleetWakeArming, logger}).catch(error => {
                 logger.warn(`[FleetServer] wake push lane arming crashed: ${error?.message ?? error}`)
             });
 
             resolve(server)
         });
+
+        // Held SSE responses would keep `server.close()` waiting forever: disposal of the
+        // fan-out (which ENDS every held stream) and the proven plane session must precede the
+        // close-callback wait, on every shutdown path that goes through `server.close()`.
+        const originalClose = server.close.bind(server);
+
+        server.close = callback => {
+            app.fleetWakeFanout.dispose();
+            app.fleetWakeArming.close().catch(() => {/* session teardown is best-effort on shutdown */});
+            return originalClose(callback)
+        };
 
         server.once('error', reject)
     })

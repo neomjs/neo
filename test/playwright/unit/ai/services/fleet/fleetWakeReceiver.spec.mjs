@@ -21,7 +21,9 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 
 import {createFleetWakeReceiver} from '../../../../../../ai/services/fleet/fleetWakeReceiver.mjs';
 
-const SIGNING_KEY = crypto.randomBytes(32).toString('hex');
+const
+    SIGNING_KEY = crypto.randomBytes(32).toString('hex'),
+    ROUTE       = {signingKey: SIGNING_KEY, agentIdentity: '@viewer'};
 
 /**
  * Drives the handler exactly like Express does: headers on the request object, the raw body
@@ -67,7 +69,31 @@ function sign(bodyString, key = SIGNING_KEY) {
     return crypto.createHmac('sha256', key).update(Buffer.from(bodyString)).digest('hex')
 }
 
-function createHandler({onDigest = () => {}, route = {signingKey: SIGNING_KEY, agentIdentity: '@viewer'}} = {}) {
+/** A fully route-bound envelope; overrides produce the mismatch negatives. */
+function envelope(overrides = {}) {
+    return {
+        eventId       : 'EVT:1',
+        subscriptionId: 'WAKE_SUB:known',
+        agentIdentity : '@viewer',
+        eventType     : 'wake/digest',
+        schemaVersion : '1.0',
+        payload       : {digest: 'wake up'},
+        ...overrides
+    }
+}
+
+/** Headers agreeing with {@link envelope}; overrides produce header-disagreement negatives. */
+function boundHeaders(bodyString, overrides = {}) {
+    return {
+        'x-neo-wake-subscription-id': 'WAKE_SUB:known',
+        'x-neo-wake-event-id'       : 'EVT:1',
+        'x-neo-wake-schema-version' : '1.0',
+        'x-neo-wake-signature'      : sign(bodyString),
+        ...overrides
+    }
+}
+
+function createHandler({onDigest = () => {}, route = ROUTE} = {}) {
     return createFleetWakeReceiver({
         resolveRoute: id => (id === 'WAKE_SUB:known' ? route : null),
         onDigest,
@@ -98,12 +124,11 @@ test.describe('fleetWakeReceiver - signed wake admission for the composed fleet 
     test('a wrong signature is refused before the body is ever parsed', async () => {
         let digests = 0;
 
+        const body = JSON.stringify(envelope());
+
         const res = await invoke(createHandler({onDigest: () => digests++}), {
-            headers: {
-                'x-neo-wake-subscription-id': 'WAKE_SUB:known',
-                'x-neo-wake-signature'      : sign('{"other":"bytes"}')
-            },
-            bodyChunks: ['{"digest":"hello"}']
+            headers   : boundHeaders(body, {'x-neo-wake-signature': sign('{"other":"bytes"}')}),
+            bodyChunks: [body]
         });
 
         expect(res.statusCode).toBe(401);
@@ -111,16 +136,13 @@ test.describe('fleetWakeReceiver - signed wake admission for the composed fleet 
         expect(digests).toBe(0)
     });
 
-    test('a valid signature over the exact bytes admits the digest and hands it over verbatim', async () => {
+    test('a fully route-bound signed envelope is admitted and handed over verbatim', async () => {
         const
             received = [],
-            body     = JSON.stringify({subscriptionId: 'WAKE_SUB:known', digest: 'wake up'});
+            body     = JSON.stringify(envelope());
 
         const res = await invoke(createHandler({onDigest: digest => received.push(digest)}), {
-            headers: {
-                'x-neo-wake-subscription-id': 'WAKE_SUB:known',
-                'x-neo-wake-signature'      : sign(body)
-            },
+            headers   : boundHeaders(body),
             bodyChunks: [body]
         });
 
@@ -129,18 +151,16 @@ test.describe('fleetWakeReceiver - signed wake admission for the composed fleet 
         expect(received).toEqual([{
             subscriptionId: 'WAKE_SUB:known',
             agentIdentity : '@viewer',
-            envelope      : {subscriptionId: 'WAKE_SUB:known', digest: 'wake up'}
+            envelope      : envelope()
         }])
     });
 
     test('the signature must cover the exact raw bytes — a chunk-identical rewrite fails', async () => {
-        // Same JSON semantics, different bytes (whitespace) — the HMAC is over bytes, not meaning.
+        const body = JSON.stringify(envelope());
+
         const res = await invoke(createHandler(), {
-            headers: {
-                'x-neo-wake-subscription-id': 'WAKE_SUB:known',
-                'x-neo-wake-signature'      : sign('{"digest":"x"}')
-            },
-            bodyChunks: ['{ "digest": "x" }']
+            headers   : boundHeaders(body),
+            bodyChunks: [` ${body}`]
         });
 
         expect(res.statusCode).toBe(401);
@@ -151,10 +171,7 @@ test.describe('fleetWakeReceiver - signed wake admission for the composed fleet 
         const body = 'not json at all';
 
         const res = await invoke(createHandler(), {
-            headers: {
-                'x-neo-wake-subscription-id': 'WAKE_SUB:known',
-                'x-neo-wake-signature'      : sign(body)
-            },
+            headers   : boundHeaders(body),
             bodyChunks: [body]
         });
 
@@ -162,16 +179,50 @@ test.describe('fleetWakeReceiver - signed wake admission for the composed fleet 
         expect(res.body).toEqual({error: 'invalid-json'})
     });
 
+    for (const [label, mutate] of [
+        ['a foreign owner identity',     {agentIdentity: '@someone-else'}],
+        ['a relabeled subscription id',  {subscriptionId: 'WAKE_SUB:other'}],
+        ['an unknown event type',        {eventType: 'wake/other'}],
+        ['an unknown schema version',    {schemaVersion: '2.0'}]
+    ]) {
+        test(`signed-route-mismatch: an authentic signature over ${label} delivers nothing`, async () => {
+            let digests = 0;
+
+            const body = JSON.stringify(envelope(mutate));
+
+            const res = await invoke(createHandler({onDigest: () => digests++}), {
+                headers   : boundHeaders(body),
+                bodyChunks: [body]
+            });
+
+            expect(res.statusCode).toBe(409);
+            expect(res.body).toEqual({error: 'signed-route-mismatch'});
+            expect(digests).toBe(0)
+        })
+    }
+
+    test('signed-route-mismatch: header/envelope disagreement on the event id delivers nothing', async () => {
+        let digests = 0;
+
+        const body = JSON.stringify(envelope());
+
+        const res = await invoke(createHandler({onDigest: () => digests++}), {
+            headers   : boundHeaders(body, {'x-neo-wake-event-id': 'EVT:2'}),
+            bodyChunks: [body]
+        });
+
+        expect(res.statusCode).toBe(409);
+        expect(res.body).toEqual({error: 'signed-route-mismatch'});
+        expect(digests).toBe(0)
+    });
+
     test('a delivery-side fault is absorbed: the dispatcher must never be told to retry it', async () => {
-        const body = JSON.stringify({digest: 'boom'});
+        const body = JSON.stringify(envelope());
 
         const res = await invoke(createHandler({onDigest: () => {
             throw new Error('downstream fan-out fault')
         }}), {
-            headers: {
-                'x-neo-wake-subscription-id': 'WAKE_SUB:known',
-                'x-neo-wake-signature'      : sign(body)
-            },
+            headers   : boundHeaders(body),
             bodyChunks: [body]
         });
 

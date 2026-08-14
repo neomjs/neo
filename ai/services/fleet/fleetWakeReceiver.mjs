@@ -81,6 +81,8 @@ export function createFleetWakeReceiver({resolveRoute, onDigest, logger = consol
     return async function fleetWakeReceiver(req, res) {
         const
             subscriptionId = req.headers['x-neo-wake-subscription-id'],
+            eventId        = req.headers['x-neo-wake-event-id'],
+            schemaVersion  = req.headers['x-neo-wake-schema-version'],
             signature      = req.headers['x-neo-wake-signature'],
             route          = subscriptionId ? resolveRoute(subscriptionId) : null;
 
@@ -109,6 +111,22 @@ export function createFleetWakeReceiver({resolveRoute, onDigest, logger = consol
             envelope = JSON.parse(rawBody.toString('utf8'))
         } catch {
             res.status(400).json({error: 'invalid-json'});
+            return
+        }
+
+        // The full signed route binding, mirroring the host receiver verbatim: an authentic
+        // signature proves the bytes came from the key holder, and only THIS check proves the
+        // bytes describe the route they arrived on. Every mismatch — envelope facts against
+        // headers and against the resolved route — is the canonical `signed-route-mismatch`,
+        // refused before any fan-out.
+        if (envelope?.eventId !== eventId ||
+            envelope?.subscriptionId !== subscriptionId ||
+            envelope?.agentIdentity !== route.agentIdentity ||
+            envelope?.eventType !== 'wake/digest' ||
+            envelope?.schemaVersion !== '1.0' ||
+            schemaVersion !== envelope.schemaVersion
+        ) {
+            res.status(409).json({error: 'signed-route-mismatch'});
             return
         }
 

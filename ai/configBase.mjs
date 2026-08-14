@@ -304,6 +304,16 @@ class ConfigBase extends ConfigProvider {
                  */
                 planeBearer    : leaf('', 'NEO_FLEET_PLANE_BEARER', 'string'),
                 /**
+                 * Exact hostnames this deployment vouches for as confidential internal hops for
+                 * plain-HTTP MC dialing (compose-network service DNS, e.g. `ingress`). Forwarded
+                 * to the shared secure-endpoint policy, whose loopback-or-TLS rule stays
+                 * unchanged when this is empty — an unnamed internal host remains refused, and
+                 * the credential requirement is untouched on every path. CSV-typed like
+                 * `cockpitOrigins`.
+                 * @type {string[]}
+                 */
+                planeInternalHosts: leaf([], 'NEO_FLEET_PLANE_INTERNAL_HOSTS', 'csv'),
+                /**
                  * Bearer credential for the app<->fleet TRANSPORT — a different credential from
                  * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
                  * the default is empty and never carries a value: `resolveFleetBearer` generates
