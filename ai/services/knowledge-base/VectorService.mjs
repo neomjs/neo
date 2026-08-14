@@ -3,9 +3,9 @@ import TextEmbeddingService, {
     getEmbeddingModel,
     isEmbeddingBatchYieldError
 }                             from '../memory-core/TextEmbeddingService.mjs';
-import mcConfig from '../../mcp/server/memory-core/config.mjs';
+import mcConfig                from '../../mcp/server/memory-core/config.mjs';
 import {isProviderTimeoutCode} from '../../provider/createTimeoutError.mjs';
-import Base     from '../../../src/core/Base.mjs';
+import Base                    from '../../../src/core/Base.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -1176,11 +1176,28 @@ class VectorService extends Base {
 
                         const partialChunks = batchToEmbed.slice(0, carried.length);
 
-                        await collection.upsert({
-                            ids       : partialChunks.map(chunk => chunk.id),
-                            embeddings: carried,
-                            metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
-                        });
+                        // The prefix write rides the SHARED retry budget — with the vectors in hand it
+                        // retries the WRITE, never re-entering the provider, matching the cached-vector
+                        // invariant of the ordinary path: a persistence failure must neither re-purchase
+                        // provider work nor escape retry accounting. Exhaustion surfaces the storage
+                        // error loudly; an un-persisted prefix is re-selected by a later sweep, never
+                        // silently dropped under a provider error it did not cause.
+                        for (;;) {
+                            try {
+                                await collection.upsert({
+                                    ids       : partialChunks.map(chunk => chunk.id),
+                                    embeddings: carried,
+                                    metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                                });
+                                break;
+                            } catch (writeError) {
+                                lastError = writeError;
+                                retries++;
+                                if (retries >= maxRetries) throw writeError;
+                                console.error(`Persisting the carried prefix of batch ${i / batchSize + 1} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
+                                await new Promise(res => setTimeout(res, 2 ** retries * 1000));
+                            }
+                        }
 
                         embeddedCount += partialChunks.length;
                         batchToEmbed   = batchToEmbed.slice(carried.length);

@@ -212,6 +212,64 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         });
     });
 
+    test('a TRANSIENT prefix-write failure retries the WRITE inside the shared budget — never re-entering the provider', async () => {
+        const spy    = createSpyCollection();
+        const chunks = makeChunks(50); // 1 batch
+
+        // First upsert call rejects (transient storage failure), every later call delegates.
+        // The invariant under test is the cached-vector rule the ordinary path already holds:
+        // vectors in hand retry the WRITE — a write failure must consume retry budget, not
+        // escape the accounting and lose the carried work.
+        const realUpsert  = spy.upsert.bind(spy);
+        let   upsertCalls = 0;
+
+        spy.upsert = async payload => {
+            upsertCalls++;
+            if (upsertCalls === 1) throw new Error('transient storage failure');
+            return realUpsert(payload)
+        };
+
+        const receivedTextCounts = [];
+        let   embedCalls         = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            embedCalls++;
+            receivedTextCounts.push(texts.length);
+
+            if (embedCalls === 1) {
+                throw makeCarriedFailure({
+                    completedChunkCount: 2,
+                    totalChunkCount    : 10,
+                    completedTextCount : 10,
+                    embeddings         : chunks.slice(0, 10).map(chunk => makeEmbedding(chunkIndexOf(chunk)))
+                });
+            }
+
+            return texts.map((_, position) => makeEmbedding(chunkIndexOf(chunks[10 + position])))
+        };
+
+        const result = await KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false
+        });
+
+        // Three write calls: the rejected prefix attempt, the successful prefix retry, and the
+        // remainder — while the provider is entered exactly twice ([50, 40]): the write retry
+        // must never re-purchase provider work.
+        expect(upsertCalls).toBe(3);
+        expect(receivedTextCounts).toEqual([50, 40]);
+        expect(result.embedded).toBe(50);
+        expect(spy.upsertedIds).toEqual(chunks.map(chunk => chunk.id));
+
+        chunks.forEach(chunk => {
+            expect(
+                spy.storedByIds.get(chunk.id)?.[0],
+                `${chunk.id} must store its own vector across the write-retry boundary`
+            ).toBe(chunkIndexOf(chunk));
+        });
+    });
+
     test('a carried payload disagreeing with its stated count is REFUSED, never sliced positionally', async () => {
         const spy    = createSpyCollection();
         const chunks = makeChunks(50);
