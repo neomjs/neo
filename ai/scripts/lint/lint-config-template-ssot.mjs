@@ -1685,6 +1685,25 @@ export function detectUnprojectedBehaviorBindingClocksFromSources({composeSource
             defaults   = envDefaultsByFile[file] || {},
             namespaces = profile.namespaces || [];
 
+        // The per-line trailing comment proves a line was annotated; it cannot prove the file still
+        // explains what the knobs DO. Deleting every prose guidance block while leaving the one-line
+        // annotations intact left this check green — visibility enforced down to the identifier and
+        // the value, and silent about the only part an operator actually reads to make a decision.
+        // The expected count is DECLARED per profile rather than inferred, so removing a block is a
+        // policy edit someone reviews instead of a silent deletion.
+        if (profile.guidanceMarker && profile.guidanceBlocks) {
+            const found = source.split(profile.guidanceMarker).length - 1;
+
+            if (found < profile.guidanceBlocks) {
+                violations.push({
+                    configDefault: `${found}/${profile.guidanceBlocks}`,
+                    env          : profile.guidanceMarker,
+                    file,
+                    kind         : 'projection-guidance-blocks-missing'
+                })
+            }
+        }
+
         for (const [env, rows] of Object.entries(defaults)) {
             if (!namespaces.some(namespace => env.startsWith(namespace))) continue;
             if (!suffixes.some(suffix => env.endsWith(suffix)))            continue;
@@ -1764,6 +1783,9 @@ function reportUnprojectedBehaviorBindingClocks(violations) {
         } else if (violation.kind === 'projection-default-mismatch') {
             console.error(`  ${violation.file}: ${violation.env} is projected with a STALE value — config default is now ${violation.configDefault}`);
             console.error('    an operator reads this number and trusts it; a wrong projection is worse than none')
+        } else if (violation.kind === 'projection-guidance-blocks-missing') {
+            console.error(`  ${violation.file}: only ${violation.configDefault} "${violation.env}" blocks remain`);
+            console.error('    the per-line annotations survive deletion of the prose that explains the knobs; restore the block')
         } else if (violation.kind === 'projection-missing-guidance') {
             console.error(`  ${violation.file}: ${violation.env} is projected without plane-class guidance`);
             console.error('    add a trailing `# …` explaining what the knob does on a CPU-constrained vs GPU plane')

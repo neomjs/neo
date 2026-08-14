@@ -687,6 +687,35 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         })).toEqual([]);
     });
 
+    test('RED: deleting a prose guidance block fails, even with every per-line annotation intact', () => {
+        // The per-line trailing comment proves a line was annotated; it cannot prove the file still
+        // explains what the knobs DO. A gate satisfied by annotations alone enforces visibility down
+        // to the identifier and the value while staying silent about the only part an operator reads
+        // to make a decision. The expected count is DECLARED, so removing a block is a reviewed edit.
+        const policy = {
+            clockSuffixes: ['_TIMEOUT_MS'],
+            profiles     : {
+                'compose.yml': {
+                    guidanceBlocks: 2,
+                    guidanceMarker: 'Plane-class guidance',
+                    namespaces    : ['NEO_DEMO_'],
+                    template      : 'ai/config.template.mjs'
+                }
+            }
+        };
+        const projected = '  # NEO_DEMO_CONTENTION_TIMEOUT_MS: "15000"   # per-attempt ceiling\n';
+
+        expect(projectionKinds({
+            policy,
+            source: `${projected}  # Plane-class guidance: CPU\n  # Plane-class guidance: GPU\n`
+        }), 'both blocks present').toEqual([]);
+
+        expect(projectionKinds({
+            policy,
+            source: `${projected}  # Plane-class guidance: CPU\n`
+        })).toEqual(['projection-guidance-blocks-missing']);
+    });
+
     test('the shipped policy is clean on dev and the detector can still fail', async () => {
         const {detectUnprojectedBehaviorBindingClocks} = await import(
             pathToFileURL(path.join(process.cwd(), 'ai/scripts/lint/lint-config-template-ssot.mjs')).href

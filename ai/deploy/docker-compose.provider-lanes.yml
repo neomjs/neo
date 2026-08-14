@@ -141,9 +141,13 @@ x-provider-lane-env: &provider-lane-env
   # line ONLY to override — a value present here is then a deliberate deviation, which is the one
   # case where compose is the right home for it.
   #
-  # THE LADDER THAT ACTUALLY BINDS A SINGLE-INPUT EMBED. Reading only the 300s/900s deadlines
-  # elsewhere in a deployment gives the wrong picture: every single-input embed is governed first by
-  # this ~47s ceiling, which is not any one leaf but the composition of three:
+  # THE LADDER THAT BINDS AN INTERACTIVE SINGLE-INPUT EMBED. Scope matters and is easy to overstate:
+  # this ladder governs the interactive `embedText` path, NOT every embed. Bulk work (WAL drain,
+  # graph ingestion) is deliberately routed through `embedTexts` in sequential chunks under the batch
+  # ceiling below, precisely so a fan-out cannot storm a single local embedder into self-contention.
+  # Reading only the outer 300s/900s deadlines still gives the wrong picture for the interactive
+  # path, which is governed first by this ~47s ceiling — not any one leaf, but the composition of
+  # three:
   #
   #     contentionTimeoutMs x (contentionRetryCount + 1 attempts) + contentionRetryDelayMs x retries
   #     15000 x 3 + 1000 x 2 = 47000ms

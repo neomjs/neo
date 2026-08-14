@@ -13,7 +13,9 @@
                 "namespaces": [
                     "NEO_OPENAI_COMPATIBLE_"
                 ],
-                "template": "ai/config.template.mjs"
+                "template": "ai/config.template.mjs",
+                "guidanceMarker": "Plane-class guidance",
+                "guidanceBlocks": 3
             }
         }
     },
