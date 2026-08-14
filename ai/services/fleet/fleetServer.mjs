@@ -17,11 +17,16 @@ import {
     collectPlaneMembers,
     resolvePlaneDataRoot
 }                                          from '../../planeConfig.mjs';
-import AuthService              from '../../mcp/server/shared/services/AuthService.mjs';
-import RequestContextService    from '../../mcp/server/shared/services/RequestContextService.mjs';
-import TransportService         from '../../mcp/server/shared/services/TransportService.mjs';
-import FleetControlBridge       from './FleetControlBridge.mjs';
-import {dispatchFleetS1Request} from './fleetServerPolicy.mjs';
+import AuthService                from '../../mcp/server/shared/services/AuthService.mjs';
+import RequestContextService      from '../../mcp/server/shared/services/RequestContextService.mjs';
+import TransportService           from '../../mcp/server/shared/services/TransportService.mjs';
+import FleetControlBridge         from './FleetControlBridge.mjs';
+import {createFleetWakeFanout}    from './fleetWakeFanout.mjs';
+import {createFleetWakeReceiver}  from './fleetWakeReceiver.mjs';
+import {createPlaneMailboxClient} from './planeMailboxClient.mjs';
+import {normalizeAgentIdentity}   from './mcpWireParsing.mjs';
+import {resolveFleetViewerClaim}  from './fleetLaunchContract.mjs';
+import {dispatchFleetS1Request}   from './fleetServerPolicy.mjs';
 import {
     createFleetWireResponse,
     FLEET_WIRE_RESPONSE_STATES,
@@ -254,6 +259,9 @@ function adaptFleetWireErrorResponse(req, res, next) {
  * @param {Function} [options.runInContext] Request-context runner override.
  * @param {Function} [options.planeGuard] Boot-time plane assertion override.
  * @param {Number} [options.maxBodyBytes=1048576] JSON request limit.
+ * @param {Object} [options.wakeFanout] Wake fan-out registry override (tests); defaults to a
+ *     fresh {@link createFleetWakeFanout} instance, exposed on the returned app as
+ *     `app.fleetWakeFanout` for the boot entry's arming step.
  * @returns {Promise<Object>} Configured Express application.
  */
 export async function createFleetServerApp({
@@ -264,7 +272,8 @@ export async function createFleetServerApp({
     dispatch          = request => dispatchFleetS1Request(request, FleetControlBridge),
     runInContext      = (context, callback) => RequestContextService.run(context, callback),
     planeGuard        = assertFleetPlaneReady,
-    maxBodyBytes      = 1024 * 1024
+    maxBodyBytes      = 1024 * 1024,
+    wakeFanout        = null
 }={}) {
     planeGuard({aiConfig});
 
@@ -274,6 +283,23 @@ export async function createFleetServerApp({
 
     app.enable('strict routing');
     app.disable('x-powered-by');
+
+    // The signed wake receiver mounts FIRST — before the wire-error adapter, host guard, CORS,
+    // and AuthService. Its admission is the per-subscription signed-wake HMAC over the exact
+    // body bytes: the dispatcher (`WebhookDeliveryService`) holds no provider
+    // bearer and no allowlisted Host header, and the signature is a stronger statement than
+    // either. The route is additionally kept OFF the ingress route table — signed AND
+    // compose-internal, because reachability is never authentication.
+    const fanout = wakeFanout ?? createFleetWakeFanout({logger});
+
+    app.fleetWakeFanout = fanout;
+
+    app.post('/wake', createFleetWakeReceiver({
+        resolveRoute: id => fanout.resolveRoute(id),
+        onDigest    : digest => fanout.handleDigest(digest),
+        logger
+    }));
+
     app.use(adaptFleetWireErrorResponse);
     app.use(hostHeaderValidation(transportService.computeAllowedHosts(aiConfig)));
 
@@ -327,6 +353,25 @@ export async function createFleetServerApp({
         })
     });
 
+    // The wake push lane's client surface: one SSE stream per connected cockpit, behind the
+    // FULL admission chain above (this is a client surface — provider identity required, unlike
+    // `/wake`, whose admission is the signature). The stream key is the caller's canonical
+    // identity; digests only ever route to the streams of their subscription's identity, so a
+    // viewer the push lane is not armed for receives the honest per-viewer `state` event and
+    // keeps poll-digest as the truth lane.
+    app.get('/fleet/events', (req, res) => {
+        const identity = normalizeAgentIdentity(req.fleetRequestContext.username);
+
+        if (!identity) {
+            res.status(403).json(createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.refused, {
+                error: 'fleet: viewer identity is not canonicalizable'
+            }));
+            return
+        }
+
+        fanout.registerStream(identity, res)
+    });
+
     app.post('/fleet', async (req, res) => {
         let envelope;
 
@@ -374,7 +419,80 @@ export async function createFleetServerApp({
 }
 
 /**
+ * @summary Arms the wake push lane's relay subscription over the authenticated plane MC surface.
+ *
+ * FAIL-SOFT by contract: serving never waits on arming, and every refusal path lands as the
+ * fan-out's described state (rendered with its reason by the SSE `state` event and the
+ * wake-routes axis) rather than a boot failure — an unarmed push lane is a truthful topology,
+ * because poll-digest remains the truth lane regardless: push is latency, poll is truth.
+ *
+ * The plane client lives exactly as long as arming needs it: the subscription row is durable
+ * MC state and the rotated signing key is already in fan-out process memory, so the session
+ * closes on every exit. A restart re-arms with a fresh key (the one sanctioned rotation door).
+ * @param {Object} options
+ * @param {Object} options.fanout The app's wake fan-out registry.
+ * @param {Object} options.aiConfig Resolved Tier-1 config tree.
+ * @param {Object} options.logger Redaction-safe logger.
+ * @param {Function} [options.createPlaneClient] Injection seam for tests.
+ * @param {Function} [options.resolveViewerClaim] Injection seam for tests.
+ * @returns {Promise<Object>} The fan-out's `{armed, reason}` arming outcome.
+ */
+export async function armFleetWakePushLane({
+    fanout,
+    aiConfig           = AiConfig,
+    logger             = defaultLogger,
+    createPlaneClient  = createPlaneMailboxClient,
+    resolveViewerClaim = resolveFleetViewerClaim
+}) {
+    const
+        planeBase    = aiConfig.fleet.planeBase.trim(),
+        wakeSelfBase = aiConfig.fleet.wakeSelfBase.trim();
+
+    if (!wakeSelfBase) {
+        return fanout.armRelaySubscription({identity: null, wakeSelfBase: '', callTool: null})
+    }
+
+    if (!planeBase) {
+        return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
+    }
+
+    let client;
+
+    try {
+        const viewer = await resolveViewerClaim();
+
+        client = createPlaneClient({
+            baseUrl   : `${planeBase.replace(/\/+$/, '')}/mc/mcp`,
+            credential: aiConfig.fleet.planeBearer
+        });
+
+        const admission = await client.init({expectedIdentity: viewer.agentIdentityNodeId});
+
+        if (!admission.ok) {
+            logger.warn(`[FleetServer] wake push lane not armed: plane admission refused (${admission.reason})`);
+            return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
+        }
+
+        const outcome = await fanout.armRelaySubscription({
+            identity: normalizeAgentIdentity(admission.identity),
+            wakeSelfBase,
+            callTool: (name, args) => client.callTool(name, args)
+        });
+
+        logger.info(`[FleetServer] wake push lane: ${outcome.reason}`);
+        return outcome
+    } catch (error) {
+        logger.warn(`[FleetServer] wake push lane not armed: ${error?.message ?? error}`);
+        return fanout.armRelaySubscription({identity: null, wakeSelfBase, callTool: null})
+    } finally {
+        await client?.close?.()
+    }
+}
+
+/**
  * @summary Start the composed Fleet HTTP listener after the plane and AuthService setup gates pass.
+ * Wake push-lane arming runs fire-and-forget AFTER the listener is up — the dialable
+ * self-address only means anything once `/wake` answers, and serving never waits on the plane.
  * @param {Object} [options] Options accepted by {@link createFleetServerApp}, plus host/port.
  * @param {String} [options.host] Explicit listener host; otherwise the resolved `mcpListenHost`.
  * @param {Number} [options.port] Listener port; defaults to `fleet.port`.
@@ -396,6 +514,11 @@ export async function startFleetServer(options={}) {
     return new Promise((resolve, reject) => {
         const server = app.listen(port, host, () => {
             logger.info(`[FleetServer] listening on ${host}:${server.address().port}`);
+
+            armFleetWakePushLane({fanout: app.fleetWakeFanout, aiConfig, logger}).catch(error => {
+                logger.warn(`[FleetServer] wake push lane arming crashed: ${error?.message ?? error}`)
+            });
+
             resolve(server)
         });
 

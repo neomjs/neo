@@ -363,6 +363,19 @@ class ConfigBase extends ConfigProvider {
                  */
                 wakeReceiverManifestPath: leaf('', 'NEO_WAKE_RECEIVER_MANIFEST', 'string'),
                 /**
+                 * Externally-dialable base URL of THIS fleet server's own signed wake receiver —
+                 * the address the plane's Shape-B dispatcher (`WebhookDeliveryService`) POSTs
+                 * digests to (`<base>/wake` is derived at the use site). In the composed profile
+                 * this is the service-DNS origin (e.g. `http://fleet-server:8083`), reachable from
+                 * the Memory Core container by construction. EMPTY means the deployment declares
+                 * no dialable self-address: relay wake subscriptions are then NOT armed and the
+                 * SSE push lane renders its absence with that reason — never a guessed default,
+                 * because a wrong self-address turns every wake into a signed POST at a stranger.
+                 * Not a plane member — deployment-edge consumer config, exactly like `planeBase`.
+                 * @type {string}
+                 */
+                wakeSelfBase: leaf('', 'NEO_FLEET_WAKE_SELF_BASE', 'string'),
+                /**
                  * Patience for ONE tenant-plane probe request (initialize, the initialized
                  * notification, the identity proof) — a single declared bound replacing per-site
                  * literals, env-relocatable. Calibrated from MEASURED plane latency, both modes:

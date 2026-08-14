@@ -81,6 +81,11 @@ services:
       <<: *local-auth
       # Local ingress is loopback HTTP; Host validation still admits its 127.0.0.1/localhost forms.
       NEO_PUBLIC_URL: http://127.0.0.1:3102/fleet
+      # The dialable self-address of this service's signed wake receiver (`<base>/wake`) —
+      # service DNS, reachable from the Memory Core container by construction, never via the
+      # ingress. Declared explicitly because a guessed self-address would aim signed wake POSTs
+      # at a stranger; empty (the default) keeps the push lane honestly unarmed.
+      NEO_FLEET_WAKE_SELF_BASE: http://fleet-server:8083
     secrets:
       - mcp-auth-token
 

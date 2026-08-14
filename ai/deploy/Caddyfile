@@ -54,10 +54,16 @@
 			reverse_proxy mc-server:3001
 		}
 
-		# 5. Fleet preserves the public URI exactly: the upstream owns `/fleet` and
-		#    `/fleet/probe`, so `handle_path` (prefix stripping) is forbidden here.
-		@fleet path /fleet /fleet/probe
-		reverse_proxy @fleet fleet-server:8083
+		# 5. Fleet preserves the public URI exactly: the upstream owns `/fleet`,
+		#    `/fleet/probe`, and the `/fleet/events` SSE stream (Caddy proxies SSE natively;
+		#    flush_interval -1 disables response buffering so events reach the client as they
+		#    are written), so `handle_path` (prefix stripping) is forbidden here. The signed
+		#    wake receiver `/wake` is deliberately ABSENT: it is compose-internal only —
+		#    reachability is never authentication.
+		@fleet path /fleet /fleet/probe /fleet/events
+		reverse_proxy @fleet fleet-server:8083 {
+			flush_interval -1
+		}
 
 		# A headless profile has no Fleet service and every unrelated path is absent.
 		respond 404
