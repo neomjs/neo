@@ -549,7 +549,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 loads.push(model);
                 residents.add(model);
             },
-            unloadModel: async () => {},
             log        : {info: () => {}}
         });
 
@@ -618,6 +617,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             delayMs     : 0,
             timeoutMs   : 50
         });
+        expect(repairOptions).not.toHaveProperty('allowResidentReplacement');
+        expect(repairOptions).not.toHaveProperty('unloadModel');
     });
 
     test('repairProviderRoleSetResidency warms native Ollama chat and embedding roles (#13948)', async () => {
@@ -716,7 +717,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             fetchModelIds    : async () => ['chat-model', 'embedding-model'],
             fetchLoadedModels: async () => [{id: 'chat-model'}, {id: 'embedding-model'}],
             loadModel        : async model => loads.push(model),
-            unloadModel      : async () => {}
         });
 
         expect(loads).toEqual([]);
@@ -739,7 +739,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['chat-model', 'embedding-model'],
             loadModel        : async (model, options) => loadCalls.push({model, contextLength: options?.contextLength}),
-            unloadModel      : async () => {},
             fetchLoadedModels: async () => [{
                 id           : 'chat-model',
                 contextLength: 262144
@@ -768,7 +767,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['chat-model', 'embedding-model'],
             loadModel        : async (model, options) => loadCalls.push({model, options}),
-            unloadModel      : async () => {},
             fetchLoadedModels: async () => [{
                 id           : 'chat-model',
                 contextLength: 131072,
@@ -789,104 +787,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         });
     });
 
-    test('ensureLmsModelsLoaded still repairs numeric chat parallel mismatches (#13950)', async () => {
-        const loadCalls   = [],
-              unloadCalls = [];
-        let parallel = 4;
-
-        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model'],
-            contextLengths          : {'chat-model': 131072},
-            parallels               : {'chat-model': 1},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 50,
-            fetchModelIds           : async () => ['chat-model'],
-            unloadModel             : async identifier => unloadCalls.push(identifier),
-            loadModel               : async (model, options) => {
-                loadCalls.push({model, options});
-                parallel = options.parallel;
-            },
-            fetchLoadedModels: async () => [{
-                id           : 'chat-model',
-                contextLength: 131072,
-                parallel
-            }],
-            isAuthorityHeld      : () => true,
-            isEffectStillAdmitted: () => true,
-            log                  : {info: () => {}}
-        });
-
-        expect(unloadCalls).toEqual(['chat-model']);
-        expect(loadCalls).toEqual([{
-            model  : 'chat-model',
-            options: {
-                contextLength: 131072,
-                parallel     : 1,
-                identifier   : 'chat-model'
-            }
-        }]);
-        expect(result.ready).toBe(true);
-        expect(result.loadedModels).toEqual(['chat-model']);
-    });
-
-    test('ensureLmsModelsLoaded replaces stale exact lms load and unloads suffixed siblings (#13700)', async () => {
-        const loadCalls   = [],
-              unloadCalls = [],
-              residents   = new Map([
-                  ['chat-model', {id: 'chat-model', contextLength: 4096, parallel: 4}],
-                  ['chat-model:2', {id: 'chat-model:2', contextLength: 4096, parallel: 4}],
-                  ['embedding-model', {id: 'embedding-model', contextLength: 32768}]
-              ]);
-
-        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
-            host                    : 'http://127.0.0.1:1234',
-            models                  : ['chat-model', 'embedding-model'],
-            contextLengths          : {'chat-model': 131072, 'embedding-model': 32768},
-            parallels               : {'chat-model': 1},
-            allowResidentReplacement: true,
-            attempts                : 1,
-            delayMs                 : 0,
-            timeoutMs               : 50,
-            fetchModelIds           : async () => ['chat-model', 'embedding-model'],
-            loadModel               : async (model, options) => {
-                loadCalls.push({model, options});
-                residents.set(model, {
-                    id           : model,
-                    contextLength: options.contextLength,
-                    parallel     : options.parallel
-                });
-            },
-            unloadModel      : async identifier => {
-                unloadCalls.push(identifier);
-                residents.delete(identifier);
-            },
-            fetchLoadedModels    : async () => [...residents.values()],
-            isAuthorityHeld      : () => true,
-            isEffectStillAdmitted: () => true,
-            log                  : {info: () => {}}
-        });
-
-        expect(unloadCalls).toEqual(['chat-model', 'chat-model:2']);
-        expect(loadCalls).toEqual([{
-            model  : 'chat-model',
-            options: {
-                contextLength: 131072,
-                parallel     : 1,
-                identifier   : 'chat-model'
-            }
-        }]);
-        expect(result.ready).toBe(true);
-        expect(result.loadedModels).toEqual(['chat-model']);
-        expect(result.unloadedModels).toEqual(['chat-model', 'chat-model:2']);
-        expect(result.lmsLoadedModels.map(item => item.id).sort()).toEqual(['chat-model', 'embedding-model']);
-    });
-
-    test('ensureLmsModelsLoaded degrades without mutation when initial lms ps fails (#17071)', async () => {
-        const loadCalls   = [],
-              unloadCalls = [];
+    test('ensureLmsModelsLoaded reports numeric chat parallel mismatches without mutation (#17079)', async () => {
+        const loadCalls = [];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host             : 'http://127.0.0.1:1234',
@@ -899,7 +801,39 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['chat-model'],
             loadModel        : async (model, options) => loadCalls.push({model, options}),
-            unloadModel      : async identifier => unloadCalls.push(identifier),
+            fetchLoadedModels: async () => [{
+                id           : 'chat-model',
+                contextLength: 131072,
+                parallel     : 4
+            }],
+            log: {info() {}, warn() {}}
+        });
+
+        expect(loadCalls).toEqual([]);
+        expect(result).toMatchObject({
+            ready            : false,
+            degraded         : true,
+            observationStatus: 'replacement-required',
+            loadedModels     : [],
+            unloadedModels   : []
+        });
+    });
+
+
+    test('ensureLmsModelsLoaded degrades without mutation when initial lms ps fails (#17071)', async () => {
+        const loadCalls = [];
+
+        const result = await providerReadinessHelper.ensureLmsModelsLoaded({
+            host             : 'http://127.0.0.1:1234',
+            models           : ['chat-model'],
+            contextLengths   : {'chat-model': 131072},
+            parallels        : {'chat-model': 1},
+            allowPartial     : true,
+            attempts         : 1,
+            delayMs          : 0,
+            timeoutMs        : 50,
+            fetchModelIds    : async () => ['chat-model'],
+            loadModel        : async (model, options) => loadCalls.push({model, options}),
             fetchLoadedModels: async () => { throw new Error('lms ps unavailable') },
             log              : {
                 info: () => {},
@@ -907,7 +841,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             }
         });
 
-        expect(unloadCalls).toEqual([]);
         expect(loadCalls).toEqual([]);
         expect(result).toMatchObject({
             ready            : false,
@@ -918,9 +851,8 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded loads a successfully observed absent resident without unloading (#17071)', async () => {
-        const loadCalls   = [],
-              unloadCalls = [];
-        let resident = false;
+        const loadCalls = [];
+        let   resident  = false;
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host          : 'http://127.0.0.1:1234',
@@ -935,7 +867,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 loadCalls.push({model, options});
                 resident = true;
             },
-            unloadModel      : async identifier => unloadCalls.push(identifier),
             fetchLoadedModels: async () => resident ? [{
                 id           : 'chat-model',
                 contextLength: 131072,
@@ -944,7 +875,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             log: {info: () => {}}
         });
 
-        expect(unloadCalls).toEqual([]);
         expect(loadCalls).toEqual([{
             model  : 'chat-model',
             options: {
@@ -957,8 +887,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
     });
 
     test('ensureLmsModelsLoaded treats incomplete exact context metadata as non-authorizing (#17071)', async () => {
-        const loadCalls   = [],
-              unloadCalls = [];
+        const loadCalls = [];
 
         const result = await providerReadinessHelper.ensureLmsModelsLoaded({
             host             : 'http://127.0.0.1:1234',
@@ -971,12 +900,10 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['chat-model'],
             loadModel        : async (model, options) => loadCalls.push({model, options}),
-            unloadModel      : async identifier => unloadCalls.push(identifier),
             fetchLoadedModels: async () => [{id: 'chat-model', parallel: null}],
             log              : {info: () => {}, warn: () => {}}
         });
 
-        expect(unloadCalls).toEqual([]);
         expect(loadCalls).toEqual([]);
         expect(result).toMatchObject({
             ready            : false,
@@ -989,46 +916,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         })]);
     });
 
-    test('getSupersededLmsLoadedModels only supersedes suffixed siblings after exact model is sufficient (#13700)', () => {
-        expect(providerReadinessHelper.getSupersededLmsLoadedModels({
-            requiredModels: ['chat-model'],
-            contextLengths: {'chat-model': 131072},
-            parallels     : {'chat-model': 1},
-            loadedModels  : [{
-                id           : 'chat-model',
-                contextLength: 131072,
-                parallel     : 1
-            }, {
-                id           : 'chat-model:2',
-                contextLength: 4096,
-                parallel     : 4
-            }, {
-                id           : 'chat-model:beta',
-                contextLength: 131072,
-                parallel     : 1
-            }]
-        })).toEqual([{
-            id           : 'chat-model:2',
-            contextLength: 4096,
-            parallel     : 4,
-            model        : 'chat-model'
-        }]);
-
-        expect(providerReadinessHelper.getSupersededLmsLoadedModels({
-            requiredModels: ['chat-model', 'chat-model:2'],
-            contextLengths: {'chat-model': 131072, 'chat-model:2': 131072},
-            parallels     : {'chat-model': 1, 'chat-model:2': 1},
-            loadedModels  : [{
-                id           : 'chat-model',
-                contextLength: 131072,
-                parallel     : 1
-            }, {
-                id           : 'chat-model:2',
-                contextLength: 131072,
-                parallel     : 1
-            }]
-        })).toEqual([]);
-    });
 
     test('getLmsLoadedModels normalizes lms ps json metadata (#13851)', () => {
         expect(providerReadinessHelper.getLmsLoadedModels({
@@ -1256,7 +1143,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 loadCalls.push(model);
                 resident = true;
             },
-            unloadModel: async () => {},
             log        : {info: () => {}}
         });
 
@@ -1279,7 +1165,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['chat-model', 'embedding-model'],
             loadModel        : async () => {},
-            unloadModel      : async () => {},
             fetchLoadedModels: async () => [{
                 id           : 'chat-model',
                 contextLength: 4096,
@@ -1311,7 +1196,7 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             'chat-model'     : 4,
             'embedding-model': undefined
         });
-        expect(warnings[0]).toContain('replacement requires explicit recovery');
+        expect(warnings[0]).toContain('replacement requires an explicit operator action');
     });
 
     test('ensureLmsModelsLoaded mixes missing + context-configured verified-resident paths correctly (#13700)', async () => {
@@ -1332,7 +1217,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 residents.set(model, {id: model});
             },
             fetchLoadedModels: async () => [...residents.values()],
-            unloadModel      : async () => {},
             log              : {info: () => {}}
         });
 
@@ -1367,7 +1251,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 residents.set(model, {id: model, contextLength: options.contextLength});
             },
             fetchLoadedModels: async () => [...residents.values()],
-            unloadModel      : async () => {},
             log              : {info: () => {}}
         });
 
@@ -1401,7 +1284,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 }
                 residents.set(model, {id: model, contextLength: options.contextLength});
             },
-            unloadModel: async () => {},
             log        : {
                 info: () => {},
                 warn: message => warnings.push(message)
@@ -1446,7 +1328,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
                 }
                 residents.set(model, {id: model, contextLength: options.contextLength});
             },
-            unloadModel: async () => {},
             log        : {
                 info: () => {},
                 warn: message => warnings.push(message)
@@ -1649,7 +1530,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
             timeoutMs        : 50,
             fetchModelIds    : async () => ['embedding-model'],
             loadModel        : async () => {},
-            unloadModel      : async () => {},
             fetchLoadedModels: async () => [{
                 id           : 'embedding-model',
                 contextLength: 32768
@@ -2077,24 +1957,6 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         })]);
     });
 
-    test('unloadLmsModel invokes lms unload for the requested identifier (#13700)', async () => {
-        const execCalls    = [];
-        const execFileStub = (cmd, args, options, callback) => {
-            execCalls.push({cmd, args, options});
-            callback(null, '', '');
-        };
-
-        await providerReadinessHelper.unloadLmsModel('chat-model:2', {
-            execFileFn: execFileStub,
-            timeoutMs : 119000
-        });
-
-        expect(execCalls).toEqual([expect.objectContaining({
-            cmd    : 'lms',
-            args   : ['unload', 'chat-model:2'],
-            options: expect.objectContaining({timeout: 119000, killSignal: 'SIGKILL'})
-        })]);
-    });
 
     test('loadLmsModel omits --context-length when not provided (backward compat)', async () => {
         const execCalls    = [];
