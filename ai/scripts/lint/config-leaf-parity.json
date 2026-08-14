@@ -3,19 +3,23 @@
         "clockSuffixes": [
             "_CHUNK_SIZE",
             "_KEEP_ALIVE",
+            "_PERCENT",
             "_RETRY_COUNT",
             "_RETRY_DELAY_MS",
             "_TIMEOUT_MS",
+            "_WINDOW_MS",
             "_YIELD_MS"
         ],
         "profiles": {
             "ai/deploy/docker-compose.provider-lanes.yml": {
                 "namespaces": [
-                    "NEO_OPENAI_COMPATIBLE_"
+                    "NEO_MEMORY_SATURATION_",
+                    "NEO_OPENAI_COMPATIBLE_",
+                    "NEO_STORE_MEMORY_SATURATION_"
                 ],
                 "template": "ai/config.template.mjs",
                 "guidanceMarker": "Plane-class guidance",
-                "guidanceBlocks": 3
+                "guidanceBlocks": 4
             }
         }
     },
@@ -380,6 +384,10 @@
         "orchestrator.localOnly.primaryDevSyncEnabled",
         "orchestrator.localOnly.swarmHeartbeatEnabled",
         "orchestrator.localOnly.wakeDispatchEnabled",
+        "orchestrator.memorySaturation",
+        "orchestrator.memorySaturation.percent",
+        "orchestrator.memorySaturation.sampleWindowMs",
+        "orchestrator.memorySaturation.storePercent",
         "orchestrator.mlx",
         "orchestrator.mlx.enabled",
         "orchestrator.mlx.model",

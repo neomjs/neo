@@ -1157,6 +1157,41 @@ class ConfigBase extends ConfigProvider {
                  * in a frozen literal.
                  * @type {Object}
                  */
+                /**
+                 * Memory-saturation thresholds for the container-health diagnosis.
+                 *
+                 * Leaves rather than module constants because they decide whether a lane at its
+                 * ceiling is reported at all: a container pinned AT its cgroup limit thrashes on page
+                 * faults, burning its CPU quota re-faulting evicted model pages instead of computing,
+                 * while staying alive and answering every probe. A deployment whose lanes are sized
+                 * differently needs to move these without patching the diagnosis service.
+                 * @type {Object}
+                 */
+                memorySaturation: {
+                    /**
+                     * Sustained container-memory percentage at which a transient service is reported
+                     * saturated. 90 leaves headroom to act while sitting well above ordinary working
+                     * peaks.
+                     * @type {Number}
+                     */
+                    percent: leaf(90, 'NEO_MEMORY_SATURATION_PERCENT', 'number'),
+                    /**
+                     * The store threshold, lower on purpose. Stores cross their ceiling by GROWING,
+                     * monotonically and predictably, so 90 is late for them: at sustained 90% the
+                     * remaining headroom is smaller than one ingestion batch and the store exits
+                     * cleanly rather than being OOM-killed — no crash signature, no second chance.
+                     * @type {Number}
+                     */
+                    storePercent: leaf(80, 'NEO_STORE_MEMORY_SATURATION_PERCENT', 'number'),
+                    /**
+                     * Minimum MEASURED window a saturation must persist across before it counts. This
+                     * window is what licenses a single memory fact to degrade a service on its own:
+                     * it is the corroboration a second fact would otherwise have supplied, so a
+                     * transient spike cannot degrade a healthy lane.
+                     * @type {Number}
+                     */
+                    sampleWindowMs: leaf(120000, 'NEO_MEMORY_SATURATION_WINDOW_MS', 'number')
+                },
                 restartChurn: {
                     /**
                      * Unplanned restarts within the window, on ONE container generation, before

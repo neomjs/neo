@@ -462,13 +462,19 @@ export class Orchestrator extends Base {
     beforeSetContainerHealthDiagnosisService(value) {
         // Resolved at the use site and injected — the service holds no env reader of its own.
         // ticket-ref-ok: the config SSOT decision assigns env/default resolution to the leaf
-        const {restartChurn} = AiConfig.orchestrator;
+        const {memorySaturation, restartChurn} = AiConfig.orchestrator;
 
         return ClassSystemUtil.beforeSetInstance(value, ContainerHealthDiagnosisService, {
             diagnosisConfig: {
-                restartChurnSeverity : restartChurn.severity,
-                restartChurnThreshold: restartChurn.threshold,
-                restartChurnWindowMs : restartChurn.windowMs
+                // The saturation thresholds decide whether a lane at its ceiling is reported at all,
+                // so they are leaves resolved here rather than constants inside the service — same
+                // reason and same shape as the churn trio beside them.
+                memorySaturationPercent     : memorySaturation.percent,
+                restartChurnSeverity        : restartChurn.severity,
+                restartChurnThreshold       : restartChurn.threshold,
+                restartChurnWindowMs        : restartChurn.windowMs,
+                sampleWindowMs              : memorySaturation.sampleWindowMs,
+                storeMemorySaturationPercent: memorySaturation.storePercent
             },
             // Preserve AiConfig as the source of truth while keeping this service free of a
             // non-entrypoint config import. A reader rather than a snapshot keeps a reactive
