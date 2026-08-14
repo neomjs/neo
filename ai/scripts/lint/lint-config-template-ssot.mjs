@@ -61,6 +61,7 @@ const BEHAVIOR_BINDING_PROJECTION_KEY = '$behaviorBindingProjection';
 const CONFIG_OVERLAY_BASENAME         = 'config.mjs';
 const SCAN_ROOT_REL                   = 'ai';
 const TEST_SCAN_ROOT_REL              = 'test';
+const DEPLOY_SCAN_ROOT_REL            = 'ai/deploy';
 const SELF_REL_FILE                   = 'ai/scripts/lint/lint-config-template-ssot.mjs';
 
 // The workflow-parity SSOT: every glob a path-filtered workflow must watch for this lint's
@@ -69,7 +70,13 @@ const SELF_REL_FILE                   = 'ai/scripts/lint/lint-config-template-ss
 // so a new root cannot silently widen the scan without widening this surface.
 export const SCAN_SURFACE = Object.freeze([
     `${SCAN_ROOT_REL}/**/*.mjs`,
-    `${TEST_SCAN_ROOT_REL}/**/*.mjs`
+    `${TEST_SCAN_ROOT_REL}/**/*.mjs`,
+    // The Compose/default parity and behavior-binding projection rules both read deploy templates,
+    // so this lint's scan is wider than its `.mjs` roots. Declaring it here is what makes the
+    // sibling parity spec DEMAND the workflow watch it; leaving it undeclared would let the spec
+    // report a satisfied invariant over an incomplete picture of what this lint actually reads —
+    // the same shape as the unprojected clock these rules exist to catch, one layer up.
+    `${DEPLOY_SCAN_ROOT_REL}/**`
 ]);
 const CONFIG_TEMPLATE_KIND_CACHE         = new Map();
 const SERVICE_EXPORT_CONFIG_TEMPLATE_REL = Object.freeze({
