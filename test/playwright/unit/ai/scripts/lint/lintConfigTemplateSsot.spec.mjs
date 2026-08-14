@@ -771,6 +771,45 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         ])
     });
 
+    test('Compose parity: a named exemption permits a restatement, and a dormant one fails', () => {
+        // An exemption exists because some restatements are legitimate: a deployment template naming
+        // the model it runs documents an IDENTITY, and deleting it to satisfy a rule aimed at tuning
+        // knobs trades a real artifact for a lint. But an exemption is the one part of a guard that
+        // never fails on its own — the key it names can be removed, renamed, or drift off its default
+        // and the entry keeps silently licensing a restatement nobody decided on. So it expires.
+        const run = (environment, exemptEnv) => detectComposeDefaultRestatementsFromDocuments({
+            policy: {
+                profiles: {'compose.yml': {services: {server: 'config.template.mjs'}, exemptEnv}}
+            },
+            composeDocuments     : {'compose.yml': {services: {server: {environment}}}},
+            envDefaultsByTemplate: {
+                'config.template.mjs': {
+                    NEO_MODEL    : [{configPath: 'model', default: 'gemma4:26b'}],
+                    MCP_HTTP_PORT: [{configPath: 'mcpHttpPort', default: 3000}]
+                }
+            }
+        });
+
+        // Exempted: named, reasoned, and the key really is there restating its default.
+        expect(run(['NEO_MODEL=gemma4:26b'], {NEO_MODEL: 'model identity'})).toEqual([]);
+
+        // NOT exempted: the exemption is per-env, so it cannot blanket the file.
+        expect(run(['NEO_MODEL=gemma4:26b', 'MCP_HTTP_PORT=3000'], {NEO_MODEL: 'model identity'})).toEqual([
+            expect.objectContaining({env: 'MCP_HTTP_PORT', kind: 'matches-config-default'})
+        ]);
+
+        // Dormant: the exempted key is gone from the file, so the entry is now dead weight.
+        expect(run(['MCP_HTTP_PORT=${PORT:-}'], {NEO_MODEL: 'model identity'})).toEqual([
+            expect.objectContaining({env: 'NEO_MODEL', kind: 'unused-compose-default-exemption'})
+        ]);
+
+        // Also dormant when the key is present but has DRIFTED off the default — the restatement the
+        // exemption was granted for no longer exists, and the entry must not survive that silently.
+        expect(run(['NEO_MODEL=some-other-model'], {NEO_MODEL: 'model identity'})).toEqual([
+            expect.objectContaining({env: 'NEO_MODEL', kind: 'unused-compose-default-exemption'})
+        ])
+    });
+
     test('Compose parity: shipped canonical profiles contain no matching defaults or census drift', async () => {
         const previousRoot = globalThis.Neo?.ai?.Config;
 

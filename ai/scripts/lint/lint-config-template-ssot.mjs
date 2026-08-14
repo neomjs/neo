@@ -1433,6 +1433,12 @@ export function detectComposeDefaultRestatementsFromDocuments({
 
         environments[file] = {};
 
+        // Which declared exemptions this file actually needed. An exemption that never fires is not
+        // harmless: the key it names has been removed, renamed, or has drifted off the default, and
+        // the entry now silently licenses a future restatement nobody decided on. Exemptions are the
+        // one part of a guard that never fails loudly on its own, so this is what expires them.
+        const usedExemptions = new Set();
+
         for (const [service, serviceConfig] of Object.entries(document.services || {})) {
             const environment = collectComposeEnvironment(serviceConfig?.environment);
 
@@ -1460,16 +1466,40 @@ export function detectComposeDefaultRestatementsFromDocuments({
 
                 const match = rows.find(row => serializeConfigDefault(row.default) === rendered);
 
-                if (match) {
-                    violations.push({
-                        configPath: match.configPath,
-                        env,
-                        file,
-                        kind      : 'matches-config-default',
-                        service,
-                        value     : rendered
-                    })
+                if (!match) continue;
+
+                // A restatement that is DELIBERATE, named, and reasoned. The rule's subject is a second
+                // declaration site that can silently drift from the config default — but a deployment
+                // template naming the model it runs, or the provider serving a lane, is legitimate
+                // operator documentation of an IDENTITY, and deleting it to satisfy a rule aimed at
+                // tuning knobs trades a real artifact for a lint. The exemption is per-file and
+                // per-env with a reason string, deliberately the same shape as `forbiddenEnv`: one
+                // permits, one prohibits, and neither is allowed to be a bare list. An exemption that
+                // cannot say why it exists is indistinguishable from the drift this rule catches.
+                //
+                // Marked used only where it SUPPRESSES a real match, never on the env's mere presence.
+                // Presence-marking kept an exemption alive for a key that had drifted to a genuine
+                // override — nothing left to exempt, the entry immortal, and silently ready to permit
+                // the restatement again if the value ever drifted back.
+                if (Object.hasOwn(profile.exemptEnv || {}, env)) {
+                    usedExemptions.add(env);
+                    continue
                 }
+
+                violations.push({
+                    configPath: match.configPath,
+                    env,
+                    file,
+                    kind      : 'matches-config-default',
+                    service,
+                    value     : rendered
+                })
+            }
+        }
+
+        for (const env of Object.keys(profile.exemptEnv || {})) {
+            if (!usedExemptions.has(env)) {
+                violations.push({env, file, kind: 'unused-compose-default-exemption', reason: profile.exemptEnv[env]});
             }
         }
     }
@@ -1579,6 +1609,10 @@ function reportComposeDefaultRestatements(violations) {
             console.error(`  ${violation.file} ${violation.service}: ${violation.env}=${violation.value} matches ${violation.configPath}`);
         } else if (violation.kind === 'derived-or-retired-env') {
             console.error(`  ${violation.file} ${violation.service}: ${violation.env} is derived/retired — ${violation.reason}`);
+        } else if (violation.kind === 'unused-compose-default-exemption') {
+            console.error(`  ${violation.file}: exemption for ${violation.env} never fired — the key is gone, renamed, or no longer equals its config default.`);
+            console.error(`    recorded reason: ${violation.reason}`);
+            console.error('    Drop the exemption, or fix the key it was meant to cover. A dormant exemption licenses a future restatement nobody decided on.');
         } else {
             console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
         }
