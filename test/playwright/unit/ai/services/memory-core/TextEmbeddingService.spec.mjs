@@ -1447,6 +1447,71 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
         });
     });
 
+    test('OpenAI-compatible batches reserve one declared engine slot without mutating shared config (#17048)', async () => {
+        const probe = async () => {
+            const http          = await import('node:http');
+            const requestInputs = [];
+            const server        = http.createServer((request, response) => {
+                let body = '';
+
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    const payload = JSON.parse(body),
+                          inputs  = Array.isArray(payload.input) ? payload.input : [payload.input];
+
+                    requestInputs.push(inputs);
+                    response.writeHead(200, {'Content-Type': 'application/json'});
+                    response.end(JSON.stringify({
+                        data: inputs.map((input, index) => ({
+                            index,
+                            embedding: [requestInputs.length, index]
+                        }))
+                    }));
+                });
+            });
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                process.env.NEO_OPENAI_COMPATIBLE_HOST = `http://127.0.0.1:${server.address().port}`;
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const embeddings         = await Service.embedTexts(
+                    ['a', 'b', 'c', 'd', 'e'],
+                    'openAiCompatible'
+                );
+
+                console.log(JSON.stringify({requestInputs, embeddings}));
+            } finally {
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve));
+            }
+        };
+        const commonEnv = {
+            NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: '5',
+            NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT        : '0'
+        };
+        const [multiSlot, singleSlot] = await Promise.all([
+            runIsolatedEmbeddingProbe(probe, {
+                ...commonEnv,
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '4'
+            }),
+            runIsolatedEmbeddingProbe(probe, {
+                ...commonEnv,
+                NEO_LOCAL_MODELS_EMBEDDING_PARALLEL: '1'
+            })
+        ]);
+
+        expect(multiSlot.requestInputs).toEqual([
+            ['a', 'b', 'c'],
+            ['d', 'e']
+        ]);
+        expect(singleSlot.requestInputs).toEqual([
+            ['a', 'b', 'c', 'd', 'e']
+        ]);
+        expect(multiSlot.embeddings).toHaveLength(5);
+        expect(singleSlot.embeddings).toHaveLength(5);
+    });
+
     test('OpenAI-compatible retry and batch delays stop before later work in an isolated config process', async () => {
         const evidence = await runIsolatedEmbeddingProbe(async () => {
             const http                = await import('node:http');
