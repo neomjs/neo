@@ -40,6 +40,7 @@ const BRIDGE_CONFIG_PATHS = [
     'orchestrator.deploymentStateBridge.logMaxBytes',
     'orchestrator.deploymentStateBridge.statsSampleWindow',
     'orchestrator.deploymentStateBridge.providerResidencyServiceKeys',
+    'orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys',
     'orchestrator.deploymentStateBridge.recoveryRunLimit',
     'orchestrator.deploymentStateBridge.selfHealRecentEventLimit',
     'orchestrator.deploymentStateBridge.snapshotPath',
@@ -144,6 +145,7 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             logMaxBytes                 : 32 * 1024,
             statsSampleWindow           : 2,
             providerResidencyServiceKeys: ['local-model', 'model'],
+            providerLaneShapeServiceKeys: ['local-model', 'embedding-model'],
             recoveryRunLimit            : 10,
             selfHealRecentEventLimit    : 10
         });
@@ -3316,5 +3318,47 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService — provider
         expect(fact.authoritative, 'a boot reading must not drive an actuator').toBe(false);
         expect(fact.details.observedContextTokensPerSlot).toBe(8192);
         expect(fact.details.declaredContextTokensPerSlot).toBe(32768);
+    });
+});
+
+test.describe('provider-lane shape routing — the embedding receipt must not ride the chat lane', () => {
+    // The split-lane profile sets residency to `chat-model` while the shape reading is taken against
+    // the EMBEDDING host and compared to the embedding declaration. Sharing residency's predicate
+    // published embedding facts on the chat record and left `embedding-model` — the service the data
+    // actually describes, and one the bridge does enumerate — carrying nothing, so a divergence
+    // degraded the wrong container. Widening residency instead would misroute residency and
+    // provider-activity the other way; the two sets are separate on purpose.
+    test.beforeEach(() => {
+        restoreBridgeConfig = snapshotAiConfig(AiConfig, BRIDGE_CONFIG_PATHS);
+    });
+
+    test.afterEach(() => {
+        restoreBridgeConfig?.();
+    });
+
+    test('the two predicates disagree under the split-lane profile, and each names its own lane', () => {
+        AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys = ['chat-model'];
+        AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys = ['embedding-model'];
+
+        const bridge = createService();
+
+        expect(bridge.isProviderResidencyServiceKey('chat-model')).toBe(true);
+        expect(bridge.isProviderLaneShapeServiceKey('chat-model'), 'the chat record must NOT carry the embedding shape').toBe(false);
+
+        expect(bridge.isProviderLaneShapeServiceKey('embedding-model')).toBe(true);
+        expect(bridge.isProviderResidencyServiceKey('embedding-model'), 'and residency must NOT follow the shape onto the embedding lane').toBe(false);
+
+        bridge.destroy()
+    });
+
+    test('the shipped default covers both topologies without a compose entry', () => {
+        const bridge = createService();
+
+        // Split-lane: the embedding service. Single-service plane: the one holding both roles.
+        expect(bridge.isProviderLaneShapeServiceKey('embedding-model')).toBe(true);
+        expect(bridge.isProviderLaneShapeServiceKey('local-model')).toBe(true);
+        expect(bridge.isProviderLaneShapeServiceKey('chat-model')).toBe(false);
+
+        bridge.destroy()
     });
 });

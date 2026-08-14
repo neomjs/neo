@@ -1285,6 +1285,23 @@ class ConfigBase extends ConfigProvider {
                     logMaxBytes                 : leaf(32 * 1024, 'NEO_DEPLOYMENT_STATE_BRIDGE_LOG_MAX_BYTES', 'number'),
                     statsSampleWindow           : leaf(2, 'NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW', 'number'),
                     providerResidencyServiceKeys: leaf(['local-model', 'model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_RESIDENCY_SERVICE_KEYS', 'csv'),
+                    /**
+                     * @summary Services the EMBEDDING-lane shape receipt attaches to — deliberately its
+                     * own key rather than a reuse of `providerResidencyServiceKeys`.
+                     *
+                     * Those two sets name different lanes on a split-lane plane: residency observes the
+                     * CHAT provider (`chat-model` in the provider-lanes profile), while the shape reading
+                     * is taken against the EMBEDDING host and compared to the embedding declaration.
+                     * Gating the receipt on the residency predicate publishes embedding-lane facts on the
+                     * chat service's record and degrades the wrong container, while the service the data
+                     * describes carries nothing. Widening the residency set instead would misroute
+                     * residency and provider-activity onto the embedding lane — the same error inverted.
+                     *
+                     * The default covers both shipped topologies without a compose entry: `local-model`
+                     * where one service holds both roles, `embedding-model` where the lanes are split.
+                     * @type {String[]}
+                     */
+                    providerLaneShapeServiceKeys: leaf(['local-model', 'embedding-model'], 'NEO_DEPLOYMENT_STATE_BRIDGE_PROVIDER_LANE_SHAPE_SERVICE_KEYS', 'csv'),
                     recoveryRunLimit            : leaf(10, 'NEO_DEPLOYMENT_STATE_BRIDGE_RECOVERY_RUN_LIMIT', 'number'),
                     // Self-heal snapshot's recent-event cap — a DIFFERENT surface from recoveryRunLimit (heal-ledger
                     // events vs recovery-run states). collectSelfHealSnapshot validates it finite/non-negative (0 = no

@@ -629,11 +629,12 @@ export class DeploymentStateBridgeService extends Base {
 
         providerResidency = await this.collectProviderResidency({serviceKey, observedAt: observationNow()});
 
-        // Sibling of `providerResidency` and gated by the same eligibility predicate, so the lane
-        // shape lands on the record that already carries provider evidence rather than on every
-        // service. Memoized inside the collector: this call re-publishes a boot reading, it does not
+        // Gated by its OWN predicate, not residency's. On a split-lane plane residency names the CHAT
+        // service while this reading is taken against the EMBEDDING host — sharing the predicate
+        // publishes embedding-lane facts on the chat record and leaves the service the data describes
+        // with none. Memoized inside the collector: this call re-publishes a boot reading, it does not
         // take a new one.
-        const providerLaneShape = this.isProviderResidencyServiceKey(serviceKey)
+        const providerLaneShape = this.isProviderLaneShapeServiceKey(serviceKey)
             ? await this.collectProviderLaneShape({observedAt: observationNow()})
             : null;
 
@@ -1026,6 +1027,20 @@ export class DeploymentStateBridgeService extends Base {
      * @param {String} serviceKey Compose service key.
      * @returns {Boolean}
      */
+    /**
+     * @summary Resolves whether a Compose service carries the embedding-lane shape receipt.
+     *
+     * Deliberately separate from {@link isProviderResidencyServiceKey}: the two predicates name
+     * different lanes wherever chat and embedding are split across services, and collapsing them
+     * misroutes one lane's evidence onto the other's record in whichever direction they are merged.
+     *
+     * @param {String} serviceKey Compose service key.
+     * @returns {Boolean}
+     */
+    isProviderLaneShapeServiceKey(serviceKey) {
+        return AiConfig.orchestrator.deploymentStateBridge.providerLaneShapeServiceKeys.includes(serviceKey);
+    }
+
     isProviderResidencyServiceKey(serviceKey) {
         return AiConfig.orchestrator.deploymentStateBridge.providerResidencyServiceKeys.includes(serviceKey);
     }
