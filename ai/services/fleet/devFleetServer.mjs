@@ -56,6 +56,7 @@ import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
 import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
+import {createFleetWakeSseConsumer}                                      from './fleetWakeSseConsumer.mjs';
 import {createPlaneWhoIsOnlineReader}                                    from './planeWhoIsOnlineReader.mjs';
 import {readActiveWakeSubscriptionIdentities}                            from '../memory-core/readActiveWakeSubscriptionIdentities.mjs';
 import {createTerminalDeliveryFailuresFileReader, resolveDaemonLiveness} from './fleetWakeStateAdapter.mjs';
@@ -96,7 +97,9 @@ async function boot() {
               credential: AiConfig.fleet.planeBearer
           }) : null;
 
-    let viewer;
+    let
+        fleetWakeStreamConsumer = null,
+        viewer;
 
     if (planeClient) {
         viewer = await resolveFleetViewerClaim();
@@ -141,16 +144,29 @@ async function boot() {
     // until the plane exposes a vouching surface: delivery runs container-side and behind the
     // signed host receiver, and neither is observable from this process today.
     if (planeClient) {
+        // The plane NOW exposes the vouching surface this branch was honestly waiting for: the
+        // composed fleet-server's `/fleet/events` stream. This process consumes it with its own
+        // fleet-admission bearer (one credential, deliberately — no second header is synthesized,
+        // and the composed server's boot arming covers the shared viewer identity), and the
+        // delivery-liveness axis renders the live observation instead of a typed unknown.
+        // Reconnect catch-up rides `poll-digest` through the proven plane client. Fail-soft: a
+        // dead stream degrades the axis back to honest `unknown` with the disconnect reason.
+        const wakeStreamConsumer = createFleetWakeSseConsumer({
+            eventsUrl : `${planeBase.replace(/\/+$/, '')}/fleet/events`,
+            credential: AiConfig.fleet.planeBearer,
+            pollDigest: args => planeClient.callTool('manage_wake_subscription', {action: 'poll-digest', ...args})
+        });
+
+        wakeStreamConsumer.start();
+        fleetWakeStreamConsumer = wakeStreamConsumer;
+
         FleetManager.wakeStateOptions = {
             // The proven client returns PARSED payloads (its mapToolResult owns envelope handling)
             // — the reader consumes them directly; a second parse here would reject every healthy
             // answer and silently blind the whole axis.
             listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
-            resolveDeliveryLiveness         : () => ({
-                alive : 'unknown',
-                reason: 'delivery-lane liveness is not exposed by the containerized plane yet'
-            }),
-            resolveTerminalDeliveryFailures: () => ({
+            resolveDeliveryLiveness         : () => wakeStreamConsumer.resolveDeliveryLiveness(),
+            resolveTerminalDeliveryFailures : () => ({
                 state     : 'unknown',
                 reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
                 byIdentity: new Map()
@@ -162,7 +178,7 @@ async function boot() {
             wakeReceiverManifestPath: AiConfig.fleet.wakeReceiverManifestPath
         };
 
-        console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery axes honest-unknown pending a plane vouching surface)`)
+        console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery liveness observed from the composed wake stream; terminal receipts honest-unknown)`)
     } else {
         // The `wakeDaemon` subtree is owned by the memory-core config, NOT Tier-1 `AiConfig` (which
         // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
@@ -339,6 +355,7 @@ async function boot() {
         // leaks the proven plane session (the server reaps it only on its own timeline).
         const cleanShutdown = async signal => {
             console.log(`[fleet] received ${signal}; stopping.`);
+            fleetWakeStreamConsumer?.stop();
             await planeClient?.close();
             server.close(() => process.exit(0))
         };
@@ -352,8 +369,10 @@ async function boot() {
     } catch (error) {
         // EVERY exit below this line closes the proven plane session AWAITED — startup failures,
         // probe failures, reuse, and refusal alike would otherwise orphan it on the plane. The
-        // client's close() is a shared terminal barrier, so overlapping closers are safe.
+        // client's close() is a shared terminal barrier, so overlapping closers are safe. The
+        // wake-stream consumer stops on the same paths: its reconnect loop must not outlive boot.
         if (error?.code !== 'EADDRINUSE') {
+            fleetWakeStreamConsumer?.stop();
             await planeClient?.close();
             throw error
         }
@@ -369,17 +388,20 @@ async function boot() {
                 agentIdentityNodeId: viewer.agentIdentityNodeId
             })
         } catch (probeError) {
+            fleetWakeStreamConsumer?.stop();
             await planeClient?.close();
             throw probeError
         }
 
         if (probe.reusable) {
             console.log(`[fleet] healthy Fleet already listening on port ${port} (${probe.reason}; viewer: ${probe.viewer}, pid: ${probe.pid}) — reusing it.`);
+            fleetWakeStreamConsumer?.stop();
             await planeClient?.close();
             process.exit(0)
         }
 
         console.error(`[fleet] port ${port} is occupied and NOT reusable: ${probe.reason}`);
+        fleetWakeStreamConsumer?.stop();
         await planeClient?.close();
         process.exit(1)
     }
