@@ -35,55 +35,172 @@ const NEURAL_LINK_ENTRYPOINT = fileURLToPath(
  *
  * @param {Object} child The spawned ChildProcess.
  * @param {Number} [timeoutMs=8000] Overall budget for the handshake plus the call.
- * @returns {Promise<Object|null>} The parsed health payload, or null if it never answered.
+ * @returns {Promise<Object|null>} The parsed health payload, or null if the transport becomes unavailable.
  */
 async function callHealthcheck(child, timeoutMs = 8000) {
     return new Promise(resolve => {
-        let buffer  = '',
-            settled = false;
+        let buffer      = '',
+            initialised = false,
+            settled     = false;
 
         const finish = value => {
             if (!settled) {
                 settled = true;
                 clearTimeout(timer);
+                child.stdout.off('data', onStdoutData);
                 resolve(value)
             }
         };
 
-        const timer = setTimeout(() => finish(null), timeoutMs);
+        const onTransportUnavailable = () => finish(null);
 
-        child.stdout.on('data', chunk => {
-            buffer += chunk.toString();
+        const writeMessage = message => new Promise(done => {
+            if (settled || child.exitCode !== null || child.stdin.destroyed || !child.stdin.writable) {
+                finish(null);
+                done(false);
+                return
+            }
 
-            for (const line of buffer.split('\n')) {
-                if (!line.trim().startsWith('{')) continue;
-
-                let message;
-
-                try { message = JSON.parse(line) } catch { continue }
-
-                if (message.id === 1) {
-                    child.stdin.write(`${JSON.stringify({jsonrpc: '2.0', method: 'notifications/initialized'})}\n`);
-                    child.stdin.write(`${JSON.stringify({
-                        jsonrpc: '2.0', id: 2, method: 'tools/call',
-                        params : {name: 'healthcheck', arguments: {}}
-                    })}\n`)
-                }
-
-                if (message.id === 2) {
-                    const text = message.result?.content?.[0]?.text;
-
-                    try { finish(text ? JSON.parse(text) : message.result) } catch { finish(message.result) }
-                }
+            try {
+                child.stdin.write(`${JSON.stringify(message)}\n`, error => {
+                    if (error) {
+                        finish(null);
+                        done(false)
+                    } else {
+                        done(true)
+                    }
+                })
+            } catch {
+                finish(null);
+                done(false)
             }
         });
 
-        child.stdin.write(`${JSON.stringify({
+        const handleLine = async line => {
+            if (!line.trim().startsWith('{')) return;
+
+            let message;
+
+            try { message = JSON.parse(line) } catch { return }
+
+            if (message.id === 1 && !initialised) {
+                initialised = true;
+
+                if (!await writeMessage({jsonrpc: '2.0', method: 'notifications/initialized'})) return;
+
+                await writeMessage({
+                    jsonrpc: '2.0', id: 2, method: 'tools/call',
+                    params : {name: 'healthcheck', arguments: {}}
+                })
+            }
+
+            if (message.id === 2) {
+                const text = message.result?.content?.[0]?.text;
+
+                try { finish(text ? JSON.parse(text) : message.result) } catch { finish(message.result) }
+            }
+        };
+
+        const onStdoutData = chunk => {
+            buffer += chunk.toString();
+
+            const lines = buffer.split('\n');
+
+            buffer = lines.pop() || '';
+
+            for (const line of lines) void handleLine(line)
+        };
+
+        const timer = setTimeout(() => finish(null), timeoutMs);
+
+        child.once('exit', onTransportUnavailable);
+        child.once('error', onTransportUnavailable);
+        child.stdin.once('close', onTransportUnavailable);
+        child.stdin.once('error', onTransportUnavailable);
+        child.stdout.on('data', onStdoutData);
+
+        void writeMessage({
             jsonrpc: '2.0', id: 1, method: 'initialize',
             params : {protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {name: 'witness', version: '1'}}
-        })}\n`)
+        })
     })
 }
+
+test.describe('Neural Link stdio witness (#17094)', () => {
+    test('#17094 consumes each complete stdout frame exactly once', async () => {
+        const
+            child  = new EventEmitter(),
+            stdin  = new EventEmitter(),
+            stdout = new EventEmitter(),
+            writes = [];
+
+        child.exitCode = null;
+        child.stdin    = stdin;
+        child.stdout   = stdout;
+        stdin.destroyed = false;
+        stdin.writable  = true;
+        stdin.write     = (payload, callback) => {
+            writes.push(JSON.parse(payload));
+            queueMicrotask(() => callback?.());
+            return true
+        };
+
+        const healthPromise = callHealthcheck(child, 100);
+
+        stdout.emit('data', Buffer.from('{"jsonrpc":"2.0","id":1}\n'));
+        await new Promise(resolve => setImmediate(resolve));
+
+        // A later frame used to re-run every prior line in the accumulated buffer, dispatching a
+        // second initialized notification and healthcheck call against the same child.
+        stdout.emit('data', Buffer.from('{"jsonrpc":"2.0","method":"noise"}\n'));
+        await new Promise(resolve => setImmediate(resolve));
+        stdout.emit('data', Buffer.from('{"jsonrpc":"2.0","id":2,"result":{"content":[{"text":"{\\"status\\":\\"healthy\\"}"}]}}\n'));
+
+        await expect(healthPromise).resolves.toEqual({status: 'healthy'});
+        expect(writes.map(message => message.method)).toEqual([
+            'initialize',
+            'notifications/initialized',
+            'tools/call'
+        ])
+    });
+
+    test('#17094 a closed child stdin settles without attempting another write', async () => {
+        const
+            child  = new EventEmitter(),
+            stdin  = new EventEmitter(),
+            stdout = new EventEmitter();
+
+        let writeCount = 0;
+
+        child.exitCode = null;
+        child.stdin    = stdin;
+        child.stdout   = stdout;
+        stdin.destroyed = false;
+        stdin.writable  = true;
+        stdin.write     = (payload, callback) => {
+            writeCount++;
+
+            if (writeCount > 1) {
+                const error = new Error('write EPIPE');
+
+                error.code = 'EPIPE';
+                throw error
+            }
+
+            queueMicrotask(() => callback?.());
+            return true
+        };
+
+        const healthPromise = callHealthcheck(child, 100);
+
+        stdin.destroyed = true;
+        stdin.writable  = false;
+
+        expect(() => stdout.emit('data', Buffer.from('{"jsonrpc":"2.0","id":1}\n'))).not.toThrow();
+        await expect(healthPromise).resolves.toBeNull();
+        expect(writeCount, 'only the initialize request reached the transport').toBe(1)
+    })
+});
 
 /**
  * @summary Coverage for the Bridge auto-connect boot ordering.
