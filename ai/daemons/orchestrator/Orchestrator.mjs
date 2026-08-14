@@ -1180,6 +1180,8 @@ export class Orchestrator extends Base {
     get embedDrainLivenessWatchdogThresholdMs() { return memoryCoreConfig.memoryWal.embedDrainStallThresholdMs; }
     get remConsolidationWatchdogRunStateDir()   { return memoryCoreConfig.remRunStateDir; }
     get remConsolidationWatchdogThresholdMs()   { return memoryCoreConfig.remConsolidationStallThresholdMs; }
+    get heavyMaintenanceLeaseStaleAfterMs()        { return AiConfig.orchestrator.heavyMaintenanceLease.staleAfterMs; }
+    get heavyMaintenanceStarvationDegradeAfterMs() { return AiConfig.orchestrator.heavyMaintenanceLease.starvationDegradeAfterMs; }
     /** @summary The Memory Core compose-service id targeted by data-integrity diagnoses. */
     get dataIntegrityServiceId() { return 'mc-server'; }
     /**

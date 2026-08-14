@@ -1,6 +1,6 @@
-import path            from 'path';
-import net             from 'net';
-import {fileURLToPath} from 'url';
+import path                  from 'path';
+import net                   from 'net';
+import {fileURLToPath}       from 'url';
 import {attachTaskAuthority} from './taskAuthority.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -527,6 +527,15 @@ export function buildTaskDefinitions({
             label          : 'REM consolidation liveness watchdog',
             pidFileName    : 'rem-consolidation-liveness-watchdog.pid',
             expectedCommand: 'RemConsolidationLivenessWatchdog',
+            serviceTask    : true
+        },
+        // In-process read-only health check dispatched by the scheduling pipeline — same posture as
+        // its liveness-watchdog siblings above: the entry exists only for the persisted state
+        // envelope (cadence `lastRunAt`); `pidFileName` / `expectedCommand` are inert.
+        'heavy-maintenance-starvation-watchdog': {
+            label          : 'Heavy-maintenance starvation watchdog',
+            pidFileName    : 'heavy-maintenance-starvation-watchdog.pid',
+            expectedCommand: 'HeavyMaintenanceStarvationWatchdog',
             serviceTask    : true
         }
     };

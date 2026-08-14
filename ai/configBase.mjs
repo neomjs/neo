@@ -1318,7 +1318,19 @@ class ConfigBase extends ConfigProvider {
                     // whose unbroken deferral streak exceeds this. Deliberately generous — sized as a
                     // starvation ceiling, not a scheduling optimization — thresholds derived from a
                     // misbehaving system's observations bound the wrong quantity.
-                    fairnessYieldAfterMs: leaf(30 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_FAIRNESS_YIELD_MS', 'number')
+                    fairnessYieldAfterMs: leaf(30 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_FAIRNESS_YIELD_MS', 'number'),
+                    /**
+                     * Starvation bound for the HEALTH surface — the backstop above
+                     * `fairnessYieldAfterMs`: fairness yields the lease at that bound, so a live
+                     * waiter still deferred past THIS one means fairness itself failed, and the
+                     * orchestrator health surface degrades with a receipt naming the waiter, its
+                     * class, `deferredSince`, and the current lease holder — instead of leaving
+                     * starvation as per-deferral log lines (the 8.5h-starved-backup incident shape).
+                     * Recomputed from the live ledger every check — never latched; acquisition or
+                     * entry expiry clears it on the next check. `<= 0` disables. Consumed by
+                     * `scheduling/heavyMaintenanceStarvationWatchdog.mjs`.
+                     */
+                    starvationDegradeAfterMs: leaf(HOUR_MS, 'NEO_HEAVY_MAINTENANCE_LEASE_STARVATION_DEGRADE_MS', 'number')
                 },
                 /**
                  * Maintenance-loop intervals consumed by the orchestrator daemon.
@@ -1434,6 +1446,15 @@ class ConfigBase extends ConfigProvider {
                      * Hourly surfaces a stalled dream in hours. `<= 0` disables the lane.
                      */
                     remConsolidationWatchdogCheckMs  : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_REM_CONSOLIDATION_WATCHDOG_INTERVAL_MS', 'number'),
+                    /**
+                     * Cadence of the heavy-maintenance starvation watchdog — the read-only,
+                     * never-fail health check that scans the durable waiter ledger and degrades
+                     * health when any live waiter's deferral streak exceeds
+                     * `heavyMaintenanceLease.starvationDegradeAfterMs`. Ten minutes keeps detection
+                     * latency small next to the hour-scale bound while the check itself stays one
+                     * directory listing. `<= 0` disables the lane.
+                     */
+                    heavyMaintenanceStarvationWatchdogCheckMs: leaf(10 * 60 * 1000, 'NEO_ORCHESTRATOR_HEAVY_STARVATION_WATCHDOG_INTERVAL_MS', 'number'),
                     /**
                      * Cadence of the data-integrity sweep — the read-only, never-fail health check that
                      * audits Memory Core metadata-vs-vector coverage and emits a `data-integrity`

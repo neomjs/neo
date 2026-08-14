@@ -2,7 +2,10 @@ import {collectDueCandidates}                                  from './collector
 import {pickNextCandidate}                                     from './picker.mjs';
 import {evaluateStallAlarm, getEmbedDrainPendingAge}           from './embedDrainLivenessWatchdog.mjs';
 import {evaluateConsolidationStallAlarm, getRemCycleStaleness} from './remConsolidationLivenessWatchdog.mjs';
+import {evaluateWaiterStarvation}                              from './heavyMaintenanceStarvationWatchdog.mjs';
 import {classifyBootFreshness}                                 from '../services/bootIdentityFreshness.mjs';
+import {listActiveWaitersSync}                                 from '../services/heavyMaintenanceWaiterLedger.mjs';
+import {inspectHeavyMaintenanceLeaseSync}                      from '../services/heavyMaintenanceLeasePrimitives.mjs';
 
 /**
  * Tasks that win the per-poll pick unconditionally when due. `backup` is data-safety:
@@ -111,28 +114,29 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             state,
             now,
             intervals: {
-                summarySweep                     : config.orchestrator.intervals.summarySweepMs,
-                kbSync                           : config.orchestrator.intervals.kbSyncMs,
-                githubWorkflowSync               : config.orchestrator.intervals.githubWorkflowSyncMs,
-                backup                           : config.orchestrator.intervals.backupMs,
-                backupRetryDelay                 : config.orchestrator.intervals.backupRetryDelayMs,
-                backupRetryWindow                : config.orchestrator.intervals.backupRetryWindowMs,
-                graphLogCompaction               : config.orchestrator.intervals.graphLogCompactionMs,
-                primaryDevSync                   : config.orchestrator.intervals.primaryDevSyncMs,
-                tenantRepoSync                   : config.orchestrator.tenantRepoSync.sweepCadenceMs,
-                dream                            : config.orchestrator.intervals.dreamMs,
-                messageConceptHarvest            : config.orchestrator.intervals.messageConceptHarvestMs,
-                dreamOverflowThreshold           : config.orchestrator.intervals.dreamOverflowThreshold,
-                dreamBreathingGap                : config.orchestrator.intervals.dreamBreathingGapMs,
-                dreamIdleBacklogCadenceMultiplier: config.orchestrator.intervals.dreamIdleBacklogCadenceMultiplier,
-                remBacklogCatchupCooldown        : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
-                remStarvationBreaker             : config.orchestrator.intervals.remStarvationBreakerMs,
-                goldenPath                       : config.orchestrator.intervals.goldenPathMs,
-                swarmHeartbeat                   : config.orchestrator.intervals.swarmHeartbeatMs,
-                embedDrainLivenessWatchdogCheck  : config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
-                remConsolidationWatchdogCheck    : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
-                dataIntegritySweepCheck          : config.orchestrator.intervals.dataIntegritySweepCheckMs,
-                temporalSummary                  : config.temporalSummary.aggregationIntervalMs
+                summarySweep                           : config.orchestrator.intervals.summarySweepMs,
+                kbSync                                 : config.orchestrator.intervals.kbSyncMs,
+                githubWorkflowSync                     : config.orchestrator.intervals.githubWorkflowSyncMs,
+                backup                                 : config.orchestrator.intervals.backupMs,
+                backupRetryDelay                       : config.orchestrator.intervals.backupRetryDelayMs,
+                backupRetryWindow                      : config.orchestrator.intervals.backupRetryWindowMs,
+                graphLogCompaction                     : config.orchestrator.intervals.graphLogCompactionMs,
+                primaryDevSync                         : config.orchestrator.intervals.primaryDevSyncMs,
+                tenantRepoSync                         : config.orchestrator.tenantRepoSync.sweepCadenceMs,
+                dream                                  : config.orchestrator.intervals.dreamMs,
+                messageConceptHarvest                  : config.orchestrator.intervals.messageConceptHarvestMs,
+                dreamOverflowThreshold                 : config.orchestrator.intervals.dreamOverflowThreshold,
+                dreamBreathingGap                      : config.orchestrator.intervals.dreamBreathingGapMs,
+                dreamIdleBacklogCadenceMultiplier      : config.orchestrator.intervals.dreamIdleBacklogCadenceMultiplier,
+                remBacklogCatchupCooldown              : config.orchestrator.intervals.remBacklogCatchupCooldownMs,
+                remStarvationBreaker                   : config.orchestrator.intervals.remStarvationBreakerMs,
+                goldenPath                             : config.orchestrator.intervals.goldenPathMs,
+                swarmHeartbeat                         : config.orchestrator.intervals.swarmHeartbeatMs,
+                embedDrainLivenessWatchdogCheck        : config.orchestrator.intervals.embedDrainLivenessWatchdogCheckMs,
+                remConsolidationWatchdogCheck          : config.orchestrator.intervals.remConsolidationWatchdogCheckMs,
+                heavyMaintenanceStarvationWatchdogCheck: config.orchestrator.intervals.heavyMaintenanceStarvationWatchdogCheckMs,
+                dataIntegritySweepCheck                : config.orchestrator.intervals.dataIntegritySweepCheckMs,
+                temporalSummary                        : config.temporalSummary.aggregationIntervalMs
             },
             enables: {
                 kbSync            : orchestrator.kbSyncEnabled,
@@ -172,17 +176,19 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             dataIntegrityDiagnosisService          : orchestrator.dataIntegrityDiagnosisService
         },
         runtime: {
-            goldenPathRepoEnrichmentEnabled       : orchestrator.goldenPathRepoEnrichmentEnabled,
-            primaryDevSyncRootsConfig             : orchestrator.primaryDevSyncRootsConfig,
-            tenantRepoSyncGlobalCadenceMs         : config.orchestrator.intervals.tenantRepoSyncMs,
-            tenantRepoSyncJitterRatio             : config.orchestrator.tenantRepoSync.jitterRatio,
-            embedDrainLivenessWatchdogWalDir      : orchestrator.embedDrainLivenessWatchdogWalDir,
-            embedDrainLivenessWatchdogThresholdMs : orchestrator.embedDrainLivenessWatchdogThresholdMs,
-            embedDrainLivenessWatchdogAlarmEnabled: orchestrator.embedDaemonEnabled,
-            remConsolidationWatchdogRunStateDir   : orchestrator.remConsolidationWatchdogRunStateDir,
-            remConsolidationWatchdogThresholdMs   : orchestrator.remConsolidationWatchdogThresholdMs,
-            remConsolidationWatchdogAlarmEnabled  : config.orchestrator.intervals.dreamMs > 0,
-            writeLog                              : orchestrator.writeLog.bind(orchestrator)
+            goldenPathRepoEnrichmentEnabled         : orchestrator.goldenPathRepoEnrichmentEnabled,
+            primaryDevSyncRootsConfig               : orchestrator.primaryDevSyncRootsConfig,
+            tenantRepoSyncGlobalCadenceMs           : config.orchestrator.intervals.tenantRepoSyncMs,
+            tenantRepoSyncJitterRatio               : config.orchestrator.tenantRepoSync.jitterRatio,
+            embedDrainLivenessWatchdogWalDir        : orchestrator.embedDrainLivenessWatchdogWalDir,
+            embedDrainLivenessWatchdogThresholdMs   : orchestrator.embedDrainLivenessWatchdogThresholdMs,
+            embedDrainLivenessWatchdogAlarmEnabled  : orchestrator.embedDaemonEnabled,
+            remConsolidationWatchdogRunStateDir     : orchestrator.remConsolidationWatchdogRunStateDir,
+            remConsolidationWatchdogThresholdMs     : orchestrator.remConsolidationWatchdogThresholdMs,
+            remConsolidationWatchdogAlarmEnabled    : config.orchestrator.intervals.dreamMs > 0,
+            heavyMaintenanceLeaseStaleAfterMs       : orchestrator.heavyMaintenanceLeaseStaleAfterMs,
+            heavyMaintenanceStarvationDegradeAfterMs: orchestrator.heavyMaintenanceStarvationDegradeAfterMs,
+            writeLog                                : orchestrator.writeLog.bind(orchestrator)
         }
     };
 }
@@ -687,6 +693,8 @@ function executeHealthCheckCandidate({candidate, services, runtime}) {
             runEmbedDrainLivenessWatchdogTask({taskName, reason, services, runtime}),
         'rem-consolidation-liveness-watchdog': (taskName, reason) =>
             runRemConsolidationLivenessWatchdogTask({taskName, reason, services, runtime}),
+        'heavy-maintenance-starvation-watchdog': (taskName, reason) =>
+            runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, services, runtime}),
         'data-integrity-sweep': (taskName, reason) =>
             runDataIntegritySweepTask({taskName, reason, services, runtime})
     };
@@ -703,6 +711,94 @@ function executeHealthCheckCandidate({candidate, services, runtime}) {
     }
 
     return executeFn(candidate.taskName, candidate.trigger.reason);
+}
+
+/**
+ * @summary Runs the heavy-maintenance starvation watchdog: a read-only waiter-ledger scan that
+ * degrades the health surface while any live waiter's deferral streak exceeds the configured bound.
+ * Never throws.
+ *
+ * Health posture: PASSIVE record every check — `failed` while any breach exists (carrying
+ * the receipt: each starved waiter's name, class, `deferredSince`, and the current lease holder),
+ * `completed` otherwise. No latch: the reading is recomputed from the live ledger, so a waiter that
+ * acquires (entry cleared by `clearWaiterSync`) or expires (past the ledger TTL) drops the degrade on
+ * the next check by construction. A corrupt ledger fails OPEN to green — unreadable entries are
+ * skipped with a logged warning (they are already surfaced, never thrown, by `listActiveWaitersSync`),
+ * matching the admission gate's fail-open posture.
+ *
+ * @param {Object} options
+ * @param {String} options.taskName
+ * @param {String} options.reason Scheduling reason.
+ * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
+ *   `maintenanceBackpressureService` for the lease-path resolution).
+ * @param {Object} options.runtime Runtime policy values (`heavyMaintenanceLeaseStaleAfterMs`,
+ *   `heavyMaintenanceStarvationDegradeAfterMs`, `writeLog`).
+ * @returns {Promise<void>}
+ */
+async function runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, services, runtime}) {
+    try {
+        services.taskStateService.markStarted(taskName, reason);
+        services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
+
+        const now       = Date.now();
+        const leasePath = services.maintenanceBackpressureService.resolveLeasePath();
+
+        const ledgerReading = listActiveWaitersSync({
+            leasePath,
+            staleAfterMs: runtime.heavyMaintenanceLeaseStaleAfterMs,
+            now
+        });
+
+        const inspection  = inspectHeavyMaintenanceLeaseSync({leasePath, now});
+        const leaseHolder = inspection.active ? (inspection.lease?.owner ?? null) : null;
+
+        const evaluation = evaluateWaiterStarvation({
+            ledgerReading,
+            now,
+            degradeAfterMs: runtime.heavyMaintenanceStarvationDegradeAfterMs,
+            leaseHolder
+        });
+
+        if (evaluation.unreadableCount > 0) {
+            runtime.writeLog?.('WARN', `[Orchestrator] heavy-maintenance-starvation-watchdog: skipped ${evaluation.unreadableCount} unreadable waiter entr${evaluation.unreadableCount === 1 ? 'y' : 'ies'} (fail-open to the readable set).`);
+        }
+
+        const details = {
+            reason,
+            checkedAt      : new Date(now).toISOString(),
+            degradeAfterMs : evaluation.degradeAfterMs,
+            waiterCount    : evaluation.waiterCount,
+            unreadableCount: evaluation.unreadableCount,
+            leaseHolder    : evaluation.leaseHolder,
+            breaches       : evaluation.breaches
+        };
+
+        if (evaluation.degraded) {
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', details);
+            runtime.writeLog?.('WARN', `[Orchestrator] heavy-maintenance-starvation-watchdog: ${evaluation.breaches.length} waiter(s) starved past ${evaluation.degradeAfterMs}ms under holder ${evaluation.leaseHolder ?? 'none'}: ${evaluation.breaches.map(breach => `${breach.taskName} (deferred since ${breach.deferredSince})`).join(', ')} — the fairness yield bound has been exceeded; the lease pipeline is not admitting its waiters.`);
+        } else {
+            services.healthService?.recordTaskOutcome?.(taskName, 'completed', details);
+        }
+
+        services.taskStateService.markCompleted(taskName);
+    } catch (e) {
+        // Degrade to "no degradation": record the fault and clear running state, never rethrow —
+        // same never-fail guarantee as the sibling watchdogs.
+        try {
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastReason = e.message;
+            services.taskStateService.markFailed(taskName, 1);
+            services.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                reason,
+                phase   : 'watchdog-error',
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+            runtime.writeLog?.('ERROR', `[Orchestrator] heavy-maintenance-starvation-watchdog check failed (degraded to no-alarm): ${e.message}`);
+        } catch {
+            // Last-resort swallow: the never-fail guarantee dominates all observability.
+        }
+    }
 }
 
 /**
