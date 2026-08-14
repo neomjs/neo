@@ -1,8 +1,8 @@
-import {createHash}                         from 'node:crypto';
-import fs                                   from 'fs-extra';
-import path                                 from 'node:path';
-import Base                                 from '../../../../src/core/Base.mjs';
-import AiConfig                             from '../../../config.mjs';
+import {createHash} from 'node:crypto';
+import fs           from 'fs-extra';
+import path         from 'node:path';
+import Base         from '../../../../src/core/Base.mjs';
+import AiConfig     from '../../../config.mjs';
 import {
     fetchEmbeddingLaneSlots,
     getOpenAiCompatibleHost,
@@ -12,8 +12,8 @@ import {
     classifyProviderLaneLiveShape,
     parseEmbeddingLaneSlots
 }                                          from '../../../providerLaneLiveShape.mjs';
-import {runHealthcheck}                     from '../../../scripts/diagnostics/mcpHealthcheck.mjs';
-import {writeFileAtomicSync}                from '../../../services/shared/atomicFileWrite.mjs';
+import {runHealthcheck}      from '../../../scripts/diagnostics/mcpHealthcheck.mjs';
+import {writeFileAtomicSync} from '../../../services/shared/atomicFileWrite.mjs';
 
 /**
  * The message `runHealthcheck` produces when the server ANSWERED and reported a status outside the
@@ -2543,6 +2543,11 @@ function summarizeTenantRepoState({
         // failure count would hide the backlog in precisely the state it was built to explain. It
         // carries no identity and no message — a count, a state, and two timestamps.
         corpusOutstanding                 : normalizedCheckpoint?.corpusOutstanding ?? null,
+        // Same unconditional rule, and for a stronger reason: a fence-only run COMPLETES (streak
+        // zero, checkpoint advanced), so this census is the ONLY snapshot evidence that N documents
+        // are deferred pending a geometry/ceiling change. Hashed chunk ids and a count — validated
+        // fail-closed by the checkpoint normalizer above.
+        undeliverableChunks               : normalizedCheckpoint?.undeliverableChunks ?? null,
         ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
         lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,
         effectiveCadenceMs                : dueState.effectiveCadenceMs,

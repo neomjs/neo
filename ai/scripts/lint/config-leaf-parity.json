@@ -605,6 +605,7 @@
         "sourcePaths",
         "spoofRejectionMode",
         "transport",
+        "undeliverableTimeoutStrikes",
         "useDefaultParsers",
         "useDefaultSources"
     ],

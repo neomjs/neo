@@ -1853,6 +1853,16 @@ class TextEmbeddingService extends Base {
                     providerActivityRecorder
                 }, 'batch');
             } catch (err) {
+                // Producer attribution for the FAILED request, decorated unconditionally: a provider
+                // timeout names the whole multi-input POST, so the consumer's undeliverable
+                // classification must know exactly which input span was in flight — assigning the
+                // failure to the first batch member when the request held five is how an innocent
+                // neighbour inherits a monster's strikes. Pure indices derived from what was SENT;
+                // unlike the carry below they need no positional-binding proof because they bind
+                // nothing — they only NAME the span.
+                err.failedTextOffset = offset;
+                err.failedTextCount  = chunk.length;
+
                 // Work conservation on the FAILURE path. The yield-point above carries its
                 // completed prefix; a provider failure mid-batch used to discard it, so the caller's
                 // retry — and every later sweep — re-purchased vectors the provider had already

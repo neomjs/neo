@@ -1671,6 +1671,41 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
             state: 'outstanding', observable: true, outstanding: 618
         });
         positive.destroy();
+
+        // The undeliverable census rides the SAME persisted-state → normalizer → summarizer chain,
+        // and it matters MORE here than for the backlog count — a fence-only run COMPLETES (streak
+        // zero, checkpoint advanced), so this projection is the only snapshot evidence that N
+        // documents are deferred pending a geometry change. Published unconditionally, exactly like
+        // the backlog beside it.
+        const
+            monsterId = 'd'.repeat(64),
+            fenced    = makeService({
+                ...baseCheckpoint,
+                undeliverableChunks: {count: 3, ids: [monsterId]}
+            }),
+            fencedSnap = await fenced.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(fencedSnap.repos[0].undeliverableChunks).toEqual({count: 3, ids: [monsterId]});
+        expect(fencedSnap.repos[0].consecutiveFailures).toBe(0);
+        fenced.destroy();
+
+        // Unobserved is null — never a zero census…
+        const noCensus     = makeService({...baseCheckpoint}),
+              noCensusSnap = await noCensus.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(noCensusSnap.repos[0].undeliverableChunks).toBeNull();
+        noCensus.destroy();
+
+        // …and a torn census degrades WHOLE at the reader, so a hand-edited or half-written record
+        // cannot enumerate ids it never proved.
+        const tornCensus = makeService({
+                  ...baseCheckpoint,
+                  undeliverableChunks: {count: 1, ids: [monsterId, 'f'.repeat(64)]}
+              }),
+              tornCensusSnap = await tornCensus.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tornCensusSnap.repos[0].undeliverableChunks).toBeNull();
+        tornCensus.destroy();
     });
 
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {

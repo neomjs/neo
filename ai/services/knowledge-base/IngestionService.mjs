@@ -18,6 +18,7 @@ import {isChromaConnectionError}
                             from '../shared/vector/chromaClientPrimitives.mjs';
 import {
     KB_VECTOR_EMBED_UNCLASSIFIED,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedFailureCode,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition,
@@ -70,9 +71,36 @@ export function resolveIdleProgressStatus(lastRunSummary) {
     return 'idle';
 }
 
-const LOCAL_EMBEDDING_PROVIDERS           = new Set(['openAiCompatible', 'ollama']);
-const MATERIALIZATION_ATTEMPT_ID_PATTERN  = /^[a-f0-9]{32}$/u;
-const MATERIALIZATION_DIGEST_PATTERN      = /^[a-f0-9]{64}$/u;
+const LOCAL_EMBEDDING_PROVIDERS          = new Set(['openAiCompatible', 'ollama']);
+const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
+const MATERIALIZATION_DIGEST_PATTERN     = /^[a-f0-9]{64}$/u;
+const TENANT_AWARE_CHUNK_ID_PATTERN      = /^[a-f0-9]{64}$/u;
+
+/**
+ * @summary Re-validates a graduation receipt carried on an embed failure into exactly four bounded fields.
+ *
+ * The receipt is minted by `VectorService` at the graduation site, but it arrives here on a
+ * provider-adjacent error object, so it is FIELD-PICKED and type-gated rather than trusted: a hash
+ * and three finite non-negative numbers, or nothing. Any malformed branch degrades the whole receipt
+ * by omission — a partial receipt would read as a measured one.
+ *
+ * @param {*} candidate Candidate `error.undeliverableGraduation` value.
+ * @returns {{chunkId: String, tokenEstimate: Number, attempts: Number, effectiveCeilingMs: Number}|null}
+ */
+function normalizeUndeliverableGraduation(candidate) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+        return null;
+    }
+
+    const {chunkId, tokenEstimate, attempts, effectiveCeilingMs} = candidate;
+
+    if (typeof chunkId !== 'string' || !TENANT_AWARE_CHUNK_ID_PATTERN.test(chunkId)) return null;
+    if (!Number.isFinite(tokenEstimate)      || tokenEstimate < 0)                   return null;
+    if (!Number.isInteger(attempts)          || attempts <= 0)                       return null;
+    if (!Number.isFinite(effectiveCeilingMs) || effectiveCeilingMs <= 0)             return null;
+
+    return {chunkId, tokenEstimate, attempts, effectiveCeilingMs};
+}
 const PARSED_CHUNK_SCHEMA_PATH            = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
 const KB_CONFIG_BOOTSTRAP_FAILURE_DETAILS = Object.freeze({
     'read-failed': {
@@ -460,15 +488,22 @@ class IngestionService extends Base {
                     const reasonCode = isEmbedFailureCode(poison.reasonCode)
                         ? poison.reasonCode
                         : KB_VECTOR_EMBED_UNCLASSIFIED;
+                    // Two fence families share the store but assert DIFFERENT things: a content
+                    // poison is proven bad content, an undeliverable-at-geometry chunk is healthy
+                    // content the current geometry cannot deliver. Labeling the second as the first
+                    // tells an operator to fix a file whose only fault is the plane's ceiling.
+                    const undeliverable = reasonCode === KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY;
 
                     summary.errors.push(this.createError({
                         code   : reasonCode,
-                        message: 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
+                        message: undeliverable
+                            ? 'A chunk remains fenced as undeliverable at the current embedding geometry, pending a ceiling/geometry change, changed content, or explicit replay.'
+                            : 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
                         details: {
                             chunkId    : poison.chunkId,
                             reasonCode,
                             observedAt : poison.observedAt,
-                            disposition: 'proven-content-poison'
+                            disposition: undeliverable ? 'undeliverable-at-geometry' : 'proven-content-poison'
                         }
                     }));
                 }
@@ -480,6 +515,12 @@ class IngestionService extends Base {
                 });
             } catch (error) {
                 const residencyDisposition = classifyEmbedResidencyDisposition(error);
+                // The graduation receipt travels ON the original timeout rather than replacing it:
+                // the code below still names the timeout, and this bounded evidence — a hash and
+                // three numbers, re-validated here rather than trusted — says what that timeout just
+                // proved. Field-picked, never spread: the error is provider-adjacent, and copying an
+                // object it carries wholesale would let provider-shaped text ride into the summary.
+                const graduation = normalizeUndeliverableGraduation(error?.undeliverableGraduation);
 
                 summary.errors.push(this.createError({
                     // The throw path carries the provider's code most often — a consumer-deadline
@@ -495,7 +536,8 @@ class IngestionService extends Base {
                     // that reads like a measured one.
                     details: {
                         repoSlug,
-                        ...(residencyDisposition && {residencyDisposition})
+                        ...(residencyDisposition && {residencyDisposition}),
+                        ...(graduation && {undeliverableGraduation: graduation})
                     }
                 }));
                 this.updateIngestionProgress({

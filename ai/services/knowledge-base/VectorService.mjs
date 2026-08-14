@@ -35,9 +35,98 @@ import {
 }                                                                     from './helpers/kbEmbeddingPoisonStore.mjs';
 import {
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition
 }                                                                     from './helpers/embedFailureClassification.mjs';
+
+/**
+ * Transient undeliverable-at-geometry evidence: consecutive single-input call-ceiling expiries per
+ * chunk, plus the isolation-suspect set a multi-input request timeout leaves behind.
+ *
+ * Process-local ON PURPOSE: a strike is cheap, transient evidence — the durable artifact is the
+ * graduated poison-store disposition, which carries its own generation-keyed invalidation. A daemon
+ * restart therefore re-offers a striking chunk and it pays its strikes again: bounded extra cost,
+ * never a correctness loss, and no second persistence mechanism to keep coherent with the store.
+ *
+ * The whole object is scoped to ONE embedding generation and replaced when the generation changes:
+ * strikes proven under a 30-minute ceiling are not evidence under a 60-minute one, in either
+ * direction, so a generation change resets every count and every suspicion. Within the generation:
+ *
+ * - `strikes` counts CONSECUTIVE timeout outcomes for requests that held EXACTLY that one chunk —
+ *   the only attribution that is exact. Any dispatched non-timeout provider outcome for the chunk
+ *   (success, non-timeout failure, or success followed by a storage failure — the provider half
+ *   still succeeded) deletes its entry.
+ * - `suspects` holds the member set of a timed-out MULTI-input request. Suspicion never graduates
+ *   anything; it only forces the isolation dispatch below, where each suspect earns exact
+ *   single-input evidence — an innocent neighbour embeds and clears, a monster strikes honestly.
+ * - `seq`/`lastStrikeSeq` is the overlap guard: a strike increments only when its request was
+ *   DISPATCHED after the previous strike was recorded, so two overlapping attempts observing one
+ *   wall-clock failure window cannot combine into a "consecutive" threshold.
+ *
+ * @type {{generationId: String|null, strikes: Map<String, {count: Number, lastStrikeSeq: Number}>, suspects: Set<String>, seq: Number}}
+ */
+const undeliverableEvidence = {
+    generationId: null,
+    strikes     : new Map(),
+    suspects    : new Set(),
+    seq         : 0
+};
+
+/**
+ * @summary Returns the transient evidence state for one embedding generation, resetting on change.
+ * @param {String} generationId Hashed embedding-generation coordinates.
+ * @returns {Object} The module-level `undeliverableEvidence` state, scoped to `generationId`.
+ */
+function resolveUndeliverableEvidence(generationId) {
+    if (undeliverableEvidence.generationId !== generationId) {
+        undeliverableEvidence.generationId = generationId;
+        undeliverableEvidence.strikes.clear();
+        undeliverableEvidence.suspects.clear();
+        undeliverableEvidence.seq = 0;
+    }
+
+    return undeliverableEvidence
+}
+
+/**
+ * @summary Resolves which dispatched chunks were inside the provider request that failed.
+ *
+ * A logical KB chunk and a provider request are DIFFERENT attribution units whenever the transport
+ * batches more than one text per request: a request failure names the request, never a member. Two
+ * sources of exactness exist, in precedence order:
+ *
+ * 1. A single-chunk dispatch (`batchToEmbed.length === 1`) — the request can only have held that
+ *    input, whatever the transport (this is also the only exactness the native-ollama batch, which
+ *    posts one opaque multi-input request, can ever offer).
+ * 2. The producer span (`failedTextOffset`/`failedTextCount`) the OpenAI-compatible transport stamps
+ *    on every request failure — attempt-scoped indices into what was sent, translated here into the
+ *    post-carry-shrink coordinates of `batchToEmbed`.
+ *
+ * An empty result means the member set is UNKNOWN, and the caller must treat the whole dispatch as
+ * the unit — suspicion at worst, never a strike.
+ *
+ * @param {Object} options
+ * @param {*} options.error The provider failure, possibly producer-decorated.
+ * @param {Object[]} options.batchToEmbed The dispatched chunks, after any carry shrink.
+ * @param {Number} [options.persistedCount=0] How many leading chunks the carry shrink removed.
+ * @returns {Object[]} The failed request's member chunks, or `[]` when unknown.
+ */
+function resolveFailedRequestChunks({error, batchToEmbed, persistedCount = 0}) {
+    if (batchToEmbed.length === 1) {
+        return [batchToEmbed[0]]
+    }
+
+    if (Number.isInteger(error?.failedTextOffset) && Number.isInteger(error?.failedTextCount) && error.failedTextCount > 0) {
+        const start = error.failedTextOffset - persistedCount;
+
+        if (start >= 0 && start + error.failedTextCount <= batchToEmbed.length) {
+            return batchToEmbed.slice(start, start + error.failedTextCount)
+        }
+    }
+
+    return []
+}
 
 /**
  * @summary Flattens one chunk into Chroma-storable scalar metadata.
@@ -390,6 +479,14 @@ class VectorService extends Base {
             provider,
             model          : getEmbeddingModel(provider),
             vectorDimension: Number(aiConfig.vectorDimension),
+            // The effective per-call ceiling is part of the evidence conditions: an
+            // undeliverable-at-geometry disposition proven under a 30-minute ceiling is void under a
+            // 60-minute one. Folding it into the generation invalidates ALL suppression evidence on a
+            // ceiling change — including content-poison, which then costs one isolation re-proof
+            // cycle. Correctness over thrift: stale suppression silently withholds documents.
+            embedCallCeilingMs: provider === 'ollama'
+                ? Number(mcConfig.ollama.embeddingTimeoutMs)
+                : Number(mcConfig.openAiCompatible.batchEmbeddingTimeoutMs),
             strategyVersion: EMBEDDING_POISON_STRATEGY_VERSION
         }
     }
@@ -975,6 +1072,10 @@ class VectorService extends Base {
      * @param {Object[]} [options.knownPoisonEntries] Validated current-generation poison rows.
      * @param {Object[]} [options.controlCandidates] Full current corpus with landed-state evidence.
      * @param {Function} [options.onPoisonEntries] Durable writer for newly proven poison rows.
+     * @param {String} [options.poisonGenerationId] Hashed embedding-generation coordinates for the
+     *     transient undeliverable automaton. Callers that resolved the poison coordinates pass it
+     *     through so one sweep's strikes, suspicions, and durable dispositions share one generation;
+     *     absent, it is resolved once at entry from the same leaves.
      * @param {Function} [options.now] Clock seam for bounded poison receipts.
      * @returns {Promise<{embedded: Number, skipped: Number, yielded: Boolean, failedBatches: Object[], poisonedChunks: Object[]}>}
      *     `failedBatches` carries `{batchIndex, chunkIds, reason}` for every batch that exhausted its retries
@@ -995,6 +1096,7 @@ class VectorService extends Base {
         knownPoisonEntries = [],
         controlCandidates = chunksToProcess.map(chunk => ({chunk, alreadyLanded: false})),
         onPoisonEntries,
+        poisonGenerationId,
         now = Date.now
     }) {
         if (chunksToProcess.length === 0) {
@@ -1014,37 +1116,57 @@ class VectorService extends Base {
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
         logger.log('Embedding chunks...');
 
-        const {batchSize, batchDelay, maxRetries} = aiConfig;
-        const guardrail                           = this.resolveEmbeddingGuardrail();
-        const failedBatches                       = [];
-        const poisonedChunks                      = knownPoisonEntries.map(entry => ({...entry}));
-        const poisonIds                           = new Set(poisonedChunks.map(entry => entry.chunkId));
-        const preEmbeddedIds                      = new Set();
-        let   embeddedCount                       = 0;
-        let   skippedCount                        = 0;
-        let   yielded                             = false;
+        const {batchSize, batchDelay, maxRetries, undeliverableTimeoutStrikes} = aiConfig;
+        const guardrail                                                        = this.resolveEmbeddingGuardrail();
+        const failedBatches                                                    = [];
+        const poisonedChunks                                                   = knownPoisonEntries.map(entry => ({...entry}));
+        const poisonIds                                                        = new Set(poisonedChunks.map(entry => entry.chunkId));
+        const preEmbeddedIds                                                   = new Set();
+        let   embeddedCount                                                    = 0;
+        let   skippedCount                                                     = 0;
+        let   yielded                                                          = false;
 
-        for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+        // The undeliverable automaton's coordinates, resolved ONCE per sweep. Transient strike and
+        // suspicion evidence must live under the same generation as the durable disposition it can
+        // mint — a strike gathered under one ceiling is not "consecutive" with one gathered under
+        // another. Callers that already resolved the poison coordinates pass the generation through
+        // so one sweep cannot straddle two resolutions.
+        const generation           = this.resolveEmbeddingPoisonGeneration();
+        const evidenceGenerationId = poisonGenerationId ?? createEmbeddingGenerationId(generation);
+        const evidence             = resolveUndeliverableEvidence(evidenceGenerationId);
+
+        // A cursor rather than a fixed stride: the isolation dispatch below may consume a single
+        // chunk from the front of a stride, and the remainder must be re-offered THIS sweep instead
+        // of silently skipping to the next stride boundary.
+        let cursor = 0;
+
+        while (cursor < chunksToProcess.length) {
             // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
             // first — so at least one batch lands per lease acquisition: a forward-progress guarantee, never a
             // livelock), if the lease holder has exceeded the fairness bound, stop embedding so a starved heavy
             // task (e.g. githubWorkflowSync) can interleave. The completed batches are already durably upserted
             // into the shadow and indexed by the write-ahead resume marker, so the next sweep resumes here
             // (decideResume -> selectResumableChunks). The caller releases the lease on the `yielded` signal.
-            if (i > 0 && shouldYield()) {
+            if (cursor > 0 && shouldYield()) {
                 yielded = true;
-                logger.log(`Yielding the heavy-maintenance lease after ${i} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - i} remaining will resume on the next sweep.`);
+                logger.log(`Yielding the heavy-maintenance lease after ${cursor} chunk(s) (${embeddedCount} embedded); ${chunksToProcess.length - cursor} remaining will resume on the next sweep.`);
                 break;
             }
 
-            if (i > 0 && batchDelay) {
+            if (cursor > 0 && batchDelay) {
                 await this.timeout(batchDelay);
             }
 
-            const batch = chunksToProcess.slice(i, i + batchSize)
+            const stride        = chunksToProcess.slice(cursor, cursor + batchSize);
+            const batchNumber   = Math.floor(cursor / batchSize) + 1;
+            let   cursorAdvance = stride.length;
+            const batch         = stride
                 .filter(chunk => !poisonIds.has(chunk.id) && !preEmbeddedIds.has(chunk.id));
 
-            if (batch.length === 0) continue;
+            if (batch.length === 0) {
+                cursor += cursorAdvance;
+                continue;
+            }
 
             const batchInputs = batch.map(chunk => ({
                 chunk,
@@ -1067,7 +1189,8 @@ class VectorService extends Base {
             }
 
             if (embeddable.length === 0) {
-                logger.warn(`[VectorService] Skipped embedding batch ${i / batchSize + 1}; all ${batch.length} chunk(s) exceeded the embedding safe-processing band.`);
+                logger.warn(`[VectorService] Skipped embedding batch ${batchNumber}; all ${batch.length} chunk(s) exceeded the embedding safe-processing band.`);
+                cursor += cursorAdvance;
                 continue;
             }
 
@@ -1076,9 +1199,23 @@ class VectorService extends Base {
             let batchToEmbed = embeddable.map(input => input.chunk);
             let textsToEmbed = embeddable.map(input => input.text);
 
-            // Captured before any failure-carry shrink: after a shrink, deriving this from
-            // `batchToEmbed.length` would report persisted work as "skipped" in the success log.
-            const guardrailSkipped = batch.length - batchToEmbed.length;
+            // Captured from the guardrail evaluation, before the isolation truncation and any
+            // failure-carry shrink: after either, deriving this from `batchToEmbed.length` would
+            // report un-dispatched or persisted work as "skipped" in the success log.
+            const guardrailSkipped = batch.length - embeddable.length;
+
+            // Isolation dispatch: a chunk suspected from a timed-out MULTI-input request is offered
+            // ALONE, because a single-input request is the only shape whose timeout names its cause
+            // exactly. An innocent neighbour embeds here and clears its suspicion; a monster earns an
+            // exact strike. The cursor advances only past the isolated chunk, so the rest of the
+            // stride is re-offered in this same sweep rather than skipped to the next one.
+            if (batchToEmbed.length > 1 && evidence.suspects.has(batchToEmbed[0].id)) {
+                cursorAdvance = stride.indexOf(batchToEmbed[0]) + 1;
+                batchToEmbed  = batchToEmbed.slice(0, 1);
+                textsToEmbed  = textsToEmbed.slice(0, 1);
+
+                logger.log(`[VectorService] Isolation dispatch for suspect chunk ${batchToEmbed[0].id}: offering it as a single-input request to attribute the earlier multi-input timeout exactly.`);
+            }
 
             let retries   = 0;
             let success   = false;
@@ -1105,7 +1242,7 @@ class VectorService extends Base {
             // un-persisted prefix is re-selected by a later sweep.
             const persistCarriedPrefix = async (carried, expected, arm) => {
                 if (carried.length !== expected) {
-                    throw new Error(`${arm} batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${expected} completed input(s); refusing to bind vectors to chunk ids by position.`);
+                    throw new Error(`${arm} batch ${batchNumber} carried ${carried.length} embedding(s) for ${expected} completed input(s); refusing to bind vectors to chunk ids by position.`);
                 }
 
                 if (carried.length === 0) return 0;
@@ -1124,7 +1261,7 @@ class VectorService extends Base {
                         lastError = writeError;
                         retries++;
                         if (retries >= maxRetries) throw writeError;
-                        console.error(`Persisting the carried prefix of ${arm.toLowerCase()} batch ${i / batchSize + 1} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
+                        console.error(`Persisting the carried prefix of ${arm.toLowerCase()} batch ${batchNumber} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
                         await new Promise(res => setTimeout(res, 2 ** retries * 1000));
                     }
                 }
@@ -1135,6 +1272,12 @@ class VectorService extends Base {
             };
 
             while (retries < maxRetries && !success) {
+                // The overlap guard's dispatch stamp. A strike recorded AFTER this attempt was
+                // dispatched (by an overlapping attempt on the same chunk) is not sequential evidence
+                // relative to this one — both observed the same wall-clock failure window — so the
+                // strike site below refuses to increment past it.
+                const dispatchSeq = evidence.seq;
+
                 try {
                     embeddings ??= await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider, {
                         operationLabel          : 'knowledge base tenant ingestion embedding',
@@ -1146,6 +1289,15 @@ class VectorService extends Base {
                         onProviderTimeout
                     });
 
+                    // A dispatched non-timeout provider outcome resets the automaton for every input
+                    // it covered — BEFORE the upsert, deliberately: a provider success followed by a
+                    // storage failure is still a non-timeout outcome for the chunk, so the
+                    // consecutive-timeout chain breaks here regardless of what the write does next.
+                    batchToEmbed.forEach(chunk => {
+                        evidence.strikes.delete(chunk.id);
+                        evidence.suspects.delete(chunk.id);
+                    });
+
                     const metadatas = batchToEmbed.map(buildChunkMetadata);
 
                     await collection.upsert({
@@ -1155,7 +1307,7 @@ class VectorService extends Base {
                     });
 
                     embeddedCount += batchToEmbed.length;
-                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${guardrailSkipped} skipped).`);
+                    logger.log(`Processed and embedded batch ${batchNumber} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${guardrailSkipped} skipped).`);
                     success = true;
                 } catch (err) {
                     // A cooperative yield is a DECISION, not a failure. Falling through to the retry arm would
@@ -1172,9 +1324,17 @@ class VectorService extends Base {
                         // guard + budgeted write retry) applies here exactly as on the failure arm.
                         const carried = err.embeddings || [];
 
+                        // The carried prefix is a dispatched provider SUCCESS for those inputs, so
+                        // their automaton entries reset here on the same provider-outcome rule as the
+                        // ordinary success path.
+                        batchToEmbed.slice(0, err.completedTextCount || 0).forEach(chunk => {
+                            evidence.strikes.delete(chunk.id);
+                            evidence.suspects.delete(chunk.id);
+                        });
+
                         await persistCarriedPrefix(carried, err.completedTextCount, 'Yielded');
 
-                        logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
+                        logger.log(`Yielding the heavy-maintenance lease inside batch ${batchNumber} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
                     }
 
@@ -1188,14 +1348,24 @@ class VectorService extends Base {
                     // to the un-persisted remainder so a retry buys only what is actually missing. Same
                     // refuse-loudly guard as the yield arm: a payload disagreeing with its stated count
                     // would bind vectors to wrong ids if sliced positionally.
+                    let carryShrunkCount = 0;
+
                     if (embeddings === null && Number.isInteger(err?.completedTextCount) && err.completedTextCount > 0) {
+                        // Same provider-outcome reset as the yield arm: the completed prefix is a
+                        // dispatched provider success for those inputs, whatever the write does next.
+                        batchToEmbed.slice(0, err.completedTextCount).forEach(chunk => {
+                            evidence.strikes.delete(chunk.id);
+                            evidence.suspects.delete(chunk.id);
+                        });
+
                         const persistedCount = await persistCarriedPrefix(err.embeddings || [], err.completedTextCount, 'Failed');
 
                         if (persistedCount > 0) {
-                            batchToEmbed = batchToEmbed.slice(persistedCount);
-                            textsToEmbed = textsToEmbed.slice(persistedCount);
+                            batchToEmbed     = batchToEmbed.slice(persistedCount);
+                            textsToEmbed     = textsToEmbed.slice(persistedCount);
+                            carryShrunkCount = persistedCount;
 
-                            logger.log(`Persisted ${persistedCount} carried embedding(s) from failed batch ${i / batchSize + 1} (${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) completed before the failure); ${batchToEmbed.length} chunk(s) remain for the retry or a later sweep.`);
+                            logger.log(`Persisted ${persistedCount} carried embedding(s) from failed batch ${batchNumber} (${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) completed before the failure); ${batchToEmbed.length} chunk(s) remain for the retry or a later sweep.`);
                         }
                     }
 
@@ -1214,17 +1384,117 @@ class VectorService extends Base {
                         providerTimedOut    = embeddings === null && isProviderTimeoutCode(err?.code);
 
                     if (providerCircuitOpen || providerTimedOut) {
+                        // Deterministic-undeliverable classification, on EXACT attribution only. One
+                        // timeout is lane evidence; the SAME chunk expiring its call ceiling on
+                        // consecutive single-input attempts is an intrinsic cost above the ceiling —
+                        // every further offer buys a full ceiling of head-of-line blocking for each
+                        // chunk and repository queued behind it. On the strike limit the chunk
+                        // graduates to a durable poison-store disposition (generation-keyed, so a
+                        // raised ceiling or changed geometry re-offers it automatically) and is never
+                        // dispatched again.
+                        //
+                        // A timeout from a MULTI-input request names the request, not a member: the
+                        // provider abandoned the POST as a unit, and blaming its first member would
+                        // let an innocent neighbour inherit a monster's strikes and be durably fenced.
+                        // Multi-input evidence therefore only marks the request's members as
+                        // isolation SUSPECTS — the dispatch site above offers a suspect alone, where
+                        // the next timeout is exact. A circuit-open never dispatched, so it neither
+                        // strikes nor resets.
+                        //
+                        // The graduating sweep STILL ends below: the provider is grinding the
+                        // just-abandoned attempt headless, and dispatching the remainder now would
+                        // queue fresh work behind it — the exact hazard the end-sweep rule exists to
+                        // prevent. The NEXT sweep proceeds past the excised chunk on an idle engine.
+                        if (providerTimedOut && batchToEmbed.length > 0) {
+                            const failedRequestChunks = resolveFailedRequestChunks({
+                                error         : err,
+                                batchToEmbed,
+                                persistedCount: carryShrunkCount
+                            });
+
+                            if (failedRequestChunks.length === 1) {
+                                const suspect = failedRequestChunks[0];
+                                const entry   = evidence.strikes.get(suspect.id) ?? {count: 0, lastStrikeSeq: 0};
+
+                                // A single-input timeout CONFIRMS suspicion rather than consuming it:
+                                // the chunk keeps being dispatched alone until a non-timeout outcome
+                                // clears it or graduation fences it — releasing it here would let a
+                                // striking monster rejoin multi-input requests between strikes.
+                                evidence.suspects.add(suspect.id);
+
+                                // The overlap guard: an entry whose last strike landed AFTER this
+                                // attempt dispatched observed the same failure window — counting both
+                                // would let two overlapping attempts fabricate a "consecutive" pair.
+                                if (entry.lastStrikeSeq <= dispatchSeq) {
+                                    entry.count        += 1;
+                                    entry.lastStrikeSeq = ++evidence.seq;
+                                    evidence.strikes.set(suspect.id, entry);
+                                }
+
+                                if (entry.count >= undeliverableTimeoutStrikes && typeof onPoisonEntries === 'function') {
+                                    // The AC-1 receipt: bounded numbers and a hash, surfaced beside
+                                    // the disposition without replacing the original timeout — the
+                                    // sweep below still throws `err`, decorated, so the ingest
+                                    // summary carries both the cause and the graduation evidence.
+                                    const receipt = {
+                                        chunkId           : suspect.id,
+                                        tokenEstimate     : bytesToTokens(Buffer.byteLength(textsToEmbed[batchToEmbed.indexOf(suspect)] || '', 'utf8')),
+                                        attempts          : entry.count,
+                                        effectiveCeilingMs: generation.embedCallCeilingMs
+                                    };
+
+                                    try {
+                                        await onPoisonEntries([{chunkId: suspect.id, reasonCode: KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY}]);
+                                        evidence.strikes.delete(suspect.id);
+                                        evidence.suspects.delete(suspect.id);
+                                        err.undeliverableGraduation = receipt;
+                                        logger.warn(`[VectorService] Chunk ${suspect.id} graduated to undeliverable-at-geometry after ${receipt.attempts} consecutive single-input call-ceiling expiries (~${receipt.tokenEstimate} tokens against a ${receipt.effectiveCeilingMs}ms ceiling); it stops being offered until the embedding generation (provider, model, dimension, call ceiling) changes.`);
+                                    } catch (persistError) {
+                                        // Fail-open: a disposition that cannot persist must not suppress
+                                        // provider work — the chunk stays offered and the strikes stay
+                                        // counted.
+                                        logger.warn(`[VectorService] Could not persist the undeliverable disposition for chunk ${suspect.id} (${persistError.message}); the chunk remains offered.`);
+                                    }
+                                }
+                            } else {
+                                // Multi-input or unattributable request: suspicion only. An empty
+                                // resolution (no producer span — e.g. the native-ollama batch, which
+                                // posts one opaque multi-input request) conservatively suspects every
+                                // dispatched member; suspicion costs one isolation offer, never a fence.
+                                const members = failedRequestChunks.length > 0 ? failedRequestChunks : batchToEmbed;
+
+                                members.forEach(chunk => evidence.suspects.add(chunk.id));
+                            }
+                        }
+
                         const disposition = providerCircuitOpen
                             ? 'the run-scoped provider circuit opened before this repository dispatched'
                             : 'one timeout-class provider attempt ended';
 
-                        console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Ending this embedding sweep because ${disposition}; pending chunks remain for a later scheduler cycle.`, err.message);
+                        console.error(`An error occurred during embedding batch ${batchNumber}. Ending this embedding sweep because ${disposition}; pending chunks remain for a later scheduler cycle.`, err.message);
                         throw err
+                    }
+
+                    // A dispatched non-timeout provider failure breaks the consecutive-timeout chain
+                    // for the inputs it covered: reset their automaton entries (never their durable
+                    // dispositions). Storage failures skip this — `embeddings !== null` means the
+                    // provider half succeeded and the success path already reset.
+                    if (embeddings === null) {
+                        const failedRequestChunks = resolveFailedRequestChunks({
+                            error         : err,
+                            batchToEmbed,
+                            persistedCount: carryShrunkCount
+                        });
+
+                        (failedRequestChunks.length > 0 ? failedRequestChunks : batchToEmbed).forEach(chunk => {
+                            evidence.strikes.delete(chunk.id);
+                            evidence.suspects.delete(chunk.id);
+                        });
                     }
 
                     lastError = err;
                     retries++;
-                    console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
+                    console.error(`An error occurred during embedding batch ${batchNumber}. Retrying (${retries}/${maxRetries})...`, err.message);
                     if (retries < maxRetries) {
                         await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
                     }
@@ -1250,7 +1520,7 @@ class VectorService extends Base {
             if (!success && !yielded) {
                 if (embeddedCount === 0) {
                     const abort = this.createFirstBatchAbort({
-                        batchIndex: i / batchSize + 1,
+                        batchIndex: batchNumber,
                         maxRetries,
                         lastError
                     });
@@ -1292,7 +1562,7 @@ class VectorService extends Base {
                         });
                     } catch (isolationError) {
                         throw this.createFirstBatchAbort({
-                            batchIndex: i / batchSize + 1,
+                            batchIndex: batchNumber,
                             maxRetries,
                             lastError : isolationError
                         })
@@ -1318,11 +1588,12 @@ class VectorService extends Base {
 
                     embeddedCount += isolation.embedded;
                     logger.warn(`[VectorService] First embedding batch was isolated with bounded paired evidence: ${isolation.embedded} recoverable chunk(s) landed and ${isolation.poisonEntries.length} proven poison chunk(s) were fenced.`);
+                    cursor += cursorAdvance;
                     continue
                 }
 
                 failedBatches.push({
-                    batchIndex: i / batchSize + 1,
+                    batchIndex: batchNumber,
                     chunkIds  : batchToEmbed.map(chunk => chunk.id),
                     reason    : lastError?.message || 'unknown embedding failure'
                 });
@@ -1333,13 +1604,15 @@ class VectorService extends Base {
                 // one poisoned payload. It only decides that the remaining work is worth trying rather than
                 // abandoning, and records what failed so the caller can decide what the hole means. Skip it and keep going;
                 // the remainder is recoverable work and the failure travels back in `failedBatches`.
-                logger.warn(`[VectorService] Batch ${i / batchSize + 1} failed after ${maxRetries} retries; skipping it and continuing (${embeddedCount} embedded so far). Reason: ${lastError?.message}`);
+                logger.warn(`[VectorService] Batch ${batchNumber} failed after ${maxRetries} retries; skipping it and continuing (${embeddedCount} embedded so far). Reason: ${lastError?.message}`);
             }
 
             // The retry loop exits on success, on exhaustion (handled directly above), or on a yield — only the
             // last one leaves the outer sweep to stop, so it is named explicitly rather than relying on the next
             // between-batch checkpoint observing a predicate that may already have flipped back.
             if (yielded) break;
+
+            cursor += cursorAdvance;
         }
 
         return {embedded: embeddedCount, skipped: skippedCount, yielded, failedBatches, poisonedChunks};
@@ -1384,7 +1657,8 @@ class VectorService extends Base {
         signal,
         onProviderTimeout,
         knownPoisonEntries = [],
-        onPoisonEntries
+        onPoisonEntries,
+        poisonGenerationId
     }) {
         const stateDir    = this.getResumeStateDir();
         const fingerprint = computeCorpusFingerprint(knowledgeBase);
@@ -1467,7 +1741,8 @@ class VectorService extends Base {
                     chunk,
                     alreadyLanded: shadowExistingIds.has(chunk.id)
                 })),
-                onPoisonEntries
+                onPoisonEntries,
+                poisonGenerationId
             });
 
             if (embedResult.yielded) {
@@ -1922,14 +2197,15 @@ class VectorService extends Base {
 
         if (shouldShadowSwap) {
             return await this.embedViaShadowSwap({
-                liveCollection  : collection,
-                knowledgeBase   : expandedKnowledgeBase,
-                idsToDeleteCount: idsToDelete.length,
+                liveCollection    : collection,
+                knowledgeBase     : expandedKnowledgeBase,
+                idsToDeleteCount  : idsToDelete.length,
                 shouldYield,
                 signal,
                 onProviderTimeout,
                 knownPoisonEntries,
-                onPoisonEntries : persistPoisonEntries
+                onPoisonEntries   : persistPoisonEntries,
+                poisonGenerationId: poisonCoordinates.generationId
             });
         }
 
@@ -1945,7 +2221,8 @@ class VectorService extends Base {
             onProviderTimeout,
             knownPoisonEntries,
             controlCandidates,
-            onPoisonEntries: persistPoisonEntries
+            onPoisonEntries   : persistPoisonEntries,
+            poisonGenerationId: poisonCoordinates.generationId
         });
 
         const count          = await collection.count();
