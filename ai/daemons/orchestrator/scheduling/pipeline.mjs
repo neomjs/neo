@@ -540,13 +540,20 @@ async function runDreamTask({taskName, reason, services}) {
             });
             services.healthService?.recordTaskOutcome?.(taskName, 'completed', recordPayload);
             break;
-        case 'skipped':
+        case 'skipped': {
+            // Stamp the skip's TERMINAL edge before markSkipped persists (markSkipped stamps no
+            // timestamp itself): a zero-session skip still runs decay and can take minutes on a CPU
+            // plane, and the breathing gap in dream.mjs anchors on terminal time — without this
+            // stamp, a long skip would already have "spent" the gap while running.
+            const state = services.taskStateService.getTaskState(taskName);
+            if (state) state.lastSkippedAt = outcome.completedAt;
             services.taskStateService.markSkipped(taskName);
             services.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
                 ...recordPayload,
                 skipReason: outcome.skipReason
             });
             break;
+        }
         case 'failed': {
             const state = services.taskStateService.getTaskState(taskName);
             if (state) {

@@ -322,6 +322,38 @@ test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
         expect(getDueTask({...base, now: 1061000})).toEqual({taskName: 'dream', source: 'rem-backlog-catchup', reason: 'rem-backlog-catchup:30000'});
     });
 
+    test('breathing gap anchors at the FAILED run\'s terminal edge, not its start (#17046 review falsifier)', () => {
+        // Exact-head falsifier from the Cycle-1 review: a run started at 1s failed at 200s. Only one
+        // second has been idle at 201s — the gap must hold even though the START stamp is 200s stale.
+        // Against the start-anchored implementation this arm goes red (lastRunAt alone "spends" the
+        // gap while the run is still executing).
+        const base = {
+            dreamIntervalMs            : 100000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 0,
+            breathingGapMs             : 60000
+        };
+        const state = {lastRunAt: 1000, lastSuccessAt: null, lastErrorAt: 200000};
+
+        expect(getDueTask({...base, state, now: 201000})).toBeNull();
+
+        // Once a full gap has elapsed since the terminal edge, the held periodic trigger fires.
+        expect(getDueTask({...base, state, now: 260001})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
+    test('breathing gap anchors at a SKIPPED run\'s terminal edge — a long zero-session-plus-decay skip cannot spend its own gap (#17046)', () => {
+        const base = {
+            dreamIntervalMs            : 100000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 0,
+            breathingGapMs             : 60000
+        };
+        const state = {lastRunAt: 1000, lastSuccessAt: null, lastSkippedAt: 200000};
+
+        expect(getDueTask({...base, state, now: 201000})).toBeNull();
+        expect(getDueTask({...base, state, now: 260001})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
     test('breathing gap delays the starvation breaker but never disables it (#17046)', () => {
         const base = {
             dreamIntervalMs            : 3600000,

@@ -109,11 +109,20 @@ export function getDueTask({state, now, dreamIntervalMs, dreamOverflowThreshold,
         return null;
     }
 
-    // Breathing gap: a hard idle floor after the most recent dream activity, ahead of EVERY trigger
-    // source. lastRunAt covers failed/clipped runs, lastSuccessAt covers the completion edge of an
-    // overflowed cycle; whichever is latest anchors the gap. A never-run lane (both null) never holds.
+    // Breathing gap: a hard idle floor after the prior run's TERMINAL edge, ahead of EVERY trigger
+    // source. The anchor must be terminal time, not start time: a failed cycle stamps its end into
+    // lastErrorAt and a skipped cycle into lastSkippedAt (the dream runner records it), while
+    // lastRunAt is stamped at START — anchoring there would let any run that outlasts the gap
+    // re-enter immediately, which on a CPU plane is precisely the long-failure case the gap exists
+    // for. lastRunAt stays a floor participant so a state carrying only a start stamp still holds.
+    // A never-run lane (all null) never holds.
     if (breathingGapMs > 0) {
-        const lastActivityAt = Math.max(toTimestampMs(state?.lastRunAt) ?? 0, toTimestampMs(state?.lastSuccessAt) ?? 0);
+        const lastActivityAt = Math.max(
+            toTimestampMs(state?.lastRunAt)     ?? 0,
+            toTimestampMs(state?.lastSuccessAt) ?? 0,
+            toTimestampMs(state?.lastErrorAt)   ?? 0,
+            toTimestampMs(state?.lastSkippedAt) ?? 0
+        );
 
         if (lastActivityAt > 0 && now - lastActivityAt < breathingGapMs) {
             return null;

@@ -813,8 +813,9 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
     });
 
     test('records skipped Dream outcomes without marking success (#13767)', async () => {
-        const calls    = [];
-        const outcomes = [];
+        const calls      = [];
+        const outcomes   = [];
+        const dreamState = {};
 
         const result = runSchedulingPipeline({
             registry: [
@@ -842,7 +843,7 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
                     }
                 },
                 taskStateService: {
-                    getTaskState: () => null,
+                    getTaskState: () => dreamState,
                     markCompleted(taskName) { calls.push(['markCompleted', taskName]); },
                     markFailed(taskName) { calls.push(['markFailed', taskName]); },
                     markSkipped(taskName) { calls.push(['markSkipped', taskName]); },
@@ -858,6 +859,9 @@ test.describe('orchestrator/scheduling/pipeline (#11862/#11900)', () => {
             ['markStarted', 'dream', 'dream-reason'],
             ['markSkipped', 'dream']
         ]);
+        // The skip's TERMINAL edge is stamped before markSkipped persists — the breathing gap in
+        // dream.mjs anchors on it, so a long skip cannot spend its own gap while running.
+        expect(dreamState.lastSkippedAt).toBe('2026-06-21T12:01:00.000Z');
         expect(outcomes).toEqual([
             {
                 taskName: 'dream',
