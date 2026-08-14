@@ -426,4 +426,74 @@ test.describe('DreamService.executeRemCycle typed outcome contract', () => {
         expect(outcome.status).toBe('skipped');
         expect(outcome.stateWriteError).toContain('overflowThreshold must be a positive number');
     });
+
+    test('a budget-clipped cycle maps to completed + saturated with honest counts, so the backlog catch-up re-queues it (#17046)', async () => {
+        // The lease belongs to the caller and releases when the task returns; what makes the clip safe
+        // is this mapping — proven-remaining work MUST surface as `remBatchSaturated` so the scheduler's
+        // existing catch-up cooldown re-queues the deferred sessions instead of losing them until the
+        // next periodic interval.
+        const originalBatchLimit = MemoryConfig.remSleepBatchLimit;
+        MemoryConfig.remSleepBatchLimit = 10; // count-saturation cannot fire with 3 sessions — saturation must come from the clip alone
+
+        try {
+            DreamService.findUndigestedSessions    = async () => [{}, {}, {}];
+            DreamService.processUndigestedSessions = async options => {
+                expect(options.cycleBudgetMs).toBe(250);
+                return {
+                    perPhaseStates: [{
+                        phase  : 'cycleBudget',
+                        status : 'completed',
+                        details: {reasonCode: 'budget-exhausted', budgetMs: 250, elapsedMs: 260, sessionsDeferred: 2}
+                    }],
+                    perSessionStates : [],
+                    sessionsProcessed: 1,
+                    sessionsDeferred : 2
+                };
+            };
+
+            const outcome = await DreamService.executeRemCycle({
+                reason       : 'unit-test-budget',
+                includeDecay : false,
+                cycleBudgetMs: 250
+            });
+
+            expect(outcome.status).toBe('completed');
+            expect(outcome.reasonCode).toBe('budget-clipped');
+            expect(outcome.sessionsProcessed).toBe(1);
+            expect(outcome.sessionsDeferred).toBe(2);
+            expect(outcome.remBatchSaturated).toBe(true);
+
+            const entry = await readOnlyRunStateEntry();
+            expect(entry.outcome).toBe('completed');
+            expect(entry.reasonCode).toBe('budget-clipped');
+            expect(entry.perPhaseStates.map(phase => phase.phase)).toContain('cycleBudget');
+        } finally {
+            MemoryConfig.remSleepBatchLimit = originalBatchLimit;
+        }
+    });
+
+    test('an unclipped completed cycle keeps reasonCode ok and honest actual counts (#17046)', async () => {
+        const originalBatchLimit = MemoryConfig.remSleepBatchLimit;
+        MemoryConfig.remSleepBatchLimit = 10;
+
+        try {
+            DreamService.findUndigestedSessions    = async () => [{}, {}];
+            DreamService.processUndigestedSessions = async () => ({
+                perPhaseStates   : [],
+                perSessionStates : [],
+                sessionsProcessed: 2,
+                sessionsDeferred : 0
+            });
+
+            const outcome = await DreamService.executeRemCycle({reason: 'unit-test-unclipped', includeDecay: false});
+
+            expect(outcome.status).toBe('completed');
+            expect(outcome.reasonCode).toBe('ok');
+            expect(outcome.sessionsProcessed).toBe(2);
+            expect(outcome.sessionsDeferred).toBe(0);
+            expect(outcome.remBatchSaturated).toBe(false);
+        } finally {
+            MemoryConfig.remSleepBatchLimit = originalBatchLimit;
+        }
+    });
 });

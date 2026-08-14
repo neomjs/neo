@@ -283,4 +283,125 @@ test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
             undigestedBacklog          : 5
         })).toEqual({taskName: 'dream', source: 'rem-starvation-breaker', reason: 'rem-starvation-breaker:10800000'});
     });
+
+    test('breathing gap holds a due periodic trigger within the gap and releases after it (#17046)', () => {
+        const base = {
+            dreamIntervalMs            : 100000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 0,
+            breathingGapMs             : 60000,
+            undigestedBacklog          : 1
+        };
+        const state = {lastRunAt: 800000, lastSuccessAt: 850000}; // runtime 50s ≤ threshold → anchor = lastRunAt
+
+        // Periodic is due (100s since anchor), but the last activity was 50s ago — inside the 60s gap.
+        expect(getDueTask({...base, state, now: 900000})).toBeNull();
+
+        // The same state 11s later crosses the gap; the held trigger fires.
+        expect(getDueTask({...base, state, now: 911000})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
+    test('breathing gap holds the backlog catch-up until the gap elapses (#17046)', () => {
+        const base = {
+            state: {
+                lastRunAt     : 990000,
+                lastSuccessAt : 1000000,
+                lastCompletion: {rem: {batchSaturated: true}}
+            },
+            dreamIntervalMs            : 600000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 30000,
+            breathingGapMs             : 60000,
+            undigestedBacklog          : 5
+        };
+
+        // Catch-up eligible and past its cooldown at 45s idle — the 60s gap still holds it.
+        expect(getDueTask({...base, now: 1045000})).toBeNull();
+
+        // Past the gap the catch-up fires as the source (periodic remains not due).
+        expect(getDueTask({...base, now: 1061000})).toEqual({taskName: 'dream', source: 'rem-backlog-catchup', reason: 'rem-backlog-catchup:30000'});
+    });
+
+    test('breathing gap anchors at the FAILED run\'s terminal edge, not its start (#17046 review falsifier)', () => {
+        // Exact-head falsifier from the Cycle-1 review: a run started at 1s failed at 200s. Only one
+        // second has been idle at 201s — the gap must hold even though the START stamp is 200s stale.
+        // Against the start-anchored implementation this arm goes red (lastRunAt alone "spends" the
+        // gap while the run is still executing).
+        const base = {
+            dreamIntervalMs            : 100000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 0,
+            breathingGapMs             : 60000
+        };
+        const state = {lastRunAt: 1000, lastSuccessAt: null, lastErrorAt: 200000};
+
+        expect(getDueTask({...base, state, now: 201000})).toBeNull();
+
+        // Once a full gap has elapsed since the terminal edge, the held periodic trigger fires.
+        expect(getDueTask({...base, state, now: 260001})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
+    test('breathing gap anchors at a SKIPPED run\'s terminal edge — a long zero-session-plus-decay skip cannot spend its own gap (#17046)', () => {
+        const base = {
+            dreamIntervalMs            : 100000,
+            dreamOverflowThreshold     : 0.8,
+            remBacklogCatchupCooldownMs: 0,
+            breathingGapMs             : 60000
+        };
+        const state = {lastRunAt: 1000, lastSuccessAt: null, lastSkippedAt: 200000};
+
+        expect(getDueTask({...base, state, now: 201000})).toBeNull();
+        expect(getDueTask({...base, state, now: 260001})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
+    test('breathing gap delays the starvation breaker but never disables it (#17046)', () => {
+        const base = {
+            dreamIntervalMs            : 3600000,
+            dreamOverflowThreshold     : 0.5,
+            remBacklogCatchupCooldownMs: 120000,
+            remStarvationBreakerMs     : 10800000,
+            breathingGapMs             : 300000,
+            undigestedBacklog          : 5
+        };
+        const state = {lastRunAt: 14400000 - 180000, lastSuccessAt: null}; // the S4 post-restart shape above
+
+        // The breaker's own bounds pass 3 minutes after the failed run — the 5-minute gap holds.
+        expect(getDueTask({...base, state, now: 14400000})).toBeNull();
+
+        // Past the gap, genuine starvation fires.
+        expect(getDueTask({...base, state, now: 14580000})).toEqual({taskName: 'dream', source: 'rem-starvation-breaker', reason: 'rem-starvation-breaker:10800000'});
+    });
+
+    test('idle-backlog cadence stretches only the periodic interval and only while the backlog is zero (#17046)', () => {
+        const base = {
+            state                       : {lastRunAt: 0},
+            dreamIntervalMs             : 100000,
+            dreamOverflowThreshold      : 0.8,
+            remBacklogCatchupCooldownMs : 0,
+            idleBacklogCadenceMultiplier: 4
+        };
+
+        // Idle plane: base interval elapsed, stretched interval (400s) has not.
+        expect(getDueTask({...base, now: 150000, undigestedBacklog: 0})).toBeNull();
+
+        // Idle plane past the stretched interval: fires with the base-interval reason string.
+        expect(getDueTask({...base, now: 400000, undigestedBacklog: 0})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+
+        // Backlog arrival restores the base cadence on the same evaluation.
+        expect(getDueTask({...base, now: 150000, undigestedBacklog: 2})).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+    });
+
+    test('idle-backlog multiplier is fail-open: nonsensical values behave as 1 (#17046)', () => {
+        for (const idleBacklogCadenceMultiplier of [0, -3, NaN]) {
+            expect(getDueTask({
+                state                      : {lastRunAt: 0},
+                now                        : 100000,
+                dreamIntervalMs            : 100000,
+                dreamOverflowThreshold     : 0.8,
+                remBacklogCatchupCooldownMs: 0,
+                undigestedBacklog          : 0,
+                idleBacklogCadenceMultiplier
+            })).toEqual({taskName: 'dream', source: 'periodic-dream', reason: 'periodic-dream:100000'});
+        }
+    });
 });

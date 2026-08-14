@@ -424,21 +424,33 @@ class DreamService extends Base {
      * reported errors.
      * @param {Object} [options]
      * @param {Function} [options.fetchProviderModelIds=fetchOpenAiCompatibleModelIds] Provider-model discovery seam.
+     * @param {Number} [options.cycleBudgetMs] Wall-clock budget for the session-digest loop; sessions past it
+     * are deferred to the next cycle so the caller-held heavy lease releases at the task boundary. At least one
+     * session is always digested per cycle. Defaults to the `dreamCycleBudgetMs` leaf; `0` disables.
+     * @param {Function} [options.nowFn=Date.now] Clock seam for the budget arithmetic; fixtures inject a
+     * stepping clock while production defaults to `Date.now`.
      */
     async processUndigestedSessions({
-        fetchProviderModelIds = fetchOpenAiCompatibleModelIds
+        fetchProviderModelIds = fetchOpenAiCompatibleModelIds,
+        cycleBudgetMs         = AiConfig.orchestrator.intervals.dreamCycleBudgetMs,
+        nowFn                 = Date.now
     } = {}) {
         if (this.isProcessing) {
             logger.debug('[DreamService] REM pipeline is already running. Skipping trigger.');
             return {
-                perPhaseStates  : [finishPhase('concurrentGuard', Date.now(), 'skipped', {reasonCode: 'already-processing'})],
-                perSessionStates: []
+                perPhaseStates   : [finishPhase('concurrentGuard', Date.now(), 'skipped', {reasonCode: 'already-processing'})],
+                perSessionStates : [],
+                sessionsProcessed: 0,
+                sessionsDeferred : 0
             };
         }
 
         this.isProcessing = true;
-        const perPhaseStates   = [];
-        const perSessionStates = [];
+        const cycleStartedAt    = nowFn();
+        const perPhaseStates    = [];
+        const perSessionStates  = [];
+        let   sessionsProcessed = 0,
+              sessionsDeferred  = 0;
 
         if (aiConfig.graphProvider === 'openAiCompatible') {
             const providerStart = Date.now();
@@ -459,7 +471,7 @@ class DreamService extends Base {
                     provider: aiConfig.graphProvider,
                     error   : toErrorMessage(e)
                 }));
-                return {perPhaseStates, perSessionStates};
+                return {perPhaseStates, perSessionStates, sessionsProcessed: 0, sessionsDeferred: 0};
             }
         }
 
@@ -516,6 +528,24 @@ class DreamService extends Base {
                 }
 
                 for (const session of sessions) {
+                    // Cycle budget: a cooperative clip at the session boundary. The lease belongs to the
+                    // caller and releases when this method returns, so exceeding the budget defers the
+                    // remaining sessions to the next cycle instead of holding the lane for hours — the
+                    // saturated outcome re-queues it through the existing backlog catch-up. The check sits
+                    // AFTER the first session so a tight budget throttles without stalling forward progress.
+                    if (cycleBudgetMs > 0 && sessionsProcessed > 0 && nowFn() - cycleStartedAt >= cycleBudgetMs) {
+                        sessionsDeferred = sessions.length - sessionsProcessed;
+                        perPhaseStates.push(finishPhase('cycleBudget', nowFn(), 'completed', {
+                            reasonCode: 'budget-exhausted',
+                            budgetMs  : cycleBudgetMs,
+                            elapsedMs : nowFn() - cycleStartedAt,
+                            sessionsDeferred
+                        }));
+                        logger.info(`[DreamService] REM cycle budget ${cycleBudgetMs}ms exhausted after ${sessionsProcessed} session(s); deferring ${sessionsDeferred} to the next cycle.`);
+                        break;
+                    }
+
+                    sessionsProcessed++;
                     logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
 
                     const selectedDreamInputRevision = typeof session.meta.dreamInputRevision === 'string'
@@ -861,7 +891,7 @@ class DreamService extends Base {
             }
 
             logger.info('[DreamService] REM pipeline completed.');
-            return {perPhaseStates, perSessionStates};
+            return {perPhaseStates, perSessionStates, sessionsProcessed, sessionsDeferred};
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
             error.remState = {perPhaseStates, perSessionStates};
@@ -899,13 +929,17 @@ class DreamService extends Base {
      * @param {String}  [options.mode='periodic']   `'periodic' | 'manual' | 'cli'`.
      * @param {Boolean} [options.includeDecay=true] When true, runs `GraphService.decayGlobalTopology()` as the cycle-finalization step (24-hour Algorithmic Lock self-skips when not due).
      * @param {Boolean} [options.dryRun=false]      Probe-only mode; short-circuits to `skipped` after the readiness gate passes.
+     * @param {Number}  [options.cycleBudgetMs]     Session-digest wall-clock budget, forwarded to `processUndigestedSessions`; a clipped cycle returns saturated so the backlog catch-up re-queues it. Defaults there to the `dreamCycleBudgetMs` leaf.
+     * @param {Function} [options.nowFn]            Clock seam for the budget arithmetic, forwarded to `processUndigestedSessions`.
      * @returns {Promise<Object>} typed outcome envelope (see status semantics above).
      */
     async executeRemCycle({
         reason,
         mode         = 'periodic',
         includeDecay = true,
-        dryRun       = false
+        dryRun       = false,
+        cycleBudgetMs,
+        nowFn
     } = {}) {
         const startedAtMs      = Date.now();
         const startedAt        = new Date(startedAtMs);
@@ -921,6 +955,7 @@ class DreamService extends Base {
             completedAt      : null,
             durationMs       : null,
             sessionsProcessed: null,
+            sessionsDeferred : null,
             remBatchLimit    : null,
             remBatchSaturated: false,
             diagnostic       : null,
@@ -1076,12 +1111,14 @@ class DreamService extends Base {
         // under the same lease window the caller already holds.
         try {
             const processStart  = Date.now();
-            const processResult = await this.processUndigestedSessions();
+            const processResult = await this.processUndigestedSessions({cycleBudgetMs, nowFn});
             if (Array.isArray(processResult?.perPhaseStates)) {
                 perPhaseStates.push(...processResult.perPhaseStates);
             }
+            const actualSessionsProcessed  = processResult?.sessionsProcessed ?? sessionCount;
+            const sessionsDeferredByBudget = processResult?.sessionsDeferred ?? 0;
             perPhaseStates.push(finishPhase('processUndigestedSessions', processStart, 'completed', {
-                sessionsProcessed: sessionCount
+                sessionsProcessed: actualSessionsProcessed
             }));
             perSessionStates = Array.isArray(processResult?.perSessionStates) ? processResult.perSessionStates : [];
 
@@ -1098,11 +1135,15 @@ class DreamService extends Base {
                 }
             }
 
+            // A budget-clipped cycle reports saturated exactly like a count-clipped one: proven-remaining
+            // backlog routes through the same catch-up cooldown, and the distinct reasonCode keeps the two
+            // clip causes separable in run-state telemetry.
             return await finalize('completed', {
-                reasonCode       : 'ok',
-                sessionsProcessed: sessionCount,
+                reasonCode       : sessionsDeferredByBudget > 0 ? 'budget-clipped' : 'ok',
+                sessionsProcessed: actualSessionsProcessed,
+                sessionsDeferred : sessionsDeferredByBudget,
                 remBatchLimit,
-                remBatchSaturated: remBatchLimit > 0 && sessionCount >= remBatchLimit
+                remBatchSaturated: (remBatchLimit > 0 && sessionCount >= remBatchLimit) || sessionsDeferredByBudget > 0
             });
         } catch (e) {
             if (e.remState) {
