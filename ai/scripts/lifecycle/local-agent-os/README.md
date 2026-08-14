@@ -105,6 +105,15 @@ the same provider-PAT authority as KB/MC and verifies `/app/.neo-ai-data/fleet` 
 the service healthy. Ingress does not depend on Fleet, so omitting the profile leaves `/fleet` at an
 honest `404` while KB/MC remain available.
 
+Fleet admission adds a derived subject on top of that shared authority: every admitted request
+carries an opaque `ownerPrincipal` built from the provider-stable tuple (provider, normalized
+API base URL, provider user id) — never the mutable login — and the probe's `identity` echoes it
+back, which is the quickest way to verify a deployment resolves the subject it will key ownership
+and grants on. Wire verbs are class-split at admission: read-observe verbs serve any
+authenticated caller, lifecycle-write verbs refuse callers without a forge-resolved subject (the
+possession-only local bearer can observe, never mutate). The full contract:
+`learn/agentos/cloud-deployment/ClientAuthentication.md`.
+
 The canonical project is `neo-local-agent-os` unless
 `NEO_LOCAL_AGENT_OS_PROJECT_NAME` explicitly overrides it.
 
