@@ -35,9 +35,23 @@ import {
 }                                                                     from './helpers/kbEmbeddingPoisonStore.mjs';
 import {
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedFailureError,
     classifyEmbedResidencyDisposition
 }                                                                     from './helpers/embedFailureClassification.mjs';
+
+/**
+ * Consecutive call-ceiling expiries per batch-head chunk, keyed by chunk id.
+ *
+ * Process-local ON PURPOSE: a strike is cheap, transient evidence — the durable artifact is the
+ * graduated poison-store disposition, which carries its own generation-keyed invalidation. A daemon
+ * restart therefore re-offers a striking chunk and it pays its strikes again: bounded extra cost,
+ * never a correctness loss, and no second persistence mechanism to keep coherent with the store.
+ * Entries are cleared on any successful persist of the chunk so a recovered lane cannot inherit
+ * stale strikes.
+ * @type {Map<String, Number>}
+ */
+const undeliverableStrikeCounts = new Map();
 
 /**
  * @summary Flattens one chunk into Chroma-storable scalar metadata.
@@ -390,6 +404,14 @@ class VectorService extends Base {
             provider,
             model          : getEmbeddingModel(provider),
             vectorDimension: Number(aiConfig.vectorDimension),
+            // The effective per-call ceiling is part of the evidence conditions: an
+            // undeliverable-at-geometry disposition proven under a 30-minute ceiling is void under a
+            // 60-minute one. Folding it into the generation invalidates ALL suppression evidence on a
+            // ceiling change — including content-poison, which then costs one isolation re-proof
+            // cycle. Correctness over thrift: stale suppression silently withholds documents.
+            embedCallCeilingMs: provider === 'ollama'
+                ? Number(mcConfig.ollama.embeddingTimeoutMs)
+                : Number(mcConfig.openAiCompatible.batchEmbeddingTimeoutMs),
             strategyVersion: EMBEDDING_POISON_STRATEGY_VERSION
         }
     }
@@ -1014,15 +1036,15 @@ class VectorService extends Base {
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
         logger.log('Embedding chunks...');
 
-        const {batchSize, batchDelay, maxRetries} = aiConfig;
-        const guardrail                           = this.resolveEmbeddingGuardrail();
-        const failedBatches                       = [];
-        const poisonedChunks                      = knownPoisonEntries.map(entry => ({...entry}));
-        const poisonIds                           = new Set(poisonedChunks.map(entry => entry.chunkId));
-        const preEmbeddedIds                      = new Set();
-        let   embeddedCount                       = 0;
-        let   skippedCount                        = 0;
-        let   yielded                             = false;
+        const {batchSize, batchDelay, maxRetries, undeliverableTimeoutStrikes} = aiConfig;
+        const guardrail                                                        = this.resolveEmbeddingGuardrail();
+        const failedBatches                                                    = [];
+        const poisonedChunks                                                   = knownPoisonEntries.map(entry => ({...entry}));
+        const poisonIds                                                        = new Set(poisonedChunks.map(entry => entry.chunkId));
+        const preEmbeddedIds                                                   = new Set();
+        let   embeddedCount                                                    = 0;
+        let   skippedCount                                                     = 0;
+        let   yielded                                                          = false;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
             // Cooperative heavy-maintenance-lease yield-point: BETWEEN batches (never before the
@@ -1130,6 +1152,7 @@ class VectorService extends Base {
                 }
 
                 embeddedCount += partialChunks.length;
+                partialChunks.forEach(chunk => undeliverableStrikeCounts.delete(chunk.id));
 
                 return partialChunks.length
             };
@@ -1155,6 +1178,9 @@ class VectorService extends Base {
                     });
 
                     embeddedCount += batchToEmbed.length;
+                    // A persisted chunk clears its strike memory: strikes are evidence about a chunk
+                    // the lane could NOT deliver, and delivery is the falsifier.
+                    batchToEmbed.forEach(chunk => undeliverableStrikeCounts.delete(chunk.id));
                     logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${guardrailSkipped} skipped).`);
                     success = true;
                 } catch (err) {
@@ -1214,6 +1240,35 @@ class VectorService extends Base {
                         providerTimedOut    = embeddings === null && isProviderTimeoutCode(err?.code);
 
                     if (providerCircuitOpen || providerTimedOut) {
+                        // Deterministic-undeliverable classification. One timeout is lane evidence; the
+                        // SAME head chunk expiring its call ceiling on consecutive attempts is an intrinsic
+                        // cost above the ceiling — every further offer buys a full ceiling of head-of-line
+                        // blocking for each chunk and repository queued behind it. On the strike limit the
+                        // chunk graduates to a durable poison-store disposition (generation-keyed, so a
+                        // raised ceiling or changed geometry re-offers it automatically) and is never
+                        // dispatched again. The graduating sweep STILL ends below: the provider is grinding
+                        // the just-abandoned attempt headless, and dispatching the remainder now would queue
+                        // fresh work behind it — the exact hazard the end-sweep rule exists to prevent. The
+                        // NEXT sweep proceeds past the excised chunk on an idle engine.
+                        if (providerTimedOut && batchToEmbed.length > 0) {
+                            const headChunk = batchToEmbed[0];
+                            const strikes   = (undeliverableStrikeCounts.get(headChunk.id) ?? 0) + 1;
+
+                            undeliverableStrikeCounts.set(headChunk.id, strikes);
+
+                            if (strikes >= undeliverableTimeoutStrikes && typeof onPoisonEntries === 'function') {
+                                try {
+                                    await onPoisonEntries([{chunkId: headChunk.id, reasonCode: KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY}]);
+                                    undeliverableStrikeCounts.delete(headChunk.id);
+                                    logger.warn(`[VectorService] Chunk ${headChunk.id} graduated to undeliverable-at-geometry after ${strikes} consecutive call-ceiling expiries; it stops being offered until the embedding generation (provider, model, dimension, call ceiling) changes.`);
+                                } catch (persistError) {
+                                    // Fail-open: a disposition that cannot persist must not suppress provider
+                                    // work — the chunk stays offered and the strikes stay counted.
+                                    logger.warn(`[VectorService] Could not persist the undeliverable disposition for chunk ${headChunk.id} (${persistError.message}); the chunk remains offered.`);
+                                }
+                            }
+                        }
+
                         const disposition = providerCircuitOpen
                             ? 'the run-scoped provider circuit opened before this repository dispatched'
                             : 'one timeout-class provider attempt ended';

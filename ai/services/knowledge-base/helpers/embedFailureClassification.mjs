@@ -73,6 +73,19 @@ export const KB_VECTOR_EMBED_UNCLASSIFIED = 'KB_VECTOR_EMBED_FAILED';
 export const KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN = 'KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN';
 
 /**
+ * @summary Bounded disposition for a chunk whose embed call ceiling expired on consecutive attempts.
+ *
+ * A timeout is lane evidence, not content evidence — but a chunk whose call ceiling fires on EVERY
+ * attempt is deterministically undeliverable at the current geometry (provider, model, dimension,
+ * call ceiling), and each further offer costs a full ceiling of head-of-line blocking for every
+ * chunk and repository queued behind it. The disposition is durable via the poison store and
+ * invalidates with the embedding generation, so a raised ceiling or changed geometry re-offers the
+ * chunk automatically.
+ * @type {String}
+ */
+export const KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY = 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY';
+
+/**
  * @summary The codes our OWN layers raise on the embed path, and the only ones allowed through
  * unchanged.
  *
@@ -90,7 +103,8 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
     'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
     'KB_SYNC_VOLUME_EXCEEDED',
     'KB_TENANT_SPOOF_REJECTED',
-    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN
+    KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
+    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY
 ]));
 
 /**

@@ -371,4 +371,137 @@ test.describe('VectorService.embedChunks — failure-path work conservation (#17
         expect(outcome.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
         expect(spy.calls.upsert).toBe(0);
     });
+
+    test('the SAME head chunk expiring its ceiling twice graduates to undeliverable-at-geometry; the graduating sweep still ends', async () => {
+        const spy = createSpyCollection();
+        // Distinct id prefix: the strike memory is deliberately process-local, so arms must not
+        // share chunk ids or they inherit each other's strikes.
+        const chunks = Array.from({length: 5}, (_, i) => ({
+            id: `grad-${i}`, type: 'guide', name: `g${i}`, content: `graduation body ${i}`
+        }));
+
+        const persisted = [];
+
+        const makeTimeout = () => {
+            const error = new Error('request timed out');
+
+            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            return error
+        };
+
+        TextEmbeddingService.embedTexts = async () => { throw makeTimeout() };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false,
+            onPoisonEntries: async entries => { persisted.push(...entries) }
+        }).then(() => null, error => error);
+
+        // Sweep 1: strike 1 — lane evidence only, nothing persisted, sweep ends.
+        const first = await runSweep();
+        expect(first).toBeInstanceOf(Error);
+        expect(persisted).toHaveLength(0);
+
+        // Sweep 2: strike 2 — the head chunk graduates with the bounded reason code, and the sweep
+        // STILL ends: the provider is grinding the just-abandoned attempt, and dispatching the
+        // remainder now would queue fresh work behind it.
+        const second = await runSweep();
+        expect(second).toBeInstanceOf(Error);
+        expect(second.code, 'the original timeout identity survives graduation').toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(persisted).toEqual([{chunkId: 'grad-0', reasonCode: 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY'}]);
+        expect(spy.calls.upsert, 'graduation persists a disposition, never a vector').toBe(0);
+
+        // Sweep 3 with the graduated chunk excluded (the production filter is the existing
+        // knownPoisonEntries flow): the remainder completes — the head-of-line block is gone.
+        TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
+
+        const third = await KB_VectorService.embedChunks({
+            collection        : spy,
+            chunksToProcess   : chunks,
+            knownPoisonEntries: persisted.map(entry => ({...entry})),
+            shouldYield       : () => false,
+            onPoisonEntries   : async () => {}
+        });
+
+        expect(third.embedded, 'every chunk behind the excised head embeds').toBe(4);
+        expect(spy.upsertedIds).toEqual(['grad-1', 'grad-2', 'grad-3', 'grad-4']);
+        expect(third.poisonedChunks.map(entry => entry.chunkId), 'the census carries the excised chunk').toEqual(['grad-0']);
+    });
+
+    test('a successful persist CLEARS strike memory: timeout/success/timeout never graduates', async () => {
+        const spy    = createSpyCollection();
+        const chunks = Array.from({length: 3}, (_, i) => ({
+            id: `hyg-${i}`, type: 'guide', name: `h${i}`, content: `hygiene body ${i}`
+        }));
+
+        const persisted = [];
+        let   call      = 0;
+
+        TextEmbeddingService.embedTexts = async texts => {
+            call++;
+
+            if (call === 2) return texts.map(() => new Array(384).fill(0));
+
+            const error = new Error('request timed out');
+
+            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            throw error
+        };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false,
+            onPoisonEntries: async entries => { persisted.push(...entries) }
+        }).then(value => value, error => error);
+
+        await runSweep();               // timeout — strike 1 on hyg-0
+        await runSweep();               // success — hyg-0 persists, strikes cleared
+        const third = await runSweep(); // timeout again — strike 1 again, NOT graduation
+
+        expect(third).toBeInstanceOf(Error);
+        expect(persisted, 'delivery is the falsifier: a persisted chunk cannot inherit old strikes').toHaveLength(0);
+    });
+
+    test('a failing disposition writer FAILS OPEN: the original timeout propagates and the chunk stays offered', async () => {
+        const spy    = createSpyCollection();
+        const chunks = Array.from({length: 2}, (_, i) => ({
+            id: `fo-${i}`, type: 'guide', name: `f${i}`, content: `fail-open body ${i}`
+        }));
+
+        TextEmbeddingService.embedTexts = async () => {
+            const error = new Error('request timed out');
+
+            error.code = 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT';
+            throw error
+        };
+
+        const runSweep = () => KB_VectorService.embedChunks({
+            collection     : spy,
+            chunksToProcess: chunks,
+            shouldYield    : () => false,
+            onPoisonEntries: async () => { throw new Error('disposition store unavailable') }
+        }).then(() => null, error => error);
+
+        await runSweep();              // strike 1
+        const second = await runSweep(); // strike 2 — graduation attempted, writer throws
+
+        // The persist failure must neither mask the timeout nor suppress the chunk.
+        expect(second).toBeInstanceOf(Error);
+        expect(second.code).toBe('OPENAI_COMPATIBLE_REQUEST_TIMEOUT');
+        expect(second.message).not.toContain('disposition store unavailable');
+    });
+
+    test('the poison generation carries the effective embed call ceiling, so a ceiling change re-offers suppressed chunks', async () => {
+        const Memory_Config = SDK.Memory_Config;
+        const generation    = KB_VectorService.resolveEmbeddingPoisonGeneration();
+
+        const expectedCeiling = Memory_Config.embeddingProvider === 'ollama'
+            ? Number(Memory_Config.ollama.embeddingTimeoutMs)
+            : Number(Memory_Config.openAiCompatible.batchEmbeddingTimeoutMs);
+
+        expect(generation.embedCallCeilingMs, 'suppression evidence is only valid under the ceiling it was gathered at').toBe(expectedCeiling);
+        expect(Number.isFinite(generation.embedCallCeilingMs)).toBe(true);
+    });
 });
