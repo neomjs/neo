@@ -13,9 +13,10 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
+import {test, expect}          from '@playwright/test';
+import {CallToolRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import Neo                     from '../../../../../../../src/Neo.mjs';
+import * as core               from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
 
 test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
@@ -119,16 +120,97 @@ test.describe('Neo.ai.mcp.server.knowledge-base.Server', () => {
         expect(() => serverInstance.assertPlaneIdentity()).not.toThrow(/\[Server]/);
     });
 
-    test('#12752/#13464: health exemptions expose recovery tools but not retired database lifecycle tools', async () => {
+    test('#12752/#13464/#17066: health exemptions expose recovery tools but not retired database lifecycle tools', async () => {
         const serverInstance = await createServerWithoutBoot();
 
         try {
             const exemptTools = serverInstance.getHealthExemptTools();
 
-            expect(exemptTools).toEqual(['healthcheck', 'get_ingestion_progress', 'list_agent_faqs', 'manage_knowledge_base']);
+            expect(exemptTools).toEqual([
+                'healthcheck',
+                'get_ingestion_progress',
+                'list_agent_faqs',
+                'manage_knowledge_base',
+                'list_documents',
+                'get_deployment_state_snapshot',
+                'inspect_deployment'
+            ]);
             expect(exemptTools).not.toContain('start_database');
             expect(exemptTools).not.toContain('stop_database');
         } finally {
+            serverInstance.destroy();
+        }
+    });
+
+    test('#17066: non-embedding diagnostics bypass an embedder-degraded gate while semantic queries remain gated', async () => {
+        const serverInstance = await createServerWithoutBoot();
+        const handlers       = new Map();
+        const healthCalls    = [];
+        const toolCalls      = [];
+        const degradedError  = new Error([
+            'Knowledge Base is not fully operational:',
+            '  - Knowledge Base embedding probe failed: provider-timeout'
+        ].join('\n'));
+
+        const mcpServer = {
+            server: {
+                setRequestHandler(schema, handler) {
+                    handlers.set(schema, handler);
+                }
+            }
+        };
+        const originalGetToolService   = serverInstance.getToolService;
+        const originalGetHealthService = serverInstance.getHealthService;
+
+        serverInstance.getToolService = () => ({
+            listTools: () => ({tools: [], nextCursor: undefined}),
+            callTool : (name, args) => {
+                toolCalls.push({name, args});
+                return {ok: true, name};
+            }
+        });
+        serverInstance.getHealthService = () => ({
+            ensureHealthy: async () => {
+                healthCalls.push('ensureHealthy');
+                throw degradedError;
+            }
+        });
+
+        serverInstance.setupRequestHandlers(mcpServer);
+
+        try {
+            const callTool = handlers.get(CallToolRequestSchema);
+
+            for (const [name, args] of [
+                ['list_documents',                {limit: 5}],
+                ['get_deployment_state_snapshot', {}],
+                ['inspect_deployment',            {staleAfterMs: 1000}]
+            ]) {
+                const result = await callTool({params: {name, arguments: args}});
+
+                expect(result.isError).toBe(false);
+                expect(result.structuredContent).toEqual({ok: true, name});
+            }
+
+            expect(healthCalls).toEqual([]);
+            expect(toolCalls).toEqual([
+                {name: 'list_documents',                args: {limit: 5}},
+                {name: 'get_deployment_state_snapshot', args: {}},
+                {name: 'inspect_deployment',            args: {staleAfterMs: 1000}}
+            ]);
+
+            for (const name of ['query_documents', 'ask_knowledge_base']) {
+                const result = await callTool({params: {name, arguments: {query: 'q'}}});
+
+                expect(result.isError).toBe(true);
+                expect(result.content[0].text).toContain(`Cannot execute ${name}: Knowledge Base is not fully operational`);
+            }
+
+            expect(healthCalls).toEqual(['ensureHealthy', 'ensureHealthy']);
+            expect(toolCalls).toHaveLength(3);
+        } finally {
+            serverInstance.getToolService   = originalGetToolService;
+            serverInstance.getHealthService = originalGetHealthService;
             serverInstance.destroy();
         }
     });
