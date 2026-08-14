@@ -455,14 +455,17 @@ class ConfigBase extends ConfigProvider {
              * Long-running syncs can overlap a local Chroma restart or recycle. `ChromaManager`
              * consumes these leaves only for transient `ChromaConnectionError` failures while
              * resolving the canonical collection name; not-found and shadow-swap promotion paths
-             * keep their existing handling. `maxAttempts` includes the initial call.
+             * keep their existing handling. `maxAttempts` includes the initial call. The shipped
+             * 15-second horizon is chosen to cover a typical Chroma container restart while remaining
+             * bounded well below the orchestrator's outer 15-minute backup retry spacing. A real
+             * external-plane restart witness remains outstanding.
              * @type {Object}
              */
             collectionResolveRetry: {
-                maxAttempts    : leaf(5,    'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_ATTEMPTS', 'number'),
+                maxAttempts    : leaf(10,   'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_ATTEMPTS', 'number'),
                 initialDelayMs : leaf(500,  'NEO_KB_COLLECTION_RESOLVE_RETRY_INITIAL_DELAY_MS', 'number'),
                 maxDelayMs     : leaf(2000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_DELAY_MS', 'number'),
-                maxTotalDelayMs: leaf(5000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_TOTAL_DELAY_MS', 'number')
+                maxTotalDelayMs: leaf(15000, 'NEO_KB_COLLECTION_RESOLVE_RETRY_MAX_TOTAL_DELAY_MS', 'number')
             },
             /**
              * @summary The Knowledge Base embedding-probe policy. Deployment-tunable, because the

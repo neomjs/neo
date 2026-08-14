@@ -161,6 +161,7 @@ async function assertServedIdentity() {
             'node', 'ai/scripts/diagnostics/mcpHealthcheck.mjs',
             '--url', url,
             '--client-name', `neo-parity-ci-readiness-${service}`,
+            '--expected-status', 'healthy,degraded',
             '--expected-plane-id', projectName,
             '--expected-plane-data-root', PLANE_DATA_ROOT
         ]);

@@ -270,6 +270,28 @@ test.describe('parity profile — volume scoping is the isolation mechanism', ()
         expect(orchestratorEnvironment).not.toContain('NEO_MCP_HEALTHCHECK_TOKEN')
     });
 
+    test('parity served-identity probes accept consumed maintenance degradation', () => {
+        const
+            serverSource      = fs.readFileSync(parityServerPath, 'utf8'),
+            specSource        = fs.readFileSync(paritySpecPath, 'utf8'),
+            commandPattern    = /'ai\/scripts\/diagnostics\/mcpHealthcheck\.mjs',([\s\S]*?)\]\);/g,
+            expectedStatusArg = "'--expected-status', 'healthy,degraded'";
+
+        for (const [label, source, expectedCount] of [
+            ['parity readiness fixture', serverSource, 1],
+            ['parity topology spec', specSource, 3]
+        ]) {
+            const commands = [...source.matchAll(commandPattern)].map(match => match[1]);
+
+            expect(commands, `${label} must retain every served-identity probe`).toHaveLength(expectedCount);
+
+            for (const command of commands) {
+                expect(command, `${label} must treat degraded as alive while preserving identity checks`)
+                    .toContain(expectedStatusArg);
+            }
+        }
+    });
+
     test('the CI overlay inherits placement and cannot override profile-pinned plane leaves', () => {
         const source = fs.readFileSync(parityOverlayPath, 'utf8');
 

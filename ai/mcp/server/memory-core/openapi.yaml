@@ -3426,6 +3426,31 @@ components:
               description: "True only when the backlog is empty. Null when not observable — never inferred from an unreadable WAL."
               example: true
           required: [observable, state, stallThresholdMs, pendingDrainDepth, oldestPendingAgeMs, allWritesSemanticallyQueryable]
+        maintenance:
+          type: object
+          description: "Operator-facing maintenance health projected from the orchestrator deployment-state bridge. A degraded backup verdict degrades this healthcheck; a stale or unavailable bridge observation remains explicit and cannot authorize a current degradation."
+          properties:
+            observationStatus:
+              type: string
+              enum: [available, stale, degraded, unavailable]
+              description: "Freshness/readability status of the deployment-state bridge observation used for this projection."
+            backup:
+              type: object
+              nullable: true
+              description: "Current bounded backup-maintenance verdict, or null when the bridge observation is not current and valid."
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, degraded, pending]
+                reasonCodes:
+                  type: array
+                  items:
+                    type: string
+                staleAfterMs:
+                  type: number
+                  nullable: true
+              required: [status, reasonCodes, staleAfterMs]
+          required: [observationStatus, backup]
         plane:
           type: object
           description: "OBSERVED plane identity — the id/dataRoot THIS process resolved, read from the same per-server config the boot assertion verified (the deployment manifest's observed column). Always present."
