@@ -1,5 +1,6 @@
 import aiConfig                                                 from '../../mcp/server/memory-core/config.mjs';
 import {isCollectionQuarantined}                                from './helpers/quarantineStore.mjs';
+import {resolveRowTimestamp}                                    from './helpers/resolveRowTimestamp.mjs';
 import {resolveSharingPolicy}                                   from './helpers/resolveSharingPolicy.mjs';
 import Base                                                     from '../../../src/core/Base.mjs';
 import StorageRouter                                            from './managers/StorageRouter.mjs';
@@ -131,35 +132,6 @@ class SummaryService extends Base {
     }
 
     /**
-     * @summary Projects a summary row's stored `timestamp` without letting one bad row fail the call.
-     *
-     * `Date#toISOString()` raises `RangeError: Invalid time value` on an Invalid Date, and both result
-     * projections call it once per row *inside* the result map — where the surrounding method-level
-     * `catch` escalated a single row's defect into a whole-call `SUMMARY_QUERY_ERROR`, discarding every
-     * well-formed co-resident row. The query path reaches far more rows than its `nResults` suggests
-     * (`StorageRouter.injectQueryReRanker` widens Pass 1 to `nResults * 3`, and `querySummaries` widens
-     * again for additive-policy reads), so a single unparseable row took the whole surface down.
-     *
-     * The row is preserved with a `null` timestamp and counted by the caller, never dropped: a silent
-     * skip would convert a visible outage into invisible under-retrieval, which is strictly harder to
-     * detect than the failure it replaces. Absent and unparseable collapse to the same outcome
-     * deliberately; neither is projectable, and distinguishing them would imply a guarantee the stored
-     * metadata cannot make.
-     *
-     * Note the asymmetry with `null`: `new Date(null)` is epoch 0, not an Invalid Date, so a
-     * null-valued timestamp projects as 1970 rather than being counted here. That is pre-existing
-     * behavior, preserved deliberately — narrowing it would change output for already-stored rows.
-     *
-     * @param {Object} metadata Chroma summary metadata row.
-     * @returns {String|null} ISO-8601 timestamp, or `null` when the stored value is absent/unparseable.
-     */
-    static resolveSummaryTimestamp(metadata) {
-        const parsed = new Date(metadata?.timestamp);
-
-        return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-    }
-
-    /**
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -228,7 +200,7 @@ class SummaryService extends Base {
      * @returns {Promise<{count: Number, total: Number, summaries: Object[], malformedTimestamps: (Number|undefined)}>}
      *   A row whose stored `timestamp` is absent or unparseable is returned with `timestamp: null` and
      *   counted in `malformedTimestamps` rather than failing the call — see
-     *   {@link SummaryService.resolveSummaryTimestamp}. `malformedTimestamps` is omitted when zero.
+     *   {@link module:ai/services/memory-core/helpers/resolveRowTimestamp~resolveRowTimestamp}. `malformedTimestamps` is omitted when zero.
      */
     async listSummaries({limit=50, offset=0, agentIdentity, category} = {}) {
         // Resolve the optional author-identity scope BEFORE the storage try/catch: a fail-closed
@@ -358,7 +330,7 @@ class SummaryService extends Base {
                 const metadata   = data.metadata;
                 const document   = data.document;
                 const techSource = metadata.technologies || '';
-                const timestamp  = this.constructor.resolveSummaryTimestamp(metadata);
+                const timestamp  = resolveRowTimestamp(metadata);
 
                 if (timestamp === null) {
                     malformedTimestamps++;
@@ -414,7 +386,7 @@ class SummaryService extends Base {
      * @returns {Promise<{query: String, count: Number, results: Object[], malformedTimestamps: (Number|undefined)}>}
      *   A row whose stored `timestamp` is absent or unparseable is returned with `timestamp: null` and
      *   counted in `malformedTimestamps` rather than failing the call — see
-     *   {@link SummaryService.resolveSummaryTimestamp}. `malformedTimestamps` is omitted when zero.
+     *   {@link module:ai/services/memory-core/helpers/resolveRowTimestamp~resolveRowTimestamp}. `malformedTimestamps` is omitted when zero.
      */
     async querySummaries({query, nResults, category, memorySharing, minTrustTier}) {
         try {
@@ -524,7 +496,7 @@ class SummaryService extends Base {
                 const distance       = Number(distances[index] ?? 0);
                 const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
                 const techSource     = metadata.technologies || '';
-                const timestamp      = this.constructor.resolveSummaryTimestamp(metadata);
+                const timestamp      = resolveRowTimestamp(metadata);
 
                 if (timestamp === null) {
                     malformedTimestamps++;
