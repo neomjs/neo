@@ -124,11 +124,25 @@ class Server extends BaseServer {
     getHeapObservationServiceKey() { return 'kb-server' }
 
     /**
-     * @summary Tools allowed without the healthcheck gate.
+     * @summary Tools allowed without the aggregate health gate.
+     *
+     * Recovery reads stay available when only the embedding provider is degraded. The deployment
+     * snapshot readers touch one orchestrator-written file, while `list_documents` performs a
+     * tenant-scoped Chroma metadata/document read; none embeds request input. Their own storage
+     * failures still surface from the handlers. Semantic queries remain gated because they require
+     * a live embedding provider to serve a result.
      * @returns {Array<String>}
      */
     getHealthExemptTools() {
-        return ['healthcheck', 'get_ingestion_progress', 'list_agent_faqs', 'manage_knowledge_base'];
+        return [
+            'healthcheck',
+            'get_ingestion_progress',
+            'list_agent_faqs',
+            'manage_knowledge_base',
+            'list_documents',
+            'get_deployment_state_snapshot',
+            'inspect_deployment'
+        ];
     }
 
     /**
