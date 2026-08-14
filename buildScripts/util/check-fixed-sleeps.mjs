@@ -42,7 +42,26 @@
  * `out-waits:` is the one that pays forward — it names a leaf candidate, and a constant named here is a
  * constant somebody can make injectable.
  *
- * ## Baseline
+ * ## The baseline is annotation debt. It is NOT a wall-clock metric.
+ *
+ * This guard reports two numbers with opposite meanings, and conflating them would defeat it.
+ *
+ * **Baseline** counts waits nobody has accounted for. It should reach zero.
+ *
+ * **Backlog** counts `out-waits:` sites — waits that ARE accounted for and are *still being paid*,
+ * because the constant they name is still hardcoded. Its rising is a finding, not a failure.
+ *
+ * The trap, found by the author of the largest affected spec while reviewing this guard: every one of
+ * her 83 sites would **truthfully** earn `out-waits: POLL_INTERVAL_MS`. Annotating all of them is the
+ * correct local action and it drives the baseline to zero **while recovering zero wall clock**. A
+ * burndown that completes without the suite getting one millisecond faster is exactly the
+ * metric-moves-goal-doesn't shape this guard exists to prevent, reappearing inside the guard itself.
+ *
+ * So: a zeroed baseline means every wait is *explained*. It does not mean the suite is fast. Anything
+ * reading it as a speed metric is reading the wrong number — which is why both counts print together
+ * on success, rather than this paragraph being the only place the distinction lives.
+ *
+ * ## Baseline mechanics
  *
  * Pre-existing sites are grandfathered per-site in `check-fixed-sleeps-baseline.json`. A baseline row
  * whose site no longer matches **also fails**: the baseline may only shrink, and it cannot outlive the
@@ -93,8 +112,9 @@ function collectSpecs(dir, out = []) {
  */
 export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
     const
-        specs = files || collectSpecs(path.join(rootDir, SCAN_ROOT)),
-        found = [];
+        specs   = files || collectSpecs(path.join(rootDir, SCAN_ROOT)),
+        backlog = [],
+        found   = [];
 
     for (const abs of specs) {
         const lines = fs.readFileSync(abs, 'utf8').split('\n');
@@ -106,6 +126,19 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
 
             const context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
 
+            // An `out-waits:` site is DISCHARGED here and simultaneously recorded as backlog. Both
+            // are true at once and the distinction is the whole point: the wait is now accounted for,
+            // and the constant it names is still hardcoded, so the wall clock is still being paid.
+            if (context.includes('out-waits:')) {
+                backlog.push({
+                    file: path.relative(rootDir, abs).replaceAll('\\', '/'),
+                    line: index + 1,
+                    ms  : Number(match[1])
+                });
+
+                return
+            }
+
             if (JUSTIFICATIONS.some(marker => context.includes(marker))) return;
 
             found.push({
@@ -116,6 +149,8 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             })
         })
     }
+
+    found.backlog = backlog;
 
     return found
 }
@@ -145,8 +180,22 @@ const
     found          = findUnjustifiedSleeps({}),
     {fresh, stale} = reconcile({found, baseline});
 
+const backlogMs = (found.backlog || []).reduce((sum, row) => sum + row.ms, 0);
+
 if (fresh.length === 0 && stale.length === 0) {
-    console.log(`check-fixed-sleeps: OK — ${found.length} baselined site(s), 0 new, 0 stale.`);
+    console.log(`check-fixed-sleeps: OK — ${found.length} unaccounted site(s) baselined, 0 new, 0 stale.`);
+
+    // TWO numbers, opposite meanings, printed together because a reader consumes the printed line and
+    // not the docstring. The baseline measures ANNOTATION DEBT and should reach zero. The backlog
+    // measures WALL CLOCK STILL BEING PAID and reaching zero is a different, harder thing: every
+    // `out-waits:` site can be annotated truthfully, emptying the baseline, without the suite getting
+    // one millisecond faster. A zeroed baseline means every wait is accounted for. It does NOT mean
+    // the suite is fast, and anything reading it as a speed metric is reading the wrong number.
+    if (found.backlog?.length) {
+        console.log(`check-fixed-sleeps: ${found.backlog.length} site(s) carry \`out-waits:\` — ~${(backlogMs / 1000).toFixed(1)}s of wall clock still paid to hardcoded constants.`);
+        console.log('  This is a LEAF-CANDIDATE BACKLOG, not a failure. It rising is a finding; it falling means a constant became injectable.')
+    }
+
     process.exit(0)
 }
 
