@@ -239,6 +239,27 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
                             embedding: [requestCount, index]
                         })).reverse()
                     }));
+                } else if (serverBehavior === 'chunk-succeeds-then-dies') {
+                    // Chunk 1 embeds normally (dense, per-input indexed); every later request fails with
+                    // a non-retryable provider error — the failure-carry producer shape.
+                    if (requestCount === 1) {
+                        const inputs = lastRequest.body.input;
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({data: inputs.map((_, index) => ({index, embedding: [100 + index]}))}));
+                        return;
+                    }
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Some other bad request error' }));
+                } else if (serverBehavior === 'sparse-chunk-then-dies') {
+                    // Chunk 1 "succeeds" SPARSE (one vector for two inputs) — poisoning the accumulated
+                    // prefix — then the next request fails. The carry must refuse to decorate.
+                    if (requestCount === 1) {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({data: [{index: 0, embedding: [100]}]}));
+                        return;
+                    }
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Some other bad request error' }));
                 } else if (serverBehavior === 'qos-priority') {
                     inFlightRequests++;
                     maxInFlightRequests = Math.max(maxInFlightRequests, inFlightRequests);
@@ -796,6 +817,44 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
 
         expect(hookCalls.length, 'the deferred hook still received the timeout').toBeGreaterThanOrEqual(1);
         expect(requestCount, 'queue-level abort removal alone keeps B at zero calls here').toBe(1);
+    });
+
+    test('a mid-batch provider failure carries the completed prefix on the ORIGINAL error (#17112)', async () => {
+        serverBehavior = 'chunk-succeeds-then-dies';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+        aiConfig.openAiCompatible.unloadRetryCount        = 0; // a non-retryable failure needs no ladder
+
+        const outcome = await TextEmbeddingService.embedTexts(['t0', 't1', 't2', 't3'], 'openAiCompatible')
+            .then(() => null, error => error);
+
+        // The original identity survives — the caller's timeout/circuit classification reads it.
+        expect(outcome).toBeInstanceOf(Error);
+        expect(outcome.message).toContain('Some other bad request error');
+
+        // The carry contract: derived from what was SENT (1 completed chunk × width 2), vectors in
+        // input order. Discarding these is what re-purchased completed provider work on every retry.
+        expect(outcome.completedChunkCount).toBe(1);
+        expect(outcome.totalChunkCount).toBe(2);
+        expect(outcome.completedTextCount).toBe(2);
+        expect(outcome.embeddings).toEqual([[100], [101]]);
+    });
+
+    test('a prefix that cannot prove positional binding leaves the failure UNCARRIED (#17112)', async () => {
+        serverBehavior = 'sparse-chunk-then-dies';
+        aiConfig.openAiCompatible.batchEmbeddingChunkSize = 2;
+        aiConfig.openAiCompatible.unloadRetryCount        = 0;
+
+        const outcome = await TextEmbeddingService.embedTexts(['t0', 't1', 't2', 't3'], 'openAiCompatible')
+            .then(() => null, error => error);
+
+        // The sparse chunk-1 response (one vector for two inputs) means the accumulated data cannot
+        // satisfy the positional-binding guard. Decorating anyway would hand the consumer a payload
+        // it will slice onto wrong ids; the failure must travel with the original identity and
+        // NO carry fields.
+        expect(outcome).toBeInstanceOf(Error);
+        expect(outcome.message).toContain('Some other bad request error');
+        expect(outcome.completedTextCount).toBeUndefined();
+        expect(outcome.embeddings).toBeUndefined();
     });
 
     test('batch embeddings split large requests into yieldable chunks and preserve global ordering', async () => {

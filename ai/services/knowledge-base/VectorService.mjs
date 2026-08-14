@@ -1071,8 +1071,14 @@ class VectorService extends Base {
                 continue;
             }
 
-            const batchToEmbed = embeddable.map(input => input.chunk);
-            const textsToEmbed = embeddable.map(input => input.text);
+            // `let`, not `const`: the failure-carry arm below persists a completed prefix and shrinks
+            // both arrays to the un-persisted remainder, so a retry cannot re-purchase carried vectors.
+            let batchToEmbed = embeddable.map(input => input.chunk);
+            let textsToEmbed = embeddable.map(input => input.text);
+
+            // Captured before any failure-carry shrink: after a shrink, deriving this from
+            // `batchToEmbed.length` would report persisted work as "skipped" in the success log.
+            const guardrailSkipped = batch.length - batchToEmbed.length;
 
             let retries   = 0;
             let success   = false;
@@ -1111,7 +1117,7 @@ class VectorService extends Base {
                     });
 
                     embeddedCount += batchToEmbed.length;
-                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${batch.length - batchToEmbed.length} skipped).`);
+                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)} (${batchToEmbed.length} embedded, ${guardrailSkipped} skipped).`);
                     success = true;
                 } catch (err) {
                     // A cooperative yield is a DECISION, not a failure. Falling through to the retry arm would
@@ -1149,6 +1155,38 @@ class VectorService extends Base {
 
                         logger.log(`Yielding the heavy-maintenance lease inside batch ${i / batchSize + 1} after ${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s); ${carried.length} partial embedding(s) persisted (${embeddedCount} embedded total). This batch is not retried; the next sweep resumes after the persisted prefix.`);
                         break;
+                    }
+
+                    // Work conservation on the failure path: a mid-batch provider failure may
+                    // carry the completed prefix under the same contract the yield error declares —
+                    // positional binding validated by the producer, count derived from what was SENT.
+                    // Persist it BEFORE the timeout classification ends the sweep and BEFORE the retry
+                    // arm re-runs the batch: a carried prefix the sweep discards is re-purchased on every
+                    // later attempt, which on a slow lane is the difference between a corpus that grows
+                    // and one that burns full compute forever at a constant count. The batch then shrinks
+                    // to the un-persisted remainder so a retry buys only what is actually missing. Same
+                    // refuse-loudly guard as the yield arm: a payload disagreeing with its stated count
+                    // would bind vectors to wrong ids if sliced positionally.
+                    if (embeddings === null && Number.isInteger(err?.completedTextCount) && err.completedTextCount > 0) {
+                        const carried = err.embeddings || [];
+
+                        if (carried.length !== err.completedTextCount) {
+                            throw new Error(`Failed batch ${i / batchSize + 1} carried ${carried.length} embedding(s) for ${err.completedTextCount} completed input(s); refusing to bind vectors to chunk ids by position.`);
+                        }
+
+                        const partialChunks = batchToEmbed.slice(0, carried.length);
+
+                        await collection.upsert({
+                            ids       : partialChunks.map(chunk => chunk.id),
+                            embeddings: carried,
+                            metadatas : partialChunks.map(chunk => buildChunkMetadata(chunk))
+                        });
+
+                        embeddedCount += partialChunks.length;
+                        batchToEmbed   = batchToEmbed.slice(carried.length);
+                        textsToEmbed   = textsToEmbed.slice(carried.length);
+
+                        logger.log(`Persisted ${partialChunks.length} carried embedding(s) from failed batch ${i / batchSize + 1} (${err.completedChunkCount}/${err.totalChunkCount} provider chunk(s) completed before the failure); ${batchToEmbed.length} chunk(s) remain for the retry or a later sweep.`);
                     }
 
                     // A provider timeout is evidence that OUR wait ended, not that the provider work did.
