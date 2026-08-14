@@ -1320,8 +1320,10 @@ class ConfigBase extends ConfigProvider {
                     // misbehaving system's observations bound the wrong quantity.
                     fairnessYieldAfterMs: leaf(30 * 60 * 1000, 'NEO_HEAVY_MAINTENANCE_LEASE_FAIRNESS_YIELD_MS', 'number'),
                     /**
-                     * Starvation bound for the HEALTH surface — the backstop above
-                     * `fairnessYieldAfterMs`: fairness yields the lease at that bound, so a live
+                     * Starvation bound for the HEALTH surface — sized above `fairnessYieldAfterMs`
+                     * BY DEFAULT (1h vs 30min; the relationship is advisory, not enforced — an
+                     * operator who inverts them gets degrade-before-yield, which is noisier but
+                     * never unsafe): fairness yields the lease at that bound, so a live
                      * waiter still deferred past THIS one means fairness itself failed, and the
                      * orchestrator health surface degrades with a receipt naming the waiter, its
                      * class, `deferredSince`, and the current lease holder — instead of leaving

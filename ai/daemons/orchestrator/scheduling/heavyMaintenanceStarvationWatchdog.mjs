@@ -14,9 +14,13 @@
  *
  * - **Read-only.** It only READS the waiter ledger and the lease file; it never registers, clears,
  *   acquires, or influences admission — the fairness gate owns scheduling.
- * - **Never-fail.** The ledger read is fail-open by construction (unreadable entries are reported,
- *   never thrown); the evaluator treats them as a logged warning, and the pipeline runner wraps the
- *   whole check so a watchdog fault degrades to "no degradation", never a thrown error.
+ * - **Never-fail, never falsely green.** The ledger read is fail-open by construction (unreadable
+ *   entries are reported, never thrown); an unreadable reading with no readable breach — or a
+ *   watchdog fault — resolves to the `unknown` posture, which neither degrades health nor asserts
+ *   it: inconclusive is a first-class verdict, not a default to green. Readable breaches beside
+ *   unreadable noise still degrade. Waiter freshness reads the ADMISSION authority
+ *   (`WAITER_ENTRY_STALE_AFTER_MS`), so health expires a dead waiter on the same clock the
+ *   fairness gate does.
  * - **No latched red.** Unlike the stall watchdogs' one-shot alarm latch, the degrade is recomputed
  *   from the live ledger on every check: a waiter that acquires (its entry is cleared) or whose
  *   entry expires past the ledger TTL drops out of the reading, and health returns to green on the

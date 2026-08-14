@@ -12,12 +12,13 @@ const CURRENT_SNAPSHOT_SECTIONS = [
     'recoveryRuns',
     'selfHeal',
     'tenantRepoSync',
-    'maintenance'
+    'maintenance',
+    'heavyMaintenanceStarvation'
 ];
 
 // Additive schema-compatible sections: produced when present, tolerated absent in older snapshots
 // (a snapshot predating the section's introduction stays valid, never degraded for its absence).
-const ADDITIVE_SNAPSHOT_SECTIONS = ['maintenance'];
+const ADDITIVE_SNAPSHOT_SECTIONS = ['maintenance', 'heavyMaintenanceStarvation'];
 
 const CURRENT_PRODUCER_METADATA = Object.freeze({
     name         : 'orchestrator-deployment-state-bridge',
@@ -40,6 +41,10 @@ const CURRENT_PRODUCER_METADATA = Object.freeze({
  * @param {Object|null} [options.recoveryRuns=null] Bounded recovery-run ledger snapshot.
  * @param {Object|null} [options.selfHeal=null] Bounded self-heal immune-system status (heal-ledger summary + recent events).
  * @param {Object|null} [options.tenantRepoSync=null] Bounded tenant-repo-sync scheduler/task/config snapshot.
+ * @param {Object|null} [options.heavyMaintenanceStarvation=null] Bounded heavy-maintenance starvation verdict
+ * (four-posture receipt from the starvation watchdog: `posture`, `checkedAt`, `degradeAfterMs`, `waiterCount`,
+ * `unreadableCount`, `leaseHolder`, `breaches[]`); additive/tolerated-absent, consumed by the Memory Core
+ * aggregate-health fold, which degrades only on a FRESH `degraded` posture.
  * @param {Object} [options.producer=CURRENT_PRODUCER_METADATA] Bounded snapshot producer metadata.
  * @returns {Object}
  */

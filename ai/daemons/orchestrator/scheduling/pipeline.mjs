@@ -6,6 +6,7 @@ import {evaluateWaiterStarvation}                              from './heavyMain
 import {classifyBootFreshness}                                 from '../services/bootIdentityFreshness.mjs';
 import {listActiveWaitersSync}                                 from '../services/heavyMaintenanceWaiterLedger.mjs';
 import {inspectHeavyMaintenanceLeaseSync}                      from '../services/heavyMaintenanceLeasePrimitives.mjs';
+import {WAITER_ENTRY_STALE_AFTER_MS}                           from '../services/MaintenanceBackpressureService.mjs';
 
 /**
  * Tasks that win the per-poll pick unconditionally when due. `backup` is data-safety:
@@ -186,7 +187,6 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
             remConsolidationWatchdogRunStateDir     : orchestrator.remConsolidationWatchdogRunStateDir,
             remConsolidationWatchdogThresholdMs     : orchestrator.remConsolidationWatchdogThresholdMs,
             remConsolidationWatchdogAlarmEnabled    : config.orchestrator.intervals.dreamMs > 0,
-            heavyMaintenanceLeaseStaleAfterMs       : orchestrator.heavyMaintenanceLeaseStaleAfterMs,
             heavyMaintenanceStarvationDegradeAfterMs: orchestrator.heavyMaintenanceStarvationDegradeAfterMs,
             writeLog                                : orchestrator.writeLog.bind(orchestrator)
         }
@@ -254,6 +254,28 @@ export function runSchedulingPipeline({registry, context, services, runtime}) {
             activeHeavyTask: {
                 name: services.maintenanceBackpressureService.getActiveHeavyMaintenanceTask({
                     candidateTaskName: winner.taskName
+                })
+            },
+            services,
+            runtime
+        });
+    }
+
+    // Health-check lanes are read-only, lease-free, and self-cadenced (their own getDueTask gates
+    // re-runs), so every DUE one dispatches alongside the winner instead of competing for the single
+    // per-poll slot. Without this, a perpetually-due priority-zero task — a backup held behind an
+    // out-of-process lease, exactly the starved state the starvation watchdog exists to report —
+    // wins every poll and silences every monitor. Heavy-task admission semantics are untouched: the
+    // winner path above is unchanged, and these dispatches acquire no lease and defer to nothing.
+    for (const candidate of candidates) {
+        if (candidate.descriptor?.executionKind !== 'health-check') continue;
+        if (winner && candidate.taskName === winner.taskName) continue;
+
+        executeCandidate({
+            candidate,
+            activeHeavyTask: {
+                name: services.maintenanceBackpressureService.getActiveHeavyMaintenanceTask({
+                    candidateTaskName: candidate.taskName
                 })
             },
             services,
@@ -718,21 +740,22 @@ function executeHealthCheckCandidate({candidate, services, runtime}) {
  * degrades the health surface while any live waiter's deferral streak exceeds the configured bound.
  * Never throws.
  *
- * Health posture: PASSIVE record every check — `failed` while any breach exists (carrying
- * the receipt: each starved waiter's name, class, `deferredSince`, and the current lease holder),
- * `completed` otherwise. No latch: the reading is recomputed from the live ledger, so a waiter that
- * acquires (entry cleared by `clearWaiterSync`) or expires (past the ledger TTL) drops the degrade on
- * the next check by construction. A corrupt ledger fails OPEN to green — unreadable entries are
- * skipped with a logged warning (they are already surfaced, never thrown, by `listActiveWaitersSync`),
- * matching the admission gate's fail-open posture.
+ * Verdict per check, four postures, no latch: the reading is recomputed from the live ledger, so a
+ * waiter that acquires (entry cleared by `clearWaiterSync`) or whose heartbeat expires past the
+ * ADMISSION freshness bound (`WAITER_ENTRY_STALE_AFTER_MS` — the same authority the fairness gate
+ * reads, never the lease holder's 6h TTL) drops out on the next check by construction. Outcome
+ * mapping: `degraded` → failed record with the receipt (each starved waiter's name, class,
+ * `deferredSince`, the current lease holder); `unknown` (unreadable entries beside no readable
+ * breach, or a watchdog fault) → skipped record — inconclusive is neither green nor red, and it
+ * never authorizes degradation; `healthy` / `disabled` → completed record.
  *
  * @param {Object} options
  * @param {String} options.taskName
  * @param {String} options.reason Scheduling reason.
  * @param {Object} options.services Runtime collaborators (`taskStateService`, `healthService`,
- *   `maintenanceBackpressureService` for the lease-path resolution).
- * @param {Object} options.runtime Runtime policy values (`heavyMaintenanceLeaseStaleAfterMs`,
- *   `heavyMaintenanceStarvationDegradeAfterMs`, `writeLog`).
+ *   `maintenanceBackpressureService` for the lease-path resolution via its canonical
+ *   `resolveHeavyMaintenanceLeasePath()`).
+ * @param {Object} options.runtime Runtime policy values (`heavyMaintenanceStarvationDegradeAfterMs`, `writeLog`).
  * @returns {Promise<void>}
  */
 async function runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, services, runtime}) {
@@ -741,11 +764,15 @@ async function runHeavyMaintenanceStarvationWatchdogTask({taskName, reason, serv
         services.healthService?.recordTaskOutcome?.(taskName, 'running', {reason, startedAt: new Date().toISOString()});
 
         const now       = Date.now();
-        const leasePath = services.maintenanceBackpressureService.resolveLeasePath();
+        const leasePath = services.maintenanceBackpressureService.resolveHeavyMaintenanceLeasePath();
 
+        // Freshness authority is the ADMISSION one: WAITER_ENTRY_STALE_AFTER_MS (10min heartbeat
+        // bound), never the lease holder's 6h TTL — health must expire a dead waiter on the same
+        // clock admission does, or a corpse the fairness gate already ignores holds health red for
+        // hours while no starvation exists.
         const ledgerReading = listActiveWaitersSync({
             leasePath,
-            staleAfterMs: runtime.heavyMaintenanceLeaseStaleAfterMs,
+            staleAfterMs: WAITER_ENTRY_STALE_AFTER_MS,
             now
         });
 

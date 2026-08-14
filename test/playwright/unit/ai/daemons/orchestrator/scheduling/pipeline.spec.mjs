@@ -1155,63 +1155,82 @@ test.describe('orchestrator/scheduling/pipeline — data-integrity-sweep never-f
 });
 
 test.describe('orchestrator/scheduling/pipeline — heavy-maintenance starvation watchdog runner (#17049)', () => {
-    test('persists the verdict on the task-state envelope through healthy → degraded → healthy, over the REAL ledger', async () => {
+    test('production composition: REAL collaborators over a REAL ledger — healthy → degraded → expiry-cleared on the admission clock, verdict terminally persisted', async () => {
         const fs   = (await import('fs')).default;
         const os   = (await import('os')).default;
         const path = (await import('path')).default;
 
+        // Real production classes — the first review cycle stubbed an invented collaborator method
+        // (resolveLeasePath) that exists only as a module-import alias in production; this arm
+        // crosses the REAL API surface so a symbol drift fails here, not on a deployed plane.
+        await import('../../../../../../../src/Neo.mjs');
+        await import('../../../../../../../src/core/_export.mjs');
+        const Neo                            = (await import('../../../../../../../src/Neo.mjs')).default;
+        const MaintenanceBackpressureService = (await import('../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs')).default;
+        const TaskStateService               = (await import('../../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs')).default;
+
         const dir        = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-starvation-watchdog-'));
         const leasePath  = path.join(dir, 'heavy-maintenance.lease');
         const waitersDir = path.join(dir, 'heavy-maintenance-waiters');
+        const stateFile  = path.join(dir, 'task-state.json');
         fs.mkdirSync(waitersDir, {recursive: true});
 
-        const watchdogState = {};
-        const outcomes      = [];
+        const backpressure = Neo.create(MaintenanceBackpressureService, {
+            heavyMaintenanceLeasePath: leasePath,
+            taskStateService         : TaskStateService
+        });
 
-        const drive = () => {
-            const result = runSchedulingPipeline({
-                registry: [
-                    makeCandidateDescriptor({
-                        taskName        : 'heavy-maintenance-starvation-watchdog',
-                        executionKind   : 'health-check',
-                        maintenanceClass: 'health-monitor'
-                    })
-                ],
-                context : makeContext(),
-                services: makeServices({
-                    healthService: {
-                        recordTaskOutcome(taskName, status, details) {
-                            if (status !== 'running') outcomes.push({status, posture: details?.posture});
-                        }
-                    },
-                    maintenanceBackpressureService: {
-                        resolveLeasePath             : () => leasePath,
-                        getActiveHeavyMaintenanceTask: () => null
-                    },
-                    taskStateService: {
-                        getTaskState : () => watchdogState,
-                        markCompleted() {},
-                        markFailed() {},
-                        markSkipped() {},
-                        markStarted() {}
-                    }
-                }),
-                runtime: makeRuntime({
-                    heavyMaintenanceLeaseStaleAfterMs       : 6 * 60 * 60 * 1000,
-                    heavyMaintenanceStarvationDegradeAfterMs: 60 * 60 * 1000
-                })
-            });
-
-            return result.executed;
+        const originals = {
+            stateFile      : TaskStateService.stateFile,
+            taskDefinitions: TaskStateService.taskDefinitions,
+            taskState      : TaskStateService.taskState,
+            writeLogFn     : TaskStateService.writeLogFn
         };
 
-        try {
-            // Healthy: an empty ledger.
-            await drive();
-            expect(watchdogState.starvation).toMatchObject({posture: 'healthy', waiterCount: 0, breaches: []});
+        const outcomes = [];
+        const drive    = () => runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'heavy-maintenance-starvation-watchdog',
+                    executionKind   : 'health-check',
+                    maintenanceClass: 'health-monitor'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        if (status !== 'running') outcomes.push({status, posture: details?.posture});
+                    }
+                },
+                maintenanceBackpressureService: backpressure,
+                taskStateService              : TaskStateService
+            }),
+            runtime: makeRuntime({heavyMaintenanceStarvationDegradeAfterMs: 60 * 60 * 1000})
+        }).executed;
 
-            // Degraded: a live waiter deferred two hours against a one-hour bound. No lease file
-            // exists, so the receipt's holder is honestly null rather than fabricated.
+        try {
+            TaskStateService.configure({
+                stateFile,
+                taskDefinitions: {
+                    'heavy-maintenance-starvation-watchdog': {
+                        label          : 'Heavy-maintenance starvation watchdog',
+                        pidFileName    : 'heavy-maintenance-starvation-watchdog.pid',
+                        expectedCommand: 'HeavyMaintenanceStarvationWatchdog',
+                        serviceTask    : true
+                    }
+                },
+                writeLogFn: () => {}
+            });
+
+            // Healthy: an empty real ledger through the real lease-path resolution.
+            await drive();
+            expect(TaskStateService.getTaskState('heavy-maintenance-starvation-watchdog').starvation).toMatchObject({
+                posture    : 'healthy',
+                waiterCount: 0
+            });
+
+            // Degraded: a live waiter (fresh heartbeat) deferred two hours against the one-hour bound.
             fs.writeFileSync(path.join(waitersDir, 'backup.json'), JSON.stringify({
                 taskName         : 'backup',
                 priorityZero     : true,
@@ -1221,19 +1240,99 @@ test.describe('orchestrator/scheduling/pipeline — heavy-maintenance starvation
                 pid              : 999999
             }));
             await drive();
-            expect(watchdogState.starvation.posture).toBe('degraded');
-            expect(watchdogState.starvation.breaches[0]).toMatchObject({taskName: 'backup', priorityZero: true, leaseHolder: null});
 
-            // Healthy again: the waiter acquired (entry cleared) — the verdict is recomputed from the
-            // live ledger, so no latch survives and no clear-logic exists to forget.
-            fs.rmSync(path.join(waitersDir, 'backup.json'));
+            // Terminal persistence: the verdict must be readable from the REAL state file the
+            // real TaskStateService wrote — not from an in-memory double.
+            const persisted = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+            expect(persisted['heavy-maintenance-starvation-watchdog'].starvation.posture).toBe('degraded');
+            expect(persisted['heavy-maintenance-starvation-watchdog'].starvation.breaches[0]).toMatchObject({
+                taskName    : 'backup',
+                priorityZero: true,
+                leaseHolder : null
+            });
+
+            // Expiry clears on the ADMISSION clock: the same starved waiter whose heartbeat is
+            // older than WAITER_ENTRY_STALE_AFTER_MS (10min) is expired for admission, so it must
+            // clear health on the very next check — never held red for the 6h lease TTL.
+            fs.writeFileSync(path.join(waitersDir, 'backup.json'), JSON.stringify({
+                taskName         : 'backup',
+                priorityZero     : true,
+                bootstrapCritical: false,
+                deferredSince    : new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+                updatedAt        : new Date(Date.now() - 11 * 60 * 1000).toISOString(),
+                pid              : 999999
+            }));
             await drive();
-            expect(watchdogState.starvation.posture).toBe('healthy');
+            expect(TaskStateService.getTaskState('heavy-maintenance-starvation-watchdog').starvation.posture).toBe('healthy');
 
             expect(outcomes.map(outcome => outcome.status)).toEqual(['completed', 'failed', 'completed']);
             expect(outcomes.map(outcome => outcome.posture)).toEqual(['healthy', 'degraded', 'healthy']);
         } finally {
+            TaskStateService.stateFile       = originals.stateFile;
+            TaskStateService.taskDefinitions = originals.taskDefinitions;
+            TaskStateService.taskState       = originals.taskState;
+            TaskStateService.writeLogFn      = originals.writeLogFn;
+            backpressure.destroy?.();
             fs.rmSync(dir, {recursive: true, force: true});
         }
+    });
+
+    test('a due health-check dispatches ALONGSIDE a monopolizing priority-zero winner — the monitor is not starvable by the condition it observes (#17049)', async () => {
+        const os   = (await import('os')).default;
+        const path = (await import('path')).default;
+
+        const outcomes = [];
+        const leased   = [];
+        // Non-existent waiters dir → the real ledger read returns an empty reading (ENOENT is a
+        // fail-open empty ledger), so the watchdog needs no fs fixture to complete healthily.
+        const leasePath = path.join(os.tmpdir(), `neo-starve-proof-${process.pid}`, 'heavy.lease');
+
+        const result = runSchedulingPipeline({
+            registry: [
+                makeCandidateDescriptor({
+                    taskName        : 'backup',
+                    executionKind   : 'supervised-child-process',
+                    maintenanceClass: 'heavy'
+                }),
+                makeCandidateDescriptor({
+                    taskName        : 'heavy-maintenance-starvation-watchdog',
+                    executionKind   : 'health-check',
+                    maintenanceClass: 'health-monitor'
+                })
+            ],
+            context : makeContext(),
+            services: makeServices({
+                healthService: {
+                    recordTaskOutcome(taskName, status, details) {
+                        if (status !== 'running') outcomes.push({taskName, status, posture: details?.posture});
+                    }
+                },
+                maintenanceBackpressureService: {
+                    resolveHeavyMaintenanceLeasePath: () => leasePath,
+                    getActiveHeavyMaintenanceTask   : () => 'out-of-process-holder',
+                    // The monopolizing condition: backup wins the pick every poll and its admission
+                    // defers behind the out-of-process lease holder — lastRunAt never advances.
+                    acquireLeaseAndExecute({taskName}) { leased.push(taskName); }
+                },
+                taskStateService: {
+                    getTaskState : () => ({}),
+                    markCompleted() {},
+                    markFailed() {},
+                    markSkipped() {},
+                    markStarted() {}
+                }
+            }),
+            runtime: makeRuntime({heavyMaintenanceStarvationDegradeAfterMs: 60 * 60 * 1000})
+        });
+
+        await result.executed;
+
+        // The priority-zero task won the single winner slot (admission semantics untouched)...
+        expect(result.winner.taskName).toBe('backup');
+        expect(leased).toEqual(['backup']);
+        // ...and the due health-check STILL ran in the same poll: the starvation monitor cannot be
+        // starved by the exact condition it exists to report.
+        expect(outcomes.filter(outcome => outcome.taskName === 'heavy-maintenance-starvation-watchdog')).toHaveLength(1);
+        expect(outcomes.at(-1)).toMatchObject({taskName: 'heavy-maintenance-starvation-watchdog', status: 'completed', posture: 'healthy'});
     });
 });
