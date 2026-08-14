@@ -647,7 +647,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             expect(providerCalls, 'repo B must never reach native Ollama in this sweep').toBe(1);
 
             const
-                queuedRow       = activities.filter(item => item.type === 'begin').at(-1),
+                queuedRow        = activities.filter(item => item.type === 'begin').at(-1),
                 queuedCompletion = activities.find(item => item.type === 'complete' && item.id === queuedRow.id);
 
             expect(queuedCompletion?.outcome).toMatchObject({failureStage: 'queue', success: false});
@@ -1814,6 +1814,113 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             code        : 'OPENAI_COMPATIBLE_REQUEST_TIMEOUT',
             listeners   : 0,
             requestCount: 1
+        });
+    });
+
+    test('OpenAI-compatible truncation floors: wire flag, slot/band refusals, refusal mapping, fail-open (isolated)', async () => {
+        const evidence = await runIsolatedEmbeddingProbe(async () => {
+            const http = await import('node:http');
+
+            let behavior      = 'success',
+                requestBodies = [];
+
+            const server = http.createServer((request, response) => {
+                let body = '';
+                request.on('data', chunk => body += chunk);
+                request.on('end', () => {
+                    requestBodies.push(JSON.parse(body));
+
+                    if (behavior === 'truncation-refusal') {
+                        response.writeHead(400, {'Content-Type': 'application/json'});
+                        response.end(JSON.stringify({error: {message: 'input (32769 tokens) is too large to process. increase the physical batch size (current batch size: 32768)'}}));
+                        return;
+                    }
+
+                    const inputs = Array.isArray(JSON.parse(body).input) ? JSON.parse(body).input : [JSON.parse(body).input];
+                    response.writeHead(200, {'Content-Type': 'application/json'});
+                    response.end(JSON.stringify({
+                        data: inputs.map((input, index) => ({index, embedding: [index + 0.1]}))
+                    }));
+                });
+            });
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                Object.assign(process.env, {
+                    NEO_OPENAI_COMPATIBLE_HOST                  : `http://127.0.0.1:${server.address().port}`,
+                    NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT    : '0',
+                    NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT: '0'
+                });
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const capture            = async promise => {
+                    try {
+                        return {resolved: await promise};
+                    } catch (error) {
+                        return {code: error?.code || null, message: error?.message || String(error)};
+                    }
+                };
+
+                const out = {};
+
+                // A — wire flag + negative control: a fitting input on a compliant lane embeds
+                // normally, and the request asks the provider to refuse rather than truncate.
+                Service.openAiCompatibleSlotContextProbe = async () => 32768;
+                const fitting = await capture(Service.embedText('small input', 'openAiCompatible', {operationLabel: 'floor probe A'}));
+                out.negativeControl = {
+                    resolved    : Boolean(fitting.resolved),
+                    truncateFlag: requestBodies.at(-1)?.truncate === false,
+                    requestCount: requestBodies.length
+                };
+
+                // B — lane floor: a per-slot context below the safe band refuses BEFORE dispatch,
+                // so nothing truncating is ever sent, let alone persisted.
+                Service.openAiCompatibleSlotContextProbe = async () => 8192;
+                const beforeB   = requestBodies.length;
+                const laneFloor = await capture(Service.embedText('small input', 'openAiCompatible', {operationLabel: 'floor probe B'}));
+                out.laneFloor = {
+                    code      : laneFloor.code,
+                    namesBoth : laneFloor.message.includes('8192') && laneFloor.message.includes('28672'),
+                    noDispatch: requestBodies.length === beforeB
+                };
+
+                // C — input floor: an input whose estimate exceeds the observed slot context is
+                // refused pre-dispatch with the same typed code.
+                Service.openAiCompatibleSlotContextProbe = async () => 32768;
+                const bigInput   = 'x'.repeat(400_000);
+                const beforeC    = requestBodies.length;
+                const inputFloor = await capture(Service.embedText(bigInput, 'openAiCompatible', {operationLabel: 'floor probe C'}));
+                out.inputFloor = {
+                    code      : inputFloor.code,
+                    noDispatch: requestBodies.length === beforeC
+                };
+
+                // D — provider-refusal mapping: a 400 reporting the input/context bound translates
+                // to the typed code instead of an unclassified HTTP error.
+                behavior = 'truncation-refusal';
+                const refusal = await capture(Service.embedText('small input', 'openAiCompatible', {operationLabel: 'floor probe D'}));
+                out.refusalMapping = {code: refusal.code};
+
+                // E — fail-open on an unobservable lane: no slot metadata means the wire flag is
+                // the only defense, and the call proceeds.
+                behavior = 'success';
+                Service.openAiCompatibleSlotContextProbe = async () => null;
+                const unobservable = await capture(Service.embedText('small input', 'openAiCompatible', {operationLabel: 'floor probe E'}));
+                out.unobservableProceeds = Boolean(unobservable.resolved);
+
+                console.log(JSON.stringify(out));
+            } finally {
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve));
+            }
+        });
+
+        expect(evidence).toEqual({
+            negativeControl     : {resolved: true, truncateFlag: true, requestCount: 1},
+            laneFloor           : {code: 'EMBEDDING_INPUT_TRUNCATED', namesBoth: true, noDispatch: true},
+            inputFloor          : {code: 'EMBEDDING_INPUT_TRUNCATED', noDispatch: true},
+            refusalMapping      : {code: 'EMBEDDING_INPUT_TRUNCATED'},
+            unobservableProceeds: true
         });
     });
 });

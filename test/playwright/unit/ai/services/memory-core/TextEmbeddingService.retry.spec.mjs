@@ -494,7 +494,16 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
 
             expect(result).toEqual([0.1, 0.2, 0.3]);
-            expect(requestCount).toBe(1);
+
+            // The standing contract: no LMS-specific probing (the `lms` CLI loaded-models spawn) on a
+            // non-LMS endpoint. The flavor-agnostic slot-floor probe (one GET /slots per embed
+            // call) is a different, newer class — the mock answers it with the embeddings payload,
+            // which parses as unobservable, so the floor stays out of the way.
+            const embedPosts = allRequests.filter(request => request.url === '/v1/embeddings');
+            const slotProbes = allRequests.filter(request => request.url === '/slots');
+
+            expect(embedPosts).toHaveLength(1);
+            expect(slotProbes.length).toBeLessThanOrEqual(1);
             expect(lastRequest.body.input).toBe('hello');
         } finally {
             Neo.config.unitTestMode = originalUnitTestMode;

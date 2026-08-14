@@ -7,12 +7,13 @@ setup({
     appConfig: {name: appName, isMounted: () => true, vnodeInitialising: false}
 });
 
-import {test, expect} from '@playwright/test';
-import {execFile}     from 'child_process';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import os             from 'os';
-import path           from 'path';
+import {test, expect}                           from '@playwright/test';
+import {execFile}                               from 'child_process';
+import Neo                                      from '../../../../../../src/Neo.mjs';
+import * as core                                from '../../../../../../src/core/_export.mjs';
+import os                                       from 'os';
+import path                                     from 'path';
+import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS} from '../../../../../../ai/embeddingSafeBand.mjs';
 
 // Pure helper (no I/O) — imported dynamically after the Neo bootstrap (the module's import chain
 // references Neo at load). It guarantees LM Studio's CLI bin dir (~/.lmstudio/bin) is on the
@@ -833,5 +834,65 @@ test.describe('provider readiness follows declared lane ownership (#17021)', () 
             requiredModels: ['gemma4:26b'],
             missingModels : []
         });
+    });
+});
+
+test.describe('embedding serving canary — safe-band floor (#17070)', () => {
+    let checkOpenAiCompatibleEmbeddingServing;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/graph/providerReadinessHelper.mjs');
+
+        checkOpenAiCompatibleEmbeddingServing = mod.checkOpenAiCompatibleEmbeddingServing;
+    });
+
+    test('a loaded context below the safe band is NOT ready, names both numbers, and never probes', async () => {
+        let probed = false;
+
+        const result = await checkOpenAiCompatibleEmbeddingServing({
+            host           : 'http://embedding-model:8080',
+            model          : 'qwen3-embedding',
+            input          : 'probe',
+            timeoutMs      : 1000,
+            lmsLoadedModels: [{id: 'qwen3-embedding', contextLength: 8192}],
+            fetchFn        : async () => {
+                probed = true;
+                throw new Error('the floor must fire before any provider probe');
+            }
+        });
+
+        expect(result.ready).toBe(false);
+        expect(result.reason).toBe('embedding-context-below-safe-band');
+        expect(result.warning).toContain('8192');
+        expect(result.warning).toContain(String(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS));
+        expect(probed, 'a too-small lane must not even be probed — the tiny canary would pass it').toBe(false);
+    });
+
+    test('a compliant context proceeds to the serving probe (negative control)', async () => {
+        const result = await checkOpenAiCompatibleEmbeddingServing({
+            host           : 'http://embedding-model:8080',
+            model          : 'qwen3-embedding',
+            input          : 'probe',
+            timeoutMs      : 1000,
+            lmsLoadedModels: [{id: 'qwen3-embedding', contextLength: 32768}],
+            fetchFn        : async () => ({ok: true, json: async () => ({data: [{embedding: [0.1, 0.2]}]})})
+        });
+
+        expect(result).toMatchObject({ready: true, degraded: false, vectorLength: 2});
+    });
+
+    test('a lane without discovered context metadata answers the probe question only (fail-open)', async () => {
+        // The floor fires on knowledge, not on doubt: a lane whose context is unobservable keeps
+        // the pre-existing behavior, and the wire-level truncate flag is the remaining defense.
+        const result = await checkOpenAiCompatibleEmbeddingServing({
+            host           : 'http://embedding-model:8080',
+            model          : 'qwen3-embedding',
+            input          : 'probe',
+            timeoutMs      : 1000,
+            lmsLoadedModels: [],
+            fetchFn        : async () => ({ok: true, json: async () => ({data: [{embedding: [0.3]}]})})
+        });
+
+        expect(result.ready).toBe(true);
     });
 });

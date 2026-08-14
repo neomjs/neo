@@ -1,7 +1,8 @@
-import {test, expect}     from '@playwright/test';
-import fs                 from 'node:fs';
-import path               from 'node:path';
-import {load as loadYaml} from 'js-yaml';
+import {test, expect}                           from '@playwright/test';
+import fs                                       from 'node:fs';
+import path                                     from 'node:path';
+import {load as loadYaml}                       from 'js-yaml';
+import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS} from '../../../../../../ai/embeddingSafeBand.mjs';
 import {
     PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION,
     PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS,
@@ -28,17 +29,19 @@ const FIXTURE_ENV = Object.freeze({
     NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : '32768'
 });
 
-function renderRequiredInputs(source) {
+function renderRequiredInputs(source, overrides = {}) {
+    const values = {...FIXTURE_ENV, ...overrides};
+
     return source.replace(/\$\{([A-Z0-9_]+):\?[^}]+}/g, (match, name) => {
-        if (!Object.hasOwn(FIXTURE_ENV, name)) {
+        if (!Object.hasOwn(values, name)) {
             throw new Error(`provider-lane fixture has no value for ${name}`)
         }
-        return FIXTURE_ENV[name]
+        return values[name]
     })
 }
 
-function loadComposition() {
-    const source      = renderRequiredInputs(fs.readFileSync(profilePath, 'utf8'));
+function loadComposition(overrides = {}) {
+    const source      = renderRequiredInputs(fs.readFileSync(profilePath, 'utf8'), overrides);
     const composition = {name: 'neo-agent-os-test', ...loadYaml(source)};
     const shared      = composition['x-provider-lane-env'];
 
@@ -284,6 +287,43 @@ test.describe('provider-lane composition receipt (#17021)', () => {
         chatMutation.lanes.chat.totalContextTokens = 262145;
         chatMutation.deploymentInputs.chatContextTokens.value = 262145;
         expect(validateProviderLaneCompositionReceipt(chatMutation).errors.map(error => error.code)).toContain('model-context-ceiling')
+    });
+
+    test('the safe-band floor ties the embedding lane to the band Neo sends, naming both numbers', () => {
+        // Fixture lanes run at toy scale and never carry safe-band inputs: without an injected band
+        // there is no floor, and the fixture composition analyzes clean.
+        const unfloored = analyzeProviderLaneComposition(loadComposition());
+        expect(unfloored.ready).toBe(true);
+        expect(unfloored.errors).toEqual([]);
+
+        // With the canonical band supplied, the fixture's 8,192 per-slot requirement IS the defect
+        // shape: it passes every self-referential gate while being unable to hold a safe-band input.
+        const floored = analyzeProviderLaneComposition(loadComposition(), {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS});
+
+        expect(floored.ready).toBe(false);
+
+        const floorError = floored.errors.find(error => error.code === 'lane-slot-context-below-safe-band');
+
+        expect(floorError).toBeDefined();
+        expect(floorError.expected).toContain(String(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS));
+        expect(floorError.actual).toBe(8192);
+
+        // A compliant lane passes: the shipped shape (32,768 per slot against a 28,672 band) is
+        // correct by construction — the floor is a floor, not an equality pin. The override flows
+        // through the one env var the template binds to BOTH the contract and the runtime context
+        // leaf, so the composition stays internally consistent.
+        const compliantComposition = loadComposition({NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768'});
+        expect(analyzeProviderLaneComposition(compliantComposition, {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS}))
+            .toMatchObject({ready: true, errors: []});
+
+        // The floor never leaks onto the chat lane, whose band is a different leaf entirely: with
+        // the embedding lane compliant, a below-band chat requirement stays clean.
+        const chatBelow = loadComposition({
+            NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS                       : '8192',
+            NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768'
+        });
+        expect(analyzeProviderLaneComposition(chatBelow, {safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS})
+            .errors.map(error => error.code)).not.toContain('lane-slot-context-below-safe-band')
     });
 
     test('the pure validator binds every deployment input name and value to receipt authority', () => {

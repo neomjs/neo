@@ -2,6 +2,7 @@ import os                                                          from 'os';
 import path                                                        from 'path';
 import {fileURLToPath}                                             from 'url';
 import ConfigProvider, {leaf}                                      from './ConfigProvider.mjs';
+import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS}                    from './embeddingSafeBand.mjs';
 import {CANONICAL_PLANE_ID, parsePlaneIdEnv, resolvePlaneDataRoot} from './planeConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -826,7 +827,7 @@ class ConfigBase extends ConfigProvider {
                  */
                 embedding: {
                     contextLimitTokens       : leaf(32768, 'NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS', 'number'),
-                    safeProcessingLimitTokens: leaf(28672, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
+                    safeProcessingLimitTokens: leaf(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS, 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS', 'number'),
                     // lms `--parallel` request-slot count for the embedding model. Same primitive as
                     // `localModels.chat.parallel`: each slot carries its own KV cache, so slot count
                     // multiplies resident RAM. Default 1 keeps the embedding role resident without

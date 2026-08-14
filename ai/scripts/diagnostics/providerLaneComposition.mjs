@@ -2,6 +2,8 @@ import fs                             from 'node:fs';
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
+import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS, isEmbeddingContextBelowSafeBand} from '../../embeddingSafeBand.mjs';
+
 /**
  * @module ai/scripts/diagnostics/providerLaneComposition
  * @summary Turns rendered Compose JSON into the stable, machine-readable provider-lane receipt
@@ -509,7 +511,11 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
  */
 export function analyzeProviderLaneComposition(composition, {
     projectRoot   = PROJECT_ROOT,
-    verifySources = true
+    verifySources = true,
+    // Opt-in because the analyzer also serves deliberately small fixture lanes that never carry
+    // safe-band inputs. The production CLI (`main`) supplies the canonical band, so a forked compose
+    // declaring a per-slot context below it fails composition instead of running undetected.
+    safeProcessingLimitTokensEmbedding = null
 } = {}) {
     const errors      = [];
     const declaration = composition?.['x-provider-lane-contract'];
@@ -708,6 +714,18 @@ export function analyzeProviderLaneComposition(composition, {
 
     const structural = validateProviderLaneCompositionReceipt(receipt, {requireReady: false});
     errors.push(...structural.errors);
+
+    // The structural validator enforces the profile against itself; this floor ties the embedding
+    // lane to the safe band Neo actually sends. A per-slot context below the band passes every
+    // self-referential gate while guaranteeing that inputs Neo classifies as safe will not fit —
+    // and the provider's answer to an oversized input is a silent prefix-truncation, not an error.
+    // Both numbers are named because the actionable surface is whichever one is wrong.
+    if (safeProcessingLimitTokensEmbedding !== null) {
+        fail(isEmbeddingContextBelowSafeBand(lanes.embedding.contextTokensPerSlotRequired, safeProcessingLimitTokensEmbedding) !== true,
+            'lane-slot-context-below-safe-band', 'lanes.embedding.contextTokensPerSlotRequired',
+            `>= safeProcessingLimitTokens (${safeProcessingLimitTokensEmbedding})`, lanes.embedding.contextTokensPerSlotRequired);
+    }
+
     receipt.ready = errors.length === 0;
     return receipt
 }
@@ -744,7 +762,10 @@ export function main(argv = process.argv.slice(2)) {
     const options     = parseArgs(argv);
     const source      = options.input ? fs.readFileSync(options.input, 'utf8') : fs.readFileSync(0, 'utf8');
     const composition = JSON.parse(source);
-    const receipt     = analyzeProviderLaneComposition(composition, {verifySources: options.verifySources});
+    const receipt     = analyzeProviderLaneComposition(composition, {
+        verifySources                     : options.verifySources,
+        safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS
+    });
 
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     if (!receipt.ready) process.exitCode = 1;

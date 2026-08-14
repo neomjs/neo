@@ -1,9 +1,10 @@
-import http       from 'http';
-import {execFile} from 'child_process';
-import os         from 'os';
-import path       from 'path';
-import aiConfig   from '../../mcp/server/memory-core/config.mjs';
-import logger     from '../../mcp/server/memory-core/logger.mjs';
+import http                              from 'http';
+import {execFile}                        from 'child_process';
+import os                                from 'os';
+import path                              from 'path';
+import aiConfig                          from '../../mcp/server/memory-core/config.mjs';
+import {isEmbeddingContextBelowSafeBand} from '../../embeddingSafeBand.mjs';
+import logger                            from '../../mcp/server/memory-core/logger.mjs';
 import {
     buildOllamaEvalAttribution,
     extractOllamaEvalSample
@@ -758,6 +759,27 @@ export async function checkOpenAiCompatibleEmbeddingServing({
     const
         loadedModel  = Array.isArray(lmsLoadedModels) ? lmsLoadedModels.find(item => item?.id === model) : null,
         requestInput = withLmsEmbeddingInputSuffix(input, loadedModel);
+
+    // The probe input is deliberately tiny, so it answers "can the provider answer at all" — and a
+    // lane whose per-slot context is below the safe band would pass it while being unable to hold a
+    // single safe-band input. Readiness must answer the harder question: when the loaded context is
+    // known and below the band, the lane is NOT ready, and both numbers are named because the
+    // actionable surface is whichever one is wrong. A truncated embed is silent and permanent; a
+    // false not-ready is loud and recoverable, so the floor fires on knowledge, not on doubt.
+    const safeProcessingLimitTokens = aiConfig.localModels.embedding.safeProcessingLimitTokens;
+
+    if (loadedModel && Number.isFinite(Number(loadedModel.contextLength)) &&
+        isEmbeddingContextBelowSafeBand(loadedModel.contextLength, safeProcessingLimitTokens)) {
+        return {
+            ready   : false,
+            degraded: true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            reason  : 'embedding-context-below-safe-band',
+            warning : `[provider/openAiCompatible] embedding lane for '${model}' cannot hold a safe-band input (loadedContext=${loadedModel.contextLength}, safeProcessingLimitTokens=${safeProcessingLimitTokens})`
+        };
+    }
 
     const runProbe = async () => {
         const response = await fetchFn(new URL('/v1/embeddings', host).toString(), {

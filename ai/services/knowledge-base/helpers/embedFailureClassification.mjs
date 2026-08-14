@@ -106,6 +106,7 @@ const INTERNAL_EMBED_ERROR_CODES = Object.freeze(new Set([
 const PROVIDER_ERROR_CODE_MAP = Object.freeze({
     ABORT_ERR                        : 'KB_VECTOR_EMBED_ABORTED',
     ECONNREFUSED                     : 'KB_VECTOR_EMBED_CONNECTION_REFUSED',
+    EMBEDDING_INPUT_TRUNCATED        : 'KB_VECTOR_EMBED_INPUT_TRUNCATED',
     EMBEDDING_MODEL_NOT_RESIDENT     : 'KB_VECTOR_EMBED_MODEL_NOT_RESIDENT',
     EMBEDDING_PROBE_TIMEOUT          : 'KB_VECTOR_EMBED_TIMEOUT',
     OPENAI_COMPATIBLE_REQUEST_TIMEOUT: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT',
@@ -230,7 +231,12 @@ export const EMBED_DISPOSITION = Object.freeze({
 const REJECTED_EMBED_ERROR_CODES = Object.freeze(new Set([
     'KB_EMBEDDING_INPUT_SIZE_EXCEEDED',
     'KB_SYNC_VOLUME_EXCEEDED',
-    'KB_TENANT_SPOOF_REJECTED'
+    'KB_TENANT_SPOOF_REJECTED',
+    // Truncation is permanent for the input that produced it: re-ingesting the same content under
+    // the same lane shape reproduces the same cut vector, so a later retry is futile by
+    // construction. Rejected, never deferred — the actionable surface is the slot-context floor,
+    // not the retry budget.
+    'KB_VECTOR_EMBED_INPUT_TRUNCATED'
 ]));
 
 /**
