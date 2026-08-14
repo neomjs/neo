@@ -18,7 +18,7 @@ import {
 } from './helpers/providerLaneElectionCore.mjs';
 import {writeFileAtomic} from '../../services/shared/atomicFileWrite.mjs';
 
-export const PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION = 'provider-lane-election-report.v1';
+export const PROVIDER_LANE_ELECTION_REPORT_SCHEMA_VERSION = 'provider-lane-election-report.v2';
 
 const
     execFileAsync = promisify(execFile),
@@ -27,7 +27,7 @@ const
     CHAT_SOURCE       = 'chat',
     EMBEDDING_SOURCES = Object.freeze(['knowledge-base', 'memory-core', 'orchestrator']),
     LANE_NAMES        = Object.freeze(['chat', 'embedding']),
-    PLAN_SCHEMA       = 'provider-lane-election-plan.v1',
+    PLAN_SCHEMA       = 'provider-lane-election-plan.v2',
     WORKER_SCHEMA     = 'provider-lane-election-worker.v1',
     WORKER_SENTINEL   = 'NEO_PROVIDER_LANE_WORKER:',
     DIGEST_PATTERN    = /^sha256:[a-f0-9]{64}$/,
@@ -213,7 +213,7 @@ function validateCandidateDeploymentInputs(rows) {
         throw new Error('provider-lane deployment envelopes require candidates 1, 2, and 4 exactly once')
     }
 
-    return sorted.map(row => {
+    const normalized = sorted.map(row => {
         requireExactKeys(row, ['candidate', 'deploymentInputs'], `candidate ${row.candidate}`);
         requireExactKeys(row.deploymentInputs, expectedKeys, `candidate ${row.candidate}.deploymentInputs`);
 
@@ -233,9 +233,20 @@ function validateCandidateDeploymentInputs(rows) {
         if (deploymentInputs.embeddingParallelSlots.value !== row.candidate) {
             throw new Error(`candidate ${row.candidate} deployment envelope changed its embedding slot value`)
         }
+        if (!Number.isSafeInteger(deploymentInputs.embeddingSafeProcessingLimitTokens.value)) {
+            throw new Error(`candidate ${row.candidate} has an invalid integer embedding safe-processing limit`)
+        }
 
         return {candidate: row.candidate, deploymentInputs}
-    })
+    });
+
+    const safeBands = new Set(normalized.map(row =>
+        row.deploymentInputs.embeddingSafeProcessingLimitTokens.value));
+    if (safeBands.size !== 1) {
+        throw new Error('provider-lane deployment envelopes must share one embedding safe-processing limit')
+    }
+
+    return normalized
 }
 
 /**
@@ -803,6 +814,12 @@ function validateProviderLaneElectionReceipts(candidateReceipts, projectName) {
         }
         resolveProviderLaneAdapters(entry.receipt)
     });
+
+    const safeBands = new Set(receipts.map(entry =>
+        entry.receipt.deploymentInputs.embeddingSafeProcessingLimitTokens.value));
+    if (safeBands.size !== 1) {
+        throw new Error('provider-lane election report receipts must share one embedding safe-processing limit')
+    }
 
     return receipts
 }
@@ -1920,7 +1937,6 @@ function createComposeActor({dockerAuthority, plan, projectName, projectRoot, si
         for (const input of Object.values(candidateInput.deploymentInputs)) {
             env[input.env] = String(input.value)
         }
-
         return env
     };
 
@@ -1950,7 +1966,12 @@ function createComposeActor({dockerAuthority, plan, projectName, projectRoot, si
     return {
         async renderReceipt(candidateInput) {
             const {stdout: composition} = await runDocker(candidateInput, ['config', '--format', 'json']);
-            return runAnalyzer({composition, projectRoot, signal})
+            return runAnalyzer({
+                composition,
+                projectRoot,
+                safeProcessingLimitTokensEmbedding: candidateInput.deploymentInputs.embeddingSafeProcessingLimitTokens.value,
+                signal
+            })
         },
         async buildWorkers(receiptEntry) {
             await runDocker(receiptEntry.candidateInput, ['build', 'provider-lane-worker'], {
@@ -2026,11 +2047,15 @@ function createComposeActor({dockerAuthority, plan, projectName, projectRoot, si
  * @summary Feeds rendered Compose to the canonical analyzer without persisting or logging it.
  * @private
  */
-function runAnalyzer({composition, projectRoot, signal}) {
+function runAnalyzer({composition, projectRoot, safeProcessingLimitTokensEmbedding, signal}) {
     return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [COMPOSITION_ANALYZER], {
-            cwd  : projectRoot,
-            env  : {HOME: process.env.HOME, PATH: process.env.PATH},
+            cwd: projectRoot,
+            env: {
+                HOME                                                                    : process.env.HOME,
+                PATH                                                                    : process.env.PATH,
+                [PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingSafeProcessingLimitTokens]: String(safeProcessingLimitTokensEmbedding)
+            },
             signal,
             stdio: ['pipe', 'pipe', 'pipe']
         });

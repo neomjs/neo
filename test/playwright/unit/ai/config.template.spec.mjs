@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import {execFileSync}   from 'node:child_process';
 import fs               from 'fs/promises';
 import os               from 'os';
 import path             from 'path';
@@ -370,6 +371,28 @@ test.describe('Tier 1 Config Immutability', () => {
             expect(isolatedConfig.localModels.chat.contextLimitTokens).toBe(Number(process.env.NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS) || 131072);
         } finally {
             isolatedConfig.destroy();
+        }
+    });
+
+    test('invalid embedding safe-band env values fall back before reaching consumers', () => {
+        const script = `
+            import './src/Neo.mjs';
+            const {default: AiConfig} = await import('./ai/config.mjs');
+            console.log('SAFE_BAND=' + AiConfig.localModels.embedding.safeProcessingLimitTokens);
+        `;
+
+        for (const invalidValue of ['-1', '1.5']) {
+            const output = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+                cwd     : process.cwd(),
+                encoding: 'utf8',
+                env     : {
+                    ...process.env,
+                    NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: invalidValue,
+                    UNIT_TEST_MODE                                         : 'true'
+                }
+            });
+
+            expect(output).toContain('SAFE_BAND=28672')
         }
     });
 

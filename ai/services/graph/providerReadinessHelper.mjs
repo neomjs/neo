@@ -1,9 +1,10 @@
-import http       from 'http';
-import {execFile} from 'child_process';
-import os         from 'os';
-import path       from 'path';
-import aiConfig   from '../../mcp/server/memory-core/config.mjs';
-import logger     from '../../mcp/server/memory-core/logger.mjs';
+import http                              from 'http';
+import {execFile}                        from 'child_process';
+import os                                from 'os';
+import path                              from 'path';
+import aiConfig                          from '../../mcp/server/memory-core/config.mjs';
+import {isEmbeddingContextBelowSafeBand} from '../../embeddingSafeBand.mjs';
+import logger                            from '../../mcp/server/memory-core/logger.mjs';
 import {
     buildOllamaEvalAttribution,
     extractOllamaEvalSample
@@ -691,22 +692,24 @@ export async function fetchOpenAiCompatibleModelIds({
 }
 
 /**
- * @summary Runs one tiny OpenAI-compatible embedding-serving canary.
+ * @summary Checks OpenAI-compatible embedding readiness through metadata or one tiny canary.
  *
- * This probe verifies `/v1/embeddings` can serve the configured embedding model
- * without returning or logging vector bodies. The caller owns load gating through
- * `shouldRun`; a skipped decision returns an explicit degraded envelope instead
- * of issuing a provider request during heavy maintenance or known contention.
+ * Metadata-only mode evaluates authoritative LM Studio resident-context rows and performs no
+ * embedding request or input-suffix work. Canary mode verifies `/v1/embeddings` can serve the
+ * configured model without returning or logging vector bodies. In canary mode, the caller owns
+ * load gating through `shouldRun`; a skipped decision returns an explicit degraded envelope instead
+ * of issuing provider work during heavy maintenance or known contention.
  *
  * @param {Object} options
  * @param {String} options.host Provider host.
  * @param {String} options.model Embedding model identifier.
- * @param {String} options.input Tiny canary text. Required and capped at 256 UTF-8 bytes.
+ * @param {String} [options.input] Tiny canary text. Required unless `metadataOnly`; capped at 256 UTF-8 bytes.
  * @param {Number} options.timeoutMs HTTP timeout. Required; no module-level default.
  * @param {String} [options.apiKey] Optional OpenAI-compatible bearer token.
- * @param {Object[]} [options.lmsLoadedModels] Optional LMS metadata rows for suffix parity with TextEmbeddingService.
+ * @param {Object[]} [options.lmsLoadedModels] LMS metadata rows; required evidence in metadata-only mode and optional suffix metadata in canary mode.
+ * @param {Boolean} [options.metadataOnly=false] Check authoritative LMS context without issuing an embedding canary.
  * @param {Function} [options.fetchFn=fetch] Fetch seam for tests.
- * @param {Function} [options.shouldRun] Optional load/backpressure gate.
+ * @param {Function} [options.shouldRun] Optional canary-mode load/backpressure gate.
  * @returns {Promise<Object>}
  */
 export async function checkOpenAiCompatibleEmbeddingServing({
@@ -716,6 +719,7 @@ export async function checkOpenAiCompatibleEmbeddingServing({
     timeoutMs,
     apiKey,
     lmsLoadedModels = [],
+    metadataOnly = false,
     fetchFn = fetch,
     shouldRun
 } = {}) {
@@ -728,14 +732,14 @@ export async function checkOpenAiCompatibleEmbeddingServing({
     if (typeof timeoutMs !== 'number') {
         throw new TypeError('checkOpenAiCompatibleEmbeddingServing: timeoutMs is required');
     }
-    if (!Neo.isString(input) || input.length === 0) {
+    if (!metadataOnly && (!Neo.isString(input) || input.length === 0)) {
         throw new TypeError('checkOpenAiCompatibleEmbeddingServing: non-empty input is required');
     }
-    if (Buffer.byteLength(input, 'utf8') > 256) {
+    if (!metadataOnly && Buffer.byteLength(input, 'utf8') > 256) {
         throw new TypeError('checkOpenAiCompatibleEmbeddingServing: input must be <= 256 UTF-8 bytes');
     }
 
-    const gate = shouldRun ? await shouldRun({host, model, timeoutMs}) : true;
+    const gate = !metadataOnly && shouldRun ? await shouldRun({host, model, timeoutMs}) : true;
 
     if (gate === false || gate?.run === false || gate?.skipped === true) {
         return {
@@ -750,14 +754,59 @@ export async function checkOpenAiCompatibleEmbeddingServing({
         };
     }
 
+    const loadedModel = Array.isArray(lmsLoadedModels)
+        ? lmsLoadedModels.find(item => item?.id === model)
+        : null;
+
+    // The probe input is deliberately tiny, so it answers "can the provider answer at all" — and a
+    // lane whose per-slot context is below the safe band would pass it while being unable to hold a
+    // single safe-band input. Readiness must answer the harder question: when the loaded context is
+    // known and below the band, the lane is NOT ready, and both numbers are named because the
+    // actionable surface is whichever one is wrong. A truncated embed is silent and permanent; a
+    // false not-ready is loud and recoverable, so the floor fires on knowledge, not on doubt.
+    const safeProcessingLimitTokens = aiConfig.localModels.embedding.safeProcessingLimitTokens;
+
+    if (loadedModel && Number.isFinite(Number(loadedModel.contextLength)) &&
+        isEmbeddingContextBelowSafeBand(loadedModel.contextLength, safeProcessingLimitTokens)) {
+        return {
+            ready   : false,
+            degraded: true,
+            provider: 'openAiCompatible',
+            host,
+            model,
+            reason  : 'embedding-context-below-safe-band',
+            warning : `[provider/openAiCompatible] embedding lane for '${model}' cannot hold a safe-band input (loadedContext=${loadedModel.contextLength}, safeProcessingLimitTokens=${safeProcessingLimitTokens})`
+        };
+    }
+
+    if (metadataOnly) {
+        if (!loadedModel || !Number.isFinite(Number(loadedModel.contextLength))) {
+            return {
+                ready   : false,
+                degraded: true,
+                provider: 'openAiCompatible',
+                host,
+                model,
+                reason  : 'embedding-context-unobservable',
+                warning : `[provider/openAiCompatible] embedding lane context for '${model}' is not observable`
+            };
+        }
+
+        return {
+            ready                : true,
+            degraded             : false,
+            provider             : 'openAiCompatible',
+            host,
+            model,
+            observedContextLength: Number(loadedModel.contextLength)
+        }
+    }
+
     const headers = {'content-type': 'application/json'};
     if (apiKey) {
         headers.authorization = `Bearer ${apiKey}`;
     }
-
-    const
-        loadedModel  = Array.isArray(lmsLoadedModels) ? lmsLoadedModels.find(item => item?.id === model) : null,
-        requestInput = withLmsEmbeddingInputSuffix(input, loadedModel);
+    const requestInput = withLmsEmbeddingInputSuffix(input, loadedModel);
 
     const runProbe = async () => {
         const response = await fetchFn(new URL('/v1/embeddings', host).toString(), {

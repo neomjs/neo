@@ -117,6 +117,26 @@ test.describe('embed failure classification (#16647)', () => {
         expect(refused).not.toBe(nonResident);
     });
 
+    test('a truncation report is its own bounded code, distinct from timeouts and refusals, and never retried', () => {
+        const truncated = classifyEmbedFailureCode('EMBEDDING_INPUT_TRUNCATED');
+
+        expect(truncated).toBe('KB_VECTOR_EMBED_INPUT_TRUNCATED');
+        // Separately countable from every transient class the incident family already owns.
+        expect(truncated).not.toBe(classifyEmbedFailureCode('ECONNREFUSED'));
+        expect(truncated).not.toBe(classifyEmbedFailureCode('PROVIDER_TIMEOUT'));
+
+        // Permanence: the same input under the same lane shape truncates again on every retry, so
+        // the disposition is rejection, not deferral — re-ingesting cannot repair a cut vector.
+        expect(classifyEmbedDisposition(truncated)).toBe(EMBED_DISPOSITION.rejected);
+        expect(isEmbedFailureCode(truncated)).toBe(true);
+
+        // The classifier reaches the code through a wrapper's cause chain, matching how the
+        // ingestion boundary actually receives it.
+        const wrapped = new Error('ingest envelope failed');
+        wrapped.cause = Object.assign(new Error('provider refused a truncating input'), {code: 'EMBEDDING_INPUT_TRUNCATED'});
+        expect(classifyEmbedFailureError(wrapped)).toBe('KB_VECTOR_EMBED_INPUT_TRUNCATED');
+    });
+
     test('a DECLARED internal code is passed through, not overwritten', () => {
         // Our own layers produce codes more specific than anything the map could add. Rewriting them
         // would be a regression disguised as classification. It passes because it is a declared

@@ -3,7 +3,8 @@ import AiConfig         from '../../../config.mjs';
 import neuralLinkConfig from '../../../mcp/server/neural-link/config.mjs';
 import {
     buildLmsPreloadConfig,
-    buildOllamaReadinessConfig
+    buildOllamaReadinessConfig,
+    checkOpenAiCompatibleEmbeddingServing
 } from '../../../services/graph/providerReadinessHelper.mjs';
 import {
     buildOllamaServeEnv,
@@ -25,12 +26,14 @@ import {attachTaskAuthority} from '../taskAuthority.mjs';
  * @param {String} options.scriptDir Script directory.
  * @param {String} options.nodeBin Node executable.
  * @param {Number} options.neuralLinkBridgeLivenessTimeoutMs Neural Link Bridge liveness timeout.
+ * @param {Function|null} [options.ensureLmsModelsLoadedFn] Optional process-free unit-test seam.
  * @returns {Object}
  */
 export function buildConfiguredTaskDefinitions({
     scriptDir,
     nodeBin,
-    neuralLinkBridgeLivenessTimeoutMs
+    neuralLinkBridgeLivenessTimeoutMs,
+    ensureLmsModelsLoadedFn = null
 }) {
     const tasks = buildTaskDefinitions({
         scriptDir,
@@ -46,7 +49,7 @@ export function buildConfiguredTaskDefinitions({
 
     applyConfiguredGraphLogCompaction(tasks);
     applyConfiguredMlxTask(tasks, {scriptDir});
-    applyConfiguredLmsTask(tasks);
+    applyConfiguredLmsTask(tasks, {ensureLmsModelsLoadedFn});
     applyConfiguredOllamaTask(tasks);
 
     return attachTaskAuthority(tasks);
@@ -94,9 +97,11 @@ function applyConfiguredMlxTask(tasks, {scriptDir}) {
 /**
  * @summary Adds the orchestrator-owned LM Studio server task when enabled.
  * @param {Object} tasks Task table.
+ * @param {Object} options
+ * @param {Function|null} options.ensureLmsModelsLoadedFn Optional process-free unit-test seam.
  * @returns {void}
  */
-function applyConfiguredLmsTask(tasks) {
+function applyConfiguredLmsTask(tasks, {ensureLmsModelsLoadedFn}) {
     if (!AiConfig.orchestrator.lms.enabled) {
         return;
     }
@@ -104,7 +109,11 @@ function applyConfiguredLmsTask(tasks) {
     const preloadConfig  = buildLmsPreloadConfig(AiConfig),
           requiredModels = Array.isArray(preloadConfig.models)
               ? [...new Set(preloadConfig.models.filter(Boolean))]
-              : [AiConfig.orchestrator.lms.model].filter(Boolean);
+              : [AiConfig.orchestrator.lms.model].filter(Boolean),
+          embeddingModel = AiConfig.embeddingProvider === 'openAiCompatible' &&
+              requiredModels.includes(AiConfig.openAiCompatible.embeddingModel)
+                  ? AiConfig.openAiCompatible.embeddingModel
+                  : null;
 
     tasks.lms = {
         label          : 'lms server (LM Studio CLI)',
@@ -134,7 +143,8 @@ function applyConfiguredLmsTask(tasks) {
             }
         },
         postSpawn      : async () => {
-            const {ensureLmsModelsLoaded} = await import('../../../services/graph/providerReadinessHelper.mjs');
+            const ensureLmsModelsLoaded = ensureLmsModelsLoadedFn ||
+                (await import('../../../services/graph/providerReadinessHelper.mjs')).ensureLmsModelsLoaded;
 
             if (requiredModels.length === 0) {
                 return {
@@ -158,7 +168,17 @@ function applyConfiguredLmsTask(tasks) {
                 delayMs                 : AiConfig.orchestrator.providerReadiness.delayMs,
                 timeoutMs               : AiConfig.orchestrator.providerReadiness.timeoutMs,
                 modelDiscoveryFreshness : 'routine',
-                modelDiscoveryCacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs
+                modelDiscoveryCacheTtlMs: AiConfig.orchestrator.providerReadiness.routineCacheTtlMs,
+                embeddingServingProbe   : embeddingModel
+                    ? ({host, timeoutMs, lmsLoadedModels}) => checkOpenAiCompatibleEmbeddingServing({
+                        host,
+                        model       : embeddingModel,
+                        timeoutMs,
+                        apiKey      : AiConfig.openAiCompatible.apiKey,
+                        lmsLoadedModels,
+                        metadataOnly: true
+                    })
+                    : undefined
             });
         }
     };

@@ -647,7 +647,7 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
             expect(providerCalls, 'repo B must never reach native Ollama in this sweep').toBe(1);
 
             const
-                queuedRow       = activities.filter(item => item.type === 'begin').at(-1),
+                queuedRow        = activities.filter(item => item.type === 'begin').at(-1),
                 queuedCompletion = activities.find(item => item.type === 'complete' && item.id === queuedRow.id);
 
             expect(queuedCompletion?.outcome).toMatchObject({failureStage: 'queue', success: false});
@@ -1815,5 +1815,185 @@ test.describe.serial('TextEmbeddingService #15694 — provider-neutral cancellat
             listeners   : 0,
             requestCount: 1
         });
+    });
+
+    test('exact structured provider overflow is typed and never yields a vector (isolated)', async () => {
+        const evidence = await runIsolatedEmbeddingProbe(async () => {
+            const http = await import('node:http');
+
+            const exactOverflow = {
+                error: {
+                    code           : 400,
+                    type           : 'exceed_context_size_error',
+                    n_prompt_tokens: 9002,
+                    n_ctx          : 8192
+                }
+            };
+            const responseBodies = [
+                exactOverflow,
+                'exceed_context_size_error: 9002 prompt tokens exceed n_ctx 8192',
+                {error: {code: 400, n_prompt_tokens: 9002, n_ctx: 8192}},
+                {error: {code: 400, type: 'wrong_context_error', n_prompt_tokens: 9002, n_ctx: 8192}},
+                {error: {code: 400, type: 'exceed_context_size_error', n_prompt_tokens: '9002', n_ctx: 8192}},
+                {error: {code: 400, type: 'exceed_context_size_error', n_ctx: 8192}},
+                {error: {code: 400, type: 'exceed_context_size_error', n_prompt_tokens: 9002, n_ctx: '8192'}},
+                {error: {code: 400, type: 'exceed_context_size_error', n_prompt_tokens: 9002}}
+            ];
+            let embeddingPosts  = 0,
+                vectorsReturned = 0;
+            const server = http.createServer((request, response) => {
+                embeddingPosts++;
+                request.resume();
+                request.on('end', () => {
+                    const body = responseBodies.shift();
+
+                    response.writeHead(400, {
+                        'Content-Type': typeof body === 'string' ? 'text/plain' : 'application/json'
+                    });
+                    response.end(typeof body === 'string' ? body : JSON.stringify(body));
+                });
+            });
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                Object.assign(process.env, {
+                    NEO_OPENAI_COMPATIBLE_HOST                  : `http://127.0.0.1:${server.address().port}`,
+                    NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT    : '0',
+                    NEO_OPENAI_COMPATIBLE_CONTENTION_RETRY_COUNT: '0'
+                });
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const {
+                    classifyEmbedDisposition,
+                    classifyEmbedFailureError
+                } = await import('./ai/services/knowledge-base/helpers/embedFailureClassification.mjs');
+                const capture = async operationLabel => {
+                    try {
+                        const result = await Service.embedText('small input', 'openAiCompatible', {operationLabel});
+
+                        vectorsReturned += Array.isArray(result) ? result.length : 0;
+                        return {error: null, rejected: false};
+                    } catch (error) {
+                        return {error, rejected: true};
+                    }
+                };
+                const exact           = await capture('exact structured context overflow'),
+                      nearMissResults = [],
+                      nearMissCount   = responseBodies.length;
+
+                for (let index = 0; index < nearMissCount; index++) {
+                    const result = await capture(`structured context overflow near-miss ${index + 1}`);
+
+                    nearMissResults.push({
+                        code    : result.error?.code ?? null,
+                        rejected: result.rejected
+                    });
+                }
+
+                const kbCode = classifyEmbedFailureError(new Error('KB wrapper', {cause: exact.error}));
+
+                console.log(JSON.stringify({
+                    code         : exact.error?.code,
+                    kbCode,
+                    kbDisposition: classifyEmbedDisposition(kbCode),
+                    embeddingPosts,
+                    nearMissResults,
+                    vectorsReturned
+                }));
+            } finally {
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve));
+            }
+        });
+
+        expect(evidence).toEqual({
+            code           : 'EMBEDDING_INPUT_TRUNCATED',
+            kbCode         : 'KB_VECTOR_EMBED_INPUT_TRUNCATED',
+            kbDisposition  : 'rejected',
+            embeddingPosts : 8,
+            nearMissResults: Array.from({length: 7}, () => ({code: null, rejected: true})),
+            vectorsReturned: 0
+        })
+    });
+
+    test('LM Studio safe-band and oversized-input refusals retain the core code through KB classification (isolated)', async () => {
+        const evidence = await runIsolatedEmbeddingProbe(async () => {
+            const http = await import('node:http');
+
+            let   embeddingPosts = 0;
+            const server         = http.createServer((request, response) => {
+                embeddingPosts++;
+                response.writeHead(500);
+                response.end();
+            });
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+            try {
+                const port = String(server.address().port);
+                Object.assign(process.env, {
+                    NEO_OPENAI_COMPATIBLE_HOST                             : `http://127.0.0.1:${port}`,
+                    NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL                  : 'embedding-from-config',
+                    NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT               : '0',
+                    NEO_ORCHESTRATOR_LMS_ENABLED                           : 'true',
+                    NEO_ORCHESTRATOR_LMS_PORT                              : port,
+                    NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS        : '8192',
+                    NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS: '28672'
+                });
+
+                const {default: Service} = await import('./ai/services/memory-core/TextEmbeddingService.mjs');
+                const {
+                    classifyEmbedDisposition,
+                    classifyEmbedFailureError
+                } = await import('./ai/services/knowledge-base/helpers/embedFailureClassification.mjs');
+                const captureError = promise => promise.then(() => null, error => error);
+
+                Service.openAiCompatibleLoadedModelsProbe = async () => [{
+                    id           : 'embedding-from-config',
+                    contextLength: 8192
+                }];
+                const belowBand = await captureError(Service.embedText('small input', 'openAiCompatible', {
+                    operationLabel: 'LM Studio below-band preflight'
+                }));
+                const overlap = await captureError(Service.embedText('x'.repeat(12746 * 3), 'openAiCompatible', {
+                    operationLabel: 'LM Studio policy-shortfall precedence'
+                }));
+
+                Service.openAiCompatibleLoadedModelsProbe = async () => [{
+                    id           : 'embedding-from-config',
+                    contextLength: 32768
+                }];
+                const oversized = await captureError(Service.embedText('x'.repeat(400_000), 'openAiCompatible', {
+                    operationLabel: 'LM Studio oversized preflight'
+                }));
+
+                const kbCode        = classifyEmbedFailureError(new Error('KB wrapper', {cause: belowBand})),
+                      overlapKbCode = classifyEmbedFailureError(new Error('KB wrapper', {cause: overlap}));
+
+                console.log(JSON.stringify({
+                    belowBandCode     : belowBand?.code,
+                    kbCode,
+                    kbDisposition     : classifyEmbedDisposition(kbCode),
+                    overlapCode       : overlap?.code,
+                    overlapKbCode,
+                    overlapDisposition: classifyEmbedDisposition(overlapKbCode),
+                    oversizedCode     : oversized?.code,
+                    embeddingPosts
+                }));
+            } finally {
+                server.closeAllConnections?.();
+                await new Promise(resolve => server.close(resolve));
+            }
+        });
+
+        expect(evidence).toEqual({
+            belowBandCode     : 'EMBEDDING_CONTEXT_INSUFFICIENT',
+            kbCode            : 'KB_VECTOR_EMBED_CONTEXT_INSUFFICIENT',
+            kbDisposition     : 'deferrable',
+            overlapCode       : 'EMBEDDING_CONTEXT_INSUFFICIENT',
+            overlapKbCode     : 'KB_VECTOR_EMBED_CONTEXT_INSUFFICIENT',
+            overlapDisposition: 'deferrable',
+            oversizedCode     : 'EMBEDDING_INPUT_TRUNCATED',
+            embeddingPosts    : 0
+        })
     });
 });

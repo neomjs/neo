@@ -18,7 +18,7 @@ import {median, percentile} from './stats.mjs';
 
 const
     CANDIDATES             = Object.freeze([1, 2, 4]),
-    COMPOSITION_SCHEMA     = 'provider-lane-composition.v1',
+    COMPOSITION_SCHEMA     = 'provider-lane-composition.v2',
     DIGEST_PATTERN         = /^sha256:[0-9a-f]{64}$/,
     EMBED_SOURCES          = Object.freeze(['knowledge-base', 'memory-core', 'orchestrator']),
     LANE_NAMES             = Object.freeze(['chat', 'embedding']),

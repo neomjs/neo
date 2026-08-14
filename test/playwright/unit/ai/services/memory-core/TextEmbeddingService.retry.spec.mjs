@@ -434,7 +434,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         ]);
     });
 
-    test('openAiCompatible refuses single embeddings when LM Studio loaded context is below the configured embedding context (#13944)', async () => {
+    test('LM Studio context-policy insufficiency wins over an input that only exceeds the invalid resident (#13944)', async () => {
         serverBehavior = 'succeed';
         TextEmbeddingService.openAiCompatibleLoadedModelsProbe = async () => [{
             id           : aiConfig.openAiCompatible.embeddingModel,
@@ -444,7 +444,10 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
         const providerTruncatedInput = 'x'.repeat(12746 * 3);
 
         await expect(TextEmbeddingService.embedText(providerTruncatedInput, 'openAiCompatible'))
-            .rejects.toThrow(/loaded=8192, configured>=32768, inputEstimate=12746/);
+            .rejects.toMatchObject({
+                code   : 'EMBEDDING_CONTEXT_INSUFFICIENT',
+                message: expect.stringMatching(/loaded=8192, configured>=32768, safeProcessingLimitTokens=28672, inputEstimate=12746/)
+            });
 
         expect(requestCount).toBe(0);
     });
@@ -494,6 +497,7 @@ test.describe.serial('TextEmbeddingService #11393/#11402/#12487/#12509 — openA
             const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
 
             expect(result).toEqual([0.1, 0.2, 0.3]);
+
             expect(requestCount).toBe(1);
             expect(lastRequest.body.input).toBe('hello');
         } finally {

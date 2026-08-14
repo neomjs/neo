@@ -1,8 +1,9 @@
-import {test, expect}     from '@playwright/test';
-import {EventEmitter}     from 'node:events';
-import fs                 from 'node:fs';
-import path               from 'node:path';
-import {load as loadYaml} from 'js-yaml';
+import {test, expect}                           from '@playwright/test';
+import {EventEmitter}                           from 'node:events';
+import fs                                       from 'node:fs';
+import path                                     from 'node:path';
+import {load as loadYaml}                       from 'js-yaml';
+import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS} from '../../../../../../ai/embeddingSafeBand.mjs';
 
 import {
     analyzeProviderLaneComposition,
@@ -52,10 +53,11 @@ function buildComposition(candidate) {
         NEO_PROVIDER_LANE_EMBEDDING_CPUS                            : '2',
         NEO_PROVIDER_LANE_EMBEDDING_MEMORY_BYTES                    : '17179869184',
         NEO_PROVIDER_LANE_EMBEDDING_SLOTS                           : String(candidate),
-        NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : String(candidate * 8192),
-        NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '8192',
-        NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : String(candidate * 8192),
-        NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : String(candidate * 8192)
+        NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS            : String(candidate * 32768),
+        NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED: '32768',
+        NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS                    : String(candidate * 32768),
+        NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS                   : String(candidate * 32768),
+        NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS     : String(EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS)
     };
     const source = fs.readFileSync(profilePath, 'utf8').replace(
         /\$\{([A-Z0-9_]+):\?[^}]+}/g,
@@ -78,7 +80,9 @@ function buildComposition(candidate) {
 }
 
 function buildReceipt(candidate) {
-    const receipt = analyzeProviderLaneComposition(buildComposition(candidate));
+    const receipt = analyzeProviderLaneComposition(buildComposition(candidate), {
+        safeProcessingLimitTokensEmbedding: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS
+    });
 
     expect(receipt.ready, JSON.stringify(receipt.errors, null, 2)).toBe(true);
     return receipt
@@ -94,11 +98,11 @@ function buildRunPlan(receipts = [1, 2, 4].map(buildReceipt)) {
         contextProbeTimeoutMs: 300_000,
         resourceSampling     : {activeCpuThreshold: 1, expectedIntervalMs: 1000, gapFactor: 2},
         revision             : REVISION,
-        schemaVersion        : 'provider-lane-election-plan.v1',
+        schemaVersion        : 'provider-lane-election-plan.v2',
         slo                  : {
             lanes: {
                 chat     : buildLaneSlo({context: 131072, cpu: 200, memory: 34359738368, operations: 2}),
-                embedding: buildLaneSlo({context: 8192, cpu: 200, memory: 17179869184, operations: 4})
+                embedding: buildLaneSlo({context: 32768, cpu: 200, memory: 17179869184, operations: 4})
             }
         },
         trialTimeoutMs: 900_000
@@ -303,7 +307,7 @@ function buildReportContextEvidence(entry) {
                 overLimitProbe              : probe('chat', 'over-limit')
             },
             embedding: {
-                observedContextTokensPerSlot: 8192,
+                observedContextTokensPerSlot: 32768,
                 overLimitProbe              : probe('embedding', 'over-limit'),
                 supportedLimitProbe         : probe('embedding', 'supported')
             }
@@ -397,6 +401,20 @@ test.describe('provider-lane election runner authority seams', () => {
             env  : 'NEO_PROVIDER_LANE_EMBEDDING_SLOTS',
             value: 2
         });
+        expect(plan.candidateDeploymentInputs[1].deploymentInputs.embeddingSafeProcessingLimitTokens).toEqual({
+            env  : 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS',
+            value: EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS
+        });
+
+        const divergentBand = buildRunPlan(receipts);
+        divergentBand.candidateDeploymentInputs[2].deploymentInputs.embeddingSafeProcessingLimitTokens.value = 30000;
+        expect(() => validateProviderLaneRunPlan(divergentBand)).toThrow(/must share one embedding safe-processing limit/);
+
+        const fractionalBand = buildRunPlan(receipts);
+        for (const row of fractionalBand.candidateDeploymentInputs) {
+            row.deploymentInputs.embeddingSafeProcessingLimitTokens.value = 28672.5
+        }
+        expect(() => validateProviderLaneRunPlan(fractionalBand)).toThrow(/invalid integer embedding safe-processing limit/);
 
         const wrongEnv = buildRunPlan(receipts);
         wrongEnv.candidateDeploymentInputs[0].deploymentInputs.embeddingParallelSlots.env = 'NEO_FOREIGN_SLOTS';
@@ -473,20 +491,20 @@ test.describe('provider-lane election runner authority seams', () => {
               lane    = receipt.lanes.embedding;
 
         const supportedMinimum = createProviderLaneSupportedLimitRequest({
-                  adapter,
-                  lane,
-                  observedContextTokensPerSlot: 8192
-              }),
+              adapter,
+              lane,
+              observedContextTokensPerSlot: 32768
+          }),
               overLimit        = createProviderLaneOverLimitRequest({
                   adapter,
                   lane,
-                  observedContextTokensPerSlot: 8192
+                  observedContextTokensPerSlot: 32768
               });
 
-        expect(supportedMinimum.requestedContextTokens).toBe(8192);
-        expect(JSON.parse(supportedMinimum.body).input).toHaveLength(8192);
-        expect(overLimit.requestedContextTokens).toBe(8193);
-        expect(JSON.parse(overLimit.body).input).toHaveLength(8193);
+        expect(supportedMinimum.requestedContextTokens).toBe(32768);
+        expect(JSON.parse(supportedMinimum.body).input).toHaveLength(32768);
+        expect(overLimit.requestedContextTokens).toBe(32769);
+        expect(JSON.parse(overLimit.body).input).toHaveLength(32769);
         expect(() => createProviderLaneOverLimitRequest({
             adapter,
             lane,
@@ -496,7 +514,7 @@ test.describe('provider-lane election runner authority seams', () => {
         expect(() => createProviderLaneSupportedLimitRequest({
             adapter,
             lane,
-            observedContextTokensPerSlot: 8193
+            observedContextTokensPerSlot: 32769
         })).toThrow(/exceeds declared batch authority/)
     });
 
@@ -750,6 +768,7 @@ test.describe('provider-lane election runner authority seams', () => {
     test('recomputes the public handoff and rejects self-attested election authority', () => {
         const report = buildElectionReport();
 
+        expect(report.schemaVersion).toBe('provider-lane-election-report.v2');
         expect(validateProviderLaneElectionReport(report)).toEqual(report);
         expect(report.selectedReceipt).toEqual(report.candidateReceipts[0].receipt);
         expect(report.selectedReceiptDigest).toBe(report.candidateReceipts[0].compositionReceiptDigest);
@@ -774,6 +793,14 @@ test.describe('provider-lane election runner authority seams', () => {
         receiptExtra.candidateReceipts[0].compositionReceiptDigest =
             digestProviderLaneValue(receiptExtra.candidateReceipts[0].receipt);
         expect(() => validateProviderLaneElectionReport(receiptExtra)).toThrow(/canonical validation/);
+
+        const divergentReceiptBand = structuredClone(report);
+        divergentReceiptBand.candidateReceipts[2].receipt
+            .deploymentInputs.embeddingSafeProcessingLimitTokens.value = 30000;
+        divergentReceiptBand.candidateReceipts[2].compositionReceiptDigest =
+            digestProviderLaneValue(divergentReceiptBand.candidateReceipts[2].receipt);
+        expect(() => validateProviderLaneElectionReport(divergentReceiptBand))
+            .toThrow(/receipts must share one embedding safe-processing limit/);
 
         const unknownField = structuredClone(report);
         unknownField.evidence.trials[0].lanes.embedding.operations[0].token = 'SECRET';

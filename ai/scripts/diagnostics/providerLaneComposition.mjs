@@ -2,6 +2,8 @@ import fs                             from 'node:fs';
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
+import {isEmbeddingContextBelowSafeBand} from '../../embeddingSafeBand.mjs';
+
 /**
  * @module ai/scripts/diagnostics/providerLaneComposition
  * @summary Turns rendered Compose JSON into the stable, machine-readable provider-lane receipt
@@ -19,7 +21,7 @@ const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-export const PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION = 'provider-lane-composition.v1';
+export const PROVIDER_LANE_COMPOSITION_SCHEMA_VERSION = 'provider-lane-composition.v2';
 
 /**
  * @summary The exact steady-state liveness probe the embedding lane must run.
@@ -55,7 +57,8 @@ export const PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS       = Object.freeze({
     embeddingTotalContextTokens          : 'NEO_PROVIDER_LANE_EMBEDDING_TOTAL_CONTEXT_TOKENS',
     embeddingContextTokensPerSlotRequired: 'NEO_PROVIDER_LANE_EMBEDDING_CONTEXT_TOKENS_PER_SLOT_REQUIRED',
     embeddingBatchTokens                 : 'NEO_PROVIDER_LANE_EMBEDDING_BATCH_TOKENS',
-    embeddingUbatchTokens                : 'NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS'
+    embeddingUbatchTokens                : 'NEO_PROVIDER_LANE_EMBEDDING_UBATCH_TOKENS',
+    embeddingSafeProcessingLimitTokens   : 'NEO_LOCAL_MODELS_EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS'
 });
 export const PROVIDER_LANE_MODEL_CONTRACT               = Object.freeze({
     chat: Object.freeze({
@@ -443,7 +446,13 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         fail(allocations[laneName]?.memoryBytes === lanes[laneName]?.memoryBytes, 'allocation-memory-drift', `envelope.allocations.${laneName}.memoryBytes`, lanes[laneName]?.memoryBytes, allocations[laneName]?.memoryBytes);
     }
 
-    const deploymentInputs         = receipt?.deploymentInputs || {};
+    const deploymentInputs = receipt?.deploymentInputs || {};
+    const receiptSafeBand  = integerAboveZero(
+        deploymentInputs.embeddingSafeProcessingLimitTokens?.value
+    );
+    fail(receiptSafeBand !== null, 'embedding-safe-processing-limit',
+        'deploymentInputs.embeddingSafeProcessingLimitTokens.value',
+        'positive integer', deploymentInputs.embeddingSafeProcessingLimitTokens?.value);
     const expectedDeploymentInputs = {
         totalCpuCores                        : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.totalCpuCores, value: total.cpuCores},
         totalMemoryBytes                     : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.totalMemoryBytes, value: total.memoryBytes},
@@ -456,7 +465,8 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         embeddingTotalContextTokens          : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingTotalContextTokens, value: lanes.embedding?.totalContextTokens},
         embeddingContextTokensPerSlotRequired: {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingContextTokensPerSlotRequired, value: lanes.embedding?.contextTokensPerSlotRequired},
         embeddingBatchTokens                 : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingBatchTokens, value: lanes.embedding?.batchTokens},
-        embeddingUbatchTokens                : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingUbatchTokens, value: lanes.embedding?.ubatchTokens}
+        embeddingUbatchTokens                : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingUbatchTokens, value: lanes.embedding?.ubatchTokens},
+        embeddingSafeProcessingLimitTokens   : {env: PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingSafeProcessingLimitTokens, value: receiptSafeBand}
     };
 
     fail(sameSet(Object.keys(deploymentInputs), Object.keys(expectedDeploymentInputs)), 'deployment-input-set',
@@ -467,7 +477,12 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
         fail(actual.env === expected.env, 'deployment-input-env', `deploymentInputs.${key}.env`, expected.env, actual.env);
         fail(actual.value === expected.value, 'deployment-input-value', `deploymentInputs.${key}.value`, expected.value, actual.value);
     }
-
+    if (receiptSafeBand !== null) {
+        fail(!isEmbeddingContextBelowSafeBand(lanes.embedding?.contextTokensPerSlotRequired, receiptSafeBand),
+            'lane-slot-context-below-safe-band', 'lanes.embedding.contextTokensPerSlotRequired',
+            `>= deploymentInputs.embeddingSafeProcessingLimitTokens.value (${receiptSafeBand})`,
+            lanes.embedding?.contextTokensPerSlotRequired)
+    }
     const roles = receipt?.roles || {};
     fail(sameSet(Object.keys(roles), PROVIDER_LANE_ROLE_KEYS), 'role-set', 'roles', PROVIDER_LANE_ROLE_KEYS, Object.keys(roles));
     const seenConsumers = new Map();
@@ -505,12 +520,18 @@ export function validateProviderLaneCompositionReceipt(receipt, {requireReady = 
  * @param {Object} [options]
  * @param {String} [options.projectRoot=PROJECT_ROOT] Checkout root for consumer anchors.
  * @param {Boolean} [options.verifySources=true] Verify current source anchors.
+ * @param {Number} options.safeProcessingLimitTokensEmbedding Resolved embedding safe band.
  * @returns {Object} Stable provider-lane receipt.
  */
 export function analyzeProviderLaneComposition(composition, {
     projectRoot   = PROJECT_ROOT,
-    verifySources = true
+    verifySources = true,
+    safeProcessingLimitTokensEmbedding = null
 } = {}) {
+    if (!Number.isSafeInteger(safeProcessingLimitTokensEmbedding) || safeProcessingLimitTokensEmbedding <= 0) {
+        throw new TypeError('analyzeProviderLaneComposition requires a positive integer safeProcessingLimitTokensEmbedding')
+    }
+
     const errors      = [];
     const declaration = composition?.['x-provider-lane-contract'];
     const services    = composition?.services || {};
@@ -541,7 +562,8 @@ export function analyzeProviderLaneComposition(composition, {
         embeddingTotalContextTokens          : input('embeddingTotalContextTokens', lanes.embedding.totalContextTokens),
         embeddingContextTokensPerSlotRequired: input('embeddingContextTokensPerSlotRequired', lanes.embedding.contextTokensPerSlotRequired),
         embeddingBatchTokens                 : input('embeddingBatchTokens', lanes.embedding.batchTokens),
-        embeddingUbatchTokens                : input('embeddingUbatchTokens', lanes.embedding.ubatchTokens)
+        embeddingUbatchTokens                : input('embeddingUbatchTokens', lanes.embedding.ubatchTokens),
+        embeddingSafeProcessingLimitTokens   : input('embeddingSafeProcessingLimitTokens', safeProcessingLimitTokensEmbedding)
     };
 
     const receipt = {
@@ -664,10 +686,11 @@ export function analyzeProviderLaneComposition(composition, {
             fail(env[envName] === expectedValue, 'application-route-drift', `services.${serviceKey}.environment.${envName}`, expectedValue, env[envName]);
         }
         for (const [envName, expectedValue] of Object.entries({
-            NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS     : lanes.chat.contextTokensPerSlotRequired,
-            NEO_LOCAL_MODELS_CHAT_PARALLEL                 : lanes.chat.parallelSlots,
-            NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS: lanes.embedding.contextTokensPerSlotRequired,
-            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL            : lanes.embedding.parallelSlots
+            NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS                              : lanes.chat.contextTokensPerSlotRequired,
+            NEO_LOCAL_MODELS_CHAT_PARALLEL                                          : lanes.chat.parallelSlots,
+            NEO_LOCAL_MODELS_EMBEDDING_CONTEXT_LIMIT_TOKENS                         : lanes.embedding.contextTokensPerSlotRequired,
+            [PROVIDER_LANE_DEPLOYMENT_INPUT_ENVS.embeddingSafeProcessingLimitTokens]: safeProcessingLimitTokensEmbedding,
+            NEO_LOCAL_MODELS_EMBEDDING_PARALLEL                                     : lanes.embedding.parallelSlots
         })) {
             fail(integerAboveZero(env[envName]) === expectedValue, 'application-runtime-contract-drift',
                 `services.${serviceKey}.environment.${envName}`, expectedValue, env[envName]);
@@ -708,6 +731,7 @@ export function analyzeProviderLaneComposition(composition, {
 
     const structural = validateProviderLaneCompositionReceipt(receipt, {requireReady: false});
     errors.push(...structural.errors);
+
     receipt.ready = errors.length === 0;
     return receipt
 }
@@ -738,13 +762,18 @@ export function parseArgs(argv = []) {
 /**
  * @summary Reads rendered Compose JSON and emits exactly one JSON receipt.
  * @param {String[]} [argv] Arguments without node/script.
- * @returns {Object} Emitted receipt.
+ * @returns {Promise<Object>} Emitted receipt.
  */
-export function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
     const options     = parseArgs(argv);
     const source      = options.input ? fs.readFileSync(options.input, 'utf8') : fs.readFileSync(0, 'utf8');
     const composition = JSON.parse(source);
-    const receipt     = analyzeProviderLaneComposition(composition, {verifySources: options.verifySources});
+    await import('../../../src/Neo.mjs');
+    const {default: AiConfig} = await import('../../config.mjs');
+    const receipt             = analyzeProviderLaneComposition(composition, {
+        verifySources                     : options.verifySources,
+        safeProcessingLimitTokensEmbedding: AiConfig.localModels.embedding.safeProcessingLimitTokens
+    });
 
     process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
     if (!receipt.ready) process.exitCode = 1;
@@ -752,10 +781,8 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-    try {
-        main()
-    } catch (error) {
+    main().catch(error => {
         process.stderr.write(`providerLaneComposition: ${error.message}\n`);
         process.exitCode = 2;
-    }
+    })
 }
