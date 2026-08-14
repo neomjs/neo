@@ -103,13 +103,6 @@ let DELIVERY_FAILURE_STATE_FILE;
 let   terminalDeliveryFailures           = {};
 let   terminalDeliveryFailuresNeedRepair = false;
 const LOG_RETENTION_DAYS                 = 30;
-// Injectable for the same reason `CODEX_TURN_START_PROOF_TIMEOUT_MS` below is: a test that cannot
-// shorten this constant has to out-wait it, and this one is the daemon's whole cadence — it gates
-// both the poll loop and the retry backoff (`nextAttemptAt`), so every spec near it pays multiples of
-// 3s in wall clock. Production is unchanged: the default IS the shipped value, and nothing sets the
-// override outside tests. Measured: the wake daemon spec's runtime is quantized by this number, so
-// shortening a wait anywhere else in that file recovers nothing while this stays fixed.
-const POLL_INTERVAL_MS                  = Number(process.env.WAKE_POLL_INTERVAL_MS) || 3000;
 const CODEX_APP_SERVER_ADAPTER          = 'codex-app-server';
 const OPENCODE_SERVER_ADAPTER           = 'opencode-server';
 const OPENCODE_REBIND_SETTLE_MS         = 50;
@@ -629,7 +622,7 @@ async function pollLoop() {
         writeLog('ERROR', `[Wake Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
 
-    setTimeout(pollLoop, POLL_INTERVAL_MS);
+    setTimeout(pollLoop, AiConfig.orchestrator.wakeDispatch.pollIntervalMs);
 }
 
 /**
@@ -919,7 +912,7 @@ async function flushSubscription(subId) {
     // this flush — the queue stays intact and keeps absorbing arrivals, and the short re-check
     // lands after the in-flight attempt resolves (the defer idiom above, at poll cadence).
     if (deliveryInFlight.has(subId)) {
-        state.timer = setTimeout(() => flushSubscription(subId), POLL_INTERVAL_MS);
+        state.timer = setTimeout(() => flushSubscription(subId), AiConfig.orchestrator.wakeDispatch.pollIntervalMs);
         return;
     }
 
@@ -2590,7 +2583,7 @@ function enqueueDeliveryRetry(subscription, identity, events) {
         identity,
         events,
         attempts     : 0,
-        nextAttemptAt: Date.now() + POLL_INTERVAL_MS
+        nextAttemptAt: Date.now() + AiConfig.orchestrator.wakeDispatch.pollIntervalMs
     });
 }
 
@@ -2604,7 +2597,11 @@ function enqueueDeliveryRetry(subscription, identity, events) {
 async function attemptDeliveryRetries() {
     if (pendingDeliveryRetries.size === 0) return;
 
-    const now = Date.now();
+    // Both are read once per pass so every entry rescheduled below is measured against the same
+    // clock and the same cadence: a mid-pass config re-resolve would otherwise let two entries in
+    // one loop compute their backoff from different units.
+    const now            = Date.now(),
+          pollIntervalMs = AiConfig.orchestrator.wakeDispatch.pollIntervalMs;
 
     for (const [subId, entry] of pendingDeliveryRetries) {
         if (entry.nextAttemptAt > now) continue;
@@ -2690,7 +2687,7 @@ async function attemptDeliveryRetries() {
                     `[Wake Daemon] Giving up wake delivery for ${subId} after ${entry.attempts} failed attempts; wake dropped.`
                 );
             } else {
-                entry.nextAttemptAt = now + POLL_INTERVAL_MS * entry.attempts;
+                entry.nextAttemptAt = now + pollIntervalMs * entry.attempts;
             }
         } else if (outcome === 'delivered') {
             // The snapshot reached the seat: a confirmed delivery arms the refractory and counts
@@ -2707,7 +2704,7 @@ async function attemptDeliveryRetries() {
             );
             if (mergedDuringAwait) {
                 entry.attempts      = 0;
-                entry.nextAttemptAt = now + POLL_INTERVAL_MS;
+                entry.nextAttemptAt = now + pollIntervalMs;
             } else {
                 pendingDeliveryRetries.delete(subId);
             }
@@ -2726,7 +2723,7 @@ async function attemptDeliveryRetries() {
                 heartbeats : [...snapshot.heartbeats,  ...entry.events.heartbeats]
             };
             lastFlushAtBySub[subId] = Date.now();
-            entry.nextAttemptAt     = now + POLL_INTERVAL_MS * (entry.attempts + 2);
+            entry.nextAttemptAt     = now + pollIntervalMs * (entry.attempts + 2);
             writeLog('WARN',
                 `[Wake Daemon] Retry for ${subId} returned UNKNOWN (un-abortable transport timed out); ` +
                 'events retained, attempt NOT counted, next offer deferred — the attempt may already have landed.'
@@ -2737,7 +2734,7 @@ async function attemptDeliveryRetries() {
             // merged during the await keep their fresh cycle rather than being silently lost.
             if (mergedDuringAwait) {
                 entry.attempts      = 0;
-                entry.nextAttemptAt = now + POLL_INTERVAL_MS;
+                entry.nextAttemptAt = now + pollIntervalMs;
             } else {
                 pendingDeliveryRetries.delete(subId);
             }
