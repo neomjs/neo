@@ -186,6 +186,8 @@
         "fleet.harnessBinaries.kimiCode",
         "fleet.harnessBinaries.openCode",
         "fleet.instanceRoot",
+        "fleet.planeAdmissionBearer",
+        "fleet.planeAdmissionBearerFile",
         "fleet.planeBase",
         "fleet.planeBearer",
         "fleet.planeBearerFile",

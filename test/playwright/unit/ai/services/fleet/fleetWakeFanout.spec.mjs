@@ -196,6 +196,12 @@ test.describe('fleetWakeFanout - identity-keyed SSE fan-out + relay-subscription
         expect(mine.events('state')[0]).toContain('"armedForViewer":true');
         expect(theirs.events('state')[0]).toContain('"armedForViewer":false');
 
+        // The handshake vouches the armed viewer's OWN subscription id — the cold catch-up
+        // authority for a consumer with pending wakes and no live wake yet. A viewer the lane
+        // is not armed for gets no id: nothing to poll, nothing to guess.
+        expect(mine.events('state')[0]).toContain('"subscriptionId":"WAKE_SUB:relay"');
+        expect(theirs.events('state')[0]).not.toContain('subscriptionId');
+
         expect(mine.head.headers['content-type']).toBe('text/event-stream')
     });
 

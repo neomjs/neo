@@ -14,14 +14,18 @@
  *   absence of signal, never a fabricated verdict (a dead stream does not prove dead delivery;
  *   poll remains the truth lane).
  *
- * Catch-up rides `poll-digest` on every reconnect once a subscription id is known, with the
- * client-held watermark — a dropped stream loses nothing durable, and the observation carries
- * how much was pending at reconnect. Reconnects respect the server's `retry:` hint as a floor.
+ * Catch-up rides `poll-digest` on every connection, cold start included: the composed server's
+ * `state` handshake frame vouches the armed viewer's subscription id, so a fresh consumer with
+ * pending wakes catches up immediately — never waiting for a live wake to teach it which
+ * subscription the stream serves. The client-held watermark rides along, so a dropped stream
+ * loses nothing durable, and the observation carries how much was pending at catch-up.
+ * Reconnects respect the server's `retry:` hint as a floor.
  *
- * One credential, deliberately: the connection presents the relay's own fleet-admission bearer
- * and nothing else. No second header is synthesized from it — the composed server refuses
- * byte-identical pairs by design, and the boot-armed shared viewer identity means listening is
- * sufficient in the transitional topology.
+ * One credential, deliberately: the connection presents the relay's fleet-client PLANE-ADMISSION
+ * bearer — a distinct mint from its plane-MCP credential, which must never dial the fleet
+ * surface — and nothing else. No second header is synthesized from it: the composed server
+ * refuses byte-identical pairs by design, and the boot-armed shared viewer identity means
+ * listening is sufficient in the transitional topology.
  */
 
 const
@@ -71,9 +75,11 @@ export function parseSseFrames(buffer) {
  * observation, never a throw — the axis this feeds renders reasons, not stack traces.
  * @param {Object} options
  * @param {String} options.eventsUrl Absolute URL of the composed server's SSE endpoint.
- * @param {String} [options.credential=''] The relay's fleet-admission bearer.
+ * @param {String} [options.credential=''] The relay's fleet-client plane-admission bearer —
+ *     never the plane-MCP credential; the entry that constructs this consumer enforces the
+ *     class split.
  * @param {Function} [options.pollDigest] `({subscriptionId, sinceLogId}) => result` seam for
- *     reconnect catch-up (the plane client's `manage_wake_subscription poll-digest` action);
+ *     connection catch-up (the plane client's `manage_wake_subscription poll-digest` action);
  *     absent means catch-up is skipped and the observation says so.
  * @param {Function} [options.fetchImpl] Injection seam; defaults to global `fetch`.
  * @param {Function} [options.now=Date.now]
@@ -98,19 +104,20 @@ export function createFleetWakeSseConsumer({
     const doFetch = fetchImpl ?? ((...args) => fetch(...args));
 
     let
-        stopped            = true,
-        connected          = false,
-        connectionEpoch    = 0,
-        retryFloorMs       = initialRetryFloorMs,
-        consecutiveDrops   = 0,
-        lastFrameAt        = null,
-        lastWakeAt         = null,
-        lastState          = null,
-        lastDisconnect     = 'not started',
-        subscriptionId     = null,
-        watermark          = 0,
-        pendingAtReconnect = null,
-        abortController    = null;
+        stopped          = true,
+        connected        = false,
+        connectionEpoch  = 0,
+        retryFloorMs     = initialRetryFloorMs,
+        consecutiveDrops = 0,
+        lastFrameAt      = null,
+        lastWakeAt       = null,
+        lastState        = null,
+        lastDisconnect   = 'not started',
+        subscriptionId   = null,
+        watermark        = 0,
+        pendingAtCatchUp = null,
+        catchUpFired     = false,
+        abortController  = null;
 
     function observeFrame(frame) {
         lastFrameAt = now();
@@ -130,7 +137,14 @@ export function createFleetWakeSseConsumer({
         }
 
         if (frame.event === 'state') {
-            lastState = payload
+            lastState = payload;
+
+            // The handshake vouches the armed viewer's subscription id — the server's arming
+            // context created that subscription, so this is the authoritative source, available
+            // BEFORE any live wake arrives.
+            if (payload.subscriptionId) {
+                subscriptionId = payload.subscriptionId
+            }
         } else if (frame.event === 'wake') {
             lastWakeAt     = now();
             subscriptionId = payload.subscriptionId ?? subscriptionId;
@@ -141,24 +155,33 @@ export function createFleetWakeSseConsumer({
                 watermark = logId
             }
         }
+
+        // Catch-up fires once per connection, the moment the subscription id is known. The
+        // `state` handshake is the first frame every connection carries, so a COLD consumer
+        // with pending wakes catches up right here — no live wake has to arrive first. A server
+        // that vouches no id leaves this honestly unfired; poll remains the truth lane.
+        if (!catchUpFired && subscriptionId && pollDigest) {
+            catchUpFired = true;
+            catchUp() // absorbs its own faults; the observation carries the outcome
+        }
     }
 
     async function catchUp() {
         if (!pollDigest || !subscriptionId) {
-            pendingAtReconnect = null;
+            pendingAtCatchUp = null;
             return
         }
 
         try {
             const result = await pollDigest({subscriptionId, sinceLogId: watermark});
 
-            pendingAtReconnect = result?.counts?.pending ?? result?.pending ?? 0;
+            pendingAtCatchUp = result?.counts?.pending ?? result?.pending ?? 0;
 
             if (Number.isFinite(result?.watermark) && result.watermark > watermark) {
                 watermark = result.watermark
             }
         } catch (error) {
-            pendingAtReconnect = null;
+            pendingAtCatchUp = null;
             logger.warn?.(`[FleetWakeSseConsumer] reconnect catch-up failed: ${error?.message ?? error}`)
         }
     }
@@ -179,13 +202,15 @@ export function createFleetWakeSseConsumer({
             return
         }
 
-        // A (re)connect is the catch-up moment: everything the dropped stream missed is
-        // derivable at read time — push is latency, poll is truth.
-        await catchUp();
-
-        connected        = true;
-        consecutiveDrops = 0;
-        lastFrameAt      = now();
+        // Every connection is a catch-up moment — the trigger lives in `observeFrame`, on the
+        // first frame that makes the subscription id known (the handshake `state` frame on a
+        // server that vouches it). The per-connection observation resets here so a connection
+        // that CANNOT catch up never wears the previous one's count.
+        connected          = true;
+        consecutiveDrops   = 0;
+        lastFrameAt        = now();
+        catchUpFired       = false;
+        pendingAtCatchUp = null;
 
         const reader = response.body.getReader();
 
@@ -297,7 +322,7 @@ export function createFleetWakeSseConsumer({
                     ? (lastState.armedForViewer ? 'armed for this viewer' : `not armed for this viewer (${lastState.reason ?? 'no reason carried'})`)
                     : 'state event pending';
 
-                const pendingNote = pendingAtReconnect ? ` · ${pendingAtReconnect} pending caught up at reconnect` : '';
+                const pendingNote = pendingAtCatchUp ? ` · ${pendingAtCatchUp} pending caught up` : '';
 
                 return {alive: true, reason: `composed wake stream connected · ${armedNote}${pendingNote}`}
             }
@@ -321,7 +346,7 @@ export function createFleetWakeSseConsumer({
                 lastDisconnect,
                 subscriptionId,
                 watermark,
-                pendingAtReconnect,
+                pendingAtCatchUp,
                 consecutiveDrops,
                 retryFloorMs
             }

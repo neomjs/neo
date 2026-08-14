@@ -69,7 +69,7 @@ test.describe('parseSseFrames - the text/event-stream frame grammar', () => {
 });
 
 test.describe('fleetWakeSseConsumer - the delivery-liveness observation', () => {
-    test('the full arc: connect → observe state+wake → drop → poll-digest catch-up at reconnect → honest liveness throughout', async () => {
+    test('the full arc: connect → handshake-vouched cold catch-up → wake → drop → reconnect catch-up at the held watermark', async () => {
         const
             responses = [],
             pollCalls = [];
@@ -95,7 +95,10 @@ test.describe('fleetWakeSseConsumer - the delivery-liveness observation', () => 
             },
             pollDigest: async args => {
                 pollCalls.push(args);
-                return {counts: {pending: 2}, watermark: 9}
+                // The cold catch-up finds nothing pending; the reconnect catch-up finds 2.
+                return pollCalls.length === 1
+                    ? {counts: {pending: 0}, watermark: 0}
+                    : {counts: {pending: 2}, watermark: 9}
             }
         });
 
@@ -107,13 +110,17 @@ test.describe('fleetWakeSseConsumer - the delivery-liveness observation', () => 
         consumer.start();
         await wait(30);
 
-        // First connect: no subscription id is known yet, so catch-up is skipped by contract.
+        // Connected but pre-handshake: no subscription id has been vouched yet, so catch-up has
+        // nothing to target.
         expect(pollCalls).toHaveLength(0);
 
         // No retry hint here on purpose: a server hint can only RAISE the floor, and this arc's
-        // reconnect timing rides the injected 10ms test floor.
-        responses[0].push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed"}\n\n');
+        // reconnect timing rides the injected 10ms test floor. The handshake vouches the
+        // subscription id, which is the cold catch-up trigger.
+        responses[0].push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed","subscriptionId":"WAKE_SUB:live"}\n\n');
         await wait(20);
+
+        expect(pollCalls).toEqual([{subscriptionId: 'WAKE_SUB:live', sinceLogId: 0}]);
 
         let liveness = consumer.resolveDeliveryLiveness();
 
@@ -126,20 +133,23 @@ test.describe('fleetWakeSseConsumer - the delivery-liveness observation', () => 
         expect(consumer.describe().subscriptionId).toBe('WAKE_SUB:live');
         expect(consumer.describe().watermark).toBe(7);
 
-        // Drop the stream: the reconnect (floor 10ms) must run catch-up with the held watermark.
+        // Drop the stream: the reconnect (floor 10ms) re-runs the handshake, and ITS catch-up
+        // carries the held watermark — nothing durable was lost with the stream.
         responses[0].close();
         await wait(80);
 
         expect(responses.length).toBeGreaterThanOrEqual(2);
-        expect(pollCalls).toEqual([{subscriptionId: 'WAKE_SUB:live', sinceLogId: 7}]);
-        expect(consumer.describe().watermark).toBe(9);
+        expect(pollCalls).toHaveLength(1);
 
-        responses[1].push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed"}\n\n');
+        responses[1].push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed","subscriptionId":"WAKE_SUB:live"}\n\n');
         await wait(20);
+
+        expect(pollCalls[1]).toEqual({subscriptionId: 'WAKE_SUB:live', sinceLogId: 7});
+        expect(consumer.describe().watermark).toBe(9);
 
         liveness = consumer.resolveDeliveryLiveness();
         expect(liveness.alive).toBe(true);
-        expect(liveness.reason).toContain('2 pending caught up at reconnect');
+        expect(liveness.reason).toContain('2 pending caught up');
 
         consumer.stop();
 
@@ -147,6 +157,78 @@ test.describe('fleetWakeSseConsumer - the delivery-liveness observation', () => 
             alive : 'unknown',
             reason: 'wake stream consumer not running'
         })
+    });
+
+    test('the cold window: pending wakes + a fresh consumer + NO live wake — the vouched handshake id alone drives catch-up', async () => {
+        const
+            response  = sseResponse(),
+            pollCalls = [];
+
+        const consumer = createFleetWakeSseConsumer({
+            eventsUrl   : 'http://127.0.0.1:3102/fleet/events',
+            credential  : 'relay-admission',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            fetchImpl   : async () => response,
+            pollDigest  : async args => {
+                pollCalls.push(args);
+                return {counts: {pending: 3}, watermark: 12}
+            }
+        });
+
+        consumer.start();
+        await wait(30);
+
+        response.push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed","subscriptionId":"WAKE_SUB:cold"}\n\n');
+        await wait(20);
+
+        // The shipped-defect falsifier: before the handshake vouched the id, a cold consumer
+        // skipped catch-up entirely, and pending wakes waited on a live wake that might never
+        // come. Now the handshake alone drains them.
+        expect(pollCalls).toEqual([{subscriptionId: 'WAKE_SUB:cold', sinceLogId: 0}]);
+        expect(consumer.describe().watermark).toBe(12);
+
+        const liveness = consumer.resolveDeliveryLiveness();
+
+        expect(liveness.alive).toBe(true);
+        expect(liveness.reason).toContain('3 pending caught up');
+
+        consumer.stop();
+        response.close()
+    });
+
+    test('a server that vouches no subscription id leaves catch-up honestly unfired — no guessed target, no fabricated count', async () => {
+        const
+            response  = sseResponse(),
+            pollCalls = [];
+
+        const consumer = createFleetWakeSseConsumer({
+            eventsUrl   : 'http://127.0.0.1:3102/fleet/events',
+            credential  : 'relay-admission',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            fetchImpl   : async () => response,
+            pollDigest  : async args => {
+                pollCalls.push(args);
+                return {counts: {pending: 5}, watermark: 40}
+            }
+        });
+
+        consumer.start();
+        await wait(30);
+
+        response.push('event: state\ndata: {"armed":true,"armedForViewer":true,"reason":"armed"}\n\n');
+        await wait(20);
+
+        expect(pollCalls).toHaveLength(0);
+
+        const liveness = consumer.resolveDeliveryLiveness();
+
+        expect(liveness.alive).toBe(true);
+        expect(liveness.reason).not.toContain('caught up');
+
+        consumer.stop();
+        response.close()
     });
 
     test('a refused stream renders unknown with the HTTP reason — never a fabricated verdict', async () => {

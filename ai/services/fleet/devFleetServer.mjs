@@ -54,6 +54,7 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
+import {assertFleetPlaneAdmissionBearerClass}                            from './fleetServer.mjs';
 import {createPlaneMailboxClient}                                        from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader}                                 from './planeWakeIdentitiesReader.mjs';
 import {createFleetWakeSseConsumer}                                      from './fleetWakeSseConsumer.mjs';
@@ -145,27 +146,40 @@ async function boot() {
     // signed host receiver, and neither is observable from this process today.
     if (planeClient) {
         // The plane NOW exposes the vouching surface this branch was honestly waiting for: the
-        // composed fleet-server's `/fleet/events` stream. This process consumes it with its own
-        // fleet-admission bearer (one credential, deliberately — no second header is synthesized,
-        // and the composed server's boot arming covers the shared viewer identity), and the
-        // delivery-liveness axis renders the live observation instead of a typed unknown.
-        // Reconnect catch-up rides `poll-digest` through the proven plane client. Fail-soft: a
-        // dead stream degrades the axis back to honest `unknown` with the disconnect reason.
-        const wakeStreamConsumer = createFleetWakeSseConsumer({
-            eventsUrl : `${planeBase.replace(/\/+$/, '')}/fleet/events`,
-            credential: AiConfig.fleet.planeBearer,
-            pollDigest: args => planeClient.callTool('manage_wake_subscription', {action: 'poll-digest', ...args})
-        });
+        // composed fleet-server's `/fleet/events` stream. This process consumes it with the
+        // fleet-client PLANE-ADMISSION bearer — its own mint, class-checked at resolution: the
+        // plane-MCP credential must never dial the fleet surface, and an ALIASED declaration
+        // refuses the boot loudly right here (the structural close below still runs). An EMPTY
+        // declaration arms nothing: the axis renders the honest reason and poll stays the truth
+        // lane. One credential either way — no second header is synthesized, and the composed
+        // server's boot arming covers the shared viewer identity. Connection catch-up rides
+        // `poll-digest` through the proven plane client, cold start included (the stream's
+        // `state` handshake vouches the subscription id). Fail-soft past construction: a dead
+        // stream degrades the axis back to honest `unknown` with the disconnect reason.
+        const planeAdmissionBearer = assertFleetPlaneAdmissionBearerClass();
 
-        wakeStreamConsumer.start();
-        fleetWakeStreamConsumer = wakeStreamConsumer;
+        if (planeAdmissionBearer) {
+            const wakeStreamConsumer = createFleetWakeSseConsumer({
+                eventsUrl : `${planeBase.replace(/\/+$/, '')}/fleet/events`,
+                credential: planeAdmissionBearer,
+                pollDigest: args => planeClient.callTool('manage_wake_subscription', {action: 'poll-digest', ...args})
+            });
+
+            wakeStreamConsumer.start();
+            fleetWakeStreamConsumer = wakeStreamConsumer
+        }
 
         FleetManager.wakeStateOptions = {
             // The proven client returns PARSED payloads (its mapToolResult owns envelope handling)
             // — the reader consumes them directly; a second parse here would reject every healthy
             // answer and silently blind the whole axis.
             listActiveSubscriptionIdentities: createPlaneWakeIdentitiesReader(planeClient),
-            resolveDeliveryLiveness         : () => wakeStreamConsumer.resolveDeliveryLiveness(),
+            resolveDeliveryLiveness         : fleetWakeStreamConsumer
+                ? () => fleetWakeStreamConsumer.resolveDeliveryLiveness()
+                : () => ({
+                    alive : 'unknown',
+                    reason: 'no fleet-surface credential declared (fleet.planeAdmissionBearer / fleet.planeAdmissionBearerFile) — poll remains the truth lane'
+                }),
             resolveTerminalDeliveryFailures : () => ({
                 state     : 'unknown',
                 reason    : 'terminal delivery receipts live with the containerized delivery authority; not exposed yet',
@@ -178,7 +192,7 @@ async function boot() {
             wakeReceiverManifestPath: AiConfig.fleet.wakeReceiverManifestPath
         };
 
-        console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery liveness observed from the composed wake stream; terminal receipts honest-unknown)`)
+        console.log(`[fleet] wake-state seam bound to the containerized plane at ${planeBase} (subscription axis plane-side; delivery liveness ${fleetWakeStreamConsumer ? 'observed from the composed wake stream' : 'unarmed — no fleet-surface credential declared'}; terminal receipts honest-unknown)`)
     } else {
         // The `wakeDaemon` subtree is owned by the memory-core config, NOT Tier-1 `AiConfig` (which
         // carries only the flat `wakeDaemonHeartbeatAlivePath` leaf) — so the daemon's own authority
