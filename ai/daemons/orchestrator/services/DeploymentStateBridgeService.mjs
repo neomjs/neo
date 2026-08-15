@@ -2577,10 +2577,16 @@ function summarizeTenantRepoState({
         // carries no identity and no message — a count, a state, and two timestamps.
         corpusOutstanding                 : normalizedCheckpoint?.corpusOutstanding ?? null,
         // Same unconditional rule, and for a stronger reason: a fence-only run COMPLETES (streak
-        // zero, checkpoint advanced), so this census is the ONLY snapshot evidence that N documents
-        // are deferred pending a geometry/ceiling change. Hashed chunk ids and a count — validated
-        // fail-closed by the checkpoint normalizer above.
+        // zero, checkpoint advanced), so these censuses are the ONLY snapshot evidence that N documents
+        // are fenced. Hashed chunk ids and a count — validated fail-closed by the checkpoint
+        // normalizer above.
+        //
+        // Two fields rather than one total, because they prescribe OPPOSITE operator actions:
+        // `undeliverableChunks` is healthy content the plane's geometry cannot deliver (raise the
+        // ceiling), `contentPoisonChunks` is content whose own shape defeated embedding (fix the file).
+        // A merged count reliably sends the operator at the wrong one.
         undeliverableChunks               : normalizedCheckpoint?.undeliverableChunks ?? null,
+        contentPoisonChunks               : normalizedCheckpoint?.contentPoisonChunks ?? null,
         ingestContractVersion             : normalizedCheckpoint?.ingestContractVersion ?? null,
         lastAttemptedIngestContractVersion: normalizedCheckpoint?.lastAttemptedIngestContractVersion ?? null,
         effectiveCadenceMs                : dueState.effectiveCadenceMs,

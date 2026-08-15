@@ -22,7 +22,6 @@ import {
     BOUNDED_KB_ERROR_CODE_PATTERN,
     EMBED_DISPOSITION,
     KB_VECTOR_EMBED_PROVIDER_CIRCUIT_OPEN,
-    KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY,
     classifyEmbedDisposition,
     isEmbedFailureCode
 }                                from '../../../services/knowledge-base/helpers/embedFailureClassification.mjs';
@@ -323,6 +322,60 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
 }
 
 /**
+ * @summary Tenant-aware chunk hash, the shape a fence row's `chunkId` must carry.
+ * @type {RegExp}
+ */
+const CHUNK_ID_PATTERN = /^[a-f0-9]{64}$/u;
+
+/**
+ * @summary The closed vocabulary of durable fence dispositions the ingestion writer emits.
+ *
+ * Two families share the poison store and assert DIFFERENT things — `proven-content-poison` is bad
+ * content to fix, `undeliverable-at-geometry` is healthy content the current geometry cannot deliver.
+ * Both are durable: no amount of coming back changes either at the current generation. They stay
+ * separately named here for the same reason `IngestionService` writes them separately — telling an
+ * operator to fix a file whose only fault is the plane's ceiling is the confusion worth preventing.
+ * @type {Set<String>}
+ */
+const FENCE_DISPOSITIONS = Object.freeze(new Set(['proven-content-poison', 'undeliverable-at-geometry']));
+
+/**
+ * @summary Decides whether one error row is a DURABLE FENCE rather than live work.
+ *
+ * **The code alone cannot answer this, which is why the row's details are read at all.** An
+ * undeliverable fence could be recognised by its code because that code is minted only at
+ * graduation; a content poison carries the ORIGINAL embed-domain code it failed with, so
+ * `KB_VECTOR_EMBED_TIMEOUT` is a fence row on one sweep and a live failure on the next. The
+ * disposition is the writer's own assertion about which, and it is the only thing that knows.
+ *
+ * **`classifyIngestionOutcome` reads codes only, deliberately — `details` is unvalidated free
+ * shape.** So this read takes the same gate a code gets, and all three clauses are load-bearing:
+ * a closed vocabulary (not merely "a string is present"), coherence between `details.reasonCode`
+ * and the top-level `code` (the writer assigns both from one local, so disagreement means the row
+ * did not come from this contract), and the same bounded id gate the census applies.
+ *
+ * Every clause fails toward LIVE. A missing, malformed, unknown, or incoherent row keeps its run
+ * deferring exactly as today — the direction where a wrong answer costs a wasted sweep rather than
+ * a checkpoint advanced over work that never landed.
+ *
+ * @param {Object} item One `summary.errors` row.
+ * @returns {Boolean}
+ * @private
+ */
+function isDurableFenceRow(item) {
+    const details = item?.details;
+
+    if (!details || typeof details !== 'object' || Array.isArray(details)) {
+        return false;
+    }
+
+    return FENCE_DISPOSITIONS.has(details.disposition)
+        && details.reasonCode === item.code
+        && typeof details.chunkId === 'string'
+        && CHUNK_ID_PATTERN.test(details.chunkId);
+}
+
+/**
  * @summary Decides whether an ingestion run COMPLETED, DEFERRED, or FAILED.
  *
  * `KnowledgeBaseIngestionService.ingestSourceFiles()` is intentionally fail-soft: failures are
@@ -347,11 +400,21 @@ function getAccessReadinessMaxAgeMs(repo, globalCadenceMs) {
  * error, or one error with no code at all fails the run exactly as before. Deferring a permanently
  * malformed file would be silently stuck, which is worse than loudly broken.
  *
+ * **Within the deferrable domain there is a fourth distinction, and it decides `complete` vs
+ * `deferred`: a durable FENCE is not incomplete work.** A fenced chunk is excised until its
+ * generation, geometry, ceiling, or content changes, so deferring on one asserts a return that can
+ * change nothing — and the held checkpoint makes every later sweep re-materialise the same delta.
+ * A run whose every error is a fence (either family) completes; the persisted censuses, not a held
+ * checkpoint, carry the fenced chunks to the operator. See {@link isDurableFenceRow} for why the
+ * row's details rather than its code answer this, and for the fail-closed gate that read takes.
+ *
  * Error messages and details are still never copied into the thrown error. The bounded `KB_*` codes
  * are retained separately as source provenance for `lastSourceErrorCode`.
  *
  * @param {Object} summary Returned KB ingestion summary.
- * @returns {{outcome: 'complete'|'deferred', summary: Object, deferredCodes: String[]}}
+ * @returns {{outcome: 'complete'|'deferred', summary: Object, deferredCodes: String[]}} `deferredCodes`
+ *     carries the codes of LIVE rows only — never a fence row's code, which would otherwise be
+ *     indistinguishable downstream and could arm an embedding-recovery episode.
  * @throws {Error} When the summary shape is ambiguous, or it carries any error that is not a
  *     deferrable embed failure.
  */
@@ -372,21 +435,29 @@ function classifyIngestionOutcome(summary) {
 
         if (deferrable) {
             // Deferral means "incomplete, come back": the checkpoint holds because a later run may
-            // finish the work. The undeliverable-at-geometry fence asserts the OPPOSITE — the chunk
-            // is durably excised until the geometry, ceiling, or content changes, so no amount of
-            // coming back changes anything. A run whose every error is that fence therefore
-            // COMPLETES: the checkpoint advances, sibling rotation proceeds, and the census below
-            // (not a held checkpoint) is what keeps the fenced chunks visible to the operator.
-            // One live deferrable failure beside the fences still defers the run as before.
-            const undeliverableOnly = summary.errors.every(item =>
-                item.code === KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY
-            );
+            // finish the work. A durable fence asserts the OPPOSITE — the chunk is excised until the
+            // generation, geometry, ceiling, or content changes, so no amount of coming back changes
+            // anything. A run whose every error is a fence therefore COMPLETES: the checkpoint
+            // advances, sibling rotation proceeds, and the censuses (not a held checkpoint) are what
+            // keep the fenced chunks visible to the operator. One live failure beside the fences
+            // still defers the run as before.
+            //
+            // BOTH fence families qualify. Restricting this to the undeliverable code left every
+            // content-poisoned repo deferring forever — re-materialising and re-parsing the same
+            // delta each sweep for a state no later sweep can change.
+            const liveRows = summary.errors.filter(item => !isDurableFenceRow(item));
 
-            if (!undeliverableOnly) {
+            if (liveRows.length > 0) {
+                // Live rows ONLY. Both families carry ordinary embed-domain codes, so a flat set of
+                // every row's code cannot be filtered back to live causes downstream — the row
+                // identity that distinguishes a fenced `KB_VECTOR_EMBED_TIMEOUT` from a live one
+                // exists here and nowhere after. Selecting the cause anywhere else would let a fence
+                // arm the embedding-recovery canary: a health probe whose success cannot re-offer
+                // the fenced chunk, because only a generation change can.
                 return {
                     outcome      : 'deferred',
                     summary,
-                    deferredCodes: [...new Set(summary.errors.map(item => item.code))]
+                    deferredCodes: [...new Set(liveRows.map(item => item.code))]
                 }
             }
 
@@ -487,38 +558,67 @@ function buildCorpusOutstandingObservation({summary, priorState, observedAt}) {
 export const UNDELIVERABLE_CENSUS_MAX_IDS = 32;
 
 /**
- * @summary Builds the AC-3 undeliverable census (`{count, ids}`) from one run's own ingestion summary.
+ * @summary Builds one fence census (`{count, ids}`) from one run's own ingestion summary.
  *
- * The census answers "how many documents is this plane's geometry deferring, and which" — the
- * observable that replaces silence when a monster chunk is fenced instead of blocking the corpus.
- * Derived from the summary's fence rows rather than re-reading the poison store: the run's summary
- * is what the sync lane already trusts for every other scheduling decision, and a second reader
- * could disagree with the writer that produced it.
+ * The census answers "how many documents is this plane fencing, and which" — the observable that
+ * replaces silence when a chunk is fenced instead of blocking the corpus. Once a fence-only run
+ * COMPLETES, it is also the only standing signal left: the held checkpoint that used to say
+ * "something is wrong here" is gone by design.
  *
- * Ids are tenant-aware chunk hashes — bounded by construction — and re-validated here anyway; a row
- * whose id fails the gate is COUNTED but not enumerated, so a malformed writer can inflate nothing
- * into the projection. `null` means "no census observed" (no fence rows), never "zero measured".
+ * Derived from the summary's own rows rather than re-reading the poison store: the run's summary is
+ * what the sync lane already trusts for every other scheduling decision, and a second reader could
+ * disagree with the writer that produced it.
  *
- * @param {Object} summary Ingestion summary returned by the run.
+ * The two families stay SEPARATE censuses rather than one total. `IngestionService` writes them
+ * apart for the operator-facing reason that a merged number destroys — a content poison is a file to
+ * fix, an undeliverable chunk is a ceiling to raise, and a single count tells you to do the wrong one.
+ *
+ * Ids are tenant-aware chunk hashes, re-validated here even though {@link isDurableFenceRow} already
+ * gated them — this builder must stay correct if it is ever pointed at rows from another path.
+ * A row that cannot name its chunk never reaches here: it fails the fence gate and keeps its run
+ * DEFERRING, which is the load-bearing direction now that completion hands observability to this
+ * census. Completing on rows nobody can enumerate would leave an operator with a fenced corpus and
+ * no signal at all. `null` means "no census observed" (no rows of this family), never "zero measured".
+ *
+ * @param {Object}   summary   Ingestion summary returned by the run.
+ * @param {String}   dispositionValue The {@link FENCE_DISPOSITIONS} member selecting one family.
  * @returns {{count: Number, ids: String[]}|null}
  */
-function buildUndeliverableCensus(summary) {
+function buildFenceCensus(summary, dispositionValue) {
     const rows = (Array.isArray(summary?.errors) ? summary.errors : [])
-        .filter(item => item?.code === KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY);
+        .filter(item => isDurableFenceRow(item) && item.details.disposition === dispositionValue);
 
     if (rows.length === 0) {
         return null;
     }
 
     const ids = [...new Set(
-        rows.map(item => item?.details?.chunkId)
-            .filter(id => typeof id === 'string' && /^[a-f0-9]{64}$/u.test(id))
+        rows.map(item => item.details.chunkId)
+            .filter(id => typeof id === 'string' && CHUNK_ID_PATTERN.test(id))
     )].sort();
 
     return {
         count: rows.length,
         ids  : ids.slice(0, UNDELIVERABLE_CENSUS_MAX_IDS)
     };
+}
+
+/**
+ * @summary Builds the undeliverable-at-geometry census — healthy content the plane cannot deliver.
+ * @param {Object} summary Ingestion summary returned by the run.
+ * @returns {{count: Number, ids: String[]}|null}
+ */
+function buildUndeliverableCensus(summary) {
+    return buildFenceCensus(summary, 'undeliverable-at-geometry');
+}
+
+/**
+ * @summary Builds the proven-content-poison census — content whose own shape defeated embedding.
+ * @param {Object} summary Ingestion summary returned by the run.
+ * @returns {{count: Number, ids: String[]}|null}
+ */
+function buildContentPoisonCensus(summary) {
+    return buildFenceCensus(summary, 'proven-content-poison');
 }
 
 /**
@@ -2236,13 +2336,15 @@ class TenantRepoSyncService extends Base {
                     //
                     // Bounded `KB_*` codes only, never messages or details: identical credential
                     // boundary to the failure path, which is why these are safe to persist at all.
-                    // The undeliverable fence is excluded from cause selection: it is a durable
-                    // disposition, not a live failure, and letting it arm the embedding-recovery
-                    // canary would probe for a health change that cannot re-offer the chunk — only a
+                    // Fences of BOTH families are already excluded — `deferredCodes` carries live
+                    // rows only, filtered where the row identity still exists. It cannot be done
+                    // here: a content poison carries the ordinary embed code it failed with, so a
+                    // fenced `KB_VECTOR_EMBED_TIMEOUT` and a live one are the same string by the
+                    // time this sees them. Letting a fence through would arm the embedding-recovery
+                    // canary — a health probe whose success cannot re-offer the chunk, since only a
                     // generation change can. A deferred outcome always carries at least one live
-                    // code beside any fences (fence-only runs classify as complete above).
-                    const liveDeferredCodes = ingestOutcome.deferredCodes
-                        .filter(code => code !== KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY);
+                    // code (fence-only runs classify as complete above).
+                    const liveDeferredCodes = ingestOutcome.deferredCodes;
                     const deferredCauseCode = liveDeferredCodes.find(isEmbeddingRecoverySourceCode)
                         ?? liveDeferredCodes[0]
                         ?? priorState?.lastSourceErrorCode
@@ -2268,6 +2370,9 @@ class TenantRepoSyncService extends Base {
                     const deferredCensus = buildUndeliverableCensus(rawSummary)
                         ?? priorState?.undeliverableChunks
                         ?? null;
+                    const deferredPoisonCensus = buildContentPoisonCensus(rawSummary)
+                        ?? priorState?.contentPoisonChunks
+                        ?? null;
 
                     persistedRevisions[repoLabel] = {
                         ...priorState,
@@ -2279,6 +2384,7 @@ class TenantRepoSyncService extends Base {
                         lastErrorAt                       : startedMs,
                         corpusOutstanding                 : deferredOutstanding,
                         undeliverableChunks               : deferredCensus,
+                        contentPoisonChunks               : deferredPoisonCensus,
                         // Recovery eligibility, on the SAME episode a failure would advance. A
                         // consumed generation folds into `lastConsumedGenerationId/At` and a newly
                         // healthy canary generation is required before another bypass, so a
@@ -2319,7 +2425,8 @@ class TenantRepoSyncService extends Base {
                             observedAt        : startedMs
                         }),
                         corpusOutstanding  : deferredOutstanding,
-                        undeliverableChunks: deferredCensus
+                        undeliverableChunks: deferredCensus,
+                        contentPoisonChunks: deferredPoisonCensus
                     });
 
                     healthService?.recordTaskOutcome?.(taskName, 'deferred', {
@@ -2341,11 +2448,14 @@ class TenantRepoSyncService extends Base {
                     observedAt: startedMs
                 });
 
-                // The completed path carries the census too — this is the AC-3 surface's load-bearing
+                // The completed path carries the censuses too — this is the surface's load-bearing
                 // half: a fence-only run COMPLETES (checkpoint advances, rotation proceeds), so the
-                // held-checkpoint signal is gone by design and the census is the only thing standing
-                // between the operator and "N documents silently missing".
-                const completedCensus = buildUndeliverableCensus(ingestResult);
+                // held-checkpoint signal is gone by design and the censuses are the only thing standing
+                // between the operator and "N documents silently missing". Both families are written
+                // in this one checkpoint object, so completion cannot land while the signal it replaces
+                // the held checkpoint with is lost.
+                const completedCensus       = buildUndeliverableCensus(ingestResult);
+                const completedPoisonCensus = buildContentPoisonCensus(ingestResult);
 
                 const materializationReceipt = assertFullMaterializationEffect(
                     envelope,
@@ -2381,7 +2491,8 @@ class TenantRepoSyncService extends Base {
                     // would leave `corpusOutstanding` absent on exactly the state that proves the
                     // observable can reach zero, and an absent field reads as unknown.
                     corpusOutstanding  : completedOutstanding,
-                    undeliverableChunks: completedCensus
+                    undeliverableChunks: completedCensus,
+                    contentPoisonChunks: completedPoisonCensus
                 };
 
                 const durationMs = Date.now() - startedMs;
@@ -2400,7 +2511,8 @@ class TenantRepoSyncService extends Base {
                     checkpointStatus    : TenantRepoCheckpointStatus.COMPLETE,
                     lastSyncDeletedCount: deleted,
                     corpusOutstanding   : completedOutstanding,
-                    undeliverableChunks : completedCensus
+                    undeliverableChunks : completedCensus,
+                    contentPoisonChunks : completedPoisonCensus
                 });
                 completedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'completed', {
