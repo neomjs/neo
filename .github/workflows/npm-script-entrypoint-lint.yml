@@ -1,0 +1,63 @@
+name: Npm Script Entrypoint Lint
+
+# Proves every `ai:*` npm script entry pointing into `ai/scripts` resolves its static relative
+# imports. A published entrypoint that cannot load fails only at invocation — and nothing invokes
+# a rotted one, so the failure has no reporter until this guard runs.
+
+# Agent PRs are same-repo branches, so the default GITHUB_TOKEN is write-capable and a checkout
+# with persisted credentials leaves it in .git/config for the diff-under-review to read. This
+# job only reads: the token is narrowed to contents:read and never persisted.
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      # The invariant is scanned ⊆ watched. The guard walks each entry's transitive static
+      # relative-import graph, which reaches ai/, src/, and buildScripts/ — so every one of those
+      # trees must re-run it, or a break lands inside someone else's green run, misattributed.
+      - 'ai/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      # The entry list is an INPUT to the verdict: adding or repointing an `ai:*` script must
+      # re-run the check that proves it loads.
+      - 'package.json'
+      - 'ai/scripts/lint/lint-npm-script-entrypoints.mjs'
+      - '.github/workflows/npm-script-entrypoint-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'ai/**/*.mjs'
+      - 'src/**/*.mjs'
+      - 'buildScripts/**/*.mjs'
+      - 'package.json'
+      - 'ai/scripts/lint/lint-npm-script-entrypoints.mjs'
+      - '.github/workflows/npm-script-entrypoint-lint.yml'
+
+concurrency:
+  group: npm-script-entrypoint-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # Install is required, not optional: discovery runs on the acorn parse tree (a JSDoc import
+      # example is documentation, not an edge — text matching reds on exactly those). Same shape
+      # as fixed-sleep-lint.yml and aiconfig-antipattern-lint.yml.
+      - name: Install dependencies (acorn — the guard's parser)
+        run: npm ci --ignore-scripts
+
+      - name: Require every ai:* entrypoint to resolve its static imports
+        run: node ./ai/scripts/lint/lint-npm-script-entrypoints.mjs
