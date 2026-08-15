@@ -77,6 +77,19 @@ The shell also carries `[PROVISIONAL_UNGRADUATED: D#N]`, links the source Discus
 
 For source anchors (`#11078` / `#11082` / `#11083` / `#11084`), Discussion `#11091` authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
+### 1e. The Zero-Ceremony Defect Channel (capture exemption)
+
+Defect CAPTURE is exempt from §1a's sweeps and §2's chain, permanently. On broken substrate — production or local — capture is one A2A line to `AGENT:*`, no sweeps, no body:
+
+```
+defect-note: <surface> broke <observed symptom>
+```
+
+- **Capture ≠ admission.** Notes fold into one standing observation per surface/symptom fingerprint (read model: `ai/services/memory-core/helpers/defectObservationFold.mjs`; print it: `node ai/scripts/diagnostics/defectObservations.mjs`).
+- **Promotion runs the FULL ceremony** — an issue is created only on a production-down signal, an independent second occurrence, an operator escalation, or a triage decision, and runs this entire workflow, V-B-A included. Capture never waits for any of it.
+- **Recovery is a note too:** `defect-note: [recovered] <surface> broke <symptom>` closes the observation idempotently; a fresh sighting re-opens it. One standing record per fingerprint — never one note per sample.
+- The asymmetry is deliberate: a duplicate note costs one dedup; an unfiled defect costs what an unfiled production break costs (origin: the `query_summaries` specimen, D#17136). **A workaround without a filed defect-note is the named anti-pattern** — the workaround may stay private, the sighting may not.
+
 ## 2. Six-Stage Challenge Chain
 
 Apply the same importance weighting used by PR review at creation time: premise / right thing to build = 30%; substrate / what belongs where = 30%; deliverable correctness = 30%; AC and evidence checklist sanity = 10%. These are importance-to-verdict weights, not drafting effort budgets. A perfectly detailed AC list for the wrong work or wrong owning substrate still fails the ticket.

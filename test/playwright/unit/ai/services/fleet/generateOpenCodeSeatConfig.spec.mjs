@@ -95,7 +95,8 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
 
         // Live-frozen from the pre-change origin/dev artifact. This catches remote-only prose or grammar
         // leaking into the default artifact set even when current-vs-current purity stays green.
-        expect(digest).toBe('c8461ca787b93aabbe8bf1c0b54c420b5a0101de56ca901b9726d6ddcc52d972')
+        // Bumped 2026-08-15: the seat-layer rules gained the defect-note anti-pattern line.
+        expect(digest).toBe('3eca75f4e9c2f39ce69c75541fb6effdc32844863a85967df284a64ba5c5bad7')
     });
 
     test('remote map replaces only selected servers with the exact OpenCode HTTP adapter grammar', () => {

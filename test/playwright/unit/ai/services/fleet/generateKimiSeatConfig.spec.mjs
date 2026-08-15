@@ -175,7 +175,8 @@ test.describe('generateKimiSeatConfig (Kimi Code seat scaffold emission, #15612)
 
         // Live-frozen from the pre-change origin/dev artifact. This is deliberately not current-vs-current:
         // an unconditional remote credential echo in any generated file changes the digest.
-        expect(digest).toBe('7aeb71b78d7e0371a49293a934dac969bf2a9eb8ec4001edd576ed3e5d3ea5ae')
+        // Bumped 2026-08-15: the seat-layer rules gained the defect-note anti-pattern line.
+        expect(digest).toBe('2652a60b456146fd4906c7151347b4c7bc1f329ec9a606d777d57b507704f5d6')
     });
 
     test('remote map replaces only selected servers with the exact Kimi HTTP adapter grammar', () => {
