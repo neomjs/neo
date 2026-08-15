@@ -2219,6 +2219,124 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(mutationCallCount, 'neither unclassified submitter reached a mutation').toBe(0);
     });
 
+    test('#17141: a repair-minted re-entry is refused unless every clause checks out', async () => {
+        // The exception exists for one situation: a defect that did NOT exist, or was undiscoverable,
+        // at the head Round 1 reviewed, and that the author's own repair created or exposed. "Noticed
+        // later" is not that situation, and free prose cannot tell the two apart — which is why the
+        // prior contract accepted "release safety exception" and asserted nothing checkable.
+        //
+        // Each row removes exactly ONE clause from an otherwise-valid receipt, so a refusal cannot be
+        // inherited from any other check.
+        const valid = {
+            'old-head'         : '1111111111111111111111111111111111111111',
+            'new-head'         : PR_HEAD_OID,
+            'prior-fact'       : 'the seam did not exist at that head',
+            'repair-coordinate': 'ai/x.mjs:42'
+        };
+        const receipt = overrides => Object.entries({...valid, ...overrides})
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' | ');
+
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes   : [priorRequestChanges({reviewer: SUBMITTING_LOGIN})],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const submit = reviewBudgetOverrideReason => PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason
+        });
+
+        for (const [label, reason] of [
+            ['free text, the prior contract',   'Operator-declared release safety exception.'],
+            ['no old-head',                     receipt({'old-head': undefined})],
+            ['no prior-fact',                   receipt({'prior-fact': undefined})],
+            ['no repair-coordinate',            receipt({'repair-coordinate': undefined})],
+            ['identical heads describe no repair', receipt({'old-head': PR_HEAD_OID})],
+            // The falsifiable clause: every other row checks the sentence against itself, this one
+            // checks it against the PR's own history. An invented old-head cannot be written better.
+            ['old-head no prior review used',   receipt({'old-head': '9999999999999999999999999999999999999999'})],
+            ['new-head is not the head under review', receipt({'new-head': '8888888888888888888888888888888888888888'})]
+        ]) {
+            const result = await submit(reason);
+
+            expect(result.code, label).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        }
+
+        expect(mutationCallCount, 'no malformed receipt reached a mutation').toBe(0);
+
+        // The control: the complete receipt on the identical fixture passes, so the matrix above
+        // refuses malformed receipts rather than refusing re-entry altogether.
+        const admitted = await submit(receipt({}));
+
+        expect(admitted.error).toBeUndefined();
+        expect(admitted.reviewBudget.outcome).toBe('disclosed-override');
+        expect(mutationCallCount).toBe(1);
+    });
+
+    test('#17141: the repair-minted re-entry is terminal — a second is refused', async () => {
+        // Otherwise the exception becomes the budget: reachable indefinitely by writing a well-formed
+        // receipt each time. Prior re-entries are countable because the override audit is appended
+        // durably to the review body it authorized, so the record of the exception is the evidence
+        // that it was spent.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes: [
+                            priorRequestChanges({reviewer: SUBMITTING_LOGIN}),
+                            priorRequestChanges({
+                                body    : `Prior re-entry.\n\n${'[review-budget-override]'}`,
+                                id      : 'PRR_reentry',
+                                reviewer: SUBMITTING_LOGIN
+                            })
+                        ],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action                    : 'create',
+            pr_number                 : 17141,
+            state                     : 'REQUEST_CHANGES',
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason: [
+                'old-head: 1111111111111111111111111111111111111111',
+                `new-head: ${PR_HEAD_OID}`,
+                'prior-fact: undiscoverable at that head',
+                'repair-coordinate: ai/y.mjs:7'
+            ].join(' | ')
+        });
+
+        expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(result.message).toContain('already used its one repair-minted re-entry');
+        expect(mutationCallCount, 'a second re-entry reached no mutation').toBe(0);
+    });
+
     test('#15257: PR lookup projects cutover, prior bodies, and history completeness', async () => {
         let lookupQuery;
         let lookupVariables;
@@ -2529,12 +2647,22 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             pr_number                 : 15257,
             state                     : 'REQUEST_CHANGES',
             body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
-            reviewBudgetOverrideReason: 'Operator-declared release safety exception with audit receipt #15257.'
+            // A repair-minted receipt, not a free-text reason. `old-head` is the head the prior review
+            // was actually submitted against, so the claim is checkable against this PR's own history;
+            // `new-head` is the head under review.
+            reviewBudgetOverrideReason: [
+                'old-head: 1111111111111111111111111111111111111111',
+                `new-head: ${PR_HEAD_OID}`,
+                'prior-fact: the branch had no cadence leaf at that head, so the stride could not be observed',
+                'repair-coordinate: ai/daemons/wake/daemon.mjs:106'
+            ].join(' | ')
         });
 
         expect(result.error).toBeUndefined();
         expect(result.reviewBudget.outcome).toBe('disclosed-override');
-        expect(result.reviewBudget.overrideReason).toContain('release safety exception');
+        expect(result.reviewBudget.overrideReason).toContain('repair-coordinate');
+        expect(result.reviewBudget.repairMintedReceipt['old-head']).toBe('1111111111111111111111111111111111111111');
+        expect(result.reviewBudget.repairMintedReceipt['repair-coordinate']).toBe('ai/daemons/wake/daemon.mjs:106');
         expect(capturedVariables.body.match(/^\[review-budget-override\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body.match(/^\[review-budget-managed\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body).toContain('- submitted-request-changes: 2');

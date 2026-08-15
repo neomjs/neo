@@ -1641,6 +1641,68 @@ function getReviewBudgetFailure(pr_number, message, audit = {}) {
 }
 
 /**
+ * @summary Parses a repair-minted re-entry receipt out of an override disclosure.
+ *
+ * The exceptional second round exists for exactly one situation: a defect that did NOT exist, or was
+ * undiscoverable, at the head Round 1 reviewed — and that the author's own repair created or exposed.
+ * "I noticed it later" is not that situation, and free prose cannot tell the two apart. So the receipt
+ * names four things and each is checked against something outside the sentence:
+ *
+ * - `old-head` must be a head some prior review was actually submitted against. This is the clause
+ *   that makes the receipt falsifiable rather than merely well-formed: it is verified against the PR's
+ *   own review population, so a receipt cannot invent the history it claims to have reviewed.
+ * - `new-head` must differ from `old-head`. A re-entry across an unchanged head describes no repair.
+ * - `prior-fact` states what about the old head made the defect nonexistent or undiscoverable.
+ * - `repair-coordinate` names where the repair created or exposed it.
+ *
+ * Deliberately not a free-text reason with a length rule. A single-line non-empty check accepts
+ * "release safety exception", which asserts nothing checkable and is indistinguishable from the
+ * ordinary later discovery this clause refuses.
+ * @param {String} reason Trimmed single-line disclosure.
+ * @param {String[]} priorHeads Commit oids that prior submitted reviews were made against.
+ * @param {String} currentHead The PR head this review is being submitted against.
+ * @returns {{valid: Boolean, missing: String[], fields: Object, failure: String|null}}
+ */
+function parseRepairMintedReceipt(reason, priorHeads = [], currentHead = '') {
+    const
+        fields  = {},
+        pattern = /(old-head|new-head|prior-fact|repair-coordinate)\s*:\s*([^|]+)/g;
+
+    for (const match of reason.matchAll(pattern)) fields[match[1]] = match[2].trim();
+
+    const missing = ['old-head', 'new-head', 'prior-fact', 'repair-coordinate'].filter(key => !fields[key]);
+
+    if (missing.length) return {valid: false, missing, fields, failure: null};
+
+    if (fields['old-head'] === fields['new-head']) {
+        return {valid: false, missing, fields, failure: 'old-head and new-head are identical, so the receipt describes no repair between them.'}
+    }
+
+    // The falsifiable clause. Everything above checks the sentence against itself; this checks it
+    // against the PR's own history, which is the only part a mistaken or invented receipt cannot
+    // satisfy by being better written.
+    if (priorHeads.length && !priorHeads.includes(fields['old-head'])) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: `old-head ${fields['old-head']} matches no head a prior review was submitted against (${priorHeads.join(', ') || 'none recorded'}).`
+        }
+    }
+
+    if (currentHead && fields['new-head'] !== currentHead) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: `new-head ${fields['new-head']} is not the head under review (${currentHead}); a repair-minted re-entry is bound to the repaired head.`
+        }
+    }
+
+    return {valid: true, missing: [], fields, failure: null}
+}
+
+/**
  * @summary Validates and normalizes the named review-budget override disclosure.
  * @param {*} value Candidate override reason.
  * @returns {{provided: Boolean, valid: Boolean, reason: String}}
@@ -2029,10 +2091,50 @@ function validatePrReviewBudget({
     }
 
     if (override.valid) {
+        // ONE re-entry, and it is terminal. A family that has already spent its repair-minted round has
+        // spent the exception too — otherwise the exception becomes the budget, reachable indefinitely
+        // by writing a well-formed receipt each time. Prior re-entries are countable because the
+        // override audit is appended durably to the review body it authorized.
+        const priorReEntries = priorRequestChanges.filter(review =>
+            (review?.body || '').includes(REVIEW_BUDGET_OVERRIDE_MARKER) &&
+            resolveReviewerFamily(review).family === reviewerFamily.family
+        );
+
+        if (priorReEntries.length > 0) {
+            return {
+                failure: getReviewBudgetFailure(
+                    pr_number,
+                    `The ${reviewerFamily.family} family has already used its one repair-minted re-entry on PR #${pr_number}. A second is refused: post the terminal disposition, APPROVE when merge-safe, or one validated Drop+Supersede.`,
+                    {...audit, priorRepairMintedReEntries: priorReEntries.length}
+                ),
+                body,
+                audit: null
+            }
+        }
+
+        const receipt = parseRepairMintedReceipt(
+            override.reason,
+            priorRequestChanges.map(review => review?.commit?.oid).filter(Boolean),
+            pullRequest?.headRefOid || ''
+        );
+
+        if (!receipt.valid) {
+            return {
+                failure: getReviewBudgetFailure(
+                    pr_number,
+                    receipt.failure || `A repair-minted re-entry must name old-head, new-head, prior-fact, and repair-coordinate; missing: ${receipt.missing.join(', ')}. An ordinary later discovery does not qualify — the defect must not have existed, or not have been discoverable, at the head Round 1 reviewed.`,
+                    {...audit, repairMintedReceipt: receipt.fields}
+                ),
+                body,
+                audit: null
+            }
+        }
+
         const overrideAudit = {
             ...audit,
-            outcome       : 'disclosed-override',
-            overrideReason: override.reason
+            outcome            : 'disclosed-override',
+            overrideReason     : override.reason,
+            repairMintedReceipt: receipt.fields
         };
 
         return {
