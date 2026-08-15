@@ -19,11 +19,17 @@
  * capability — the producer answered in-contract; absence of one seat is that row's truth. Only a
  * missing, throwing, or out-of-contract PRODUCER degrades the capability envelope.
  *
- * Band refinement residual (deliberate): the ticket's full beacon-horizon vocabulary
- * (`active-turn / fresh / recent / dark` from `freshUntil`/`expiresAt`) lands when the plane's
- * verbose rows vouch those horizons per seat; until then this axis carries the plane's emitted
- * band set plus `lastSeenAt` recency verbatim — rendered tiers are named, absent tiers stay
- * absent, and nothing here manufactures a finer band than the producer emitted.
+ * Beacon-horizon derivation: the plane's verbose rows vouch the beacon horizons per seat
+ * (`signals.turnPresence.freshUntil` / `.expiresAt`, verbatim from the TurnPresenceService
+ * observation), and the `active-turn` grade DERIVES from those
+ * vouched horizons evaluated at THIS snapshot's own `capturedAt` bound — never from the
+ * producer-computed `fresh` boolean when horizons are present. The boolean was stamped at the
+ * producer's clock; the envelope declares `capturedAt` as the observation-time bound for every
+ * row, so the grade and the bound must share one clock value or the render lies by skew. Rows
+ * whose producers vouch NO horizons (older projection, degraded tier) fall back to the vouched
+ * boolean — absence of the horizon tier produces absence of refinement, never a verdict. No
+ * second clock authority: this module evaluates vouched instants against a vouched bound; it
+ * never re-computes liveness with windows of its own.
  */
 
 import {redactCredentials} from './redactCredentials.mjs'
@@ -71,6 +77,52 @@ export function gradePresenceBand({state, beaconFresh = false} = {}) {
     return state === 'online' ? 'fresh' : state === 'idle' ? 'recent' : state
 }
 
+/**
+ * @summary Derive one row's beacon freshness from its vouched horizons, evaluated at the
+ * snapshot's observation bound. Pure and total — the ONE place beacon freshness is decided.
+ *
+ * Precedence: an expired observation (`expiresAt` at/behind the bound) vouches nothing,
+ * whatever its `fresh` boolean claims; a present `freshUntil` governs against the bound (the
+ * producer's boolean was stamped at the PRODUCER's clock — trusting it across the skew is how a
+ * finished turn keeps rendering `active-turn`); horizons absent or unparseable fall back to the
+ * vouched boolean (tier degradation: no horizon tier ⇒ no refinement, never a verdict); no
+ * usable bound falls back the same way.
+ * @param {Object} options
+ * @param {Object|null} [options.turnPresence] The row's vouched beacon observation
+ *     (`{fresh, freshUntil, expiresAt, …}`) — `null` when the seat emitted none.
+ * @param {Number|null} [options.boundAt] The snapshot's observation bound as epoch ms.
+ * @returns {Boolean}
+ */
+export function beaconFreshAtBound({turnPresence, boundAt = null} = {}) {
+    if (!turnPresence || typeof turnPresence !== 'object') {
+        return false
+    }
+
+    const booleanFallback = turnPresence.fresh === true
+
+    if (!Number.isFinite(boundAt)) {
+        return booleanFallback
+    }
+
+    const expiresAt = toTime(turnPresence.expiresAt)
+
+    // the expired-observation veto precedes EVERY other signal — including the boolean
+    // fallback for degraded horizon tiers: a row whose freshUntil is absent or malformed
+    // must still lose a validly expired observation, or the fallback re-opens the exact
+    // producer-clock trust this helper exists to close
+    if (expiresAt !== null && expiresAt <= boundAt) {
+        return false
+    }
+
+    const freshUntil = toTime(turnPresence.freshUntil)
+
+    if (freshUntil === null) {
+        return booleanFallback
+    }
+
+    return freshUntil > boundAt
+}
+
 export const PRESENCE_SOURCE_LABEL = 'fleet:presenceState'
 
 /**
@@ -112,7 +164,12 @@ export async function readFleetPresenceSnapshot({
     capturedAt = new Date()
 } = {}) {
     const hasReader = typeof readPresence === 'function',
-          states    = []
+          // ONE resolved bound: the same instant the envelope declares as `capturedAt` is the
+          // instant every beacon horizon is evaluated against — bound and declaration can never
+          // drift apart by clock skew or a second `new Date()`
+          capturedAtIso = toIsoString(capturedAt),
+          capturedAtMs  = new Date(capturedAtIso).getTime(),
+          states        = []
 
     let byIdentity = null,
         readReason = hasReader
@@ -136,9 +193,10 @@ export async function readFleetPresenceSnapshot({
 
                     byIdentity.set(row.identity, {
                         state      : row.state,
-                        // the vouched beacon signal (the per-row turn-presence observation): the ONLY
-                        // input the recency grade adds over the plane's own verdict
-                        beaconFresh: row.signals?.turnPresence?.fresh === true,
+                        // the vouched beacon observation (horizons + boolean): the ONLY input the
+                        // recency grade adds over the plane's own verdict — evaluated at the
+                        // snapshot bound below, never trusted at the producer's clock
+                        beaconFresh: beaconFreshAtBound({turnPresence: row.signals?.turnPresence, boundAt: capturedAtMs}),
                         lastSeenAt : row.signals?.activityRecency?.lastActivityAt ?? null,
                         reason     : typeof row.reason === 'string' ? redactReason(row.reason) : null
                     })
@@ -195,7 +253,7 @@ export async function readFleetPresenceSnapshot({
             source    : PRESENCE_SOURCE_LABEL,
             state     : producerAnswered ? 'wired' : 'degraded',
             confidence: producerAnswered ? 'observed' : 'none',
-            capturedAt: toIsoString(capturedAt),
+            capturedAt: capturedAtIso,
             reason    : producerAnswered ? null : readReason
         },
         states
@@ -219,6 +277,14 @@ export function presenceIdentityForAgent(agent) {
 
 function asArray(value) {
     return Array.isArray(value) ? value : []
+}
+
+function toTime(value) {
+    if (value == null) return null
+
+    const time = new Date(value).getTime()
+
+    return Number.isNaN(time) ? null : time
 }
 
 function redactReason(value) {
