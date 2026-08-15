@@ -10,6 +10,20 @@ import {
 const noWait = async () => {};
 
 /**
+ * A repository whose id AND both probed connections resolve.
+ *
+ * The connections are load-bearing: the probe selects the one its `REQUIRED_REPOSITORIES` entry
+ * names, and GitHub answers a partial denial with the id present and that connection null. A fixture
+ * carrying only `id` therefore models a response the pipeline must treat as a FAILURE, so it cannot
+ * also stand in for success.
+ */
+const REACHABLE_REPOSITORY = {
+    id        : 'R_kgDO',
+    issues    : {pageInfo: {hasNextPage: false}},
+    stargazers: {pageInfo: {hasNextPage: false}}
+};
+
+/**
  * `Resource not accessible by integration` is returned for two conditions that share one string:
  * genuine GitHub-side flakiness, and a permanently missing App installation. No message inspection
  * separates them, which is why the bounded-retry classifier treats the string as transient — correct
@@ -26,7 +40,7 @@ test.describe('Data Sync access preflight (#15744)', () => {
     const respond = payload => async () => ({status: 200, json: async () => payload});
 
     const denial    = respond({errors: [{message: 'Resource not accessible by integration'}]}),
-          reachable = respond({data: {repository: {id: 'R_kgDO'}}});
+          reachable = respond({data: {repository: REACHABLE_REPOSITORY}});
 
     test('the required set includes devindex-opt-out, not just opt-in', () => {
         // An installation covering only `neo` + `devindex-opt-in` passes a naive probe and then
@@ -39,15 +53,58 @@ test.describe('Data Sync access preflight (#15744)', () => {
     });
 
     test('a reachable repository probe reports ok without a retry budget', async () => {
-        expect(await probeRepository({fetchFn: reachable, name: 'devindex-opt-in', owner: 'neomjs', token: 't'}))
-            .toEqual({ok: true, reason: null})
+        expect(await probeRepository({
+            connection: 'stargazers', fetchFn: reachable, name: 'devindex-opt-in', owner: 'neomjs', token: 't'
+        })).toEqual({ok: true, reason: null})
     });
 
     test('a GraphQL denial is detected despite arriving as HTTP 200', async () => {
         // The denial is a 200-body `errors` array, so status alone is not the test — reading only
         // `response.status` would report this repository as reachable.
-        expect(await probeRepository({fetchFn: denial, name: 'devindex-opt-in', owner: 'neomjs', token: 't'}))
-            .toEqual({ok: false, reason: 'Resource not accessible by integration'})
+        expect(await probeRepository({
+            connection: 'stargazers', fetchFn: denial, name: 'devindex-opt-in', owner: 'neomjs', token: 't'
+        })).toEqual({ok: false, reason: 'Resource not accessible by integration'})
+    });
+
+    test('the probe SELECTS the connection its entry names, not just the repository id', async () => {
+        // The id-only probe answered "can this identity see the repository", never "can it perform
+        // the read `purpose` names" — so it reported reachable while the stargazer read was denied.
+        let sent = null;
+
+        await probeRepository({
+            connection: 'stargazers',
+            fetchFn   : async (_url, options) => {sent = JSON.parse(options.body).query; return {status: 200, json: async () => ({})}},
+            name      : 'devindex-opt-in',
+            owner     : 'neomjs',
+            token     : 't'
+        });
+
+        expect(sent).toContain('stargazers(first:1)');
+
+        await probeRepository({
+            connection: 'issues',
+            fetchFn   : async (_url, options) => {sent = JSON.parse(options.body).query; return {status: 200, json: async () => ({})}},
+            name      : 'devindex-opt-out',
+            owner     : 'neomjs',
+            token     : 't'
+        });
+
+        expect(sent).toContain('issues(first:1)')
+    });
+
+    test('a PARTIAL denial — id resolves, the named connection does not — is a failure', async () => {
+        // The exact production response: GraphQL returns 200 with `data.repository.id` present, the
+        // denied connection null, and the denial in `errors`. Testing `id` alone reads this as
+        // success, which is how `devindex-opt-in reachable (OptIn stargazer read)` was logged by a
+        // run whose stargazer read was denied twelve minutes later.
+        const partial = respond({
+            data  : {repository: {id: 'R_kgDO', stargazers: null}},
+            errors: [{message: 'Resource not accessible by integration'}]
+        });
+
+        expect(await probeRepository({
+            connection: 'stargazers', fetchFn: partial, name: 'devindex-opt-in', owner: 'neomjs', token: 't'
+        })).toEqual({ok: false, reason: 'Resource not accessible by integration'})
     });
 
     test('the exact 60-run denial fails fast, names EVERY unreachable repo, and states the remedy', async () => {
@@ -103,10 +160,11 @@ test.describe('Data Sync access preflight (#15744)', () => {
         // `probeRepository`, the retry loop, and `assertDataSyncAccess` alike — so the bounded retry
         // could not see the failure mode it exists for.
         const result = await probeRepository({
-            fetchFn: async () => {throw new Error('ECONNRESET')},
-            name   : 'devindex-opt-in',
-            owner  : 'neomjs',
-            token  : 't'
+            connection: 'stargazers',
+            fetchFn   : async () => {throw new Error('ECONNRESET')},
+            name      : 'devindex-opt-in',
+            owner     : 'neomjs',
+            token     : 't'
         });
 
         expect(result).toEqual({ok: false, reason: 'ECONNRESET'})
@@ -118,7 +176,7 @@ test.describe('Data Sync access preflight (#15744)', () => {
         const flakyTransport = async () => {
             calls++;
             if (calls === 1) throw new Error('ECONNRESET');
-            return {status: 200, json: async () => ({data: {repository: {id: 'R_kgDO'}}})}
+            return {status: 200, json: async () => ({data: {repository: REACHABLE_REPOSITORY}})}
         };
 
         await expect(assertDataSyncAccess({
@@ -263,7 +321,7 @@ test.describe('preflight-only dispatch mode', () => {
  */
 test.describe('preflight retry budget', () => {
     const denialBody    = {errors: [{message: 'Resource not accessible by integration'}]},
-          reachableBody = {data: {repository: {id: 'R_kgDO'}}};
+          reachableBody = {data: {repository: REACHABLE_REPOSITORY}};
 
     test('a flaky first call recovers instead of being reported permanent', async () => {
         let calls = 0;
