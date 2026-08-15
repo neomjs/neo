@@ -5,9 +5,7 @@ This payload closes expensive review loops without turning discussion size into 
 ## Counter and cutover
 
 - PRs with `createdAt` after `PullRequestService.reviewBudgetActivatedAt` are gated; older PRs are grandfathered to reviewer judgment.
-- The unit is the **reviewer family**, not the review. **One ordinary `CHANGES_REQUESTED` per family** spends that family's budget, counted across heads, identities, and later retractions — a family cannot buy a second round by rotating seats, and another family keeps its own independent round.
-- A submitter the identity graph cannot classify is **refused**, not waived: an unplaceable login would otherwise spend nobody's budget and review without limit.
-- The managed path refuses mutation when its 100-review history projection is incomplete or truncated.
+- The unit is the **reviewer family**, not the review: one ordinary `CHANGES_REQUESTED` per family, counted across heads, identities and retractions. An unclassifiable submitter is refused, and an incomplete history projection refuses the mutation — both fail closed at the managed path, which is where the rule is enforced rather than remembered.
 - Measure one PR or a corpus with `node ai/scripts/diagnostics/review-cost-meter.mjs <PR_NUMBER...>`; use `--json` for machine-readable output.
 
 ## The second round
