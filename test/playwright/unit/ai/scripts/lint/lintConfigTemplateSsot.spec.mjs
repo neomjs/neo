@@ -810,6 +810,45 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         ])
     });
 
+    test('Compose parity: an exemption with no rationale is refused, not honoured', () => {
+        // The escape hatch's own escape hatch. `Object.hasOwn` asked whether the KEY was present and
+        // never what it said, so `{NEO_MODEL: ''}` suppressed a real restatement — an exemption that
+        // says nothing, which the rule's own prose calls indistinguishable from the drift it catches.
+        // Presence is not substance, and a guard that checks the cheaper one false-greens on exactly
+        // the input its invariant was written to refuse.
+        //
+        // Each case is ISOLATED: one env, one exemption, one matching default, so a pass cannot come
+        // from the per-env scoping or the dormancy rule. And the verdict is a reported violation
+        // rather than silence — quietly declining to exempt would restore the rule while hiding a
+        // malformed policy entry, sending the operator to debug the restatement instead of the
+        // exemption they thought they had written.
+        const run = (environment, exemptEnv) => detectComposeDefaultRestatementsFromDocuments({
+            policy: {
+                profiles: {'compose.yml': {services: {server: 'config.template.mjs'}, exemptEnv}}
+            },
+            composeDocuments     : {'compose.yml': {services: {server: {environment}}}},
+            envDefaultsByTemplate: {
+                'config.template.mjs': {NEO_MODEL: [{configPath: 'model', default: 'gemma4:26b'}]}
+            }
+        });
+
+        for (const [label, reason] of [
+            ['empty string',      ''],
+            ['whitespace only',   '   '],
+            ['null',              null],
+            ['a bare true',       true],
+            ['a number',          1]
+        ]) {
+            expect(run(['NEO_MODEL=gemma4:26b'], {NEO_MODEL: reason}), label).toEqual([
+                expect.objectContaining({env: 'NEO_MODEL', kind: 'unreasoned-compose-default-exemption'})
+            ])
+        }
+
+        // The control: the identical call with a real rationale still passes, so the repair refuses
+        // blankness rather than refusing exemptions.
+        expect(run(['NEO_MODEL=gemma4:26b'], {NEO_MODEL: 'model identity'})).toEqual([]);
+    });
+
     test('Compose parity: shipped canonical profiles contain no matching defaults or census drift', async () => {
         const previousRoot = globalThis.Neo?.ai?.Config;
 

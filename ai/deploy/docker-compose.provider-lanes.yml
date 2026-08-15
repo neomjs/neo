@@ -128,8 +128,10 @@ x-provider-lane-contract:
 # split-lane deployment template that does not name its providers, its model, or its slot shape is
 # unreadable as a deployment artifact, and deleting those to satisfy a lint trades the artifact for
 # the rule. Six keys are therefore exempted BY NAME AND REASON in `$composeDefaultParity` —
-# NEO_EMBEDDING_PROVIDER, NEO_OLLAMA_MODEL, NEO_OLLAMA_KEEP_ALIVE (co-residency: -1 is what stops the
-# embedding model being evicted), NEO_LOCAL_MODELS_CHAT_PARALLEL, and the two empty API keys that
+# NEO_EMBEDDING_PROVIDER, NEO_OLLAMA_MODEL, NEO_OLLAMA_KEEP_ALIVE (chat-lane residency: -1 aligns the
+# application's requests with the chat-model service's own OLLAMA_KEEP_ALIVE=-1, so the chat model
+# stays loaded instead of unloading between requests — it says nothing about the embedding lane, which
+# is a separate llama.cpp service Ollama never holds), NEO_LOCAL_MODELS_CHAT_PARALLEL, and the two empty API keys that
 # declare keyless local endpoints as a group with NEO_KB_ASK_API_KEY.
 #
 # An exemption that stops matching anything FAILS the lint rather than lingering, so this list cannot
