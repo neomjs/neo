@@ -27,14 +27,7 @@ One row per Round-1 required action, **quoted verbatim** — no re-wording, no r
 
 [Approve · Approve+Follow-Up (only if it passes the standalone-ticket counterfactual) · **COMMENT** if any item is STILL_OPEN]
 
-**A `STILL_OPEN` round submits as `COMMENT`, never `Request Changes`.** The whole claim of `STILL_OPEN`
-is that the Round-1 review remains authoritative for that item — a new `Request Changes` would replace
-it with this round's verdict, and would spend a second round the per-family budget does not have. The
-managed path enforces this pairing, so an APPROVED round carrying a `STILL_OPEN` is refused rather
-than silently discharging the item it just declared unresolved.
-
-After posting, send the new **review ID or URL** to the author via A2A — `manage_pr_review` returns
-`reviewId` / `url`, not a `commentId`, and an author handed the wrong identifier cannot fetch the round.
+After posting, A2A the author the **review ID or URL** (`manage_pr_review` returns those, not a `commentId`).
 
 ---
 

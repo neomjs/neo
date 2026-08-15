@@ -20,7 +20,7 @@ For the initial review (Cycle 1), the following must be measured and reported:
 ### 2.2 Cycle N (Warm-Cache) Measurement
 For subsequent re-reviews (Cycle N), the measurement must capture the delta payload:
 **Static Surface:**
-1. **The Round-2 Template:** `wc -c .agents/skills/pr-review/assets/pr-review-round-2-template.md` for an ordinary Cycle 2 — the disposition asset is what an ordinary second round actually loads. Measure `pr-review-followup-template.md` instead only for the exceptional shapes that still use it (a validated Drop+Supersede or a guarded repair-minted re-entry). Measuring the follow-up asset for every Cycle N overstates the warm-cache surface, because the ordinary case no longer loads it.
+1. **The selected asset:** `wc -c` the template the round actually loads — `pr-review-round-2-template.md` for an ordinary Cycle 2, `pr-review-followup-template.md` only for a Drop+Supersede or repair-minted re-entry.
 **Dynamic Surface:**
 2. **The Delta Payloads:** The `wc -c` of new commits, new conversation comments, and any re-grounding context fetched.
 
