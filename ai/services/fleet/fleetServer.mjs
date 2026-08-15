@@ -697,6 +697,77 @@ export function assertFleetPlaneAdmissionBearerClass({aiConfig = AiConfig, readF
 }
 
 /**
+ * @summary Resolves the VIEWER's class-3 MC mint for browser-direct wake arming — the credential
+ * the armed bearer handshake serves alongside the process bearer. Same two declared homes, same
+ * precedence as its siblings: the direct `fleet.viewerMcAuthorization` value wins; otherwise
+ * `fleet.viewerMcAuthorizationFile` names a secret file. Returns `''` when neither yields a
+ * value — the honest not-armed default, never a fallback onto a different credential class.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The resolved viewer MC mint, or `''`.
+ */
+export function resolveFleetViewerMcAuthorization({aiConfig = AiConfig, readFile = null} = {}) {
+    const direct = aiConfig.fleet.viewerMcAuthorization.trim();
+
+    if (direct) return direct;
+
+    const mintFile = aiConfig.fleet.viewerMcAuthorizationFile.trim();
+
+    if (!mintFile) return '';
+
+    try {
+        const read = readFile ?? (target => readFileSync(target, 'utf8'));
+        return String(read(mintFile)).trim()
+    } catch {
+        return ''
+    }
+}
+
+/**
+ * @summary The non-alias teeth for the viewer MC mint: the resolved value must not BE the relay's
+ * plane-MCP bearer and must not BE the relay's fleet-client admission bearer. The viewer's mint is
+ * the VIEWER'S OWN MC authority — arming with a relay-class credential would create subscriptions
+ * under the relay's identity while claiming viewer arming, which is exactly the confusion the
+ * credential-class ledger exists to refuse. (The third pair — viewer mint vs the fleet PROCESS
+ * bearer — is refused where both runtime values meet: the transport's startup validation.)
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Resolved Tier-1 config tree.
+ * @param {Function} [options.readFile] Injection seam for tests; defaults to `readFileSync`.
+ * @returns {String} The class-clean resolved viewer mint (may be `''`).
+ * @throws {Error} When the viewer mint aliases the plane-MCP bearer or the admission bearer.
+ */
+export function assertFleetViewerMcAuthorizationClass({aiConfig = AiConfig, readFile = null} = {}) {
+    const
+        read       = readFile ?? (target => readFileSync(target, 'utf8')),
+        viewerMint = resolveFleetViewerMcAuthorization({aiConfig, readFile: read});
+
+    if (!viewerMint) return viewerMint;
+
+    const planeBearer = resolveFleetPlaneBearer({aiConfig, readFile: read});
+
+    if (planeBearer && viewerMint === planeBearer) {
+        throw new Error(
+            '[FleetServer] fleet.viewerMcAuthorization resolves to the same bytes as the plane-MCP ' +
+            'bearer — the viewer mint is the viewer\'s OWN MC authority, never the relay\'s plane ' +
+            'credential. Mint a distinct viewer MC credential.'
+        )
+    }
+
+    const admissionBearer = resolveFleetPlaneAdmissionBearer({aiConfig, readFile: read});
+
+    if (admissionBearer && viewerMint === admissionBearer) {
+        throw new Error(
+            '[FleetServer] fleet.viewerMcAuthorization resolves to the same bytes as the ' +
+            'fleet-client admission bearer — the credential-class ledger forbids that aliasing. ' +
+            'Mint a distinct viewer MC credential.'
+        )
+    }
+
+    return viewerMint
+}
+
+/**
  * @summary Derives the ONE stream/limiter key for an admitted viewer, from immutable facts only.
  *
  * The plane-proven canonical identity (`@login`, MC's own subject for the arming caller) is the

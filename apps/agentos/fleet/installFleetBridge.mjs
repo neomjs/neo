@@ -1,4 +1,5 @@
-import {FLEET_BEARER_PATTERN} from './connectionProfiles.mjs';
+import {FLEET_BEARER_PATTERN}          from './connectionProfiles.mjs';
+import {createFleetWakeStreamConsumer} from './fleetWakeStreamConsumer.mjs';
 import {
     createFleetWireOffer,
     createFleetWireRequest,
@@ -13,7 +14,7 @@ import {
  * refused outright rather than "helpfully" consumed.
  * @type {String[]}
  */
-const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer', 'token', 'authorization'];
+const FORBIDDEN_URL_CREDENTIAL_PARAMS = ['bearer', 'bearerToken', 'fleetBearer', 'token', 'authorization', 'mcAuthorization'];
 
 /**
  * Bounded local launch-state errors that may cross the injected shell transport verbatim. Every
@@ -61,8 +62,13 @@ export const FLEET_LOCAL_TRANSPORT_ERRORS = Object.freeze({
  *     base64url). `null` installs a fail-closed bridge that rejects every call locally with the
  *     launch-contract remediation — never a network call without credentials.
  * @param {Function} [opts.fetchImpl=globalThis.fetch]     Injectable fetch for tests.
+ * @param {String}   [opts.mcAuthorization=null]           The viewer's class-3 MC mint arming the
+ *     per-viewer wake subscription (`openWakeStream` sends it on `x-neo-mc-authorization`). A
+ *     DISTINCT credential from the class-1 bearer by contract — byte-identical pairs are refused
+ *     at install, before any wire. `null` is the honest not-armed state.
  * @param {Function} [opts.send=null]                      Packaged-shell intent transport; receives
- *     only `{method, params}` and is mutually exclusive with `url` / `bearerToken`.
+ *     only `{method, params}` and is mutually exclusive with `url` / `bearerToken` /
+ *     `mcAuthorization`.
  * @param {'worker'|'shell'} [opts.credentialIngress='worker'] Public credential-custody fact.
  * @param {String}   [opts.profileId=null]                 The connection-profile identity this bridge
  *     serves (`./connectionProfiles.mjs` derivation) — a renderable capability fact like
@@ -79,6 +85,7 @@ export function installFleetBridge({
     url,
     bearerToken = null,
     fetchImpl = globalThis.fetch,
+    mcAuthorization = null,
     send = null,
     credentialIngress = 'worker',
     profileId = null,
@@ -96,13 +103,26 @@ export function installFleetBridge({
         throw new TypeError('installFleetBridge: profileId must be null or a non-empty identity string — bearer-shaped material is refused, the fact is pane-renderable')
     }
 
+    if (mcAuthorization !== null) {
+        if (typeof mcAuthorization !== 'string' || !mcAuthorization.trim()) {
+            throw new TypeError('installFleetBridge: mcAuthorization must be null or a non-empty class-3 MC credential')
+        }
+
+        // The never-aliased rule fails loud BEFORE any wire: the class-1 Fleet admission bearer
+        // must never double as the class-3 MC mint — the server refuses byte-identical pairs, and
+        // a client that would send one is misconfigured, not degraded.
+        if (mcAuthorization === bearerToken) {
+            throw new TypeError('installFleetBridge: mcAuthorization must be a DISTINCT mint — a byte-identical class-1/class-3 pair is refused, never aliased')
+        }
+    }
+
     if (send !== null) {
         if (typeof send !== 'function') {
             throw new TypeError('installFleetBridge: send must be a function')
         }
 
-        if (url !== undefined || bearerToken !== null) {
-            throw new TypeError('installFleetBridge: injected send is mutually exclusive with url and bearerToken')
+        if (url !== undefined || bearerToken !== null || mcAuthorization !== null) {
+            throw new TypeError('installFleetBridge: injected send is mutually exclusive with url, bearerToken, and mcAuthorization')
         }
 
         shellTransport = true;
@@ -208,6 +228,44 @@ export function installFleetBridge({
     Object.defineProperty(registryBridge, 'profileId', {
         configurable: true,
         value       : profileId
+    });
+
+    // The wake-push CAPABILITY, direct-browser bridges only: the pane opens the stream through
+    // this closure and never touches a mint — class-1 rides `Authorization`, the class-3 MC
+    // credential (when armed) rides `x-neo-mc-authorization`, both captured here. A bearer-less
+    // bridge still exposes it: the unauthenticated stream is refused by the server and the
+    // consumer carries that as an honest observation. Packaged-shell bridges carry NO such
+    // capability — main owns the push topology on its side of the boundary.
+    //
+    // A closure is not custody if its capability lets the consumer replace the destination or
+    // the transport: `eventsUrl`, `authHeaders`, and `fetchImpl` are PINNED here — the stream
+    // rides the SAME injected fetch as the wire (one transport injection point, at install), and
+    // only observational options project through. An override attempt is a misconfiguration or
+    // an exfiltration attempt; both fail loud.
+    shellTransport || Object.defineProperty(registryBridge, 'openWakeStream', {
+        configurable: true,
+        value       : (opts = {}) => {
+            const offered = Object.keys(opts).filter(key => !['logger', 'now', 'pollDigest', 'retryFloorMs'].includes(key));
+
+            if (offered.length) {
+                throw new TypeError(`openWakeStream refuses option(s) '${offered.join("', '")}' — the capability owns destination, credentials, and transport; only observational options (pollDigest, logger, retryFloorMs, now) project through`)
+            }
+
+            const {pollDigest, logger, retryFloorMs, now} = opts;
+
+            return createFleetWakeStreamConsumer({
+                eventsUrl  : new URL('/fleet/events', fleetUrl.origin).href,
+                fetchImpl,
+                authHeaders: () => ({
+                    ...(bearerToken     ? {authorization: `Bearer ${bearerToken}`} : {}),
+                    ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
+                }),
+                ...(pollDigest   !== undefined ? {pollDigest} : {}),
+                ...(logger       !== undefined ? {logger} : {}),
+                ...(retryFloorMs !== undefined ? {retryFloorMs} : {}),
+                ...(now          !== undefined ? {now} : {})
+            })
+        }
     });
 
     // An explicitly wired bridge (the ViewportController injector — Neural Link, tests, dev
