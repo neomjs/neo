@@ -65,7 +65,9 @@ const graphProjectionRepairCursorByView    = new Map(),
     messageWalCandidateSegmentLoadByKey    = new Map(),
     messageWalCandidateMetadataCacheById   = new Map(),
     unreadableMessageWalCandidateStateById = new Map();
-let graphProjectionCandidateScanPromise = null;
+let graphProjectionCandidateScanPromise     = null,
+    messageWalCandidateSegmentLoadDecisions = 0,
+    messageWalCandidateSegmentLoadJoins     = 0;
 
 // Collision-class substrate: claim signals are STATUS, not interrupts — their broadcasts default to
 // quiet at the `addMessage` resolution seam (operator-directed 2026-07-26; peers read claims at their
@@ -1199,6 +1201,12 @@ function getMessageWalCandidateSegmentLoad({segmentKey, segmentById, payloadSign
     let pending = messageWalCandidateSegmentLoadByKey.get(loadKey),
         joined  = Boolean(pending);
 
+    messageWalCandidateSegmentLoadDecisions++;
+
+    if (joined) {
+        messageWalCandidateSegmentLoadJoins++;
+    }
+
     if (!pending) {
         pending = (async () => {
             try {
@@ -1221,6 +1229,47 @@ function getMessageWalCandidateSegmentLoad({segmentKey, segmentById, payloadSign
     }
 
     return {joined, pending, signature}
+}
+
+/**
+ * @summary Read-only tallies of the candidate segment-load join decision above: how many callers
+ * reached it, and how many of those found an in-flight load to join.
+ *
+ * **A read-only observation, and the narrowness is the design.** No reset, no injection, no callback,
+ * no event: production behaves identically whether or not anything reads this. Both decisions are
+ * already made at the lines above — this only lets a caller see that they happened. A hook that
+ * changed what production *does* when observed would be a different thing entirely, and refusing
+ * that shape is the line worth holding.
+ *
+ * **Why a production surface exists for a test at all**, which is the part worth arguing with. A
+ * caller that joins an in-flight segment load produces no side effect — joining is silence by
+ * construction. So nothing external can distinguish "joined" from "has not arrived yet": three
+ * candidate anchors were tried and failed for three different reasons, the last by firing two turns
+ * before the decision. Without this, a test can only guess how long to wait for a second caller that
+ * diverged upstream, and a fixed guess is a budget standing in for a condition.
+ *
+ * **Why both numbers, rather than the decision count alone.** Measured, and the reason this shape
+ * changed: a decision-count rendezvous alone releases a test's gate the microtask the second caller
+ * DECIDES, which is strictly before any read it opens has registered. An assertion placed there
+ * therefore reads one physical read whether the caller joined or not, and passes vacuously with
+ * single-flight broken — the count of reads is a PROXY for joining, and a proxy that resolves late.
+ * `joins` is the fact itself, final in the same synchronous block as the decision it belongs to, so
+ * an assertion on it cannot be early. A test wanting "the second caller joined" should assert this,
+ * not a read count.
+ *
+ * Counted at the decision rather than at function entry: nothing awaits between the two today, so
+ * they are the same moment, but binding the counters to the decision keeps them true if that changes.
+ *
+ * **Monotonic for process lifetime.** Read a baseline before the work under observation and compare
+ * deltas. Absolute values carry every earlier call in the process and mean nothing alone.
+ *
+ * @returns {{decisions: Number, joins: Number}} Totals since module load.
+ */
+export function readMessageWalSegmentLoadObservations() {
+    return {
+        decisions: messageWalCandidateSegmentLoadDecisions,
+        joins    : messageWalCandidateSegmentLoadJoins
+    }
 }
 
 /**
