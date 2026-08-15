@@ -18,6 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs'
 import * as core      from '../../../../../../src/core/_export.mjs'
 
 import {
+    beaconFreshAtBound,
     gradePresenceBand,
     PRESENCE_BANDS,
     PRESENCE_SOURCE_LABEL,
@@ -134,6 +135,9 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
                 {id: 'long-turn', githubUsername: 'long-turn'},
                 {id: 'benched',   githubUsername: 'benched'}
             ],
+            // the bound is pinned BEFORE the vouched freshUntil — the beacon is fresh AT THIS
+            // SNAPSHOT, deterministically (never an implicit wall-clock `new Date()`)
+            capturedAt  : '2026-08-11T00:00:00.000Z',
             readPresence: () => ({agents: [
                 // fresh beacon + fresh activity: mid-turn RIGHT NOW
                 {identity: '@mid-turn', state: 'online', signals: {turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z'}}},
@@ -270,5 +274,59 @@ test.describe('fleetPresenceStateAdapter — healthy report (band join)', () => 
 
         expect(states).toHaveLength(1)
         expect(states[0].agentId).toBe('real')
+    })
+})
+
+test.describe('fleetPresenceStateAdapter — beacon horizons (the vouched-bound derivation)', () => {
+    test('beaconFreshAtBound is pure and total: horizons govern at the bound; the boolean is only the degraded-tier fallback', () => {
+        const boundAt = Date.parse('2026-08-11T00:00:00.000Z')
+
+        // no observation → never fresh
+        expect(beaconFreshAtBound({})).toBe(false)
+        expect(beaconFreshAtBound({turnPresence: null, boundAt})).toBe(false)
+
+        // a vouched horizon governs — in BOTH directions, whatever the producer boolean claims
+        expect(beaconFreshAtBound({turnPresence: {fresh: false, freshUntil: '2026-08-11T00:30:00.000Z'}, boundAt})).toBe(true)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true,  freshUntil: '2026-08-10T23:59:00.000Z'}, boundAt})).toBe(false)
+
+        // an expired observation vouches nothing, whatever its horizons or boolean claim
+        expect(beaconFreshAtBound({turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z', expiresAt: '2026-08-11T00:00:00.000Z'}, boundAt})).toBe(false)
+
+        // horizon tier absent or unparseable → the vouched boolean is the only signal
+        // (tier degradation: no refinement, never a fabricated verdict)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true},  boundAt})).toBe(true)
+        expect(beaconFreshAtBound({turnPresence: {fresh: false}, boundAt})).toBe(false)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true, freshUntil: 'not-a-date'}, boundAt})).toBe(true)
+
+        // no usable bound → boolean fallback (never NaN comparisons)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true, freshUntil: '2026-08-10T00:00:00.000Z'}})).toBe(true)
+    })
+
+    test('the skew falsifier: ONE payload, two bounds — the grade derives from the vouched horizon, never the producer clock', async () => {
+        const
+            roster  = [{id: 'seat', githubUsername: 'seat'}],
+            payload = {agents: [{
+                identity: '@seat',
+                state   : 'online',
+                signals : {turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z', expiresAt: '2026-08-11T01:00:00.000Z'}}
+            }]}
+
+        // bound BEFORE freshUntil: mid-turn right now
+        const early = await readFleetPresenceSnapshot({agents: roster, readPresence: () => payload, capturedAt: '2026-08-11T00:15:00.000Z'})
+
+        expect(early.states[0].presence).toBe('active-turn')
+
+        // the SAME payload at a later bound: the producer boolean still claims fresh, the vouched
+        // horizon says the turn ended — the grade follows the horizon down to the plane verdict
+        const late = await readFleetPresenceSnapshot({agents: roster, readPresence: () => payload, capturedAt: '2026-08-11T00:45:00.000Z'})
+
+        expect(late.states[0].presence).toBe('fresh')
+
+        // past expiry the observation vouches nothing at all; the envelope bound is the same
+        // instant the horizons were evaluated against — one clock value, declared
+        const expired = await readFleetPresenceSnapshot({agents: roster, readPresence: () => payload, capturedAt: '2026-08-11T01:30:00.000Z'})
+
+        expect(expired.states[0].presence).toBe('fresh')
+        expect(expired.capability.capturedAt).toBe('2026-08-11T01:30:00.000Z')
     })
 })
