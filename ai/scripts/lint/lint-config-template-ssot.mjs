@@ -1439,6 +1439,14 @@ export function detectComposeDefaultRestatementsFromDocuments({
         // one part of a guard that never fails loudly on its own, so this is what expires them.
         const usedExemptions = new Set();
 
+        // A defect in the POLICY is reported once per file/env, never once per service that happens to
+        // restate the shared anchor. The exemption is declared per file and per env, so a blank reason
+        // is one decision to repair — four byte-identical records for a four-service profile describes
+        // the fan-out of the compose anchor rather than the size of the problem, and a reader counting
+        // them would over-read the defect. `usedExemptions` bounds only the dormancy report below,
+        // which is why this needs its own guard at the same file scope.
+        const reportedUnreasoned = new Set();
+
         for (const [service, serviceConfig] of Object.entries(document.services || {})) {
             const environment = collectComposeEnvironment(serviceConfig?.environment);
 
@@ -1494,13 +1502,17 @@ export function detectComposeDefaultRestatementsFromDocuments({
                     const reason = profile.exemptEnv[env];
 
                     if (typeof reason !== 'string' || reason.trim() === '') {
-                        violations.push({
-                            configPath: match.configPath,
-                            env,
-                            file,
-                            kind      : 'unreasoned-compose-default-exemption',
-                            reason
-                        });
+                        if (!reportedUnreasoned.has(env)) {
+                            reportedUnreasoned.add(env);
+
+                            violations.push({
+                                configPath: match.configPath,
+                                env,
+                                file,
+                                kind      : 'unreasoned-compose-default-exemption',
+                                reason
+                            })
+                        }
 
                         // Counted as USED despite being rejected, so one malformed entry produces one
                         // violation naming its real cause rather than also tripping the dormant-exemption

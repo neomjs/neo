@@ -849,6 +849,53 @@ test.describe('ai/scripts/lint-config-template-ssot (#12451 — declarative conf
         expect(run(['NEO_MODEL=gemma4:26b'], {NEO_MODEL: 'model identity'})).toEqual([]);
     });
 
+    test('Compose parity: one blank exemption is ONE violation, however many services share the anchor', () => {
+        // The production shape, and the one the single-service case above structurally cannot see.
+        // Compose profiles share an env anchor across services, so a per-service push turns one
+        // malformed policy entry into four byte-identical records — describing the fan-out of the
+        // anchor rather than the size of the defect. A reader counting violations would over-read it,
+        // and the repair is the same single edit either way.
+        //
+        // My first fixture used one service, so the cardinality bug could not fail it. @neo-gpt-emmy
+        // found this by re-running the real four-service shape rather than the example I supplied —
+        // the second time today a fixture of mine agreed with the code it was meant to falsify.
+        const services = ['kb-server', 'mc-server', 'orchestrator', 'provider-lane-worker'];
+
+        const run = exemptEnv => detectComposeDefaultRestatementsFromDocuments({
+            policy: {
+                profiles: {
+                    'compose.yml': {
+                        exemptEnv,
+                        services: Object.fromEntries(services.map(name => [name, 'config.template.mjs']))
+                    }
+                }
+            },
+            composeDocuments: {
+                'compose.yml': {
+                    services: Object.fromEntries(services.map(name =>
+                        [name, {environment: ['NEO_MODEL=gemma4:26b']}]
+                    ))
+                }
+            },
+            envDefaultsByTemplate: {
+                'config.template.mjs': {NEO_MODEL: [{configPath: 'model', default: 'gemma4:26b'}]}
+            }
+        });
+
+        const blank = run({NEO_MODEL: ''});
+
+        expect(blank.length, 'four services restating one anchor is still ONE policy defect').toBe(1);
+        expect(blank[0]).toEqual(expect.objectContaining({
+            env : 'NEO_MODEL',
+            file: 'compose.yml',
+            kind: 'unreasoned-compose-default-exemption'
+        }));
+
+        // Same four-service shape with a real rationale: silent. The bound must not be achieved by
+        // suppressing the diagnostic altogether.
+        expect(run({NEO_MODEL: 'model identity'})).toEqual([]);
+    });
+
     test('Compose parity: shipped canonical profiles contain no matching defaults or census drift', async () => {
         const previousRoot = globalThis.Neo?.ai?.Config;
 

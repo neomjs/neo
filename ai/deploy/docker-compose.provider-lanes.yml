@@ -209,9 +209,11 @@ x-provider-lane-env: &provider-lane-env
   # NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS: "500"  # wait before each residency retry
   # NEO_OPENAI_COMPATIBLE_KEEP_ALIVE: "-1"              # -1 keeps the model resident indefinitely
   #
-  # Plane-class guidance: `-1` is what keeps a co-resident embedding model from being evicted by
-  # chat traffic. A finite keep-alive on a multi-model plane reintroduces the unload retries as a
-  # steady-state cost rather than an exception.
+  # Plane-class guidance: `-1` keeps THIS lane's model resident in its own engine indefinitely, so the
+  # unload retries above stay an exception rather than a steady-state cost. It is not cross-engine
+  # protection: on this split profile the embedding lane is its own llama.cpp service, and chat traffic
+  # reaches a different engine that has no access to evict it. On a SHARED-engine plane — one server
+  # holding both roles — residency is genuinely contested and this value is what settles it.
   #
   # MEMORY-CEILING DETECTION — not an embed clock, but the same contract: these decide whether a lane
   # pinned AT its ceiling is REPORTED at all. A service at its ceiling thrashes on page faults, burning
