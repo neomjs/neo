@@ -129,12 +129,24 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
             })).toEqual([]);
         });
 
-        test('an unrecognised author email is treated as non-agent, so the check degrades quiet', () => {
+        test('an OFF-DOMAIN author is treated as non-agent, so the check degrades quiet', () => {
             const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
 
             expect(findUnknownCoAuthors({
                 commits: [{sha: 'd'.repeat(40), subject: 's', body, authorEmail: 'stranger@example.org'}]
             })).toEqual([]);
+        });
+
+        test('a project-domain author NOT YET in the map still counts as an agent', () => {
+            // Keying only on the map would let a newly seeded seat fall back to the weaker domain
+            // rule and pass its off-domain trailers silently, in the window before the map catches
+            // up. Safe to widen: every `@neomjs.com` author in history is a roster seat, and the
+            // registry types the operator `human` with no project-domain address.
+            const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
+
+            expect(findUnknownCoAuthors({
+                commits: [{sha: 'e'.repeat(40), subject: 's', body, authorEmail: 'neo-newly-seeded@neomjs.com'}]
+            }).map(offender => offender.email)).toEqual([OFF_DOMAIN]);
         });
     });
 

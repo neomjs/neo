@@ -142,8 +142,16 @@ export function findUnknownCoAuthors({commits = []}) {
         offenders = [];
 
     commits.forEach(({sha, subject, body, authorEmail}) => {
-        const
-            agentAuthored = known.has((authorEmail || '').trim().toLowerCase()),
+        const author = (authorEmail || '').trim().toLowerCase(),
+            // The map is the precise set, but keying ONLY on it degrades silently for a seat that
+            // reaches the registry before this map catches up: an unmapped agent would fall back to
+            // the weaker domain rule and its off-domain trailers would pass. The project domain
+            // closes that, and is safe to widen to — every distinct `@neomjs.com` author across the
+            // whole history resolves to one of the ten addresses below, and the registry types the
+            // human operator as `accountType: 'human'` while deliberately carrying no address for
+            // them, so no human commits from this domain. `reconcileWithRegistry()` still reports an
+            // unmapped seat; this only stops that gap from being silent in the meantime.
+            agentAuthored = known.has(author) || author.endsWith('@neomjs.com'),
             seen          = new Set();
         let match;
 
