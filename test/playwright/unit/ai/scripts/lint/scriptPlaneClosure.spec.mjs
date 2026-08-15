@@ -13,11 +13,13 @@ import {
     walkCapabilityClosure,
     walkWithAncestors
 }                     from '../../../../../../ai/scripts/lint/scriptPlaneClosure.mjs';
-import fs   from 'node:fs';
-import os   from 'node:os';
-import path from 'node:path';
+import {buildTaskDefinitions} from '../../../../../../ai/daemons/orchestrator/taskDefinitions.mjs';
+import fs                     from 'node:fs';
+import os                     from 'node:os';
+import path                   from 'node:path';
 
 import {
+    CENSUS_TASK_CONFIG,
     buildAuthorityByScript,
     readEntrypoints,
     readWorkflowEntrypoints,
@@ -30,7 +32,7 @@ import {
  * arm below a real falsifier rather than a fixture arguing with itself.
  * @type {String[]}
  */
-const KNOWN_BACKUP_EDGES = ['ai/ConfigProvider.mjs::dynamic-import'];
+const KNOWN_BACKUP_EDGES = ['ai/ConfigProvider.mjs::dynamic-import::load'];
 
 /**
  * The subject is the DISTINCTION, not the detection.
@@ -502,6 +504,52 @@ export default {run() { return spawn('git', []) }};`
             expect(closure.required[0].module).toBe('/svc.mjs');
         });
 
+        test('a function passed as an ARGUMENT is followed — higher-order dispatch is not safe', () => {
+            // @neo-gpt's exact falsifier, and the worst class this file has held: every name is in
+            // the source, and the callee-only walk returned `required: []` AND `unresolved: []` —
+            // not a conservative stop but a SILENT safe verdict. `fn` is a parameter, parameters
+            // were leaves, so the reference died at the call boundary.
+            const files = {
+                '/e.mjs': `import {run, danger} from './m.mjs';\nrun(danger);`,
+                '/m.mjs': `import {spawn} from 'child_process';
+export function run(fn) { return fn() }
+export function danger() { return spawn('git', []) }`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'handing a function to something that runs is evidence it runs')
+                .toHaveLength(1);
+            expect(closure.required[0].member).toBe('danger');
+        });
+
+        test('two unfollowable edges in ONE module keep separate identities', () => {
+            // The substitution the ledger exists to catch, scoped inside a file. Keyed on
+            // `module::reason` alone, swapping one site for another passed a Set-backed ratchet
+            // unchanged. Measured against the live tree the collision hid THREE edges: the real
+            // population was 12 while the ledger recorded 9.
+            const files = {'/e.mjs': `function a() { const x = 'p'; return import(x) }
+function b() { const y = 'q'; return import(y) }
+a(); b();`},
+                  closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.unresolved).toHaveLength(2);
+            expect(new Set(closure.unresolved.map(edge => edge.member)).size, 'distinct owners').toBe(2);
+        });
+
+        test('the finding PROJECTION carries the discriminators, not just the closure edge', () => {
+            // The defect my own fix hid behind, and the reason this arm exists separately from the
+            // one above. `resolveEntrypointPlane` rebuilt each finding field by field and dropped
+            // `member` and `callee`, so the identity function's discriminating branch could never
+            // fire in production — while an in-memory test that fed it RAW closure edges passed.
+            // Testing the producer's object instead of the consumer's proves nothing about the consumer.
+            const files      = {'/e.mjs': `function a() { const x = 'p'; return import(x) }\na();`},
+                  closure    = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)}),
+                  {findings} = resolveEntrypointPlane({closure, entrypoint: '/e.mjs'});
+
+            expect(findings[0].member, 'the projection must not drop what identity depends on').toBe('a');
+        });
+
         test('the chain that proved a requirement is reconstructable', () => {
             // A conflict finding that names only a file and a line leaves the reader to find the
             // calls that get there. This is what turns the finding into a repair instruction.
@@ -771,6 +819,31 @@ test.describe('the census is the union of every invocation surface', () => {
         expect(entries.filter(entry => entry.rel === 'ai/scripts/lint/dupe.mjs'), 'no double count')
             .toHaveLength(1);
         expect(entries.find(entry => entry.rel === 'ai/scripts/lint/dupe.mjs').via).toBe('npm');
+    });
+
+    test('a CONFIG-GATED production root enters the census', () => {
+        // `buildTaskDefinitions({})` is the descriptor default, and two roots exist only when a port
+        // is configured. Censusing the default asked "what runs in an unconfigured process" when the
+        // question is "which modules can be spawned as a root at all" — so `neuralLinkBridge`, a
+        // declared HOST-EDGE root, was never checked by the gate that exists to check declarations.
+        const bare     = buildTaskDefinitions({}),
+              censused = buildTaskDefinitions(CENSUS_TASK_CONFIG);
+
+        expect(Object.keys(bare)).not.toContain('neuralLinkBridge');
+        expect(Object.keys(censused), 'the census config must surface it').toContain('neuralLinkBridge');
+        expect(Object.keys(buildAuthorityByScript())).toContain('ai/mcp/server/neural-link/run-bridge.mjs');
+    });
+
+    test('the executed module is `node`\'s first ARGUMENT, never the first `.mjs`', () => {
+        // `devServer` runs `node …/webpack.js serve -c ./buildScripts/…/webpack.server.config.mjs`.
+        // The extension heuristic skipped the `.js` binary and joined the `-c` VALUE, then reported
+        // a webpack CONFIG's execution plane — and produced a conflict finding about it. A config
+        // file has no plane, and a third-party binary's plane is not ours to derive.
+        const byScript = buildAuthorityByScript();
+
+        expect(Object.keys(byScript)).not.toContain('buildScripts/webpack/webpack.server.config.mjs');
+        expect(Object.keys(byScript).some(rel => rel.includes('node_modules/')), 'no vendor roots')
+            .toBe(false);
     });
 
     test('the REAL task-definition join reaches both roots the reviewer named', () => {

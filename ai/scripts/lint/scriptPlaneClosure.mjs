@@ -454,6 +454,11 @@ export function collectModuleFacts(source) {
             } else {
                 unresolved.push({
                     reason: 'dynamic-import',
+                    // The owning member discriminates two dynamic imports in one module without
+                    // reintroducing the line number. Keying identity on `module::reason` alone let
+                    // one site be swapped for another inside the same file with the ledger none the
+                    // wiser — the substitution the ledger exists to catch, scoped down one level.
+                    member: owningMember(ancestors),
                     line  : node.loc?.start?.line ?? null
                 })
             }
@@ -533,6 +538,14 @@ export function collectModuleFacts(source) {
             binding     : root,
             targetMember: isMember ? (callee.property?.name ?? null) : null,
             viaSelf     : isMember && (callee.object?.type === 'ThisExpression' || callee.object?.type === 'Super'),
+            // Bare identifiers handed to this call. `run(danger)` passes a function REFERENCE and
+            // `run(fn)` then calls `fn()` — a chain where every name is in the source, and which a
+            // callee-only walk drops entirely because `fn` is a parameter and parameters are leaves.
+            // The result was not a conservative stop but a SILENT safe verdict: `required: []` and
+            // `unresolved: []` for code that plainly spawns. Handing a function to something that
+            // runs is evidence it may run, so the reference is followed; names that are not members
+            // resolve to nothing and cost one lookup.
+            argRefs     : (node.arguments ?? []).filter(arg => arg.type === 'Identifier').map(arg => arg.name),
             // `obj[key]()` — a destination chosen at runtime, and the one call form whose target is
             // genuinely unnameable rather than merely unowned by this closure.
             computed         : callee.type === 'MemberExpression' && callee.computed === true,
@@ -860,6 +873,22 @@ export function walkCapabilityClosure({
         facts.calls.filter(call => call.member === member
             // Behind the import-safe guard, and this module is not the script — so it does not run.
             && !(call.entrypointGuarded && module !== entrypoint)).forEach(call => {
+            // Function references handed to this call, followed BEFORE the callee itself — the
+            // callee may be unresolvable while the reference is perfectly nameable, and dropping
+            // the argument because the callee was opaque is how `run(danger)` came back safe.
+            (call.argRefs ?? []).forEach(name => {
+                if (facts.members.includes(name)) {
+                    enqueue(module, name, key);
+                    return
+                }
+
+                const passed = resolveTarget(module, name, null);
+
+                if (passed) {
+                    enqueue(passed.module, passed.member, key)
+                }
+            });
+
             // `this.x()` / `super.x()` — the class's own seam. This is the only way
             // `TemporalSummaryAggregationService` reaches `execSync`, three members deep.
             if (call.viaSelf) {
@@ -1042,8 +1071,14 @@ export function resolveEntrypointPlane({closure, authorityClass = null, taskName
             module   : edge.module ?? null,
             reason   : edge.reason,
             specifier: edge.specifier ?? null,
-            line     : edge.line ?? null,
-            message  : `unresolved edge (${edge.reason}) — the plane cannot be derived through it`
+            // The two discriminators that separate one edge from another INSIDE a module. They were
+            // collected on the closure edge and then dropped here, so every consumer keyed on
+            // `module::reason` alone — a ratchet blind to substitution within a file, and an
+            // identity function whose discriminating branch could never fire in production.
+            member : edge.member ?? null,
+            callee : edge.callee ?? null,
+            line   : edge.line ?? null,
+            message: `unresolved edge (${edge.reason}) — the plane cannot be derived through it`
         })
     });
 

@@ -78,6 +78,11 @@ export function edgeIdentity(finding, projectRoot = PROJECT_ROOT) {
     const rel    = finding.module ? path.relative(projectRoot, finding.module) : finding.entrypoint,
           detail = finding.specifier ? finding.specifier
                  : finding.callee    ? `${finding.member}->${finding.callee}`
+                 // The owning member is the discriminator of last resort. Without it, two dynamic
+                 // imports in one module collapse to a single identity and swapping one for the
+                 // other passes a Set-backed ratchet unchanged — the substitution this ledger
+                 // exists to catch, scoped inside a file instead of across them.
+                 : finding.member    ? finding.member
                  : null;
 
     return [rel, finding.reason, detail].filter(Boolean).join('::')
@@ -97,22 +102,28 @@ export function edgeIdentity(finding, projectRoot = PROJECT_ROOT) {
  * @type {ReadonlyArray<String>}
  */
 export const UNRESOLVED_EDGE_LEDGER = Object.freeze([
-    // A runtime-computed overlay path. One site, and the largest single cause in the tree.
-    'ai/ConfigProvider.mjs::dynamic-import',
-    'ai/mcp/client/config.mjs::dynamic-import',
-    'ai/scripts/diagnostics/printAiConfig.mjs::dynamic-import',
-    'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import',
-    'ai/scripts/maintenance/defragChromaDB.mjs::dynamic-import',
-    'ai/scripts/maintenance/purgeTestCollections.mjs::dynamic-import',
+    // Dynamic imports on runtime-computed paths, keyed by the member that performs them — three of
+    // these live in ONE module, and until the identity carried its member they collapsed into a
+    // single entry. The measured population was 9 while the real one was 12.
+    'ai/ConfigProvider.mjs::dynamic-import::load',
+    'ai/mcp/client/config.mjs::dynamic-import::load',
+    'ai/scripts/diagnostics/printAiConfig.mjs::dynamic-import::main',
+    'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import::buildConfigEnvDefaultsForTemplate',
+    'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import::collectConfigPathKindsFromTemplate',
+    'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import::withTier1ConfigForLint',
+    'ai/scripts/maintenance/defragChromaDB.mjs::dynamic-import::loadConfig',
+    'ai/scripts/maintenance/purgeTestCollections.mjs::dynamic-import::resolveChromaEndpoint',
 
     // A specifier pointing at a module that no longer exists there — the flat-SDK migration left it
     // behind. Not this lane's to repair; the edge is listed so its disappearance is visible.
     'ai/scripts/maintenance/buildKbAgentFaqs.mjs::unresolved-specifier::'
         + '../../mcp/server/knowledge-base/services/KBRecorderService.mjs',
 
-    // Dispatch through a value the closure cannot name, with a capability behind the edge.
-    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch',
-    'ai/services/knowledge-base/DatabaseService.mjs::unresolved-dispatch'
+    // Dispatch through a value the closure cannot name, with a capability behind the edge. The
+    // callee is part of the identity, so the reader knows WHAT could not be followed.
+    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::createAgent->agentFactory',
+    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch::emitHandoff->handoffEmitter',
+    'ai/services/knowledge-base/DatabaseService.mjs::unresolved-dispatch::createKnowledgeBase->SourceRegistry.getSources'
 ]);
 
 /**
@@ -268,17 +279,52 @@ export function readWorkflowEntrypoints({
  * @param {Object} [options]
  * @returns {Object} repo-relative script path -> `{taskName, authorityClass}`.
  */
+/**
+ * @summary Placeholder config that makes the task census MAXIMAL rather than default-shaped.
+ *
+ * `buildTaskDefinitions({})` is the descriptor layer's default, and two production roots exist only
+ * when a port is configured — `neuralLinkBridge` (host-edge) and `devServer`. Censusing the default
+ * therefore asks "what runs in an unconfigured process" when the question is **"which modules can be
+ * spawned as a production root at all"**, and a root that appears only under configuration is still a
+ * root whose declared authority nobody was checking.
+ *
+ * The values are sentinels and are never dialled, connected to, or read back: only the task TABLE's
+ * shape depends on their presence. Reading real `AiConfig` here instead would drag a runtime overlay
+ * into a static lint and make the population depend on the machine running it — the same
+ * environment-shaped answer this whole lane exists to remove.
+ * @type {Object}
+ */
+export const CENSUS_TASK_CONFIG = Object.freeze({
+    chromaDataDir                    : '/census',
+    chromaHost                       : 'census',
+    chromaPort                       : 1,
+    devServerLivenessTimeoutMs       : 1,
+    devServerPort                    : 1,
+    neuralLinkBridgeLivenessTimeoutMs: 1,
+    neuralLinkBridgePort             : 1
+});
+
 export function buildAuthorityByScript({
-    definitions     = buildTaskDefinitions({}),
+    definitions     = buildTaskDefinitions(CENSUS_TASK_CONFIG),
     authorityByName = TASK_AUTHORITY_BY_NAME,
     projectRoot     = PROJECT_ROOT
 } = {}) {
     const byScript = {};
 
     Object.entries(definitions).forEach(([taskName, definition]) => {
-        const script = (definition?.args ?? []).find(arg => typeof arg === 'string' && arg.endsWith('.mjs'));
+        // The executed module is `node`'s FIRST argument, never "the first arg ending in .mjs".
+        // `devServer` runs `node …/webpack.js serve -c ./buildScripts/…/webpack.server.config.mjs`,
+        // where the `.mjs` is a `-c` VALUE — so the extension heuristic joined a webpack config as
+        // if it were the entrypoint and then reported its plane. A config file has no plane.
+        const [script] = definition?.args ?? [];
 
-        if (!script || !(taskName in authorityByName)) {
+        if (typeof script !== 'string' || !/\.(mjs|js)$/.test(script) || !(taskName in authorityByName)) {
+            return
+        }
+
+        // A third-party binary is a leaf for the same reason a bare package specifier is: its plane
+        // is not ours to derive, and the subject here is what OUR roots require.
+        if (script.includes('node_modules/')) {
             return
         }
 
