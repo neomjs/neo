@@ -27,7 +27,7 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, callMemoryCoreTool, originalAutoSave, mailboxAiConfig, originalMailboxPolicy, readWalMessages, readPendingMessageWalRecords;
     let readBackgroundDeliveryState;
-    let messageWalDir, getWakeDeliverySeries;
+    let messageWalDir, getWakeDeliverySeries, readMessageWalSegmentLoadObservations;
 
     test.beforeAll(async () => {
 
@@ -38,6 +38,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         getWakeDeliverySeries = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).getWakeDeliverySeries;
         readBackgroundDeliveryState = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).readBackgroundDeliveryState;
+        readMessageWalSegmentLoadObservations = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).readMessageWalSegmentLoadObservations;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
@@ -1332,6 +1333,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         };
 
         try {
+            // Baseline BEFORE either caller starts. The tallies are monotonic for the process, so
+            // absolute readings would carry every segment load this suite already performed.
+            const loadBaseline = readMessageWalSegmentLoadObservations();
             const globalRepair = MailboxService.repairMessageGraphIntegrity({
                 target: '@bob', box: 'inbox', limit: 1
             });
@@ -1340,26 +1344,34 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
 
             await readEntered;
-            // LEFT UNCHANGED, deliberately. Unlike the same-target pair above, these two callers
+            // A RENDEZVOUS, not a budget. Unlike the same-target pair above, these two callers
             // DIVERGE before the join: the global path awaits the coalescing candidate scan while
-            // the explicit-ids path skips it (`MailboxService.mjs:2705`), so caller two's arrival is
-            // not coupled to caller one's. The single-flight entry drops when caller one's read
-            // RESOLVES, so a legitimately late caller two can open read #2 on CORRECT production and
-            // false-red the exact-count assertion below.
-            //
-            // This budget narrows that window; it does not close it, and no test-side anchor can —
-            // a joining caller produces no observable, and the segment-load helper is module-private.
-            // Removing the pre-release assertion here would imply the remaining wait is sound, which
-            // is a claim this path cannot support. The deterministic rendezvous needs a production
-            // seam and is tracked separately.
-            for (let turn = 0; turn < 3; turn++) {
-                await new Promise(resolve => setImmediate(resolve));
-            }
-            expect(payloadReads, 'different ids in one segment must join before either read completes').toBe(1);
+            // the explicit-ids path skips it, so caller two's arrival is not coupled to caller one's.
+            // Waiting a fixed number of turns for it is a budget standing in for a condition; this
+            // waits for the condition. A timeout here means the second caller genuinely never
+            // reached the decision, never that it was slow.
+            await waitForObservedCount(
+                () => readMessageWalSegmentLoadObservations().decisions - loadBaseline.decisions,
+                2,
+                'both repair callers to reach the segment-load join decision'
+            );
+            // Assert the JOIN, not the read count. Measured, and the reason this is not
+            // `expect(payloadReads).toBe(1)` here: the decision lands strictly before any read it
+            // opens has registered, so a read-count check at this point reads 1 whether the second
+            // caller joined or opened its own, and passes vacuously with single-flight broken. The
+            // read count is a proxy for joining and it resolves late; the join tally is the fact
+            // itself, final in the same synchronous block as the decision.
+            expect(readMessageWalSegmentLoadObservations().joins - loadBaseline.joins,
+                'the second caller must JOIN the in-flight load rather than open its own').toBe(1);
             releasePayloadRead();
 
             const results = await Promise.all([globalRepair, explicitRepair]);
-            expect(payloadReads).toBe(1);
+            expect(payloadReads, 'different ids in one segment must join before either read completes').toBe(1);
+            // One decision per caller is the assumption the rendezvous rests on. If either path ever
+            // spans a second segment, the wait above could be satisfied by one caller alone and
+            // silently decay back into a race — this pins it so that says so instead.
+            expect(readMessageWalSegmentLoadObservations().decisions - loadBaseline.decisions,
+                'the rendezvous assumes exactly one join decision per caller').toBe(2);
             expect(projectCalls).toBe(2);
             expect(results.map(item => item.repaired)).toEqual([1, 1]);
             expect(results.every(item => item.failed === 0)).toBe(true);
