@@ -1,2 +1,17 @@
-node ./buildScripts/util/check-branch-discipline.mjs
-node ./buildScripts/util/check-commit-authorship.mjs
+# Fail on the FIRST failing guard.
+#
+# Without this, sh reports only the LAST command's status, so a guard that fails anywhere but the
+# bottom of this file does not block the push — it prints its complaint and the push proceeds. Every
+# guard here was therefore blocking only by virtue of being last, which is a property of the file
+# ordering rather than of the guard. Measured, not assumed: `sh -c 'false-ish; true-ish'` exits 0.
+set -e
+
+# git sends the pre-push payload — `<localRef> <localSha> <remoteRef> <remoteSha>` per ref — on stdin
+# exactly ONCE. Read by the first guard that wants it, it is gone for every guard after, which
+# degrades those to a guessed range silently. Capturing it here and handing each guard its own copy
+# makes the payload a property of the hook rather than a race won by whoever runs first.
+payload="$(cat)"
+
+printf '%s\n' "$payload" | node ./buildScripts/util/check-branch-discipline.mjs
+printf '%s\n' "$payload" | node ./buildScripts/util/check-commit-authorship.mjs
+printf '%s\n' "$payload" | node ./buildScripts/util/check-spec-retirement.mjs
