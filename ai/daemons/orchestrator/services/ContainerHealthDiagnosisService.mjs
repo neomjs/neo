@@ -1,33 +1,16 @@
 import Base from '../../../../src/core/Base.mjs';
 
+import {CONTAINER_HEALTH_ACTION_CLASSES, CONTAINER_HEALTH_FACT_TYPES} from './containerHealthFactTypes.mjs';
+
 import {
     createRecoveryDiagnosisEvent,
     createRecoveryTargetIdentity
 } from '../../../services/memory-core/helpers/recoveryRunStateStore.mjs';
 
-export const CONTAINER_HEALTH_FACT_TYPES = Object.freeze({
-    configDrift               : 'config-drift',
-    containerDown             : 'container-down',
-    containerUnhealthy        : 'container-unhealthy',
-    endpointProbeFailed       : 'endpoint-probe-failed',
-    evalContention            : 'ollama-eval-contention',
-    heapObservationUnavailable: 'heap-observation-unavailable',
-    memorySaturation          : 'memory-saturation',
-    ollamaResidualLoad        : 'ollama-residual-load',
-    providerLaneShape         : 'provider-lane-shape-diverged',
-    providerResidency         : 'provider-residency-degraded',
-    resourceSaturation        : 'resource-saturation',
-    restartChurn              : 'restart-churn',
-    runtimeReadFailed         : 'runtime-read-failed'
-});
+// Re-exported from a Neo-free module so a PURE consumer can name a fact type without importing this
+// class. One definition, unchanged import paths.
+export {CONTAINER_HEALTH_ACTION_CLASSES, CONTAINER_HEALTH_FACT_TYPES} from './containerHealthFactTypes.mjs';
 
-export const CONTAINER_HEALTH_ACTION_CLASSES = Object.freeze({
-    raiseCeiling: 'raise-ceiling',
-    record      : 'record',
-    restart     : 'restart',
-    throttleShed: 'throttle-shed',
-    warmProvider: 'warm-provider'
-});
 
 /**
  * @summary Proves that the configured native-Ollama endpoint is the Compose service this diagnosis
@@ -161,7 +144,18 @@ export const DEFAULT_CONTAINER_HEALTH_DIAGNOSIS_CONFIG = Object.freeze({
     restartChurnSeverity : 'critical',
     restartChurnThreshold: 3,
     restartChurnWindowMs : 900000,
-    sampleWindowMs       : 30000
+    // The SHARED diagnosis clock: the CPU sustained window, the container cold-start gate, and every
+    // provider-activity freshness bound read this one value. It is deliberately NOT the memory
+    // window — see `memorySaturationWindowMs`, which was briefly folded into this leaf and silently
+    // retimed five unrelated gates from 30s to 120s while the PR that did it claimed to touch only
+    // memory. A metric-specific window belongs to its metric.
+    sampleWindowMs            : 30000,
+    // Memory's OWN sustained window. Separate from `sampleWindowMs` because it is the value that
+    // licenses a single memory fact to degrade a service on its own, and because widening it must
+    // not move a CPU or provider clock. Its default matches the span the shipped sample retention
+    // can actually produce — a window nothing can span is a detector that never fires; see
+    // `describeMemoryWindowReachability`.
+    memorySaturationWindowMs  : 30000
 });
 
 const RUNNING_STATES = new Set(['created', 'restarting', 'running', 'paused']);
@@ -240,10 +234,12 @@ export class ContainerHealthDiagnosisService extends Base {
      * @param {Object} options
      * @param {String} options.serviceKey Allowlisted deployment service key.
      * @param {Object[]} [options.statsSamples=[]] Docker stats samples, stamped with `observedAtMs`.
+     * @param {String|null} [options.nodeCommand=null] Container entrypoint, deciding heap-vs-container scope.
      * @returns {Object} `{serviceKey, serviceClass, serviceClassDeclared, appliedMemoryThreshold,
-     *     observedWindowMs, requiredWindowMs, sampleCount, stampCoverage}`
+     *     observedWindowMs, requiredWindowMs, sampleCount, stampCoverage, memoryScope,
+     *     memoryObservedWindowMs, memoryStampCoverage}`
      */
-    describeClassification({serviceKey, statsSamples = []} = {}) {
+    describeClassification({serviceKey, statsSamples = [], nodeCommand = null} = {}) {
         this.validateServiceKey(serviceKey);
 
         const
@@ -253,7 +249,17 @@ export class ContainerHealthDiagnosisService extends Base {
             timestamps               = samples.map(sample => sample?.observedAtMs).filter(Number.isFinite),
             observedWindowMs         = timestamps.length > 1
                 ? Math.max(...timestamps) - Math.min(...timestamps)
-                : 0;
+                : 0,
+            // Memory is evaluated on the SUBJECT's clock, not the observer's: for a heap-scoped
+            // service the sustained window is measured from the reporter's own stamps, which advance
+            // only when the reporter is alive, while the Docker poll advances on every collection.
+            // Reporting only `observedWindowMs` here would let a consumer certify a memory verdict
+            // with a span memory was never measured against — the exact conflation the fact path
+            // documents beside `memoryTimestamps`, one method over.
+            heapScope        = resolveMemorySaturationScope({samples, nodeCommand}),
+            isHeapScope      = heapScope.scope === MEMORY_SATURATION_SCOPES.heap,
+            memoryTimestamps = isHeapScope ? heapScope.timestamps.filter(Number.isFinite) : timestamps,
+            memorySampleCount = isHeapScope ? heapScope.percents.length : samples.length;
 
         return {
             serviceKey,
@@ -263,12 +269,29 @@ export class ContainerHealthDiagnosisService extends Base {
                 ? config.storeMemorySaturationPercent
                 : config.memorySaturationPercent,
             observedWindowMs,
-            requiredWindowMs: config.sampleWindowMs,
+            // The MEMORY window, matching `appliedMemoryThreshold` above: this projection describes
+            // the memory classification, so reporting the shared diagnosis clock would pair a memory
+            // threshold with a floor memory is not evaluated against.
+            requiredWindowMs: config.memorySaturationWindowMs,
             sampleCount     : samples.length,
             // Distinguishes an under-length span from an under-stamped one: the two read identically
             // in `observedWindowMs`, and collapsing them is how a dead window hides behind a short one.
             stampCoverage   : samples.length > 0
                 ? Math.round((timestamps.length / samples.length) * 100) / 100
+                : null,
+            // WHICH memory this projection describes, published for the same reason the saturation
+            // fact publishes it: `heap` and `container` are different denominators that both read as
+            // a memory percent, and `unavailable` is neither — it is the state in which no memory
+            // verdict, including a reassuring one, may be derived at all.
+            memoryScope           : heapScope.scope,
+            // The span on memory's own clock, and the coverage backing it. A consumer proving that a
+            // service is BELOW its ceiling needs both: an unspanned or partially stamped memory
+            // window means the question was not answered, which is not the same as answering "fine".
+            memoryObservedWindowMs: memoryTimestamps.length > 1
+                ? Math.max(...memoryTimestamps) - Math.min(...memoryTimestamps)
+                : 0,
+            memoryStampCoverage   : memorySampleCount > 0
+                ? Math.round((memoryTimestamps.length / memorySampleCount) * 100) / 100
                 : null
         };
     }
@@ -615,9 +638,14 @@ export class ContainerHealthDiagnosisService extends Base {
             // span from the observer's clock let one stale record, re-read twice, assert a sustained
             // window nothing had sustained. CPU keeps the Docker stamps, which are its true subject.
             memoryTimestamps = isHeapScope ? heapScope.timestamps : timestamps,
-            minWindowMs     = this.configValues.sampleWindowMs,
-            cpuWindow       = summarizeSustainedWindow({values: cpuPercents, threshold: this.configValues.cpuSaturationPercent, expectedCount: samples.length, timestamps, minWindowMs}),
-            memoryWindow    = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps: memoryTimestamps, minWindowMs});
+            // TWO windows, deliberately. CPU keeps the shared diagnosis clock; memory reads its own.
+            // They were briefly one value, which meant configuring a longer memory window also
+            // retimed CPU saturation, the cold-start gate and three provider-activity freshness
+            // bounds — a metric-named leaf mutating clocks belonging to other metrics.
+            minWindowMs      = this.configValues.sampleWindowMs,
+            memWindowMs      = this.configValues.memorySaturationWindowMs,
+            cpuWindow        = summarizeSustainedWindow({values: cpuPercents, threshold: this.configValues.cpuSaturationPercent, expectedCount: samples.length, timestamps, minWindowMs}),
+            memoryWindow     = summarizeSustainedWindow({values: memoryPercents, threshold: memoryThreshold, expectedCount: samples.length, timestamps: memoryTimestamps, minWindowMs: memWindowMs});
 
         if (cpuWindow.sustained) {
             // Whether this container's ratio may speak for THIS service. See the shared subject rule
@@ -709,7 +737,11 @@ export class ContainerHealthDiagnosisService extends Base {
                     threshold       : memoryThreshold,
                     sampleCount     : samples.length,
                     observedWindowMs: memoryWindow.observedWindowMs,
-                    requiredWindowMs: this.configValues.sampleWindowMs,
+                    // Memory's own window — the one actually enforced above. Stamping the shared
+                    // clock here would report a floor this fact was never tested against, which is
+                    // the defect the neighbouring `observedWindowMs` comment exists to prevent, one
+                    // field over.
+                    requiredWindowMs: memWindowMs,
                     // The class the threshold came from, and whether it was DECLARED. An unrostered
                     // key still defaults to transient, but recording the guess keeps it out of the
                     // silent path: "unlisted" used to be indistinguishable from "classified".

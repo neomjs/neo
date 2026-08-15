@@ -261,6 +261,59 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         expect(unproduced).toEqual([]);
     });
 
+    test('healthcheck composition consumes a memory ceiling from the deployment snapshot (#17121)', () => {
+        // The WIRING, not the fold. The first implementation folded the disposition into the
+        // bridge's own nested service record and called that "the composed surface" — so a correct
+        // derivation shipped, its unit matrix passed, and the healthcheck an operator actually calls
+        // never read it. A pure-function test cannot see that gap by construction: it exercises the
+        // consumer directly and therefore assumes the reachability that was missing.
+        const
+            now          = Date.now(),
+            plane        = {id: 'test-plane', dataRoot: '/test-data'},
+            drain        = {observable: false, state: 'unobservable', stallThresholdMs: 1, pendingDrainDepth: 0, oldestPendingAgeMs: 0, allWritesSemanticallyQueryable: false},
+            baseHealth   = {status: 'healthy', details: ['Connected to ChromaDB', 'All features are operational']},
+            atCapService = {
+                serviceKey    : 'embedding-model',
+                observedAt    : new Date(now - 1000).toISOString(),
+                memoryPressure: {
+                    disposition: 'at-cap',
+                    reason     : null,
+                    // Carries the sample window because AC-2's receipt names the service, the cap AND
+                    // the window. This fixture omitted the window for a revision — the same omission
+                    // the fold spec's fixture had — and both passed, because the consumer validated
+                    // only the fields its sentence printed. Two fixtures written from the consumer's
+                    // side is how a contract half stays unenforced end to end.
+                    receipt    : {
+                        serviceKey: 'embedding-model', metric: 'memory', scope: 'container',
+                        threshold : 90, minPercent: 99.8, observedWindowMs: 120000, requiredWindowMs: 120000
+                    }
+                }
+            },
+            compose = services => toolService.composeMemoryCoreHealthcheck({
+                health                : baseHealth,
+                memoryWalDrain        : drain,
+                plane,
+                starvationNow         : now,
+                starvationStaleAfterMs: 2 * 60 * 1000,
+                deploymentInspection  : {ok: true, status: 'available', snapshot: {generatedAt: now, services}}
+            });
+
+        const degraded = compose([atCapService]);
+
+        expect(degraded.status).toBe('degraded');
+        expect(degraded.serviceMemoryPressure.state).toBe('consumed-degraded');
+        expect(degraded.details).not.toContain('All features are operational');
+        expect(degraded.details.at(-1)).toContain('embedding-model');
+
+        // The control: the same call shape with a below disposition must leave the verdict alone, so
+        // this case cannot pass by degrading unconditionally.
+        const clear = compose([{...atCapService, memoryPressure: {disposition: 'below', reason: null, receipt: null}}]);
+
+        expect(clear.status).toBe('healthy');
+        expect(clear.serviceMemoryPressure.state).toBe('consumed-clear');
+        expect(clear.details).toContain('All features are operational');
+    });
+
     test('healthcheck composition degrades only a stalled drain and preserves stronger verdicts (#16305)', () => {
         const plane        = {id: 'test-plane', dataRoot: '/test-data'};
         const pendingDrain = {

@@ -1,18 +1,18 @@
-import fs                            from 'fs/promises';
-import fsExtra                       from 'fs-extra';
-import path                          from 'path';
-import {fileURLToPath}               from 'url';
-import aiConfig                      from '../../mcp/server/memory-core/config.mjs';
-import Base                          from '../../../src/core/Base.mjs';
-import {isBundleRestorable}          from './helpers/bundleIntegrity.mjs';
-import {readDeployedRevision}        from '../shared/deployedRevision.mjs';
-import RuntimeFreshnessService       from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
-import ChromaManager                 from './managers/ChromaManager.mjs';
-import StorageRouter                 from './managers/StorageRouter.mjs';
-import ChromaLifecycleService        from './lifecycle/ChromaLifecycleService.mjs';
-import logger                        from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}               from '../../scripts/lifecycle/wakeSafetyGate.mjs';
-import {createBoundedRetryGate}      from '../shared/boundedRetryGate.mjs';
+import fs                       from 'fs/promises';
+import fsExtra                  from 'fs-extra';
+import path                     from 'path';
+import {fileURLToPath}          from 'url';
+import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
+import Base                     from '../../../src/core/Base.mjs';
+import {isBundleRestorable}     from './helpers/bundleIntegrity.mjs';
+import {readDeployedRevision}   from '../shared/deployedRevision.mjs';
+import RuntimeFreshnessService  from '../../mcp/server/shared/services/RuntimeFreshnessService.mjs';
+import ChromaManager            from './managers/ChromaManager.mjs';
+import StorageRouter            from './managers/StorageRouter.mjs';
+import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
+import logger                   from '../../mcp/server/memory-core/logger.mjs';
+import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
+import {createBoundedRetryGate} from '../shared/boundedRetryGate.mjs';
 import {
     buildEmbeddingProbeBlock,
     createEmbeddingProbeTimeoutError
@@ -920,6 +920,135 @@ export async function buildRemPipelineState({sessionId, axisTimeoutMs = aiConfig
     }
 
     return state;
+}
+
+/**
+ * @summary Folds per-service memory-ceiling dispositions into an aggregate health payload.
+ *
+ * A container pinned AT its memory limit thrashes on page faults — alive, answering every probe, and
+ * doing no useful work. The orchestrator's diagnosis already detects this and publishes an `at-cap`
+ * disposition on the service record; before this fold, nothing an operator reads consumed it, so the
+ * aggregate surface reported healthy throughout the incident.
+ *
+ * Degradation authority is bounded exactly as the starvation sibling bounds it, and for the same
+ * reason: only a FRESH `at-cap` disposition from an `available` snapshot may degrade. `below` and
+ * `unknown` never degrade — `unknown` in particular is the reading that says the ceiling question
+ * could not be answered, and degrading on it would convert blindness into a verdict. A stale record,
+ * or a stale / schema-degraded / unavailable snapshot, carries bytes but no authority. The fold only
+ * moves `healthy` → `degraded`, so `unhealthy` wins by construction.
+ *
+ * Deliberately NOT folded into `HealthService`'s own payload: `ensureHealthy()` gates tool admission
+ * on that payload, and a lane at its memory ceiling must never withdraw capabilities it does not
+ * affect. Semantic recall stays dispatchable while this composed surface reports degraded — the same
+ * boundary the starvation fold holds, for the same reason.
+ *
+ * @param {Object} options
+ * @param {Object} options.payload Aggregate health payload (mutated: `status`, `details`, and the
+ *   `serviceMemoryPressure` consumed-observation descriptor).
+ * @param {Object|null} options.inspection `readDeploymentStateSnapshot()` result, or null when the read threw.
+ * @param {Number} options.now Epoch-ms clock for record freshness.
+ * @param {Number} options.staleAfterMs Freshness bound applied to each record's `observedAt`.
+ * @returns {Object} The consumed-observation descriptor written onto the payload.
+ */
+export function foldServiceMemoryPressure({payload, inspection, now, staleAfterMs}) {
+    const observation = {state: 'not-consumed', atCap: [], incompleteReceipts: []};
+
+    if (!inspection || inspection.status === 'unavailable') {
+        observation.state = 'snapshot-unavailable';
+    } else if (inspection.status !== 'available') {
+        observation.state = `snapshot-${inspection.status}`;
+    } else {
+        const services = inspection.snapshot?.services;
+
+        if (!Array.isArray(services)) {
+            observation.state = 'absent';
+        } else {
+            // Shape-checked per record rather than trusted: this section is additive observability
+            // riding a file, and one malformed entry must not decide the health of the plane. A
+            // record that fails any check is simply not evidence of a ceiling — it is never counted
+            // as one, and never throws the whole fold away either.
+            // A fresh at-cap CLAIM. The claim is not yet authority — see the receipt check below.
+            const claimed = services.filter(service => {
+                const
+                    pressure   = service?.memoryPressure,
+                    observedAt = Date.parse(service?.observedAt);
+
+                return pressure?.disposition === 'at-cap' &&
+                    Number.isFinite(observedAt) && staleAfterMs > 0 && now - observedAt <= staleAfterMs;
+            });
+
+            // The disposition says a ceiling was crossed; the RECEIPT is the evidence for it, and the
+            // detail line below is built entirely from receipt fields. Degrading on a claim whose
+            // receipt is absent or partial publishes "sustained null% of its null limit" — which is
+            // worse than not degrading, because an all-null sentence still reads as a measurement.
+            //
+            // A refused claim is NOT dropped. Producer and consumer disagreeing about the evidence is
+            // itself the operator-visible condition, and a fold that stayed silent about it would
+            // reproduce, one layer up, the exact defect this whole surface exists to close: a fact
+            // computed, published, and consumed by nothing.
+            // The receipt names THREE things — which service, against what cap, and for how
+            // long — so completeness is checked against all three. The earlier version validated only
+            // the fields this file interpolates into its sentence, which made the check circular: a
+            // receipt with its sample window deleted stayed authoritative because the sentence never
+            // printed a window, so nothing here could notice one was missing. A validator derived from
+            // the consumer's own output can only ever confirm the consumer.
+            //
+            // Blank strings are rejected rather than merely typed: `scope: ''` published "sustained
+            // 99.8% of its  limit", which reads as a measurement with a rendering glitch instead of the
+            // unattributed reading it actually is. A negative span is refused on the same domain
+            // discipline the threshold and retention clauses already apply — a duration below zero is
+            // not a short measurement, it is not a measurement.
+            const
+                named      = value => typeof value === 'string' && value.trim() !== '',
+                finiteSpan = value => Number.isFinite(value) && value >= 0,
+                complete   = receipt => receipt !== null && typeof receipt === 'object' &&
+                    named(receipt.serviceKey) &&
+                    named(receipt.scope) &&
+                    Number.isFinite(receipt.minPercent) &&
+                    Number.isFinite(receipt.threshold) &&
+                    finiteSpan(receipt.observedWindowMs) &&
+                    finiteSpan(receipt.requiredWindowMs);
+
+            const atCap = claimed.filter(service => complete(service.memoryPressure?.receipt));
+
+            observation.incompleteReceipts = claimed
+                .filter(service => !complete(service.memoryPressure?.receipt))
+                .map(service => service.serviceKey ?? null);
+
+            if (atCap.length > 0) {
+                observation.state = 'consumed-degraded';
+                observation.atCap = atCap.map(service => ({
+                    // The RECEIPT's key, not the record's: the receipt is what was validated above, so
+                    // the sentence must name the service the evidence names. Reading the outer record
+                    // here let a verified receipt describe one lane while the operator-visible line
+                    // blamed another.
+                    serviceKey: service.memoryPressure?.receipt?.serviceKey ?? null,
+                    scope     : service.memoryPressure?.receipt?.scope ?? null,
+                    minPercent: service.memoryPressure?.receipt?.minPercent ?? null,
+                    threshold : service.memoryPressure?.receipt?.threshold ?? null
+                }));
+
+                if (payload.status === 'healthy') {
+                    payload.status = 'degraded';
+                }
+
+                // A degraded verdict withdraws the all-clear line a cached-healthy payload carries —
+                // the two statements cannot coexist in one response.
+                payload.details = payload.details.filter(detail => detail !== 'All features are operational');
+                payload.details.push(
+                    `Service memory at ceiling: ${observation.atCap.map(entry =>
+                        `${entry.serviceKey} sustained ${entry.minPercent}% of its ${entry.scope} limit ` +
+                        `(threshold ${entry.threshold}%)`
+                    ).join(', ')}.`
+                );
+            } else {
+                observation.state = 'consumed-clear';
+            }
+        }
+    }
+
+    payload.serviceMemoryPressure = observation;
+    return observation;
 }
 
 /**
