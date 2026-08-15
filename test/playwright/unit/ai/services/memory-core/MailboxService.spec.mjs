@@ -1259,12 +1259,17 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             const second = MailboxService.repairMessageGraphIntegrity({target: '@bob', box: 'inbox', limit: 1});
 
             await readEntered;
-            // The first caller is parked inside the payload read. Give the second caller several
-            // turns to reach the same id; without the load promise it opens the segment too.
-            for (let turn = 0; turn < 3; turn++) {
-                await new Promise(resolve => setImmediate(resolve));
-            }
-            expect(payloadReads).toBe(1);
+            // No wait, and no assertion. Both callers pass the SAME `target` rather than ids, so
+            // both route through `getMailboxGraphProjectionRepairCandidates()` — whose coalescing
+            // promise is process-wide rather than keyed (`MailboxService.mjs:1573`), and which the
+            // id path skips entirely (`:2705`, `idFilter ? null : await …`). These two are therefore
+            // already joined UPSTREAM of the segment load, and caller two cannot reach its decision
+            // independently of caller one. A turn budget here had nothing to synchronise.
+            //
+            // The assertion that used to sit here was a strictly weaker form of the exact-count
+            // check below — "one read so far" versus "one read in total" — and measured at zero
+            // turns with the single-flight disabled, that check still fails. Detection never lived
+            // here either.
             releasePayloadRead();
 
             const results = await Promise.all([first, second]);
@@ -1335,6 +1340,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
 
             await readEntered;
+            // LEFT UNCHANGED, deliberately. Unlike the same-target pair above, these two callers
+            // DIVERGE before the join: the global path awaits the coalescing candidate scan while
+            // the explicit-ids path skips it (`MailboxService.mjs:2705`), so caller two's arrival is
+            // not coupled to caller one's. The single-flight entry drops when caller one's read
+            // RESOLVES, so a legitimately late caller two can open read #2 on CORRECT production and
+            // false-red the exact-count assertion below.
+            //
+            // This budget narrows that window; it does not close it, and no test-side anchor can —
+            // a joining caller produces no observable, and the segment-load helper is module-private.
+            // Removing the pre-release assertion here would imply the remaining wait is sound, which
+            // is a claim this path cannot support. The deterministic rendezvous needs a production
+            // seam and is tracked separately.
             for (let turn = 0; turn < 3; turn++) {
                 await new Promise(resolve => setImmediate(resolve));
             }
