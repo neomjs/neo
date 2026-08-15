@@ -1428,7 +1428,7 @@ test.describe('Neo.ai.services.github-workflow.IssueService — getConversation 
 
     const COMMENT_A = {id: 'IC_a1111', author: {login: 'alice'}, body: 'First comment',  createdAt: '2026-05-22T01:00:00Z'};
     const COMMENT_B = {id: 'IC_b2222', author: {login: 'bob'},   body: 'Second comment', createdAt: '2026-05-22T01:10:00Z'};
-    const COMMENT_C = {id: 'IC_c3333', author: {login: 'alice'}, body: 'Third comment',  createdAt: '2026-05-22T01:20:00Z'};
+    const COMMENT_C = {id: 'IC_c3333', databaseId: 5301580683, author: {login: 'alice'}, body: 'Third comment',  createdAt: '2026-05-22T01:20:00Z'};
     const COMMENT_D = {id: 'IC_d4444', author: {login: 'bob'},   body: 'Fourth comment', createdAt: '2026-05-22T01:30:00Z'};
 
     const ISSUE_FIXTURE = {
@@ -1462,6 +1462,61 @@ test.describe('Neo.ai.services.github-workflow.IssueService — getConversation 
         expect(result.comments.nodes).toHaveLength(4);
         expect(result.comments.nodes[0].id).toBe('IC_a1111');
         expect(result.comments.nodes[3].id).toBe('IC_d4444');
+    });
+
+    test('comment_id accepts every spelling, and a scoped request omits the issue body (#17142)', async () => {
+        // Service-level wiring, not just the pure helper: the anchor and numeric forms are the ones a
+        // peer actually pastes, and both previously matched nothing and returned an empty list with no
+        // error. The legacy base64 form is the REGRESSION case — strict equality accepted it before the
+        // selector existed, so it must keep working.
+        for (const spelling of [
+            'IC_c3333',
+            '5301580683',
+            'issuecomment-5301580683',
+            'https://github.com/neomjs/neo/issues/10702#issuecomment-5301580683'
+        ]) {
+            const result = await IssueService.getConversation({issue_number: 10702, comment_id: spelling});
+
+            expect(result.comments.nodes.map(c => c.id), spelling).toEqual(['IC_c3333']);
+            expect(result.body,        `${spelling}: scoped body omitted`).toBeUndefined();
+            expect(result.bodyOmitted, `${spelling}: omission announced`).toBe(true);
+            expect(result.title,       `${spelling}: title survives scoping`).toBe('Test Issue');
+        }
+    });
+
+    test('a malformed comment_id ERRORS; a well-formed absent one returns empty (#17142)', async () => {
+        const malformed = await IssueService.getConversation({issue_number: 10702, comment_id: 'not_an_id'});
+
+        expect(malformed.code).toBe('MALFORMED_COMMENT_ID');
+        expect(malformed.comments).toBeUndefined();
+
+        const absent = await IssueService.getConversation({issue_number: 10702, comment_id: 'IC_nope9999'});
+
+        expect(absent.code).toBeUndefined();
+        expect(absent.comments.nodes).toEqual([]);
+    });
+
+    test('an EMPTY comment_id errors instead of returning the whole unscoped thread (#17142)', async () => {
+        // The branch used to test truthiness, so '' skipped the selector entirely and answered a blank
+        // address with the full conversation — body and all.
+        const result = await IssueService.getConversation({issue_number: 10702, comment_id: ''});
+
+        expect(result.code).toBe('MALFORMED_COMMENT_ID');
+        expect(result.body).toBeUndefined();
+    });
+
+    test('since_comment_id accepts the same spellings and is scoped too (#17142)', async () => {
+        const result = await IssueService.getConversation({
+            issue_number    : 10702,
+            since_comment_id: 'issuecomment-5301580683'
+        });
+
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['IC_d4444']);
+        expect(result.bodyOmitted).toBe(true);
+
+        const malformed = await IssueService.getConversation({issue_number: 10702, since_comment_id: 'evilcomment-1'});
+
+        expect(malformed.code).toBe('MALFORMED_COMMENT_ID');
     });
 
     test('comment_id selector returns only the matching comment', async () => {

@@ -399,7 +399,9 @@ paths:
         Use this tool to get the context of a pull request or issue — the initial proposal/body and the discussion history.
 
         **Comment selectors (optional, first-match precedence):**
-        - `comment_id`: fetch ONLY the comment whose GitHub node ID matches. Used for A2A
+        - `comment_id`: fetch ONLY the matching comment. Accepts the node ID (`IC_kwDO…`), the
+          numeric database id (`5301580683`), a URL anchor (`issuecomment-5301580683`), or a full
+          comment URL — an unrecognised shape ERRORS rather than returning an empty list. Used for A2A
           hand-off — a reviewer mailboxes the `commentId` (returned by `manage_issue_comment`
           action:`create`) to the peer, and the peer fetches just-this-comment rather than
           re-walking the whole thread. Scales linearly with new-comment volume.
@@ -431,15 +433,24 @@ paths:
                   description: Response projection. `merge-readiness` requires `pr_number`, is identity-bound, and cannot be combined with comment selectors.
                 comment_id:
                   type: string
-                  description: Return only the comment whose GitHub global node ID matches. Elides all other comments; PR title/body are still returned.
-                  example: "IC_kwDOABcD1234567890"
+                  description: >-
+                    Return only the matching comment. Accepts a node ID, the numeric database id, a
+                    `issuecomment-N` URL anchor, or a full comment URL. An unrecognised shape returns
+                    a MALFORMED_COMMENT_ID error; a well-formed id absent from the thread returns an
+                    empty comments list. Scoped requests omit the parent body (`bodyOmitted: true`).
+                  example: "issuecomment-5301580683"
                 since_comment_id:
                   type: string
-                  description: Return only comments AFTER the one with this ID (exclusive). If the ID isn't found, returns empty comments.
-                  example: "IC_kwDOABcD1234567890"
+                  description: >-
+                    Return only comments AFTER the one with this ID (exclusive). Accepts the same
+                    four spellings as `comment_id`. Unrecognised shape errors; a well-formed but
+                    absent id returns empty comments. Scoped requests omit the parent body.
+                  example: "issuecomment-5301580683"
                 last_n:
                   type: integer
-                  description: Return only the last N comments (by creation order).
+                  description: >-
+                    Return only the last N comments (by creation order). This is a scoped request, so
+                    the parent body is omitted and `bodyOmitted: true` is set.
                   example: 3
       responses:
         '200':
@@ -448,12 +459,23 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Conversation shape (issue or pull request) — title/body/author plus a (possibly filtered) comments collection.
+                description: >-
+                  Conversation shape (issue or pull request) — title/author plus a (possibly filtered)
+                  comments collection. `body` is present on UNSCOPED requests only; a scoped request
+                  (`comment_id`, `since_comment_id`, or `last_n`) omits it and sets `bodyOmitted: true`.
                 properties:
                   title:
                     type: string
                   body:
                     type: string
+                    description: >-
+                      The issue/PR body. ABSENT on scoped requests — check `bodyOmitted` rather than
+                      reading an absent body as an empty one.
+                  bodyOmitted:
+                    type: boolean
+                    description: >-
+                      Present and `true` only on scoped requests, where `body` was deliberately not
+                      returned. Distinguishes "scoped away" from "this thread has an empty body".
                   author:
                     type: object
                     properties:
@@ -1504,7 +1526,9 @@ paths:
         a delta after a known comment, or a small tail of recent comments is needed.
 
         **Comment selectors (optional, first-match precedence):**
-        - `comment_id`: fetch ONLY the top-level discussion comment whose GitHub node ID matches.
+        - `comment_id`: fetch ONLY the matching top-level discussion comment. Accepts the node ID
+          (`DC_kwDO…`), the numeric database id, a `discussioncomment-N` URL anchor, or a full
+          comment URL; an unrecognised shape errors instead of returning an empty list.
           Used for A2A hand-off after `manage_discussion_comment({action: 'create'})` returns
           `commentId`.
         - `since_comment_id`: fetch top-level discussion comments AFTER the one with the given ID
@@ -1528,15 +1552,25 @@ paths:
                   example: 10137
                 comment_id:
                   type: string
-                  description: Return only the top-level discussion comment whose GitHub global node ID matches. Discussion title/body metadata is still returned.
-                  example: "DC_kwDOABcD1234567890"
+                  description: >-
+                    Return only the matching top-level discussion comment. Accepts a node ID (current
+                    `DC_…` or legacy base64), the numeric database id, a `discussioncomment-N` URL
+                    anchor, or a full comment URL. An unrecognised shape returns MALFORMED_COMMENT_ID;
+                    a well-formed id absent from the thread returns an empty comments list. Scoped
+                    requests omit the discussion body and set `bodyOmitted: true`.
+                  example: "discussioncomment-18028896"
                 since_comment_id:
                   type: string
-                  description: Return only top-level discussion comments AFTER the one with this ID (exclusive). If the ID is not found, returns empty comments.
-                  example: "DC_kwDOABcD1234567890"
+                  description: >-
+                    Return only top-level discussion comments AFTER the one with this ID (exclusive).
+                    Accepts the same four spellings as `comment_id`. Unrecognised shape errors; a
+                    well-formed but absent id returns empty comments. Scoped requests omit the body.
+                  example: "discussioncomment-18028896"
                 last_n:
                   type: integer
-                  description: Return only the last N top-level discussion comments.
+                  description: >-
+                    Return only the last N top-level discussion comments. This is a scoped request, so
+                    the discussion body is omitted and `bodyOmitted: true` is set.
                   example: 3
       responses:
         '200':
@@ -1556,6 +1590,14 @@ paths:
                     type: string
                   body:
                     type: string
+                    description: >-
+                      The discussion body. ABSENT on scoped requests — check `bodyOmitted` rather than
+                      reading an absent body as an empty one.
+                  bodyOmitted:
+                    type: boolean
+                    description: >-
+                      Present and `true` only on scoped requests, where `body` was deliberately not
+                      returned. Distinguishes "scoped away" from "this discussion has an empty body".
                   url:
                     type: string
                   createdAt:
