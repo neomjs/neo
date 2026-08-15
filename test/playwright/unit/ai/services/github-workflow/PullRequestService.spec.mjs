@@ -1786,6 +1786,85 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         };
     });
 
+    // The Round-2 tier's negative corpus. @neo-gpt falsified the first implementation at review: it
+    // filtered heading presence and nothing else, so a body carrying the four headings, no prior
+    // round, no origin, and an invented `RA-999` was admitted with zero missing anchors. Each case
+    // below is one way that body got through; the positive control travels with them, because a gate
+    // that rejects everything passes a negative corpus just as well as a correct one.
+    test('#17178: the Round-2 tier refuses a body that is disposition-SHAPED but dispositions nothing', () => {
+        const invented = [
+            '# PR Review — Round 2',
+            '',
+            '### ⚓ Anchor',
+            '',
+            'No PR, no prior review, no origin session.',
+            '',
+            '### 📋 Disposition',
+            '',
+            '| # | Required Action | Disposition |',
+            '|---|---|---|',
+            '| RA-999 | an action no Round 1 ever raised | ADDRESSED |',
+            '',
+            '### 🔚 Verdict',
+            '',
+            'APPROVED'
+        ].join('\n');
+
+        const result = PullRequestService.validatePrReviewBody({body: invented});
+
+        expect(result.code, 'the exact falsifier from the #17179 review is refused').toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message, 'and it says WHICH obligation failed, not just that one did').toContain('names no Round-1 review to disposition');
+        expect(result.message).toContain('Origin Session ID');
+    });
+
+    test('#17178: the Round-2 tier refuses a round that opens a fresh action checklist', () => {
+        // The whole point of the format: a second round dispositions prior actions and never mints a
+        // new packet. A `- [ ]` list is a new packet by construction, so the tier that admits one has
+        // re-permitted exactly what the substrate removed.
+        const minting = VALID_ROUND_2_REVIEW_BODY.replace(
+            '### 🔚 Verdict',
+            '### 📋 Required Actions\n\n- [ ] a demand this round invented\n\n### 🔚 Verdict'
+        );
+
+        const result = PullRequestService.validatePrReviewBody({body: minting});
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message).toContain('mints a new action checklist');
+    });
+
+    test('#17178: a legend explaining the verbs is not a disposition — the row must be a row', () => {
+        // The template prints the three verbs in prose directly under the table. A substring test for
+        // them reads that legend as evidence, so a document EXPLAINING the vocabulary would satisfy
+        // the gate for USING it. The row pattern is cell-anchored to keep those apart.
+        const legendOnly = VALID_ROUND_2_REVIEW_BODY
+            .replace('| RA-1 | prior template miss | ADDRESSED | current body keeps canonical headings |',
+                '*   **ADDRESSED** — the action is discharged; name where.');
+
+        const result = PullRequestService.validatePrReviewBody({body: legendOnly});
+
+        expect(result.code, 'prose about the verbs is not a dispositioned row').toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message).toContain('dispositions nothing');
+    });
+
+    test('#17178: the service and CI agree on origin — a Round 2 without one is refused by BOTH', () => {
+        // The two copies of this contract disagreed here: CI required a valid origin line for a
+        // Round 2 and the managed service did not, so the service could admit a body the post-submit
+        // lint would then reject. Same constant, same verdict, both sides.
+        const noOrigin = VALID_ROUND_2_REVIEW_BODY
+            .replace(`* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`, '* **Origin Session ID:** my-harness-task-id');
+
+        const result = PullRequestService.validatePrReviewBody({body: noOrigin});
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.message).toContain('Origin Session ID');
+    });
+
+    test('#17178: the positive control still passes — the tier did not become reject-everything', () => {
+        const result = PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY});
+
+        expect(result.valid, 'a real disposition round is still admitted').toBe(true);
+    });
+
     test('#14688: validatePrReviewBody dry-runs a valid body without GraphQL dispatch', () => {
         let graphqlCallCount = 0;
         GraphqlService.query = async () => {

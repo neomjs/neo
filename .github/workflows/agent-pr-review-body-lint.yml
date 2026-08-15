@@ -85,10 +85,20 @@ jobs:
               return;
             }
 
+            // A Round 2 declares itself in its H1, and it is checked HERE rather than further down
+            // because the generic COMMENTED skip below used to return first. That ordering exempted
+            // the exact shape the format prescribes: a disposition carrying a STILL_OPEN item posts
+            // as COMMENTED precisely so it spends no new Request-Changes round and the original
+            // Round-1 review stays authoritative for that item — and CI then skipped it entirely.
+            // The one state the terminal-round design depends on was the one state it was never
+            // validated in.
+            const isRound2Disposition = /^#[ \t]+PR Review — Round 2\b/m.test(body);
+
             // Ordinary COMMENTED reviews remain supplementary and skip the heavy template.
-            // The RC2 closure packet is the exception: it carries the budget's frozen semantic
-            // contract and therefore receives the narrow Micro-Delta validation below.
-            if (reviewState === 'commented' && !isCommentedClosure) {
+            // The RC2 closure packet is one exception (it carries the budget's frozen semantic
+            // contract and receives the narrow Micro-Delta validation below); a Round-2 disposition
+            // is the other, for the reason above.
+            if (reviewState === 'commented' && !isCommentedClosure && !isRound2Disposition) {
               console.log(`✅ COMMENTED review by ${reviewer} — supplementary (non-gating); template enforcement is state-keyed to APPROVED/CHANGES_REQUESTED. Skipping lint.`);
               return;
             }
@@ -292,12 +302,6 @@ jobs:
             // design, so falling through to the canonical path would refuse it for omitting exactly
             // what the terminal-round decision removed — CI would then reject the shape the substrate
             // prescribes. Mirrors the service's tier dispatch in `PullRequestService.mjs`.
-            const ROUND_2_PR_REVIEW_SHAPE_HINTS = [
-              "# PR Review — Round 2",
-              "### 📋 Disposition",
-              "### 🔚 Verdict"
-            ];
-
             const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
               "# PR Review — Round 2",
               "### ⚓ Anchor",
@@ -305,11 +309,34 @@ jobs:
               "### 🔚 Verdict"
             ];
 
-            if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(a => body.includes(a))) {
+            // Kept byte-for-byte in step with `getRound2PrReviewTemplateValidationFailure()` in
+            // ai/services/github-workflow/PullRequestService.mjs. The two copies of this contract
+            // already drifted once — CI required a valid origin line for a Round 2 while the managed
+            // service did not — so the service admitted bodies this lint then rejected. A format that
+            // lands in one copy only makes the managed path and CI disagree about what is valid.
+            //
+            // Selection is the H1 ALONE, not any-of-three-hints: matching a section heading routed a
+            // canonical review into this branch and skipped its premise validation, which is a wider
+            // hole than a lenient tier because it opens the canonical path.
+            const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
+
+            if (isRound2Disposition) {
               const round2Misses = ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(a => !body.includes(a));
 
               if (!PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)) {
                 round2Misses.push("Origin Session ID: Neo Memory Core UUID");
+              }
+
+              if (!/\*\*Round-1 Review ID:\*\*\s*(?!\[)\S/.test(body)) {
+                round2Misses.push("Round-1 Review ID: the round this dispositions");
+              }
+
+              if ([...body.matchAll(ROUND_2_DISPOSITION_ROW_PATTERN)].length === 0) {
+                round2Misses.push("at least one disposition row (ADDRESSED / DEFENDED / STILL_OPEN)");
+              }
+
+              if (/^[ \t]*[-*][ \t]+\[[ x]\]/im.test(body)) {
+                round2Misses.push("no new action checklist — carry prior actions in the disposition table");
               }
 
               if (round2Misses.length === 0) {

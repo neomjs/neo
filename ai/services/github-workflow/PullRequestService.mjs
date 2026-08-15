@@ -1058,11 +1058,32 @@ const PR_REVIEW_ORIGIN_SESSION_PATTERN = /^\s*[*-]\s+\*\*Origin Session ID:\*\*\
 // shared vocabulary (`Anchor`, `Verdict`) would swallow bodies that belong to other shapes, and the
 // misclassification is silent — a body validated against the wrong template reports missing anchors
 // the author never owed.
-const ROUND_2_PR_REVIEW_SHAPE_HINTS = [
-    '# PR Review — Round 2',
-    '### 📋 Disposition',
-    '### 🔚 Verdict'
-];
+/**
+ * @summary Whether a body DECLARES itself an ordinary Round 2 — its own H1, at line start.
+ *
+ * Selection is the first half of a format gate and it has to be exact. Matching any of the shape
+ * hints meant a canonical review that merely contained `### 🔚 Verdict` was routed to the Round-2
+ * tier and never premise-validated — a heading choice silently downgrading which rules apply, which
+ * is a wider hole than the tier's own leniency because it opens the CANONICAL path. The H1 is the
+ * format declaration; the section headings are its contents, and contents are shared vocabulary.
+ * @param {String} body
+ * @returns {Boolean}
+ */
+function isRound2PrReview(body) {
+    return /^#[ \t]+PR Review — Round 2\b/m.test(body);
+}
+
+/**
+ * @summary A disposition table row: a verdict verb in a pipe-delimited cell.
+ *
+ * The three verbs ARE the format's vocabulary, so matching them is what separates a dispositioned row
+ * from a table that happens to exist. Anchored to a cell boundary rather than searched free-text: the
+ * prose defining the verbs sits directly under the table in the template, and a substring test would
+ * read that legend as evidence of a disposition — a document explaining the verbs would satisfy the
+ * gate for using them.
+ * @type {RegExp}
+ */
+const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
 
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
     '# PR Review Follow-Up',
@@ -1180,7 +1201,7 @@ function getPrReviewTemplateSkeletonMisses(body) {
     // follow-up shape, so a hint-order that checked follow-up first would validate every disposition
     // round against the exceptional template and demand sections it deliberately omits — the guard
     // would then refuse exactly the shape the terminal-round decision introduced.
-    if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor))) {
+    if (isRound2PrReview(body)) {
         return getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
     }
 
@@ -1279,14 +1300,59 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
  * @returns {Object|null} Validation failure payload, or `null` when valid.
  */
 function getRound2PrReviewTemplateValidationFailure(body) {
-    const missing = getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
+    const
+        missing  = getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor)),
+        // Heading presence was the ENTIRE gate here, and @neo-gpt falsified it at review with a body
+        // carrying the four headings, no prior round, no origin, and an invented `RA-999` — zero
+        // missing anchors, admitted. That is the anti-Goodhart failure this file already knew about:
+        // `INVISIBLE_PR_REVIEW_ANCHORS` exists precisely because a gate that names its anchors gets
+        // satisfied by writing them, and the new tier reproduced the defect one tier along.
+        //
+        // A format gate cannot prove a disposition OCCURRED — that needs the prior round, and the
+        // caller holding PR context owns it. What a body-only gate can prove is that this document
+        // is SHAPED like a disposition rather than a first review wearing its headings: it points at
+        // a real prior round, it dispositions at least one row, every disposition is a defined verb,
+        // and it mints no fresh action packet. Those are checkable here and each one is a way the
+        // falsifier passed.
+        defects  = [];
 
-    if (missing.length === 0) return null;
+    if (missing.length > 0) {
+        defects.push(`omits its structural anchors — missing: ${missing.join(', ')}`)
+    }
+
+    // The anchor must POINT somewhere. A Round 2 that cannot name the round it dispositions is a
+    // first review, and the template's bracketed placeholders must not survive into a posted body.
+    if (!/\*\*Round-1 Review ID:\*\*\s*(?!\[)\S/.test(body)) {
+        defects.push('names no Round-1 review to disposition — `**Round-1 Review ID:**` is absent, empty, or still the template placeholder')
+    }
+
+    // The SAME constant CI's Round-2 branch already used. The two copies of this contract disagreed
+    // here — CI required a valid origin line for a Round 2 and the managed service did not — so a body
+    // the service admitted could still fail the post-submit lint, which is the split that makes having
+    // two copies dangerous rather than merely redundant.
+    if (!PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)) {
+        defects.push('carries no `Origin Session ID:` line with a full Memory Core UUID on its own line')
+    }
+
+    const dispositions = [...body.matchAll(ROUND_2_DISPOSITION_ROW_PATTERN)];
+
+    if (dispositions.length === 0) {
+        defects.push('dispositions nothing — the table needs one row per Round-1 required action, each marked ADDRESSED, DEFENDED, or STILL_OPEN')
+    }
+
+    // A disposition round that opens a checkbox action list is the exact behaviour the format exists
+    // to stop: a second round restating, renumbering, or expanding the first round's demands. The
+    // carried actions live in the table; a `- [ ]` list is a NEW packet by construction.
+    if (/^[ \t]*[-*][ \t]+\[[ x]\]/im.test(body)) {
+        defects.push('mints a new action checklist — an ordinary Round 2 carries prior actions in the disposition table and never opens a fresh packet. A STILL_OPEN row keeps the original review authoritative instead')
+    }
+
+    if (defects.length === 0) return null;
 
     return {
         error  : 'PR Review Template Validation Failed',
         message: [
-            'Review body selects the Round-2 disposition format but omits its structural anchors.',
+            'Review body selects the Round-2 disposition format but does not satisfy it.',
             '',
             `**Required action**: read \`.agents/skills/pr-review/assets/pr-review-round-2-template.md\` before retrying.`,
             '',
@@ -1295,7 +1361,7 @@ function getRound2PrReviewTemplateValidationFailure(body) {
             'it is not an ordinary Round 2: it is a validated Drop+Supersede or a guarded repair-minted',
             're-entry, and both use the follow-up template.',
             '',
-            `Missing: ${missing.join(', ')}`
+            ...defects.map(defect => `- This body ${defect}.`)
         ].join('\n'),
         code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
     }
@@ -1588,7 +1654,7 @@ function getPrReviewTemplateValidationFailure(body, options) {
 
     if (isMicroReview(body)) {
         failure = getMicroReviewTemplateValidationFailure(body)
-    } else if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor))) {
+    } else if (isRound2PrReview(body)) {
         failure = getRound2PrReviewTemplateValidationFailure(body)
     } else {
         failure = isMicroDeltaPrReview(body)

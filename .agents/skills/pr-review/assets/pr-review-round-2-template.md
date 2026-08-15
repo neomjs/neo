@@ -27,7 +27,8 @@ One row per Round-1 required action, **quoted verbatim** — no re-wording, no r
 
 [Approve · Approve+Follow-Up (only if it passes the standalone-ticket counterfactual) · Request Changes ONLY if a STILL_OPEN item blocks merge]
 
-After posting, send the new `commentId` to the author via A2A.
+After posting, send the new **review ID or URL** to the author via A2A — `manage_pr_review` returns
+`reviewId` / `url`, not a `commentId`, and an author handed the wrong identifier cannot fetch the round.
 
 ---
 
