@@ -12,7 +12,15 @@ import {
     walkCapabilityClosure,
     walkWithAncestors
 }                     from '../../../../../../ai/scripts/lint/scriptPlaneClosure.mjs';
-import {buildAuthorityByScript} from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
+import fs   from 'node:fs';
+import os   from 'node:os';
+import path from 'node:path';
+
+import {
+    buildAuthorityByScript,
+    readEntrypoints,
+    readWorkflowEntrypoints
+} from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
 
 /**
  * The subject is the DISTINCTION, not the detection.
@@ -455,5 +463,85 @@ test.describe('authority join — keyed on the script PATH, never on a name', ()
         const map = buildAuthorityByScript({definitions, authorityByName, projectRoot: '/repo'});
 
         expect(map['ai/scripts/maintenance/nomap.mjs']).toBeUndefined();
+    });
+});
+
+test.describe('the census is the union of every invocation surface', () => {
+    /*
+     * An npm-only census misses scripts a workflow runs directly, and the omission was
+     * self-demonstrating: this lint is invoked from its own workflow and did not score itself.
+     * It also counted invocation NAMES rather than modules, so five duplicate npm aliases inflated
+     * the population by five.
+     */
+    const workflowDir = path.join(os.tmpdir(), `plane-wf-${process.pid}`);
+
+    test.beforeAll(() => {
+        fs.mkdirSync(workflowDir, {recursive: true});
+        fs.writeFileSync(path.join(workflowDir, 'a.yml'), [
+            'jobs:',
+            '  lint:',
+            '    steps:',
+            '      - run: node ./ai/scripts/lint/direct-one.mjs',
+            '      - run: |',
+            '          if node ./ai/scripts/lint/direct-two.mjs; then echo ok; fi'
+        ].join('\n'));
+        // A path in a COMMENT and in a non-run key must not be mistaken for an invocation.
+        fs.writeFileSync(path.join(workflowDir, 'b.yml'), [
+            '# node ./ai/scripts/lint/commented-out.mjs',
+            'jobs:',
+            '  x:',
+            '    steps:',
+            '      - name: node ./ai/scripts/lint/in-a-name.mjs',
+            '        run: echo nothing'
+        ].join('\n'));
+        fs.writeFileSync(path.join(workflowDir, 'c.yml'), 'this: [is: not: valid: yaml');
+    });
+
+    test.afterAll(() => fs.rmSync(workflowDir, {recursive: true, force: true}));
+
+    test('finds single-line AND multi-line `run:` invocations', () => {
+        const found = readWorkflowEntrypoints({workflowDir});
+
+        // The multi-line case is the one a naive file grep misses.
+        expect(found).toContain('ai/scripts/lint/direct-one.mjs');
+        expect(found).toContain('ai/scripts/lint/direct-two.mjs');
+    });
+
+    test('a path in a comment or a non-run key is NOT an invocation', () => {
+        // Reading through the YAML parser rather than grepping the file is what buys this.
+        const found = readWorkflowEntrypoints({workflowDir});
+
+        expect(found).not.toContain('ai/scripts/lint/commented-out.mjs');
+        expect(found).not.toContain('ai/scripts/lint/in-a-name.mjs');
+    });
+
+    test('an unparseable workflow is skipped, not fatal', () => {
+        // Workflow syntax has its own gates; this lint must not become a second one.
+        expect(() => readWorkflowEntrypoints({workflowDir})).not.toThrow();
+    });
+
+    test('a missing workflow directory yields nothing rather than throwing', () => {
+        expect(readWorkflowEntrypoints({workflowDir: path.join(os.tmpdir(), 'definitely-absent-xyz')})).toEqual([]);
+    });
+
+    test('the census counts MODULES, not invocation names', () => {
+        // The first version of this arm asserted `filter(...).toHaveLength(1)` on a two-alias input —
+        // which the backing Map guarantees whatever the code decides, so removing the dedupe left it
+        // green. A vacuous arm is worse than none: it reports coverage of a property it cannot see.
+        //
+        // The falsifiable form compares the two populations directly: FOUR npm entries naming THREE
+        // modules must yield three entries, so a name-counting census fails on the count itself.
+        const scripts = {
+            'ai:one'  : 'node ./ai/scripts/lint/dupe.mjs',
+            'ai:two'  : 'node ./ai/scripts/lint/dupe.mjs',
+            'ai:three': 'node ./ai/scripts/lint/dupe.mjs',
+            'ai:other': 'node ./ai/scripts/lint/other.mjs'
+        };
+        const entries = readEntrypoints(scripts).filter(entry => entry.via !== 'workflow');
+
+        expect(Object.keys(scripts), 'four invocation names').toHaveLength(4);
+        expect(entries, 'naming three distinct modules').toHaveLength(2);
+        expect(entries.map(entry => entry.rel).sort())
+            .toEqual(['ai/scripts/lint/dupe.mjs', 'ai/scripts/lint/other.mjs']);
     });
 });

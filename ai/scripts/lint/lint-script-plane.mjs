@@ -1,4 +1,6 @@
 import {createRequire} from 'node:module';
+import fs              from 'node:fs';
+import * as yaml       from 'js-yaml';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -61,9 +63,13 @@ export const SCAN_SURFACE = Object.freeze([
  *
  * MEASURED on `dev`, not chosen. Lower it when an edge is genuinely resolved; never raise it to make
  * a red build pass — that inverts the gate into a record of whatever we happen to have.
+ *
+ * Re-measured at 38 when the census was corrected: the old 40 was taken over a population that
+ * counted five duplicate npm aliases as separate entrypoints and omitted four workflow-invoked
+ * modules. A ratchet inherited across a population change is not a ratchet.
  * @type {Number}
  */
-export const UNRESOLVED_EDGE_BASELINE = 40;
+export const UNRESOLVED_EDGE_BASELINE = 38;
 
 /**
  * @summary Maps an `ai:*` npm script to the `ai/scripts` module it invokes.
@@ -71,9 +77,75 @@ export const UNRESOLVED_EDGE_BASELINE = 40;
  * @returns {Array<{name: String, rel: String}>}
  */
 export function readEntrypoints(scripts = require(path.join(PROJECT_ROOT, 'package.json')).scripts) {
-    return Object.entries(scripts)
-        .map(([name, command]) => ({name, rel: command.match(/(ai\/scripts\/[\w./-]+\.mjs)/)?.[1]}))
-        .filter(entry => entry.rel)
+    const byRel = new Map();
+
+    Object.entries(scripts).forEach(([name, command]) => {
+        const rel = command.match(/(ai\/scripts\/[\w./-]+\.mjs)/)?.[1];
+
+        // Two npm aliases can point at one script (`defragChromaDB` has two); the population is
+        // MODULES with a plane, not invocation names, so it dedupes on the path.
+        if (rel && !byRel.has(rel)) {
+            byRel.set(rel, {name, rel, via: 'npm'})
+        }
+    });
+
+    readWorkflowEntrypoints().forEach(rel => {
+        if (!byRel.has(rel)) {
+            byRel.set(rel, {name: rel, rel, via: 'workflow'})
+        }
+    });
+
+    return [...byRel.values()]
+}
+
+/**
+ * @summary `ai/scripts` modules a GitHub workflow invokes directly, without going through npm.
+ *
+ * The npm block is not the whole invocation surface. Several workflows run a script straight —
+ * `run: node ./ai/scripts/lint/lint-guard-ci-parity.mjs` — so an npm-only census misses them, and the
+ * omission was self-demonstrating: **this lint invokes itself from a workflow and did not score
+ * itself.** A guard blind to its own execution path is the shape it exists to catch.
+ *
+ * Steps are read through the YAML parser rather than by grepping the file, so a path inside a comment
+ * or an unrelated key cannot be mistaken for an invocation. The command is then matched inside the
+ * step's `run` text, because that text is shell, not structure.
+ *
+ * @param {Object} [options]
+ * @returns {String[]} repo-relative module paths, deduped.
+ */
+export function readWorkflowEntrypoints({
+    workflowDir = path.join(PROJECT_ROOT, '.github/workflows')
+} = {}) {
+    if (!fs.existsSync(workflowDir)) {
+        return []
+    }
+
+    const found = new Set();
+
+    fs.readdirSync(workflowDir)
+        .filter(name => name.endsWith('.yml') || name.endsWith('.yaml'))
+        .forEach(name => {
+            let doc;
+
+            try {
+                doc = yaml.load(fs.readFileSync(path.join(workflowDir, name), 'utf8'))
+            } catch {
+                // An unparseable workflow is not this lint's subject; the workflow-syntax gates own it.
+                return
+            }
+
+            Object.values(doc?.jobs ?? {}).forEach(job => {
+                (job?.steps ?? []).forEach(step => {
+                    const run = typeof step?.run === 'string' ? step.run : '';
+
+                    for (const match of run.matchAll(/node\s+\.?\/?(ai\/scripts\/[\w./-]+\.mjs)/g)) {
+                        found.add(match[1])
+                    }
+                })
+            })
+        });
+
+    return [...found].sort()
 }
 
 /**
@@ -199,7 +271,11 @@ export function runLint({
         })
     });
 
-    console.log(`[lint-script-plane] ${entrypoints.length} npm-declared ai/scripts entrypoint(s)`);
+    const viaNpm      = entrypoints.filter(entry => entry.via !== 'workflow').length,
+          viaWorkflow = entrypoints.length - viaNpm;
+
+    console.log(`[lint-script-plane] ${entrypoints.length} ai/scripts entrypoint(s) — `
+        + `${viaNpm} npm-declared, ${viaWorkflow} workflow-invoked`);
     console.log(`  host-edge ${planes['host-edge']} · container-plane ${planes['container-plane']} `
         + `· shared-primitive ${planes['shared-primitive']} · unresolved ${planes.unresolved}`);
 
