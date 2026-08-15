@@ -32,4 +32,43 @@ test.describe('AgentOS packaged Fleet window routing', () => {
         expect(resolveFleetTransportMode({href: 'https://example.test/apps/agentos/', search: ''})).toBe('browser');
         expect(() => resolveFleetTransportMode({search: ''})).toThrow()
     })
+
+    test('session custody: establish stamps the profile, retire clears the launcher slot, a throwing install rolls back', async () => {
+        const {establishFleetSessionCustody} = await import('../../../../../apps/agentos/app.mjs');
+        const
+            bearer   = 'A'.repeat(43),
+            fleetUrl = 'http://127.0.0.1:8083/fleet';
+
+        // establish + retire: a live-bearer install clears the pre-boot slot and carries the identity fact
+        const
+            calls  = [],
+            target = {AgentOS: {fleet: {bearerToken: bearer}}},
+            bridge = establishFleetSessionCustody({
+                bearerToken: bearer,
+                fleetUrl,
+                installImpl: opts => { calls.push(opts); return {installed: true} },
+                target
+            });
+
+        expect(bridge).toEqual({installed: true});
+        expect(calls).toEqual([{bearerToken: bearer, profileId: `fleet-profile:v1:${fleetUrl}`, target, url: fleetUrl}]);
+        expect('bearerToken' in target.AgentOS.fleet, 'retire: custody established means the slot is no longer residence').toBe(false);
+
+        // rollback: a throwing install leaves the slot untouched for the next producer or retry
+        const rollbackTarget = {AgentOS: {fleet: {bearerToken: bearer}}};
+
+        expect(() => establishFleetSessionCustody({
+            bearerToken: bearer,
+            fleetUrl,
+            installImpl: () => { throw new Error('install refused') },
+            target     : rollbackTarget
+        })).toThrow('install refused');
+        expect(rollbackTarget.AgentOS.fleet.bearerToken).toBe(bearer);
+
+        // fail-closed boot: no bearer means nothing established, so nothing retires
+        const idleTarget = {AgentOS: {fleet: {}}};
+
+        establishFleetSessionCustody({fleetUrl, installImpl: () => ({}), target: idleTarget});
+        expect(idleTarget.AgentOS.fleet).toEqual({})
+    })
 });

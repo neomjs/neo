@@ -1,9 +1,11 @@
 /**
  * @module apps/agentos/fleet/redeemFleetBearerHandshake
  * @summary The browser half of the one-command bearer hand-off: redeem the Fleet process bearer
- * from the transport's armed handshake endpoint (`GET /fleet/handshake`) so the cockpit page can
- * fill its designed pre-boot slot (`globalThis.AgentOS.fleet.bearerToken`) with no agent in the
- * loop — no Neural Link injection, no Electron shell, no hand-carried env var.
+ * from the transport's armed handshake endpoint (`GET /fleet/handshake`) so the cockpit boot can
+ * receive its bearer with no agent in the loop — no Neural Link injection, no Electron shell, no
+ * hand-carried env var. The boot holds the redeemed value module-privately; the launcher pre-boot
+ * slot (`globalThis.AgentOS.fleet.bearerToken`) remains the ingress for EXTERNAL producers and is
+ * retired once transport custody establishes (`./connectionProfiles.mjs` custody discipline).
  *
  * Trust posture, client half: the endpoint only answers armed launches (`fleet.bearerHandshake`,
  * armed by `buildScripts/devCockpit.mjs`) and only for exact-allowlisted browser Origins — this
@@ -15,15 +17,11 @@
  *
  * Worker-realm module: no Node imports, no Neo import — mirrors its sibling
  * `installFleetBridge.mjs`, including the format-only bearer check (generation + constant-time
- * verification stay Node-side in `ai/mcp/server/shared/helpers/localBearer.mjs`).
+ * verification stay Node-side in `ai/mcp/server/shared/helpers/localBearer.mjs`), imported from
+ * the shared contract module so the worker realm holds exactly one copy.
  */
 
-/**
- * Canonical shape of the Fleet process bearer — the same format-only gate its sibling
- * `installFleetBridge.mjs` applies before dialing the transport.
- * @type {RegExp}
- */
-const FLEET_BEARER_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+import {FLEET_BEARER_PATTERN} from './connectionProfiles.mjs';
 
 /**
  * @summary Redeem the process bearer from an armed Fleet transport, or resolve `null` fail-closed.
