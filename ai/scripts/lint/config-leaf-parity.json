@@ -235,6 +235,8 @@
         "fleet.planeInternalHosts",
         "fleet.port",
         "fleet.tenantProbeTimeoutMs",
+        "fleet.viewerMcAuthorization",
+        "fleet.viewerMcAuthorizationFile",
         "fleet.wakeReceiverManifestPath",
         "fleet.wakeSelfBase",
         "geminiApiKey",
