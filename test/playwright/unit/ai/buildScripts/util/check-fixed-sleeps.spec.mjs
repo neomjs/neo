@@ -292,6 +292,62 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         }
     });
 
+    test('#17184: a Unicode-escaped identifier is still a setTimeout call', async () => {
+        // @neo-gpt's witness. `setTimeout` is `setTimeout` to the parser — acorn reports
+        // `callee.name === 'setTimeout'` — while the source contains no such substring, so the first
+        // pre-filter skipped the file and the guard reported nothing. My soundness argument said the
+        // literal token "must appear in source"; that is true of the token and false of the
+        // IdentifierName language acorn accepts, which is the gap between a lexer and a substring.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-escape-')),
+            fixture = path.join(dir, 'escaped.spec.mjs');
+
+        try {
+            // Written through an escape so this spec file itself carries no bare call site — the same
+            // reason the other fixtures live on disk rather than inline.
+            fs.writeFileSync(fixture, 'await new Promise(resolve => set\\u0054imeout(resolve, 1000));\n', 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.length, 'the escape is a spelling, not a bypass').toBe(1);
+            expect(sites[0].ms).toBe(1000);
+            expect(sites[0].line).toBe(1);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('#17184: U+2028 is a line terminator — a remote marker must not discharge a site', async () => {
+        // The second witness, and the one that fails OPEN rather than merely misreporting. ECMAScript
+        // ends a line on U+2028 too, so the parser puts this call on line 6 while an LF-only split
+        // puts it on line 1 — dragging a `wall-clock-under-test:` marker from the top of the file into
+        // the LOOKBEHIND window and discharging a wait nobody accounted for.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-lineterm-')),
+            fixture = path.join(dir, 'terminators.spec.mjs');
+
+        try {
+            // One physical LF; the rest of the breaks are U+2028. The marker is five logical lines
+            // above the call, so it is outside LOOKBEHIND and must NOT justify it.
+            fs.writeFileSync(fixture,
+                '// wall-clock-under-test: the elapsed time is the assertion\n'
+                + ['const a = 1;', 'const b = 2;', 'const c = 3;', 'const d = 4;',
+                   'await new Promise(resolve => setTimeout(resolve, 1000));'].join(' '),
+                'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.length, 'a marker five logical lines away does not reach this site').toBe(1);
+            expect(sites[0].line, 'ECMAScript line semantics, matching the parser').toBe(6);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
     test('#17184: a token-free file is skipped unparsed — the narrowing, stated', async () => {
         // The mirror of the case above, present so the narrowing is a documented decision rather than
         // a behaviour someone rediscovers. If this ever needs to throw again, the pre-filter is what
