@@ -26,10 +26,12 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
             expected = name => ['/usr/local/bin/node', '--env-file=/seat/checkout/.env', `/canonical/ai/mcp/server/${name}/mcp-server.mjs`];
 
         expect(config.$schema).toBe('https://opencode.ai/config.json');
-        // The always-loaded slot carries the boot files ONLY — detail files (seat-pointers,
-        // about-this-layer) load on demand by path; every instructions entry costs context
-        // every turn (the 27.2KB → ~10KB hot-index reshape).
-        expect(config.instructions).toEqual(['/seat/memory/MEMORY.md', '/seat/memory/identity.md']);
+        // The always-loaded slot carries the seat boot files + the canonical (fleet-shared) boot
+        // references — detail files (seat-pointers, about-this-layer) load on demand by path;
+        // every instructions entry costs context every turn (the 27.2KB → ~10KB hot-index
+        // reshape). Canonical entries resolve against the canonical checkout, after the seat
+        // files — self first, then now.
+        expect(config.instructions).toEqual(['/seat/memory/MEMORY.md', '/seat/memory/identity.md', '/canonical/NOW.md']);
 
         // The four canonical servers, organs-rooted; the Neural Link additionally binds --cwd.
         expect(config.mcp['neo-mjs-memory-core']).toEqual({type: 'local', command: expected('memory-core'), enabled: true, environment: PARAMS.environment});
@@ -95,7 +97,8 @@ test.describe('generateOpenCodeSeatConfig (OpenCode seat scaffold emission)', ()
 
         // Live-frozen from the pre-change origin/dev artifact. This catches remote-only prose or grammar
         // leaking into the default artifact set even when current-vs-current purity stays green.
-        expect(digest).toBe('c8461ca787b93aabbe8bf1c0b54c420b5a0101de56ca901b9726d6ddcc52d972')
+        // Bumped 2026-08-15: the canonical NOW.md reference joined `instructions`.
+        expect(digest).toBe('39b8e31868b18d3eb9843552042b916b318e390ec1c8efe7e484ec78a8450fe3')
     });
 
     test('remote map replaces only selected servers with the exact OpenCode HTTP adapter grammar', () => {

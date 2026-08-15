@@ -1,6 +1,6 @@
-import path                                                                                     from 'node:path';
-import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                                                          from './mcpServers.mjs';
-import {MEMORY_LAYER_BOOT_FILES, renderAboutThisLayerMd, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
+import path                                                                                                           from 'node:path';
+import {REMOTE_MCP_CREDENTIAL_ENV_VAR}                                                                                from './mcpServers.mjs';
+import {CANONICAL_BOOT_FILES, MEMORY_LAYER_BOOT_FILES, renderAboutThisLayerMd, renderIdentityMd, renderMemoryIndexMd} from './seatMemoryLayerTemplate.mjs';
 
 /**
  * The canonical MCP server set every OpenCode seat wires, keyed by the seat-config server name.
@@ -204,9 +204,15 @@ function renderOpencodeJsonc({root, seatEnvFile, workspaceRoot, memoryDir, nodeB
     const config = {
         $schema   : 'https://opencode.ai/config.json',
         permission: {external_directory: externalDirectory},
-        // The always-loaded slot carries the boot files ONLY — detail files load on demand by
-        // path (every instructions entry costs context every turn; see the module JSDoc).
-        instructions: MEMORY_LAYER_BOOT_FILES.map(file => path.posix.join(memoryDir, file)),
+        // The always-loaded slot carries the seat boot files + the canonical (fleet-shared)
+        // boot references — detail files load on demand by path (every instructions entry costs
+        // context every turn; see the module JSDoc). Canonical entries resolve against the
+        // canonical checkout — a live reference, never a baked copy — and ride AFTER the seat
+        // files: self first, then now.
+        instructions: [
+            ...MEMORY_LAYER_BOOT_FILES.map(file => path.posix.join(memoryDir, file)),
+            ...CANONICAL_BOOT_FILES.map(file => path.posix.join(root, file))
+        ],
         mcp
     };
 

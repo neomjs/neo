@@ -9,6 +9,7 @@ import {
     extractWakeSubmitNonce,
     getCodexPromptContextPath,
     readCodexContext,
+    readNowContext,
     recordTurnStarted,
     writePromptContextFromHookPayload
 } from '../../../../.codex/hooks/codex-context.mjs';
@@ -35,6 +36,14 @@ test.describe('codex-context hook - wake submit nonce', () => {
         expect(context).not.toMatch(/\b(?:Claude|Gemini|GPT)[ -]?\d/i);
         expect(context).not.toMatch(/\/Users\//);
         expect(context).not.toMatch(/A2A peers|Expected Codex identity|GitHub username/i);
+    });
+
+    test('readNowContext: returns the canonical NOW block, fail-open when absent (#17147)', () => {
+        const realNow = fs.readFileSync(path.join(process.cwd(), 'NOW.md'), 'utf8').trim();
+
+        expect(readNowContext()).toBe(realNow);
+        expect(realNow).toContain('Epoch');
+        expect(readNowContext({nowUrl: new URL('file:///nonexistent/spec/NOW.md')})).toBe('');
     });
 
     test('extracts a wake-submit nonce from nested hook payload text', () => {

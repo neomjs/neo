@@ -221,6 +221,22 @@ export function readCodexContext() {
     return readFileSync(contextUrl, 'utf8').trim();
 }
 
+/**
+ * @summary Reads the canonical fleet NOW block (repo-root `NOW.md`) for prompt-submit
+ * injection. Fail-open by contract: an absent or unreadable file yields an empty string, so a
+ * seat boots without NOW, never without CODEX. The URL seam exists for specs.
+ * @param {Object} [options]
+ * @param {URL}    [options.nowUrl] NOW file location — defaults to the repo-root canonical file.
+ * @returns {String}
+ */
+export function readNowContext({nowUrl = new URL('../../NOW.md', import.meta.url)} = {}) {
+    try {
+        return readFileSync(nowUrl, 'utf8').trim();
+    } catch {
+        return ''; // fail-open: an absent NOW never blocks the context load
+    }
+}
+
 async function main() {
     let hookPayload = '';
     try {
@@ -238,10 +254,20 @@ async function main() {
 
     await recordTurnStarted({hookPayload}).catch(() => {});
 
-    const context = readCodexContext();
+    const context    = readCodexContext(),
+          nowContext = readNowContext(),
+          sections   = [];
 
     if (context) {
-        process.stdout.write(`${context}\n`);
+        sections.push(context);
+    }
+
+    if (nowContext) {
+        sections.push(`<!-- NOW.md (canonical) -->\n${nowContext}`);
+    }
+
+    if (sections.length > 0) {
+        process.stdout.write(sections.join('\n\n') + '\n');
     }
 }
 

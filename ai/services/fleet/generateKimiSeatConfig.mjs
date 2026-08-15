@@ -116,7 +116,7 @@ export function generateKimiSeatConfig({canonicalRoot, seatEnvFile, workspaceRoo
         {path: path.posix.join(memoryDir, 'seat-pointers.md'),           content: renderSeatPointersMd()},
         {path: path.posix.join(memoryDir, 'identity.md'),                content: renderIdentityMd()},
         {path: path.posix.join(memoryDir, 'about-this-layer.md'),        content: renderAboutThisLayerMd({harness: 'kimi-code'})},
-        {path: path.posix.join(kimiHome, 'hooks', 'identityAnchorHook.mjs'), content: renderIdentityAnchorHookMjs({memoryDir})}
+        {path: path.posix.join(kimiHome, 'hooks', 'identityAnchorHook.mjs'), content: renderIdentityAnchorHookMjs({memoryDir, canonicalRoot: root})}
     ]};
 }
 

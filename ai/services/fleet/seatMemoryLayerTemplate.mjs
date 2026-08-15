@@ -35,6 +35,16 @@
 export const MEMORY_LAYER_BOOT_FILES = Object.freeze(['MEMORY.md', 'identity.md']);
 
 /**
+ * The canonical (fleet-shared) boot references, resolved against `canonicalRoot` — distinct
+ * from `MEMORY_LAYER_BOOT_FILES`, which are per-seat and resolve against the seat's
+ * `memoryDir`. The NOW block is the first canonical entry: ONE repo file, N
+ * live-referencing loaders, never a baked copy. Every loader appends canonical entries
+ * AFTER the seat files — self first, then now.
+ * @type {ReadonlyArray<String>}
+ */
+export const CANONICAL_BOOT_FILES = Object.freeze(['NOW.md']);
+
+/**
  * The harnesses this template knows how to describe a load mechanism for.
  * @type {ReadonlyArray<String>}
  */
@@ -182,12 +192,19 @@ export function renderIdentityMd() {
  * a literal: the hook is generated per seat, not shared.
  *
  * @param {Object} options
- * @param {String} options.memoryDir Absolute path of the seat's memory dir — baked into the script.
+ * @param {String} options.memoryDir     Absolute path of the seat's memory dir — baked into the script.
+ * @param {String} options.canonicalRoot Absolute path of the canonical checkout — baked in for the
+ *     canonical boot set (`CANONICAL_BOOT_FILES`, e.g. the fleet NOW block), read live at injection
+ *     time and skipped when absent (fail-open).
  * @returns {String}
  */
-export function renderIdentityAnchorHookMjs({memoryDir} = {}) {
+export function renderIdentityAnchorHookMjs({memoryDir, canonicalRoot} = {}) {
     if (typeof memoryDir !== 'string' || memoryDir.length === 0) {
         throw new Error("renderIdentityAnchorHookMjs: 'memoryDir' must be a non-empty string.");
+    }
+
+    if (typeof canonicalRoot !== 'string' || canonicalRoot.length === 0) {
+        throw new Error("renderIdentityAnchorHookMjs: 'canonicalRoot' must be a non-empty string.");
     }
 
     return [
@@ -216,6 +233,11 @@ export function renderIdentityAnchorHookMjs({memoryDir} = {}) {
         'const BOOT_FILES  = ' + JSON.stringify([...MEMORY_LAYER_BOOT_FILES]) + ';',
         "const KIMI_HOME   = process.env.KIMI_CODE_HOME || path.join(os.homedir(), '.kimi-code');",
         "const STATE_DIR   = path.join(KIMI_HOME, 'identity-anchor');",
+        '',
+        '// The canonical (fleet-shared) boot set: live reads against the canonical checkout,',
+        '// appended after the seat files — self first, then now. Absent files are skipped.',
+        'const CANONICAL_ROOT  = ' + JSON.stringify(canonicalRoot) + ';',
+        'const CANONICAL_FILES = ' + JSON.stringify([...CANONICAL_BOOT_FILES]) + ';',
         '',
         "let input = '';",
         "process.stdin.on('data', chunk => { input += chunk });",
@@ -252,6 +274,14 @@ export function renderIdentityAnchorHookMjs({memoryDir} = {}) {
         '',
         '            if (fs.existsSync(filePath)) {',
         "                sections.push(`\\n<!-- ${file} -->\\n${fs.readFileSync(filePath, 'utf8').trim()}`);",
+        '            }',
+        '        }',
+        '',
+        '        for (const file of CANONICAL_FILES) {',
+        '            const filePath = path.join(CANONICAL_ROOT, file);',
+        '',
+        '            if (fs.existsSync(filePath)) {',
+        "                sections.push(`\\n<!-- ${file} (canonical) -->\\n${fs.readFileSync(filePath, 'utf8').trim()}`);",
         '            }',
         '        }',
         '',
