@@ -121,6 +121,22 @@ x-provider-lane-contract:
       model: qwen3-embedding-8b
       consumers: [kb-query, kb-tenant-ingestion, kb-health-canary, mc-vector-collections, mc-health-canary, golden-path-frontier, orchestrator-recovery, tenant-repo-recovery, vector-maintenance]
 
+# SOME KEYS BELOW RESTATE THEIR CONFIG DEFAULT, AND THAT IS A DECISION RATHER THAN AN OVERSIGHT.
+# `configBase.mjs` is the single source of defaults, and a second declaration site can silently drift
+# from it — which is why the Compose/default parity rule exists and why this file is now inside it.
+# The rule's real subject is a TUNING KNOB duplicated by accident. An identity is a different thing: a
+# split-lane deployment template that does not name its providers, its model, or its slot shape is
+# unreadable as a deployment artifact, and deleting those to satisfy a lint trades the artifact for
+# the rule. Six keys are therefore exempted BY NAME AND REASON in `$composeDefaultParity` —
+# NEO_EMBEDDING_PROVIDER, NEO_OLLAMA_MODEL, NEO_OLLAMA_KEEP_ALIVE (chat-lane residency: -1 aligns the
+# application's requests with the chat-model service's own OLLAMA_KEEP_ALIVE=-1, so the chat model
+# stays loaded instead of unloading between requests — it says nothing about the embedding lane, which
+# is a separate llama.cpp service Ollama never holds), NEO_LOCAL_MODELS_CHAT_PARALLEL, and the two empty API keys that
+# declare keyless local endpoints as a group with NEO_KB_ASK_API_KEY.
+#
+# An exemption that stops matching anything FAILS the lint rather than lingering, so this list cannot
+# quietly outlive the keys it was granted for. Anything not on it that equals its default is a real
+# violation: delete it and let the default apply.
 x-provider-lane-env: &provider-lane-env
   NEO_MODEL_PROVIDER: ollama
   NEO_GRAPH_PROVIDER: ollama
@@ -141,13 +157,25 @@ x-provider-lane-env: &provider-lane-env
   # line ONLY to override — a value present here is then a deliberate deviation, which is the one
   # case where compose is the right home for it.
   #
-  # THE LADDER THAT BINDS AN INTERACTIVE SINGLE-INPUT EMBED. Scope matters and is easy to overstate:
-  # this ladder governs the interactive `embedText` path, NOT every embed. Bulk work (WAL drain,
-  # graph ingestion) is deliberately routed through `embedTexts` in sequential chunks under the batch
-  # ceiling below, precisely so a fan-out cannot storm a single local embedder into self-contention.
-  # Reading only the outer 300s/900s deadlines still gives the wrong picture for the interactive
-  # path, which is governed first by this ~47s ceiling — not any one leaf, but the composition of
-  # three:
+  # THE LADDER THAT BINDS A DEADLINE-FREE INTERACTIVE SINGLE-INPUT EMBED. Scope matters and has been
+  # overstated three times running, so it is stated here as the CONDITION rather than as a list of
+  # callers — a list rots the moment a caller is added, which is how this sentence kept drifting.
+  #
+  # The ladder applies when `embedText` is called WITHOUT a caller-owned `deadlineMs`. Supplying one
+  # takes both halves away in the same branch: `contentionRetriesLeft` goes to 0 AND the per-attempt
+  # ceiling becomes the caller's deadline rather than `_TIMEOUT_MS`. So a deadline-bearing call gets
+  # ONE timed attempt on its own clock and never sees ~47s — the ladder must not silently replace a
+  # declared deadline or multiply abandoned work behind it.
+  #
+  # Two exclusions, both by construction rather than by convention:
+  #   - bulk work (WAL drain, graph ingestion) routes through `embedTexts` in sequential chunks under
+  #     the batch ceiling below, so a fan-out cannot storm a single local embedder into self-contention
+  #   - any caller that owns its deadline (embedding probes acquired theirs when caller-owned probe
+  #     deadlines landed) — the exemption follows the `deadlineMs` argument, not the caller's identity
+  #
+  # Reading only the outer 300s/900s deadlines still gives the wrong picture for the remaining
+  # interactive path, which is governed first by this ~47s ceiling — not any one leaf, but the
+  # composition of three:
   #
   #     contentionTimeoutMs x (contentionRetryCount + 1 attempts) + contentionRetryDelayMs x retries
   #     15000 x 3 + 1000 x 2 = 47000ms
@@ -181,9 +209,11 @@ x-provider-lane-env: &provider-lane-env
   # NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS: "500"  # wait before each residency retry
   # NEO_OPENAI_COMPATIBLE_KEEP_ALIVE: "-1"              # -1 keeps the model resident indefinitely
   #
-  # Plane-class guidance: `-1` is what keeps a co-resident embedding model from being evicted by
-  # chat traffic. A finite keep-alive on a multi-model plane reintroduces the unload retries as a
-  # steady-state cost rather than an exception.
+  # Plane-class guidance: `-1` keeps THIS lane's model resident in its own engine indefinitely, so the
+  # unload retries above stay an exception rather than a steady-state cost. It is not cross-engine
+  # protection: on this split profile the embedding lane is its own llama.cpp service, and chat traffic
+  # reaches a different engine that has no access to evict it. On a SHARED-engine plane — one server
+  # holding both roles — residency is genuinely contested and this value is what settles it.
   #
   # MEMORY-CEILING DETECTION — not an embed clock, but the same contract: these decide whether a lane
   # pinned AT its ceiling is REPORTED at all. A service at its ceiling thrashes on page faults, burning
@@ -399,6 +429,11 @@ services:
       NEO_KB_ASK_API_KEY: ""
       NEO_KB_ASK_BASE_URL: http://chat-model:11434
       NEO_OPENAI_COMPATIBLE_API_KEY: ""
+      # PINNED FOR BENCHMARK REPRODUCIBILITY, not a tuning knob. The election benchmark compares
+      # embedding throughput across candidate slot counts; batch chunk size moves that throughput
+      # directly, so a value inherited from config would make runs taken either side of a config
+      # change incomparable — and the drift would be invisible in the report. Restated here on
+      # purpose, and `ProviderLaneElectionRunner.spec.mjs` asserts it.
       NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE: "5"
     volumes: []
     networks:

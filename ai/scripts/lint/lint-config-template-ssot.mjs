@@ -1433,6 +1433,20 @@ export function detectComposeDefaultRestatementsFromDocuments({
 
         environments[file] = {};
 
+        // Which declared exemptions this file actually needed. An exemption that never fires is not
+        // harmless: the key it names has been removed, renamed, or has drifted off the default, and
+        // the entry now silently licenses a future restatement nobody decided on. Exemptions are the
+        // one part of a guard that never fails loudly on its own, so this is what expires them.
+        const usedExemptions = new Set();
+
+        // A defect in the POLICY is reported once per file/env, never once per service that happens to
+        // restate the shared anchor. The exemption is declared per file and per env, so a blank reason
+        // is one decision to repair — four byte-identical records for a four-service profile describes
+        // the fan-out of the compose anchor rather than the size of the problem, and a reader counting
+        // them would over-read the defect. `usedExemptions` bounds only the dormancy report below,
+        // which is why this needs its own guard at the same file scope.
+        const reportedUnreasoned = new Set();
+
         for (const [service, serviceConfig] of Object.entries(document.services || {})) {
             const environment = collectComposeEnvironment(serviceConfig?.environment);
 
@@ -1460,16 +1474,71 @@ export function detectComposeDefaultRestatementsFromDocuments({
 
                 const match = rows.find(row => serializeConfigDefault(row.default) === rendered);
 
-                if (match) {
-                    violations.push({
-                        configPath: match.configPath,
-                        env,
-                        file,
-                        kind      : 'matches-config-default',
-                        service,
-                        value     : rendered
-                    })
+                if (!match) continue;
+
+                // A restatement that is DELIBERATE, named, and reasoned. The rule's subject is a second
+                // declaration site that can silently drift from the config default — but a deployment
+                // template naming the model it runs, or the provider serving a lane, is legitimate
+                // operator documentation of an IDENTITY, and deleting it to satisfy a rule aimed at
+                // tuning knobs trades a real artifact for a lint. The exemption is per-file and
+                // per-env with a reason string, deliberately the same shape as `forbiddenEnv`: one
+                // permits, one prohibits, and neither is allowed to be a bare list. An exemption that
+                // cannot say why it exists is indistinguishable from the drift this rule catches.
+                //
+                // Marked used only where it SUPPRESSES a real match, never on the env's mere presence.
+                // Presence-marking kept an exemption alive for a key that had drifted to a genuine
+                // override — nothing left to exempt, the entry immortal, and silently ready to permit
+                // the restatement again if the value ever drifted back.
+                // The reason is checked for SUBSTANCE, not presence. `Object.hasOwn` alone accepted
+                // `{NEO_MODEL: ''}` — an exemption that says nothing, which is precisely the state the
+                // comment above calls indistinguishable from the drift this rule catches. The prose
+                // carried the invariant and the check carried only half of it, so the escape hatch
+                // false-greened on exactly the input the invariant was written to refuse.
+                //
+                // A blank or non-string reason is REPORTED rather than ignored: silently declining to
+                // exempt would restore the rule but hide a malformed policy entry, leaving an operator
+                // to debug a violation whose real cause is the exemption they thought they had written.
+                if (Object.hasOwn(profile.exemptEnv || {}, env)) {
+                    const reason = profile.exemptEnv[env];
+
+                    if (typeof reason !== 'string' || reason.trim() === '') {
+                        if (!reportedUnreasoned.has(env)) {
+                            reportedUnreasoned.add(env);
+
+                            violations.push({
+                                configPath: match.configPath,
+                                env,
+                                file,
+                                kind      : 'unreasoned-compose-default-exemption',
+                                reason
+                            })
+                        }
+
+                        // Counted as USED despite being rejected, so one malformed entry produces one
+                        // violation naming its real cause rather than also tripping the dormant-exemption
+                        // rule below. Two reports for one defect sends the reader to the wrong repair.
+                        usedExemptions.add(env);
+                        continue
+                    }
+
+                    usedExemptions.add(env);
+                    continue
                 }
+
+                violations.push({
+                    configPath: match.configPath,
+                    env,
+                    file,
+                    kind      : 'matches-config-default',
+                    service,
+                    value     : rendered
+                })
+            }
+        }
+
+        for (const env of Object.keys(profile.exemptEnv || {})) {
+            if (!usedExemptions.has(env)) {
+                violations.push({env, file, kind: 'unused-compose-default-exemption', reason: profile.exemptEnv[env]});
             }
         }
     }
@@ -1579,6 +1648,14 @@ function reportComposeDefaultRestatements(violations) {
             console.error(`  ${violation.file} ${violation.service}: ${violation.env}=${violation.value} matches ${violation.configPath}`);
         } else if (violation.kind === 'derived-or-retired-env') {
             console.error(`  ${violation.file} ${violation.service}: ${violation.env} is derived/retired — ${violation.reason}`);
+        } else if (violation.kind === 'unreasoned-compose-default-exemption') {
+            console.error(`  ${violation.file}: exemption for ${violation.env} suppresses ${violation.configPath} without saying why.`);
+            console.error(`    recorded reason: ${JSON.stringify(violation.reason)}`);
+            console.error('    An exemption that cannot say why it exists is indistinguishable from the drift this rule catches. Give it a non-empty rationale, or delete it and let the restatement be reported.');
+        } else if (violation.kind === 'unused-compose-default-exemption') {
+            console.error(`  ${violation.file}: exemption for ${violation.env} never fired — the key is gone, renamed, or no longer equals its config default.`);
+            console.error(`    recorded reason: ${violation.reason}`);
+            console.error('    Drop the exemption, or fix the key it was meant to cover. A dormant exemption licenses a future restatement nobody decided on.');
         } else {
             console.error(`  ${violation.file}: ${violation.kind}${violation.error ? ` — ${violation.error}` : ''}`)
         }
