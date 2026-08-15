@@ -3,7 +3,7 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
-import {commentMatches, malformedCommentIdError, omitScopedBody, parseCommentId}
+import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}
                                  from './shared/commentSelector.mjs';
 import {projectConversationTrust}                                                                from './shared/conversationTrust.mjs';
 import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID}      from './queries/discussionQueries.mjs';
@@ -104,7 +104,7 @@ class DiscussionService extends Base {
             // Selector precedence mirrors IssueService/PullRequestService.
             let filtered;
 
-            if (comment_id) {
+            if (isSelectorPresent(comment_id)) {
                 // The measured case: `discussioncomment-18022679` — the anchor a peer pastes —
                 // matched nothing and returned an empty list with no error, so the caller re-read the
                 // whole 26KB thread to discover the id was merely spelled differently.
@@ -115,7 +115,7 @@ class DiscussionService extends Base {
                 }
 
                 filtered = allComments.filter(comment => commentMatches(comment, selector));
-            } else if (since_comment_id) {
+            } else if (isSelectorPresent(since_comment_id)) {
                 const selector = parseCommentId(since_comment_id);
 
                 if (!selector) {

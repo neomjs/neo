@@ -3,6 +3,7 @@ import {test, expect} from '@playwright/test';
 import {
     ACCEPTED_COMMENT_ID_FORMS,
     commentMatches,
+    isSelectorPresent,
     malformedCommentIdError,
     omitScopedBody,
     parseCommentId
@@ -50,14 +51,51 @@ test.describe('commentSelector', () => {
                 expect(parseCommentId(bad), `must reject ${JSON.stringify(bad)}`).toBeNull();
             }
         });
+
+        test('a LEGACY base64 node ID is accepted — it is still live and resolvable (#17142 RC1)', () => {
+            // `012:IssueComment557007126`. Strict equality accepted this before the selector existed,
+            // so rejecting it was a REGRESSION on the one spelling that already worked, not a
+            // tightening. Admitted by DECODING, never by "looks base64".
+            expect(parseCommentId('MDEyOklzc3VlQ29tbWVudDU1NzAwNzEyNg=='))
+                .toEqual({kind: 'node', nodeId: 'MDEyOklzc3VlQ29tbWVudDU1NzAwNzEyNg=='});
+        });
+
+        test('the near-misses an open grammar used to admit are rejected (#17142 RC1)', () => {
+            // Every one of these previously produced a VALID selector and then degraded to
+            // well-formed-but-absent — recreating the silent-empty defect the module exists to remove.
+            // The original spec tested `'not an id'` WITH SPACES, which the pattern happened to reject;
+            // it never tested the underscore form one character away from the real shape.
+            expect(parseCommentId('evilcomment-123'), 'open anchor prefix').toBeNull();
+            expect(parseCommentId('not_an_id'),       'word_word').toBeNull();
+            expect(parseCommentId('bogus_123'),       'word_digits').toBeNull();
+            expect(parseCommentId('ic_kwDODSospM4hM0EW'), 'lowercase type prefix').toBeNull();
+            expect(parseCommentId('aGVsbG8gd29ybGQ='), 'base64 of unrelated text').toBeNull();
+            expect(parseCommentId('MDEyOklzc3VlQ29tbWVudDU1NzAwNzEyNg'), 'base64 that does not round-trip').toBeNull();
+        });
+    });
+
+    test.describe('isSelectorPresent — presence must invoke parsing', () => {
+        test('an EMPTY STRING is present, so it reaches the parser and errors', () => {
+            // The services branched on `if (comment_id)`, so '' skipped the selector path and returned
+            // the FULL unscoped conversation — a blank address silently answered with the whole thread.
+            expect(isSelectorPresent('')).toBe(true);
+            expect(parseCommentId('')).toBeNull();
+        });
+
+        test('only undefined and null are absent', () => {
+            expect(isSelectorPresent(undefined)).toBe(false);
+            expect(isSelectorPresent(null)).toBe(false);
+            expect(isSelectorPresent('IC_kwDODSospM4hM0EW')).toBe(true);
+            expect(isSelectorPresent(0)).toBe(true);
+        });
     });
 
     test.describe('commentMatches', () => {
-        const comment = {id: 'IC_kwDOabc', databaseId: 5301580683, body: 'x'};
+        const comment = {id: 'IC_kwDODSospM4hM0EW', databaseId: 5301580683, body: 'x'};
 
         test('matches on node ID', () => {
-            expect(commentMatches(comment, parseCommentId('IC_kwDOabc'))).toBe(true);
-            expect(commentMatches(comment, parseCommentId('IC_kwDOother'))).toBe(false);
+            expect(commentMatches(comment, parseCommentId('IC_kwDODSospM4hM0EW'))).toBe(true);
+            expect(commentMatches(comment, parseCommentId('IC_kwDODSospM4hZZZZ'))).toBe(false);
         });
 
         test('matches on numeric id, whatever spelling produced it', () => {

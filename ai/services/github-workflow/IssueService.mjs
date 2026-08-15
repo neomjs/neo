@@ -3,7 +3,7 @@ import Base                                                                     
 import GraphqlService                                                                                                                                                                                                                from './GraphqlService.mjs';
 import RepositoryService                                                                                                                                                                                                             from './RepositoryService.mjs';
 import logger                                                                                                                                                                                                                        from '../../mcp/server/github-workflow/logger.mjs';
-import {commentMatches, malformedCommentIdError, omitScopedBody, parseCommentId}                                                                                                                                                     from './shared/commentSelector.mjs';
+import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}                                                                                                                                  from './shared/commentSelector.mjs';
 import {projectConversationTrust}                                                                                                                                                                                                    from './shared/conversationTrust.mjs';
 import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER, buildIssuesListQuery} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID}                                                                                                                                                                                                         from './queries/pullRequestQueries.mjs';
@@ -110,7 +110,7 @@ class IssueService extends Base {
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
 
-            if (comment_id) {
+            if (isSelectorPresent(comment_id)) {
                 // A malformed id is an ERROR, never an empty comment list. The old strict equality
                 // filtered every comment away for the two spellings a peer actually holds — a URL
                 // anchor or a bare number — and the caller's only way to learn that was to re-read
@@ -122,7 +122,7 @@ class IssueService extends Base {
                 }
 
                 filtered = allComments.filter(comment => commentMatches(comment, selector));
-            } else if (since_comment_id) {
+            } else if (isSelectorPresent(since_comment_id)) {
                 const selector = parseCommentId(since_comment_id);
 
                 if (!selector) {

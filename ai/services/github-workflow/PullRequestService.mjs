@@ -20,7 +20,7 @@ import {
     GET_CONVERSATION,
     GET_MERGE_READINESS
 } from './queries/pullRequestQueries.mjs';
-import {commentMatches, malformedCommentIdError, omitScopedBody, parseCommentId}
+import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}
                                               from './shared/commentSelector.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
@@ -2217,20 +2217,29 @@ class PullRequestService extends Base {
      *                                or an object with the shape below.
      * @param {number}        options.pr_number         The pull request number (required when object form).
      * @param {string}        [options.projection='conversation'] Response projection.
-     * @param {string}        [options.comment_id]      Return only the matching comment's data; other
-     *                                                  comments elided. PR title/body still returned.
-     * @param {string}        [options.since_comment_id] Return comments strictly after the matching
-     *                                                  comment (by createdAt order). If the id isn't found,
-     *                                                  returns empty comments (callers can interpret as
-     *                                                  "nothing new" or "id invalid").
+     * @param {string}        [options.comment_id]      Return only the matching comment; others elided.
+     *                                                  Accepts a node ID (current `IC_…` or legacy base64),
+     *                                                  the numeric database id, an `issuecomment-N` anchor,
+     *                                                  or a full comment URL. An unrecognised shape returns
+     *                                                  `MALFORMED_COMMENT_ID`; a well-formed id absent from
+     *                                                  the thread returns empty comments. SCOPED: the PR
+     *                                                  body is omitted and `bodyOmitted: true` is set.
+     * @param {string}        [options.since_comment_id] Return comments strictly after the matching comment
+     *                                                  (by createdAt order). Same accepted spellings, and the
+     *                                                  same malformed-vs-absent split — the older "callers can
+     *                                                  interpret as nothing-new OR id-invalid" ambiguity is
+     *                                                  resolved one level up, because invalid now errors.
      * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
+     *                                                  Also scoped: body omitted, `bodyOmitted: true`.
      * @param {Object}        [dependencies] Internal source seams for deterministic tests.
      * @param {Function}      [dependencies.query] GitHub GraphQL query function.
      * @param {Function}      [dependencies.rest] GitHub REST request function.
      * @param {Function}      [dependencies.now] Observation-clock function.
-     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error. Payloads
-     *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
-     *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
+     * @returns {Promise<object>} Conversation data or a structured error. A SCOPED request (any selector)
+     *          omits the parent body and sets `bodyOmitted: true`; an unscoped request is unchanged.
+     *          Payloads are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies
+     *          arrive defanged, and the root carries a `contentTrust` summary (see
+     *          `shared/conversationTrust.mjs`).
      */
     async getConversation(options, dependencies = {}) {
         // Accept positional `prNumber` form for backward compatibility.
@@ -2297,7 +2306,7 @@ class PullRequestService extends Base {
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
 
-            if (comment_id) {
+            if (isSelectorPresent(comment_id)) {
                 // Malformed → error, never an empty list. The two spellings a peer actually holds —
                 // a URL anchor and a bare number — used to filter every comment away silently.
                 const selector = parseCommentId(comment_id);
@@ -2307,7 +2316,7 @@ class PullRequestService extends Base {
                 }
 
                 filtered = allComments.filter(comment => commentMatches(comment, selector));
-            } else if (since_comment_id) {
+            } else if (isSelectorPresent(since_comment_id)) {
                 const selector = parseCommentId(since_comment_id);
 
                 if (!selector) {

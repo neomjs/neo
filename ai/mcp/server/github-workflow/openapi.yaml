@@ -448,7 +448,9 @@ paths:
                   example: "issuecomment-5301580683"
                 last_n:
                   type: integer
-                  description: Return only the last N comments (by creation order).
+                  description: >-
+                    Return only the last N comments (by creation order). This is a scoped request, so
+                    the parent body is omitted and `bodyOmitted: true` is set.
                   example: 3
       responses:
         '200':
@@ -457,12 +459,23 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Conversation shape (issue or pull request) — title/body/author plus a (possibly filtered) comments collection.
+                description: >-
+                  Conversation shape (issue or pull request) — title/author plus a (possibly filtered)
+                  comments collection. `body` is present on UNSCOPED requests only; a scoped request
+                  (`comment_id`, `since_comment_id`, or `last_n`) omits it and sets `bodyOmitted: true`.
                 properties:
                   title:
                     type: string
                   body:
                     type: string
+                    description: >-
+                      The issue/PR body. ABSENT on scoped requests — check `bodyOmitted` rather than
+                      reading an absent body as an empty one.
+                  bodyOmitted:
+                    type: boolean
+                    description: >-
+                      Present and `true` only on scoped requests, where `body` was deliberately not
+                      returned. Distinguishes "scoped away" from "this thread has an empty body".
                   author:
                     type: object
                     properties:
@@ -1539,15 +1552,25 @@ paths:
                   example: 10137
                 comment_id:
                   type: string
-                  description: Return only the top-level discussion comment whose GitHub global node ID matches. Discussion title/body metadata is still returned.
-                  example: "DC_kwDOABcD1234567890"
+                  description: >-
+                    Return only the matching top-level discussion comment. Accepts a node ID (current
+                    `DC_…` or legacy base64), the numeric database id, a `discussioncomment-N` URL
+                    anchor, or a full comment URL. An unrecognised shape returns MALFORMED_COMMENT_ID;
+                    a well-formed id absent from the thread returns an empty comments list. Scoped
+                    requests omit the discussion body and set `bodyOmitted: true`.
+                  example: "discussioncomment-18028896"
                 since_comment_id:
                   type: string
-                  description: Return only top-level discussion comments AFTER the one with this ID (exclusive). If the ID is not found, returns empty comments.
-                  example: "DC_kwDOABcD1234567890"
+                  description: >-
+                    Return only top-level discussion comments AFTER the one with this ID (exclusive).
+                    Accepts the same four spellings as `comment_id`. Unrecognised shape errors; a
+                    well-formed but absent id returns empty comments. Scoped requests omit the body.
+                  example: "discussioncomment-18028896"
                 last_n:
                   type: integer
-                  description: Return only the last N top-level discussion comments.
+                  description: >-
+                    Return only the last N top-level discussion comments. This is a scoped request, so
+                    the discussion body is omitted and `bodyOmitted: true` is set.
                   example: 3
       responses:
         '200':
@@ -1567,6 +1590,14 @@ paths:
                     type: string
                   body:
                     type: string
+                    description: >-
+                      The discussion body. ABSENT on scoped requests — check `bodyOmitted` rather than
+                      reading an absent body as an empty one.
+                  bodyOmitted:
+                    type: boolean
+                    description: >-
+                      Present and `true` only on scoped requests, where `body` was deliberately not
+                      returned. Distinguishes "scoped away" from "this discussion has an empty body".
                   url:
                     type: string
                   createdAt:
