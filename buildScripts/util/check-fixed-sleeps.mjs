@@ -94,14 +94,20 @@ const
     LOOKBEHIND     = 3,
     ROOT_DIR       = process.cwd(),
     SCAN_ROOT      = 'test/playwright/unit',
-    THRESHOLD_MS   = 1000;
+    THRESHOLD_MS   = 1000,
+    // ECMAScript ends a line on four terminators, not one. The parser counts all of them, so a guard
+    // that splits on `\n` alone disagrees with the tree it is reading — and the disagreement is not
+    // cosmetic: `line` drives the LOOKBEHIND window, so a miscount pulls a justification marker from a
+    // logically distant line into a site's context and DISCHARGES a wait nobody accounted for. Found
+    // by @neo-gpt with a mixed LF/U+2028 witness where the marker sat six logical lines away.
+    ECMA_LINE_TERMINATOR = /\r\n|[\n\r\u2028\u2029]/;
 
 /**
  * @summary Yields every `CallExpression` in an ESTree tree.
  *
  * A generic descent rather than a dependency: the walk needs one node type, and `acorn-walk` would be
- * a second package to keep in step with the parser for that. `loc` is skipped because it is metadata
- * with a `start` object that the descent would otherwise recurse into for nothing.
+ * a second package to keep in step with the parser for that. The tree carries no `loc` metadata to
+ * skip — locations are not requested, and the line is derived from `node.start` where it is needed.
  * @param {Object} node Any ESTree node, array of nodes, or leaf.
  * @yields {Object} Each `CallExpression`, in source order.
  */
@@ -116,7 +122,7 @@ function* callExpressions(node) {
     if (node.type === 'CallExpression') yield node;
 
     for (const key of Object.keys(node)) {
-        if (key !== 'loc') yield* callExpressions(node[key])
+        yield* callExpressions(node[key])
     }
 }
 
@@ -198,15 +204,46 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
     for (const abs of specs) {
         const
             source = fs.readFileSync(abs, 'utf8'),
-            lines  = source.split('\n');
+            lines  = source.split(ECMA_LINE_TERMINATOR);
+
+        // `fixedWaitMs` requires an Identifier callee named `setTimeout`, so the literal token must
+        // appear in source: no token, no call, nothing a parse could find. 927 of 1,036 unit specs
+        // contain no `setTimeout` at all, and parsing them to learn that cost 7x the pre-AST guard's
+        // wall clock and got this process SIGKILLed under lint-staged's concurrent task set.
+        //
+        // This is a substring test in a guard that moved to an AST precisely because substring tests
+        // are unsound, so its soundness argument has to be exact — and my first one was wrong. I wrote
+        // that the literal token "must appear in source"; @neo-gpt falsified it with
+        // `setTimeout(resolve, 1000)`, which acorn resolves to `callee.name === 'setTimeout'`
+        // while the source contains no such substring. The filter is conservative over the token, not
+        // over the IdentifierName language acorn actually accepts.
+        //
+        // So a file is admitted when it carries the token OR any Unicode escape — `\u` covers both
+        // `\uXXXX` and `\u{X}` forms, and an escaped identifier cannot exist without one. That keeps
+        // the filter cheap (escapes are rare in specs) while making its claim true: a skipped file can
+        // contain neither a plain nor an escaped `setTimeout` callee.
+        //
+        // Widening `fixedWaitMs` beyond a `setTimeout` Identifier callee invalidates this argument
+        // again, and the equivalence spec is what will say so.
+        //
+        // It DOES narrow one thing, and the narrowing is deliberate: a file that fails to parse is no
+        // longer reported unless it carries the token, because it is no longer parsed. The verdict is
+        // unaffected — no token, no call to miss — but this guard used to surface broken files as a
+        // side effect and now does so only for files it would actually have inspected. "Does every
+        // file parse" is `check-parse.mjs`, which runs in the same pre-commit set and owns it.
+        if (!source.includes('setTimeout') && !source.includes('\\u')) continue;
 
         let tree;
 
         // A file the guard cannot read is reported, never skipped. Skipping is the exact failure this
         // guard exists to prevent — an unscanned file is indistinguishable from a clean one, and the
         // difference only surfaces as a wait nobody accounted for.
+        //
+        // `locations` is deliberately NOT requested: it attaches a `loc` object to every node in the
+        // tree, and the guard needs a line number only for the few nodes that match. Deriving it from
+        // `node.start` at match time is the same number for a third less memory.
         try {
-            tree = parse(source, {ecmaVersion: 'latest', locations: true, sourceType: 'module'})
+            tree = parse(source, {ecmaVersion: 'latest', sourceType: 'module'})
         } catch (cause) {
             throw new Error(`check-fixed-sleeps: cannot parse ${path.relative(rootDir, abs)}`, {cause})
         }
@@ -225,9 +262,20 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             if (!Number.isFinite(ms) || ms < THRESHOLD_MS) continue;
 
             const
-                index   = node.loc.start.line - 1,
-                // The site's FIRST line keys the baseline, which is what keeps existing rows matching:
-                // for a single-line call this is the same string the line-based matcher produced.
+                // Derived from the offset rather than read off `node.loc`, because requesting
+                // locations inflates EVERY node to spare this one lookup — counted with ECMAScript
+                // line semantics so it agrees with the parser that produced the offset.
+                //
+                // `line` does NOT key the baseline; `reconcile` keys `file::text` (an earlier version
+                // of this comment claimed otherwise, and @neo-gpt corrected it). It is load-bearing
+                // for two other things, and both fail OPEN when it is wrong: it selects the LOOKBEHIND
+                // window that decides whether a site is justified, so an off-by-N can import a marker
+                // from an unrelated line and discharge an unaccounted wait — and it is the coordinate
+                // a human uses to find the site at all.
+                index   = source.slice(0, node.start).split(ECMA_LINE_TERMINATOR).length - 1,
+                // The site's FIRST line is the baseline key together with `file`, which is what keeps
+                // existing rows matching: for a single-line call this is the same string the
+                // line-based matcher produced.
                 text    = lines[index] ?? '',
                 context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
 
