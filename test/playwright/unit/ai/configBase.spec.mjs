@@ -229,3 +229,71 @@ test.describe('fleet.port — the domain type, not the generic one', () => {
         }
     })
 });
+
+test.describe('orchestrator.wakeDispatch.pollIntervalMs — a multiplicand, not a delay', () => {
+    // The wake daemon multiplies this leaf into its retry backoff (`nextAttemptAt = now +
+    // pollIntervalMs * attempts`), so an out-of-domain value is not a slower or faster daemon: `0`,
+    // a negative and a fraction all put `nextAttemptAt` at or before `now`, which makes every queued
+    // entry perpetually due and spins the retry path; `Infinity` parks it forever. `'number'` would
+    // admit all four. The env is readable by the production daemon — the same shape that let
+    // `NEO_FLEET_PORT` through above — so the domain is the containment, not a promise that only
+    // tests set it.
+    //
+    // The parser is driven with an explicit `env` object rather than by assigning `process.env`:
+    // Playwright runs several spec FILES per worker, so a module- or test-scope env write here
+    // would leak into siblings (the defect this ticket's own PR had to fix).
+    const cadenceLeaf = () => ConfigBase.config.data.orchestrator.wakeDispatch.pollIntervalMs;
+
+    test('declares the positiveInt domain and the shipped 3000ms default', () => {
+        expect(cadenceLeaf().default).toBe(3000);
+        expect(cadenceLeaf().type).toBe('positiveInt');
+        expect(cadenceLeaf().env).toBe('NEO_WAKE_DAEMON_POLL_INTERVAL_MS');
+    });
+
+    test('a valid cadence resolves; every malformed shape falls back to the default', () => {
+        const resolve = raw => cadenceLeaf().parse('NEO_WAKE_DAEMON_POLL_INTERVAL_MS', {
+            env : {NEO_WAKE_DAEMON_POLL_INTERVAL_MS: raw},
+            warn: () => {}   // the parser warns on rejection; silence it, the return value is the assertion
+        });
+
+        // Resolves — including the sub-second value the daemon's own specs pin.
+        expect(resolve('50')).toBe(50);
+        expect(resolve('3000')).toBe(3000);
+
+        // Falls back — `undefined` means "leaf default applies".
+        for (const malformed of ['0', '-1', '-3000', '0.5', '2999.9', 'Infinity', '-Infinity', 'NaN', 'abc', '']) {
+            expect(
+                resolve(malformed),
+                `NEO_WAKE_DAEMON_POLL_INTERVAL_MS="${malformed}" must not resolve`
+            ).toBeUndefined();
+        }
+    });
+
+    test('no malformed value can make a retry backoff immediately due', () => {
+        // The consequence the domain exists to prevent, asserted directly rather than inferred from
+        // the parser returning undefined. `??` mirrors ConfigProvider#applyEnvLayer, which writes the
+        // env layer only when the parser returned a value — so a rejected override leaves the default.
+        const effectiveCadence = raw => cadenceLeaf().parse('NEO_WAKE_DAEMON_POLL_INTERVAL_MS', {
+            env : {NEO_WAKE_DAEMON_POLL_INTERVAL_MS: raw},
+            warn: () => {}
+        }) ?? cadenceLeaf().default;
+
+        const now = 1_000_000;
+
+        for (const malformed of ['0', '-1', '-3000', '0.5', 'Infinity', 'abc', '']) {
+            const cadence = effectiveCadence(malformed);
+
+            // Every backoff the daemon computes from this cadence — first enqueue, the linear
+            // `* attempts` retry, and the harder `* (attempts + 2)` unknown-outcome deferral — must
+            // land strictly in the future for every attempt count the daemon can reach.
+            for (let attempts = 0; attempts <= 5; attempts++) {
+                expect(
+                    Math.min(now + cadence, now + cadence * Math.max(attempts, 1), now + cadence * (attempts + 2)),
+                    `"${malformed}" at attempt ${attempts} must not be immediately due`
+                ).toBeGreaterThan(now);
+            }
+
+            expect(Number.isFinite(cadence), `"${malformed}" must not park the daemon forever`).toBe(true);
+        }
+    })
+});

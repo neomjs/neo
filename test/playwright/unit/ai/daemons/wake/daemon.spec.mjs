@@ -23,6 +23,57 @@ import { withOutboxLock }                                                       
  * @param {String} binDir
  * @param {String} [psOutput='']
  */
+// The daemon's poll cadence gates BOTH the poll loop and the retry backoff, so this file's wall clock
+// is quantized by it: at the shipped 3000ms, a wait shortened anywhere else lands before the same poll
+// boundary and recovers nothing.
+//
+// Injected PER SPAWN rather than once on `process.env`. A module-scope assignment leaks across spec
+// FILES — Playwright runs several per worker process — and a sibling wake spec asserts a retry-union
+// window derived from `attempts x poll interval = 6s`, which a 50ms cadence collapses to 100ms. That
+// is a real cross-file behaviour change, not a flake, and it is invisible when this file is run alone.
+const FAST_POLL_MS = '50';
+
+/**
+ * @summary Resolves once the spawned daemon has read its GraphLog watermark and entered the poll loop.
+ *
+ * Replaces the fixed boot sleeps, and the ordering it preserves is the whole point rather than an
+ * optimization. The daemon emits this line immediately after `lastSyncId = getLastSyncId(...)` and
+ * immediately before `pollLoop()`, so it is the exact instant the watermark exists. A row injected
+ * before that instant is not a delta the daemon will see on its first pass — it waits a full
+ * `POLL_INTERVAL_MS` (3s) or more, which is why simply deleting the sleeps makes this file SLOWER
+ * while every assertion still passes.
+ *
+ * Strictly better than the 1s sleep in both directions: it returns as soon as boot completes rather
+ * than always paying 1s, and it cannot under-wait on a loaded CI box, where a fixed 1s is a latent
+ * flake that silently degrades into the same multi-second poll penalty.
+ *
+ * Attach BEFORE any await on the process, so no output is missed between spawn and subscription.
+ *
+ * @param {Object} daemonProcess Spawned daemon child process.
+ * @param {Number} [timeoutMs=15000] Bound; a daemon that never announces is a failure, not a wait.
+ * @returns {Promise<void>}
+ */
+function waitForDaemonReady(daemonProcess, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const done = error => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            daemonProcess.stdout.off('data', onData);
+            error ? reject(error) : resolve()
+        };
+
+        const timer  = setTimeout(() => done(new Error('Daemon did not announce readiness within timeout')), timeoutMs),
+              onData = data => { if (data.toString().includes('[Wake Daemon] Started.')) done() };
+
+        daemonProcess.stdout.on('data', onData);
+        daemonProcess.on('error', done);
+        daemonProcess.on('exit', code => done(new Error(`Daemon exited (code ${code}) before announcing readiness`)))
+    })
+}
+
 function writeMockPs(binDir, psOutput = '') {
     const mockPsPath = path.join(binDir, 'ps');
 
@@ -275,7 +326,7 @@ test.describe('Wake Daemon', () => {
         // Start the daemon with environment overrides
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -291,8 +342,9 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        // Wait a short moment to ensure daemon initializes
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Ordering, not padding: the row must be injected AFTER the daemon has read its watermark,
+        // or it is not a delta the first poll sees. See waitForDaemonReady.
+        await waitForDaemonReady(daemonProcess);
 
         // Inject MESSAGE and SENT_TO edge
         const msgId = 'msg_' + crypto.randomUUID();
@@ -356,7 +408,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -426,6 +478,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH                    : DB_PATH,
                 NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS      : FAST_POLL_MS,
                 WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
                 WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
             }
@@ -496,6 +549,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH                    : DB_PATH,
                 NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS      : FAST_POLL_MS,
                 WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '3000',
                 WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
             }
@@ -561,6 +615,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH                    : DB_PATH,
                 NEO_AI_DAEMON_DIR                     : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS      : FAST_POLL_MS,
                 WAKE_CODEX_TURN_START_PROOF_TIMEOUT_MS: '300',
                 WAKE_CODEX_TURN_START_PROOF_POLL_MS   : '50'
             }
@@ -626,6 +681,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH              : DB_PATH,
                 NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
                 NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1',
                 WAKE_MAX_DELIVERY_RETRIES       : '2'
             }
@@ -700,6 +756,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH              : DB_PATH,
                 NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
                 NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1',
                 WAKE_MAX_DELIVERY_RETRIES       : '2'
             }
@@ -761,7 +818,7 @@ test.describe('Wake Daemon', () => {
         // Cap retries at 2 so the terminal "giving up" path is reached within a few 3s poll cycles.
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, WAKE_MAX_DELIVERY_RETRIES: '2' }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, WAKE_MAX_DELIVERY_RETRIES: '2', NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const terminalPromise = new Promise((resolve, reject) => {
@@ -842,7 +899,14 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR,
+                     // out-waits: POLL_INTERVAL_MS — this test asserts that a SECOND failure
+                     // arriving mid-cycle coalesces into the first's pending retry, so the 4s
+                     // gap below must straddle exactly one poll boundary. Under the file's
+                     // shortened cadence that gap becomes ~80 cycles and both failures settle
+                     // before the second is enqueued, which is a real behaviour change rather
+                     // than a flake. Pinned to the shipped value for this test alone.
+                     NEO_WAKE_DAEMON_POLL_INTERVAL_MS: '3000' }
         });
 
         // First flush ("1 message events") fails + enqueues; the second flush coalesces; the RETRY
@@ -915,7 +979,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         // The wake fires on SENT_TO; DELIVERED_TO carries the per-recipient readAt the daemon reconciles
@@ -1024,11 +1088,12 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    NEO_MEMORY_DB_PATH          : DB_PATH,
-                    NEO_AI_DAEMON_DIR           : DAEMON_DIR,
-                    WAKE_TEST_CLOCK_ADVANCE_FILE: clockAdvanceFile,
-                    WAKE_TEST_CLOCK_ADVANCE_MS  : String(MESSAGE_WAKE_MAX_AGE_MS + 1),
-                    WAKE_TEST_CLOCK_BASE_MS     : String(clockBaseMs)
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                    WAKE_TEST_CLOCK_ADVANCE_FILE    : clockAdvanceFile,
+                    WAKE_TEST_CLOCK_ADVANCE_MS      : String(MESSAGE_WAKE_MAX_AGE_MS + 1),
+                    WAKE_TEST_CLOCK_BASE_MS         : String(clockBaseMs)
                 }
             });
             daemonProcess.stdout.on('data', onData);
@@ -1149,7 +1214,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1203,7 +1268,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1266,7 +1331,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1350,7 +1415,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1485,7 +1550,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -1542,7 +1607,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         let deliveryCount = 0;
@@ -1602,7 +1667,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         let stdoutLog = '';
@@ -1649,7 +1714,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         let   deliveryCount   = 0;
@@ -1912,10 +1977,11 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_FLEET_CODEX_BIN: mockCodexPath,
-                NEO_MEMORY_DB_PATH : DB_PATH,
-                NEO_AI_DAEMON_DIR  : DAEMON_DIR,
-                PATH               : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_FLEET_CODEX_BIN             : mockCodexPath,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
@@ -1994,10 +2060,11 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_FLEET_CODEX_BIN: mockCodexPath,
-                NEO_MEMORY_DB_PATH : DB_PATH,
-                NEO_AI_DAEMON_DIR  : DAEMON_DIR,
-                PATH               : `${path.dirname(process.execPath)}${path.delimiter}${path.resolve(binDir)}`
+                NEO_FLEET_CODEX_BIN             : mockCodexPath,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.dirname(process.execPath)}${path.delimiter}${path.resolve(binDir)}`
             }
         });
 
@@ -2064,7 +2131,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
@@ -2164,7 +2231,7 @@ test.describe('Wake Daemon', () => {
 
         daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
             stdio: 'pipe',
-            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+            env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
         });
 
         const errorLogPromise = new Promise((resolve, reject) => {
@@ -2361,9 +2428,10 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    NEO_MEMORY_DB_PATH: DB_PATH,
-                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                    PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
                 }
             });
 
@@ -2462,8 +2530,9 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
             }
         });
 
@@ -2554,8 +2623,9 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
             }
         });
 
@@ -2666,9 +2736,10 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    NEO_MEMORY_DB_PATH: DB_PATH,
-                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                    PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
                 }
             });
 
@@ -2748,8 +2819,9 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
             }
         });
         daemonProcess.stdout.on('data', data => stdoutLog += data.toString());
@@ -2830,10 +2902,11 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    HOME              : fakeHome,
-                    NEO_MEMORY_DB_PATH: DB_PATH,
-                    NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                    PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                    HOME                            : fakeHome,
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                    PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
                 }
             });
 
@@ -2914,9 +2987,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                HOME              : fakeHome,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR
+                HOME                            : fakeHome,
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
             }
         });
 
@@ -2994,9 +3068,10 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    HOME              : fakeHome,
-                    NEO_MEMORY_DB_PATH: DB_PATH,
-                    NEO_AI_DAEMON_DIR : DAEMON_DIR
+                    HOME                            : fakeHome,
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
                 }
             });
 
@@ -3082,9 +3157,10 @@ test.describe('Wake Daemon', () => {
                 stdio: 'pipe',
                 env  : {
                     ...process.env,
-                    HOME              : fakeHome,
-                    NEO_MEMORY_DB_PATH: DB_PATH,
-                    NEO_AI_DAEMON_DIR : DAEMON_DIR
+                    HOME                            : fakeHome,
+                    NEO_MEMORY_DB_PATH              : DB_PATH,
+                    NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                    NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
                 }
             });
 
@@ -3167,6 +3243,7 @@ test.describe('Wake Daemon', () => {
                 ...process.env,
                 NEO_MEMORY_DB_PATH              : DB_PATH,
                 NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
                 NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS: '1'
             }
         });
@@ -3230,9 +3307,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
@@ -3315,8 +3393,9 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
             }
         });
 
@@ -4007,7 +4086,7 @@ test.describe('Wake Daemon', () => {
 
                 daemonProcess = spawn('node', ['ai/daemons/wake/daemon.mjs'], {
                     stdio: 'pipe',
-                    env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+                    env  : { ...process.env, NEO_MEMORY_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR, NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS }
                 });
 
                 setTimeout(() => insertMessageWake(db, {agentId, subject: 'Webhook Address Wake'}), 1000);
@@ -4678,9 +4757,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
@@ -4758,9 +4838,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
@@ -4829,9 +4910,10 @@ test.describe('Wake Daemon', () => {
             stdio: 'pipe',
             env  : {
                 ...process.env,
-                NEO_MEMORY_DB_PATH: DB_PATH,
-                NEO_AI_DAEMON_DIR : DAEMON_DIR,
-                PATH              : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
+                NEO_MEMORY_DB_PATH              : DB_PATH,
+                NEO_AI_DAEMON_DIR               : DAEMON_DIR,
+                NEO_WAKE_DAEMON_POLL_INTERVAL_MS: FAST_POLL_MS,
+                PATH                            : `${path.resolve(binDir)}${path.delimiter}${process.env.PATH}`
             }
         });
 
