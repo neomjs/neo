@@ -236,12 +236,16 @@ export function collectModuleFacts(source) {
         unresolved   = [];
 
     if (!ast) {
-        return {imports, capabilities, unresolved: [{reason: 'unparseable'}], parsed: false}
+        return {imports, capabilities, unresolved: [{reason: 'unparseable'}], invokedSpecifiers: [], parsed: false}
     }
 
     // Which local binding names came from a host-capability package, so a later call can be traced
     // back to it. Matching the CALL rather than the import is what separates requirement from use.
-    const hostBindings = new Map();
+    const
+        hostBindings    = new Map(),
+        // localName -> specifier, so a call on an imported binding can be traced back to its module.
+        importBindings  = new Map(),
+        invokedBindings = new Set();
 
     walkWithAncestors(ast, (node, ancestors) => {
         if (node.type === 'ImportDeclaration') {
@@ -252,6 +256,8 @@ export function collectModuleFacts(source) {
             const normalized = normalizeSpecifier(specifier),
                   capability = Object.entries(HOST_CAPABILITY_SOURCES)
                       .find(([, sources]) => sources.includes(normalized))?.[0];
+
+            node.specifiers.forEach(spec => importBindings.set(spec.local.name, specifier));
 
             if (capability) {
                 node.specifiers.forEach(spec => hostBindings.set(spec.local.name, capability))
@@ -304,6 +310,10 @@ export function collectModuleFacts(source) {
             return
         }
 
+        if (importBindings.has(root)) {
+            invokedBindings.add(root)
+        }
+
         const capability = hostBindings.get(root);
 
         if (capability) {
@@ -325,7 +335,13 @@ export function collectModuleFacts(source) {
         }
     });
 
-    return {imports, capabilities, unresolved, parsed: true}
+    // The specifiers this module does not merely import but CALLS. One level of this is what
+    // separates `syncGithubWorkflow` (which invokes `GH_SyncService.runFullSync()`, and so genuinely
+    // needs what that method spawns) from `backup.mjs` (which reaches the same class of code without
+    // ever calling into it).
+    const invokedSpecifiers = [...invokedBindings].map(name => importBindings.get(name)).filter(Boolean);
+
+    return {imports, capabilities, unresolved, invokedSpecifiers: [...new Set(invokedSpecifiers)], parsed: true}
 }
 
 /**
@@ -379,6 +395,10 @@ export function walkCapabilityClosure({
 }) {
     const
         seen       = new Set(),
+        // Modules the entrypoint CALLS into, not merely imports. Populated while the entrypoint is
+        // read, and the queue is FIFO with the entrypoint seeded first, so every callee is visited
+        // after this set is known.
+        directlyInvoked = new Set(),
         queue      = [entrypoint],
         required   = [],
         used       = [],
@@ -417,8 +437,24 @@ export function walkCapabilityClosure({
         // functions are what running the script executes — or when a reached module runs it at MODULE
         // SCOPE, which importing alone triggers. A deferred call in a transitively reached module is
         // recorded as `used`, never as a requirement, because nothing here proves it is reached.
+        if (isEntrypoint) {
+            facts.invokedSpecifiers.forEach(specifier => {
+                if (!specifier.startsWith('.')) {
+                    return
+                }
+
+                const target = resolve(specifier, current);
+
+                if (target) {
+                    directlyInvoked.add(target)
+                }
+            })
+        }
+
         facts.capabilities.forEach(entry => {
-            const runs = entry.required || (isEntrypoint && !entry.degradedInPlace);
+            const runs = entry.required
+                || (isEntrypoint && !entry.degradedInPlace)
+                || (directlyInvoked.has(current) && !entry.degradedInPlace);
 
             (runs ? required : used).push({module: current, ...entry})
         });

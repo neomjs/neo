@@ -241,10 +241,84 @@ test.describe('scriptPlaneClosure', () => {
         });
 
         test('an unparseable module is an unresolved edge rather than a throw', () => {
+            // This arm earns its keep: adding invoked-import tracking left the unparseable EARLY
+            // RETURN without an `invokedSpecifiers` field, so the walker threw on `undefined.forEach`
+            // for any tree containing one bad file. A defensive arm caught a real regression in its
+            // neighbour's happy path.
             const files   = {'/e.mjs': 'this is (not js'};
             const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
 
             expect(closure.unresolved[0].reason).toBe('unparseable');
+        });
+    });
+
+    test.describe('one-level call attribution — reaching is not invoking', () => {
+        /*
+         * The distinction that lets BOTH canonical fixtures pass at once, which no pure-reachability
+         * rule can do:
+         *
+         *   - `backup.mjs` reaches `spawn` inside service methods it never calls -> NOT host-required,
+         *     which is what the bundle-stamp decision demands.
+         *   - `syncGithubWorkflow.mjs` calls `GH_SyncService.runFullSync()`, and that method spawns
+         *     git -> host-required, which is what its declared authority says.
+         *
+         * Same import-graph shape, opposite verdicts. The only difference is whether the entrypoint
+         * CALLS the binding.
+         */
+        const serviceWithDeferredShell = `import {spawn} from 'child_process';
+export default {run() { return spawn('git', []); }};`;
+
+        test('an imported-but-never-called service does NOT make the entrypoint host-required', () => {
+            const files = {
+                '/e.mjs'  : `import Svc from './svc.mjs';\nconsole.log('no call');`,
+                '/svc.mjs': serviceWithDeferredShell
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'reaching a service is not invoking it').toHaveLength(0);
+            // Still RECORDED, so the evidence is not lost — it is simply not a requirement.
+            expect(closure.used.length).toBeGreaterThan(0);
+        });
+
+        test('an imported AND called service DOES make the entrypoint host-required', () => {
+            const files = {
+                '/e.mjs'  : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs': serviceWithDeferredShell
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'calling into the service is what makes its spawn run').toHaveLength(1);
+            expect(closure.required[0].module).toBe('/svc.mjs');
+        });
+
+        test('attribution is ONE level — a service the callee calls is not promoted', () => {
+            // Bounded on purpose. Promoting transitively would collapse back into pure reachability
+            // and re-break the bundle-stamp case, which is the whole reason this rule exists.
+            const files = {
+                '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs' : `import Deep from './deep.mjs';\nexport default {run() { return Deep.go(); }};`,
+                '/deep.mjs': serviceWithDeferredShell
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'the deep spawn is two hops away and stays unattributed').toHaveLength(0);
+        });
+
+        test('a called service whose shell degrades gracefully is still NOT required', () => {
+            // The promotion must not override graceful degradation — that would re-convict the
+            // bundle-stamp case through the call path instead of the reach path.
+            const files = {
+                '/e.mjs'  : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs': `import {spawn} from 'child_process';
+export default {run() { try { return spawn('git', []); } catch (e) { return null; } }};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required).toHaveLength(0);
         });
     });
 
