@@ -916,7 +916,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-08-15T17:55:21Z</lastmod>
+    <lastmod>2026-08-15T18:56:34Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -936,7 +936,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-08-15T17:55:24Z</lastmod>
+    <lastmod>2026-08-15T18:56:38Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -2282,6 +2282,18 @@
     <loc>https://neomjs.com/news/releases/8.1.0</loc>
     <lastmod>2026-05-16T20:39:28+02:00</lastmod>
     <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17203</loc>
+    <lastmod>2026-08-15T18:52:21Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17202</loc>
+    <lastmod>2026-08-15T18:52:21Z</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/news/tickets/17201</loc>
+    <lastmod>2026-08-15T18:52:21Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/news/tickets/17200</loc>
@@ -47625,22 +47637,22 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17199</loc>
-    <lastmod>2026-08-15T17:51:31Z</lastmod>
+    <lastmod>2026-08-15T18:52:24Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17198</loc>
-    <lastmod>2026-08-15T17:51:31Z</lastmod>
+    <lastmod>2026-08-15T18:52:24Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17196</loc>
-    <lastmod>2026-08-15T17:51:31Z</lastmod>
+    <lastmod>2026-08-15T18:52:24Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://neomjs.com/news/pulls/17194</loc>
-    <lastmod>2026-08-15T17:51:31Z</lastmod>
+    <lastmod>2026-08-15T18:52:24Z</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -75160,7 +75172,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/news/discussions/17085</loc>
-    <lastmod>2026-08-15T10:05:01Z</lastmod>
+    <lastmod>2026-08-15T18:52:22Z</lastmod>
     <priority>0.4</priority>
   </url>
   <url>
