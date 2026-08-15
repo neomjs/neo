@@ -37,85 +37,45 @@ class OptIn extends Base {
 
     async run() {
         console.log('[OptIn] Checking for new opt-in requests...');
-        const syncState = await Storage.getOptInSync();
-        const lastCheck = syncState.lastCheck;
-        let newLastCheck = lastCheck;
-
-        let hasNextPage = true;
-        let cursor = null;
-        let optedInLogins = [];
+        const syncState    = await Storage.getOptInSync();
+        const lastCheck    = syncState.lastCheck;
+        let   newLastCheck = lastCheck;
 
         // 1. Check Stargazers
-        while (hasNextPage) {
-            const query = `
-                query($owner: String!, $name: String!, $cursor: String) {
-                    repository(owner: $owner, name: $name) {
-                        stargazers(first: 100, orderBy: {field: STARRED_AT, direction: DESC}, after: $cursor) {
-                            pageInfo {
-                                hasNextPage
-                                endCursor
-                            }
-                            edges {
-                                starredAt
-                                node {
-                                    login
-                                }
-                            }
-                        }
-                    }
-                }`;
+        //
+        // ISOLATED from the issue path below. Both read the SAME repository, but over DIFFERENT
+        // connections — `stargazers` here, `issues` in `processIssues()` — and GitHub restricted
+        // access at connection granularity: it limited stargazer reads to repository admins and
+        // collaborators (announced 2026-06-30) while leaving the issues connection readable. So
+        // these two opt-in mechanisms genuinely can fail independently, and today exactly one of
+        // them does.
+        //
+        // A throw here used to abort `run()` before `processIssues()` was ever reached, so a
+        // permanently unavailable half took the working half down with it and intake went to zero
+        // rather than halving. The repository-not-found branch had the same defect for the same
+        // reason — it `return`ed out of `run()` — and `processIssues()` already handles that case
+        // for itself by returning null, so pre-empting it was never buying anything.
+        //
+        // DEFERRED, never swallowed. The error is rethrown at the end of `run()`, after the issue
+        // path has done its work, so the run still fails and the loss stays visible — a catch that
+        // quietly returned would leave a dead intake mechanism reporting success indefinitely.
+        let deferredStargazerError = null,
+            optedInLogins          = [];
 
-            const variables = {
-                owner: this.optInRepoOwner,
-                name:  this.optInRepoName,
-                cursor: cursor
-            };
-
-            let data;
-            try {
-                data = await GitHub.query(query, variables, 3, 'OptIn Stars');
-            } catch (err) {
-                if (err.message.includes('NOT_FOUND') || err.message.includes('Could not resolve')) {
-                    console.warn(`[OptIn] Opt-in repository ${this.optInRepoOwner}/${this.optInRepoName} not found. Skipping.`);
-                    return;
-                }
-                throw err;
-            }
-
-            const stargazers = data?.repository?.stargazers;
-            if (!stargazers) break;
-
-            const edges = stargazers.edges || [];
-            let stopFetching = false;
-
-            for (const edge of edges) {
-                const starredAt = edge.starredAt;
-                const login = edge.node.login;
-
-                if (lastCheck && starredAt <= lastCheck) {
-                    stopFetching = true;
-                    break;
-                }
-
-                if (!newLastCheck || starredAt > newLastCheck) {
-                    newLastCheck = starredAt;
-                }
-
-                optedInLogins.push(login);
-            }
-
-            if (stopFetching) {
-                break;
-            }
-
-            hasNextPage = stargazers.pageInfo.hasNextPage;
-            cursor = stargazers.pageInfo.endCursor;
+        try {
+            ({newLastCheck, optedInLogins} = await this.collectStargazerOptIns(lastCheck))
+        } catch (error) {
+            deferredStargazerError = error;
+            console.warn(
+                `[OptIn] Stargazer intake failed (${error.message}). Continuing to the issue path; ` +
+                'this run will fail after it.'
+            )
         }
 
         // 2. Check Issues
         const issueResults = await this.processIssues();
-        
-        let uniqueLogins = [...new Set(optedInLogins)];
+
+        let uniqueLogins  = [...new Set(optedInLogins)];
         let loginsToReAdd = [...uniqueLogins]; // Stars can reverse blocklist
         let issuesToClose = [];
 
@@ -124,18 +84,18 @@ class OptIn extends Base {
             uniqueLogins.push(...issueResults.othersLogins);
             loginsToReAdd.push(...issueResults.selfLogins); // ONLY self issues reverse blocklist
             issuesToClose.push(...issueResults.issuesToClose);
-            
+
             uniqueLogins = [...new Set(uniqueLogins)];
             loginsToReAdd = [...new Set(loginsToReAdd)];
         }
 
         if (uniqueLogins.length > 0) {
             console.log(`[OptIn] Found ${uniqueLogins.length} new opt-in requests:`, uniqueLogins);
-            
+
             // 1. Remove from blocklist if they are there (ONLY stargazers and self-issues)
-            const blocklist = await Storage.getBlocklist();
+            const blocklist           = await Storage.getBlocklist();
             const blockedUsersToReAdd = loginsToReAdd.filter(login => blocklist.has(login.toLowerCase()));
-            
+
             if (blockedUsersToReAdd.length > 0) {
                 console.log(`[OptIn] Removing from blocklist:`, blockedUsersToReAdd);
                 await Storage.removeFromBlocklist(blockedUsersToReAdd);
@@ -143,10 +103,10 @@ class OptIn extends Base {
 
             // 2. Add to tracker
             // We want to avoid adding users who are already in the tracker.
-            const tracker = await Storage.getTracker();
+            const tracker         = await Storage.getTracker();
             const existingTracker = new Set(tracker.map(t => t.login.toLowerCase()));
 
-            // We must also ensure we don't add "othersLogins" that are on the blocklist, 
+            // We must also ensure we don't add "othersLogins" that are on the blocklist,
             // since we didn't remove them above.
             const currentBlocklist = await Storage.getBlocklist();
 
@@ -171,20 +131,115 @@ class OptIn extends Base {
 
         // 3. Close Issues and Leave Comment
         if (issuesToClose.length > 0) {
-            const tracker = await Storage.getTracker();
-            const existingTracker = new Set(tracker.map(t => t.login.toLowerCase()));
+            const tracker          = await Storage.getTracker();
+            const existingTracker  = new Set(tracker.map(t => t.login.toLowerCase()));
             const currentBlocklist = await Storage.getBlocklist();
 
             await this.closeIssues(issuesToClose, existingTracker, currentBlocklist);
         }
+
+        // LAST, so everything above has already run and been persisted. Isolating the stargazer
+        // phase buys the issue path a chance to work; it must not buy a dead phase silence. The
+        // run still fails, and it fails naming the phase that failed.
+        if (deferredStargazerError) {
+            throw deferredStargazerError;
+        }
+    }
+
+    /**
+     * @summary Pages the opt-in repository's stargazers, newest first, stopping at the last
+     * processed star.
+     *
+     * Extracted from `run()` so a failure here is one phase failing rather than the whole intake
+     * aborting: the caller isolates it from `processIssues()`, which reads a different repository
+     * over a different connection and is unaffected by anything that goes wrong in this one.
+     * @param {String|null} lastCheck ISO timestamp of the newest star already processed, or null.
+     * @returns {Promise<{newLastCheck: String|null, optedInLogins: String[]}>}
+     */
+    async collectStargazerOptIns(lastCheck) {
+        let cursor        = null,
+            hasNextPage   = true,
+            newLastCheck  = lastCheck,
+            optedInLogins = [];
+
+        while (hasNextPage) {
+            const query = `
+                query($owner: String!, $name: String!, $cursor: String) {
+                    repository(owner: $owner, name: $name) {
+                        stargazers(first: 100, orderBy: {field: STARRED_AT, direction: DESC}, after: $cursor) {
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                            edges {
+                                starredAt
+                                node {
+                                    login
+                                }
+                            }
+                        }
+                    }
+                }`;
+
+            const variables = {
+                owner : this.optInRepoOwner,
+                name  : this.optInRepoName,
+                cursor: cursor
+            };
+
+            let data;
+            try {
+                data = await GitHub.query(query, variables, 3, 'OptIn Stars');
+            } catch (err) {
+                if (err.message.includes('NOT_FOUND') || err.message.includes('Could not resolve')) {
+                    // `break`, not `return`: this used to return out of `run()` entirely, so a
+                    // missing opt-in repository also skipped the issue path in a DIFFERENT
+                    // repository. Ending this phase is the whole of what the finding supports.
+                    console.warn(`[OptIn] Opt-in repository ${this.optInRepoOwner}/${this.optInRepoName} not found. Skipping stargazer intake.`);
+                    break;
+                }
+                throw err;
+            }
+
+            const stargazers = data?.repository?.stargazers;
+            if (!stargazers) break;
+
+            const edges        = stargazers.edges || [];
+            let   stopFetching = false;
+
+            for (const edge of edges) {
+                const starredAt = edge.starredAt;
+                const login     = edge.node.login;
+
+                if (lastCheck && starredAt <= lastCheck) {
+                    stopFetching = true;
+                    break;
+                }
+
+                if (!newLastCheck || starredAt > newLastCheck) {
+                    newLastCheck = starredAt;
+                }
+
+                optedInLogins.push(login);
+            }
+
+            if (stopFetching) {
+                break;
+            }
+
+            hasNextPage = stargazers.pageInfo.hasNextPage;
+            cursor = stargazers.pageInfo.endCursor;
+        }
+
+        return {newLastCheck, optedInLogins};
     }
 
     async processIssues() {
         console.log('[OptIn] Checking for new opt-in issue requests...');
-        let hasNextPage = true;
-        let cursor = null;
-        let selfLogins = [];
-        let othersLogins = [];
+        let hasNextPage   = true;
+        let cursor        = null;
+        let selfLogins    = [];
+        let othersLogins  = [];
         let issuesToClose = [];
 
         while (hasNextPage) {
@@ -209,8 +264,8 @@ class OptIn extends Base {
                 }`;
 
             const variables = {
-                owner: this.optInRepoOwner,
-                name:  this.optInRepoName,
+                owner : this.optInRepoOwner,
+                name  : this.optInRepoName,
                 cursor: cursor
             };
 
@@ -233,14 +288,14 @@ class OptIn extends Base {
                 const match = issue.body.match(/### GitHub Usernames\s*([\s\S]*?)(?:###|$)/);
 
                 if (match) {
-                    const text = match[1];
+                    const text      = match[1];
                     const usernames = text.split('\n')
                         .map(u => u.trim())
                         .filter(u => u && !u.startsWith('-') && !u.startsWith('['));
-                    
-                    const validUsernames = [];
+
+                    const validUsernames   = [];
                     const invalidUsernames = [];
-                    
+
                     for (const uname of usernames) {
                         try {
                             await GitHub.rest(`users/${uname}`);
@@ -250,11 +305,11 @@ class OptIn extends Base {
                             invalidUsernames.push(uname);
                         }
                     }
-                    
-                    issuesToClose.push({ 
-                        id: issue.id, 
-                        type: 'others', 
-                        validLogins: validUsernames,
+
+                    issuesToClose.push({
+                        id           : issue.id,
+                        type         : 'others',
+                        validLogins  : validUsernames,
                         invalidLogins: invalidUsernames
                     });
                 } else {
@@ -286,10 +341,10 @@ class OptIn extends Base {
                 } else if (issue.type === 'others') {
                     if (issue.validLogins && issue.validLogins.length > 0) {
                         commentBody = `Thank you for your nominations!\n\n`;
-                        
-                        const newlyAdded = [];
+
+                        const newlyAdded     = [];
                         const alreadyTracked = [];
-                        const blocked = [];
+                        const blocked        = [];
 
                         issue.validLogins.forEach(u => {
                             const lLogin = u.toLowerCase();
@@ -335,7 +390,7 @@ class OptIn extends Base {
                     }`;
                 await GitHub.query(commentQuery, {
                     subjectId: issue.id,
-                    body: commentBody
+                    body     : commentBody
                 }, 3, `OptIn Comment ${issue.id}`);
 
                 // Close Issue
