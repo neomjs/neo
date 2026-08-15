@@ -37,6 +37,7 @@
         "ai:restore"                           : "node ./ai/scripts/maintenance/restore.mjs",
         "ai:reseed"                            : "node ./ai/scripts/maintenance/restore.mjs --operation reseed",
         "ai:build-kb-faqs"                     : "node ./ai/scripts/maintenance/buildKbAgentFaqs.mjs",
+        "ai:lint-npm-script-entrypoints"       : "node ./ai/scripts/lint/lint-npm-script-entrypoints.mjs",
         "ai:defrag-kb"                         : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target knowledge-base",
         "ai:defrag-memory"                     : "node ./ai/scripts/maintenance/defragChromaDB.mjs --target memory-core",
         "ai:defrag-sqlite"                     : "node ./ai/scripts/maintenance/defragSQLiteDB.mjs",
