@@ -3285,11 +3285,17 @@ class PullRequestService extends Base {
                         }
 
                         reviewBudgetAudit = budgetValidation.audit;
-                // The shape tier ran before `pr_number` was even validated, so it could only prove this
-                // body is disposition-SHAPED. The relation — does it disposition the round it claims,
-                // completely, in order, verbatim, in a state that preserves what it says it preserves —
-                // needs the prior round, and it is already in hand from the lookup above. Binding it
-                // here rather than in a leaf keeps the proof with the close target that claims it.
+                        submissionBody    = budgetValidation.body
+                    }
+                }
+
+                // Runs for EVERY state, and after the budget path — the only placement satisfying both
+                // constraints. Ahead of budget validation, a template complaint masked the budget's
+                // fail-closed refusals. Inside the REQUEST_CHANGES branch, where the fix for that first
+                // put it, it became unreachable for every state a valid Round 2 can use — the state
+                // matrix forbids REQUEST_CHANGES for a disposition, so the guard existed only in the
+                // one state its own rule excludes. @neo-gpt caught that one round after catching the
+                // defect it was fixing.
                 if (isRound2PrReview(body)) {
                     const relationFailure = getRound2DispositionRelationFailure({
                         body,
@@ -3299,10 +3305,6 @@ class PullRequestService extends Base {
 
                     if (relationFailure) {
                         return relationFailure;
-                    }
-                }
-
-                        submissionBody    = budgetValidation.body
                     }
                 }
 

@@ -1989,6 +1989,50 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(failure.message).toContain('no submitted');
     });
 
+    test('#17178: the relation is REACHABLE through managePrReview for APPROVED and COMMENT', async () => {
+        // The states a valid Round 2 can actually use. The relation first ran ahead of budget
+        // validation (masking its fail-closed refusals), then inside the REQUEST_CHANGES branch —
+        // which made it unreachable for every state the state matrix permits, so the guard existed
+        // only in the one state its own rule forbids. Driving it end-to-end is what catches that;
+        // calling the helper directly never would, which is why this case exists beside those.
+        GraphqlService.query = async query => {
+            if (query.includes('GetPullRequestId')) {
+                return {
+                    repository: {
+                        activationIssue: null,
+                        pullRequest    : {
+                            createdAt     : '2026-07-01T00:00:00Z',
+                            headRefOid    : PR_HEAD_OID,
+                            id            : PR_NODE_ID,
+                            reviewDecision: 'CHANGES_REQUESTED',
+                            reviews       : {
+                                nodes   : [priorRequestChanges()],
+                                pageInfo: {hasPreviousPage: false}
+                            }
+                        }
+                    }
+                }
+            }
+
+            throw new Error('managePrReview must not reach the mutation with an invalid relation');
+        };
+
+        for (const state of ['APPROVED', 'COMMENT']) {
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 11273,
+                state,
+                // An invented action: the relation must refuse it in BOTH states.
+                body     : VALID_ROUND_2_REVIEW_BODY.replace(
+                    '| RA-1 | prior template miss | ADDRESSED | current body keeps canonical headings |',
+                    '| RA-1 | an action no prior round raised | ADDRESSED | invented |'
+                )
+            });
+
+            expect(result.code, `the relation runs for ${state}`).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        }
+    });
+
     test('#17178: validatePrReviewBody names the template it ACTUALLY applied', () => {
         // It returned the canonical path unconditionally, so a Round-2 body was told it matched
         // `pr-review-template.md` — sending an author who later hit a rejection to the wrong file.
