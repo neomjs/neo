@@ -366,6 +366,7 @@
         "orchestrator.intervals.backupRetryDelayMs",
         "orchestrator.intervals.backupRetryWindowMs",
         "orchestrator.intervals.dataIntegritySweepCheckMs",
+        "orchestrator.intervals.defectLedgerDigestMs",
         "orchestrator.intervals.dreamBreathingGapMs",
         "orchestrator.intervals.dreamCycleBudgetMs",
         "orchestrator.intervals.dreamIdleBacklogCadenceMultiplier",
