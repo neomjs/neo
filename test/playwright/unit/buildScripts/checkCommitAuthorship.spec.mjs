@@ -477,6 +477,56 @@ test.describe('#15337 bootstrapWorktree — configureAgentGitIdentity', () => {
         })
     }
 
+    /**
+     * The bypass @neo-gpt found in the co-author guard, closed at the only layer that can close it.
+     * The push-time guard reads a commit's author email, which is self-asserted — so it can only
+     * infer agent-ness from email shape. This binder holds AUTHENTICATED identity, so requiring the
+     * verified primary to BE the seat's roster address is what turns that inference into a property.
+     */
+    test.describe('the authenticated primary must be the seat roster address', () => {
+        test('REFUSES an off-domain verified primary — the co-author guard bypass', async () => {
+            // Authenticated, verified, non-noreply, login matches the registry: every pre-existing
+            // check passes. Binding it would author this agent from an address the trailer guard
+            // reads as non-agent, so its poisoned trailers would exit 0.
+            const gitCalls = [];
+
+            await expect(configureAgentGitIdentity({
+                projectRoot            : '/tmp/agent-seat',
+                mainCheckout           : '/tmp/main-checkout',
+                agentIdentity          : '@neo-gpt',
+                getAuthenticatedAccount: account('neo-gpt', 'someone@example.com'),
+                execGit                : async args => { gitCalls.push(args); return {stdout: ''} }
+            })).rejects.toThrow(/does not match its roster commit address/u);
+
+            // Fails before the first git call, so no partial identity is left behind.
+            expect(gitCalls).toEqual([])
+        });
+
+        // The unmapped-seat branch is NOT exercised here on purpose: it is unreachable through this
+        // path today, because the registry lookup runs first and `reconcileWithRegistry().missingEmail`
+        // is asserted empty in agentCoAuthorEmails.spec.mjs — so no registry seat lacks a map entry.
+        // It is defensive against those two drifting apart, and `rosterEmailForLogin` is pinned for
+        // the null case directly in that spec rather than faked through a binder that cannot reach it.
+
+        test('POSITIVE CONTROL — a matching roster primary still binds', async () => {
+            // Without this the refusals above would pass against a binder that refuses everything.
+            const main = createMainCheckout(),
+                tree   = path.join(tmpRoot, 'seat-ok');
+
+            git(main, ['worktree', 'add', '-b', 'agent/ok', tree, 'dev', '--quiet']);
+
+            const result = await configureAgentGitIdentity({
+                projectRoot            : tree,
+                mainCheckout           : main,
+                agentIdentity          : '@neo-gpt',
+                getAuthenticatedAccount: account('neo-gpt', 'neo-gpt@neomjs.com')
+            });
+
+            expect(result.action).toBe('configured');
+            expect(result.email).toBe('neo-gpt@neomjs.com')
+        })
+    });
+
     test('keeps main + TWO sibling worktree identities isolated in real Git config files', async () => {
         const
             main  = createMainCheckout(),

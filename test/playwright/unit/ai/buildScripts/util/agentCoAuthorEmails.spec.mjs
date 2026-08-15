@@ -3,6 +3,7 @@ import {
     findUnknownCoAuthors,
     findUnmappedProjectAuthors,
     mismatchedLogins,
+    rosterEmailForLogin,
     reconcileWithRegistry,
     registryAgentLogins
 }                      from '../../../../../../buildScripts/util/agentCoAuthorEmails.mjs';
@@ -224,6 +225,40 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
 
             expect(findUnknownCoAuthors({commits: [commit(body)]})).toEqual([]);
         });
+    });
+
+    /**
+     * The seam `bootstrapWorktree` reads to assert an agent's authenticated primary IS its roster
+     * address. That assertion is what turns the push-time guard's shape-based classification from an
+     * inference into a property — so this lookup is load-bearing for the guard, not a convenience.
+     */
+    test.describe('rosterEmailForLogin — the binder/guard shared seam', () => {
+        test('resolves a mapped seat with or without the leading @', () => {
+            expect(rosterEmailForLogin('@neo-opus-ada')).toBe(CANONICAL);
+            expect(rosterEmailForLogin('neo-opus-ada')).toBe(CANONICAL);
+        });
+
+        test('is case-insensitive on the login', () => {
+            expect(rosterEmailForLogin('@Neo-Opus-Ada')).toBe(CANONICAL);
+        });
+
+        test('returns null for a login this map does not carry — the binder REFUSES on null', () => {
+            // Unreachable through configureAgentGitIdentity today (the registry lookup runs first and
+            // reconcileWithRegistry().missingEmail is empty), so it is pinned here where it is
+            // reachable. The branch exists against the registry and this map drifting apart.
+            expect(rosterEmailForLogin('@neo-not-a-seat')).toBeNull();
+        });
+
+        test('a missing or empty login cannot throw', () => {
+            expect(rosterEmailForLogin(undefined)).toBeNull();
+            expect(rosterEmailForLogin('   ')).toBeNull();
+        });
+
+        test('every registry agent login resolves — the binder can never hit its own null branch', () => {
+            // The invariant that keeps the null branch defensive rather than live. If this fails, a
+            // seat exists that bootstrapWorktree would now refuse to bind.
+            expect(registryAgentLogins().filter(login => !rosterEmailForLogin(login))).toEqual([]);
+        })
     });
 
     test('the sunset condition is measurable, not aspirational', () => {

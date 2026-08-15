@@ -51,6 +51,34 @@ const EMAIL_BY_LOGIN = Object.freeze({
 });
 
 /**
+ * @summary The commit address this roster binds to one agent login, or `null` when unmapped.
+ *
+ * **This is the seam that makes the trailer check sound rather than inferential.** The push-time
+ * guard can only read a commit's author email, which is self-asserted metadata — so on its own it
+ * has to infer agent-ness from email shape, and @neo-gpt falsified that inference in both
+ * directions. `bootstrapWorktree` is the one place that holds *authenticated* identity: it has
+ * already matched `NEO_AGENT_IDENTITY` against the registry and the live GitHub login before it
+ * binds a Git author email. Asserting there that the authenticated primary IS this address closes
+ * the gap the guard cannot close by itself — an agent seat can no longer end up authoring from an
+ * address outside this map, so the guard's shape-based classification stops being a guess and
+ * becomes a property the bootstrap guarantees.
+ *
+ * Exported rather than inlined so the two cannot drift: one map, read by the binder and the guard.
+ *
+ * @param {String} login GitHub login, with or without the leading `@`.
+ * @returns {String|null} Lower-cased commit address, or `null` for a login this map does not carry.
+ */
+export function rosterEmailForLogin(login) {
+    const normalized = typeof login === 'string' ? login.trim().toLowerCase() : '';
+
+    if (!normalized) {
+        return null
+    }
+
+    return EMAIL_BY_LOGIN[normalized.startsWith('@') ? normalized : `@${normalized}`] ?? null
+}
+
+/**
  * @summary Agent logins in the registry, so a typo or a newly seeded seat cannot pass unnoticed.
  *
  * Filtered on `accountType === 'agent'`, not on the `AgentIdentity` node type: the registry types
