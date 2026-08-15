@@ -221,6 +221,46 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     }
 
+    /**
+     * @summary Waits until an observed counter reaches `target`, or fails naming what it awaited.
+     *
+     * Replaces a fixed turn budget — `for (let turn = 0; turn < 50 && payloadReads < 2; turn++)` —
+     * that could not distinguish *"the second read never happened"* from *"it has not happened yet"*.
+     * On expiry that loop fell through into the value assertion, so a real defect and a busy machine
+     * both reported `Received: 1`. At one worker the budget held; at four workers it did not.
+     *
+     * The deadline is a FAILURE bound, not a wait. The happy path ends the moment the condition holds,
+     * so a slower machine costs nothing and only a genuine absence reaches the throw — which is the
+     * whole difference from the budget it replaces.
+     *
+     * Polled at 25 ms rather than raced against a single `setTimeout(…, 10000)` for a specific reason:
+     * a fixed second-scale timer in a unit spec is what `check-fixed-sleeps.mjs` exists to catch, and
+     * neither of that guard's justifications would be truthful here. `wall-clock-under-test:` is false
+     * (no elapsed time is asserted) and `out-waits:` is false (it out-waits no production constant) —
+     * this timer never elapses when the code is right. Annotating it to buy silence would put a lie in
+     * the one place the guard reads, so the wait stays under the threshold and needs no annotation.
+     *
+     * @param {Function} getCount Reads the observed counter.
+     * @param {Number} target Count that ends the wait.
+     * @param {String} awaited What is being waited for, quoted verbatim into the failure message.
+     * @param {Number} [timeoutMs=10000] Failure bound.
+     * @returns {Promise<void>}
+     */
+    async function waitForObservedCount(getCount, target, awaited, timeoutMs = 10000) {
+        const deadline = Date.now() + timeoutMs;
+
+        while (getCount() < target) {
+            if (Date.now() >= deadline) {
+                throw new Error(
+                    `Timed out after ${timeoutMs}ms awaiting ${awaited} — reached ${getCount()} of ${target}. ` +
+                    'This wait ends on its condition, so the count is genuinely absent rather than late.'
+                )
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 25));
+        }
+    }
+
     test('addMessage enforces identity and routes correctly', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
@@ -1375,9 +1415,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 ids: [charlieMessage.messageId], limit: 1
             });
 
-            for (let turn = 0; turn < 50 && payloadReads < 2; turn++) {
-                await new Promise(resolve => setImmediate(resolve));
-            }
+            await waitForObservedCount(
+                () => payloadReads, 2,
+                'the new marker cohort to open its own physical segment read'
+            );
             expect(payloadReads, 'a marker-only cohort change needs an independent segment result').toBe(2);
             releasePayloadRead();
 
