@@ -68,19 +68,20 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         memoryCoreConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         memoryCoreConfig.refreshEnv();
 
-        // The SERVICE reads the runtime overlay (`config.mjs`), not the template — refresh it too.
-        // A worker-shared overlay constructed under an earlier spec's env (UNIT_TEST_MODE=true
-        // without NEO_MEMORY_DB_PATH_TEST) resolves `storagePaths.graph` to the `:memory:` default,
-        // and the status-inspection short-circuit (`dbPath === ':memory:'` → ok) then suppresses
-        // the writer-partial downgrade this suite pins.
-        (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default.refreshEnv();
         MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
 
         // A Playwright worker can reuse this singleton after another spec imported it. Rebind it to
         // this fixture's explicit database instead of letting initAsync() return on the stale handle.
+        // The path is injected, never read through the runtime config overlay (`config.mjs`): a
+        // worker-shared overlay constructed under an earlier spec's env (UNIT_TEST_MODE=true
+        // without NEO_MEMORY_DB_PATH_TEST) resolves `storagePaths.graph` to the `:memory:` default,
+        // and the status-inspection short-circuit (`dbPath === ':memory:'` → ok) then suppresses
+        // the writer-partial downgrade this suite pins. Specs resolve the committed template,
+        // never the gitignored overlay — so the fixture path arrives by construction.
         await MemoryCoreRecorderService.flushProviderActivityStatus();
         try { MemoryCoreRecorderService.db?.close(); } catch (e) {}
         MemoryCoreRecorderService.db = null;
+        MemoryCoreRecorderService.dbPath = testDbPath;
         MemoryCoreRecorderService.providerActivityStatusWriter = null;
 
         await MemoryCoreRecorderService.initAsync();
@@ -109,6 +110,10 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
         if (MemoryCoreRecorderService?.db) {
             try { MemoryCoreRecorderService.db.close(); } catch (e) {}
             MemoryCoreRecorderService.db = null;
+        }
+
+        if (MemoryCoreRecorderService) {
+            MemoryCoreRecorderService.dbPath = null;
         }
 
         for (const suffix of ['', '-wal', '-shm']) {
