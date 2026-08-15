@@ -201,14 +201,15 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — getConversa
                     replies  : {nodes: []}
                 },
                 {
-                    id       : 'DC_second',
-                    author   : {login: 'neo-opus-grace'},
-                    body     : 'Second comment',
-                    createdAt: '2026-05-02T00:02:00Z',
-                    updatedAt: '2026-05-02T00:02:00Z',
-                    url      : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-2',
-                    isAnswer : false,
-                    replies  : {
+                    id        : 'DC_second',
+                    databaseId: 18022679,
+                    author    : {login: 'neo-opus-grace'},
+                    body      : 'Second comment',
+                    createdAt : '2026-05-02T00:02:00Z',
+                    updatedAt : '2026-05-02T00:02:00Z',
+                    url       : 'https://github.com/orgs/neomjs/discussions/10137#discussioncomment-2',
+                    isAnswer  : false,
+                    replies   : {
                         nodes: [{
                             id       : 'DCR_reply',
                             author   : {login: 'neo-gpt'},
@@ -290,9 +291,48 @@ test.describe('Neo.ai.services.github-workflow.DiscussionService — getConversa
             comment_id       : 'DC_second'
         });
 
-        expect(result.body).toBe('Discussion body');
+        // The scoped payload no longer carries the parent body. This assertion previously read
+        // `toBe('Discussion body')`, which encoded the defect: a request for one 2KB comment was
+        // charged the whole 26KB head, so the cheapest correct usage paid the most expensive payload.
+        expect(result.body).toBeUndefined();
+        expect(result.bodyOmitted).toBe(true);
         expect(result.comments.nodes.map(c => c.id)).toEqual(['DC_second']);
         expect(result.comments.nodes[0].replies.nodes[0].id).toBe('DCR_reply');
+    });
+
+    test('comment_id accepts the anchor and numeric spellings a peer actually holds (#17142)', async () => {
+        installFixture();
+
+        // `DC_second` carries databaseId 18022679 in the fixture. Both spellings below previously
+        // matched nothing and returned an empty list with NO error — the caller's only recourse was
+        // re-reading the whole thread, which is the cost the parameter exists to avoid.
+        for (const spelling of ['18022679', 'discussioncomment-18022679',
+            'https://github.com/neomjs/neo/discussions/10137#discussioncomment-18022679']) {
+            const result = await DiscussionService.getConversation({discussion_number: 10137, comment_id: spelling});
+
+            expect(result.comments.nodes.map(c => c.id), spelling).toEqual(['DC_second']);
+        }
+    });
+
+    test('an unrecognised comment_id ERRORS instead of returning an empty list (#17142)', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({discussion_number: 10137, comment_id: 'not-an-id'});
+
+        // The whole point: malformed is distinguishable from absent. An empty comment list reads as
+        // "this comment has nothing"; an error reads as "you addressed it wrong".
+        expect(result.code).toBe('MALFORMED_COMMENT_ID');
+        expect(result.message).toContain('not-an-id');
+        expect(result.comments).toBeUndefined();
+    });
+
+    test('a well-formed but ABSENT comment_id yields an empty list, not an error (#17142)', async () => {
+        installFixture();
+
+        const result = await DiscussionService.getConversation({discussion_number: 10137, comment_id: 'DC_nope'});
+
+        expect(result.code).toBeUndefined();
+        expect(result.comments.nodes).toEqual([]);
     });
 
     test('unknown comment_id returns empty comments while preserving discussion metadata', async () => {

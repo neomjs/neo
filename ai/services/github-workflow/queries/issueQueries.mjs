@@ -948,6 +948,7 @@ export const GET_ISSUE_CONVERSATION = `
         comments(first: $maxComments) {
           nodes {
             id
+            databaseId
             author {
               login
             }

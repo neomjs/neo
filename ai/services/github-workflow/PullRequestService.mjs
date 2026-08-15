@@ -20,6 +20,8 @@ import {
     GET_CONVERSATION,
     GET_MERGE_READINESS
 } from './queries/pullRequestQueries.mjs';
+import {commentMatches, malformedCommentIdError, omitScopedBody, parseCommentId}
+                                              from './shared/commentSelector.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
 const execAsync                        = promisify(exec);
@@ -2192,7 +2194,8 @@ class PullRequestService extends Base {
      * with the default full-conversation shape that existing callers depend on.
      *
      * **Selectors (first-match precedence, pick at most one):**
-     * - `comment_id` — fetch ONLY the comment whose GitHub node ID matches. Used for A2A
+     * - `comment_id` — fetch ONLY the matching comment. Accepts a node ID, numeric database id,
+     *   an `issuecomment-N` anchor, or a full comment URL; an unrecognised shape errors. Used for A2A
      *   hand-off: a reviewer posts a comment, mailboxes the `commentId` from the create-path
      *   return shape to the peer, peer fetches just-this-comment for near-zero context cost.
      * - `since_comment_id` — fetch all comments AFTER the one with the given ID (exclusive).
@@ -2295,11 +2298,26 @@ class PullRequestService extends Base {
             let filtered;
 
             if (comment_id) {
-                filtered = allComments.filter(c => c.id === comment_id);
+                // Malformed → error, never an empty list. The two spellings a peer actually holds —
+                // a URL anchor and a bare number — used to filter every comment away silently.
+                const selector = parseCommentId(comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('comment_id', comment_id);
+                }
+
+                filtered = allComments.filter(comment => commentMatches(comment, selector));
             } else if (since_comment_id) {
-                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
-                // Anchor not found → empty result set (callers interpret as "nothing after" or
-                // "invalid id"). Trying to infer intent would hide bugs.
+                const selector = parseCommentId(since_comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('since_comment_id', since_comment_id);
+                }
+
+                const anchorIdx = allComments.findIndex(comment => commentMatches(comment, selector));
+                // Well-formed but absent → empty result set. The ambiguity the old comment described
+                // ("nothing after" vs "invalid id") is now resolved one level up: invalid errors, so
+                // reaching here means the id was a real shape that this thread does not carry.
                 filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
             } else if (typeof last_n === 'number' && last_n > 0) {
                 filtered = allComments.slice(-last_n);
@@ -2308,15 +2326,15 @@ class PullRequestService extends Base {
                 return pullRequest;
             }
 
-            // Filtered paths preserve PR title/body/author; only comments are narrowed.
-            // Caller can detect filtering via comments.length vs unfiltered fetch.
-            return {
+            // Scoped paths narrow the comments AND drop the parent body: asking for one comment out
+            // of a long thread previously cost the whole head. Unscoped calls above are unchanged.
+            return omitScopedBody({
                 ...pullRequest,
                 comments: {
                     ...pullRequest.comments,
                     nodes: filtered
                 }
-            };
+            });
         } catch (error) {
             logger.error(`Error getting conversation for PR #${pr_number} via GraphQL:`, error);
             return {

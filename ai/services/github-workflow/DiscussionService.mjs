@@ -3,8 +3,10 @@ import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
-import {projectConversationTrust} from './shared/conversationTrust.mjs';
-import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
+import {commentMatches, malformedCommentIdError, omitScopedBody, parseCommentId}
+                                 from './shared/commentSelector.mjs';
+import {projectConversationTrust}                                                                from './shared/conversationTrust.mjs';
+import {GET_DISCUSSION_CONVERSATION, GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID}      from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
 /**
@@ -49,10 +51,15 @@ class DiscussionService extends Base {
      *
      * @param {Object} options
      * @param {Number} options.discussion_number    The Discussion number (required).
-     * @param {String} [options.comment_id]         Return only the matching top-level comment; body metadata still returned.
-     * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Unknown id -> empty comments.
+     * @param {String} [options.comment_id]         Return only the matching top-level comment. Accepts a node ID, numeric
+     *     database id, `discussioncomment-N` anchor, or full comment URL; an unrecognised shape returns a
+     *     `MALFORMED_COMMENT_ID` error, a well-formed but absent id returns empty comments.
+     * @param {String} [options.since_comment_id]   Return top-level comments strictly after the matching comment. Same
+     *     accepted spellings and same malformed-vs-absent distinction as `comment_id`.
      * @param {Number} [options.last_n]             Return only the last N top-level comments.
-     * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error.
+     * @returns {Promise<Object>} Discussion conversation data, optionally filtered, or a structured error. A SCOPED
+     *          request (any selector) omits the parent body and sets `bodyOmitted: true`; an unscoped request is
+     *          unchanged. Scoping asked for part of a thread and used to be charged for all of it.
      *          Payloads are trust-projected: authored nodes (incl. nested replies) carry `authorTrust`,
      *          untrusted-author bodies arrive defanged, and the root carries a `contentTrust` summary
      *          (see `shared/conversationTrust.mjs`).
@@ -98,9 +105,24 @@ class DiscussionService extends Base {
             let filtered;
 
             if (comment_id) {
-                filtered = allComments.filter(c => c.id === comment_id);
+                // The measured case: `discussioncomment-18022679` — the anchor a peer pastes —
+                // matched nothing and returned an empty list with no error, so the caller re-read the
+                // whole 26KB thread to discover the id was merely spelled differently.
+                const selector = parseCommentId(comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('comment_id', comment_id);
+                }
+
+                filtered = allComments.filter(comment => commentMatches(comment, selector));
             } else if (since_comment_id) {
-                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
+                const selector = parseCommentId(since_comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('since_comment_id', since_comment_id);
+                }
+
+                const anchorIdx = allComments.findIndex(comment => commentMatches(comment, selector));
                 filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
             } else if (typeof last_n === 'number' && last_n > 0) {
                 filtered = allComments.slice(-last_n);
@@ -108,13 +130,15 @@ class DiscussionService extends Base {
                 return discussion;
             }
 
-            return {
+            // Discussions are where this costs most — a scoped fetch from a 26KB body paid the same
+            // as reading the head, so the cheapest correct usage carried the most expensive payload.
+            return omitScopedBody({
                 ...discussion,
                 comments: {
                     ...discussion.comments,
                     nodes: filtered
                 }
-            };
+            });
         } catch (error) {
             logger.error(`Error getting conversation for discussion #${discussion_number} via GraphQL:`, error);
             return {
@@ -140,11 +164,11 @@ class DiscussionService extends Base {
             // First, get the repository ID and discussion categories
             const repoData = await GraphqlService.query(GET_REPO_AND_DISCUSSION_CATEGORIES, {
                 owner: aiConfig.owner,
-                repo: aiConfig.repo
+                repo : aiConfig.repo
             });
 
             const repositoryId = repoData.repository.id;
-            const categories = repoData.repository.discussionCategories.nodes;
+            const categories   = repoData.repository.discussionCategories.nodes;
 
             // Find the ID for the requested category name
             const categoryNode = categories.find(cat => cat.name.toLowerCase() === category.toLowerCase());
@@ -174,8 +198,8 @@ class DiscussionService extends Base {
 
             return {
                 discussionNumber: discussion.number,
-                url: discussion.url,
-                id: discussion.id
+                url             : discussion.url,
+                id              : discussion.id
             };
 
         } catch (error) {
@@ -215,7 +239,7 @@ class DiscussionService extends Base {
             const discussionId = idData.repository.discussion.id;
 
             // Use ADD_DISCUSSION_COMMENT mutation
-            const result = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body });
+            const result  = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body });
             const comment = result.addDiscussionComment.comment;
 
             return {
@@ -276,27 +300,27 @@ class DiscussionService extends Base {
     async manageDiscussionComment({discussion_number, comment_id, body, action}) {
         if (!['create', 'update'].includes(action)) {
             return {
-                error: 'Bad Request',
+                error  : 'Bad Request',
                 message: "Invalid action. Must be 'create' or 'update'.",
-                code: 'INVALID_ARGUMENTS'
+                code   : 'INVALID_ARGUMENTS'
             };
         }
 
         if (action === 'create') {
             if (!discussion_number) {
                 return {
-                    error: 'Bad Request',
+                    error  : 'Bad Request',
                     message: "Missing required argument: 'discussion_number' is required for creating comments.",
-                    code: 'MISSING_ARGUMENTS'
+                    code   : 'MISSING_ARGUMENTS'
                 };
             }
             return this.createComment({discussion_number, body});
         } else {
             if (!comment_id) {
                 return {
-                    error: 'Bad Request',
+                    error  : 'Bad Request',
                     message: "Missing required argument: 'comment_id' is required for updating comments.",
-                    code: 'MISSING_ARGUMENTS'
+                    code   : 'MISSING_ARGUMENTS'
                 };
             }
             return this.updateComment(comment_id, body);
