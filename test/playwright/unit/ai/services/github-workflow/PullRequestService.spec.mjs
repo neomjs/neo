@@ -4223,4 +4223,196 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.code).toBe('MISSING_ARGUMENTS');
         expect(result.message).toContain("'body' is required");
     });
+
+    // ---------------------------------------------------------------------------------------------
+    // The two action-demand channels the budget could not see: post-budget COMMENT, and A+FU approve
+    // ---------------------------------------------------------------------------------------------
+
+    // A post-budget COMMENT fixture: gpt already spent its ordinary round, and the incoming body is
+    // submitted by the gpt seat the suite defaults to.
+    const postBudgetCommentLookup = (body = VALID_ORDINARY_REQUEST_CHANGES_BODY) => ({
+        body,
+        reviews: {nodes: [priorRequestChanges()], pageInfo: {hasPreviousPage: false}}
+    });
+
+    const submitComment = async ({body, createdAt = '2026-07-16T13:57:04Z', reviews, activationIssue}) => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({createdAt, reviews}, activationIssue)
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'COMMENTED'}}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'COMMENT',
+            body
+        });
+
+        return {mutationCallCount, result}
+    };
+
+    // THE EVASION, replayed from the measured history behind this contract: the budget recorded ONE
+    // ordinary round while three reviewer-pushed COMMENTED rounds carried 2, 1 and 1 live action items
+    // straight past it — every one under a `### 📋 Required Action(s)` heading. Same shape here.
+    test('#17214: a post-budget COMMENT that mints a new action packet is refused', async () => {
+        const {mutationCallCount, result} = await submitComment(postBudgetCommentLookup());
+
+        expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(result.reviewBudget.outcome).toBe('post-budget-action-packet');
+        expect(result.reviewBudget.demandedActionItems).toBe(1);
+        expect(result.reviewBudget.reviewerFamily).toBe('gpt');
+        expect(result.message).toContain('does not open a new packet');
+        expect(mutationCallCount, 'the packet never reaches GitHub').toBe(0)
+    });
+
+    // The other direction, and the one that decides whether the guard is usable at all: the SAME
+    // exhausted family, the SAME PR, carrying the disposition it is supposed to carry. If this refuses,
+    // the guard has closed the terminal round instead of the evasion — which is the failure mode that
+    // matters, because a COMMENT is the only state a STILL_OPEN disposition may use.
+    test('#17214: the same post-budget family passes when the COMMENT is a carried-action disposition', async () => {
+        const {mutationCallCount, result} = await submitComment(
+            postBudgetCommentLookup(VALID_ROUND_2_REVIEW_BODY)
+        );
+
+        expect(result.error, 'a disposition is what the budget refusal ASKS for').toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // The non-vacuity control for the section scoping, and the sharpest specimen available: a verdict
+    // block is a list of UNCHECKED OPTIONS (`- [ ] **APPROVED**`, `- [ ] **MAINTAINER POLISH FAST PATH
+    // APPLIED**`), which a body-wide checkbox scan reads as two fresh demands. Verified by mutation —
+    // dropping the section scope fails exactly this test and no other.
+    test('#17214: a post-budget COMMENTED CLOSURE passes — verdict options are not demands', async () => {
+        const {mutationCallCount, result} = await submitComment(
+            postBudgetCommentLookup(VALID_MICRO_DELTA_REVIEW_BODY)
+        );
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // Budget state is the trigger, not the body. Identical packet, family that has spent nothing.
+    test('#17214: a within-budget COMMENT carrying the same packet is untouched', async () => {
+        const {mutationCallCount, result} = await submitComment({
+            body   : VALID_ORDINARY_REQUEST_CHANGES_BODY,
+            reviews: {nodes: [], pageInfo: {hasPreviousPage: false}}
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // Per-family, exactly as the RC budget is. One family's exhausted round must not silence another's
+    // first word on the PR — the same independence already pinned for REQUEST_CHANGES, now on COMMENT.
+    test('#17214: another family\'s COMMENT is untouched by the spending family\'s exhausted round', async () => {
+        RepositoryService.viewerLogin = 'neo-opus-grace';
+
+        const {mutationCallCount, result} = await submitComment(postBudgetCommentLookup());
+
+        expect(result.error, 'claude has spent nothing on this PR').toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // Grandfathered PRs stay judgment-only, matching the RC path's cutover semantics.
+    test('#17214: a pre-cutover COMMENT is untouched', async () => {
+        const {mutationCallCount, result} = await submitComment({
+            ...postBudgetCommentLookup(),
+            createdAt: '2026-07-16T13:57:02Z'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // An unresolvable activation refuses a REQUEST_CHANGES and passes a COMMENT. Same fact, opposite
+    // dispositions, because the cost of being wrong inverts with the channel: there an unbounded round,
+    // here a blocked terminal disposition. Pinned so the asymmetry cannot be "tidied" into symmetry.
+    test('#17214: an unprovable budget passes the COMMENT rather than refusing it', async () => {
+        const {mutationCallCount, result} = await submitComment({
+            ...postBudgetCommentLookup(),
+            activationIssue: activationIssueNode([])
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // AC-8. A+FU existed only as prose — the string `A+FU` appears nowhere under `ai/` — so an approval
+    // could demand work and name nobody to do it, at the exact moment the PR becomes mergeable.
+    test('#17214: an APPROVE carrying an unowned follow-up action is refused', async () => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return queryString.includes('GetPullRequestId')
+                ? pullRequestLookup()
+                : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
+        });
+
+        expect(result.code).toBe('PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED');
+        expect(result.unownedFollowUpItems).toBe(1);
+        expect(mutationCallCount).toBe(0)
+    });
+
+    // The mirror: identical body, identical approval, one issue reference added. Without this half the
+    // test above would pass against a guard that simply refuses every approval carrying a checkbox.
+    test('#17214: the same APPROVE passes once the follow-up names its owning issue', async () => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return queryString.includes('GetPullRequestId')
+                ? pullRequestLookup()
+                : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
+                '- [ ] name the boundary this must not hardcode',
+                '- [ ] name the boundary this must not hardcode — #17214'
+            )
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
+
+    // Plain APPROVE is the default merge-safe terminal outcome and must gain no new obligation. The
+    // canonical body says "No required actions", which is the shape AC-8 protects.
+    test('#17214: plain APPROVE is unchanged — no follow-up, no new anchors', async () => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return queryString.includes('GetPullRequestId')
+                ? pullRequestLookup()
+                : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
+    });
 });

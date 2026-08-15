@@ -1265,6 +1265,67 @@ function isRound2PrReview(body) {
  */
 const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
 
+const ACTION_PACKET_HEADING_PATTERN = /Required\s+Actions?\b/i;
+const ACTION_PACKET_ITEM_PATTERN    = /^[ \t]*[-*][ \t]+\[[ \t]*\][ \t]*\S/;
+const ACTION_PACKET_OWNER_PATTERN   = /#\d+|\/issues\/\d+/;
+const MARKDOWN_FENCE_PATTERN        = /^[ \t]{0,3}(`{3,}|~{3,})/;
+const MARKDOWN_HEADING_PATTERN      = /^[ \t]{0,3}#{1,6}[ \t]/;
+
+/**
+ * @summary Collects the action items a review body DEMANDS, scoped to its Required Actions section.
+ *
+ * The scope is the whole finding. An unchecked checkbox is not a demand by itself — the Micro-Delta
+ * verdict block is a list of unchecked OPTIONS (`- [ ] **APPROVED**`, `- [ ] **MAINTAINER POLISH**`),
+ * and a body-wide scan reads every one of them as a fresh action packet. That false positive would
+ * fire on every Micro-Delta review, which is to say on the exact bodies the budget exists to permit.
+ *
+ * Scoping to `Required Action(s)` is not a guess about where demands live. It was derived by replaying
+ * the review history that motivated this guard — the one where reviewer-pushed COMMENTED rounds walked
+ * live demands past a budget that recorded a single ordinary round. Every demanded item there sat
+ * under that heading, one of them spelled singular, which is why the pattern accepts both.
+ *
+ * Two exclusions fall out of the line shape rather than being special-cased:
+ * - **Blockquoted** carried actions (`> - [ ] prior action`) fail the item pattern, so quoting Round 1
+ *   verbatim — which a disposition round legitimately does — never reads as minting.
+ * - **Fenced** blocks are skipped, so a review that SHOWS an example packet does not raise one. A
+ *   fence closes only on its own marker character, so a ``` inside a ~~~ block stays content.
+ *
+ * Splitting on CR/LF only is deliberate. U+2028/U+2029 are ECMAScript SOURCE line terminators, which
+ * is why this repo's JS parsers must honour them; GitHub markdown does not break lines on them, and
+ * treating them as breaks here would import a rule from a different grammar.
+ *
+ * @param {String} body Review body.
+ * @returns {String[]} The demanded item lines, trimmed; empty when the body demands nothing.
+ */
+function collectDemandedActionItems(body) {
+    const lines = String(body || '').split(/\r\n|[\n\r]/),
+          items = [];
+
+    let fence     = null,
+        inSection = false;
+
+    for (const line of lines) {
+        const fenceMatch = MARKDOWN_FENCE_PATTERN.exec(line);
+
+        if (fenceMatch) {
+            if      (fence === null)             fence = fenceMatch[1][0];
+            else if (fenceMatch[1][0] === fence) fence = null;
+            continue
+        }
+
+        if (fence !== null) continue;
+
+        if (MARKDOWN_HEADING_PATTERN.test(line)) {
+            inSection = ACTION_PACKET_HEADING_PATTERN.test(line);
+            continue
+        }
+
+        if (inSection && ACTION_PACKET_ITEM_PATTERN.test(line)) items.push(line.trim())
+    }
+
+    return items
+}
+
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
     '# PR Review Follow-Up',
     '**Cycle:**',
@@ -1966,12 +2027,152 @@ function getPrReviewStateValidationFailure({acknowledgedRequestChanges, pr_numbe
     }
 }
 
+/**
+ * @summary Resolves how many ordinary rounds the submitting reviewer's FAMILY has already spent.
+ *
+ * Extracted so the budget refusal and the post-budget COMMENT lint count the same way. Two copies of
+ * a family count would be the same class of split the Round-2 relation check already warns about: CI
+ * and the managed service disagreeing about one contract is how a body one surface admits fails the
+ * other. A shared counter cannot drift from itself.
+ *
+ * @param {Object}      options
+ * @param {Object[]}    options.priorRequestChanges Submitted CHANGES_REQUESTED reviews.
+ * @param {String|null} options.reviewerLogin       Authenticated submitting login.
+ * @returns {{familyPrior: Number, grouped: Object, reviewerFamily: Object}}
+ */
+function resolveFamilyOrdinaryRounds({priorRequestChanges, reviewerLogin}) {
+    const reviewerFamily = resolveReviewerFamily({author: {login: reviewerLogin}}),
+          grouped        = groupReviewsByFamily(priorRequestChanges);
+
+    return {
+        familyPrior: reviewerFamily.classified ? (grouped.byFamily[reviewerFamily.family] || 0) : 0,
+        grouped,
+        reviewerFamily
+    }
+}
+
+/**
+ * @summary Refuses a post-budget COMMENT that mints a fresh action packet.
+ *
+ * Round 2 is meant to be terminal across every action-demand channel. Until this guard the budget was
+ * reached from exactly one branch — `REQUEST_CHANGES` — so a family that had spent its ordinary round
+ * could keep pushing demands through COMMENT indefinitely. That was not a predicted loophole but a
+ * measured one: on the review history behind this contract, three reviewer-pushed COMMENTED rounds
+ * carried 2, 1 and 1 live action items past a machine that recorded a single ordinary round.
+ *
+ * What refuses is the PACKET, never the channel. A COMMENT spends no budget and must stay freely
+ * available: the disposition contract requires a STILL_OPEN round to be COMMENT, so a channel-level
+ * refusal would forbid the exact round the budget depends on being reachable.
+ *
+ * Every precondition below PASSES the comment rather than refusing it, and that direction is
+ * deliberate. `REQUEST_CHANGES` fails closed because granting an unbounded round is the harm there.
+ * Here the harm inverts — refusing on an unproven premise blocks the terminal path itself — so an
+ * unprovable budget supports a pass, never a refusal.
+ *
+ * @param {Object}      options
+ * @param {String}      options.activatedAt    Cutover timestamp.
+ * @param {String}      options.body           Incoming review body.
+ * @param {Number}      options.ordinaryLimit  Ordinary RC ceiling per family.
+ * @param {Number}      options.pr_number      PR number.
+ * @param {Object}      options.pullRequest    GraphQL PR projection.
+ * @param {String|null} options.reviewerLogin  Authenticated submitting login.
+ * @returns {Object|null} Failure payload, or null when the comment is permitted.
+ */
+function getPostBudgetActionPacketFailure({activatedAt, body, ordinaryLimit, pr_number, pullRequest, reviewerLogin}) {
+    const activatedMs = Date.parse(activatedAt || ''),
+          createdMs   = Date.parse(pullRequest?.createdAt || ''),
+          reviews     = pullRequest?.reviews;
+
+    if (!Number.isFinite(activatedMs) || !Number.isInteger(ordinaryLimit) || ordinaryLimit < 1) return null;
+    if (!Number.isFinite(createdMs) || createdMs <= activatedMs)                                return null;
+    if (!Array.isArray(reviews?.nodes) || reviews?.pageInfo?.hasPreviousPage !== false)          return null;
+
+    const priorRequestChanges = reviews.nodes.filter(isSubmittedRequestChangesReview),
+
+          // An unclassifiable reviewer passes here, unlike the RC path that refuses one. It is not a
+          // waiver: that reviewer is refused every ordinary RC, so they can never establish the spent
+          // round this guard is scoped to. There is no budget of theirs to evade.
+          {familyPrior, reviewerFamily} = resolveFamilyOrdinaryRounds({priorRequestChanges, reviewerLogin});
+
+    if (!reviewerFamily.classified || familyPrior < ordinaryLimit) return null;
+
+    const demanded = collectDemandedActionItems(body);
+
+    if (demanded.length === 0) return null;
+
+    return getReviewBudgetFailure(
+        pr_number,
+        [
+            `The ${reviewerFamily.family} family has already spent its ${familyPrior}-of-${ordinaryLimit} ordinary CHANGES_REQUESTED round on PR #${pr_number},`,
+            `and this COMMENT raises ${demanded.length} new required-action item(s).`,
+            'A post-budget COMMENT carries the disposition over the EXISTING actions; it does not open a new packet.',
+            'Post the disposition (STILL_OPEN preserves the original review\'s authority), APPROVE when merge-safe,',
+            'or one validated Drop+Supersede. A fresh finding at this point is accepted risk, or a ticket you own.'
+        ].join(' '),
+        {
+            applicable                   : true,
+            activatedAt,
+            createdAt                    : pullRequest?.createdAt,
+            demandedActionItems          : demanded.length,
+            familySubmittedRequestChanges: familyPrior,
+            ordinaryLimit,
+            outcome                      : 'post-budget-action-packet',
+            reviewerFamily               : reviewerFamily.family,
+            reviewerLogin                : reviewerFamily.login
+        }
+    )
+}
+
+/**
+ * @summary Refuses an APPROVE whose follow-up actions name no owning issue.
+ *
+ * Plain APPROVE is the default merge-safe terminal outcome, and Approve-with-Follow-Up must validate
+ * the standalone-ticket counterfactual and independent ownership. That rule existed only as prose —
+ * before this guard the string `A+FU` appeared nowhere under `ai/`, only in the skill payloads — so on
+ * this one decision the reviewer's two options were an enforced rule and an unenforced one, which is
+ * not a choice between equals. This is the enforcement half; the payload keeps the rule's statement.
+ *
+ * Ownership is the checkable core of "standalone-ticket counterfactual": required work either has a
+ * ticket someone owns, or it is accepted risk. What an approval cannot do is leave work demanded and
+ * unowned at the moment the PR becomes mergeable — the point after which nobody is looking.
+ *
+ * Deliberately NOT budget-scoped, unlike its COMMENT sibling. The governing rule states no cutover
+ * condition, and this is about the shape of an approval rather than about a spent round, so a
+ * grandfathered PR gets it too.
+ *
+ * @param {Object} options
+ * @param {String} options.body      Incoming review body.
+ * @param {Number} options.pr_number PR number.
+ * @returns {Object|null} Failure payload, or null when the approval is permitted.
+ */
+function getApproveFollowUpOwnershipFailure({body, pr_number}) {
+    const unowned = collectDemandedActionItems(body).filter(item => !ACTION_PACKET_OWNER_PATTERN.test(item));
+
+    if (unowned.length === 0) return null;
+
+    return {
+        error  : 'PR Review Follow-Up Ownership Validation Failed',
+        message: [
+            `This APPROVE on PR #${pr_number} carries ${unowned.length} required-action item(s) naming no owning issue.`,
+            'Plain APPROVE is the default merge-safe terminal outcome. If the work is genuinely required it belongs to a',
+            'ticket someone owns, and the item must cite it (`#N` or an issue URL). If it is not worth a ticket it is',
+            'accepted risk, and does not belong in an approval\'s action list at all.'
+        ].join(' '),
+        code                : 'PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED',
+        pr_number,
+        unownedFollowUpItems: unowned.length
+    }
+}
+
 function getReviewBudgetFailure(pr_number, message, audit = {}) {
     return {
-        error              : 'PR Review Budget Validation Failed',
+        error: 'PR Review Budget Validation Failed',
         message,
-        code               : 'PR_REVIEW_BUDGET_VALIDATION_FAILED',
-        permittedNextStates: ['APPROVED', 'COMMENT', 'validated Drop+Supersede'],
+        code : 'PR_REVIEW_BUDGET_VALIDATION_FAILED',
+        // `COMMENT` is qualified rather than listed bare. @neo-kimi-phoebe's reading was that the
+        // overflow valve lived in this very message: it named the channel that skipped the budget, so
+        // the refusal doubled as directions to the way around itself.
+        permittedNextStates: ['APPROVED', 'COMMENT carrying the disposition over the existing actions', 'validated Drop+Supersede'],
         reviewBudget       : audit,
         pr_number
     }
@@ -2370,9 +2571,7 @@ function validatePrReviewBudget({
     // is this family's prior rounds — not the PR's total. A global count let one family's exhausted
     // budget silence a family that had never reviewed, and let a family buy extra rounds by rotating
     // identities; both are answered by counting the same way the authority defines membership.
-    const reviewerFamily = resolveReviewerFamily({author: {login: reviewerLogin}});
-    const grouped        = groupReviewsByFamily(priorRequestChanges);
-    const familyPrior    = reviewerFamily.classified ? (grouped.byFamily[reviewerFamily.family] || 0) : 0;
+    const {familyPrior, grouped, reviewerFamily} = resolveFamilyOrdinaryRounds({priorRequestChanges, reviewerLogin});
 
     const audit = {
         ...baseAudit,
@@ -3224,6 +3423,12 @@ class PullRequestService extends Base {
                 let submissionBody = body;
 
                 if (event === 'APPROVE') {
+                    const followUpOwnershipFailure = getApproveFollowUpOwnershipFailure({body, pr_number});
+
+                    if (followUpOwnershipFailure) {
+                        return followUpOwnershipFailure
+                    }
+
                     const stateValidationFailure = getPrReviewStateValidationFailure({
                         acknowledgedRequestChanges,
                         pr_number,
@@ -3232,6 +3437,33 @@ class PullRequestService extends Base {
 
                     if (stateValidationFailure) {
                         return stateValidationFailure
+                    }
+                } else if (event === 'COMMENT') {
+                    // The channel the budget could not see. Activation is resolved from the SAME
+                    // GraphQL projection the RC path uses, so reaching the budget from a second branch
+                    // costs no extra round trip — the data was already on hand and simply unread.
+                    const activationResolution = resolveReviewBudgetActivation({
+                        activationBaseRefName: this.reviewBudgetActivationBaseRefName,
+                        activationIssue,
+                        activationIssueNumber: this.reviewBudgetActivationIssueNumber,
+                        pr_number
+                    });
+
+                    // An unresolvable activation refuses a REQUEST_CHANGES and passes a COMMENT. Same
+                    // fact, opposite dispositions, because the cost of being wrong inverts with the
+                    // channel: there, an unbounded round; here, a blocked terminal disposition.
+                    const actionPacketFailure = activationResolution.activationPullRequest &&
+                        getPostBudgetActionPacketFailure({
+                            activatedAt  : activationResolution.activationPullRequest.mergedAt,
+                            body,
+                            ordinaryLimit: this.reviewBudgetOrdinaryRcLimit,
+                            pr_number,
+                            pullRequest,
+                            reviewerLogin: RepositoryService.viewerLogin
+                        });
+
+                    if (actionPacketFailure) {
+                        return actionPacketFailure
                     }
                 } else if (event === 'REQUEST_CHANGES') {
                     const activationResolution = resolveReviewBudgetActivation({

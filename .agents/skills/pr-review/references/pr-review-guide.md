@@ -168,7 +168,7 @@ If a commentId-scoped A2A arrives without prior-cycle context, that is a cold-ca
 
 ### 6.3 Budgeted Review Closure
 
-At RC2 or >24KB, load the payload. On post-cutover PRs the ordinary budget is **one submitted `CHANGES_REQUESTED` per canonical reviewer family**, counted across heads, authors, and retractions; managed submission refuses a second and fails closed on a reviewer it cannot classify. Another family retains its independent round. Grandfathered PRs stay judgment-only. Continue with the disposition round, `APPROVED`, Maintainer Polish, guarded A+FU, or validated terminal D+S; size is cost, never scope.
+At RC2 or >24KB, load the payload. On post-cutover PRs the ordinary budget is **one submitted `CHANGES_REQUESTED` per canonical reviewer family**, counted across heads, authors, and retractions; a second is refused, as is a reviewer it cannot classify. Another family keeps its independent round; grandfathered PRs stay judgment-only. The bound is the DEMAND, not the state: post-budget, a `COMMENT` may not open a new action packet, and an `APPROVED` follow-up must cite its owning issue. Continue with the disposition round, `APPROVED`, Maintainer Polish, A+FU, or validated terminal D+S; size is cost, never scope.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
