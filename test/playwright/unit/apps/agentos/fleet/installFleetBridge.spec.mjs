@@ -73,6 +73,81 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
             .toThrow(/null or a non-empty identity string/)
     });
 
+    test('the class-3 MC mint: distinct-by-contract, closure-held, shell-refused', () => {
+        const mcMint = 'C'.repeat(43);
+
+        // never aliased: a byte-identical class-1/class-3 pair is a misconfiguration, refused loud
+        expect(() => installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: testBearer, fetchImpl: okFetch(), target: {}}))
+            .toThrow(/DISTINCT mint.*never aliased/);
+        expect(() => installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: '  ', fetchImpl: okFetch(), target: {}}))
+            .toThrow(/non-empty class-3 MC credential/);
+        expect(() => installFleetBridge({credentialIngress: 'shell', mcAuthorization: mcMint, send: async () => null, target: {}}))
+            .toThrow(/mutually exclusive/);
+
+        // a valid distinct pair installs; neither mint appears on the renderable bridge surface
+        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: mcMint, fetchImpl: okFetch(), target: {}});
+
+        expect(JSON.stringify(bridge)).not.toContain(mcMint);
+        expect(JSON.stringify(bridge)).not.toContain(testBearer)
+    });
+
+    test('openWakeStream: a browser-bridge capability in closure custody; shell bridges carry none', async () => {
+        const
+            mcMint      = 'C'.repeat(43),
+            headersSeen = [],
+            target      = {};
+
+        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: mcMint, fetchImpl: okFetch(), target});
+
+        expect(Object.getOwnPropertyDescriptor(bridge, 'openWakeStream')).toMatchObject({enumerable: false});
+        expect(Object.keys(bridge).sort(), 'the capability never joins the enumerable wire surface').toEqual([...FLEET_WIRE_METHODS].sort());
+
+        const consumer = bridge.openWakeStream({
+            logger   : {warn: () => {}, error: () => {}},
+            fetchImpl: async (url, options) => {
+                headersSeen.push({url, class1: options.headers.authorization, class3: options.headers['x-neo-mc-authorization']});
+                return {ok: false, status: 503, body: null}
+            },
+            retryFloorMs: 10
+        });
+
+        consumer.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+        consumer.stop();
+
+        // the events URL derives from the fleet origin; both mints ride their OWN headers
+        expect(headersSeen[0]).toEqual({
+            url   : 'http://127.0.0.1:8083/fleet/events',
+            class1: `Bearer ${testBearer}`,
+            class3: `Bearer ${mcMint}`
+        });
+
+        // a bearer-less bridge still opens the stream — unauthenticated, honestly refused
+        const failClosed = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target: {}});
+        const bareSeen   = [];
+
+        const bareConsumer = failClosed.openWakeStream({
+            logger   : {warn: () => {}, error: () => {}},
+            fetchImpl: async (url, options) => {
+                bareSeen.push({class1: options.headers.authorization, class3: options.headers['x-neo-mc-authorization']});
+                return {ok: false, status: 401, body: null}
+            },
+            retryFloorMs: 10
+        });
+
+        bareConsumer.start();
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(bareSeen[0]).toEqual({class1: undefined, class3: undefined});
+        expect(bareConsumer.resolveDeliveryLiveness().reason).toContain('stream refused: HTTP 401');
+        bareConsumer.stop();
+
+        // packaged custody: main owns the push topology, the worker bridge carries no capability
+        const shellBridge = installFleetBridge({credentialIngress: 'shell', send: async () => null, target: {}});
+
+        expect(shellBridge.openWakeStream).toBeUndefined()
+    });
+
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});
@@ -205,7 +280,7 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
     });
 
     test('credential-shaped query params on the fleet URL are refused — the secret never rides a URL', () => {
-        for (const name of ['bearer', 'bearerToken', 'fleetBearer', 'token', 'authorization']) {
+        for (const name of ['bearer', 'bearerToken', 'fleetBearer', 'token', 'authorization', 'mcAuthorization']) {
             expect(() => installFleetBridge({url: `http://127.0.0.1:8083/fleet?${name}=abc`, fetchImpl: okFetch(), target: {}}),
                 `param ${name} must be refused`).toThrow(/never a query param/)
         }

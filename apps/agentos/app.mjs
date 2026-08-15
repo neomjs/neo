@@ -90,13 +90,16 @@ if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !global
  * @param {Object}   opts
  * @param {String}   opts.fleetUrl                         Raw dial endpoint; identity derives from its canonical form.
  * @param {String}   [opts.bearerToken=null]               Redeemed or launcher-placed bearer; `null` boots fail-closed.
+ * @param {String}   [opts.mcAuthorization=null]           The viewer's class-3 MC mint for per-viewer
+ *     wake arming — session-closure custody like the bearer, never parked on a slot; `null` is the
+ *     honest not-armed state.
  * @param {Function} [opts.installImpl=installFleetBridge] Injectable install for tests.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
  * @returns {Object} `{bridge, custodySettled}` — the bridge PUBLISHED at return time (the fresh
  *     install, or the preserved known-good one while a candidate proves itself), and a
  *     never-rejecting promise resolving `true` exactly when the ingress slot was verified-retired.
  */
-export function establishFleetSessionCustody({fleetUrl, bearerToken = null, installImpl = installFleetBridge, target = globalThis} = {}) {
+export function establishFleetSessionCustody({fleetUrl, bearerToken = null, mcAuthorization = null, installImpl = installFleetBridge, target = globalThis} = {}) {
     const existing = target.AgentOS?.fleet?.registryBridge;
 
     if (bearerToken === null && existing) {
@@ -106,13 +109,13 @@ export function establishFleetSessionCustody({fleetUrl, bearerToken = null, inst
     const
         profile    = createFleetProfile({custodian: 'session-only', endpoint: fleetUrl}),
         publishNow = !existing,
-        bridge     = installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target: publishNow ? target : {}});
+        bridge     = installImpl({url: fleetUrl, bearerToken, mcAuthorization, profileId: profile.profileId, target: publishNow ? target : {}});
 
     const custodySettled = bearerToken === null
         ? Promise.resolve(false)
         : bridge.resolveViewerIdentity()
             .then(() => {
-                publishNow || installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target});
+                publishNow || installImpl({url: fleetUrl, bearerToken, mcAuthorization, profileId: profile.profileId, target});
                 return retireBearerIngressSlot(target, {expected: bearerToken})
             })
             .catch(() => false);

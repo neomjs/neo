@@ -250,8 +250,9 @@ test.describe('FM vocabulary parity — the realm boundary carries no imports, s
             ['harnessTypes',       new URL('../../../../../../apps/agentos/config/harnessTypes.mjs', import.meta.url),       []],
             ['fleetWireMethods',   new URL('../../../../../../apps/agentos/config/fleetWireMethods.mjs', import.meta.url),   []],
             ['cockpitSources',     new URL('../../../../../../apps/agentos/config/cockpitSources.mjs', import.meta.url),     []],
-            ['connectionProfiles', new URL('../../../../../../apps/agentos/fleet/connectionProfiles.mjs', import.meta.url),  []],
-            ['installFleetBridge', new URL('../../../../../../apps/agentos/fleet/installFleetBridge.mjs', import.meta.url),  ['./connectionProfiles.mjs', '../config/fleetWireMethods.mjs']]
+            ['connectionProfiles',      new URL('../../../../../../apps/agentos/fleet/connectionProfiles.mjs', import.meta.url),      []],
+            ['fleetWakeStreamConsumer', new URL('../../../../../../apps/agentos/fleet/fleetWakeStreamConsumer.mjs', import.meta.url), []],
+            ['installFleetBridge',      new URL('../../../../../../apps/agentos/fleet/installFleetBridge.mjs', import.meta.url),      ['./connectionProfiles.mjs', './fleetWakeStreamConsumer.mjs', '../config/fleetWireMethods.mjs']]
         ];
 
         for (const [label, url, expectedImports] of sources) {

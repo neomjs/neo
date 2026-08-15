@@ -245,6 +245,37 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             await expect(first.bridge.listAgents()).rejects.toThrow(/fleet bearer not injected/)
         });
 
+        test('the class-3 MC mint rides establish into BOTH install sites — first custody and the promote', async () => {
+            const
+                mcMint = 'C'.repeat(43),
+                seen   = [],
+                target = {};
+
+            // arg-plumbing pin: the mint reaches the installer alongside the bearer, never a slot
+            const first = establishFleetSessionCustody({
+                bearerToken    : bearer,
+                fleetUrl,
+                mcAuthorization: mcMint,
+                installImpl    : opts => { seen.push(opts.mcAuthorization); return installFleetBridge({...opts, fetchImpl: okViewerFetch()}) },
+                target
+            });
+
+            await expect(first.custodySettled).resolves.toBe(false); // no slot to retire
+            expect(seen).toEqual([mcMint]);
+
+            // the promote install carries it too
+            const second = establishFleetSessionCustody({
+                bearerToken    : rotated,
+                fleetUrl,
+                mcAuthorization: mcMint,
+                installImpl    : opts => { seen.push(opts.mcAuthorization); return installFleetBridge({...opts, fetchImpl: okViewerFetch()}) },
+                target
+            });
+
+            await expect(second.custodySettled).resolves.toBe(false); // slot empty — CAS retires nothing
+            expect(seen).toEqual([mcMint, mcMint, mcMint]) // candidate + promote
+        });
+
         test('a throwing install preserves the ingress — the rollback needs no special path', async () => {
             const target = {AgentOS: {fleet: {bearerToken: 'not-a-canonical-bearer'}}};
 
