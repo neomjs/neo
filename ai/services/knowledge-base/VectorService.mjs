@@ -6,6 +6,8 @@ import TextEmbeddingService, {
 import mcConfig                from '../../mcp/server/memory-core/config.mjs';
 import {isProviderTimeoutCode} from '../../provider/createTimeoutError.mjs';
 import Base                    from '../../../src/core/Base.mjs';
+import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
+                              from '../../embeddingProviders.mjs';
 import {
     bytesToTokens,
     emitConsumerFriction
@@ -440,26 +442,23 @@ class VectorService extends Base {
     }
 
     /**
-     * Resolves the local embedding-model guardrail used before provider invocation.
+     * Resolves the embedding-model guardrail consulted before provider invocation.
      *
-     * @returns {{enabled: Boolean, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
+     * The band is provider-independent, so the guard measures EVERY provider — `recognized`
+     * is a diagnostic flag for skip receipts, never a licence to skip the measurement.
+     *
+     * @returns {{recognized: Boolean, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
      */
     resolveEmbeddingGuardrail() {
-        const localEmbeddingProviders   = new Set(['openAiCompatible', 'ollama']);
         const embeddingProvider         = mcConfig.embeddingProvider;
         const contextLimitTokens        = Number(aiConfig.localModels.embedding.contextLimitTokens);
         const safeProcessingLimitTokens = Number(aiConfig.localModels.embedding.safeProcessingLimitTokens);
-        const model                     = embeddingProvider === 'ollama'
-            ? aiConfig.ollama.embeddingModel
-            : embeddingProvider === 'openAiCompatible'
-                ? aiConfig.openAiCompatible.embeddingModel
-                : embeddingProvider;
 
         return {
-            enabled                  : localEmbeddingProviders.has(embeddingProvider),
+            recognized: IMPLEMENTED_EMBEDDING_PROVIDERS.includes(embeddingProvider),
             contextLimitTokens,
             safeProcessingLimitTokens,
-            model
+            model     : resolveEmbeddingProviderModel({embeddingProvider, aiConfig})
         };
     }
 
@@ -529,10 +528,6 @@ class VectorService extends Base {
     expandOversizedEmbeddingChunks(chunks) {
         const guardrail = this.resolveEmbeddingGuardrail();
 
-        if (!guardrail.enabled) {
-            return chunks;
-        }
-
         const expanded = [];
 
         for (const chunk of chunks) {
@@ -540,6 +535,13 @@ class VectorService extends Base {
                   evaluation = this.measureEmbeddingInput({text: inputText, guardrail});
 
             if (!evaluation.skip) {
+                expanded.push(chunk);
+                continue;
+            }
+
+            if (evaluation.measured === false) {
+                // An unmeasurable input cannot be split-planned against an unresolvable band;
+                // keep it whole — the pre-invocation boundary refuses it with the same flag.
                 expanded.push(chunk);
                 continue;
             }
@@ -736,21 +738,28 @@ class VectorService extends Base {
     /**
      * Measures provider input size without recording a final refusal diagnostic.
      *
+     * Measurement is unconditional: no provider recognition check may wave an input through
+     * unmeasured. The one unmeasurable case — a band that does not resolve to a positive
+     * finite number — refuses (`skip: true`) and says so (`measured: false`), because
+     * "cannot check" must never read as "checked, tiny".
+     *
      * @param {Object} options
      * @param {String} options.text Provider input text.
      * @param {Object} options.guardrail Resolved embedding guardrail.
-     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     * @returns {{skip: Boolean, measured: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
      */
     measureEmbeddingInput({text, guardrail}) {
-        if (!guardrail.enabled) {
-            return {skip: false, inputBytes: 0, inputTokensEstimate: 0};
+        const inputBytes          = Buffer.byteLength(text || '', 'utf8'),
+              inputTokensEstimate = bytesToTokens(inputBytes),
+              band                = Number(guardrail.safeProcessingLimitTokens);
+
+        if (!Number.isFinite(band) || band <= 0) {
+            return {skip: true, measured: false, inputBytes, inputTokensEstimate};
         }
 
-        const inputBytes          = Buffer.byteLength(text || '', 'utf8');
-        const inputTokensEstimate = bytesToTokens(inputBytes);
-
         return {
-            skip: inputTokensEstimate > guardrail.safeProcessingLimitTokens,
+            skip    : inputTokensEstimate > band,
+            measured: true,
             inputBytes,
             inputTokensEstimate
         };
@@ -763,14 +772,17 @@ class VectorService extends Base {
      * @param {Object} options.chunk Tenant-stamped chunk.
      * @param {String} options.text Provider input text.
      * @param {Object} options.guardrail Resolved embedding guardrail.
-     * @returns {{skip: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
+     * @returns {{skip: Boolean, measured: Boolean, inputBytes: Number, inputTokensEstimate: Number}}
      */
     evaluateEmbeddingInput({chunk, text, guardrail}) {
-        const {skip, inputBytes, inputTokensEstimate} = this.measureEmbeddingInput({text, guardrail});
+        const evaluation = this.measureEmbeddingInput({text, guardrail});
 
-        if (!skip) {
-            return {skip: false, inputBytes, inputTokensEstimate};
+        if (!evaluation.skip) {
+            return evaluation;
         }
+
+        const {inputBytes, inputTokensEstimate} = evaluation,
+              unmeasurable                      = evaluation.measured === false;
 
         emitConsumerFriction({
             assetRef                 : chunk.id || chunk.source || chunk.name || 'kb-chunk',
@@ -784,7 +796,9 @@ class VectorService extends Base {
             contextLimitTokens       : guardrail.contextLimitTokens,
             safeProcessingLimitTokens: guardrail.safeProcessingLimitTokens,
             serviceDomain            : 'other',
-            note                     : 'KB embedding input exceeds safe processing band; split or reduce the source chunk before embedding.'
+            note                     : unmeasurable
+                ? 'Embedding safe-processing band is unresolvable; refusing to send an unmeasured input.'
+                : 'KB embedding input exceeds safe processing band; split or reduce the source chunk before embedding.'
         });
 
         logger.warn('[VectorService] Skipping over-budget embedding chunk before provider invocation.', {
@@ -798,7 +812,7 @@ class VectorService extends Base {
             contextLimitTokens       : guardrail.contextLimitTokens
         });
 
-        return {skip: true, inputBytes, inputTokensEstimate};
+        return {...evaluation, skip: true};
     }
 
     /**

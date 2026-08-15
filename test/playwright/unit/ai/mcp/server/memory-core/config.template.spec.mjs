@@ -250,6 +250,17 @@ test.describe('Memory Core Config (#10010)', () => {
         );
     });
 
+    test('invalid NEO_EMBEDDING_PROVIDER throws a named diagnostic at config resolution', () => {
+        process.env.NEO_EMBEDDING_PROVIDER = 'openaicompatible';
+
+        // The leaf is Tier-1-owned, so the throwing parse hook (parseEmbeddingProviderEnv) fires
+        // at the Tier-1 root construction inside #applyEnvLayer — an unrecognized provider must
+        // never boot quietly.
+        expect(() => Neo.create(RootConfigBase)).toThrow(
+            /NEO_EMBEDDING_PROVIDER="openaicompatible" is not an implemented embedding provider/
+        );
+    });
+
     test('storagePaths.graph resolves by construction from the useTestDatabase toggle (ADR 0019 §A4/A8; #12491)', () => {
         // The reshape replaced the inline `process.env.UNIT_TEST_MODE ? ':memory:' : prod` leaf ternary
         // with two declarative leaves + a formula. Under the unit suite (UNIT_TEST_MODE=true) the toggle
