@@ -12,6 +12,7 @@ import {
     walkCapabilityClosure,
     walkWithAncestors
 }                     from '../../../../../../ai/scripts/lint/scriptPlaneClosure.mjs';
+import {buildAuthorityByScript} from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
 
 /**
  * The subject is the DISTINCTION, not the detection.
@@ -396,5 +397,63 @@ export default {run() { try { return spawn('git', []); } catch (e) { return null
             // Must NOT claim a host conflict: the closure found no requirement, only an unknown.
             expect(result.findings.map(f => f.kind)).not.toContain(FINDING.authorityConflictInPlane);
         });
+    });
+});
+
+test.describe('authority join — keyed on the script PATH, never on a name', () => {
+    /*
+     * The join this replaced transformed the npm entry into a task name:
+     * `ai:sync-github-workflow` -> `syncGithubWorkflow`, against an authority key of
+     * `githubWorkflowSync`. Same words, opposite order. It matched 1 of 62 entrypoints, and the
+     * `githubWorkflowSync` fixture — the case the whole authority rule exists to catch — was not
+     * among the matches. The cross-check was very nearly inert and its red-proof had been run with
+     * the authority hand-fed, so nothing failed.
+     *
+     * A task definition already carries the joinable fact: its `args` hold the resolved module path.
+     * Two names for one lane can disagree; a path is what the process actually runs.
+     */
+    const definitions = {
+        githubWorkflowSync: {command: 'node', args: ['/repo/ai/scripts/maintenance/syncGithubWorkflow.mjs']},
+        backup            : {command: 'node', args: ['/repo/ai/scripts/maintenance/backup.mjs']},
+        chromaServer      : {command: 'chroma', args: ['run', '--path', '/data']},
+        unmapped          : {command: 'node', args: ['/repo/ai/scripts/maintenance/nomap.mjs']}
+    };
+    const authorityByName = {
+        githubWorkflowSync: 'host-edge',
+        backup            : 'container-plane',
+        chromaServer      : 'shared-primitive'
+    };
+
+    test('joins on the module path a task actually executes', () => {
+        const map = buildAuthorityByScript({definitions, authorityByName, projectRoot: '/repo'});
+
+        expect(map['ai/scripts/maintenance/syncGithubWorkflow.mjs']).toEqual({
+            taskName: 'githubWorkflowSync', authorityClass: 'host-edge'
+        });
+    });
+
+    test('the fixture the NAME-based join could never reach is joined', () => {
+        // The regression arm. `ai:sync-github-workflow` camelises to `syncGithubWorkflow`, which is
+        // not the authority key — so any name transformation misses this and reports no authority,
+        // which reads identically to "this entrypoint has no declared plane".
+        const map   = buildAuthorityByScript({definitions, authorityByName, projectRoot: '/repo'}),
+              camel = 'ai:sync-github-workflow'.replace(/^ai:/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+
+        expect(camel, 'the name transformation genuinely produces the wrong key').toBe('syncGithubWorkflow');
+        expect(camel in authorityByName, 'and that key is absent from the authority map').toBe(false);
+        expect(map['ai/scripts/maintenance/syncGithubWorkflow.mjs'].authorityClass).toBe('host-edge');
+    });
+
+    test('a task with no .mjs arg is skipped rather than guessed at', () => {
+        const map = buildAuthorityByScript({definitions, authorityByName, projectRoot: '/repo'});
+
+        expect(Object.values(map).some(entry => entry.taskName === 'chromaServer')).toBe(false);
+    });
+
+    test('a task absent from the authority map contributes nothing', () => {
+        // Presence in taskDefinitions is not an authority claim; only the authority map is.
+        const map = buildAuthorityByScript({definitions, authorityByName, projectRoot: '/repo'});
+
+        expect(map['ai/scripts/maintenance/nomap.mjs']).toBeUndefined();
     });
 });

@@ -2,6 +2,7 @@ import {createRequire} from 'node:module';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
+import {buildTaskDefinitions}   from '../../daemons/orchestrator/taskDefinitions.mjs';
 import {TASK_AUTHORITY_BY_NAME} from '../../daemons/orchestrator/taskAuthority.mjs';
 import {
     FINDING,
@@ -76,19 +77,41 @@ export function readEntrypoints(scripts = require(path.join(PROJECT_ROOT, 'packa
 }
 
 /**
- * @summary Task name for an npm script, when the orchestrator declares one.
+ * @summary Joins orchestrator tasks to the module each one actually executes.
  *
- * The npm entry `ai:github-workflow-sync` and the task `githubWorkflowSync` are the same lane under
- * two spellings, so the bridge is a normalisation rather than a second registry to keep in sync.
+ * **Keyed on the script PATH, never on a name.** The first version of this transformed the npm entry
+ * into a task name — `ai:sync-github-workflow` → `syncGithubWorkflow` — and the authority map's key
+ * is `githubWorkflowSync`. Same words, opposite order. That join matched **1 of 62** entrypoints, so
+ * the authority cross-check was very nearly inert and the `githubWorkflowSync` fixture, which the
+ * whole rule exists to catch, was not among the matches.
  *
- * @param {String} npmName e.g. `ai:github-workflow-sync`.
- * @param {Object} [authorityByName] Injectable for tests.
- * @returns {String|null}
+ * A task definition already carries the joinable fact: its `args` contain the resolved module path.
+ * Two names for one lane can disagree; a path is what the process actually runs.
+ *
+ * @param {Object} [options]
+ * @returns {Object} repo-relative script path -> `{taskName, authorityClass}`.
  */
-export function taskNameFor(npmName, authorityByName = TASK_AUTHORITY_BY_NAME) {
-    const camel = npmName.replace(/^ai:/, '').replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+export function buildAuthorityByScript({
+    definitions     = buildTaskDefinitions({}),
+    authorityByName = TASK_AUTHORITY_BY_NAME,
+    projectRoot     = PROJECT_ROOT
+} = {}) {
+    const byScript = {};
 
-    return camel in authorityByName ? camel : null
+    Object.entries(definitions).forEach(([taskName, definition]) => {
+        const script = (definition?.args ?? []).find(arg => typeof arg === 'string' && arg.endsWith('.mjs'));
+
+        if (!script || !(taskName in authorityByName)) {
+            return
+        }
+
+        byScript[path.relative(projectRoot, path.resolve(script))] = {
+            taskName,
+            authorityClass: authorityByName[taskName]
+        }
+    });
+
+    return byScript
 }
 
 /**
@@ -106,24 +129,24 @@ export function taskNameFor(npmName, authorityByName = TASK_AUTHORITY_BY_NAME) {
  * @returns {Object} `{folder: {planes, mixed, entrypoints}}`, folder-keyed and sorted.
  */
 export function buildPlaneProjection({
-    entrypoints     = readEntrypoints(),
-    authorityByName = TASK_AUTHORITY_BY_NAME,
-    projectRoot     = PROJECT_ROOT
+    entrypoints       = readEntrypoints(),
+    authorityByScript = buildAuthorityByScript(),
+    projectRoot       = PROJECT_ROOT
 } = {}) {
     const byFolder = {};
 
-    entrypoints.forEach(({name, rel}) => {
+    entrypoints.forEach(({rel}) => {
         const
-            folder   = rel.slice(0, rel.lastIndexOf('/')),
-            closure  = walkCapabilityClosure({entrypoint: path.join(projectRoot, rel)}),
-            taskName = taskNameFor(name, authorityByName),
-            {plane}  = resolveEntrypointPlane({
+            folder    = rel.slice(0, rel.lastIndexOf('/')),
+            closure   = walkCapabilityClosure({entrypoint: path.join(projectRoot, rel)}),
+            authority = authorityByScript[rel] ?? null,
+            {plane}   = resolveEntrypointPlane({
                 closure,
-                authorityClass: taskName ? authorityByName[taskName] : null,
-                taskName,
+                authorityClass: authority?.authorityClass ?? null,
+                taskName      : authority?.taskName ?? null,
                 entrypoint    : rel
             }),
-            key      = plane ?? 'unresolved';
+            key       = plane ?? 'unresolved';
 
         byFolder[folder] ??= {planes: {}, mixed: false, entrypoints: {}};
         byFolder[folder].planes[key] = (byFolder[folder].planes[key] ?? 0) + 1;
@@ -144,7 +167,7 @@ export function buildPlaneProjection({
  */
 export function runLint({
     entrypoints      = readEntrypoints(),
-    authorityByName  = TASK_AUTHORITY_BY_NAME,
+    authorityByScript = buildAuthorityByScript(),
     baseline         = UNRESOLVED_EDGE_BASELINE,
     projectRoot      = PROJECT_ROOT
 } = {}) {
@@ -154,14 +177,14 @@ export function runLint({
 
     let unresolved = 0;
 
-    entrypoints.forEach(({name, rel}) => {
+    entrypoints.forEach(({rel}) => {
         const
-            closure  = walkCapabilityClosure({entrypoint: path.join(projectRoot, rel)}),
-            taskName = taskNameFor(name, authorityByName),
-            result   = resolveEntrypointPlane({
+            closure   = walkCapabilityClosure({entrypoint: path.join(projectRoot, rel)}),
+            authority = authorityByScript[rel] ?? null,
+            result    = resolveEntrypointPlane({
                 closure,
-                authorityClass: taskName ? authorityByName[taskName] : null,
-                taskName,
+                authorityClass: authority?.authorityClass ?? null,
+                taskName      : authority?.taskName ?? null,
                 entrypoint    : rel
             });
 
