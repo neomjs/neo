@@ -87,23 +87,23 @@ jobs:
       # the corpus is emitted under the READER identity and does not consume this token at all, yet
       # an ENRICHMENT credential decided whether the whole repository published.
       #
-      # The realistic triggers are ordinary administration: a rotated or expired private key, or an
-      # installation removed from a repository this step names. Both fail the mint for real.
+      # `create-github-app-token` fails the step when the credential cannot serve the request —
+      # measured both ways, and BOTH are real triggers:
       #
-      # NOT a trigger, contrary to an earlier revision of this comment: requesting a permission the
-      # installation lacks. Measured (run 31877595849) — the step was asked for
-      # `permission-deployments: write`, which this installation does not hold, and it SUCCEEDED.
-      # The action does not validate requested permissions against the installation, so a permission
-      # revoked on the App degrades the CAPABILITY (and #17148's deferral absorbs that) rather than
-      # killing the mint. Worth stating because the inverse belief makes a mint success look like
-      # proof the token carries what was asked for, and it is not.
+      #   permission not granted to the installation -> "The permissions requested are not granted
+      #     to this installation."                                          (run 31877595849)
+      #   named repository has no installation       -> "Not Found"         (run 31879164402)
       #
-      # Degrading here needs no new error path. A failed mint leaves `outputs.token` empty, the empty
-      # `DATA_SYNC_INTAKE_TOKEN` reaches `assertDataSyncAccess`, which throws "No intake token was
-      # provided", and `emitGeneratedData` already DEFERS a preflight failure: every stage still runs,
-      # the corpus publishes, and the deferred error is rethrown so the run still exits non-zero. The
-      # failure moves later; it does not disappear. A silently green run over a dead intake would be
-      # strictly worse than the freeze this replaces.
+      # plus a rotated or expired private key, untestable here. So an ordinary administration action
+      # on `neomjs-devindex-intake` can fail this mint, and #17150 adds a `contents` grant that
+      # widens that surface — workflow line and App grant become a pair that must move together.
+      #
+      # READ THE LOG, NOT THE STEP STATUS, when checking whether this mint worked. `continue-on-error`
+      # sets `conclusion: success` on a FAILED step (`outcome` keeps the failure), so once this guard
+      # is in place a failed mint renders green in `gh run view --json jobs`. That is the guard
+      # working, not the mint succeeding — and reading the status instead of the log is how an earlier
+      # revision of this comment came to assert, wrongly, that the mint cannot fail at all.
+
       - name: Mint Intake installation token
         id: intake-token
         continue-on-error: true
