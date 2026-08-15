@@ -12,12 +12,17 @@ const
 /**
  * check-fixed-sleeps.mjs — baseline reconciliation.
  *
- * The load-bearing case is the third one. These sites are overwhelmingly the byte-identical line
- * `setTimeout(resolve, 1000)` — 64 occurrences in a single spec file — so any reconciliation keyed on
- * file+text alone collapses them into ONE entry. Removing 63 of the 64 then leaves the key still
- * matching, nothing stale, and the guard green: a baseline that permits 64 sites forever while one
- * remains. That is weaker than the per-file count this baseline was deliberately chosen OVER, wearing
- * per-site clothes, and it is why reconciliation counts occurrences rather than testing membership.
+ * The load-bearing case is the third one. These sites are overwhelmingly ONE byte-identical line,
+ * `setTimeout(resolve, 1000)`, repeated dozens of times in a single spec file — so any reconciliation
+ * keyed on file+text alone collapses them into ONE entry. Removing all but one then leaves the key
+ * still matching, nothing stale, and the guard green: a baseline that permits the original population
+ * forever while a single site remains. That is weaker than the per-file count this baseline was
+ * deliberately chosen OVER, wearing per-site clothes, and it is why reconciliation counts occurrences
+ * rather than testing membership.
+ *
+ * The fixtures below say 64 because a fixture is a stated premise, not a measurement — `site(64)` is
+ * true by construction. The prose above deliberately does NOT, because that would be a claim about a
+ * tree that moves: it read 64 while the tree held 63 until a reviewer caught it.
  *
  * Line numbers are deliberately NOT part of the key: they shift under any edit above them, so keying
  * on them turns every unrelated change into a wall of false staleness — a guard nobody can keep green
@@ -144,6 +149,76 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
             expect(sites.map(entry => entry.ms), 'every legal spelling of the threshold is read as milliseconds')
                 .toEqual([5000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]);
             expect(sites.length, 'the second call on line 1 is not shadowed by the first').toBe(9);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('FORMATTING is not a bypass either — multiline, parenthesised, and comment-interposed calls', async () => {
+        // Found by @neo-gpt on re-review, after the spelling bypasses above were already closed: the
+        // matcher was applied one source LINE at a time, so a call the parser reads as a single
+        // 1000ms wait produced zero candidates whenever a newline or a comment fell inside it. Three
+        // more legal ways to write the same wait, each reported as no wait at all.
+        //
+        // This is why discovery moved to the parse tree. Spellings are enumerable and the previous
+        // fix enumerated them; FORMATTING is not, because whitespace and comments may sit between any
+        // two tokens. A text pattern cannot be made complete here — it can only be made longer.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-fmt-')),
+            fixture = path.join(dir, 'formatting.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, [
+                // The control: the single-line form the line-based matcher already caught. It anchors
+                // the other three — without it a zero-detection bug would read as a passing test.
+                "await new Promise(resolve => setTimeout(resolve, 1000));",
+                // 1. The call spans lines, so no single line holds the whole pattern.
+                "await new Promise(resolve => setTimeout(",
+                "    resolve,",
+                "    1000",
+                "));",
+                // 2. The delay is parenthesised — the parser reads the same Literal 1000.
+                "await new Promise(resolve => setTimeout(resolve, (1000)));",
+                // 3. A comment sits between the arguments.
+                "await new Promise(resolve => setTimeout(resolve, /* settle */ 1000));",
+                // The negative control travels with them: widening what the guard SEES must not widen
+                // what it REFUSES, and a named constant stays out regardless of how it is formatted.
+                "await new Promise(resolve => setTimeout(",
+                "    resolve,",
+                "    DELAY_MS",
+                "));"
+            ].join('\n'), 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.map(entry => entry.ms), 'all four forms are one 1000ms wait each')
+                .toEqual([1000, 1000, 1000, 1000]);
+            // Line numbers, because "four sites" would also pass if the guard found the control four
+            // times. Each must be the site it claims: the multiline call reports its FIRST line, which
+            // is what keys the baseline.
+            expect(sites.map(entry => entry.line), 'each form is found at its own call site')
+                .toEqual([1, 2, 6, 7]);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('an unparseable spec is reported, never skipped', async () => {
+        // A guard that swallows a parse failure reports the same OK for "nothing to find" and "could
+        // not look", and those differ by exactly the thing it exists to catch.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-bad-')),
+            fixture = path.join(dir, 'broken.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, 'const = ;', 'utf8');
+
+            expect(() => findUnjustifiedSleeps({files: [fixture], rootDir: dir}))
+                .toThrow(/cannot parse/)
         } finally {
             fs.rmSync(dir, {force: true, recursive: true})
         }

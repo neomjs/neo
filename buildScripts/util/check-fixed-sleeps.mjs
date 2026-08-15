@@ -67,17 +67,23 @@
  * entries, and reconciliation compares OCCURRENCE COUNTS in both directions: above the allowance is
  * fresh, below it is stale. The baseline may only shrink and cannot outlive the sites it grandfathers.
  *
- * Counting rather than testing membership is load-bearing. These sites are overwhelmingly the
- * byte-identical line `setTimeout(resolve, 1000)` — 64 occurrences in one file — so a key of file+text
- * collapses them into a single entry, and removing 63 of the 64 leaves that key still matching, nothing
- * stale, and the guard green. Site granularity was chosen precisely so a conversion (a sleep becoming a
- * readiness poll) could not be absorbed silently; membership keys hand back the very weakness the
- * choice rejected.
+ * Counting rather than testing membership is load-bearing. These sites are overwhelmingly ONE
+ * byte-identical line, `setTimeout(resolve, 1000)`, repeated dozens of times in a single file — so a
+ * key of file+text collapses them into a single entry, and removing all but one of them leaves that
+ * key still matching, nothing stale, and the guard green. Site granularity was chosen precisely so a
+ * conversion (a sleep becoming a readiness poll) could not be absorbed silently; membership keys hand
+ * back the very weakness the choice rejected.
+ *
+ * The live count is deliberately NOT written here. It is in the baseline, which is the one place that
+ * has to be right, and a second copy in prose is a second thing to keep true: this comment said 64
+ * while the tree held 63 for as long as it took a reviewer to notice, inside the file whose whole
+ * subject is counts being accurate. A number worth citing is worth reading from its source.
  *
  * Line numbers stay OUT of the key on purpose: they shift under any edit above them, so keying on them
  * turns every unrelated change into a wall of false staleness — and a guard nobody can keep green gets
  * routed around, which is the failure this ticket is about.
  */
+import {parse}         from 'acorn';
 import fs              from 'node:fs';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -88,31 +94,61 @@ const
     LOOKBEHIND     = 3,
     ROOT_DIR       = process.cwd(),
     SCAN_ROOT      = 'test/playwright/unit',
-    // Global, and the delay is captured as a permissive TOKEN rather than a hand-rolled numeric
-    // grammar. This pattern has now been wrong twice in the same direction: `(\d+)` missed `1_000` and
-    // `1e3`, and the decimal-shaped replacement still missed `0x3e8`, `0o1750`, `0b1111101000`, `1000.`
-    // and `.1e4` — every one a legal spelling of this exact threshold. Enumerating spellings loses to
-    // the language, because the language keeps having more of them.
-    //
-    // So the token is matched loosely and `Number` decides, since `Number` IS the parser the runtime
-    // uses on this argument. Anything that is not a number — an identifier, a named constant, a call —
-    // yields NaN and is skipped, which is the verdict a stricter pattern reached by failing to match.
-    // Delegating to the real parser is not a shortcut here; it is the only way the guard's claim can be
-    // true for spellings its author never thought of.
-    SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*([\w.+\-]+)\s*\)/g,
     THRESHOLD_MS   = 1000;
 
 /**
- * @summary Reads a JavaScript numeric literal as milliseconds.
+ * @summary Yields every `CallExpression` in an ESTree tree.
  *
- * Separators are cosmetic to the language, so they are cosmetic here; exponential form is left to
- * `Number`, which is the same parser the runtime uses. Comparing by VALUE is the point — the guard's
- * subject is how long a spec waits, never how the author spelled it.
- * @param {String} literal As captured from source.
- * @returns {Number} Milliseconds, or `NaN` when the literal is unreadable.
+ * A generic descent rather than a dependency: the walk needs one node type, and `acorn-walk` would be
+ * a second package to keep in step with the parser for that. `loc` is skipped because it is metadata
+ * with a `start` object that the descent would otherwise recurse into for nothing.
+ * @param {Object} node Any ESTree node, array of nodes, or leaf.
+ * @yields {Object} Each `CallExpression`, in source order.
  */
-function toMs(literal) {
-    return Number(literal.replaceAll('_', ''))
+function* callExpressions(node) {
+    if (node === null || typeof node !== 'object') return;
+
+    if (Array.isArray(node)) {
+        for (const child of node) yield* callExpressions(child);
+        return
+    }
+
+    if (node.type === 'CallExpression') yield node;
+
+    for (const key of Object.keys(node)) {
+        if (key !== 'loc') yield* callExpressions(node[key])
+    }
+}
+
+/**
+ * @summary Reads a `setTimeout` call's delay in milliseconds, or `NaN` when it is not a fixed wait.
+ *
+ * The delay comes off the parsed node rather than off text, so every spelling of this threshold —
+ * `1_000`, `1e3`, `0x3e8`, `0o1750`, `0b1111101000`, `1000.`, `.1e4`, and `(1000)` — arrives as the
+ * same `Literal` value of 1000. That is the whole reason this moved to the AST: the previous matcher
+ * was wrong twice in the same direction while enumerating spellings, because the language keeps
+ * having more of them, and it was wrong a third time on FORMATTING, which has no bottom at all.
+ *
+ * A named constant is an `Identifier`, not a `Literal`, so it yields `NaN` and is skipped — the wait
+ * names what it waits for, which is exactly what this guard asks of it.
+ * @param {Object} node A `CallExpression` node.
+ * @returns {Number} Milliseconds, or `NaN` when this is not a fixed-delay `setTimeout`.
+ */
+function fixedWaitMs(node) {
+    if (node.callee?.type !== 'Identifier' || node.callee.name !== 'setTimeout') return NaN;
+
+    // The callback arm stays an IDENTIFIER, which is the contract the previous matcher enforced through
+    // its `[A-Za-z_$][\w$]*` group. Dropping the restriction is defensible on the merits — an inline
+    // `setTimeout(() => {…}, 8000)` waits just as long — but it is a widening of SCOPE, not the
+    // formatting-independence this change is for, and it is not free: measured against the tree at this
+    // head, the unrestricted walk surfaces 63 further unaccounted sites. Baselining 63 rows inside a fix
+    // for three parse forms would make one diff argue two different cases. Deferred with its number
+    // taken, so the successor starts from evidence instead of re-measuring.
+    if (node.arguments[0]?.type !== 'Identifier') return NaN;
+
+    const delay = node.arguments[1];
+
+    return delay?.type === 'Literal' && typeof delay.value === 'number' ? delay.value : NaN
 }
 
 // The workflow-parity SSOT: every glob this guard READS, so the sibling scanned-subset-of-watched
@@ -160,60 +196,63 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
         found   = [];
 
     for (const abs of specs) {
-        const lines = fs.readFileSync(abs, 'utf8').split('\n');
+        const
+            source = fs.readFileSync(abs, 'utf8'),
+            lines  = source.split('\n');
 
-        lines.forEach((text, index) => {
-            // A guard that fires on prose ABOUT itself is a noise generator, and a noisy gate gets
-            // routed around within a week — the trap this whole ticket is against. The pattern appears
-            // legitimately in comments explaining the rule and in fixture strings inside this guard's
-            // own spec, neither of which sleeps. A comment LINE is skipped whole; a quoted literal is
-            // judged per match, because one line can hold both a string and a real call.
-            const head = text.trimStart();
+        let tree;
 
-            if (head.startsWith('//') || head.startsWith('*') || head.startsWith('/*')) return;
+        // A file the guard cannot read is reported, never skipped. Skipping is the exact failure this
+        // guard exists to prevent — an unscanned file is indistinguishable from a clean one, and the
+        // difference only surfaces as a wait nobody accounted for.
+        try {
+            tree = parse(source, {ecmaVersion: 'latest', locations: true, sourceType: 'module'})
+        } catch (cause) {
+            throw new Error(`check-fixed-sleeps: cannot parse ${path.relative(rootDir, abs)}`, {cause})
+        }
 
-            // EVERY candidate on the line, not just the leftmost. A non-global `exec` returns one match,
-            // so a sub-threshold call earlier on the same line consumed the only inspection the line
-            // ever got and the real site behind it was never examined. A gate that stops at the first
-            // thing it sees is not a census — it is a sample of size one, and the bypass costs nothing
-            // to write by accident.
-            for (const match of text.matchAll(SLEEP_RE)) {
-                const ms = toMs(match[1]);
+        // Candidates come off the PARSE TREE, not off text. The matcher this replaced read one source
+        // line at a time, so a call split across lines, a delay in parentheses, and an interposed
+        // comment each produced zero candidates — three parser-valid fixed waits, silently green.
+        // Formatting has no bottom: every fix to a text pattern invites the next spelling.
+        //
+        // It also DELETES work rather than adding it. The old path needed a comment-line skip and four
+        // quote-balancing tests to keep prose and fixture strings from firing the guard; the parser
+        // never hands those over in the first place, because they are not calls.
+        for (const node of callExpressions(tree)) {
+            const ms = fixedWaitMs(node);
 
-                if (!Number.isFinite(ms) || ms < THRESHOLD_MS) continue;
+            if (!Number.isFinite(ms) || ms < THRESHOLD_MS) continue;
 
-                const before = text.slice(0, match.index);
+            const
+                index   = node.loc.start.line - 1,
+                // The site's FIRST line keys the baseline, which is what keeps existing rows matching:
+                // for a single-line call this is the same string the line-based matcher produced.
+                text    = lines[index] ?? '',
+                context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
 
-                if (/['"`]/.test(before.slice(before.lastIndexOf(' ') + 1))) continue;
-                if ((before.match(/'/g) || []).length % 2 === 1) continue;
-                if ((before.match(/"/g) || []).length % 2 === 1) continue;
-                if ((before.match(/`/g) || []).length % 2 === 1) continue;
-
-                const context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
-
-                // An `out-waits:` site is DISCHARGED here and simultaneously recorded as backlog. Both
-                // are true at once and the distinction is the whole point: the wait is now accounted for,
-                // and the constant it names is still hardcoded, so the wall clock is still being paid.
-                if (context.includes('out-waits:')) {
-                    backlog.push({
-                        file: path.relative(rootDir, abs).replaceAll('\\', '/'),
-                        line: index + 1,
-                        ms
-                    });
-
-                    continue
-                }
-
-                if (JUSTIFICATIONS.some(marker => context.includes(marker))) continue;
-
-                found.push({
+            // An `out-waits:` site is DISCHARGED here and simultaneously recorded as backlog. Both
+            // are true at once and the distinction is the whole point: the wait is now accounted for,
+            // and the constant it names is still hardcoded, so the wall clock is still being paid.
+            if (context.includes('out-waits:')) {
+                backlog.push({
                     file: path.relative(rootDir, abs).replaceAll('\\', '/'),
                     line: index + 1,
-                    ms,
-                    text: text.trim()
-                })
+                    ms
+                });
+
+                continue
             }
-        })
+
+            if (JUSTIFICATIONS.some(marker => context.includes(marker))) continue;
+
+            found.push({
+                file: path.relative(rootDir, abs).replaceAll('\\', '/'),
+                line: index + 1,
+                ms,
+                text: text.trim()
+            })
+        }
     }
 
     // A plain object, never an array carrying an extra property: `toEqual([])` fails against an array
@@ -237,12 +276,12 @@ export function reconcile({found, baseline}) {
         fresh = [],
         stale = [];
 
-    // COUNTS, not membership. 64 of these sites are the byte-identical line `setTimeout(resolve,
-    // 1000)`, so a Set keyed on file+text collapses them to ONE entry — and removing 63 of the 64
-    // would leave the key still matching, nothing stale, and the guard green. That is weaker than the
-    // per-file count the baseline was chosen OVER, wearing per-site clothes. Counting occurrences
-    // restores site granularity without keying on line numbers, which shift under any edit above them
-    // and would turn every unrelated change into a wall of false staleness.
+    // COUNTS, not membership. Most of these sites are ONE byte-identical line, `setTimeout(resolve,
+    // 1000)`, repeated dozens of times in a single file, so a Set keyed on file+text collapses them to
+    // ONE entry — and removing all but one would leave the key still matching, nothing stale, and the
+    // guard green. That is weaker than the per-file count the baseline was chosen OVER, wearing
+    // per-site clothes. Counting occurrences restores site granularity without keying on line numbers,
+    // which shift under any edit above them and would turn every unrelated change into false staleness.
     for (const [id, count] of live) {
         const allowed = rowed.get(id) || 0;
 
