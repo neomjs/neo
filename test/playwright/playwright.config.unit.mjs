@@ -206,8 +206,19 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly   : !!process.env.CI,
     retries      : process.env.CI ? 2 : 0,
-    workers      : process.env.CI ? 1 : undefined,
-    reporter     : [['json', {outputFile: path.join(__dirname, 'test-results/unit/test-results.json')}]],
-    use          : {trace: 'on-first-retry'},
-    projects     : buildProjects({brainPresent})
+    // Re-land of the measured ~2.7× win. `1` was not a preference — it was the mask: single-worker
+    // ordering hides cross-file isolation defects, three of which were found and fixed by the
+    // enabler leaves before this flip became re-attemptable.
+    //
+    // Local is NOT the instrument. The local runner cannot hold a wide unit run (the Chroma/web-server
+    // lifecycle contends), and single-worker local green says nothing about ordering that only exists
+    // at four. The falsifier lives in CI, which is why this ships as a probe rather than a claim.
+    //
+    // Read `retries: 2` above together with this line: a retry can convert an isolation flake into a
+    // reported pass, so a green sample is only evidence when its retry count is ZERO. Green-after-retry
+    // is the failure this flip exists to surface, wearing a pass.
+    workers : process.env.CI ? 4 : undefined,
+    reporter: [['json', {outputFile: path.join(__dirname, 'test-results/unit/test-results.json')}]],
+    use     : {trace: 'on-first-retry'},
+    projects: buildProjects({brainPresent})
 });
