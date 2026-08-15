@@ -88,8 +88,25 @@ const
     LOOKBEHIND     = 3,
     ROOT_DIR       = process.cwd(),
     SCAN_ROOT      = 'test/playwright/unit',
-    SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*(\d+)\s*\)/,
+    // Global, and the delay is captured as a NUMERIC LITERAL rather than a digit run. `(\d+)` could not
+    // see `1_000` or `1e3` at all — both are ordinary JavaScript spellings of this threshold, and both
+    // slipped the gate completely rather than merely being mis-measured. A guard that reads source has
+    // to read the language's literals, not the subset its author happened to type.
+    SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*([0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)\s*\)/g,
     THRESHOLD_MS   = 1000;
+
+/**
+ * @summary Reads a JavaScript numeric literal as milliseconds.
+ *
+ * Separators are cosmetic to the language, so they are cosmetic here; exponential form is left to
+ * `Number`, which is the same parser the runtime uses. Comparing by VALUE is the point — the guard's
+ * subject is how long a spec waits, never how the author spelled it.
+ * @param {String} literal As captured from source.
+ * @returns {Number} Milliseconds, or `NaN` when the literal is unreadable.
+ */
+function toMs(literal) {
+    return Number(literal.replaceAll('_', ''))
+}
 
 // The workflow-parity SSOT: every glob this guard READS, so the sibling scanned-subset-of-watched
 // spec can demand the workflow watch them. The baseline belongs here as much as the specs do — it is
@@ -139,47 +156,56 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
         const lines = fs.readFileSync(abs, 'utf8').split('\n');
 
         lines.forEach((text, index) => {
-            const match = SLEEP_RE.exec(text);
-
-            if (!match || Number(match[1]) < THRESHOLD_MS) return;
-
             // A guard that fires on prose ABOUT itself is a noise generator, and a noisy gate gets
             // routed around within a week — the trap this whole ticket is against. The pattern appears
             // legitimately in comments explaining the rule and in fixture strings inside this guard's
-            // own spec, neither of which sleeps. Skip a match that is inside a comment line or inside a
-            // quoted literal on its own line.
-            const before = text.slice(0, match.index),
-                  head   = text.trimStart();
+            // own spec, neither of which sleeps. A comment LINE is skipped whole; a quoted literal is
+            // judged per match, because one line can hold both a string and a real call.
+            const head = text.trimStart();
 
             if (head.startsWith('//') || head.startsWith('*') || head.startsWith('/*')) return;
-            if (/['"`]/.test(before.slice(before.lastIndexOf(' ') + 1))) return;
-            if ((before.match(/'/g) || []).length % 2 === 1) return;
-            if ((before.match(/"/g) || []).length % 2 === 1) return;
-            if ((before.match(/`/g) || []).length % 2 === 1) return;
 
-            const context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
+            // EVERY candidate on the line, not just the leftmost. A non-global `exec` returns one match,
+            // so a sub-threshold call earlier on the same line consumed the only inspection the line
+            // ever got and the real site behind it was never examined. A gate that stops at the first
+            // thing it sees is not a census — it is a sample of size one, and the bypass costs nothing
+            // to write by accident.
+            for (const match of text.matchAll(SLEEP_RE)) {
+                const ms = toMs(match[1]);
 
-            // An `out-waits:` site is DISCHARGED here and simultaneously recorded as backlog. Both
-            // are true at once and the distinction is the whole point: the wait is now accounted for,
-            // and the constant it names is still hardcoded, so the wall clock is still being paid.
-            if (context.includes('out-waits:')) {
-                backlog.push({
+                if (!Number.isFinite(ms) || ms < THRESHOLD_MS) continue;
+
+                const before = text.slice(0, match.index);
+
+                if (/['"`]/.test(before.slice(before.lastIndexOf(' ') + 1))) continue;
+                if ((before.match(/'/g) || []).length % 2 === 1) continue;
+                if ((before.match(/"/g) || []).length % 2 === 1) continue;
+                if ((before.match(/`/g) || []).length % 2 === 1) continue;
+
+                const context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
+
+                // An `out-waits:` site is DISCHARGED here and simultaneously recorded as backlog. Both
+                // are true at once and the distinction is the whole point: the wait is now accounted for,
+                // and the constant it names is still hardcoded, so the wall clock is still being paid.
+                if (context.includes('out-waits:')) {
+                    backlog.push({
+                        file: path.relative(rootDir, abs).replaceAll('\\', '/'),
+                        line: index + 1,
+                        ms
+                    });
+
+                    continue
+                }
+
+                if (JUSTIFICATIONS.some(marker => context.includes(marker))) continue;
+
+                found.push({
                     file: path.relative(rootDir, abs).replaceAll('\\', '/'),
                     line: index + 1,
-                    ms  : Number(match[1])
-                });
-
-                return
+                    ms,
+                    text: text.trim()
+                })
             }
-
-            if (JUSTIFICATIONS.some(marker => context.includes(marker))) return;
-
-            found.push({
-                file: path.relative(rootDir, abs).replaceAll('\\', '/'),
-                line: index + 1,
-                ms  : Number(match[1]),
-                text: text.trim()
-            })
         })
     }
 

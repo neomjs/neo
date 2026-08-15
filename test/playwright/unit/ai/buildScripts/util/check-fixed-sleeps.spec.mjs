@@ -1,4 +1,6 @@
 import {test, expect}  from '@playwright/test';
+import fs              from 'node:fs';
+import os              from 'node:os';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -74,6 +76,68 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         });
 
         expect(sites).toEqual([]);
+    });
+
+    test('a bypass is a spelling the guard cannot read — every candidate, and the delay by VALUE', async () => {
+        // Three executable bypasses, found by @neo-gpt reading the matcher rather than trusting its
+        // green run against the tree. Each is a legal way to write a one-second wait that the guard
+        // reported as no wait at all — the most expensive kind of gate, because it prints OK.
+        //
+        //   1. `exec` without /g returns the LEFTMOST match, so a sub-threshold call earlier on the
+        //      line consumed the line's only inspection and the real site behind it went unexamined.
+        //   2. `1_000` and 3. `1e3` are ordinary JavaScript spellings of 1000 that a `(\d+)` capture
+        //      cannot match at all — not mis-measured, invisible.
+        //
+        // The fixture lives on disk rather than in this file because the guard's own noise-control
+        // asserts THIS file yields nothing; embedding real call sites here would make two correct
+        // tests contradict each other. Each line is written from inside a quoted string for the same
+        // reason the `site()` fixture is.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-')),
+            fixture = path.join(dir, 'bypass.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, [
+                "await new Promise(resolve => setTimeout(resolve, 50)); await new Promise(resolve => setTimeout(resolve, 5000));",
+                "await new Promise(resolve => setTimeout(resolve, 1_000));",
+                "await new Promise(resolve => setTimeout(resolve, 1e3));"
+            ].join('\n'), 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.map(entry => entry.ms), 'all three spellings are read as milliseconds')
+                .toEqual([5000, 1000, 1000]);
+            expect(sites.length, 'the second call on line 1 is not shadowed by the first').toBe(3);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a justified bypass spelling is still discharged — the widened matcher did not widen the verdict', async () => {
+        // The mirror of the case above, and the reason it matters: widening what the guard can SEE must
+        // not widen what it REFUSES. A `1e3` wait carrying the marker is an accounted wait exactly as a
+        // `1000` one is, or the repair would have converted a bypass into a false positive.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-')),
+            fixture = path.join(dir, 'justified.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, [
+                "// wall-clock-under-test: the scheduler's own elapsed time is the assertion",
+                "await new Promise(resolve => setTimeout(resolve, 1e3));"
+            ].join('\n'), 'utf8');
+
+            const {backlog, sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites, 'the marker discharges it').toEqual([]);
+            expect(backlog, 'wall-clock-under-test is not leaf backlog').toEqual([]);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
     });
 
     test('importing the module runs no lint and exits no process', () => {
