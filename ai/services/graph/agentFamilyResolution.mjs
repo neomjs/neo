@@ -187,6 +187,67 @@ export function resolveAuthorFamily(pr, agentFamilies) {
 }
 
 /**
+ * @summary Resolves the model family that a submitted review SPENDS budget against.
+ *
+ * Separate from {@link resolveAuthorFamily} because the two answer different questions from
+ * different evidence. An author is resolved through the PR body's self-id, which survives an
+ * opener whose login mis-resolved. A reviewer has no such body convention: the submitting login
+ * IS the act, so the login is the only honest source and no fallback exists to soften it.
+ *
+ * The verdict is a pair rather than a bare family, and that distinction is the whole point of
+ * this function. A budget consumer must be able to tell "resolved to `gpt`" from "could not be
+ * resolved", because those demand opposite handling — one spends a family's round, the other
+ * must refuse rather than quietly spend nobody's. Returning `undefined` for both would let an
+ * unclassifiable reviewer slip through whichever branch happened to be the permissive one.
+ *
+ * @param {Object} review GitHub review payload; `author.login` is the subject.
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @returns {{classified: Boolean, family: (String|null), login: (String|null)}}
+ */
+export function resolveReviewerFamily(review, agentFamilies = getCoreSwarmAgentFamilies()) {
+    const login = review?.author?.login || null;
+
+    if (!login) return {classified: false, family: null, login: null};
+
+    const family = agentFamilies[login.replace(/^@/, '')];
+
+    return family
+        ? {classified: true,  family, login}
+        : {classified: false, family: null, login}
+}
+
+/**
+ * @summary Groups submitted reviews by the family whose budget each one spends.
+ *
+ * The counting unit is the FAMILY, never the identity: two identities of one family reviewing the
+ * same PR are one family's round, or a family could buy extra rounds by rotating seats. Counting
+ * is by occurrence across the whole review population, so later heads and retractions cannot
+ * refund a round that was already spent — a spent round is a fact about the review economy, not
+ * about the current diff.
+ *
+ * Unclassifiable reviewers are returned SEPARATELY rather than dropped or bucketed under a
+ * placeholder family. Dropping them would let an unrostered login review without limit; bucketing
+ * them together would let two unrelated strangers share one budget. Neither is a decision this
+ * function may make silently, so it reports and lets the admission point fail closed.
+ *
+ * @param {Object[]} reviews Submitted review payloads.
+ * @param {Object} [agentFamilies=getCoreSwarmAgentFamilies()] Login-to-family map.
+ * @returns {{byFamily: Object<String,Number>, unclassified: Array<{login: (String|null)}>}}
+ */
+export function groupReviewsByFamily(reviews = [], agentFamilies = getCoreSwarmAgentFamilies()) {
+    const byFamily = {}, unclassified = [];
+
+    for (const review of reviews) {
+        const resolved = resolveReviewerFamily(review, agentFamilies);
+
+        if (resolved.classified) byFamily[resolved.family] = (byFamily[resolved.family] || 0) + 1;
+        else                     unclassified.push({login: resolved.login})
+    }
+
+    return {byFamily, unclassified}
+}
+
+/**
  * @summary Determines whether a PR has cross-family review coverage.
  *
  * @param {Object} pr GitHub PR payload from `gh pr list`.

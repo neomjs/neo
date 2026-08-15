@@ -38,6 +38,20 @@ class RepositoryService extends Base {
     viewerPermission = null;
 
     /**
+     * The authenticated user's GitHub login, cached alongside the permission it was fetched with.
+     *
+     * The permission answers "may this seat act?"; the login answers "which seat is acting?" — and a
+     * per-family review budget needs the second question answered before it can charge a round to
+     * anyone. The two are cached together because they come from the same authenticated call: asking
+     * separately would invite them to disagree about who the viewer is.
+     *
+     * Deliberately the login rather than anything parsed from a review body. The submitting identity
+     * IS the act; a signature in prose is a claim about it, and the two can differ.
+     * @member {String|null} viewerLogin=null
+     */
+    viewerLogin = null;
+
+    /**
      * Fetches the current user's permission level from the API and caches it.
      * This method is intended for internal use at startup but can be called on demand.
      * @returns {Promise<string|null>} The permission string or null on failure.
@@ -51,7 +65,11 @@ class RepositoryService extends Base {
         try {
             const data = await GraphqlService.query(GET_VIEWER_PERMISSION, variables);
             this.viewerPermission = data.repository.viewerPermission;
-            logger.info(`Fetched and cached viewer permission: ${this.viewerPermission}`);
+            // Null rather than undefined on a payload without it, so a consumer can tell "the viewer
+            // has no login" from "nobody has asked yet" — a budget that cannot identify its spender
+            // must refuse, and it can only refuse if the two states are distinguishable.
+            this.viewerLogin      = data.viewer?.login ?? null;
+            logger.info(`Fetched and cached viewer permission: ${this.viewerPermission} (${this.viewerLogin || 'unknown login'})`);
             return this.viewerPermission;
         } catch (error) {
             logger.error('Error fetching viewer permission via GraphQL:', error);
@@ -72,6 +90,21 @@ class RepositoryService extends Base {
         }
 
         return {permission: this.viewerPermission};
+    }
+
+    /**
+     * @summary Returns the authenticated user's login, fetching it if the startup cache is cold.
+     *
+     * Shares `fetchAndCacheViewerPermission`'s single authenticated call rather than adding a second
+     * round trip, because the permission and the identity must describe the same viewer.
+     * @returns {Promise<String|null>} The login, or `null` when it cannot be resolved.
+     */
+    async getViewerLogin() {
+        if (!this.viewerLogin) {
+            await this.fetchAndCacheViewerPermission();
+        }
+
+        return this.viewerLogin
     }
 }
 

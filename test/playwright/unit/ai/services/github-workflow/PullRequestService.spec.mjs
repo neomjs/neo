@@ -1429,8 +1429,14 @@ async function runAgentPrReviewBodyLintWorkflow({
 test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrReview (#11273)', () => {
     let PullRequestService;
     let GraphqlService;
+    let RepositoryService;
     let originalQuery;
+    let originalViewerLogin;
 
+    // The submitting reviewer's family is what a round is charged to, so every budget case has to say
+    // who is submitting. Seeded as a rostered gpt identity by default; the cases that care about
+    // cross-family independence or an unclassifiable submitter override it per test.
+    const SUBMITTING_LOGIN           = 'neo-gpt-emmy';
     const PR_NODE_ID                 = 'PR_kwDOABcD9999999999';
     const PR_HEAD_OID                = 'abcdef1234567890abcdef1234567890abcdef12';
     const REVIEW_BUDGET_ACTIVATED_AT = '2026-07-16T13:57:03Z';
@@ -1663,14 +1669,21 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     test.beforeAll(async () => {
         GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+        RepositoryService  = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
         originalQuery      = GraphqlService.query.bind(GraphqlService);
+        originalViewerLogin = RepositoryService.viewerLogin;
     });
 
     test.afterAll(() => {
-        GraphqlService.query = originalQuery;
+        GraphqlService.query         = originalQuery;
+        // Restored rather than left seeded: `RepositoryService` is a singleton every later spec in this
+        // worker shares, and a leaked viewer identity would silently decide another suite's budget.
+        RepositoryService.viewerLogin = originalViewerLogin;
     });
 
     test.beforeEach(() => {
+        RepositoryService.viewerLogin = SUBMITTING_LOGIN;
+
         // Default mock: resolve PR id then return create-shaped review payload.
         // Tests override per-case via reassigning GraphqlService.query.
         GraphqlService.query = async (queryString) => {
@@ -2104,10 +2117,299 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
         });
 
+        // The budget is now PER FAMILY, so this fixture proves a narrower and truer thing than it did:
+        // the gpt family's single round survives a dismissal and an honest retraction, and its second
+        // ordinary RC is refused. The claude RC in the same fixture belongs to another family and is
+        // deliberately NOT what exhausts gpt's round — the cross-family independence case below is what
+        // pins that, and this assertion would silently pass on a global count without it.
         expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
         expect(result.reviewBudget.submittedRequestChanges).toBe(2);
-        expect(result.message).toContain('ordinary limit is 2');
+        expect(result.reviewBudget.familySubmittedRequestChanges, 'only gpt\'s own round counts').toBe(1);
+        expect(result.reviewBudget.reviewerFamily).toBe('gpt');
+        expect(result.message).toContain('gpt family has already spent');
         expect(mutationCallCount).toBe(0);
+    });
+
+    test('#17141: another family keeps its own round — one family\'s spent budget does not silence a second', async () => {
+        // The defect the per-family unit exists to fix, and the one a global count cannot express: an
+        // exhausted gpt round used to refuse a claude reviewer who had never seen the PR. Same fixture,
+        // same PR, only the submitting seat differs — so a passing result here cannot come from any
+        // clause except the family keying.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes   : [priorRequestChanges({reviewer: 'neo-gpt'})],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        RepositoryService.viewerLogin = 'neo-opus-grace';
+
+        const claudeRound = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(claudeRound.error, 'claude has spent nothing on this PR').toBeUndefined();
+        expect(claudeRound.reviewBudget.outcome).toBe('within-budget');
+        expect(claudeRound.reviewBudget.reviewerFamily).toBe('claude');
+        expect(claudeRound.reviewBudget.familySubmittedRequestChanges).toBe(0);
+        expect(claudeRound.reviewBudget.submittedRequestChanges, 'the PR total is still reported').toBe(1);
+        expect(mutationCallCount).toBe(1);
+
+        // The mirror, on the identical fixture: the family that already spent its round is refused.
+        // Without this half the test above would pass on a guard that admits everyone.
+        RepositoryService.viewerLogin = 'neo-gpt-emmy';
+
+        const gptSecondRound = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(gptSecondRound.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(gptSecondRound.reviewBudget.familySubmittedRequestChanges).toBe(1);
+        expect(mutationCallCount, 'the refusal reached no mutation').toBe(1);
+    });
+
+    test('#17141: an unclassifiable submitter is refused, never granted an unbounded round', async () => {
+        // Fail CLOSED. Waiving the charge reads as generosity and is the opposite: a login the identity
+        // graph cannot place would spend nobody's budget, so it could request changes without limit
+        // while every rostered family stayed bounded. A gate that cannot name the spender must refuse.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup({createdAt: '2026-07-16T13:57:04Z'});
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        for (const [label, login] of [
+            ['an unrostered human contributor', 'some-human-contributor'],
+            ['a cold viewer cache',             null]
+        ]) {
+            RepositoryService.viewerLogin = login;
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 17141,
+                state    : 'REQUEST_CHANGES',
+                body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            });
+
+            expect(result.code, label).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+            expect(result.message, label).toContain('not a classifiable maintainer family');
+        }
+
+        // Note the shape: a PR with ZERO prior reviews. Under the old global count this was the freest
+        // possible case, so the refusal cannot be inherited from an exhausted budget — it comes only
+        // from the submitter being unplaceable.
+        expect(mutationCallCount, 'neither unclassified submitter reached a mutation').toBe(0);
+    });
+
+    test('#17141: a repair-minted re-entry is refused unless every clause checks out', async () => {
+        // The exception exists for one situation: a defect that did NOT exist, or was undiscoverable,
+        // at the head Round 1 reviewed, and that the author's own repair created or exposed. "Noticed
+        // later" is not that situation, and free prose cannot tell the two apart — which is why the
+        // prior contract accepted "release safety exception" and asserted nothing checkable.
+        //
+        // Each row removes exactly ONE clause from an otherwise-valid receipt, so a refusal cannot be
+        // inherited from any other check.
+        const valid = {
+            'old-head'         : '1111111111111111111111111111111111111111',
+            'new-head'         : PR_HEAD_OID,
+            'prior-fact'       : 'the seam did not exist at that head',
+            'repair-coordinate': 'ai/x.mjs:42'
+        };
+        const receipt = overrides => Object.entries({...valid, ...overrides})
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(' | ');
+
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes   : [priorRequestChanges({reviewer: SUBMITTING_LOGIN})],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const submit = reviewBudgetOverrideReason => PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason
+        });
+
+        for (const [label, reason] of [
+            ['free text, the prior contract',   'Operator-declared release safety exception.'],
+            ['no old-head',                     receipt({'old-head': undefined})],
+            ['no prior-fact',                   receipt({'prior-fact': undefined})],
+            ['no repair-coordinate',            receipt({'repair-coordinate': undefined})],
+            ['identical heads describe no repair', receipt({'old-head': PR_HEAD_OID})],
+            // The falsifiable clause: every other row checks the sentence against itself, this one
+            // checks it against the PR's own history. An invented old-head cannot be written better.
+            ['old-head no prior review used',   receipt({'old-head': '9999999999999999999999999999999999999999'})],
+            ['new-head is not the head under review', receipt({'new-head': '8888888888888888888888888888888888888888'})]
+        ]) {
+            const result = await submit(reason);
+
+            expect(result.code, label).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        }
+
+        expect(mutationCallCount, 'no malformed receipt reached a mutation').toBe(0);
+
+        // The control: the complete receipt on the identical fixture passes, so the matrix above
+        // refuses malformed receipts rather than refusing re-entry altogether.
+        const admitted = await submit(receipt({}));
+
+        expect(admitted.error).toBeUndefined();
+        expect(admitted.reviewBudget.outcome).toBe('disclosed-override');
+        expect(mutationCallCount).toBe(1);
+    });
+
+    test('#17141: a re-entry cannot borrow another family\'s Round-1 head, and refuses when its own is unrecorded', async () => {
+        // Two holes @neo-gpt found by execution, both of which my earlier arm could not reach: it used
+        // ONE same-family prior review WITH a commit oid, so the head set was never foreign and never
+        // empty. A fixture that cannot produce the failing shape cannot falsify it.
+        //
+        // The claim a receipt makes is "the defect did not exist at the head I reviewed". A head some
+        // OTHER family reviewed proves nothing about this family's Round 1, and no recorded head at all
+        // makes the claim uncheckable — which must refuse, not pass.
+        const receiptFor = oldHead => [
+            `old-head: ${oldHead}`,
+            `new-head: ${PR_HEAD_OID}`,
+            'prior-fact: the seam did not exist at that head',
+            'repair-coordinate: ai/x.mjs:42'
+        ].join(' | ');
+
+        const FOREIGN_HEAD = '1111111111111111111111111111111111111111';
+        const OWN_HEAD     = '2222222222222222222222222222222222222222';
+
+        let mutationCallCount = 0;
+
+        const withReviews = nodes => {
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({createdAt: '2026-07-16T13:57:04Z', reviews: {nodes, pageInfo: {hasPreviousPage: false}}})
+                }
+
+                if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+                return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+            }
+        };
+
+        const submit = reason => PullRequestService.managePrReview({
+            action                    : 'create',
+            pr_number                 : 17141,
+            state                     : 'REQUEST_CHANGES',
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason: reason
+        });
+
+        // ARM A — mixed families. Claude reviewed FOREIGN_HEAD, gpt reviewed OWN_HEAD, gpt now re-enters.
+        withReviews([
+            priorRequestChanges({commit: FOREIGN_HEAD, id: 'PRR_claude', reviewer: 'neo-opus-grace'}),
+            priorRequestChanges({commit: OWN_HEAD,     id: 'PRR_gpt',    reviewer: SUBMITTING_LOGIN})
+        ]);
+
+        const borrowed = await submit(receiptFor(FOREIGN_HEAD));
+
+        expect(borrowed.code, 'a head only another family reviewed is not corroboration').toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+
+        // The control on the identical fixture: gpt's OWN head is accepted, so the arm above refuses
+        // borrowing rather than refusing re-entry.
+        const own = await submit(receiptFor(OWN_HEAD));
+
+        expect(own.error, 'the family\'s own Round-1 head corroborates').toBeUndefined();
+        expect(own.reviewBudget.outcome).toBe('disclosed-override');
+
+        // ARM B — the family's prior review carries NO usable commit oid. Under the previous guard the
+        // head check short-circuited and an invented head sailed through; it must refuse instead.
+        mutationCallCount = 0;
+
+        withReviews([{
+            body       : 'Prior ordinary request changes.',
+            id         : 'PRR_no_commit',
+            state      : 'CHANGES_REQUESTED',
+            submittedAt: '2026-07-16T16:40:00Z',
+            author     : {login: SUBMITTING_LOGIN},
+            commit     : null
+        }]);
+
+        const uncheckable = await submit(receiptFor('9999999999999999999999999999999999999999'));
+
+        expect(uncheckable.code, 'missing evidence must refuse, not skip').toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(mutationCallCount, 'no uncorroborated re-entry reached a mutation').toBe(0);
+    });
+
+    test('#17141: the repair-minted re-entry is terminal — a second is refused', async () => {
+        // Otherwise the exception becomes the budget: reachable indefinitely by writing a well-formed
+        // receipt each time. Prior re-entries are countable because the override audit is appended
+        // durably to the review body it authorized, so the record of the exception is the evidence
+        // that it was spent.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes: [
+                            priorRequestChanges({reviewer: SUBMITTING_LOGIN}),
+                            priorRequestChanges({
+                                body    : `Prior re-entry.\n\n${'[review-budget-override]'}`,
+                                id      : 'PRR_reentry',
+                                reviewer: SUBMITTING_LOGIN
+                            })
+                        ],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action                    : 'create',
+            pr_number                 : 17141,
+            state                     : 'REQUEST_CHANGES',
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason: [
+                'old-head: 1111111111111111111111111111111111111111',
+                `new-head: ${PR_HEAD_OID}`,
+                'prior-fact: undiscoverable at that head',
+                'repair-coordinate: ai/y.mjs:7'
+            ].join(' | ')
+        });
+
+        expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(result.message).toContain('already used its one repair-minted re-entry');
+        expect(mutationCallCount, 'a second re-entry reached no mutation').toBe(0);
     });
 
     test('#15257: PR lookup projects cutover, prior bodies, and history completeness', async () => {
@@ -2420,16 +2722,26 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             pr_number                 : 15257,
             state                     : 'REQUEST_CHANGES',
             body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
-            reviewBudgetOverrideReason: 'Operator-declared release safety exception with audit receipt #15257.'
+            // A repair-minted receipt, not a free-text reason. `old-head` is the head the prior review
+            // was actually submitted against, so the claim is checkable against this PR's own history;
+            // `new-head` is the head under review.
+            reviewBudgetOverrideReason: [
+                'old-head: 1111111111111111111111111111111111111111',
+                `new-head: ${PR_HEAD_OID}`,
+                'prior-fact: the branch had no cadence leaf at that head, so the stride could not be observed',
+                'repair-coordinate: ai/daemons/wake/daemon.mjs:106'
+            ].join(' | ')
         });
 
         expect(result.error).toBeUndefined();
         expect(result.reviewBudget.outcome).toBe('disclosed-override');
-        expect(result.reviewBudget.overrideReason).toContain('release safety exception');
+        expect(result.reviewBudget.overrideReason).toContain('repair-coordinate');
+        expect(result.reviewBudget.repairMintedReceipt['old-head']).toBe('1111111111111111111111111111111111111111');
+        expect(result.reviewBudget.repairMintedReceipt['repair-coordinate']).toBe('ai/daemons/wake/daemon.mjs:106');
         expect(capturedVariables.body.match(/^\[review-budget-override\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body.match(/^\[review-budget-managed\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body).toContain('- submitted-request-changes: 2');
-        expect(capturedVariables.body).toContain('- ordinary-limit: 2');
+        expect(capturedVariables.body).toContain('- ordinary-limit: 1');
     });
 
     test('#15257: incomplete/truncated history and invalid override disclosure fail closed', async () => {

@@ -7,7 +7,12 @@ import Base                 from '../../../src/core/Base.mjs';
 import GraphqlService       from './GraphqlService.mjs';
 import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
 import logger               from '../../mcp/server/github-workflow/logger.mjs';
+import RepositoryService    from './RepositoryService.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
+import {
+    groupReviewsByFamily,
+    resolveReviewerFamily
+}                           from '../graph/agentFamilyResolution.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
@@ -1636,6 +1641,86 @@ function getReviewBudgetFailure(pr_number, message, audit = {}) {
 }
 
 /**
+ * @summary Parses a repair-minted re-entry receipt out of an override disclosure.
+ *
+ * The exceptional second round exists for exactly one situation: a defect that did NOT exist, or was
+ * undiscoverable, at the head Round 1 reviewed — and that the author's own repair created or exposed.
+ * "I noticed it later" is not that situation, and free prose cannot tell the two apart. So the receipt
+ * names four things and each is checked against something outside the sentence:
+ *
+ * - `old-head` must be a head some prior review was actually submitted against. This is the clause
+ *   that makes the receipt falsifiable rather than merely well-formed: it is verified against the PR's
+ *   own review population, so a receipt cannot invent the history it claims to have reviewed.
+ * - `new-head` must differ from `old-head`. A re-entry across an unchanged head describes no repair.
+ * - `prior-fact` states what about the old head made the defect nonexistent or undiscoverable.
+ * - `repair-coordinate` names where the repair created or exposed it.
+ *
+ * Deliberately not a free-text reason with a length rule. A single-line non-empty check accepts
+ * "release safety exception", which asserts nothing checkable and is indistinguishable from the
+ * ordinary later discovery this clause refuses.
+ * @param {String} reason Trimmed single-line disclosure.
+ * @param {String[]} priorHeads Commit oids that prior submitted reviews were made against.
+ * @param {String} currentHead The PR head this review is being submitted against.
+ * @returns {{valid: Boolean, missing: String[], fields: Object, failure: String|null}}
+ */
+function parseRepairMintedReceipt(reason, priorHeads = [], currentHead = '') {
+    const
+        fields  = {},
+        pattern = /(old-head|new-head|prior-fact|repair-coordinate)\s*:\s*([^|]+)/g;
+
+    for (const match of reason.matchAll(pattern)) fields[match[1]] = match[2].trim();
+
+    const missing = ['old-head', 'new-head', 'prior-fact', 'repair-coordinate'].filter(key => !fields[key]);
+
+    if (missing.length) return {valid: false, missing, fields, failure: null};
+
+    if (fields['old-head'] === fields['new-head']) {
+        return {valid: false, missing, fields, failure: 'old-head and new-head are identical, so the receipt describes no repair between them.'}
+    }
+
+    // The falsifiable clause. Everything above checks the sentence against itself; this checks it
+    // against the PR's own history, which is the only part a mistaken or invented receipt cannot
+    // satisfy by being better written.
+    // `priorHeads` carries ONLY the spending family's prior review heads. Checking against every
+    // family's heads let a GPT re-entry cite a head only Claude ever reviewed — the causal claim is
+    // "the defect did not exist at the head I reviewed", so a head someone else reviewed proves
+    // nothing about this family's Round 1.
+    //
+    // An EMPTY set refuses rather than skipping. The earlier `priorHeads.length &&` short-circuit
+    // meant that when commit evidence was missing, the one clause a receipt cannot talk its way past
+    // simply stopped running — reversing the guard exactly where evidence is unavailable, which is
+    // where a false receipt is most likely and least detectable.
+    if (priorHeads.length === 0) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: 'No prior review head is recorded for this family, so the receipt\'s old-head cannot be corroborated. Refusing rather than accepting an uncheckable causal claim.'
+        }
+    }
+
+    if (!priorHeads.includes(fields['old-head'])) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: `old-head ${fields['old-head']} matches no head THIS family submitted a prior review against (${priorHeads.join(', ')}).`
+        }
+    }
+
+    if (currentHead && fields['new-head'] !== currentHead) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: `new-head ${fields['new-head']} is not the head under review (${currentHead}); a repair-minted re-entry is bound to the repaired head.`
+        }
+    }
+
+    return {valid: true, missing: [], fields, failure: null}
+}
+
+/**
  * @summary Validates and normalizes the named review-budget override disclosure.
  * @param {*} value Candidate override reason.
  * @returns {{provided: Boolean, valid: Boolean, reason: String}}
@@ -1860,10 +1945,12 @@ function resolveReviewBudgetActivation({
  * @param {Number} options.activationIssueNumber Source issue for the cohort cutover.
  * @param {Number} options.activationPullRequestNumber Merged closing PR that activated the cohort.
  * @param {String} options.body Validated review body.
- * @param {Number} options.ordinaryLimit Ordinary Request Changes ceiling.
+ * @param {Number} options.ordinaryLimit Ordinary Request Changes ceiling, PER REVIEWER FAMILY.
  * @param {Number} options.pr_number PR number.
  * @param {Object} options.pullRequest GraphQL PR projection.
  * @param {String} [options.reviewBudgetOverrideReason] Named bypass reason.
+ * @param {String|null} options.reviewerLogin Authenticated submitting login; the budget is charged to
+ * its family, and an unclassifiable login is refused rather than granted a free round.
  * @returns {{failure: Object|null, body: String, audit: Object|null}}
  */
 function validatePrReviewBudget({
@@ -1874,7 +1961,8 @@ function validatePrReviewBudget({
     ordinaryLimit,
     pr_number,
     pullRequest,
-    reviewBudgetOverrideReason
+    reviewBudgetOverrideReason,
+    reviewerLogin
 }) {
     const activatedMs = Date.parse(activatedAt || '');
     const createdMs   = Date.parse(pullRequest?.createdAt || '');
@@ -1940,12 +2028,41 @@ function validatePrReviewBudget({
     const priorRequestChanges = reviews.nodes.filter(isSubmittedRequestChangesReview);
     const priorTerminal       = priorRequestChanges.filter(review => classifyDropSupersedeReview(review?.body || '').valid);
     const incomingTerminal    = classifyDropSupersedeReview(body);
-    const audit               = {
+
+    // WHOSE round is being spent. The budget's unit is the reviewer FAMILY, so the count that matters
+    // is this family's prior rounds — not the PR's total. A global count let one family's exhausted
+    // budget silence a family that had never reviewed, and let a family buy extra rounds by rotating
+    // identities; both are answered by counting the same way the authority defines membership.
+    const reviewerFamily = resolveReviewerFamily({author: {login: reviewerLogin}});
+    const grouped        = groupReviewsByFamily(priorRequestChanges);
+    const familyPrior    = reviewerFamily.classified ? (grouped.byFamily[reviewerFamily.family] || 0) : 0;
+
+    const audit = {
         ...baseAudit,
-        applicable                : true,
-        submittedRequestChanges   : priorRequestChanges.length,
-        priorTerminalDropSupersede: priorTerminal.length
+        applicable                   : true,
+        submittedRequestChanges      : priorRequestChanges.length,
+        priorTerminalDropSupersede   : priorTerminal.length,
+        reviewerFamily               : reviewerFamily.family,
+        reviewerLogin                : reviewerFamily.login,
+        familySubmittedRequestChanges: familyPrior,
+        unclassifiedPriorReviewers   : grouped.unclassified.map(entry => entry.login)
     };
+
+    // Fail CLOSED on a reviewer the identity graph cannot classify. The alternative reads as
+    // generosity and is the opposite: an unrostered login would spend nobody's budget, so it could
+    // request changes without limit while every rostered family stayed bounded. A gate that cannot
+    // name the spender must refuse the charge, not waive it.
+    if (!reviewerFamily.classified) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                `The submitting reviewer (${reviewerFamily.login || 'no resolvable login'}) is not a classifiable maintainer family, so this REQUEST_CHANGES cannot be charged to a review budget. Refusing rather than granting an unbounded round.`,
+                audit
+            ),
+            body,
+            audit: null
+        }
+    }
 
     if (override.provided && !override.valid) {
         return {
@@ -1979,7 +2096,7 @@ function validatePrReviewBudget({
         }
     }
 
-    if (priorRequestChanges.length < ordinaryLimit) {
+    if (familyPrior < ordinaryLimit) {
         const withinBudgetAudit = {...audit, outcome: 'within-budget'};
 
         return {
@@ -1992,10 +2109,58 @@ function validatePrReviewBudget({
     }
 
     if (override.valid) {
+        // ONE re-entry, and it is terminal. A family that has already spent its repair-minted round has
+        // spent the exception too — otherwise the exception becomes the budget, reachable indefinitely
+        // by writing a well-formed receipt each time. Prior re-entries are countable because the
+        // override audit is appended durably to the review body it authorized.
+        const priorReEntries = priorRequestChanges.filter(review =>
+            (review?.body || '').includes(REVIEW_BUDGET_OVERRIDE_MARKER) &&
+            resolveReviewerFamily(review).family === reviewerFamily.family
+        );
+
+        if (priorReEntries.length > 0) {
+            return {
+                failure: getReviewBudgetFailure(
+                    pr_number,
+                    `The ${reviewerFamily.family} family has already used its one repair-minted re-entry on PR #${pr_number}. A second is refused: post the terminal disposition, APPROVE when merge-safe, or one validated Drop+Supersede.`,
+                    {...audit, priorRepairMintedReEntries: priorReEntries.length}
+                ),
+                body,
+                audit: null
+            }
+        }
+
+        // Only THIS family's prior review heads. The exception is granted to a family on the strength
+        // of what that family reviewed, so corroboration drawn from another family's history would
+        // let a reviewer borrow a causal claim they never made.
+        const currentFamilyPriorHeads = priorRequestChanges
+            .filter(review => resolveReviewerFamily(review).family === reviewerFamily.family)
+            .map(review => review?.commit?.oid)
+            .filter(Boolean);
+
+        const receipt = parseRepairMintedReceipt(
+            override.reason,
+            currentFamilyPriorHeads,
+            pullRequest?.headRefOid || ''
+        );
+
+        if (!receipt.valid) {
+            return {
+                failure: getReviewBudgetFailure(
+                    pr_number,
+                    receipt.failure || `A repair-minted re-entry must name old-head, new-head, prior-fact, and repair-coordinate; missing: ${receipt.missing.join(', ')}. An ordinary later discovery does not qualify — the defect must not have existed, or not have been discoverable, at the head Round 1 reviewed.`,
+                    {...audit, repairMintedReceipt: receipt.fields}
+                ),
+                body,
+                audit: null
+            }
+        }
+
         const overrideAudit = {
             ...audit,
-            outcome       : 'disclosed-override',
-            overrideReason: override.reason
+            outcome            : 'disclosed-override',
+            overrideReason     : override.reason,
+            repairMintedReceipt: receipt.fields
         };
 
         return {
@@ -2011,7 +2176,7 @@ function validatePrReviewBudget({
     return {
         failure: getReviewBudgetFailure(
             pr_number,
-            `PR #${pr_number} already has ${priorRequestChanges.length} submitted CHANGES_REQUESTED reviews; the ordinary limit is ${ordinaryLimit}. Use COMMENT for the RC2 closure packet, APPROVED when merge-safe, or one validated Drop+Supersede terminal verdict.`,
+            `The ${reviewerFamily.family} family has already spent its ${familyPrior}-of-${ordinaryLimit} ordinary CHANGES_REQUESTED round on PR #${pr_number}. Post the terminal disposition over the existing actions, APPROVED when merge-safe, or one validated Drop+Supersede. Another family's independent round is unaffected by this refusal.`,
             audit
         ),
         body,
@@ -2161,10 +2326,16 @@ class PullRequestService extends Base {
          */
         reviewBudgetActivationBaseRefName: 'dev',
         /**
-         * Maximum ordinary submitted CHANGES_REQUESTED reviews on a post-cutover PR.
-         * @member {Number} reviewBudgetOrdinaryRcLimit=2
+         * Maximum ordinary submitted CHANGES_REQUESTED reviews PER REVIEWER FAMILY on a post-cutover PR.
+         *
+         * One, not two, and per family rather than per PR. The prior global ceiling of two measured the
+         * wrong thing in both directions: one family's two rounds silenced a family that had never
+         * reviewed, while a single family could spend both rounds itself and call it a budget. Counting
+         * by family makes each family's one comprehensive round independent, which is the shape the
+         * terminal-review decision actually describes.
+         * @member {Number} reviewBudgetOrdinaryRcLimit=1
          */
-        reviewBudgetOrdinaryRcLimit: 2,
+        reviewBudgetOrdinaryRcLimit: 1,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -2732,7 +2903,14 @@ class PullRequestService extends Base {
                             ordinaryLimit              : this.reviewBudgetOrdinaryRcLimit,
                             pr_number,
                             pullRequest,
-                            reviewBudgetOverrideReason
+                            reviewBudgetOverrideReason,
+                            // The STARTUP-CACHED login, deliberately not the awaiting getter. Admission
+                            // is a hot path and must not acquire an identity over the network while
+                            // deciding whether to admit: a validator that makes its own round trip can
+                            // fail for reasons that have nothing to do with the review it is judging.
+                            // A cold cache resolves to null, which the budget already treats as
+                            // unclassifiable and refuses — the safe direction.
+                            reviewerLogin              : RepositoryService.viewerLogin
                         });
 
                         if (budgetValidation.failure) {
