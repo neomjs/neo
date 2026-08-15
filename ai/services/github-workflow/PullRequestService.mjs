@@ -1681,12 +1681,30 @@ function parseRepairMintedReceipt(reason, priorHeads = [], currentHead = '') {
     // The falsifiable clause. Everything above checks the sentence against itself; this checks it
     // against the PR's own history, which is the only part a mistaken or invented receipt cannot
     // satisfy by being better written.
-    if (priorHeads.length && !priorHeads.includes(fields['old-head'])) {
+    // `priorHeads` carries ONLY the spending family's prior review heads. Checking against every
+    // family's heads let a GPT re-entry cite a head only Claude ever reviewed — the causal claim is
+    // "the defect did not exist at the head I reviewed", so a head someone else reviewed proves
+    // nothing about this family's Round 1.
+    //
+    // An EMPTY set refuses rather than skipping. The earlier `priorHeads.length &&` short-circuit
+    // meant that when commit evidence was missing, the one clause a receipt cannot talk its way past
+    // simply stopped running — reversing the guard exactly where evidence is unavailable, which is
+    // where a false receipt is most likely and least detectable.
+    if (priorHeads.length === 0) {
         return {
             valid  : false,
             missing,
             fields,
-            failure: `old-head ${fields['old-head']} matches no head a prior review was submitted against (${priorHeads.join(', ') || 'none recorded'}).`
+            failure: 'No prior review head is recorded for this family, so the receipt\'s old-head cannot be corroborated. Refusing rather than accepting an uncheckable causal claim.'
+        }
+    }
+
+    if (!priorHeads.includes(fields['old-head'])) {
+        return {
+            valid  : false,
+            missing,
+            fields,
+            failure: `old-head ${fields['old-head']} matches no head THIS family submitted a prior review against (${priorHeads.join(', ')}).`
         }
     }
 
@@ -2112,9 +2130,17 @@ function validatePrReviewBudget({
             }
         }
 
+        // Only THIS family's prior review heads. The exception is granted to a family on the strength
+        // of what that family reviewed, so corroboration drawn from another family's history would
+        // let a reviewer borrow a causal claim they never made.
+        const currentFamilyPriorHeads = priorRequestChanges
+            .filter(review => resolveReviewerFamily(review).family === reviewerFamily.family)
+            .map(review => review?.commit?.oid)
+            .filter(Boolean);
+
         const receipt = parseRepairMintedReceipt(
             override.reason,
-            priorRequestChanges.map(review => review?.commit?.oid).filter(Boolean),
+            currentFamilyPriorHeads,
             pullRequest?.headRefOid || ''
         );
 

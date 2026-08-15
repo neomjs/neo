@@ -2290,6 +2290,81 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(mutationCallCount).toBe(1);
     });
 
+    test('#17141: a re-entry cannot borrow another family\'s Round-1 head, and refuses when its own is unrecorded', async () => {
+        // Two holes @neo-gpt found by execution, both of which my earlier arm could not reach: it used
+        // ONE same-family prior review WITH a commit oid, so the head set was never foreign and never
+        // empty. A fixture that cannot produce the failing shape cannot falsify it.
+        //
+        // The claim a receipt makes is "the defect did not exist at the head I reviewed". A head some
+        // OTHER family reviewed proves nothing about this family's Round 1, and no recorded head at all
+        // makes the claim uncheckable — which must refuse, not pass.
+        const receiptFor = oldHead => [
+            `old-head: ${oldHead}`,
+            `new-head: ${PR_HEAD_OID}`,
+            'prior-fact: the seam did not exist at that head',
+            'repair-coordinate: ai/x.mjs:42'
+        ].join(' | ');
+
+        const FOREIGN_HEAD = '1111111111111111111111111111111111111111';
+        const OWN_HEAD     = '2222222222222222222222222222222222222222';
+
+        let mutationCallCount = 0;
+
+        const withReviews = nodes => {
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({createdAt: '2026-07-16T13:57:04Z', reviews: {nodes, pageInfo: {hasPreviousPage: false}}})
+                }
+
+                if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+                return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+            }
+        };
+
+        const submit = reason => PullRequestService.managePrReview({
+            action                    : 'create',
+            pr_number                 : 17141,
+            state                     : 'REQUEST_CHANGES',
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            reviewBudgetOverrideReason: reason
+        });
+
+        // ARM A — mixed families. Claude reviewed FOREIGN_HEAD, gpt reviewed OWN_HEAD, gpt now re-enters.
+        withReviews([
+            priorRequestChanges({commit: FOREIGN_HEAD, id: 'PRR_claude', reviewer: 'neo-opus-grace'}),
+            priorRequestChanges({commit: OWN_HEAD,     id: 'PRR_gpt',    reviewer: SUBMITTING_LOGIN})
+        ]);
+
+        const borrowed = await submit(receiptFor(FOREIGN_HEAD));
+
+        expect(borrowed.code, 'a head only another family reviewed is not corroboration').toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+
+        // The control on the identical fixture: gpt's OWN head is accepted, so the arm above refuses
+        // borrowing rather than refusing re-entry.
+        const own = await submit(receiptFor(OWN_HEAD));
+
+        expect(own.error, 'the family\'s own Round-1 head corroborates').toBeUndefined();
+        expect(own.reviewBudget.outcome).toBe('disclosed-override');
+
+        // ARM B — the family's prior review carries NO usable commit oid. Under the previous guard the
+        // head check short-circuited and an invented head sailed through; it must refuse instead.
+        mutationCallCount = 0;
+
+        withReviews([{
+            body       : 'Prior ordinary request changes.',
+            id         : 'PRR_no_commit',
+            state      : 'CHANGES_REQUESTED',
+            submittedAt: '2026-07-16T16:40:00Z',
+            author     : {login: SUBMITTING_LOGIN},
+            commit     : null
+        }]);
+
+        const uncheckable = await submit(receiptFor('9999999999999999999999999999999999999999'));
+
+        expect(uncheckable.code, 'missing evidence must refuse, not skip').toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(mutationCallCount, 'no uncorroborated re-entry reached a mutation').toBe(0);
+    });
+
     test('#17141: the repair-minted re-entry is terminal — a second is refused', async () => {
         // Otherwise the exception becomes the budget: reachable indefinitely by writing a well-formed
         // receipt each time. Prior re-entries are countable because the override audit is appended
