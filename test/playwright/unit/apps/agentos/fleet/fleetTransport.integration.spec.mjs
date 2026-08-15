@@ -295,4 +295,41 @@ test.describe('fleet transport — full-chain integration (real server + real re
             FleetControlBridge.mailboxMirrorSource = priorSource
         }
     });
+
+    test('session custody over the REAL wire: the true bearer verified-retires the ingress, a wrong bearer preserves it', async () => {
+        // The L3 live non-destructive probe for the custody lifecycle: real server, real fetch,
+        // real authenticated whoami — "verify the new connection" is the server's stamped answer.
+        const {establishFleetSessionCustody} = await import('../../../../../../apps/agentos/app.mjs');
+        const url                            = `http://127.0.0.1:${server.address().port}/fleet`;
+
+        const verifiedTarget = {AgentOS: {fleet: {bearerToken}}};
+        const established    = establishFleetSessionCustody({bearerToken, fleetUrl: url, target: verifiedTarget});
+
+        expect(verifiedTarget.AgentOS.fleet.bearerToken, 'retire must wait for the wire').toBe(bearerToken);
+        await expect(established.custodySettled).resolves.toBe(true);
+        expect('bearerToken' in verifiedTarget.AgentOS.fleet).toBe(false);
+        expect(established.bridge.profileId).toBe(`fleet-profile:v1:${url}`);
+
+        // A DIFFERENT valid-format bearer: the server refuses it, so custody never verifies and the
+        // launcher ingress survives untouched — the rollback state a wrong credential must not burn.
+        const wrongBearer     = generateLocalBearerToken();
+        const preservedTarget = {AgentOS: {fleet: {bearerToken: wrongBearer}}};
+        const refused         = establishFleetSessionCustody({bearerToken: wrongBearer, fleetUrl: url, target: preservedTarget});
+
+        await expect(refused.custodySettled).resolves.toBe(false);
+        expect(preservedTarget.AgentOS.fleet.bearerToken).toBe(wrongBearer);
+
+        // The composed sequence over the REAL wire: the wrong bearer arrives where a VERIFIED
+        // bridge already lives — the candidate stays detached, is refused by the server, and the
+        // known-good bridge keeps answering authenticated calls throughout.
+        verifiedTarget.AgentOS.fleet.bearerToken = wrongBearer;
+
+        const retried = establishFleetSessionCustody({bearerToken: wrongBearer, fleetUrl: url, target: verifiedTarget});
+
+        expect(verifiedTarget.AgentOS.fleet.registryBridge, 'no displacement before proof').toBe(established.bridge);
+        await expect(retried.custodySettled).resolves.toBe(false);
+        expect(verifiedTarget.AgentOS.fleet.registryBridge, 'the verified bridge survives the failed live retry').toBe(established.bridge);
+        expect(verifiedTarget.AgentOS.fleet.bearerToken).toBe(wrongBearer);
+        await expect(verifiedTarget.AgentOS.fleet.registryBridge.listAgents()).resolves.toBeInstanceOf(Array)
+    });
 });
