@@ -1,6 +1,6 @@
 import {execSync}             from 'node:child_process';
 import {readFileSync}         from 'node:fs';
-import {findUnknownCoAuthors} from './agentCoAuthorEmails.mjs';
+import {findUnknownCoAuthors, rosterEmailForLogin} from './agentCoAuthorEmails.mjs';
 import path                   from 'node:path';
 import process                from 'node:process';
 
@@ -175,32 +175,93 @@ const ranges = pendingRanges(payload);
 // whether an address exists, and that gate answers a different question (operator identity leak).
 // Advisory in both directions: an unrecognized address warns, an unreadable map stays silent, and
 // neither can block. See ./agentCoAuthorEmails.mjs for why the addresses are a map and not derived.
+/**
+ * @summary Whether these commits are being pushed on an agent lane, from a source the committer
+ * cannot forge.
+ *
+ * **This exists because `%ae` is not an identity.** `git commit --author='X <off-domain>'` rewrites
+ * the author on a single commit, and against an email-only classifier that one flag carried a
+ * poisoned trailer straight to exit 0 — measured. So the classification cannot come from inside the
+ * commit; it has to come from something the commit's author did not write.
+ *
+ * Two unforgeable sources, one per caller:
+ *
+ * - **Hook**: checkout ownership. A linked worktree or an `NEO_AGENT_IDENTITY` pin means an agent is
+ *   pushing, whatever any individual commit claims about itself.
+ * - **CI**: `--author-login`, which the workflow fills from the GitHub-authenticated PR author. A PR
+ *   cannot forge who opened it.
+ *
+ * Neither is available to the other, which is why both exist rather than one.
+ *
+ * @returns {Boolean}
+ */
+function isAuthenticatedAgentLane() {
+    const loginIndex = process.argv.indexOf('--author-login'),
+        login        = loginIndex === -1 ? '' : (process.argv[loginIndex + 1] || '');
+
+    return isAgentCheckout() || Boolean(rosterEmailForLogin(login))
+}
+
+const agentLane = isAuthenticatedAgentLane();
+
+let unknownCoAuthors = [];
+
 try {
     const commits = ranges.flatMap(range => {
         // \x1f between fields, \x1e between records: a commit body carries newlines and tabs, so
         // line-splitting the log would truncate the very trailer block this needs to read.
-        const log = tryExec(`git log ${range} --format=%H%x1f%s%x1f%B%x1e`);
+        const log = tryExec(`git log ${range} --format=%H%x1f%ae%x1f%s%x1f%B%x1e`);
 
         return log ? log.split('\x1e').map(entry => {
-            const [sha, subject, body] = entry.replace(/^\n+/, '').split('\x1f');
-            return sha ? {sha, subject, body} : null
+            const [sha, authorEmail, subject, body] = entry.replace(/^\n+/, '').split('\x1f');
+            return sha ? {sha, authorEmail, subject, body} : null
         }).filter(Boolean) : []
     });
 
-    const unknownCoAuthors = findUnknownCoAuthors({commits});
-
-    if (unknownCoAuthors.length > 0) {
-        console.warn(`\x1b[33mWarning: ${unknownCoAuthors.length} Co-Authored-By trailer(s) credit an address that belongs to no known agent account.\x1b[0m`);
-        unknownCoAuthors.forEach(({sha, subject, email}) => console.warn(`  ${sha.slice(0, 10)}  <${email}>  ${subject}`));
-        console.warn('');
-        console.warn('GitHub resolves trailers by email, so an unknown address credits nobody — the co-author');
-        console.warn('is silently dropped from the contribution record with nothing failing.');
-        console.warn('Addresses cannot be derived from a handle: three logins do not match their local part.');
-        console.warn('Look the address up in buildScripts/util/agentCoAuthorEmails.mjs, or add the seat there.');
-        console.warn('This is advisory — the push proceeds.')
-    }
+    unknownCoAuthors = findUnknownCoAuthors({agentLane, commits})
 } catch {
-    // Fail open: a missing registry, an unreadable map, or a malformed log must never block a push.
+    // Fail open on INPUT failure only: a missing registry, an unreadable map, or a malformed log
+    // must never block a push. A trailer this successfully read and rejected is a different matter,
+    // handled below — swallowing that was how 16 mis-credited commits shipped.
+    unknownCoAuthors = []
+}
+
+// Agent-authored offenders BLOCK. Anything else stays advisory, because a non-agent commit's
+// trailers are not this map's business and refusing them would wall off an outside contributor.
+const
+    creditsAPerson = unknownCoAuthors.filter(offender => offender.agentAuthored),
+    advisoryOnly   = unknownCoAuthors.filter(offender => !offender.agentAuthored);
+
+if (advisoryOnly.length > 0) {
+    console.warn(`\x1b[33mWarning: ${advisoryOnly.length} Co-Authored-By trailer(s) credit an address that belongs to no known agent account.\x1b[0m`);
+    advisoryOnly.forEach(({sha, subject, email}) => console.warn(`  ${sha.slice(0, 10)}  <${email}>  ${subject}`));
+    console.warn('');
+    console.warn('GitHub resolves trailers by email, so an unknown address credits nobody — the co-author');
+    console.warn('is silently dropped from the contribution record with nothing failing.');
+    console.warn('Look the address up in buildScripts/util/agentCoAuthorEmails.mjs, or add the seat there.');
+    console.warn('This commit is not agent-authored, so this is advisory — the push proceeds.')
+}
+
+if (creditsAPerson.length > 0) {
+    console.error(`\x1b[31mcheck-commit-authorship: ${creditsAPerson.length} Co-Authored-By trailer(s) on agent-authored commit(s) name an address no agent seat owns:\x1b[0m`);
+    creditsAPerson.forEach(({sha, subject, email}) => console.error(`  ${sha.slice(0, 10)}  <${email}>  ${subject}`));
+    console.error(`
+GitHub resolves a co-author trailer by its EMAIL and credits whatever account owns that address.
+The display name in the trailer is cosmetic. An address outside this project therefore credits a
+REAL PERSON for work they did not do — which is why this blocks rather than warns, and why the
+check is not limited to the project domain: off-domain is precisely where a person's account is.
+
+Addresses cannot be derived from a handle or a display name. Three logins do not match their email
+local part, so deriving is guaranteed wrong for them. Read the address from EMAIL_BY_LOGIN in
+buildScripts/util/agentCoAuthorEmails.mjs, add the seat there, or omit the trailer entirely.
+
+To repair the commits before pushing:
+
+  git rebase origin/dev --exec 'git commit --amend --no-edit'   # drop the trailer in the editor
+
+Bypass (an operator genuinely crediting an outside collaborator): git push --no-verify
+`);
+    process.exit(1)
 }
 
 // From here on: the operator-identity leak guard, which IS scoped to agent checkouts.

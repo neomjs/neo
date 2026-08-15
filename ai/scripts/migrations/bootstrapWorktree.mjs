@@ -127,6 +127,7 @@ import {fileURLToPath} from 'url';
 import {promisify}     from 'util';
 
 import {IDENTITIES}                                                                    from '../../graph/identityRoots.mjs';
+import {rosterEmailForLogin}                                                           from '../../../buildScripts/util/agentCoAuthorEmails.mjs';
 import {initClaudeSettings, listServersWithTemplates, materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -381,6 +382,33 @@ async function resolveAgentGitIdentity({agentIdentity, getAuthenticatedAccount})
 
     if (/noreply/iu.test(email)) {
         throw new Error(`bootstrapWorktree: refusing noreply Git author email for '${expectedLogin}'.`)
+    }
+
+    // The authenticated primary must BE this seat's roster address, not merely a verified address
+    // the account happens to own. Without this, an agent whose GitHub primary is off-domain binds an
+    // off-domain Git author email — and the push-time co-author guard, which can only read
+    // self-asserted commit metadata, then classifies that seat as non-agent and lets a trailer
+    // crediting a real person through. This is the one place authenticated identity is in hand, so
+    // it is the only place that bypass can be closed; the guard cannot close it from a commit alone.
+    //
+    // Asserted rather than substituted: silently writing the roster address over a mismatching
+    // verified primary would make the Git identity stop matching the authenticated account, trading
+    // one attribution lie for another. A mismatch is a real finding and says so.
+    const rosterEmail = rosterEmailForLogin(expectedLogin);
+
+    if (!rosterEmail) {
+        throw new Error(
+            `bootstrapWorktree: agent '${expectedLogin}' has no commit address in ` +
+            'buildScripts/util/agentCoAuthorEmails.mjs. Add the seat there before binding its Git identity.'
+        )
+    }
+
+    if (email.toLowerCase() !== rosterEmail) {
+        throw new Error(
+            `bootstrapWorktree: authenticated primary '${email}' for '${expectedLogin}' does not match its ` +
+            `roster commit address '${rosterEmail}'. Binding it would let this seat author from an address ` +
+            'the co-author guard reads as non-agent. Reconcile the GitHub primary or the roster entry.'
+        )
     }
 
     return {displayName, email, login: expectedLogin}
