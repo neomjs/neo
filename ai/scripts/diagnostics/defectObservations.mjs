@@ -19,8 +19,8 @@ import {foldDefectObservations}   from '../../services/memory-core/helpers/defec
  *   node ai/scripts/diagnostics/defectObservations.mjs --plane-base http://127.0.0.1:3102   # operator boxes
  *
  * Plane coordinates resolve from `AiConfig.fleet.planeBase`/`planeBearer`; `--plane-base` overrides
- * the URL and a `GH_TOKEN` env serves as the bearer fallback (the plane's MC surface validates
- * GitHub-token bearers).
+ * the URL, and `NEO_FLEET_PLANE_BEARER` is the bearer's leaf-bound env channel (e.g.
+ * `NEO_FLEET_PLANE_BEARER=$GH_TOKEN` on an operator box).
  */
 
 const args = process.argv.slice(2);
@@ -44,7 +44,7 @@ if (!Number.isInteger(limit) || limit < 1) {
  */
 async function readPlaneObservations() {
     const {default: AiConfig} = await import('../../config.mjs'),
-          planeBase           = (readArgValue('--plane-base', null) ?? String(AiConfig.fleet.planeBase ?? '')).trim().replace(/\/+$/, '');
+          planeBase           = (readArgValue('--plane-base', null) ?? AiConfig.fleet.planeBase).trim().replace(/\/+$/, '');
 
     if (!planeBase) {
         throw new Error('defectObservations: no plane is configured (AiConfig.fleet.planeBase) — pass --plane-base or use --local');
@@ -52,7 +52,7 @@ async function readPlaneObservations() {
 
     const client = createPlaneMailboxClient({
         baseUrl   : `${planeBase}/mc/mcp`,
-        credential: AiConfig.fleet.planeBearer || process.env.GH_TOKEN || ''
+        credential: AiConfig.fleet.planeBearer
     });
 
     try {
