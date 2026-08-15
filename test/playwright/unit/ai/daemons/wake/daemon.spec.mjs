@@ -49,6 +49,17 @@ const FAST_POLL_MS = '50';
  *
  * Attach BEFORE any await on the process, so no output is missed between spawn and subscription.
  *
+ * 43 call sites depend on this, 42 of them converted from `await new Promise(r => setTimeout(r,
+ * 1000))` — a fixed guess at how long the daemon takes to boot. The guess was well calibrated (the
+ * conversion recovered only ~2.7s across the whole file, measured), so this is a CORRECTNESS change,
+ * not a performance one: a 1s sleep silently under-waits whenever boot is slower than usual, and
+ * the resulting failure looks like a daemon defect rather than a test-timing one. Waiting on the
+ * announcement cannot under-wait, and its timeout turns a hung boot into a named failure.
+ *
+ * NOT applied to every 1s sleep in the file. 21 remain, and at least one is load-bearing: the site
+ * separating two mutations into distinct daemon polls needs elapsed wall-time, and converting it
+ * would have kept the test green while deleting what it verifies.
+ *
  * @param {Object} daemonProcess Spawned daemon child process.
  * @param {Number} [timeoutMs=15000] Bound; a daemon that never announces is a failure, not a wait.
  * @returns {Promise<void>}
@@ -425,7 +436,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         insertMessageWake(db, {
             agentId,
@@ -515,7 +526,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Turn Presence Proof'}));
 
         await proofPromise;
@@ -583,7 +594,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Codex Ambiguous Turn Presence'});
 
         await proofPromise;
@@ -639,7 +650,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         ({msgId} = insertMessageWake(db, {agentId, subject: 'Codex Missing Turn Presence'}));
 
         await proofPromise;
@@ -709,7 +720,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Unknown Outcome Probe'});
 
         await unknownPromise;
@@ -779,7 +790,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Abortable Failure Probe'});
 
         await terminalPromise;
@@ -835,7 +846,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         // Inject a MESSAGE + SENT_TO edge → triggers the wake → test-fail adapter throws → retry → cap.
         const msgId = 'msg_' + crypto.randomUUID();
@@ -1016,7 +1027,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
             id: msgId, label: 'MESSAGE', properties: {
@@ -1146,7 +1157,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         const fresh = insertMessageWake(db, {
             agentId,
             priority: 'normal',
@@ -1229,7 +1240,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Directive Presence Probe'});
 
         // The lifecycle-first directive is an IDLE-watchdog nudge that belongs ONLY on pure-heartbeat
@@ -1283,7 +1294,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         // A CAN_REPLY_TO grant edge @granter -> @test-agent-perm. The old daemon keyed PERMISSION_GRANTED
         // on a HAS_PERMISSION edge that is created nowhere (a dead branch); through the shared match() the
@@ -1346,7 +1357,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         // Inject a MESSAGE addressable to the agent: SENT_TO is the routing/detection edge the wake fires on;
         // DELIVERED_TO carries the per-recipient readAt the daemon must reconcile against. Only SENT_TO + the
@@ -1431,7 +1442,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const pulseSummary = Buffer.from(JSON.stringify({
             source: 'github-notification',
@@ -1504,7 +1515,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const pulseSummary = Buffer.from(JSON.stringify({
             source    : 'idle-out-nudge',
@@ -1566,7 +1577,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
@@ -1618,7 +1629,7 @@ test.describe('Wake Daemon', () => {
             }
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -1736,7 +1747,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -1894,7 +1905,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         const {msgId} = insertMessageWake(db, {
             agentId,
             priority: 'high',
@@ -2006,7 +2017,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'Codex App Server Wake'
@@ -2085,7 +2096,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'Codex Desktop CLI Wake'
@@ -2148,7 +2159,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const highMsgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(highMsgId, JSON.stringify({
@@ -2247,7 +2258,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -2331,7 +2342,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -3335,7 +3346,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'OpenCode Missing Envelope Wake'
@@ -3488,7 +3499,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -3589,7 +3600,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject)
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Default Codex Resident Wake'});
         await deliveryPromise;
 
@@ -3642,7 +3653,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject)
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Ambiguous Codex Resident Wake'});
         await refusalPromise;
 
@@ -3691,7 +3702,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject)
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Addressed-only Codex Resident Wake'});
         await refusalPromise;
 
@@ -3739,7 +3750,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'PID Address Wake'});
         await deliveryPromise;
 
@@ -3798,7 +3809,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Stale Presence Wake'});
         await refusalPromise;
 
@@ -3851,7 +3862,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'userDataDir Live Wake'});
         await deliveryPromise;
 
@@ -3907,7 +3918,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'userDataDir Dead Wake'});
         await refusalPromise;
 
@@ -3959,7 +3970,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Stale Pid Boundary Wake'});
         await refusalPromise;
 
@@ -4006,7 +4017,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {agentId, subject: 'Tmux Address Wake'});
         await deliveryPromise;
 
@@ -4192,7 +4203,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -4282,7 +4293,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         const msgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
@@ -4456,7 +4467,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         insertMessageWake(db, {agentId, subject: 'Codex Mixed Submit'});
         const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
@@ -4612,7 +4623,7 @@ test.describe('Wake Daemon', () => {
             if (out.includes(`[Wake Daemon Test Adapter] Delivered ${peerSubId}`))   peerDeliveryCount++;
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         // Sender broadcasts to AGENT:*: from === senderId, edge target === 'AGENT:*'.
         const msgId = 'msg_' + crypto.randomUUID();
@@ -4688,7 +4699,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
 
         // Direct self-DM: from === agentId AND target === agentId (NOT AGENT:*).
         const msgId = 'msg_' + crypto.randomUUID();
@@ -4783,7 +4794,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'Kimi Pull Bridge Wake'
@@ -4868,7 +4879,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'Kimi Pull Bridge No Envelope'
@@ -4940,7 +4951,7 @@ test.describe('Wake Daemon', () => {
             daemonProcess.on('error', reject);
         });
 
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await waitForDaemonReady(daemonProcess);
         insertMessageWake(db, {
             agentId,
             subject: 'Kimi Pull Bridge Cwd Mismatch'
