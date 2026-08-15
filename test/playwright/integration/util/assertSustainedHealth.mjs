@@ -52,7 +52,10 @@ export function percentileIndex(count, percentile) {
  * @param {Number|null} [options.maxMs] - Maximum latency of the slowest probe. Valid at any sample count. Default: null.
  * @param {Number} [options.maxConsecutiveFailures] - Max sequential failures allowed. Default: 0.
  * @param {Function} [options.onSample] - Optional callback to run custom assertions on each sample.
- * @returns {Promise<{samples: Object[], summary: Object}>} The gathered samples and computed summary.
+ * @returns {Promise<{samples: Object[], summary: {actualSuccessRate: Number, actualP95: Number|null, actualMax: Number, iterations: Number}}>}
+ * The gathered samples and computed summary. `summary.actualP95` is **`null` below
+ * `MIN_PERCENTILE_SAMPLES`** — the sample cannot resolve a 95th percentile, and reporting the max
+ * under that name is the defect this module exists to remove. `summary.actualMax` is always present.
  */
 export async function assertSustainedHealth({
     probe,
@@ -100,14 +103,24 @@ export async function assertSustainedHealth({
     const actualSuccessRate = samples.length / iterations;
     expect(actualSuccessRate, `Success rate should be >= ${successRate}`).toBeGreaterThanOrEqual(successRate);
 
-    let actualP95 = 0,
+    // `null`, not `0`. A p95 the sample cannot resolve is not reported at all — see the guard below.
+    // Zero would be a plausible-looking latency; null cannot be mistaken for one.
+    let actualP95 = null,
         actualMax = 0;
 
     if (latencies.length > 0) {
         latencies.sort((a, b) => a - b);
 
         actualMax = latencies[latencies.length - 1];
-        actualP95 = latencies[percentileIndex(latencies.length, 0.95)];
+
+        // The refusal has to cover the REPORTED value too, not just the assertion. Computing
+        // `latencies[percentileIndex(n, 0.95)]` unconditionally republishes, as data, exactly the
+        // conflation this module refuses to assert: below MIN_PERCENTILE_SAMPLES that index IS the
+        // last element, so a consumer charting `summary.actualP95` over short windows would be
+        // charting the maximum under a p95 label — the original defect, one layer out.
+        if (latencies.length >= MIN_PERCENTILE_SAMPLES) {
+            actualP95 = latencies[percentileIndex(latencies.length, 0.95)];
+        }
 
         if (maxMs !== null) {
             expect(actualMax, `slowest probe should be <= ${maxMs}ms`).toBeLessThanOrEqual(maxMs);

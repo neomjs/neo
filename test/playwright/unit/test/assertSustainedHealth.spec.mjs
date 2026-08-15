@@ -130,14 +130,52 @@ test.describe('integration/util/assertSustainedHealth — the latency budget mus
         });
     });
 
-    test.describe('the summary reports both statistics', () => {
-        test('actualMax is the largest observed latency, not the percentile', async () => {
+    test.describe('the SUMMARY refuses the statistic too, not just the assertion', () => {
+        // The first version of these arms asserted `actualMax >= actualP95` at n=3 — where the two are
+        // EQUAL, so it passed on the very conflation it was written to catch. @neo-gpt found the live
+        // consequence: with `p95Ms: null` the exact head still returned `actualP95 === actualMax`, so
+        // the summary republished as DATA what the assertion path refuses to claim. A test that cannot
+        // fail on its own subject is worse than no test — it certifies the defect.
+        //
+        // One slow probe among fast ones is what separates the two statistics: it IS the max, and a
+        // genuine p95 at n=20 must not select it.
+        const oneSlowProbeAmong = () => {
+            let call = 0;
+
+            return () => {
+                call++;
+                return call === 1 ? new Promise(resolve => setTimeout(() => resolve({status: 'healthy'}), 40))
+                                  : Promise.resolve({status: 'healthy'})
+            }
+        };
+
+        test('n=5 — actualP95 is null, and actualMax still reports the outlier', async () => {
             const {summary} = await assertSustainedHealth({
-                probe: slowProbe(20), ...windowFor(3), p95Ms: null, maxMs: 5000
+                probe: oneSlowProbeAmong(), ...windowFor(5), p95Ms: null, maxMs: 5000
             });
 
-            expect(summary.actualMax).toBeGreaterThanOrEqual(summary.actualP95);
-            expect(summary.actualMax).toBeGreaterThan(0);
+            expect(summary.actualP95, 'five samples cannot resolve a p95').toBeNull();
+            expect(summary.actualMax, 'the max is always reportable').toBeGreaterThanOrEqual(35);
+        });
+
+        test('n=20 — actualP95 resolves and is STRICTLY below the outlier max', async () => {
+            const {summary} = await assertSustainedHealth({
+                probe: oneSlowProbeAmong(), ...windowFor(MIN_PERCENTILE_SAMPLES), p95Ms: null, maxMs: 5000
+            });
+
+            // Strictly less, not <=. Equality here is the conflation, so `toBeLessThan` is the only
+            // form of this assertion that can fail when the guard regresses.
+            expect(summary.actualP95).not.toBeNull();
+            expect(summary.actualP95).toBeLessThan(summary.actualMax);
+            expect(summary.actualMax).toBeGreaterThanOrEqual(35);
+        });
+
+        test('a null p95 is never mistakable for a fast one', async () => {
+            // `0` would be a plausible latency; the distinction has to survive a consumer reading it.
+            const {summary} = await assertSustainedHealth({probe: fastProbe, ...windowFor(5), p95Ms: null});
+
+            expect(summary.actualP95).toBeNull();
+            expect(summary.actualP95).not.toBe(0);
         });
     });
 });
