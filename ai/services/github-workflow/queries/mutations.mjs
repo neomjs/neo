@@ -552,6 +552,7 @@ export const GET_PULL_REQUEST_ID = `
         }
       }
       pullRequest(number: $prNumber) {
+        body
         createdAt
         id
         headRefOid

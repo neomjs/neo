@@ -4225,11 +4225,9 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     // ---------------------------------------------------------------------------------------------
-    // The two action-demand channels the budget could not see: post-budget COMMENT, and A+FU approve
+    // The action-demand channels the budget could not see: COMMENT and A+FU approve, create + update
     // ---------------------------------------------------------------------------------------------
 
-    // A post-budget COMMENT fixture: gpt already spent its ordinary round, and the incoming body is
-    // submitted by the gpt seat the suite defaults to.
     const postBudgetCommentLookup = (body = VALID_ORDINARY_REQUEST_CHANGES_BODY) => ({
         body,
         reviews: {nodes: [priorRequestChanges()], pageInfo: {hasPreviousPage: false}}
@@ -4257,18 +4255,107 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         return {mutationCallCount, result}
     };
 
+    // Editing an already-submitted review is the second way to raise a packet, and the create-side
+    // guards never saw it. `state` is the EXISTING review's state, which is all the update path holds.
+    const updateReview = async ({body, state}) => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestReview')) {
+                return {node: {id: REVIEW_NODE.id, body: VALID_REVIEW_BODY, state}}
+            }
+
+            if (queryString.includes('UpdatePullRequestReview')) mutationCallCount++;
+            return {updatePullRequestReview: {pullRequestReview: {...REVIEW_NODE, state}}}
+        };
+
+        const result = await PullRequestService.managePrReview({action: 'update', review_id: REVIEW_NODE.id, body});
+
+        return {mutationCallCount, result}
+    };
+
+    // A body that raises its demand as RA-N PROSE rather than as a checkbox. @neo-gpt submitted exactly
+    // this shape at the exact head and it was admitted: the first detector read the measured checkbox
+    // population as the whole grammar.
+    const RA_PROSE_BODY = VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
+        '- [ ] name the boundary this must not hardcode',
+        'RA-999: fix the production boundary'
+    );
+
     // THE EVASION, replayed from the measured history behind this contract: the budget recorded ONE
     // ordinary round while three reviewer-pushed COMMENTED rounds carried 2, 1 and 1 live action items
     // straight past it — every one under a `### 📋 Required Action(s)` heading. Same shape here.
-    test('#17214: a post-budget COMMENT that mints a new action packet is refused', async () => {
+    test('#17214: a COMMENT that mints a new action packet is refused', async () => {
         const {mutationCallCount, result} = await submitComment(postBudgetCommentLookup());
 
-        expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
-        expect(result.reviewBudget.outcome).toBe('post-budget-action-packet');
-        expect(result.reviewBudget.demandedActionItems).toBe(1);
-        expect(result.reviewBudget.reviewerFamily).toBe('gpt');
+        expect(result.code).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+        expect(result.demandedActionItems).toBe(1);
         expect(result.message).toContain('does not open a new packet');
         expect(mutationCallCount, 'the packet never reaches GitHub').toBe(0)
+    });
+
+    // THE DEFECT THE FIRST VERSION SHIPPED, and the reason this guard is now stateless. It refused a
+    // demand COMMENT only once the family had spent an ordinary CHANGES_REQUESTED round — so a family
+    // that never chose that enum was never "post-budget" and could demand forever. @neo-gpt admitted
+    // the same packet after 0, 1 and 2 prior same-family demand COMMENTs at the exact head.
+    test('#17214: the 0 -> 1 -> 2 prior-demand-COMMENT sequence refuses at every step', async () => {
+        const demandComment = index => ({
+            body       : VALID_ORDINARY_REQUEST_CHANGES_BODY,
+            id         : `PRR_demand_${index}`,
+            state      : 'COMMENTED',
+            submittedAt: `2026-07-16T1${index}:00:00Z`,
+            author     : {login: 'neo-gpt'},
+            commit     : {oid: '1111111111111111111111111111111111111111'}
+        });
+
+        for (const priorCount of [0, 1, 2]) {
+            const {mutationCallCount, result} = await submitComment({
+                body   : VALID_ORDINARY_REQUEST_CHANGES_BODY,
+                reviews: {
+                    nodes   : Array.from({length: priorCount}, (_, index) => demandComment(index)),
+                    pageInfo: {hasPreviousPage: false}
+                }
+            });
+
+            expect(result.code, `${priorCount} prior demand COMMENT(s)`).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+            expect(mutationCallCount, `${priorCount} prior demand COMMENT(s)`).toBe(0)
+        }
+    });
+
+    // The demand grammar is not only a checkbox. This exact specimen was admitted before the RA-N arm.
+    test('#17214: an RA-N prose demand under Required Actions is refused', async () => {
+        const {mutationCallCount, result} = await submitComment({body: RA_PROSE_BODY});
+
+        expect(result.code).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+        expect(result.demandedActionItems).toBe(1);
+        expect(mutationCallCount).toBe(0)
+    });
+
+    // The update path had NO demand guard, so both create-side guards could be walked around: submit
+    // an admissible review, then edit the demand in. Both injections reached the mutation at the head.
+    test('#17214: editing a demand into a submitted COMMENTED or APPROVED review is refused', async () => {
+        const commented = await updateReview({body: VALID_ORDINARY_REQUEST_CHANGES_BODY, state: 'COMMENTED'});
+
+        expect(commented.result.code).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+        expect(commented.mutationCallCount).toBe(0);
+
+        const approved = await updateReview({body: VALID_ORDINARY_REQUEST_CHANGES_BODY, state: 'APPROVED'});
+
+        expect(approved.result.code).toBe('PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED');
+        expect(approved.mutationCallCount).toBe(0)
+    });
+
+    // The mirror, and the reason the update guard is state-keyed rather than blanket: a demand packet
+    // is what CHANGES_REQUESTED is FOR, and its ordinary round was charged when the review was created.
+    // Without this, the guard would forbid an author-requested edit to a legitimate Round-1 packet.
+    test('#17214: editing a CHANGES_REQUESTED review\'s own packet stays permitted', async () => {
+        const {mutationCallCount, result} = await updateReview({
+            body : VALID_ORDINARY_REQUEST_CHANGES_BODY,
+            state: 'CHANGES_REQUESTED'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
     });
 
     // The other direction, and the one that decides whether the guard is usable at all: the SAME
@@ -4297,50 +4384,32 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(mutationCallCount).toBe(1)
     });
 
-    // Budget state is the trigger, not the body. Identical packet, family that has spent nothing.
-    test('#17214: a within-budget COMMENT carrying the same packet is untouched', async () => {
-        const {mutationCallCount, result} = await submitComment({
-            body   : VALID_ORDINARY_REQUEST_CHANGES_BODY,
-            reviews: {nodes: [], pageInfo: {hasPreviousPage: false}}
-        });
+    // THE STATELESSNESS ITSELF, pinned from three directions at once. Every one of these was an ADMIT
+    // under the budget-scoped version — a family with no spent round, a different family, and a
+    // grandfathered PR each supplied a state in which the demand was waved through. The refusal must
+    // not depend on any of them, because each was a way to be right about the demand and admit it.
+    test('#17214: the demand refusal does not depend on budget, family, or cutover state', async () => {
+        const cases = [
+            {name: 'family that has spent nothing', lookup: {body: VALID_ORDINARY_REQUEST_CHANGES_BODY, reviews: {nodes: [], pageInfo: {hasPreviousPage: false}}}},
+            {name: 'pre-cutover (grandfathered) PR', lookup: {...postBudgetCommentLookup(), createdAt: '2026-07-16T13:57:02Z'}},
+            {name: 'unresolvable activation',        lookup: {...postBudgetCommentLookup(), activationIssue: activationIssueNode([])}}
+        ];
 
-        expect(result.error).toBeUndefined();
-        expect(mutationCallCount).toBe(1)
-    });
+        for (const item of cases) {
+            const {mutationCallCount, result} = await submitComment(item.lookup);
 
-    // Per-family, exactly as the RC budget is. One family's exhausted round must not silence another's
-    // first word on the PR — the same independence already pinned for REQUEST_CHANGES, now on COMMENT.
-    test('#17214: another family\'s COMMENT is untouched by the spending family\'s exhausted round', async () => {
+            expect(result.code, item.name).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+            expect(mutationCallCount, item.name).toBe(0)
+        }
+
+        // ...and a different family gets no separate allowance either: the bound is the demand, so
+        // there is no per-family COMMENT quota to spend in the first place.
         RepositoryService.viewerLogin = 'neo-opus-grace';
 
-        const {mutationCallCount, result} = await submitComment(postBudgetCommentLookup());
+        const otherFamily = await submitComment(postBudgetCommentLookup());
 
-        expect(result.error, 'claude has spent nothing on this PR').toBeUndefined();
-        expect(mutationCallCount).toBe(1)
-    });
-
-    // Grandfathered PRs stay judgment-only, matching the RC path's cutover semantics.
-    test('#17214: a pre-cutover COMMENT is untouched', async () => {
-        const {mutationCallCount, result} = await submitComment({
-            ...postBudgetCommentLookup(),
-            createdAt: '2026-07-16T13:57:02Z'
-        });
-
-        expect(result.error).toBeUndefined();
-        expect(mutationCallCount).toBe(1)
-    });
-
-    // An unresolvable activation refuses a REQUEST_CHANGES and passes a COMMENT. Same fact, opposite
-    // dispositions, because the cost of being wrong inverts with the channel: there an unbounded round,
-    // here a blocked terminal disposition. Pinned so the asymmetry cannot be "tidied" into symmetry.
-    test('#17214: an unprovable budget passes the COMMENT rather than refusing it', async () => {
-        const {mutationCallCount, result} = await submitComment({
-            ...postBudgetCommentLookup(),
-            activationIssue: activationIssueNode([])
-        });
-
-        expect(result.error).toBeUndefined();
-        expect(mutationCallCount).toBe(1)
+        expect(otherFamily.result.code).toBe('PR_REVIEW_ACTION_PACKET_REFUSED');
+        expect(otherFamily.mutationCallCount).toBe(0)
     });
 
     // AC-8. A+FU existed only as prose — the string `A+FU` appears nowhere under `ai/` — so an approval
@@ -4367,30 +4436,53 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(mutationCallCount).toBe(0)
     });
 
-    // The mirror: identical body, identical approval, one issue reference added. Without this half the
-    // test above would pass against a guard that simply refuses every approval carrying a checkbox.
-    test('#17214: the same APPROVE passes once the follow-up names its owning issue', async () => {
-        let mutationCallCount = 0;
+    // INDEPENDENT is the load-bearing word, and this suite originally proved the opposite: its positive
+    // fixture cited the very issue the PR closes as evidence of independent follow-up ownership.
+    // @neo-gpt caught it — an item pointing at the close target names work the merge is about to
+    // declare finished. The anti-pattern was shipped as its own proof.
+    //
+    // `line #42` is the second non-owner: a coordinate names a place, not a ticket accepting work.
+    test('#17214: a coordinate and the PR\'s own close target are both refused as owners', async () => {
+        const approveWith = async followUp => {
+            let mutationCallCount = 0;
 
-        GraphqlService.query = async queryString => {
-            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
-            return queryString.includes('GetPullRequestId')
-                ? pullRequestLookup()
-                : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+            GraphqlService.query = async queryString => {
+                if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+                return queryString.includes('GetPullRequestId')
+                    ? pullRequestLookup({body: 'Resolves #17214\n\nthe close target this PR declares'})
+                    : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+            };
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 17214,
+                state    : 'APPROVED',
+                body     : VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
+                    '- [ ] name the boundary this must not hardcode',
+                    `- [ ] name the boundary this must not hardcode ${followUp}`
+                )
+            });
+
+            return {mutationCallCount, result}
         };
 
-        const result = await PullRequestService.managePrReview({
-            action   : 'create',
-            pr_number: 17214,
-            state    : 'APPROVED',
-            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
-                '- [ ] name the boundary this must not hardcode',
-                '- [ ] name the boundary this must not hardcode — #17214'
-            )
-        });
+        for (const item of [
+            {name: 'a coordinate',                 followUp: '— line #42'},
+            {name: 'the PR\'s own close target',   followUp: '— #17214'},
+            {name: 'a close-target issue URL',     followUp: '— https://github.com/neomjs/neo/issues/17214'}
+        ]) {
+            const {mutationCallCount, result} = await approveWith(item.followUp);
 
-        expect(result.error).toBeUndefined();
-        expect(mutationCallCount).toBe(1)
+            expect(result.code, item.name).toBe('PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED');
+            expect(mutationCallCount, item.name).toBe(0)
+        }
+
+        // The positive control, and it has to be an issue this PR does NOT close — otherwise the three
+        // refusals above would pass against a guard that simply rejects every approval with a checkbox.
+        const owned = await approveWith('— #17141');
+
+        expect(owned.result.error, 'an independent owning issue is the whole point of A+FU').toBeUndefined();
+        expect(owned.mutationCallCount).toBe(1)
     });
 
     // Plain APPROVE is the default merge-safe terminal outcome and must gain no new obligation. The
