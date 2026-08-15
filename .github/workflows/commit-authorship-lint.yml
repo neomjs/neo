@@ -64,5 +64,13 @@ jobs:
       # `< /dev/null` is explicit rather than incidental: the script reads fd 0 for the pre-push hook
       # payload, and an inherited terminal-less stdin should degrade to the fallback by design, not by
       # luck. No `npm ci` — this guard imports only node builtins and the in-repo identity registry.
+      # `--author-login` is the AUTHENTICATED lane classification for CI. The guard cannot use the
+      # commit's own `%ae` for this: `git commit --author=…` rewrites it, and one such flag carried a
+      # poisoned trailer to exit 0 against an email-only classifier. A PR cannot forge who opened it,
+      # so GitHub's own `pull_request.user.login` is the one unforgeable identity available here —
+      # the CI counterpart to checkout ownership, which exists only at the hook.
       - name: Lint commit authorship and co-author trailers
-        run: node ./buildScripts/util/check-commit-authorship.mjs < /dev/null
+        run: >
+          node ./buildScripts/util/check-commit-authorship.mjs
+          --author-login "${{ github.event.pull_request.user.login }}"
+          < /dev/null

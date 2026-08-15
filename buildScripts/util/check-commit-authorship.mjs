@@ -1,6 +1,6 @@
 import {execSync}             from 'node:child_process';
 import {readFileSync}         from 'node:fs';
-import {findUnknownCoAuthors, findUnmappedProjectAuthors} from './agentCoAuthorEmails.mjs';
+import {findUnknownCoAuthors, rosterEmailForLogin} from './agentCoAuthorEmails.mjs';
 import path                   from 'node:path';
 import process                from 'node:process';
 
@@ -175,8 +175,36 @@ const ranges = pendingRanges(payload);
 // whether an address exists, and that gate answers a different question (operator identity leak).
 // Advisory in both directions: an unrecognized address warns, an unreadable map stays silent, and
 // neither can block. See ./agentCoAuthorEmails.mjs for why the addresses are a map and not derived.
-let unknownCoAuthors = [],
-    unmappedAuthors  = [];
+/**
+ * @summary Whether these commits are being pushed on an agent lane, from a source the committer
+ * cannot forge.
+ *
+ * **This exists because `%ae` is not an identity.** `git commit --author='X <off-domain>'` rewrites
+ * the author on a single commit, and against an email-only classifier that one flag carried a
+ * poisoned trailer straight to exit 0 — measured. So the classification cannot come from inside the
+ * commit; it has to come from something the commit's author did not write.
+ *
+ * Two unforgeable sources, one per caller:
+ *
+ * - **Hook**: checkout ownership. A linked worktree or an `NEO_AGENT_IDENTITY` pin means an agent is
+ *   pushing, whatever any individual commit claims about itself.
+ * - **CI**: `--author-login`, which the workflow fills from the GitHub-authenticated PR author. A PR
+ *   cannot forge who opened it.
+ *
+ * Neither is available to the other, which is why both exist rather than one.
+ *
+ * @returns {Boolean}
+ */
+function isAuthenticatedAgentLane() {
+    const loginIndex = process.argv.indexOf('--author-login'),
+        login        = loginIndex === -1 ? '' : (process.argv[loginIndex + 1] || '');
+
+    return isAgentCheckout() || Boolean(rosterEmailForLogin(login))
+}
+
+const agentLane = isAuthenticatedAgentLane();
+
+let unknownCoAuthors = [];
 
 try {
     const commits = ranges.flatMap(range => {
@@ -190,32 +218,12 @@ try {
         }).filter(Boolean) : []
     });
 
-    unknownCoAuthors = findUnknownCoAuthors({commits});
-    unmappedAuthors  = findUnmappedProjectAuthors({commits})
+    unknownCoAuthors = findUnknownCoAuthors({agentLane, commits})
 } catch {
     // Fail open on INPUT failure only: a missing registry, an unreadable map, or a malformed log
     // must never block a push. A trailer this successfully read and rejected is a different matter,
     // handled below — swallowing that was how 16 mis-credited commits shipped.
-    unknownCoAuthors = [];
-    unmappedAuthors  = []
-}
-
-// A project-domain author this map does not carry is deliberately NOT classified as agent or human
-// — see findUnmappedProjectAuthors. It blocks, because the one-line fix is adding the seat, and
-// either guess is a way for this gate to fail silently.
-if (unmappedAuthors.length > 0) {
-    console.error(`\x1b[31mcheck-commit-authorship: ${unmappedAuthors.length} commit(s) authored from the project domain by an address no agent seat owns:\x1b[0m`);
-    unmappedAuthors.forEach(({sha, subject, authorEmail}) => console.error(`  ${sha.slice(0, 10)}  <${authorEmail}>  ${subject}`));
-    console.error(`
-This address is on @neomjs.com but is not in EMAIL_BY_LOGIN, so this check cannot tell a newly
-seeded agent seat from a human bound to the domain — and guessing either way breaks something. An
-agent guess blocks the outside collaborators a human legitimately credits; a human guess drops the
-commit into the domain-scoped path where its off-domain co-author trailers pass unseen.
-
-Add the seat to buildScripts/util/agentCoAuthorEmails.mjs with its occurrence count, or bypass
-deliberately if this is a one-off human commit: git push --no-verify
-`);
-    process.exit(1)
+    unknownCoAuthors = []
 }
 
 // Agent-authored offenders BLOCK. Anything else stays advisory, because a non-agent commit's

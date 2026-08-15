@@ -160,10 +160,21 @@ export function reconcileWithRegistry() {
  * @param {Object[]} args.commits `{sha, subject, body, authorEmail}` rows for the commits being
  * pushed. A missing `authorEmail` is treated as non-agent, keeping the pre-existing domain-scoped
  * behaviour for any caller that has not been updated — this check degrades quiet, never loud.
+ * @param {Boolean} [args.agentLane=false] An AUTHENTICATED statement that these commits are being
+ * pushed on an agent lane, from a source the committer cannot forge: the hook passes the bootstrap's
+ * checkout ownership, CI passes the GitHub-authenticated PR author. When true it overrides the
+ * per-commit author entirely.
+ *
+ * **Why an override rather than one more input to the inference.** `authorEmail` is `%ae`, which a
+ * single `git commit --author=…` rewrites — measured: an agent commit carrying a poisoned trailer
+ * and an off-domain `--author` exited 0 against the email-only classifier. Authenticated lane
+ * identity is not forgeable from inside the commit, so where it exists it is the answer and the
+ * email is not consulted. Where it does not exist the email remains a best effort, which is why this
+ * defaults to `false` rather than being required.
  * @returns {Array<{sha: String, subject: String, email: String, agentAuthored: Boolean}>} One row
  * per offending trailer. `agentAuthored` is what the caller escalates on.
  */
-export function findUnknownCoAuthors({commits = []}) {
+export function findUnknownCoAuthors({commits = [], agentLane = false}) {
     const
         known     = new Set(Object.values(EMAIL_BY_LOGIN).map(email => email.toLowerCase())),
         trailer   = /^\s*co-authored-by:\s*.*?<([^>]+)>\s*$/gim,
@@ -171,16 +182,19 @@ export function findUnknownCoAuthors({commits = []}) {
 
     commits.forEach(({sha, subject, body, authorEmail}) => {
         const
-            // Map membership ONLY. An earlier revision also treated any `@neomjs.com` author as an
-            // agent, to stop a newly seeded seat from silently falling into the weak path. @neo-gpt
-            // falsified the inference: a commit's author email is SELF-ASSERTED metadata, not an
-            // authenticated account type, so "project domain therefore agent" both admits laundering
-            // and false-positives any human who ends up on the domain — and `bootstrapWorktree` binds
-            // an authenticated account's current primary email without requiring a map entry, so such
-            // a human is reachable rather than hypothetical. The ambiguous case is not guessed in
-            // either direction now; `findUnmappedProjectAuthors()` below turns it into an explicit,
-            // actionable failure instead.
-            agentAuthored = known.has((authorEmail || '').trim().toLowerCase()),
+            // Authenticated lane FIRST, commit metadata only as a fallback. `%ae` is self-asserted:
+            // `git commit --author='X <off-domain>'` rewrites it, and measured against the
+            // email-only classifier that one flag carried a poisoned trailer to exit 0. Where the
+            // caller can state the lane from an unforgeable source — checkout ownership at the hook,
+            // the GitHub-authenticated PR author in CI — that statement is the classification and
+            // the email is never consulted.
+            //
+            // Two earlier shapes were falsified rather than merely improved on, and both are worth
+            // not re-proposing: treating any `@neomjs.com` author as an agent (admits laundering AND
+            // false-positives a human bound to the domain), and refusing the unmapped project-domain
+            // case outright (a non-roster author must stay UNAFFECTED, and the seat gap that refusal
+            // protected is closed at the binder, which will not bind an unmapped seat at all).
+            agentAuthored = agentLane || known.has((authorEmail || '').trim().toLowerCase()),
             seen          = new Set();
         let match;
 
@@ -207,40 +221,18 @@ export function findUnknownCoAuthors({commits = []}) {
     return offenders
 }
 
-/**
- * @summary Finds commits authored from the project domain by an address this map does not carry.
+/*
+ * REMOVED: `findUnmappedProjectAuthors()`.
  *
- * **The ambiguous case, made explicit rather than guessed.** A `@neomjs.com` author that is not in
- * `EMAIL_BY_LOGIN` is one of two things, and nothing in the commit can tell them apart: a newly
- * seeded agent seat the map has not caught up with, or a human bound to the project domain by
- * `bootstrapWorktree`'s authenticated-account path, which does not require a map entry.
+ * It blocked a commit whose author was on the project domain but absent from the map, on the
+ * reasoning that the case is genuinely ambiguous and a named failure beats a silent guess. The
+ * reasoning was fine and the rule was wrong: a commit whose author is NOT a roster agent must stay
+ * **unaffected**, and a non-roster human on the project domain is exactly that. A reviewer caught
+ * that the check contradicted its own change's stated acceptance criterion — and that the real-git
+ * suite had a test PINNING the contradiction, which is how it survived a round of review.
  *
- * Classifying it either way is wrong. Calling it an agent false-positives the human and blocks the
- * outside collaborators they legitimately credit; calling it a non-agent drops it into the weak
- * domain-scoped path, where its off-domain trailers pass unseen — this gate's own failure mode.
- *
- * So it is neither. It is a **named, actionable failure**: add the seat to the map, or bypass
- * deliberately. The one-line fix is the point — an unknown seat should cost a map entry, not a
- * silent classification.
- *
- * `reconcileWithRegistry()` covers the same gap from the registry side and is asserted by spec, but
- * only for seats the registry already knows. A seat that commits before it is registered reaches
- * this check first.
- *
- * @param {Object}   args
- * @param {Object[]} args.commits `{sha, subject, authorEmail}` rows for the commits being pushed.
- * @returns {Array<{sha: String, subject: String, authorEmail: String}>} One row per commit.
+ * The gap it was covering — a newly seeded seat falling into the weak path — is closed upstream
+ * instead: `resolveAgentGitIdentity()` refuses to bind a Git identity for a seat with no roster
+ * address, so an unmapped agent never reaches a commit in the first place. Closing it at the binder
+ * costs no false positives; closing it at the guard cost one, aimed at humans.
  */
-export function findUnmappedProjectAuthors({commits = []}) {
-    const known = new Set(Object.values(EMAIL_BY_LOGIN).map(email => email.toLowerCase()));
-
-    return commits.reduce((rows, {sha, subject, authorEmail}) => {
-        const author = (authorEmail || '').trim().toLowerCase();
-
-        if (author.endsWith('@neomjs.com') && !known.has(author)) {
-            rows.push({sha, subject, authorEmail: author})
-        }
-
-        return rows
-    }, [])
-}

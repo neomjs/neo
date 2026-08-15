@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import {
     findUnknownCoAuthors,
-    findUnmappedProjectAuthors,
     mismatchedLogins,
     rosterEmailForLogin,
     reconcileWithRegistry,
@@ -139,12 +138,12 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
             })).toEqual([]);
         });
 
-        test('a project-domain author NOT in the map is not classified as an agent either', () => {
-            // An earlier revision widened `agentAuthored` to the whole project domain, to stop a
-            // newly seeded seat falling into the weak path. @neo-gpt falsified the inference: author
-            // email is self-asserted metadata, not an authenticated account type, so the domain
-            // cannot stand in for one. The ambiguous case is routed to findUnmappedProjectAuthors
-            // rather than guessed — see the block below.
+        test('a project-domain author NOT in the map is UNAFFECTED — #17195 AC-3', () => {
+            // Two rules died here, in order. First: treating any `@neomjs.com` author as an agent —
+            // self-asserted email is not an account type. Then: refusing the unmapped case outright,
+            // which @neo-gpt caught as a violation of this PR's own AC-3 ("a commit whose author is
+            // NOT a roster agent is unaffected"). A non-roster human on the project domain is
+            // exactly that, and the seat gap the refusal covered is closed at the binder instead.
             const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
 
             expect(findUnknownCoAuthors({
@@ -154,39 +153,41 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
     });
 
     /**
-     * The case that cannot be classified from the commit alone: a project-domain address the map
-     * does not carry is either a newly seeded agent seat or a human bound to the domain by the
-     * bootstrap's authenticated-account path. Guessing agent false-positives the human; guessing
-     * human drops the commit into the weak path. So it is neither — it is a named failure.
+     * `%ae` is not an identity — `git commit --author='X <off-domain>'` rewrites it, and against an
+     * email-only classifier that one flag carried a poisoned trailer to exit 0. So the classification
+     * has to come from something the commit's author did not write.
      */
-    test.describe('unmapped project-domain authors are refused rather than guessed', () => {
-        test('flags a project-domain author the map does not carry', () => {
-            expect(findUnmappedProjectAuthors({
-                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'neo-newly-seeded@neomjs.com'}]
-            }).map(row => row.authorEmail)).toEqual(['neo-newly-seeded@neomjs.com']);
+    test.describe('an authenticated lane overrides the commit author entirely', () => {
+        const OFF_DOMAIN = 'real.person@example.com';
+
+        test('agentLane classifies an OFF-DOMAIN author as an agent — the --author bypass', () => {
+            const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
+
+            expect(findUnknownCoAuthors({
+                agentLane: true,
+                commits  : [{sha: 'g'.repeat(40), subject: 's', body, authorEmail: 'off-domain@example.com'}]
+            }).map(offender => offender.email)).toEqual([OFF_DOMAIN]);
         });
 
-        test('POSITIVE CONTROL — a mapped seat is silent', () => {
-            expect(findUnmappedProjectAuthors({
-                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: CANONICAL}]
+        test('POSITIVE CONTROL — agentLane still admits a roster trailer', () => {
+            expect(findUnknownCoAuthors({
+                agentLane: true,
+                commits  : [{sha: 'g'.repeat(40), subject: 's', body: `msg\n\nCo-Authored-By: V <${CANONICAL}>`, authorEmail: 'off-domain@example.com'}]
             })).toEqual([]);
         });
 
-        test('an OFF-DOMAIN author is not this function\'s business — outside contributors pass', () => {
-            expect(findUnmappedProjectAuthors({
-                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'outsider@example.org'}]
+        test('WITHOUT agentLane the same commit is unaffected — the bypass, pinned', () => {
+            // The regression fixture: this is what exit 0 looked like before the lane input existed.
+            const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
+
+            expect(findUnknownCoAuthors({
+                commits: [{sha: 'g'.repeat(40), subject: 's', body, authorEmail: 'off-domain@example.com'}]
             })).toEqual([]);
         });
 
-        test('matches the domain case-insensitively', () => {
-            expect(findUnmappedProjectAuthors({
-                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'Neo-Newly-Seeded@NeoMjs.com'}]
-            })).toHaveLength(1);
-        });
-
-        test('a missing author email cannot throw', () => {
-            expect(findUnmappedProjectAuthors({commits: [{sha: 'f'.repeat(40), subject: 's'}]})).toEqual([]);
-        });
+        test('agentLane defaults false, so an un-updated caller cannot start failing', () => {
+            expect(findUnknownCoAuthors({commits: [{sha: 'h'.repeat(40), subject: 's', body: 'no trailer'}]})).toEqual([]);
+        })
     });
 
     test.describe('parsing', () => {

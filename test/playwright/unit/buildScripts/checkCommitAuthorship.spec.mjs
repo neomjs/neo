@@ -321,18 +321,37 @@ test.describe('check-commit-authorship — the operator must not author from an 
             expect(runGuard(main, 'operator@example.com').status).toBe(0)
         });
 
-        test('BLOCKS a project-domain author the map does not carry, naming the seat', () => {
-            // Neither agent nor human can be established from the commit, so the guard refuses to
-            // guess and asks for a map entry instead.
+        test('a project-domain author the map does not carry is UNAFFECTED — #17195 AC-3', () => {
+            // This test previously asserted status 1 and PINNED a violation of the PR's own AC-3
+            // ("a commit whose author is NOT a roster agent is unaffected"). @neo-gpt caught both
+            // the rule and the test that made it durable. The seat gap the refusal was covering is
+            // closed at the binder, which will not bind an unmapped seat at all.
             const main = createMainCheckout();
 
             commitAs(main, {authorEmail: 'neo-unmapped-seat@neomjs.com', subject: 'feat: unknown seat'});
 
-            const result = runGuard(main, 'operator@example.com');
+            expect(runGuard(main, 'operator@example.com').status).toBe(0)
+        });
+
+        test('BLOCKS an --author override on an agent lane — %ae is not an identity', () => {
+            // The bypass, measured before the fix: one `git commit --author=` flag reclassified an
+            // agent as a human and carried a poisoned trailer to exit 0. The lane comes from
+            // checkout ownership here, which the committer cannot rewrite from inside a commit.
+            const
+                main = createMainCheckout(),
+                tree = path.join(tmpRoot, 'seat-lane');
+
+            git(main, ['worktree', 'add', '-b', 'agent/lane-override', tree, 'dev', '--quiet']);
+            fs.outputFileSync(path.join(tree, 'w.txt'), 'x\n');
+            git(tree, ['add', '.']);
+            git(tree, ['-c', `user.email=${ROSTER_AUTHOR}`, '-c', 'user.name=Ada', 'commit',
+                '--author', 'Ada <off-domain@example.com>',
+                '-m', `feat: laundered\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`, '--quiet', '--no-verify']);
+
+            const result = runGuard(tree, 'operator@example.com');
 
             expect(result.status).toBe(1);
-            expect(result.stderr).toContain('neo-unmapped-seat@neomjs.com');
-            expect(result.stderr).toContain('agentCoAuthorEmails.mjs')
+            expect(result.stderr).toContain(OFF_DOMAIN)
         });
 
         test('a clean agent commit with no trailer at all is silent', () => {
