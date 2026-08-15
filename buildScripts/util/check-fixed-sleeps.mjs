@@ -63,11 +63,20 @@
  *
  * ## Baseline mechanics
  *
- * Pre-existing sites are grandfathered per-site in `check-fixed-sleeps-baseline.json`. A baseline row
- * whose site no longer matches **also fails**: the baseline may only shrink, and it cannot outlive the
- * sites it grandfathers. Per-site rather than per-file deliberately — these sites tend to CONVERT rather
- * than vanish (a sleep becomes a readiness poll), and a file count would silently absorb a conversion
- * that left the site present.
+ * Pre-existing sites are grandfathered in `check-fixed-sleeps-baseline.json` as `{file, text, count}`
+ * entries, and reconciliation compares OCCURRENCE COUNTS in both directions: above the allowance is
+ * fresh, below it is stale. The baseline may only shrink and cannot outlive the sites it grandfathers.
+ *
+ * Counting rather than testing membership is load-bearing. These sites are overwhelmingly the
+ * byte-identical line `setTimeout(resolve, 1000)` — 64 occurrences in one file — so a key of file+text
+ * collapses them into a single entry, and removing 63 of the 64 leaves that key still matching, nothing
+ * stale, and the guard green. Site granularity was chosen precisely so a conversion (a sleep becoming a
+ * readiness poll) could not be absorbed silently; membership keys hand back the very weakness the
+ * choice rejected.
+ *
+ * Line numbers stay OUT of the key on purpose: they shift under any edit above them, so keying on them
+ * turns every unrelated change into a wall of false staleness — and a guard nobody can keep green gets
+ * routed around, which is the failure this ticket is about.
  */
 import fs              from 'node:fs';
 import path            from 'node:path';
@@ -118,7 +127,7 @@ function collectSpecs(dir, out = []) {
  * @param {Object} [options]
  * @param {String} [options.rootDir] Repo root.
  * @param {String[]} [options.files] Absolute spec paths; defaults to the whole unit tree.
- * @returns {Array<{file: String, line: Number, ms: Number, text: String}>}
+ * @returns {{backlog: Array<Object>, sites: Array<{file: String, line: Number, ms: Number, text: String}>}}
  */
 export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
     const
@@ -133,6 +142,20 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             const match = SLEEP_RE.exec(text);
 
             if (!match || Number(match[1]) < THRESHOLD_MS) return;
+
+            // A guard that fires on prose ABOUT itself is a noise generator, and a noisy gate gets
+            // routed around within a week — the trap this whole ticket is against. The pattern appears
+            // legitimately in comments explaining the rule and in fixture strings inside this guard's
+            // own spec, neither of which sleeps. Skip a match that is inside a comment line or inside a
+            // quoted literal on its own line.
+            const before = text.slice(0, match.index),
+                  head   = text.trimStart();
+
+            if (head.startsWith('//') || head.startsWith('*') || head.startsWith('/*')) return;
+            if (/['"`]/.test(before.slice(before.lastIndexOf(' ') + 1))) return;
+            if ((before.match(/'/g) || []).length % 2 === 1) return;
+            if ((before.match(/"/g) || []).length % 2 === 1) return;
+            if ((before.match(/`/g) || []).length % 2 === 1) return;
 
             const context = lines.slice(Math.max(0, index - LOOKBEHIND), index + 1).join('\n');
 
@@ -160,9 +183,9 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
         })
     }
 
-    found.backlog = backlog;
-
-    return found
+    // A plain object, never an array carrying an extra property: `toEqual([])` fails against an array
+    // with own properties, so the smuggled field turned a passing assertion into a confusing red.
+    return {backlog, sites: found}
 }
 
 /**
@@ -174,14 +197,32 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
  */
 export function reconcile({found, baseline}) {
     const
-        key      = row => `${row.file}::${row.text}`,
-        liveKeys = new Set(found.map(key)),
-        rowKeys  = new Set(baseline.map(key));
+        key   = row => `${row.file}::${row.text}`,
+        tally = rows => rows.reduce((map, row) => map.set(key(row), (map.get(key(row)) || 0) + (row.count || 1)), new Map()),
+        live  = tally(found),
+        rowed = tally(baseline),
+        fresh = [],
+        stale = [];
 
-    return {
-        fresh: found.filter(row => !rowKeys.has(key(row))),
-        stale: baseline.filter(row => !liveKeys.has(key(row)))
+    // COUNTS, not membership. 64 of these sites are the byte-identical line `setTimeout(resolve,
+    // 1000)`, so a Set keyed on file+text collapses them to ONE entry — and removing 63 of the 64
+    // would leave the key still matching, nothing stale, and the guard green. That is weaker than the
+    // per-file count the baseline was chosen OVER, wearing per-site clothes. Counting occurrences
+    // restores site granularity without keying on line numbers, which shift under any edit above them
+    // and would turn every unrelated change into a wall of false staleness.
+    for (const [id, count] of live) {
+        const allowed = rowed.get(id) || 0;
+
+        if (count > allowed) fresh.push({...found.find(row => key(row) === id), count: count - allowed})
     }
+
+    for (const [id, count] of rowed) {
+        const actual = live.get(id) || 0;
+
+        if (actual < count) stale.push({...baseline.find(row => key(row) === id), count: count - actual})
+    }
+
+    return {fresh, stale}
 }
 
 /**
@@ -197,15 +238,15 @@ export function reconcile({found, baseline}) {
  */
 function main() {
     const
-        baselinePath   = path.join(ROOT_DIR, BASELINE_REL),
-        baseline       = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [],
-        found          = findUnjustifiedSleeps({}),
-        {fresh, stale} = reconcile({found, baseline});
+        baselinePath     = path.join(ROOT_DIR, BASELINE_REL),
+        baseline         = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [],
+        {backlog, sites} = findUnjustifiedSleeps({}),
+        {fresh, stale}   = reconcile({baseline, found: sites});
 
-    const backlogMs = (found.backlog || []).reduce((sum, row) => sum + row.ms, 0);
+    const backlogMs = backlog.reduce((sum, row) => sum + row.ms, 0);
 
     if (fresh.length === 0 && stale.length === 0) {
-        console.log(`check-fixed-sleeps: OK — ${found.length} unaccounted site(s) baselined, 0 new, 0 stale.`);
+        console.log(`check-fixed-sleeps: OK — ${sites.length} unaccounted site(s) baselined, 0 new, 0 stale.`);
 
         // TWO numbers, opposite meanings, printed together because a reader consumes the printed line and
         // not the docstring. The baseline measures ANNOTATION DEBT and should reach zero. The backlog
@@ -213,8 +254,8 @@ function main() {
         // `out-waits:` site can be annotated truthfully, emptying the baseline, without the suite getting
         // one millisecond faster. A zeroed baseline means every wait is accounted for. It does NOT mean
         // the suite is fast, and anything reading it as a speed metric is reading the wrong number.
-        if (found.backlog?.length) {
-            console.log(`check-fixed-sleeps: ${found.backlog.length} site(s) carry \`out-waits:\` — ~${(backlogMs / 1000).toFixed(1)}s of wall clock still paid to hardcoded constants.`);
+        if (backlog.length) {
+            console.log(`check-fixed-sleeps: ${backlog.length} site(s) carry \`out-waits:\` — ~${(backlogMs / 1000).toFixed(1)}s of wall clock still paid to hardcoded constants.`);
             console.log('  This is a LEAF-CANDIDATE BACKLOG, not a failure. It rising is a finding; it falling means a constant became injectable.')
         }
 

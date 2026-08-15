@@ -1,334 +1,47 @@
 [
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 1000));",
+        "count": 64
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 4000)); // let it enqueue before the 2nd",
+        "count": 1
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 4500));",
+        "count": 2
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 5500));",
+        "count": 3
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 3500));",
+        "count": 2
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 4000));",
+        "count": 7
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 2800));",
+        "count": 1
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 5000));",
+        "count": 2
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000)); // let it enqueue before the 2nd"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 5500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 5500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 3500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 3500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 2800));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 5000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 5000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 5500));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 4000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 1000));"
-    },
-    {
-        "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
-        "text": "await new Promise(resolve => setTimeout(resolve, 2600));"
+        "text": "await new Promise(resolve => setTimeout(resolve, 2600));",
+        "count": 1
     }
 ]
