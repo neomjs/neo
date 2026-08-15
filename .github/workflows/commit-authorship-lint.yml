@@ -1,0 +1,76 @@
+name: Commit Authorship Lint
+
+# CI mirror of the .husky/pre-push check-commit-authorship guard, so `git push --no-verify` and any
+# environment without husky hooks cannot bypass it at the merge gate.
+#
+# The failure this exists for: GitHub resolves a `Co-Authored-By` trailer by its EMAIL and credits
+# whatever account owns that address — the display name in the trailer is cosmetic. An agent-authored
+# commit carrying an off-domain address therefore credits a REAL PERSON for work they did not do.
+# Sixteen such commits reached `dev` in a 36-hour window while the pre-push check was silent on all of
+# them, because it was hook-only AND advisory AND scoped to the project domain. Any one of those three
+# would have been enough to miss it.
+#
+# DELIBERATELY NOT PATH-FILTERED. Every other lint here scopes itself to the files it inspects, which
+# is right for a file-content guard. This one inspects COMMIT METADATA, so a `paths:` filter would make
+# it vacuous for precisely the PRs that do not happen to touch its own source — i.e. almost all of them.
+#
+# Known gap, not owned here: like the other lint workflows, this is not yet a required status context,
+# so it reports without blocking the merge button. #17171 owns making them required; until it lands,
+# this raises the floor from "nothing anywhere" to "red on the PR".
+
+on:
+  pull_request:
+    branches: [dev]
+    # `edited` is NOT in the default set (opened/synchronize/reopened). Without it, a PR opened
+    # against another base and later RETARGETED to `dev` never re-triggers this workflow, so the
+    # commits it exists to inspect reach the merge gate unexamined. A gate with a documented way
+    # around it is the shape this whole ticket is about.
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: commit-authorship-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+# This job runs PR-CONTROLLED CODE — the guard script itself is part of the diff under review — so
+# it gets the narrowest token that can do the work. Agent PRs are same-repo branches rather than
+# forks, which means they would otherwise receive the full write-capable token rather than the
+# read-only one a fork gets. Read access to contents is the entire requirement.
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Full history: the guard diffs the PR's commits against origin/dev, so a shallow clone
+          # would leave it scanning an empty range and passing vacuously.
+          fetch-depth: 0
+          # Do not leave the token in .git/config for the script to read. Nothing here pushes, and
+          # the checked-out code is the code under review.
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Fetch base branch
+        run: git fetch origin dev
+
+      # No stdin in CI, so the guard falls back to its `origin/dev..HEAD` range — the PR's own commits.
+      # `< /dev/null` is explicit rather than incidental: the script reads fd 0 for the pre-push hook
+      # payload, and an inherited terminal-less stdin should degrade to the fallback by design, not by
+      # luck. No `npm ci` — this guard imports only node builtins and the in-repo identity registry.
+      # `--author-login` is the AUTHENTICATED lane classification for CI. The guard cannot use the
+      # commit's own `%ae` for this: `git commit --author=…` rewrites it, and one such flag carried a
+      # poisoned trailer to exit 0 against an email-only classifier. A PR cannot forge who opened it,
+      # so GitHub's own `pull_request.user.login` is the one unforgeable identity available here —
+      # the CI counterpart to checkout ownership, which exists only at the hook.
+      - name: Lint commit authorship and co-author trailers
+        run: >
+          node ./buildScripts/util/check-commit-authorship.mjs
+          --author-login "${{ github.event.pull_request.user.login }}"
+          < /dev/null
