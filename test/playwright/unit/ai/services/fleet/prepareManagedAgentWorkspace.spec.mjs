@@ -1084,10 +1084,13 @@ test.describe('prepareManagedAgentWorkspace', () => {
         // 6 artifacts: opencode.jsonc + 4 memory-layer files + the wake-envelope boot hook.
         expect(result.artifacts.map(item => item.status)).toEqual(new Array(6).fill(WORKSPACE_ARTIFACT_STATES.CREATED));
 
-        // The always-loaded slot carries the boot files ONLY; detail files load on demand by path.
+        // The always-loaded slot carries the seat boot files + the canonical (fleet-shared) boot
+        // references — detail files load on demand by path; canonical entries resolve against the
+        // canonical checkout, after the seat files.
         expect(config.instructions).toEqual([
             path.join(result.instanceHome, 'memory', 'MEMORY.md'),
-            path.join(result.instanceHome, 'memory', 'identity.md')
+            path.join(result.instanceHome, 'memory', 'identity.md'),
+            path.join(mainCheckout, 'NOW.md')
         ]);
         expect(Object.keys(config.mcp).sort()).toEqual(['neo-mjs-knowledge-base', 'neo-mjs-memory-core', 'neo-mjs-neural-link']);
         // Permission allow-list covers the seat home, the managed repo, and the canonical checkout.
