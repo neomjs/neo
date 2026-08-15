@@ -138,6 +138,13 @@
             "witness": "`Math.min(failureTtlMaxMs, ...)` in the same expression",
             "note": "The shared flight gate; #16307 records why it is NOT the right mechanism for persisted cadence state."
         },
+        "apps/agentos/fleet/fleetWakeStreamConsumer.mjs#runLoop:5f68f770": {
+            "kind": "retry-growth",
+            "lifetime": "process-local",
+            "boundCarrier": "max-delay",
+            "witness": "`Math.min(..., MAX_BACKOFF_MS)` caps the exponential reconnect delay at 60s, and the loop exits terminally on `stopped` or an epoch change (`stop()` bumps the epoch) — the spec `fleetWakeStreamConsumer.spec.mjs` drives a drop→reconnect cycle on the injected floor and `stop()` ends the loop.",
+            "note": "The App-Worker twin of the relay consumer's identical site (same fingerprint 5f68f770): the parity spec binds the parser, this entry binds the bound."
+        },
         "apps/devindex/services/GitHub.mjs##getRetryDelay:41482917": {
             "kind": "retry-growth",
             "lifetime": "process-local",

@@ -24,7 +24,9 @@
 import {FLEET_BEARER_PATTERN} from './connectionProfiles.mjs';
 
 /**
- * @summary Redeem the process bearer from an armed Fleet transport, or resolve `null` fail-closed.
+ * @summary Redeem the launch credentials from an armed Fleet transport, or resolve `null`
+ * fail-closed. The result carries the process bearer and, when the deployment armed one, the
+ * viewer's class-3 MC mint — the pair the establish path binds into closure custody together.
  *
  * The handshake URL derives from the fleet endpoint's own origin (`<origin>/fleet/handshake`), so
  * the one URL authority the cockpit already resolves (`fleetUrl`) stays the only endpoint input —
@@ -38,7 +40,8 @@ import {FLEET_BEARER_PATTERN} from './connectionProfiles.mjs';
  * @param {Function} [opts.fetchImpl=globalThis.fetch] Injectable fetch for tests.
  * @param {Number}   [opts.timeoutMs=1500]             Redemption patience: an absent transport
  *     refuses the connection in milliseconds, so this bound only trims the hung-listener tail.
- * @returns {Promise<String|null>} the canonical bearer, or `null` on every non-success path.
+ * @returns {Promise<{bearerToken: String, mcAuthorization: String|null}|null>} the redeemed pair
+ *     (`mcAuthorization: null` = the honest not-armed state), or `null` on every non-success path.
  */
 export async function redeemFleetBearerHandshake({url, fetchImpl = globalThis.fetch, timeoutMs = 1500} = {}) {
     let handshakeUrl;
@@ -62,10 +65,22 @@ export async function redeemFleetBearerHandshake({url, fetchImpl = globalThis.fe
         const envelope = await response.json(),
               token    = envelope?.ok === true ? envelope.result?.bearerToken : null;
 
-        return typeof token === 'string' && FLEET_BEARER_PATTERN.test(token) ? token : null
+        if (typeof token !== 'string' || !FLEET_BEARER_PATTERN.test(token)) {
+            return null
+        }
+
+        // The optional viewer mint rides the same envelope. A malformed or bearer-identical value
+        // is STRIPPED, never adopted: the class-1 redemption stays valid, the boot proceeds
+        // honestly not-armed, and the server-side startup refusal owns the loud path.
+        const mint = envelope.result?.mcAuthorization;
+
+        return {
+            bearerToken    : token,
+            mcAuthorization: typeof mint === 'string' && mint.trim() && mint !== token ? mint : null
+        }
     } catch {
         // Refused connection (no transport), abort (hung listener), or non-JSON body — all the
-        // same honest answer: no bearer, boot fail-closed.
+        // same honest answer: no credentials, boot fail-closed.
         return null
     }
 }

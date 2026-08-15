@@ -241,4 +241,17 @@ test.describe('connectionProfiles — the pre-boot ingress retire helper', () =>
 
         expect(retireBearerIngressSlot(target, {expected: rotated}), 'an empty slot retires nothing under the guard').toBe(false)
     });
+
+    test('the field selector: the class-3 mint slot rides the same transient-ingress discipline', () => {
+        const
+            mcMint = 'C'.repeat(43),
+            target = {AgentOS: {fleet: {bearerToken: testBearer, mcAuthorization: mcMint}}};
+
+        expect(retireBearerIngressSlot(target, {expected: 'wrong', field: 'mcAuthorization'})).toBe(false);
+        expect(target.AgentOS.fleet.mcAuthorization).toBe(mcMint);
+
+        expect(retireBearerIngressSlot(target, {expected: mcMint, field: 'mcAuthorization'})).toBe(true);
+        expect('mcAuthorization' in target.AgentOS.fleet).toBe(false);
+        expect(target.AgentOS.fleet.bearerToken, 'each slot retires independently').toBe(testBearer)
+    });
 });

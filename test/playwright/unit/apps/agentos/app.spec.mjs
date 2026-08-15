@@ -65,8 +65,8 @@ test.describe('AgentOS packaged Fleet window routing', () => {
         test('verified retire: the authenticated whoami succeeds, then and only then the ingress clears', async () => {
             const target = {AgentOS: {fleet: {bearerToken: bearer}}};
 
+            // the SLOT is the entrypoint truth — establish reads it itself (no credential args)
             const {bridge, custodySettled} = establishFleetSessionCustody({
-                bearerToken: bearer,
                 fleetUrl,
                 installImpl: realInstall(okViewerFetch()),
                 target
@@ -84,7 +84,6 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             const target = {AgentOS: {fleet: {bearerToken: bearer}}};
 
             const {custodySettled} = establishFleetSessionCustody({
-                bearerToken: bearer,
                 fleetUrl,
                 installImpl: realInstall(refusedFetch()),
                 target
@@ -98,7 +97,6 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             const target = {AgentOS: {fleet: {bearerToken: bearer}}};
 
             const {custodySettled} = establishFleetSessionCustody({
-                bearerToken: bearer,
                 fleetUrl,
                 installImpl: realInstall(async () => { throw new Error('ECONNREFUSED') }),
                 target
@@ -120,7 +118,6 @@ test.describe('AgentOS packaged Fleet window routing', () => {
                 };
 
             const {custodySettled} = establishFleetSessionCustody({
-                bearerToken: bearer,
                 fleetUrl,
                 installImpl: realInstall(gatedFetch),
                 target
@@ -137,9 +134,9 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             const target = {AgentOS: {fleet: {bearerToken: rotated}}};
 
             const {custodySettled} = establishFleetSessionCustody({
-                bearerToken: bearer, // established + verified, but never the slot's value
                 fleetUrl,
                 installImpl: realInstall(okViewerFetch()),
+                redeemed   : {bearerToken: bearer, mcAuthorization: null}, // the redemption takes precedence; the slot holds a different credential
                 target
             });
 
@@ -151,7 +148,6 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             const target = {AgentOS: {fleet: {bearerToken: bearer}}};
 
             const first = establishFleetSessionCustody({
-                bearerToken: bearer,
                 fleetUrl,
                 installImpl: realInstall(okViewerFetch()),
                 target
@@ -161,7 +157,6 @@ test.describe('AgentOS packaged Fleet window routing', () => {
 
             // The slot is retired now; a second joining window arrives with nothing to offer.
             const second = establishFleetSessionCustody({
-                bearerToken: null,
                 fleetUrl,
                 installImpl: realInstall(okViewerFetch()),
                 target
@@ -184,8 +179,8 @@ test.describe('AgentOS packaged Fleet window routing', () => {
                     return {json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: {userId: 'operator'}})}
                 };
 
-            // Bearer A establishes (first custody — published) and verifies while B rotates in.
-            const first = establishFleetSessionCustody({bearerToken: bearer, fleetUrl, installImpl: realInstall(gatedFetch), target});
+            // Bearer A establishes (first custody — published, read from the slot) and verifies while B rotates in.
+            const first = establishFleetSessionCustody({fleetUrl, installImpl: realInstall(gatedFetch), target});
 
             target.AgentOS.fleet.bearerToken = rotated;
             releaseVerify();
@@ -195,7 +190,7 @@ test.describe('AgentOS packaged Fleet window routing', () => {
 
             // The next SharedWorker pass retries with B; the server rejects it. The candidate is
             // built DETACHED, so the known-good A bridge must remain published throughout.
-            const second = establishFleetSessionCustody({bearerToken: rotated, fleetUrl, installImpl: realInstall(refusedFetch()), target});
+            const second = establishFleetSessionCustody({fleetUrl, installImpl: realInstall(refusedFetch()), target});
 
             expect(target.AgentOS.fleet.registryBridge, 'an unproven candidate must never be published').toBe(first.bridge);
             expect(second.bridge, 'the caller sees the bridge that is actually live').toBe(first.bridge);
@@ -215,14 +210,14 @@ test.describe('AgentOS packaged Fleet window routing', () => {
                 },
                 target = {AgentOS: {fleet: {bearerToken: bearer}}};
 
-            const first = establishFleetSessionCustody({bearerToken: bearer, fleetUrl, installImpl: realInstall(recordedFetch), target});
+            const first = establishFleetSessionCustody({fleetUrl, installImpl: realInstall(recordedFetch), target});
 
             await expect(first.custodySettled).resolves.toBe(true);
 
             // A rotated-in credential that the server ACCEPTS: detached until proven, then promoted.
             target.AgentOS.fleet.bearerToken = rotated;
 
-            const second = establishFleetSessionCustody({bearerToken: rotated, fleetUrl, installImpl: realInstall(recordedFetch), target});
+            const second = establishFleetSessionCustody({fleetUrl, installImpl: realInstall(recordedFetch), target});
 
             expect(target.AgentOS.fleet.registryBridge, 'no displacement before proof').toBe(first.bridge);
             await expect(second.custodySettled).resolves.toBe(true);
@@ -245,11 +240,63 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             await expect(first.bridge.listAgents()).rejects.toThrow(/fleet bearer not injected/)
         });
 
+        test('the class-3 MC mint rides the SLOT entrypoint into closure custody — both ingress copies retire under the one proof', async () => {
+            const
+                mcMint = 'C'.repeat(43),
+                seen   = [],
+                target = {AgentOS: {fleet: {bearerToken: bearer, mcAuthorization: mcMint}}};
+
+            // the production path: BOTH mints read from the launcher slots, bound into the install
+            const {custodySettled} = establishFleetSessionCustody({
+                fleetUrl,
+                installImpl: opts => {
+                    seen.push({bearer: opts.bearerToken, mc: opts.mcAuthorization});
+                    return installFleetBridge({...opts, fetchImpl: okViewerFetch()})
+                },
+                target
+            });
+
+            expect(seen).toEqual([{bearer, mc: mcMint}]);
+
+            await expect(custodySettled).resolves.toBe(true);
+            expect('bearerToken' in target.AgentOS.fleet, 'the bearer ingress retires under the proof').toBe(false);
+            expect('mcAuthorization' in target.AgentOS.fleet, 'the mint ingress retires under the SAME proof').toBe(false);
+
+            // a failed verify preserves BOTH slots — the rollback covers the pair
+            const preserved = {AgentOS: {fleet: {bearerToken: bearer, mcAuthorization: mcMint}}};
+
+            const refused = establishFleetSessionCustody({fleetUrl, installImpl: realInstall(refusedFetch()), target: preserved});
+
+            await expect(refused.custodySettled).resolves.toBe(false);
+            expect(preserved.AgentOS.fleet.bearerToken).toBe(bearer);
+            expect(preserved.AgentOS.fleet.mcAuthorization).toBe(mcMint)
+        });
+
+        test('the REDEEMED PAIR is the production chain: both mints bind from the handshake result, no slot involved', async () => {
+            const
+                mcMint = 'C'.repeat(43),
+                seen   = [],
+                target = {};
+
+            const {custodySettled} = establishFleetSessionCustody({
+                fleetUrl,
+                installImpl: opts => {
+                    seen.push({bearer: opts.bearerToken, mc: opts.mcAuthorization});
+                    return installFleetBridge({...opts, fetchImpl: okViewerFetch()})
+                },
+                redeemed: {bearerToken: bearer, mcAuthorization: mcMint},
+                target
+            });
+
+            expect(seen, 'the pair the handshake redeemed is the pair the install binds').toEqual([{bearer, mc: mcMint}]);
+            await expect(custodySettled).resolves.toBe(false); // no launcher slots existed — nothing to retire, honestly
+            expect(target.AgentOS.fleet.registryBridge.openWakeStream, 'the armed bridge carries the wake capability').toBeDefined()
+        });
+
         test('a throwing install preserves the ingress — the rollback needs no special path', async () => {
             const target = {AgentOS: {fleet: {bearerToken: 'not-a-canonical-bearer'}}};
 
             expect(() => establishFleetSessionCustody({
-                bearerToken: 'not-a-canonical-bearer',
                 fleetUrl,
                 installImpl: realInstall(okViewerFetch()),
                 target
