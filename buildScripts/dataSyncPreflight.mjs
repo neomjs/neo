@@ -38,6 +38,43 @@ export const REQUIRED_REPOSITORIES = [
 const DENIAL_PATTERN = /resource not accessible by integration|not accessible|bad credentials|requires authentication/i;
 
 /**
+ * @summary Remediation text for a denial, derived from the CONNECTION that was refused.
+ *
+ * A single fixed remedy is worse than none once it can be wrong. Every denial used to print
+ * "install the App with `Issues: Read and write` and `Metadata: Read`" — permissions the workflow
+ * ALREADY requests at `.github/workflows/data-sync-pipeline.yml`. So the one message an operator
+ * reads while diagnosing a stargazer denial instructed them to go confirm the state they were
+ * already in, and the guidance itself became a detour.
+ *
+ * These strings deliberately stop at what is published and observed. GitHub announced the
+ * stargazer restriction and its admin/collaborator boundary; it did not publish an enforcement
+ * schedule, and it says nothing about installation tokens — so the text must not assert a rollout
+ * mechanism, a permanence, or a fix that has not been demonstrated to work.
+ * @param {String} connection Repository connection that was refused, e.g. `stargazers`.
+ * @returns {String}
+ */
+function denialRemedy(connection) {
+    if (connection === 'stargazers') {
+        return 'GitHub limits stargazer reads to repository ADMINS AND COLLABORATORS (announced ' +
+            '2026-06-30). That is account STATUS, not an App permission — so `Metadata: Read` being ' +
+            'present does not imply this read is permitted, and widening App permissions may not ' +
+            'restore it. Determine whether the intake identity holds admin/collaborator access on ' +
+            'THIS repository; if it cannot, the stargazer-sourced path is unavailable and must be ' +
+            'retired or replaced rather than re-permissioned.'
+    }
+
+    if (connection === 'issues') {
+        return 'Verify the intake App is installed on THIS repository with `Issues: Read and write`.'
+    }
+
+    // Named, not guessed. A connection with no mapped remedy gets the one instruction that is true
+    // for every capability — check what this specific read requires — instead of inheriting another
+    // connection's advice, which is the defect this function exists to remove.
+    return `No mapped remedy for connection \`${connection}\`; establish what access that specific ` +
+        'read requires before changing any permission.'
+}
+
+/**
  * @summary Issues one minimal, un-retried GraphQL read that exercises the connection this
  * repository is actually here for.
  *
@@ -153,7 +190,7 @@ export async function assertDataSyncAccess({
         log(`[DataSync preflight] ${owner}/${name} ${ok ? 'reachable' : 'DENIED'} (${purpose})`);
 
         if (!ok) {
-            failures.push({name, owner, purpose, reason})
+            failures.push({connection, name, owner, purpose, reason})
         }
     }
 
@@ -171,11 +208,10 @@ export async function assertDataSyncAccess({
     // "Persistent" means EXHAUSTED, not merely early: pre-work timing rules out mid-batch contention,
     // and the spent retry budget rules out a single unlucky first call. Neither claim suffices alone.
     const detail = failures
-        .map(({name, owner, purpose, reason}) => {
+        .map(({connection, name, owner, purpose, reason}) => {
             const remedy = DENIAL_PATTERN.test(reason)
                 ? 'PERSISTENT authorization failure — the credential was rejected on every attempt. ' +
-                  'Verify the intake App is installed on THIS repository with `Issues: Read and write` ' +
-                  'and `Metadata: Read`.'
+                  denialRemedy(connection)
                 : 'Transport or availability fault — the credential was never rejected here, so the ' +
                   'installation is not implicated.';
 

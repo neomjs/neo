@@ -655,7 +655,7 @@ export async function emitGeneratedData({
         preflightError = error;
         log(
             `[DataSync] emit attempt=${attempt} stage=preflight result=deferred-failure ` +
-            'action=skip-intake-stages-publish-generated-progress-then-fail'
+            'action=run-all-stages-publish-generated-progress-then-fail'
         )
     }
 
@@ -672,6 +672,19 @@ export async function emitGeneratedData({
     // rest — and the operator sized the outage from whichever happened to run last.
     const deferredErrors = preflightError ? [preflightError] : [];
 
+    // NOTHING is skipped on a preflight denial, and the earlier `tokenScope === 'intake'` skip was
+    // wrong for a reason worth keeping: a credential-scope declaration says which identity to INJECT,
+    // never which capability a stage CONSUMES. One denied `devindex-opt-in.stargazers` probe was
+    // enough to skip Opt-Out, Spider and Updater purely because all four name the same token — yet
+    // Spider queries search/community endpoints and Updater reads `users/:name/orgs`, so neither
+    // touches a DevIndex repository at all. That skip stopped healthy work to save a few seconds of
+    // predicted failure, re-coupling at the credential layer exactly what the stage table above had
+    // just decoupled.
+    //
+    // Letting every stage run and fail on its own merits is both simpler and strictly more accurate
+    // than any static capability map, which could only drift from what the services actually call.
+    // The cost is a few seconds of stages we expect to fail; the aggregate below numbers each cause,
+    // so a shared root reads as related failures rather than one arbitrary survivor.
     for (const {
         args,
         command,
@@ -679,18 +692,6 @@ export async function emitGeneratedData({
         publishGeneratedProgressOnFailure = false,
         tokenScope
     } of emissionCommands) {
-        // The preflight already proved this identity cannot serve its repositories, so every stage
-        // declaring it fails the same way. Skipping them keeps ONE reported cause instead of five
-        // copies of it, and derives the skipped set from `tokenScope` — the declaration that already
-        // exists — rather than a second hand-maintained flag free to drift from it.
-        if (preflightError && tokenScope === 'intake') {
-            log(
-                `[DataSync] emit attempt=${attempt} stage=${label} result=skipped ` +
-                'reason=intake-preflight-denied'
-            );
-            continue
-        }
-
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
 
         try {

@@ -781,17 +781,16 @@ test.describe('an intake denial cannot freeze corpus publication (#17148)', () =
         expect(aggregateDeferredFailures([failures[0]])).toBe(failures[0])
     });
 
-    test('a preflight denial defers and SKIPS the intake stages instead of aborting the run', async () => {
+    test('a preflight denial defers and does NOT abort the run', async () => {
         const
             denial   = new Error('[DataSync preflight] neomjs/devindex-opt-in DENIED (OptIn stargazer read)'),
-            executed = [],
-            lines    = [];
+            executed = [];
 
         const {deferredError} = await emitGeneratedData({
             attempt  : 1,
             cwd      : '/tmp',
             execute  : async (_command, args) => {executed.push(args.join(' '))},
-            log      : line => lines.push(line),
+            log      : () => {},
             preflight: async () => {throw denial}
         });
 
@@ -799,14 +798,35 @@ test.describe('an intake denial cannot freeze corpus publication (#17148)', () =
         // stage table that just decoupled it — the corpus would stay frozen, only faster.
         expect(deferredError).toBe(denial);
 
-        // The intake stages are skipped: the preflight already proved they fail the same way, so
-        // running them would report one cause four times.
-        expect(executed.some(args => args.includes('devindex:'))).toBe(false);
-        expect(lines.some(line => line.includes('reason=intake-preflight-denied'))).toBe(true);
-
         // The reader-scoped stages still run — that is what leaves a corpus worth publishing.
         expect(executed.some(args => args.includes('--emit-only'))).toBe(true);
         expect(executed.some(args => args.includes('--include-labels'))).toBe(true)
+    });
+
+    test('one denied capability does not stop the stages that never consume it', async () => {
+        // The decisive regression for the review finding. An earlier revision skipped every stage
+        // declaring `tokenScope: 'intake'` the moment ANY preflight probe failed — so a denied
+        // `devindex-opt-in.stargazers` read stopped Opt-Out, Spider and Updater as well. Verified
+        // against the services: Spider queries search/community endpoints and Updater reads
+        // `users/:name/orgs`, so NEITHER touches a DevIndex repository. `tokenScope` says which
+        // credential to inject, never which capability a stage consumes, and the skip made it mean
+        // both.
+        const executed = [];
+
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async (_command, args) => {executed.push(args.join(' '))},
+            log      : () => {},
+            preflight: async () => {throw new Error('neomjs/devindex-opt-in DENIED (OptIn stargazer read)')}
+        });
+
+        for (const script of ['devindex:optout', 'devindex:spider', 'devindex:update']) {
+            expect(executed.some(args => args.includes(script)), `${script} must still run`).toBe(true)
+        }
+
+        // ...and the run still carries the denial to a non-zero exit after publication.
+        expect(deferredError.message).toContain('devindex-opt-in')
     });
 });
 
