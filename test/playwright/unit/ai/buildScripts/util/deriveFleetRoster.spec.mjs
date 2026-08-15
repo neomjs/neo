@@ -1,6 +1,12 @@
 import {expect, test}      from '@playwright/test';
 import fs                  from 'node:fs';
 import {deriveFleetRoster} from '../../../../../../buildScripts/util/deriveFleetRoster.mjs';
+import {
+    normalizeFleetSources,
+    normalizeSourceFact,
+    resolveFleetDisplayState,
+    summarizeAnsweredAbnormal
+} from '../../../../../../apps/agentos/view/fleet/sourceHealth.mjs';
 
 // Pure derivation — imported directly (the module's main-execution guard makes import side-effect-free).
 // The committed seed is also checked against a fresh derivation so hand-painting fails in CI, not in film.
@@ -42,8 +48,30 @@ test.describe('deriveFleetRoster (registry-derived cockpit roster, #15621)', () 
         for (const row of doc.data) {
             expect(row.participationStatus).toBeTruthy();
             expect(row.openLaneCount).toBeNull();   // the model renders no badge for null — never a fake 0
-            expect(row.sources.roster).toBe('identityRoots-snapshot');
+            // declared expected-absence: the one present shape the source-health contract holds calm
+            expect(row.sources.roster).toEqual({
+                source    : 'fleet:listAgents',
+                state     : 'not-wired',
+                confidence: 'none',
+                reason    : 'static roster (identityRoots snapshot) · unobserved'
+            });
         }
+    });
+
+    test('source-health pin (#17210): the shipped seed reads calm through the card contract; the legacy string shape stays invalid', () => {
+        const committed = JSON.parse(fs.readFileSync(COMMITTED, 'utf8')).data;
+
+        for (const row of committed) {
+            // the offline first-run defect: every card alarmed "Roster not nominal · malformed source fact"
+            expect(summarizeAnsweredAbnormal(row.sources).level, `${row.agentId} source strip`).toBe('ok');
+            expect(normalizeFleetSources(row.sources).roster.state, `${row.agentId} roster axis`).toBe('not-wired');
+            // display truth unchanged: participation-active with no session observation, or external
+            expect(resolveFleetDisplayState({state: row.state, sources: row.sources}), row.agentId).toMatch(/^unobserved$|^external$/);
+        }
+
+        // the validator itself is correct and STAYS: a present non-object fact remains rejected evidence
+        expect(normalizeSourceFact('identityRoots-snapshot'))
+            .toEqual({source: null, state: 'invalid', confidence: 'none', reason: 'malformed source fact'});
     });
 
     test('engine tags mirror ModelStats for mapped identities and stay null (never fabricated) elsewhere', () => {

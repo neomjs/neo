@@ -1,6 +1,6 @@
 {
     "_meta": {
-        "generatedAt": "2026-07-24T21:49:28.860Z",
+        "generatedAt": "2026-08-15T21:03:37.192Z",
         "authority": "ai/graph/identityRoots.mjs",
         "engineTags": "learn/agentos/ModelStats.md (observation-owned, mirrored per-entry in the generator)",
         "generator": "buildScripts/util/deriveFleetRoster.mjs",
@@ -19,7 +19,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -34,7 +39,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -49,7 +59,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -64,7 +79,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -79,7 +99,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -94,7 +119,12 @@
             "participationStatus": "operator_benched",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -109,7 +139,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -124,7 +159,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -139,7 +179,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         },
         {
@@ -154,7 +199,12 @@
             "participationStatus": "active",
             "openLaneCount": null,
             "sources": {
-                "roster": "identityRoots-snapshot"
+                "roster": {
+                    "source": "fleet:listAgents",
+                    "state": "not-wired",
+                    "confidence": "none",
+                    "reason": "static roster (identityRoots snapshot) · unobserved"
+                }
             }
         }
     ]
