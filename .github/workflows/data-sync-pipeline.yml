@@ -90,9 +90,41 @@ jobs:
           repositories: |
             devindex-opt-in
             devindex-opt-out
-          # OptIn reads stargazers (metadata); OptOut comments on and closes issues. Nothing here
-          # needs `contents`, and this token must never be able to write code anywhere — the
-          # publisher/intake split exists precisely so the intake identity cannot publish.
+          # `contents: write` is here for the STARGAZER READ, not to write anything. GitHub limited
+          # the stargazers endpoint to repository admins and collaborators (announced 2026-06-30) and
+          # infers that status from contents-write; `metadata: read` used to carry the read and no
+          # longer does. Measured, not assumed — four `preflight_only` probes, one variable each:
+          #
+          #   issues:write + metadata:read          -> DENIED   (run 31870344604)
+          #   + administration:read                 -> DENIED   (run 31874111382)
+          #   + contents:WRITE                      -> reachable (run 31875177082)
+          #   + contents:READ                       -> DENIED   (run 31875769230)
+          #
+          # So read does not suffice and there is no lesser lever. `devindex-opt-out.issues` stayed
+          # reachable in all four, which is what rules out a sick token and isolates the connection.
+          #
+          # THE COST, stated rather than buried: the previous note here said this token "must never be
+          # able to write code anywhere". That is no longer true and pretending otherwise would be the
+          # more expensive lie. What it can now write is `neomjs/devindex-opt-in` and
+          # `neomjs/devindex-opt-out` — 3 KB and 1 KB respectively, each a README, a `.gitignore` and
+          # issue templates, no code and no data. The DevIndex corpus lives in `neomjs/neo` under
+          # `apps/devindex/resources/data/`, which this App has no installation on and still cannot
+          # reach. The #15744 property that matters — the intake identity cannot publish to this
+          # repository — is intact.
+          #
+          # This line and the App grant are ONE unit, and the coupling has teeth in BOTH directions.
+          # Revoking `contents` on the App while this line stays does not merely lose the stargazer
+          # read: `create-github-app-token` FAILS the step outright, measured at run 31877595849 —
+          # "The permissions requested are not granted to this installation." So any future
+          # permission cleanup on `neomjs-devindex-intake` must leave `contents` in place or land in
+          # the same commit that removes this line.
+          #
+          # A revision of this comment briefly claimed the opposite, on the grounds that the failing
+          # step showed green. It did — because #17162's `continue-on-error` guard sets
+          # `conclusion: success` on a failed step while `outcome` keeps the failure. Check the mint
+          # by reading its LOG, never its step status.
+          permission-contents: write
+          # OptOut comments on and closes issues.
           permission-issues: write
           permission-metadata: read
 
