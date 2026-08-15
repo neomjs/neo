@@ -1483,6 +1483,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     let PullRequestService;
     let GraphqlService;
     let RepositoryService;
+    let getRound2DispositionRelationFailure;
     let originalQuery;
     let originalViewerLogin;
 
@@ -1638,10 +1639,24 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         'No required actions — eligible for human merge.'
     ].join('\n');
 
-    // Ordinary Round 2 — the shape a second review actually takes now. The budget cases below submit
-    // ordinary REQUEST_CHANGES reviews, which is precisely this shape and NOT the exceptional-verdict
-    // template they used to borrow. Pointing them at the disposition body is a correction: it is what
-    // the managed path will see in production.
+    // An ATTEMPTED SECOND ORDINARY RC, which is a different body class from a Round-2 disposition and
+    // is the vehicle the ordinary-budget cases need. A second RC raises a fresh action packet, so its
+    // valid shape is the canonical full Round-1 review — the budget still sees it and still refuses it.
+    //
+    // The comment that stood here claimed ordinary `REQUEST_CHANGES` reviews are "precisely this
+    // [Round-2 disposition] shape". That was my false premise, and @neo-gpt named it: once Round 2
+    // became disposition-only it can never BE a Request Changes, so pointing the budget cases at the
+    // disposition body made their vehicle semantically stale rather than corrected.
+    const VALID_ORDINARY_REQUEST_CHANGES_BODY = VALID_REVIEW_BODY
+        .replace('**Status:** Approved', '**Status:** Request Changes')
+        .replace('- Decision: Approve', '- Decision: Request Changes')
+        .replace(
+            '### 📋 Required Actions\nNo required actions — eligible for human merge.',
+            '### 📋 Required Actions\n\n- [ ] name the boundary this must not hardcode'
+        );
+
+    // Ordinary Round 2 — the carried-action disposition. Reserved for relation and state cases:
+    // COMMENT when anything is STILL_OPEN, APPROVED when every prior action is discharged.
     const VALID_ROUND_2_REVIEW_BODY = [
         '# PR Review — Round 2 (disposition only)',
         '',
@@ -1709,8 +1724,13 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             '- **Successor map citation:** https://github.com/neomjs/neo/issues/15257#issuecomment-1'
         ].join('\n');
 
+    // The default body now carries a Required Actions packet matching `VALID_ROUND_2_REVIEW_BODY`'s
+    // single disposition row. Before the relation check existed, a prior round only had to EXIST for
+    // these budget cases; now an ordinary Round 2 must actually disposition it, which is what the
+    // managed path sees in production. A fixture whose prior round raises nothing is a first review,
+    // and a Round 2 against it is exactly the shape the relation refuses.
     const priorRequestChanges = ({
-        body='Prior ordinary request changes.',
+        body=['# PR Review Summary', '', '### 📋 Required Actions', '', '- [ ] prior template miss'].join('\n'),
         commit='1111111111111111111111111111111111111111',
         id='PRR_prior',
         reviewer='neo-gpt',
@@ -1751,7 +1771,10 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     test.beforeAll(async () => {
         GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
-        PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+        const prServiceModule = await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs');
+
+        PullRequestService                  = prServiceModule.default;
+        getRound2DispositionRelationFailure = prServiceModule.getRound2DispositionRelationFailure;
         RepositoryService  = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
         originalQuery      = GraphqlService.query.bind(GraphqlService);
         originalViewerLogin = RepositoryService.viewerLogin;
@@ -1857,6 +1880,122 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
         expect(result.message).toContain('Origin Session ID');
+    });
+
+    // The RELATION corpus. The shape tier proves a body is disposition-shaped; @neo-gpt then showed a
+    // shaped body with a plausible review id and an invented RA-999 still passed, because "is this a
+    // disposition OF that round" is a claim about two documents. These drive the relation directly.
+    const PRIOR_RC = {
+        author: {login: 'neo-gpt'},
+        body  : ['# PR Review Summary', '', '### 📋 Required Actions', '',
+                      '- [ ] make the tier semantic', '- [ ] update the stale predecessors'].join('\n'),
+        id         : 'PRR_prior',
+        state      : 'CHANGES_REQUESTED',
+        submittedAt: '2026-08-15T10:00:00Z',
+        url        : 'https://github.com/neomjs/neo/pull/1#pullrequestreview-1'
+    };
+
+    const round2With = rows => [
+        '# PR Review — Round 2 (disposition only)', '', '**Status:** Approved', '',
+        '### ⚓ Anchor',
+        '* **Round-1 Review ID:** PRR_prior',
+        `* **Origin Session ID:** ${REVIEW_ORIGIN_SESSION_ID}`, '',
+        '### 📋 Disposition', '',
+        '| # | Required Action | Disposition | Evidence |', '|---|---|---|---|',
+        ...rows, '',
+        '### 🔚 Verdict', '', 'Approve'
+    ].join('\n');
+
+    test('#17178: an invented action is refused — the row must exist in the prior round', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | ADDRESSED | done |',
+                                 '| RA-999 | an action no round raised | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code, "@neo-gpt's exact-head falsifier").toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message).toContain('appears in the table but not in the prior round');
+    });
+
+    test('#17178: a reworded action is refused — verbatim is what stops a demand being softened', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier a bit more semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message, 'it names the drift rather than just refusing').toContain('carry it verbatim');
+    });
+
+    test('#17178: a dropped action is refused — omission must not retire a demand', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message).toContain("against the prior round's 2");
+    });
+
+    test('#17178: a STILL_OPEN round submitted as APPROVED is refused', () => {
+        // The second exact-head falsifier: an APPROVED round carrying a STILL_OPEN silently discharges
+        // the item it just declared unresolved.
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | STILL_OPEN | not yet |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message).toContain('must be COMMENT');
+    });
+
+    test('#17178: the same STILL_OPEN round as COMMENT is accepted — the state the format prescribes', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | STILL_OPEN | not yet |']),
+            reviews: [PRIOR_RC],
+            state  : 'COMMENT'
+        });
+
+        expect(failure, 'COMMENT preserves the original RC and spends no budget').toBeNull();
+    });
+
+    test('#17178: a faithful, fully discharged round is accepted', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |',
+                                 '| RA-2 | update the stale predecessors | DEFENDED | argued and accepted |']),
+            reviews: [PRIOR_RC],
+            state  : 'APPROVED'
+        });
+
+        expect(failure, 'the positive control — the relation is not reject-everything').toBeNull();
+    });
+
+    test('#17178: a Round 2 with no prior CHANGES_REQUESTED to disposition is refused', () => {
+        const failure = getRound2DispositionRelationFailure({
+            body   : round2With(['| RA-1 | make the tier semantic | ADDRESSED | done |']),
+            reviews: [{...PRIOR_RC, state: 'COMMENTED'}],
+            state  : 'APPROVED'
+        });
+
+        expect(failure?.code, 'a first review cannot wear the Round-2 H1').toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(failure.message).toContain('no submitted');
+    });
+
+    test('#17178: validatePrReviewBody names the template it ACTUALLY applied', () => {
+        // It returned the canonical path unconditionally, so a Round-2 body was told it matched
+        // `pr-review-template.md` — sending an author who later hit a rejection to the wrong file.
+        const result = PullRequestService.validatePrReviewBody({body: VALID_ROUND_2_REVIEW_BODY});
+
+        expect(result.valid).toBe(true);
+        expect(result.template, 'the selected asset, not a constant').toBe('.agents/skills/pr-review/assets/pr-review-round-2-template.md');
     });
 
     test('#17178: the positive control still passes — the tier did not become reject-everything', () => {
@@ -2229,7 +2368,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15309,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         expect(managedResult.error).toBeUndefined();
@@ -2241,7 +2380,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         let   mutationCallCount = 0;
         const reviews           = [
             priorRequestChanges({
-                body : `${VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')}\n\n[review-budget-managed]`,
+                body : `${VALID_ORDINARY_REQUEST_CHANGES_BODY}\n\n[review-budget-managed]`,
                 state: 'DISMISSED'
             }),
             {
@@ -2276,7 +2415,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15257,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         // The budget is now PER FAMILY, so this fixture proves a narrower and truer thing than it did:
@@ -2320,7 +2459,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 17141,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         expect(claudeRound.error, 'claude has spent nothing on this PR').toBeUndefined();
@@ -2338,7 +2477,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 17141,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         expect(gptSecondRound.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
@@ -2368,7 +2507,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
                 action   : 'create',
                 pr_number: 17141,
                 state    : 'REQUEST_CHANGES',
-                body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+                body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
             });
 
             expect(result.code, label).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
@@ -2421,7 +2560,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 17141,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
             reviewBudgetOverrideReason
         });
 
@@ -2560,7 +2699,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action                    : 'create',
             pr_number                 : 17141,
             state                     : 'REQUEST_CHANGES',
-            body                      : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
             reviewBudgetOverrideReason: [
                 'old-head: 1111111111111111111111111111111111111111',
                 `new-head: ${PR_HEAD_OID}`,
@@ -2592,7 +2731,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15257,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         expect(result.error).toBeUndefined();
@@ -2647,7 +2786,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15320,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         });
 
         expect(result.error).toBeUndefined();
@@ -2694,7 +2833,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
                 action   : 'create',
                 pr_number: 15320,
                 state    : 'REQUEST_CHANGES',
-                body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+                body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
             });
 
             expect(result.code, item.name).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
@@ -2723,7 +2862,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15257,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY
         };
 
         const grandfathered = await PullRequestService.managePrReview(input);
@@ -2739,7 +2878,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     test('#15257: pre-activation and grandfathered RC bodies are dispatched byte-for-byte unchanged', async () => {
-        const inputBody = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+        const inputBody = VALID_ORDINARY_REQUEST_CHANGES_BODY;
 
         for (const item of [{
             name      : 'activation issue has no merged closer',
@@ -2883,7 +3022,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 15257,
             state    : 'REQUEST_CHANGES',
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
             // A repair-minted receipt, not a free-text reason. `old-head` is the head the prior review
             // was actually submitted against, so the claim is checkable against this PR's own history;
             // `new-head` is the head under review.
@@ -2938,7 +3077,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
                 action                    : 'create',
                 pr_number                 : 15257,
                 state                     : 'REQUEST_CHANGES',
-                body                      : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+                body                      : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
                 reviewBudgetOverrideReason: item.override
             });
 
@@ -3000,7 +3139,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     test('#15257: review updates cannot promote or demote ordinary RC and terminal Drop+Supersede', async () => {
         const ordinaryBody = managedReviewBody(
-            VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            VALID_ORDINARY_REQUEST_CHANGES_BODY
         );
         const terminalBody = managedReviewBody(VALID_DROP_SUPERSEDE_REVIEW_BODY, 'terminal-drop-supersede');
 
@@ -3030,7 +3169,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     test('#15257: review updates cannot add/remove provenance or rewrite managed audit fields', async () => {
         const currentBody = managedReviewBody(
-            VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            VALID_ORDINARY_REQUEST_CHANGES_BODY
         );
         const cases = [{
             incoming: currentBody.replace('[review-budget-managed]\n', ''),
@@ -3578,7 +3717,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     test('#15257: workflow provenance applies only after the activation issue closing-PR cutover', async () => {
-        const body          = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+        const body          = VALID_ORDINARY_REQUEST_CHANGES_BODY;
         const grandfathered = await runAgentPrReviewBodyLintWorkflow({
             body,
             createdAt: '2026-07-16T13:57:02Z',
@@ -3611,7 +3750,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
                     pageInfo: {hasNextPage: false}
                 }
             },
-            body     : VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes'),
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY,
             createdAt: '2026-07-16T14:00:00Z',
             state    : 'changes_requested'
         });
@@ -3620,7 +3759,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     });
 
     test('#15257: workflow fails closed on missing, truncated, or malformed activation relations', async () => {
-        const body  = VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes');
+        const body  = VALID_ORDINARY_REQUEST_CHANGES_BODY;
         const cases = [{
             name           : 'missing issue',
             activationIssue: null,
@@ -3700,7 +3839,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     test('#15257: workflow rejects override-only provenance after cutover', async () => {
         const body = managedReviewBody(
-            VALID_ROUND_2_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            VALID_ORDINARY_REQUEST_CHANGES_BODY
         ).replace('[review-budget-managed]\n', '[review-budget-override]\n');
         const result = await runAgentPrReviewBodyLintWorkflow({
             body,
