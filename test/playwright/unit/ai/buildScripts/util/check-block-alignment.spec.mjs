@@ -511,3 +511,117 @@ test.describe('check-block-alignment.mjs --staged diff-scope (#13720)', () => {
         expect(r.output).toContain('Misaligned');
     });
 });
+
+/**
+ * Real-git integration for the scoped pre-commit REPAIR (`--fix --staged`): the hook converts from
+ * reject to repair, rewriting ONLY drift on the author's staged-added lines. A grandfathered
+ * misalignment on an untouched line stays byte-identical; a git detection failure reports and never
+ * writes (fail-closed); pure `--fix` stays the deliberate whole-file pass. The detector is untouched —
+ * the entire pre-existing suite above runs unmodified against the new disposition surface.
+ */
+test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)', () => {
+    let stagedDir;
+
+    const git = (...a) => execFileSync('git', a, {cwd: stagedDir, stdio: 'ignore'});
+
+    // execFileSync with an argv array (no shell), cwd-pinned to the fixture repo: the script resolves
+    // its gitRoot from the process cwd, exactly as lint-staged's invocation resolves the real one.
+    const run = (args, cwd = stagedDir) => {
+        try {
+            return {status: 0, output: execFileSync('node', [scriptPath, ...args], {cwd, encoding: 'utf8', stdio: 'pipe'})};
+        } catch (error) {
+            return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
+        }
+    };
+
+    test.beforeEach(() => {
+        stagedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-blockalign-scopedfix-'));
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test User');
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(stagedDir, {recursive: true, force: true});
+    });
+
+    test('rewrites only staged-added-line drift; a grandfathered misalignment stays byte-identical (AC1)', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+        // Committed: a misaligned import pair (line 1 drifts) — grandfathered, never owned again.
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        // Staged: an unrelated object block whose colon drift sits entirely on the ADDED lines.
+        fs.writeFileSync(file, [
+            "import a from 'a';",
+            "import bb from 'b';",
+            'const config = {',
+            '    db: 1,',
+            '    intervals: 3',
+            '};',
+            ''
+        ].join('\n'), 'utf8');
+        git('add', 'src.mjs');
+
+        expect(run(['--fix', '--staged', 'src.mjs']).status).toBe(0);
+
+        const lines = fs.readFileSync(file, 'utf8').split('\n');
+        expect(lines[0]).toBe("import a from 'a';");   // grandfathered import drift: byte-identical
+        expect(lines[1]).toBe("import bb from 'b';");
+        expect(lines[3]).toBe('    db       : 1,');    // owned colon drift: repaired
+        expect(lines[4]).toBe('    intervals: 3');
+    });
+
+    test('fails closed without a reliable staged-line set: reports, never writes (AC2)', () => {
+        // No git repository at or above this cwd: rev-parse fails, so the scoped repair must refuse
+        // to write rather than degrade into a whole-file reformat on a transient git error.
+        const bareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-blockalign-norepo-'));
+        try {
+            const file     = path.join(bareDir, 'src.mjs');
+            const original = "import a from 'a';\nimport bb from 'b';\n";
+            fs.writeFileSync(file, original, 'utf8');
+
+            const r = run(['--fix', '--staged', file], bareDir);
+            expect(r.status).toBe(1);
+            expect(r.output).toContain('Misaligned');
+            expect(r.output).toContain('repair skipped');
+            expect(fs.readFileSync(file, 'utf8')).toBe(original);   // byte-identical: nothing rewritten
+        } finally {
+            fs.rmSync(bareDir, {recursive: true, force: true});
+        }
+    });
+
+    test('the hook disposition: stage misaligned → --fix --staged repairs → commit proceeds, aligned (AC3)', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+        // A brand-new file whose entire content is staged-added: every violation is owned.
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+
+        // What the pre-commit hook now runs (the package.json lint-staged entry pinned below).
+        expect(run(['--fix', '--staged', 'src.mjs']).status).toBe(0);
+
+        git('add', 'src.mjs');                      // lint-staged re-stages the repair
+        git('commit', '-m', 'fixture commit');      // the commit proceeds without author action
+
+        const committed = execFileSync('git', ['show', 'HEAD:src.mjs'], {cwd: stagedDir, encoding: 'utf8'});
+        expect(committed).toBe("import a  from 'a';\nimport bb from 'b';\n");
+    });
+
+    test('the lint-staged entry invokes the scoped repair (AC3 wiring pin)', () => {
+        const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../../package.json'), 'utf8'));
+        expect(pkg['lint-staged']['*.mjs']).toContain('node ./buildScripts/util/check-block-alignment.mjs --fix --staged');
+    });
+
+    test('pure --fix remains the deliberate whole-file pass, grandfathered drift included (AC4)', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        // Nothing staged at all: the scoped repair would own no line, but a deliberate --fix
+        // rewrites the whole file regardless of staging.
+        expect(run(['--fix', 'src.mjs']).status).toBe(0);
+        expect(fs.readFileSync(file, 'utf8')).toBe("import a  from 'a';\nimport bb from 'b';\n");
+    });
+});
