@@ -259,12 +259,44 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         // `ensureHealthy()` consumes HealthService.healthcheck() — which never carries the fold —
         // so with the plane's only degradation being starvation, semantic recall stays
         // dispatchable: ensureHealthy resolves rather than throwing.
+        //
+        // The pin has two halves and only one of them ever needed the live plane:
+        //
+        //   1. `healthcheck()`'s payload does not carry the fold. That is a claim about the payload's
+        //      SHAPE and it holds whatever the plane's status happens to be.
+        //   2. `ensureHealthy()` gates on `status` alone, so a fold it cannot see cannot block it.
+        //
+        // An earlier version asserted `base.status === 'healthy'` first, as an "environment gate".
+        // That is a precondition this test does not control: `healthcheck()` probes the real plane,
+        // and under `workers: 4` three sibling workers drive load through the same composition, so a
+        // perfectly correct `degraded` falsified the gate and the pin reported a failure it had not
+        // found. The sibling `HealthService.spec.mjs` already records the rule this broke — end-to-end
+        // `healthcheck()` needs ChromaDB + StorageRouter and is validated post-merge, not in a unit
+        // spec.
         HealthService.clearCache();
+
         const base = await HealthService.healthcheck();
-        // Environment gate, asserted loudly: the admission pin needs a healthy base composition.
-        expect(base.status).toBe('healthy');
-        expect(base.heavyMaintenanceStarvation).toBeUndefined();
-        await expect(HealthService.ensureHealthy()).resolves.toBeUndefined();
+
+        // Half 1 — shape, not status. True on a healthy plane and on a contended one.
+        expect(base.heavyMaintenanceStarvation, 'healthcheck() must never carry the fold').toBeUndefined();
+
+        // Half 2 — `ensureHealthy()` against a CONSTRUCTED healthy payload, the same way every other
+        // composition in this file is constructed. Stubbing its one collaborator is what makes the
+        // admission decision observable without asking the environment to be quiet.
+        const realHealthcheck = HealthService.healthcheck.bind(HealthService);
+
+        try {
+            HealthService.healthcheck = async () => ({status: 'healthy', details: ['All features are operational']});
+            await expect(HealthService.ensureHealthy()).resolves.toBeUndefined();
+
+            // The negative control: the gate is real, so a non-healthy status must still throw.
+            // Without this, the stub above could return anything and the arm would still pass.
+            HealthService.healthcheck = async () => ({status: 'degraded', details: ['db slow']});
+            await expect(HealthService.ensureHealthy()).rejects.toThrow(/not fully operational/);
+        } finally {
+            HealthService.healthcheck = realHealthcheck;
+        }
+
         HealthService.clearCache();
     });
 });
