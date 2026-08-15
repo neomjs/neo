@@ -102,14 +102,24 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
             fs.writeFileSync(fixture, [
                 "await new Promise(resolve => setTimeout(resolve, 50)); await new Promise(resolve => setTimeout(resolve, 5000));",
                 "await new Promise(resolve => setTimeout(resolve, 1_000));",
-                "await new Promise(resolve => setTimeout(resolve, 1e3));"
+                "await new Promise(resolve => setTimeout(resolve, 1e3));",
+                "await new Promise(resolve => setTimeout(resolve, 1e+3));",
+                "await new Promise(resolve => setTimeout(resolve, 0x3e8));",
+                "await new Promise(resolve => setTimeout(resolve, 0o1750));",
+                "await new Promise(resolve => setTimeout(resolve, 0b1111101000));",
+                "await new Promise(resolve => setTimeout(resolve, 1000.));",
+                "await new Promise(resolve => setTimeout(resolve, .1e4));",
+                // Not a fixed literal: a named constant is already injectable, so it is not this
+                // guard's subject. It is the control proving the loose token match did not turn into
+                // a match-everything — `Number('DELAY_MS')` is NaN and the site is skipped.
+                "await new Promise(resolve => setTimeout(resolve, DELAY_MS));"
             ].join('\n'), 'utf8');
 
             const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
 
-            expect(sites.map(entry => entry.ms), 'all three spellings are read as milliseconds')
-                .toEqual([5000, 1000, 1000]);
-            expect(sites.length, 'the second call on line 1 is not shadowed by the first').toBe(3);
+            expect(sites.map(entry => entry.ms), 'every legal spelling of the threshold is read as milliseconds')
+                .toEqual([5000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]);
+            expect(sites.length, 'the second call on line 1 is not shadowed by the first').toBe(9);
         } finally {
             fs.rmSync(dir, {force: true, recursive: true})
         }

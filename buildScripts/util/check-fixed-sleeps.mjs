@@ -88,11 +88,18 @@ const
     LOOKBEHIND     = 3,
     ROOT_DIR       = process.cwd(),
     SCAN_ROOT      = 'test/playwright/unit',
-    // Global, and the delay is captured as a NUMERIC LITERAL rather than a digit run. `(\d+)` could not
-    // see `1_000` or `1e3` at all — both are ordinary JavaScript spellings of this threshold, and both
-    // slipped the gate completely rather than merely being mis-measured. A guard that reads source has
-    // to read the language's literals, not the subset its author happened to type.
-    SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*([0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)\s*\)/g,
+    // Global, and the delay is captured as a permissive TOKEN rather than a hand-rolled numeric
+    // grammar. This pattern has now been wrong twice in the same direction: `(\d+)` missed `1_000` and
+    // `1e3`, and the decimal-shaped replacement still missed `0x3e8`, `0o1750`, `0b1111101000`, `1000.`
+    // and `.1e4` — every one a legal spelling of this exact threshold. Enumerating spellings loses to
+    // the language, because the language keeps having more of them.
+    //
+    // So the token is matched loosely and `Number` decides, since `Number` IS the parser the runtime
+    // uses on this argument. Anything that is not a number — an identifier, a named constant, a call —
+    // yields NaN and is skipped, which is the verdict a stricter pattern reached by failing to match.
+    // Delegating to the real parser is not a shortcut here; it is the only way the guard's claim can be
+    // true for spellings its author never thought of.
+    SLEEP_RE       = /setTimeout\(\s*[A-Za-z_$][\w$]*\s*,\s*([\w.+\-]+)\s*\)/g,
     THRESHOLD_MS   = 1000;
 
 /**
