@@ -14,7 +14,8 @@ import {defectNoteFingerprint} from './defectObservationFold.mjs';
  *
  * The read side's discipline mirrors the channel's write side: capture is cheap, attention is
  * not. A digest fires at most once per count growth per observation, and promotion stays a
- * deliberate full-ceremony act — this module produces attention, never backlog admission.
+ * deliberate full-ceremony act — the ticket reference is what makes it one, and a bare
+ * `[promoted]` suppresses nothing. This module produces attention, never backlog admission.
  */
 
 /**
@@ -24,7 +25,7 @@ import {defectNoteFingerprint} from './defectObservationFold.mjs';
  */
 export const DIGEST_SUBJECT_PREFIX = 'defect-ledger-digest:';
 
-const PROMOTED_MARKER_PATTERN  = /^\s*\[promoted\b[^\]]*\]\s*/i;
+const PROMOTED_MARKER_PATTERN  = /^\s*\[promoted\b([^\]]*)\]\s*/i;
 const DISMISSED_MARKER_PATTERN = /^\s*\[dismissed\b[^\]]*\]\s*/i;
 
 /**
@@ -44,11 +45,16 @@ export function independentSecondOccurrence(record) {
 /**
  * @summary Fingerprints whose promotion or dismissal is already on the record.
  *
- * A `[promoted #N]` note from any seat suppresses (promotion ran its ceremony; re-attention
- * adds nothing). A `[dismissed]` note suppresses only from an operator identity — anyone else's
- * is prose, not a disposition. The marker note keys to the same observation by stripping the
- * marker and re-fingerprinting the remainder, so the suppression rides the channel's own
- * identity rule rather than a parallel keying scheme.
+ * A `[promoted #N]` note from any seat suppresses: the ticket reference IS the ceremony — any
+ * seat may promote, and the reference is the accountability trail (verifying that the ticket
+ * exists needs a GitHub read, deliberately out of scope for this pure helper). A bare
+ * `[promoted]` suppresses NOTHING, from any seat, the operator included: an accidental or
+ * template-copied marker degrades toward re-attention (a visible duplicate row at triage),
+ * never toward the permanent silence an unauthorised suppression would leave behind.
+ * A `[dismissed]` note suppresses only from an operator identity — anyone else's is prose, not
+ * a disposition. The marker note keys to the same observation by stripping the marker and
+ * re-fingerprinting the remainder, so the suppression rides the channel's own identity rule
+ * rather than a parallel keying scheme.
  *
  * @param {Object[]} rows Raw `defect-note:` mailbox rows (`{subject, from}`).
  * @param {Object}     [options]
@@ -59,10 +65,16 @@ export function collectSuppressedFingerprints(rows, {operatorIdentities = ['@tob
     const suppressed = new Set();
 
     for (const row of Array.isArray(rows) ? rows : []) {
-        const text = String(row?.subject || '').replace(/^\s*defect-note:\s*/i, '');
+        const
+            text     = String(row?.subject || '').replace(/^\s*defect-note:\s*/i, ''),
+            promoted = text.match(PROMOTED_MARKER_PATTERN);
 
-        if (PROMOTED_MARKER_PATTERN.test(text)) {
-            suppressed.add(defectNoteFingerprint(text.replace(PROMOTED_MARKER_PATTERN, '')));
+        if (promoted) {
+            // the reference is enforced, not decorative: a bare `[promoted]` is prose, exactly
+            // like a non-operator `[dismissed]` — the observation keeps qualifying for the digest
+            if (/#\d+/.test(promoted[1])) {
+                suppressed.add(defectNoteFingerprint(text.replace(PROMOTED_MARKER_PATTERN, '')));
+            }
         } else if (DISMISSED_MARKER_PATTERN.test(text) && operatorIdentities.includes(row?.from)) {
             suppressed.add(defectNoteFingerprint(text.replace(DISMISSED_MARKER_PATTERN, '')));
         }

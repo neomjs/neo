@@ -97,6 +97,27 @@ test.describe('defectObservationTriggers — the defect-ledger observer layer', 
         expect(collectSuppressedFingerprints([recovered]).size).toBe(0);
     });
 
+    test('a bare [promoted] suppresses nothing — the ticket reference is the ceremony (#17197)', () => {
+        const
+            barePeer     = {from: '@a',     subject: NOTE.replace('defect-note:', 'defect-note: [promoted]')},
+            bareOperator = {from: '@tobiu', subject: NOTE.replace('defect-note:', 'defect-note: [promoted]')},
+            referenced   = {from: '@a',     subject: NOTE.replace('defect-note:', 'defect-note: [promoted #17136]')},
+            noteRow      = record({fingerprint: defectNoteFingerprint(NOTE)});
+
+        // both arms: with the reference, any seat's promotion suppresses...
+        expect(collectSuppressedFingerprints([referenced]).size).toBe(1);
+        // ...without it, nothing suppresses — not a peer's, and not even the operator's
+        expect(collectSuppressedFingerprints([barePeer]).size).toBe(0);
+        expect(collectSuppressedFingerprints([bareOperator]).size).toBe(0);
+
+        // the failure direction directly: an unauthorised suppression attempt leaves the
+        // observation still qualifying — the regression surfaces as a visible row, never silence
+        expect(selectDigestRecords({
+            records               : [noteRow],
+            suppressedFingerprints: collectSuppressedFingerprints([barePeer])
+        })).toHaveLength(1);
+    });
+
     test('digest coverage round-trips: max count per fingerprint, malformed bodies cover nothing', () => {
         const body = buildDigestBody({records: [record(), record({fingerprint: 'eeee111122223333', count: 5})]});
 
