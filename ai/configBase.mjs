@@ -1808,7 +1808,26 @@ class ConfigBase extends ConfigProvider {
                      * the hard cap. Bound to the `NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS` env name.
                      * @type {Number}
                      */
-                    attemptTimeoutSeconds: leaf(30, 'NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS', 'number')
+                    attemptTimeoutSeconds: leaf(30, 'NEO_WAKE_ATTEMPT_TIMEOUT_SECONDS', 'number'),
+                    /**
+                     * The wake daemon's loop cadence (milliseconds): how long the poll loop sleeps
+                     * between passes, how long a flush blocked by an in-flight delivery waits before
+                     * re-checking, and the unit the delivery retry backoff multiplies
+                     * (`nextAttemptAt = now + pollIntervalMs * attempts`). Because it is a
+                     * multiplicand rather than only a delay, the domain is `positiveInt` and not
+                     * `number`: `0`, a negative, a fraction, and `Infinity` are not slower or faster
+                     * settings but broken ones — the first three collapse every backoff to "already
+                     * due" and spin the retry path, the last parks it forever. The parser rejects all
+                     * four (and garbage) and the leaf keeps this default, so a malformed ambient
+                     * value degrades to shipped behavior instead of a hot loop.
+                     *
+                     * Sub-second values are the reason this leaf is `Ms` while its siblings are
+                     * `Seconds`: the daemon's own specs drive it to 50ms so their assertions stop
+                     * being quantized by a 3s tick, which no integer-seconds leaf can express.
+                     * Bound to the `NEO_WAKE_DAEMON_POLL_INTERVAL_MS` env name.
+                     * @type {Number}
+                     */
+                    pollIntervalMs: leaf(3000, 'NEO_WAKE_DAEMON_POLL_INTERVAL_MS', 'positiveInt')
                 },
                 /**
                  * Local-only maintenance lane switches. Cloud deployments can disable these

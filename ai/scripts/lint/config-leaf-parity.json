@@ -470,6 +470,7 @@
         "orchestrator.wakeDispatch.coalesceWindowSeconds",
         "orchestrator.wakeDispatch.flushHardCapSeconds",
         "orchestrator.wakeDispatch.flushRefractorySeconds",
+        "orchestrator.wakeDispatch.pollIntervalMs",
         "plane",
         "plane.dataRoot",
         "plane.id",
