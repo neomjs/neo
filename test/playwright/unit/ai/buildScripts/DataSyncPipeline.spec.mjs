@@ -781,6 +781,32 @@ test.describe('an intake denial cannot freeze corpus publication (#17148)', () =
         expect(aggregateDeferredFailures([failures[0]])).toBe(failures[0])
     });
 
+    test('an ABSENT intake token degrades exactly like a denied one (#17162)', async () => {
+        // The runtime contract the workflow's `continue-on-error` on the intake mint depends on. A
+        // failed mint leaves the token empty rather than wrong, which reaches `assertDataSyncAccess`
+        // as "No intake token was provided" — a different message on the same deferral path. Pinning
+        // it here because the workflow change is otherwise trusting an unasserted code path: if this
+        // ever threw instead of deferring, a credential fault would resume killing publication and
+        // the workflow guard would look like it was working.
+        const
+            absent   = new Error('[DataSync preflight] No intake token was provided.'),
+            executed = [];
+
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async (_command, args) => {executed.push(args.join(' '))},
+            log      : () => {},
+            preflight: async () => {throw absent}
+        });
+
+        expect(deferredError).toBe(absent);
+        // The corpus stages are reader-scoped and never consumed the intake token, so they must be
+        // wholly unaffected by its absence — that is the entire point of moving the failure later.
+        expect(executed.some(args => args.includes('--emit-only'))).toBe(true);
+        expect(executed.some(args => args.includes('--include-labels'))).toBe(true)
+    });
+
     test('a preflight denial defers and does NOT abort the run', async () => {
         const
             denial   = new Error('[DataSync preflight] neomjs/devindex-opt-in DENIED (OptIn stargazer read)'),

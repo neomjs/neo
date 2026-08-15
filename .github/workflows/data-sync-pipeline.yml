@@ -80,8 +80,29 @@ jobs:
           permission-contents: write
 
       # Installed on the DevIndex repos, not this one, so the installation must be named explicitly.
+      #
+      # NON-FATAL, unlike the Publisher mint above. This step ran before checkout, before Node and
+      # before emission, with nothing tolerating its failure — so any intake credential fault killed
+      # the job before a single corpus byte existed. That is the #17148 blast radius one layer up:
+      # the corpus is emitted under the READER identity and does not consume this token at all, yet
+      # an ENRICHMENT credential decided whether the whole repository published.
+      #
+      # `create-github-app-token` fails outright when asked for a permission the installation lacks,
+      # so the realistic triggers are ordinary administration: a revoked permission, a rotated key,
+      # an installation removed from one repository. #17150 adds a `contents` grant to this step,
+      # which widens that surface further — the workflow line and the App grant become a pair that
+      # must move together, and this guard is what keeps a drift between them from freezing the
+      # corpus rather than merely disabling intake.
+      #
+      # Degrading here needs no new error path. A failed mint leaves `outputs.token` empty, the empty
+      # `DATA_SYNC_INTAKE_TOKEN` reaches `assertDataSyncAccess`, which throws "No intake token was
+      # provided", and `emitGeneratedData` already DEFERS a preflight failure: every stage still runs,
+      # the corpus publishes, and the deferred error is rethrown so the run still exits non-zero. The
+      # failure moves later; it does not disappear. A silently green run over a dead intake would be
+      # strictly worse than the freeze this replaces.
       - name: Mint Intake installation token
         id: intake-token
+        continue-on-error: true
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.DATA_SYNC_INTAKE_APP_ID }}
