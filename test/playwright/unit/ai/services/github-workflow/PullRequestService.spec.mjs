@@ -1429,8 +1429,14 @@ async function runAgentPrReviewBodyLintWorkflow({
 test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrReview (#11273)', () => {
     let PullRequestService;
     let GraphqlService;
+    let RepositoryService;
     let originalQuery;
+    let originalViewerLogin;
 
+    // The submitting reviewer's family is what a round is charged to, so every budget case has to say
+    // who is submitting. Seeded as a rostered gpt identity by default; the cases that care about
+    // cross-family independence or an unclassifiable submitter override it per test.
+    const SUBMITTING_LOGIN           = 'neo-gpt-emmy';
     const PR_NODE_ID                 = 'PR_kwDOABcD9999999999';
     const PR_HEAD_OID                = 'abcdef1234567890abcdef1234567890abcdef12';
     const REVIEW_BUDGET_ACTIVATED_AT = '2026-07-16T13:57:03Z';
@@ -1663,14 +1669,21 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     test.beforeAll(async () => {
         GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+        RepositoryService  = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
         originalQuery      = GraphqlService.query.bind(GraphqlService);
+        originalViewerLogin = RepositoryService.viewerLogin;
     });
 
     test.afterAll(() => {
-        GraphqlService.query = originalQuery;
+        GraphqlService.query         = originalQuery;
+        // Restored rather than left seeded: `RepositoryService` is a singleton every later spec in this
+        // worker shares, and a leaked viewer identity would silently decide another suite's budget.
+        RepositoryService.viewerLogin = originalViewerLogin;
     });
 
     test.beforeEach(() => {
+        RepositoryService.viewerLogin = SUBMITTING_LOGIN;
+
         // Default mock: resolve PR id then return create-shaped review payload.
         // Tests override per-case via reassigning GraphqlService.query.
         GraphqlService.query = async (queryString) => {
@@ -2104,10 +2117,106 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
         });
 
+        // The budget is now PER FAMILY, so this fixture proves a narrower and truer thing than it did:
+        // the gpt family's single round survives a dismissal and an honest retraction, and its second
+        // ordinary RC is refused. The claude RC in the same fixture belongs to another family and is
+        // deliberately NOT what exhausts gpt's round — the cross-family independence case below is what
+        // pins that, and this assertion would silently pass on a global count without it.
         expect(result.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
         expect(result.reviewBudget.submittedRequestChanges).toBe(2);
-        expect(result.message).toContain('ordinary limit is 2');
+        expect(result.reviewBudget.familySubmittedRequestChanges, 'only gpt\'s own round counts').toBe(1);
+        expect(result.reviewBudget.reviewerFamily).toBe('gpt');
+        expect(result.message).toContain('gpt family has already spent');
         expect(mutationCallCount).toBe(0);
+    });
+
+    test('#17141: another family keeps its own round — one family\'s spent budget does not silence a second', async () => {
+        // The defect the per-family unit exists to fix, and the one a global count cannot express: an
+        // exhausted gpt round used to refuse a claude reviewer who had never seen the PR. Same fixture,
+        // same PR, only the submitting seat differs — so a passing result here cannot come from any
+        // clause except the family keying.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({
+                    createdAt: '2026-07-16T13:57:04Z',
+                    reviews  : {
+                        nodes   : [priorRequestChanges({reviewer: 'neo-gpt'})],
+                        pageInfo: {hasPreviousPage: false}
+                    }
+                })
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        RepositoryService.viewerLogin = 'neo-opus-grace';
+
+        const claudeRound = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(claudeRound.error, 'claude has spent nothing on this PR').toBeUndefined();
+        expect(claudeRound.reviewBudget.outcome).toBe('within-budget');
+        expect(claudeRound.reviewBudget.reviewerFamily).toBe('claude');
+        expect(claudeRound.reviewBudget.familySubmittedRequestChanges).toBe(0);
+        expect(claudeRound.reviewBudget.submittedRequestChanges, 'the PR total is still reported').toBe(1);
+        expect(mutationCallCount).toBe(1);
+
+        // The mirror, on the identical fixture: the family that already spent its round is refused.
+        // Without this half the test above would pass on a guard that admits everyone.
+        RepositoryService.viewerLogin = 'neo-gpt-emmy';
+
+        const gptSecondRound = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17141,
+            state    : 'REQUEST_CHANGES',
+            body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+        });
+
+        expect(gptSecondRound.code).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+        expect(gptSecondRound.reviewBudget.familySubmittedRequestChanges).toBe(1);
+        expect(mutationCallCount, 'the refusal reached no mutation').toBe(1);
+    });
+
+    test('#17141: an unclassifiable submitter is refused, never granted an unbounded round', async () => {
+        // Fail CLOSED. Waiving the charge reads as generosity and is the opposite: a login the identity
+        // graph cannot place would spend nobody's budget, so it could request changes without limit
+        // while every rostered family stayed bounded. A gate that cannot name the spender must refuse.
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup({createdAt: '2026-07-16T13:57:04Z'});
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}}
+        };
+
+        for (const [label, login] of [
+            ['an unrostered human contributor', 'some-human-contributor'],
+            ['a cold viewer cache',             null]
+        ]) {
+            RepositoryService.viewerLogin = login;
+
+            const result = await PullRequestService.managePrReview({
+                action   : 'create',
+                pr_number: 17141,
+                state    : 'REQUEST_CHANGES',
+                body     : VALID_FOLLOWUP_REVIEW_BODY.replace('**Status:** Approved', '**Status:** Request Changes')
+            });
+
+            expect(result.code, label).toBe('PR_REVIEW_BUDGET_VALIDATION_FAILED');
+            expect(result.message, label).toContain('not a classifiable maintainer family');
+        }
+
+        // Note the shape: a PR with ZERO prior reviews. Under the old global count this was the freest
+        // possible case, so the refusal cannot be inherited from an exhausted budget — it comes only
+        // from the submitter being unplaceable.
+        expect(mutationCallCount, 'neither unclassified submitter reached a mutation').toBe(0);
     });
 
     test('#15257: PR lookup projects cutover, prior bodies, and history completeness', async () => {
@@ -2429,7 +2538,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(capturedVariables.body.match(/^\[review-budget-override\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body.match(/^\[review-budget-managed\]$/gm)).toHaveLength(1);
         expect(capturedVariables.body).toContain('- submitted-request-changes: 2');
-        expect(capturedVariables.body).toContain('- ordinary-limit: 2');
+        expect(capturedVariables.body).toContain('- ordinary-limit: 1');
     });
 
     test('#15257: incomplete/truncated history and invalid override disclosure fail closed', async () => {

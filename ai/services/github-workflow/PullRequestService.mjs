@@ -7,7 +7,12 @@ import Base                 from '../../../src/core/Base.mjs';
 import GraphqlService       from './GraphqlService.mjs';
 import aiConfig             from '../../mcp/server/github-workflow/config.mjs';
 import logger               from '../../mcp/server/github-workflow/logger.mjs';
+import RepositoryService    from './RepositoryService.mjs';
 import {validateMergeReady} from '../../scripts/lifecycle/validateMergeReady.mjs';
+import {
+    groupReviewsByFamily,
+    resolveReviewerFamily
+}                           from '../graph/agentFamilyResolution.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
     GET_PULL_REQUEST_ID,
@@ -1860,10 +1865,12 @@ function resolveReviewBudgetActivation({
  * @param {Number} options.activationIssueNumber Source issue for the cohort cutover.
  * @param {Number} options.activationPullRequestNumber Merged closing PR that activated the cohort.
  * @param {String} options.body Validated review body.
- * @param {Number} options.ordinaryLimit Ordinary Request Changes ceiling.
+ * @param {Number} options.ordinaryLimit Ordinary Request Changes ceiling, PER REVIEWER FAMILY.
  * @param {Number} options.pr_number PR number.
  * @param {Object} options.pullRequest GraphQL PR projection.
  * @param {String} [options.reviewBudgetOverrideReason] Named bypass reason.
+ * @param {String|null} options.reviewerLogin Authenticated submitting login; the budget is charged to
+ * its family, and an unclassifiable login is refused rather than granted a free round.
  * @returns {{failure: Object|null, body: String, audit: Object|null}}
  */
 function validatePrReviewBudget({
@@ -1874,7 +1881,8 @@ function validatePrReviewBudget({
     ordinaryLimit,
     pr_number,
     pullRequest,
-    reviewBudgetOverrideReason
+    reviewBudgetOverrideReason,
+    reviewerLogin
 }) {
     const activatedMs = Date.parse(activatedAt || '');
     const createdMs   = Date.parse(pullRequest?.createdAt || '');
@@ -1940,12 +1948,41 @@ function validatePrReviewBudget({
     const priorRequestChanges = reviews.nodes.filter(isSubmittedRequestChangesReview);
     const priorTerminal       = priorRequestChanges.filter(review => classifyDropSupersedeReview(review?.body || '').valid);
     const incomingTerminal    = classifyDropSupersedeReview(body);
-    const audit               = {
+
+    // WHOSE round is being spent. The budget's unit is the reviewer FAMILY, so the count that matters
+    // is this family's prior rounds — not the PR's total. A global count let one family's exhausted
+    // budget silence a family that had never reviewed, and let a family buy extra rounds by rotating
+    // identities; both are answered by counting the same way the authority defines membership.
+    const reviewerFamily = resolveReviewerFamily({author: {login: reviewerLogin}});
+    const grouped        = groupReviewsByFamily(priorRequestChanges);
+    const familyPrior    = reviewerFamily.classified ? (grouped.byFamily[reviewerFamily.family] || 0) : 0;
+
+    const audit = {
         ...baseAudit,
-        applicable                : true,
-        submittedRequestChanges   : priorRequestChanges.length,
-        priorTerminalDropSupersede: priorTerminal.length
+        applicable                   : true,
+        submittedRequestChanges      : priorRequestChanges.length,
+        priorTerminalDropSupersede   : priorTerminal.length,
+        reviewerFamily               : reviewerFamily.family,
+        reviewerLogin                : reviewerFamily.login,
+        familySubmittedRequestChanges: familyPrior,
+        unclassifiedPriorReviewers   : grouped.unclassified.map(entry => entry.login)
     };
+
+    // Fail CLOSED on a reviewer the identity graph cannot classify. The alternative reads as
+    // generosity and is the opposite: an unrostered login would spend nobody's budget, so it could
+    // request changes without limit while every rostered family stayed bounded. A gate that cannot
+    // name the spender must refuse the charge, not waive it.
+    if (!reviewerFamily.classified) {
+        return {
+            failure: getReviewBudgetFailure(
+                pr_number,
+                `The submitting reviewer (${reviewerFamily.login || 'no resolvable login'}) is not a classifiable maintainer family, so this REQUEST_CHANGES cannot be charged to a review budget. Refusing rather than granting an unbounded round.`,
+                audit
+            ),
+            body,
+            audit: null
+        }
+    }
 
     if (override.provided && !override.valid) {
         return {
@@ -1979,7 +2016,7 @@ function validatePrReviewBudget({
         }
     }
 
-    if (priorRequestChanges.length < ordinaryLimit) {
+    if (familyPrior < ordinaryLimit) {
         const withinBudgetAudit = {...audit, outcome: 'within-budget'};
 
         return {
@@ -2011,7 +2048,7 @@ function validatePrReviewBudget({
     return {
         failure: getReviewBudgetFailure(
             pr_number,
-            `PR #${pr_number} already has ${priorRequestChanges.length} submitted CHANGES_REQUESTED reviews; the ordinary limit is ${ordinaryLimit}. Use COMMENT for the RC2 closure packet, APPROVED when merge-safe, or one validated Drop+Supersede terminal verdict.`,
+            `The ${reviewerFamily.family} family has already spent its ${familyPrior}-of-${ordinaryLimit} ordinary CHANGES_REQUESTED round on PR #${pr_number}. Post the terminal disposition over the existing actions, APPROVED when merge-safe, or one validated Drop+Supersede. Another family's independent round is unaffected by this refusal.`,
             audit
         ),
         body,
@@ -2161,10 +2198,16 @@ class PullRequestService extends Base {
          */
         reviewBudgetActivationBaseRefName: 'dev',
         /**
-         * Maximum ordinary submitted CHANGES_REQUESTED reviews on a post-cutover PR.
-         * @member {Number} reviewBudgetOrdinaryRcLimit=2
+         * Maximum ordinary submitted CHANGES_REQUESTED reviews PER REVIEWER FAMILY on a post-cutover PR.
+         *
+         * One, not two, and per family rather than per PR. The prior global ceiling of two measured the
+         * wrong thing in both directions: one family's two rounds silenced a family that had never
+         * reviewed, while a single family could spend both rounds itself and call it a budget. Counting
+         * by family makes each family's one comprehensive round independent, which is the shape the
+         * terminal-review decision actually describes.
+         * @member {Number} reviewBudgetOrdinaryRcLimit=1
          */
-        reviewBudgetOrdinaryRcLimit: 2,
+        reviewBudgetOrdinaryRcLimit: 1,
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -2732,7 +2775,14 @@ class PullRequestService extends Base {
                             ordinaryLimit              : this.reviewBudgetOrdinaryRcLimit,
                             pr_number,
                             pullRequest,
-                            reviewBudgetOverrideReason
+                            reviewBudgetOverrideReason,
+                            // The STARTUP-CACHED login, deliberately not the awaiting getter. Admission
+                            // is a hot path and must not acquire an identity over the network while
+                            // deciding whether to admit: a validator that makes its own round trip can
+                            // fail for reasons that have nothing to do with the review it is judging.
+                            // A cold cache resolves to null, which the budget already treats as
+                            // unclassifiable and refuses — the safe direction.
+                            reviewerLogin              : RepositoryService.viewerLogin
                         });
 
                         if (budgetValidation.failure) {
