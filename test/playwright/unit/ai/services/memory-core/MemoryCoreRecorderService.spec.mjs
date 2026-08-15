@@ -67,6 +67,13 @@ test.describe('Neo.ai.services.memory-core.MemoryCoreRecorderService', () => {
 
         memoryCoreConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
         memoryCoreConfig.refreshEnv();
+
+        // The SERVICE reads the runtime overlay (`config.mjs`), not the template — refresh it too.
+        // A worker-shared overlay constructed under an earlier spec's env (UNIT_TEST_MODE=true
+        // without NEO_MEMORY_DB_PATH_TEST) resolves `storagePaths.graph` to the `:memory:` default,
+        // and the status-inspection short-circuit (`dbPath === ':memory:'` → ok) then suppresses
+        // the writer-partial downgrade this suite pins.
+        (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default.refreshEnv();
         MemoryCoreRecorderService = (await import('../../../../../../ai/services/memory-core/MemoryCoreRecorderService.mjs')).default;
 
         // A Playwright worker can reuse this singleton after another spec imported it. Rebind it to
