@@ -1,0 +1,55 @@
+name: Script Plane Lint
+
+# Fails a PR when an `ai/scripts` entrypoint's DECLARED execution authority disagrees with the
+# capabilities its code actually reaches, and ratchets the population of import edges the closure
+# cannot follow.
+#
+# On what this job does and does not gate: like every other lint here, it is NOT a required status
+# context on `dev` — see #17171. A red result is loud and visible on the PR; it does not by itself
+# make the PR ineligible to merge. Do not read its presence as a `--no-verify` closure.
+#
+# The `paths` filter is broad on `ai/**` on purpose, and the scan-root parity spec enforces that
+# breadth: the lint walks each entrypoint's TRANSITIVE import closure, so a capability introduced
+# anywhere a script can reach changes a verdict here. A narrower filter would mean the guard does not
+# RUN on the edit that changes its own answer, which is the exact failure the parity registry exists
+# to prevent.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'package.json'
+      - 'ai/**'
+      - '.github/workflows/script-plane-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'package.json'
+      - 'ai/**'
+      - '.github/workflows/script-plane-lint.yml'
+
+concurrency:
+  group: script-plane-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      # `acorn` is the only runtime dependency the closure needs, and it is already a direct
+      # dependency of the repo — the lint deliberately hand-rolls its ancestor walk rather than adding
+      # `acorn-walk` for one traversal.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Derive each entrypoint's plane and compare it to its declared authority
+        run: node ./ai/scripts/lint/lint-script-plane.mjs

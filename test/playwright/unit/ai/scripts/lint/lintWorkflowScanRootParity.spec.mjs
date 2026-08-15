@@ -7,6 +7,7 @@ import {SCAN_SURFACE as CONFIG_TEMPLATE_SURFACE} from '../../../../../../ai/scri
 import {SCAN_SURFACE as FIXED_SLEEP_SURFACE}     from '../../../../../../buildScripts/util/check-fixed-sleeps.mjs';
 import {SCAN_SURFACE as GUARD_CI_PARITY_SURFACE} from '../../../../../../ai/scripts/lint/lint-guard-ci-parity.mjs';
 import {SCAN_SURFACE as MCP_LOCATION_SURFACE}    from '../../../../../../ai/scripts/lint/lint-mcp-test-locations.mjs';
+import {SCAN_SURFACE as SCRIPT_PLANE_SURFACE}    from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
 import {SCAN_SURFACE as RETRY_BOUND_SURFACE}     from '../../../../../../ai/scripts/lint/lint-retry-bounds.mjs';
 import {DEFAULT_SCAN_PATHS as ARCHAEOLOGY_PATHS} from '../../../../../../buildScripts/util/check-ticket-archaeology.mjs';
 
@@ -66,6 +67,11 @@ const REGISTRY = Object.freeze({
         scriptRel: 'buildScripts/util/check-atomic-write-shape.mjs',
         source   : 'declared',
         surface  : ['ai/**/*.mjs']
+    },
+    'script-plane-lint.yml': {
+        scriptRel: 'ai/scripts/lint/lint-script-plane.mjs',
+        source   : 'imported',
+        surface  : SCRIPT_PLANE_SURFACE
     },
     'spec-retirement-lint.yml': {
         scriptRel: 'buildScripts/util/check-spec-retirement.mjs',
