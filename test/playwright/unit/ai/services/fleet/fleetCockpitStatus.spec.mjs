@@ -308,6 +308,26 @@ test.describe('fleetCockpitStatus - Body-side cockpit DTO contract', () => {
         expect(snapshot.capabilities.presence).toMatchObject({state: 'wired'})
     })
 
+    test('a degraded presence capability carries its typed reasonCode to the DTO intact — supplied object wins whole', () => {
+        const snapshot = createFleetCockpitStatus({
+            agents      : [{id: 'clio', githubUsername: 'neo-fable-clio'}],
+            capabilities: {presence: {
+                source    : FLEET_COCKPIT_SOURCES.presence,
+                state     : 'degraded',
+                confidence: 'none',
+                reason    : 'plane who_is_online failed: session lost and plane identity mismatch',
+                reasonCode: 'viewer-binding-unavailable'
+            }}
+        })
+
+        // the binding-signal chain's last hop: the adapter's typed code reaches the cockpit DTO
+        // unchanged — C3 renders "binding unavailable" from THIS field, never from prose-matching
+        expect(snapshot.capabilities.presence).toMatchObject({
+            state     : 'degraded',
+            reasonCode: 'viewer-binding-unavailable'
+        })
+    })
+
     test('an unwired throttle producer reads unknown/none in the ROW, not-wired only in the wiring axes', () => {
         const snapshot = createFleetCockpitStatus({agents: [{id: 'grace'}]}),
               row      = snapshot.rows[0]

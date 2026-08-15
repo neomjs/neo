@@ -65,6 +65,18 @@ import {
  * @returns {Object} `{init, callTool, listMessages, addMessage, close}`
  * @throws {Error} When the endpoint fails the shared secure-endpoint policy.
  */
+/**
+ * The typed binding-class blocker code this client stamps on refusals it KNOWS are viewer-binding
+ * failures — the identity-oracle refusals in `connectProven` (no canonical identity / identity
+ * mismatch), the one class whose leak would re-attribute the whole surface. Transport failures,
+ * timeouts, and 5xx stay UNSTAMPED: they are ambiguous, and an ambiguous stamp would misclassify
+ * exactly the way the mirror adapter's bare-`Unauthorized` warning names. Consumers (the presence
+ * adapter's `reasonCode` passthrough) bind to this string BY CONTRACT and guard with their own
+ * closed set — never by message-matching.
+ * @type {String}
+ */
+export const VIEWER_BINDING_UNAVAILABLE = 'viewer-binding-unavailable'
+
 export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = null, createSession = null, allowPlainHttpHosts = []}) {
     const endpoint = normalizeSecureMcpEndpoint(baseUrl, {allowPlainHttpHosts});
 
@@ -155,7 +167,7 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
         if (!identity) {
             await teardown(candidate);
 
-            return {ok: false, reason: 'plane identity probe returned no canonical identity'}
+            return {ok: false, reason: 'plane identity probe returned no canonical identity', blockerCode: VIEWER_BINDING_UNAVAILABLE}
         }
 
         if (identity !== expected) {
@@ -163,7 +175,7 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
             // to a different subject would silently re-attribute the whole surface.
             await teardown(candidate);
 
-            return {ok: false, reason: 'plane identity mismatch'}
+            return {ok: false, reason: 'plane identity mismatch', blockerCode: VIEWER_BINDING_UNAVAILABLE}
         }
 
         session = {...candidate, identity};
@@ -202,6 +214,25 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
      * @returns {Boolean}
      * @private
      */
+    /**
+     * @summary Build the session-lost throw, carrying the readmission's typed blocker code
+     * verbatim when the refusal site stamped one — the refusal site already classified; the
+     * throw only CARRIES the type, never derives it.
+     * @param {String} name
+     * @param {Object} readmission
+     * @returns {Error}
+     * @private
+     */
+    function sessionLostError(name, readmission) {
+        const failure = new Error(`plane ${name} failed: session lost and ${readmission.reason}`);
+
+        if (readmission.blockerCode) {
+            failure.planeBlockerCode = readmission.blockerCode
+        }
+
+        return failure
+    }
+
     function isSessionInvalid(error) {
         return error?.code === 404 || /\bHTTP 404\b/.test(error?.message ?? '')
     }
@@ -285,7 +316,7 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
                 const readmission = await acquireProven();
 
                 if (!readmission.ok) {
-                    throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
+                    throw sessionLostError(name, readmission)
                 }
 
                 recovered = true
@@ -325,7 +356,7 @@ export function createPlaneMailboxClient({baseUrl, credential = '', fetchImpl = 
                     const readmission = await acquireProven();
 
                     if (!readmission.ok) {
-                        throw new Error(`plane ${name} failed: session lost and ${readmission.reason}`)
+                        throw sessionLostError(name, readmission)
                     }
 
                     fresh = session
