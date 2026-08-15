@@ -1116,15 +1116,15 @@ class VectorService extends Base {
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
         logger.log('Embedding chunks...');
 
-        const {batchSize, batchDelay, maxRetries, undeliverableTimeoutStrikes} = aiConfig;
-        const guardrail                                                        = this.resolveEmbeddingGuardrail();
-        const failedBatches                                                    = [];
-        const poisonedChunks                                                   = knownPoisonEntries.map(entry => ({...entry}));
-        const poisonIds                                                        = new Set(poisonedChunks.map(entry => entry.chunkId));
-        const preEmbeddedIds                                                   = new Set();
-        let   embeddedCount                                                    = 0;
-        let   skippedCount                                                     = 0;
-        let   yielded                                                          = false;
+        const {backoffBaseMs, batchSize, batchDelay, maxRetries, undeliverableTimeoutStrikes} = aiConfig;
+        const guardrail                                                                       = this.resolveEmbeddingGuardrail();
+        const failedBatches                                                                   = [];
+        const poisonedChunks                                                                  = knownPoisonEntries.map(entry => ({...entry}));
+        const poisonIds                                                                       = new Set(poisonedChunks.map(entry => entry.chunkId));
+        const preEmbeddedIds                                                                  = new Set();
+        let   embeddedCount                                                                   = 0;
+        let   skippedCount                                                                    = 0;
+        let   yielded                                                                         = false;
 
         // The undeliverable automaton's coordinates, resolved ONCE per sweep. Transient strike and
         // suspicion evidence must live under the same generation as the durable disposition it can
@@ -1262,7 +1262,10 @@ class VectorService extends Base {
                         retries++;
                         if (retries >= maxRetries) throw writeError;
                         console.error(`Persisting the carried prefix of ${arm.toLowerCase()} batch ${batchNumber} failed. Retrying the write (${retries}/${maxRetries})...`, writeError.message);
-                        await new Promise(res => setTimeout(res, 2 ** retries * 1000));
+                        // Same leaf as the embed retry below: a spec exercising this arm asserts the
+                        // retry depth, not the delay, so a test context pins the base rather than
+                        // paying the production wait. See kb.backoffBaseMs.
+                        await new Promise(res => setTimeout(res, backoffBaseMs * 2 ** retries));
                     }
                 }
 
@@ -1496,7 +1499,10 @@ class VectorService extends Base {
                     retries++;
                     console.error(`An error occurred during embedding batch ${batchNumber}. Retrying (${retries}/${maxRetries})...`, err.message);
                     if (retries < maxRetries) {
-                        await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
+                        // Exponential backoff. The base is a leaf so a test context can pin it to
+                        // 1ms: the retry DEPTH is what these specs assert, and paying the production
+                        // delay to assert it only buys wall-clock. See kb.backoffBaseMs.
+                        await new Promise(res => setTimeout(res, backoffBaseMs * 2 ** retries));
                     }
                 }
             }

@@ -728,6 +728,33 @@ class ConfigBase extends ConfigProvider {
              */
             undeliverableTimeoutStrikes: leaf(2, 'NEO_KB_EMBEDDING_UNDELIVERABLE_TIMEOUT_STRIKES', 'positiveInt'),
             /**
+             * Base delay for the embedding retry's exponential backoff, in milliseconds.
+             *
+             * The delay for retry `n` is `backoffBaseMs * 2 ** n`, so the base multiplies out fast:
+             * at `1000` a `maxRetries: 5` run sleeps 2s + 4s + 8s + 16s = 30s of pure waiting on top
+             * of the provider time it is already paying.
+             *
+             * It is a leaf rather than a literal for one concrete reason: it was hardcoded, so every
+             * spec that exercised a retry paid the production delay in real wall-clock. Tests then
+             * worked around the symptom — the leaseYield spec shrank `maxRetries` because a
+             * five-retry mutation run exhausted its timeout — which trades coverage for seconds and
+             * hides the retry depth actually shipping. Test contexts pin this to `1` through the env
+             * layer, so timing-independent assertions cost nothing and keep the real retry count.
+             *
+             * The domain is the delay one, not the loose numeric one. A base multiplies out as
+             * `base * 2 ** n`, so a negative value inverts the ladder into scheduling in the past and
+             * a fractional one produces sub-millisecond timers the runtime rounds unpredictably.
+             * `nonNegativeInt` exists for exactly this case and keeps zero legitimate — retry with no
+             * delay — and `batchDelay` above already uses it.
+             *
+             * `memoryWal.backoffBaseMs` and `messageWal.backoffBaseMs` spell the same role as
+             * `'number'`. Matching them would have been consistency with a defect rather than with a
+             * convention, which is precisely how a wrong shape spreads by adjacency: the next site
+             * copies whichever neighbour it lands nearest.
+             * @type {number}
+             */
+            backoffBaseMs: leaf(1000, 'NEO_KB_EMBEDDING_BACKOFF_BASE_MS', 'nonNegativeInt'),
+            /**
              * The number of results to fetch from ChromaDB for a query.
              * @type {number}
              */

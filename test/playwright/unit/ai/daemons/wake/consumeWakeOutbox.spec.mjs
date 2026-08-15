@@ -159,6 +159,9 @@ test.describe('ai/daemons/wake/consumeWakeOutbox (#15665)', () => {
                 fs.promises.appendFile(outboxPath, JSON.stringify(validEntry('hhh888', 'post-hold wake')) + '\n', {mode: 0o600})
             );
 
+            // wall-clock-under-test: the assertion IS that a second writer stays blocked while the
+            // lock is held, so elapsed time is the observable rather than an inconvenience.
+            // out-waits: the outbox lock-hold threshold in withOutboxLock.
             await new Promise(resolve => setTimeout(resolve, 2600));
 
             const heldLines = fs.readFileSync(outboxPath, 'utf8').trim().split('\n').filter(Boolean);
