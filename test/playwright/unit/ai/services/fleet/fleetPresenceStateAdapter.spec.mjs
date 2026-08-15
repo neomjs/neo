@@ -21,6 +21,7 @@ import {
     beaconFreshAtBound,
     gradePresenceBand,
     PRESENCE_BANDS,
+    PRESENCE_CAPABILITY_REASON_CODES,
     PRESENCE_SOURCE_LABEL,
     PRESENCE_STATES,
     presenceIdentityForAgent,
@@ -81,6 +82,45 @@ test.describe('fleetPresenceStateAdapter — capability envelope (producer healt
         expect(capability.confidence).toBe('none')
         expect(capability.reason).toBe('plane unreachable')
         expect(states.every(row => row.presence === 'unknown')).toBe(true)
+    })
+
+    test('a binding-classified read degrades WITH the typed reasonCode — and never an empty fleet', async () => {
+        const {capability, states} = await readFleetPresenceSnapshot({
+            agents,
+            readPresence: () => {
+                throw Object.assign(new Error('plane who_is_online failed: session lost and plane identity mismatch'), {
+                    planeBlockerCode: 'viewer-binding-unavailable'
+                })
+            }
+        })
+
+        expect(capability.state).toBe('degraded')
+        expect(capability.reasonCode).toBe('viewer-binding-unavailable')
+        expect(PRESENCE_CAPABILITY_REASON_CODES).toContain(capability.reasonCode)
+
+        // binding-unavailable is NEVER rendered as an empty/dark fleet: every roster row answers
+        expect(states).toHaveLength(agents.length)
+        expect(states.every(row => row.presence === 'unknown')).toBe(true)
+    })
+
+    test('an unclassified failure carries NO reasonCode — and an unrecognized stamp is dropped, never admitted', async () => {
+        const plain = await readFleetPresenceSnapshot({
+            agents,
+            readPresence: () => { throw new Error('plane unreachable') }
+        })
+
+        expect(plain.capability.state).toBe('degraded')
+        expect('reasonCode' in plain.capability).toBe(false)
+
+        // the closed-set guard: an out-of-vocabulary stamp must not leak an open enum downstream
+        const unrecognized = await readFleetPresenceSnapshot({
+            agents,
+            readPresence: () => {
+                throw Object.assign(new Error('weird'), {planeBlockerCode: 'made-up-code'})
+            }
+        })
+
+        expect('reasonCode' in unrecognized.capability).toBe(false)
     })
 
     test('a malformed answer (no agents array) is unreadable, never an empty fleet', async () => {
