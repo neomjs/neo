@@ -100,16 +100,40 @@ export function reconcileWithRegistry() {
 /**
  * @summary Finds `Co-Authored-By` addresses that credit no known agent account.
  *
- * **Scoped to `@neomjs.com` by construction.** A trailer for a human contributor, an outside
- * collaborator, or a bot is out of scope and can never warn — the domain check is the boundary, not
- * a special case, so this guard cannot wall off someone whose address it was never meant to know.
+ * **The boundary is WHO AUTHORED the commit, not which domain the address is on.**
  *
- * Comparison is case-insensitive on the address. A known address returns nothing; anything else on
- * the project domain is reported with the commit that carries it.
+ * The first version of this check scoped itself to `@neomjs.com` so it could never wall off an
+ * outside contributor whose address it was never meant to know. That reasoning is right and is
+ * preserved below — but as the *only* boundary it was blind in exactly the direction that does
+ * harm. GitHub resolves a trailer by its EMAIL and credits whatever account owns it, so an
+ * off-domain address in a trailer credits a **real person**, and off-domain was the one thing the
+ * domain check could not see. Measured before this change: 16 commits in 36 hours credited two
+ * live human accounts, none of them a maintainer on this project, and the guard was silent on all
+ * of them while correctly reporting a harmless on-domain typo.
+ *
+ * So the rule is now asymmetric, and the asymmetry is the whole design:
+ *
+ * - **Author is a roster agent** → every trailer must be a roster address, *whatever the domain*.
+ *   An agent has no legitimate reason to credit an address this map does not carry, and the
+ *   addresses that cause damage are precisely the ones outside the project domain.
+ * - **Author is anyone else** → only the project domain is this map's business, exactly as before.
+ *   An outside contributor's commit is not agent-authored, so their trailers stay out of scope by
+ *   construction rather than by a domain heuristic that cannot tell a fabricated address from a
+ *   legitimate one.
+ *
+ * **Why this cannot be left to discipline.** The operator's own address is injected into every
+ * agent's context by the harness as a standing field. Any seat composing a trailer can reach for
+ * it, and three of them did. A rule that depends on no agent ever reaching for a value placed in
+ * front of every agent has already failed.
+ *
+ * Comparison is case-insensitive on the address. A known address returns nothing.
  *
  * @param {Object}   args
- * @param {Object[]} args.commits `{sha, subject, body}` rows for the commits being pushed.
- * @returns {Array<{sha: String, subject: String, email: String}>} One row per offending trailer.
+ * @param {Object[]} args.commits `{sha, subject, body, authorEmail}` rows for the commits being
+ * pushed. A missing `authorEmail` is treated as non-agent, keeping the pre-existing domain-scoped
+ * behaviour for any caller that has not been updated — this check degrades quiet, never loud.
+ * @returns {Array<{sha: String, subject: String, email: String, agentAuthored: Boolean}>} One row
+ * per offending trailer. `agentAuthored` is what the caller escalates on.
  */
 export function findUnknownCoAuthors({commits = []}) {
     const
@@ -117,22 +141,29 @@ export function findUnknownCoAuthors({commits = []}) {
         trailer   = /^\s*co-authored-by:\s*.*?<([^>]+)>\s*$/gim,
         offenders = [];
 
-    commits.forEach(({sha, subject, body}) => {
-        const seen = new Set();
-        let   match;
+    commits.forEach(({sha, subject, body, authorEmail}) => {
+        const
+            agentAuthored = known.has((authorEmail || '').trim().toLowerCase()),
+            seen          = new Set();
+        let match;
 
         trailer.lastIndex = 0;
 
         while ((match = trailer.exec(body || '')) !== null) {
             const email = match[1].trim().toLowerCase();
 
-            // Only the project domain is this map's business — see the scoping note above.
-            if (!email.endsWith('@neomjs.com') || known.has(email) || seen.has(email)) {
+            if (known.has(email) || seen.has(email)) {
+                continue
+            }
+
+            // Non-agent authors keep the original domain boundary; agent authors have none, because
+            // the off-domain address is the one that credits a person.
+            if (!agentAuthored && !email.endsWith('@neomjs.com')) {
                 continue
             }
 
             seen.add(email);
-            offenders.push({sha, subject, email})
+            offenders.push({sha, subject, email, agentAuthored})
         }
     });
 

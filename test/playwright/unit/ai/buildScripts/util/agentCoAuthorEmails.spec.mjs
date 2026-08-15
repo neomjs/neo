@@ -68,10 +68,73 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
             expect(findUnknownCoAuthors({commits: [commit(body)]})).toEqual([]);
         });
 
-        test('an unknown address ON the project domain does warn — the boundary is the domain', () => {
+        test('an unknown address ON the project domain does warn — the domain boundary still holds for non-agent commits', () => {
             const found = findUnknownCoAuthors({commits: [commit('msg\n\nCo-authored-by: Ghost <nobody@neomjs.com>')]});
 
             expect(found.map(o => o.email)).toEqual(['nobody@neomjs.com']);
+        });
+    });
+
+    /**
+     * The domain boundary above is correct for a commit anyone might author, and was the ONLY
+     * boundary until 16 commits in 36 hours credited two live human accounts through it. GitHub
+     * resolves a trailer by its email, so an off-domain address credits a real person — and
+     * off-domain was exactly what the domain check could not see.
+     */
+    test.describe('agent-authored commits have no domain boundary — the case that shipped', () => {
+        const
+            OFF_DOMAIN  = 'real.person@example.com',
+            agentCommit = (body, sha = 'c'.repeat(40)) =>
+                ({sha, subject: 'subject', body, authorEmail: CANONICAL});
+
+        test('an off-domain trailer on an agent-authored commit IS flagged', () => {
+            // The regression fixture. Under the domain-scoped predicate this returned [] — the
+            // shape that let a real account be credited on every push without a word.
+            const found = findUnknownCoAuthors({
+                commits: [agentCommit(`msg\n\nCo-Authored-By: Some Agent <${OFF_DOMAIN}>`)]
+            });
+
+            expect(found.map(offender => offender.email)).toEqual([OFF_DOMAIN]);
+        });
+
+        test('it is marked agentAuthored, which is what the caller blocks on', () => {
+            const [offender] = findUnknownCoAuthors({
+                commits: [agentCommit(`msg\n\nCo-Authored-By: Some Agent <${OFF_DOMAIN}>`)]
+            });
+
+            expect(offender.agentAuthored).toBe(true);
+        });
+
+        test('a trailer whose DISPLAY NAME is an agent cannot launder the address', () => {
+            // The exact shape that did the damage: the trailer reads as a seat crediting itself
+            // while the address credits someone else. The name is never consulted.
+            const found = findUnknownCoAuthors({
+                commits: [agentCommit(`msg\n\nCo-Authored-By: Neo Opus Vega <${OFF_DOMAIN}>`)]
+            });
+
+            expect(found.map(offender => offender.email)).toEqual([OFF_DOMAIN]);
+        });
+
+        test('POSITIVE CONTROL — a roster address on an agent commit stays silent', () => {
+            expect(findUnknownCoAuthors({
+                commits: [agentCommit(`msg\n\nCo-Authored-By: Grace <neo-claude-opus@neomjs.com>`)]
+            })).toEqual([]);
+        });
+
+        test('the SAME off-domain trailer on a non-agent commit still never warns', () => {
+            // The property the domain scoping existed to protect, kept intact rather than assumed:
+            // an outside contributor is not agent-authored, so nothing about them is in scope.
+            expect(findUnknownCoAuthors({
+                commits: [commit(`msg\n\nCo-Authored-By: Some Person <${OFF_DOMAIN}>`)]
+            })).toEqual([]);
+        });
+
+        test('an unrecognised author email is treated as non-agent, so the check degrades quiet', () => {
+            const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
+
+            expect(findUnknownCoAuthors({
+                commits: [{sha: 'd'.repeat(40), subject: 's', body, authorEmail: 'stranger@example.org'}]
+            })).toEqual([]);
         });
     });
 
