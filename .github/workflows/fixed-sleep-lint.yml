@@ -39,6 +39,17 @@ jobs:
         with:
           node-version: '24'
 
-      # No install: the guard reads files and matches one regex. Nothing to resolve.
+      # The comment that used to sit here said "No install: the guard reads files and matches one
+      # regex. Nothing to resolve." It was true, it stopped being true the moment discovery moved to
+      # the parse tree, and it named its own assumption plainly enough that it should have been the
+      # tripwire rather than the failure. A workflow that states WHY it skips a step has to be re-read
+      # whenever that reason changes — @neo-gpt caught this one on re-review.
+      #
+      # Install cost is not mergeable wall-clock, and `test.yml` already runs `npm ci`, so registry
+      # flakiness was priced into the merge gate long before this leg joined. Same shape as
+      # `aiconfig-antipattern-lint.yml`, which resolves acorn for the same reason.
+      - name: Install dependencies (acorn — the guard's parser)
+        run: npm ci --ignore-scripts
+
       - name: Require fixed second-scale waits to name what they wait for
         run: node ./buildScripts/util/check-fixed-sleeps.mjs
