@@ -3403,7 +3403,7 @@ components:
             posture:
               type: string
               nullable: true
-              enum: [degraded, healthy, unknown, disabled, null]
+              enum: [degraded, healthy, unknown, disabled]
               example: "healthy"
             leaseHolder:
               type: string
