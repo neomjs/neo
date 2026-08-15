@@ -741,11 +741,19 @@ class ConfigBase extends ConfigProvider {
              * hides the retry depth actually shipping. Test contexts pin this to `1` through the env
              * layer, so timing-independent assertions cost nothing and keep the real retry count.
              *
-             * Sibling of `memoryWal.backoffBaseMs` / `messageWal.backoffBaseMs`, same default and
-             * same role, so the three read alike.
+             * The domain is the delay one, not the loose numeric one. A base multiplies out as
+             * `base * 2 ** n`, so a negative value inverts the ladder into scheduling in the past and
+             * a fractional one produces sub-millisecond timers the runtime rounds unpredictably.
+             * `nonNegativeInt` exists for exactly this case and keeps zero legitimate — retry with no
+             * delay — and `batchDelay` above already uses it.
+             *
+             * `memoryWal.backoffBaseMs` and `messageWal.backoffBaseMs` spell the same role as
+             * `'number'`. Matching them would have been consistency with a defect rather than with a
+             * convention, which is precisely how a wrong shape spreads by adjacency: the next site
+             * copies whichever neighbour it lands nearest.
              * @type {number}
              */
-            backoffBaseMs: leaf(1000, 'NEO_KB_EMBEDDING_BACKOFF_BASE_MS', 'number'),
+            backoffBaseMs: leaf(1000, 'NEO_KB_EMBEDDING_BACKOFF_BASE_MS', 'nonNegativeInt'),
             /**
              * The number of results to fetch from ChromaDB for a query.
              * @type {number}

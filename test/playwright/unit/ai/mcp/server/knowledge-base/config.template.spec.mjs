@@ -181,9 +181,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // (`NEO_OPENAI_COMPATIBLE_BATCH_EMBEDDING_CHUNK_SIZE`, the timeouts) while every dial shaping
         // the unit that must succeed together was not — so an operator whose corpus will not start
         // could make each request smaller and still not shrink the bet. These three close that.
-        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '1';
-        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '0';
-        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '2';
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE       = '1';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS   = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES      = '2';
+        process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS  = '1';
 
         const freshKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
@@ -191,13 +192,17 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             // Typed as numbers by the leaf's own env decoding — a string here would mean the `'number'`
             // type argument was dropped, which reads correct and silently breaks the `i += batchSize`
             // loop arithmetic.
-            expect(freshKB.batchSize) .toBe(1);
-            expect(freshKB.batchDelay).toBe(0);
-            expect(freshKB.maxRetries).toBe(2);
+            expect(freshKB.batchSize)    .toBe(1);
+            expect(freshKB.batchDelay)   .toBe(0);
+            expect(freshKB.maxRetries)   .toBe(2);
+            // The override the unit harness itself relies on: pinning the base to 1ms is what lets a
+            // spec keep production's retry DEPTH while paying none of its wall clock.
+            expect(freshKB.backoffBaseMs).toBe(1);
         } finally {
             delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
             delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
             delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
+            delete process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS;
             freshKB.destroy();
         }
     });
@@ -209,9 +214,10 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         // `maxRetries: 0` skips the retry loop entirely and returns a clean zero-embedded result with
         // no provider call at all. Neither is a "smaller" setting — they are broken ones, which is why
         // the domain lives on the leaf type (as `port`'s does) rather than in a consumer-side guard.
-        process.env.NEO_KB_EMBEDDING_BATCH_SIZE     = '0';
-        process.env.NEO_KB_EMBEDDING_MAX_RETRIES    = '0';
-        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS = '-1';
+        process.env.NEO_KB_EMBEDDING_BATCH_SIZE      = '0';
+        process.env.NEO_KB_EMBEDDING_MAX_RETRIES     = '0';
+        process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS  = '-1';
+        process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS = '-1';
 
         const invalidKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
 
@@ -219,11 +225,31 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
             expect(invalidKB.batchSize) .toBe(50);
             expect(invalidKB.maxRetries).toBe(5);
             expect(invalidKB.batchDelay).toBe(10000);
+            // A negative base does not make the ladder gentler — `base * 2 ** n` schedules every retry
+            // in the past, so the backoff silently stops being a backoff. Under the loose `'number'`
+            // domain this branch shipped accepting it.
+            expect(invalidKB.backoffBaseMs).toBe(1000);
         } finally {
             delete process.env.NEO_KB_EMBEDDING_BATCH_SIZE;
             delete process.env.NEO_KB_EMBEDDING_MAX_RETRIES;
             delete process.env.NEO_KB_EMBEDDING_BATCH_DELAY_MS;
+            delete process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS;
             invalidKB.destroy();
+        }
+
+        process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS = '1.5';
+
+        const fractionalKB = createConfigProxy(Neo.create(ConfigProvider, {data: config._data}));
+
+        try {
+            // The second half of the delay domain, and the reason `'number'` was the wrong choice
+            // rather than merely a loose one: a fractional base yields sub-millisecond timers the
+            // runtime rounds on its own terms, so the configured ladder and the observed one diverge
+            // with nothing reporting it.
+            expect(fractionalKB.backoffBaseMs).toBe(1000);
+        } finally {
+            delete process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS;
+            fractionalKB.destroy();
         }
     });
 
