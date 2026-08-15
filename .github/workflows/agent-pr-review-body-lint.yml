@@ -288,6 +288,42 @@ jobs:
               return;
             }
 
+            // Ordinary Round 2, checked BEFORE the heavier shapes. It carries no premise snapshot by
+            // design, so falling through to the canonical path would refuse it for omitting exactly
+            // what the terminal-round decision removed — CI would then reject the shape the substrate
+            // prescribes. Mirrors the service's tier dispatch in `PullRequestService.mjs`.
+            const ROUND_2_PR_REVIEW_SHAPE_HINTS = [
+              "# PR Review — Round 2",
+              "### 📋 Disposition",
+              "### 🔚 Verdict"
+            ];
+
+            const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
+              "# PR Review — Round 2",
+              "### ⚓ Anchor",
+              "### 📋 Disposition",
+              "### 🔚 Verdict"
+            ];
+
+            if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(a => body.includes(a))) {
+              const round2Misses = ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS.filter(a => !body.includes(a));
+
+              if (!PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)) {
+                round2Misses.push("Origin Session ID: Neo Memory Core UUID");
+              }
+
+              if (round2Misses.length === 0) {
+                console.log("✅ Round-2 disposition body matches the documented shape.");
+                return;
+              }
+
+              core.setFailed(
+                "Round-2 disposition review is missing: " + round2Misses.join(", ") +
+                "\nRead .agents/skills/pr-review/assets/pr-review-round-2-template.md before retrying."
+              );
+              return;
+            }
+
             const isMicroDeltaPrReview = body.includes(MICRO_DELTA_PR_REVIEW_SHAPE_HINTS[0]) || (
               body.includes("### State Vector") &&
               body.includes("### Micro-Delta Focus")

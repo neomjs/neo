@@ -1,10 +1,14 @@
-# PR Review Follow-Up Summary
+# PR Review Follow-Up — exceptional verdicts only
 
-**Status:** [Approved / Approve+Follow-Up / Request Changes / Drop+Supersede / Comment]
+**Ordinary Round 2 does not use this template.** It uses `pr-review-round-2-template.md`, which is a
+disposition table over the Round-1 actions and nothing else. This asset is for the two cases that
+genuinely need full structure: a validated **Drop+Supersede**, or a guarded **repair-minted re-entry**
+whose four-field receipt has already been accepted. Reaching for it in an ordinary round re-opens the
+unbounded loop the terminal-round decision exists to close.
 
-**Cycle:** [Cycle N follow-up / re-review]
+**Status:** [Drop+Supersede / Request Changes (repair-minted re-entry)]
 
-**Opening:** [One concise sentence naming the prior review state and the delta being re-checked.]
+**Opening:** [One concise sentence naming the prior review state and why this round is exceptional.]
 
 ---
 
@@ -68,56 +72,30 @@ For each prior Required Action, mark the current state:
 
 ### 🔬 Delta Depth Floor
 
-Provide ONE of the following:
+Retained for exceptional verdicts only. Ordinary Round 2 drops it — a round that must find a new concern will find one — but retiring or re-routing someone's work is precisely where a depth floor earns its cost.
 
-*   **Delta challenge:** [new concern introduced by the latest delta, even if non-blocking]
+*   **Delta challenge:** [the concern that makes this verdict exceptional]
 
 OR
 
-*   **Documented delta search:** *"I actively checked [changed surface 1], [prior blocker 2], and [metadata/close-target 3] and found no new concerns."*
-
-This is the follow-up form of the Depth Floor. Do not omit it because the prior cycle already had a challenge.
+*   **Documented search:** *"I actively checked [surface], [prior blocker], and [close-target] before reaching this verdict."*
 
 ---
 
-### 🔎 Conditional Audit Delta
+### 🔬 Premise Falsifiers
 
-Expand only audits affected by the delta. If 2+ dimensions would otherwise render N/A, collapse them:
+A Drop+Supersede is a verdict about the PREMISE, so this section carries the evidence that the premise failed — not a fresh scan for new concerns.
 
-```
-### N/A Audits — 🧪 📑
-N/A across listed dimensions: <one-line reason for the delta-scope justification>.
-```
-
-(Substantive dimensions expand individually under their canonical header.)
-
----
-
-### 🧪 Test-Evidence & Location Audit
-
-*This is part of the 10% AC/audit sanity layer unless execution disproves the delta.*
-
-*   **Evidence:** exact-head CI [green at `<SHA>` / N/A — docs-template]; author per-surface non-CI receipt [exact-head-appropriate / unchanged from prior current receipt / obvious omission / N/A — docs-template]; reviewer falsifier [N/A or command + concern + result]
-*   **Test location:** [pass for added/moved tests / N/A]
-*   **Findings:** [pass / fail / not applicable with reason]
-
----
-
-### 📑 Contract Completeness Audit
-
-*(Required per guide §5.4 if the delta touches public/consumed surfaces. This is part of the 10% AC/audit sanity layer: binding on real drift, not proof that the work belongs here.)*
-
-*   **Findings:** [Pass / new contract drift flagged / N/A]
+*   **Source-coordinate falsifiers:** [exact paths/lines/anchors, already listed under Strategic-Fit; restate only what a reader needs here]
+*   **What survives:** [the salvage, so the successor inherits it rather than rediscovering it]
 
 ---
 
 ### 📊 Metrics Delta
 
-Verdict weights still apply: 30% premise / right thing, 30% architecture + placement, 30% diff correctness, 10% AC/audit sanity. These are importance-to-verdict weights, not effort budgets.
+Retained deliberately. An exceptional verdict is a full-structure review — it retires or re-routes the work, so it owes the scoring surface that justifies doing so. Ordinary Round 2 is where metrics are *not* restated, and it has its own template.
 
-Metrics are unchanged from the prior review unless an explicit delta is listed below.
-
-*   **`[ARCH_ALIGNMENT]`**: [unchanged from prior review, or previous -> current + reason; include placement/cohesion/folder-fit/boundary discipline when the delta touches ownership]
+*   **`[ARCH_ALIGNMENT]`**: [unchanged from prior review, or previous -> current + reason]
 *   **`[CONTENT_COMPLETENESS]`**: [unchanged from prior review, or previous -> current + reason]
 *   **`[EXECUTION_QUALITY]`**: [unchanged from prior review, or previous -> current + reason]
 *   **`[PRODUCTIVITY]`**: [unchanged from prior review, or previous -> current + reason]

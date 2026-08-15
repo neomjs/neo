@@ -33,6 +33,7 @@ const execAsync                        = promisify(exec);
 const execFileAsync                    = promisify(execFile);
 const PR_REVIEW_TEMPLATE_PATH          = '.agents/skills/pr-review/assets/pr-review-template.md';
 const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+const PR_REVIEW_ROUND_2_TEMPLATE_PATH  = '.agents/skills/pr-review/assets/pr-review-round-2-template.md';
 const ACKNOWLEDGED_RC_ADDRESSED_PREFIX = 'addressed-by-';
 const ACKNOWLEDGED_RC_EVIDENCE_PREFIX  = 'superior-evidence:';
 const REVIEW_BUDGET_MANAGED_MARKER     = '[review-budget-managed]';
@@ -830,16 +831,31 @@ const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
     'Evaluation Metrics'
 ];
 
+// The EXCEPTIONAL-verdict template only: a validated Drop+Supersede or a guarded repair-minted
+// re-entry. `Delta Depth Floor` and `Metrics Delta` are gone from it deliberately — an ordinary
+// second round no longer reruns audits or re-scores metrics, so requiring those anchors here would
+// force the exceptional template back into the ordinary role the terminal-round decision removed.
 const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
-    'PR Review Follow-Up Summary',
+    'PR Review Follow-Up',
     'Patch-Blind Premise Snapshot',
     'Strategic-Fit Decision',
     'Prior Review Anchor',
     'Delta Scope',
     'Previous Required Actions Audit',
     'Delta Depth Floor',
+    'Premise Falsifiers',
     'Metrics Delta',
     'Required Actions'
+];
+
+// Ordinary Round 2. Four anchors, because the shape IS the constraint: a disposition over the
+// Round-1 actions and nothing else. Adding a fifth here would re-admit the audit rerun this
+// template exists to refuse.
+const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
+    'PR Review — Round 2',
+    'Anchor',
+    'Disposition',
+    'Verdict'
 ];
 
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
@@ -854,15 +870,23 @@ const FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
 });
 
 const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
-    'PR Review Follow-Up Summary'    : '# PR Review Follow-Up Summary',
+    'PR Review Follow-Up'            : '# PR Review Follow-Up',
     'Patch-Blind Premise Snapshot'   : '### 🧭 Patch-Blind Premise Snapshot',
     'Strategic-Fit Decision'         : '### 🪜 Strategic-Fit Decision',
     'Prior Review Anchor'            : '### ⚓ Prior Review Anchor',
     'Delta Scope'                    : '### 🔁 Delta Scope',
     'Previous Required Actions Audit': '### ✅ Previous Required Actions Audit',
     'Delta Depth Floor'              : '### 🔬 Delta Depth Floor',
+    'Premise Falsifiers'             : '### 🔬 Premise Falsifiers',
     'Metrics Delta'                  : '### 📊 Metrics Delta',
     'Required Actions'               : '### 📋 Required Actions'
+});
+
+const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
+    'PR Review — Round 2': '# PR Review — Round 2',
+    'Anchor'             : '### ⚓ Anchor',
+    'Disposition'        : '### 📋 Disposition',
+    'Verdict'            : '### 🔚 Verdict'
 });
 
 const templateHeadingAnchorCache = new Map();
@@ -1030,8 +1054,18 @@ const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
 
 const PR_REVIEW_ORIGIN_SESSION_PATTERN = /^\s*[*-]\s+\*\*Origin Session ID:\*\*\s+[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\s*$/im;
 
+// Detects an ordinary Round 2. Kept to the H1 and its two structural sections: broadening this to
+// shared vocabulary (`Anchor`, `Verdict`) would swallow bodies that belong to other shapes, and the
+// misclassification is silent — a body validated against the wrong template reports missing anchors
+// the author never owed.
+const ROUND_2_PR_REVIEW_SHAPE_HINTS = [
+    '# PR Review — Round 2',
+    '### 📋 Disposition',
+    '### 🔚 Verdict'
+];
+
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
-    '# PR Review Follow-Up Summary',
+    '# PR Review Follow-Up',
     '**Cycle:**',
     '### ⚓ Prior Review Anchor',
     '### 🔁 Delta Scope',
@@ -1059,12 +1093,18 @@ function getFullPrReviewTemplateSkeletonAnchors() {
 }
 
 function getFollowupPrReviewTemplateSkeletonAnchors() {
-    return [
-        ...getTemplateHeadingAnchorsByLabel(PR_REVIEW_FOLLOWUP_TEMPLATE_PATH, FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
-            fallbackByLabel: FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
-        }),
-        '**Cycle:**'
-    ];
+    // `**Cycle:**` is no longer required. It asked which cycle number this was, and the terminal-round
+    // decision removed cycle NUMBERING as a concept: there is Round 1, one disposition round, and two
+    // named exceptional verdicts. A field whose only answer is "the exceptional one" measures nothing.
+    return getTemplateHeadingAnchorsByLabel(PR_REVIEW_FOLLOWUP_TEMPLATE_PATH, FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+        fallbackByLabel: FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+    })
+}
+
+function getRound2PrReviewTemplateSkeletonAnchors() {
+    return getTemplateHeadingAnchorsByLabel(PR_REVIEW_ROUND_2_TEMPLATE_PATH, ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+        fallbackByLabel: ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+    })
 }
 
 const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
@@ -1136,6 +1176,14 @@ function hasValidPrReviewOriginSession(body) {
  * @returns {String[]} Missing skeleton anchors, intentionally never exposed to callers.
  */
 function getPrReviewTemplateSkeletonMisses(body) {
+    // Round 2 is tested FIRST and on its own H1. It shares `### ⚓ Anchor`-adjacent vocabulary with the
+    // follow-up shape, so a hint-order that checked follow-up first would validate every disposition
+    // round against the exceptional template and demand sections it deliberately omits — the guard
+    // would then refuse exactly the shape the terminal-round decision introduced.
+    if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor))) {
+        return getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
+    }
+
     const hasFollowupShape = FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
 
     if (hasFollowupShape) {
@@ -1214,6 +1262,45 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
  * @param {String} body The candidate Micro-Delta PR review body.
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
+/**
+ * @summary Validates an ordinary Round-2 disposition review against its own minimal floor.
+ *
+ * Round 2 gets its OWN tier rather than routing through the canonical path, for the same reason
+ * Micro-Delta does: the canonical validator requires the four premise anchors on every body, and a
+ * disposition round deliberately carries no premise snapshot. Routed canonically it would be refused
+ * for omitting exactly what the terminal-round decision removed — the guard would enforce the shape
+ * the substrate replaced.
+ *
+ * The floor is the four structural anchors and nothing else. It fails SAFE toward accept, because the
+ * expensive failure here is a reviewer who cannot post a legitimate disposition and re-opens a heavy
+ * round to get past the gate.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload, or `null` when valid.
+ */
+function getRound2PrReviewTemplateValidationFailure(body) {
+    const missing = getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
+
+    if (missing.length === 0) return null;
+
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'Review body selects the Round-2 disposition format but omits its structural anchors.',
+            '',
+            `**Required action**: read \`.agents/skills/pr-review/assets/pr-review-round-2-template.md\` before retrying.`,
+            '',
+            'Round 2 is a disposition over the Round-1 required actions, quoted verbatim — an anchor block,',
+            'the disposition table, and a verdict. If this round needs a premise snapshot or an audit rerun,',
+            'it is not an ordinary Round 2: it is a validated Drop+Supersede or a guarded repair-minted',
+            're-entry, and both use the follow-up template.',
+            '',
+            `Missing: ${missing.join(', ')}`
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
 function getMicroDeltaPrReviewTemplateValidationFailure(body) {
     const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
 
@@ -1501,6 +1588,8 @@ function getPrReviewTemplateValidationFailure(body, options) {
 
     if (isMicroReview(body)) {
         failure = getMicroReviewTemplateValidationFailure(body)
+    } else if (ROUND_2_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor))) {
+        failure = getRound2PrReviewTemplateValidationFailure(body)
     } else {
         failure = isMicroDeltaPrReview(body)
             ? getMicroDeltaPrReviewTemplateValidationFailure(body)
