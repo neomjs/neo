@@ -560,16 +560,22 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService({
-                // The ambiguity in its sharpest form: BOTH rows carry `KB_VECTOR_EMBED_TIMEOUT`. One is
-                // a durable fence, one is this sweep's live failure. A classifier reading codes alone
-                // cannot separate them — it either defers forever or completes over live work.
+                // The two rows carry DIFFERENT codes on purpose, and the fence is FIRST. Both match
+                // `EMBEDDING_RECOVERY_SOURCE_CODE_PATTERN`, and cause selection is a `.find()` over
+                // the code list in row order — so if the fence ever leaked back into `deferredCodes`,
+                // `find` would return the FENCE code and every assertion below would fail.
+                //
+                // An earlier version of this arm gave both rows the same code. That could not fail:
+                // the retained value was identical whichever row supplied it, so it proved deferral
+                // and nothing about selection. A test that cannot fail on the defect it names is not
+                // coverage, however carefully its comment describes the intent.
                 summaryFactory: () => ({ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [
                     {
                         code   : 'KB_VECTOR_EMBED_TIMEOUT',
                         message: 'A proven embedding poison remains fenced.',
                         details: {chunkId: poisonId, reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: 'proven-content-poison'}
                     },
-                    {code: 'KB_VECTOR_EMBED_TIMEOUT', message: 'one live timeout-class attempt ended'}
+                    {code: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT', message: 'one live provider-timeout attempt ended'}
                 ]})
             }),
             revisionsFilePath: revisionsFile,
@@ -584,9 +590,15 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         // Live work present ⇒ the checkpoint holds, exactly as before.
         expect(state.lastIngestedRev).toBeNull();
 
-        // The retained cause comes from the live row. Both rows carry the same string here, so this
-        // asserts the SELECTION path stayed row-aware rather than the value being distinguishable.
-        expect(state.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_TIMEOUT');
+        // The retained cause is the LIVE row's code, and it is NOT the fence's — the two assertions
+        // together are what make this arm discriminating rather than merely green.
+        expect(state.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
+        expect(state.lastSourceErrorCode).not.toBe('KB_VECTOR_EMBED_TIMEOUT');
+
+        // The canary-arming input is the same selection, so it carries the live cause too. This is the
+        // assertion the second-order defect actually lands on: an episode armed off a fence row probes
+        // for a health change that cannot re-offer the fenced chunk.
+        expect(state.embeddingRecovery?.causeCode).toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
 
         // The fence is still visible through the deferral.
         expect(state.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
