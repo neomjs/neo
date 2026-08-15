@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
     findUnknownCoAuthors,
+    findUnmappedProjectAuthors,
     mismatchedLogins,
     reconcileWithRegistry,
     registryAgentLogins
@@ -137,16 +138,53 @@ test.describe('buildScripts/util/agentCoAuthorEmails (#16280)', () => {
             })).toEqual([]);
         });
 
-        test('a project-domain author NOT YET in the map still counts as an agent', () => {
-            // Keying only on the map would let a newly seeded seat fall back to the weaker domain
-            // rule and pass its off-domain trailers silently, in the window before the map catches
-            // up. Safe to widen: every `@neomjs.com` author in history is a roster seat, and the
-            // registry types the operator `human` with no project-domain address.
+        test('a project-domain author NOT in the map is not classified as an agent either', () => {
+            // An earlier revision widened `agentAuthored` to the whole project domain, to stop a
+            // newly seeded seat falling into the weak path. @neo-gpt falsified the inference: author
+            // email is self-asserted metadata, not an authenticated account type, so the domain
+            // cannot stand in for one. The ambiguous case is routed to findUnmappedProjectAuthors
+            // rather than guessed — see the block below.
             const body = `msg\n\nCo-Authored-By: Someone <${OFF_DOMAIN}>`;
 
             expect(findUnknownCoAuthors({
                 commits: [{sha: 'e'.repeat(40), subject: 's', body, authorEmail: 'neo-newly-seeded@neomjs.com'}]
-            }).map(offender => offender.email)).toEqual([OFF_DOMAIN]);
+            })).toEqual([]);
+        });
+    });
+
+    /**
+     * The case that cannot be classified from the commit alone: a project-domain address the map
+     * does not carry is either a newly seeded agent seat or a human bound to the domain by the
+     * bootstrap's authenticated-account path. Guessing agent false-positives the human; guessing
+     * human drops the commit into the weak path. So it is neither — it is a named failure.
+     */
+    test.describe('unmapped project-domain authors are refused rather than guessed', () => {
+        test('flags a project-domain author the map does not carry', () => {
+            expect(findUnmappedProjectAuthors({
+                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'neo-newly-seeded@neomjs.com'}]
+            }).map(row => row.authorEmail)).toEqual(['neo-newly-seeded@neomjs.com']);
+        });
+
+        test('POSITIVE CONTROL — a mapped seat is silent', () => {
+            expect(findUnmappedProjectAuthors({
+                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: CANONICAL}]
+            })).toEqual([]);
+        });
+
+        test('an OFF-DOMAIN author is not this function\'s business — outside contributors pass', () => {
+            expect(findUnmappedProjectAuthors({
+                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'outsider@example.org'}]
+            })).toEqual([]);
+        });
+
+        test('matches the domain case-insensitively', () => {
+            expect(findUnmappedProjectAuthors({
+                commits: [{sha: 'f'.repeat(40), subject: 's', authorEmail: 'Neo-Newly-Seeded@NeoMjs.com'}]
+            })).toHaveLength(1);
+        });
+
+        test('a missing author email cannot throw', () => {
+            expect(findUnmappedProjectAuthors({commits: [{sha: 'f'.repeat(40), subject: 's'}]})).toEqual([]);
         });
     });
 

@@ -1,6 +1,6 @@
 import {execSync}             from 'node:child_process';
 import {readFileSync}         from 'node:fs';
-import {findUnknownCoAuthors} from './agentCoAuthorEmails.mjs';
+import {findUnknownCoAuthors, findUnmappedProjectAuthors} from './agentCoAuthorEmails.mjs';
 import path                   from 'node:path';
 import process                from 'node:process';
 
@@ -175,7 +175,8 @@ const ranges = pendingRanges(payload);
 // whether an address exists, and that gate answers a different question (operator identity leak).
 // Advisory in both directions: an unrecognized address warns, an unreadable map stays silent, and
 // neither can block. See ./agentCoAuthorEmails.mjs for why the addresses are a map and not derived.
-let unknownCoAuthors = [];
+let unknownCoAuthors = [],
+    unmappedAuthors  = [];
 
 try {
     const commits = ranges.flatMap(range => {
@@ -189,12 +190,32 @@ try {
         }).filter(Boolean) : []
     });
 
-    unknownCoAuthors = findUnknownCoAuthors({commits})
+    unknownCoAuthors = findUnknownCoAuthors({commits});
+    unmappedAuthors  = findUnmappedProjectAuthors({commits})
 } catch {
     // Fail open on INPUT failure only: a missing registry, an unreadable map, or a malformed log
     // must never block a push. A trailer this successfully read and rejected is a different matter,
     // handled below — swallowing that was how 16 mis-credited commits shipped.
-    unknownCoAuthors = []
+    unknownCoAuthors = [];
+    unmappedAuthors  = []
+}
+
+// A project-domain author this map does not carry is deliberately NOT classified as agent or human
+// — see findUnmappedProjectAuthors. It blocks, because the one-line fix is adding the seat, and
+// either guess is a way for this gate to fail silently.
+if (unmappedAuthors.length > 0) {
+    console.error(`\x1b[31mcheck-commit-authorship: ${unmappedAuthors.length} commit(s) authored from the project domain by an address no agent seat owns:\x1b[0m`);
+    unmappedAuthors.forEach(({sha, subject, authorEmail}) => console.error(`  ${sha.slice(0, 10)}  <${authorEmail}>  ${subject}`));
+    console.error(`
+This address is on @neomjs.com but is not in EMAIL_BY_LOGIN, so this check cannot tell a newly
+seeded agent seat from a human bound to the domain — and guessing either way breaks something. An
+agent guess blocks the outside collaborators a human legitimately credits; a human guess drops the
+commit into the domain-scoped path where its off-domain co-author trailers pass unseen.
+
+Add the seat to buildScripts/util/agentCoAuthorEmails.mjs with its occurrence count, or bypass
+deliberately if this is a one-off human commit: git push --no-verify
+`);
+    process.exit(1)
 }
 
 // Agent-authored offenders BLOCK. Anything else stays advisory, because a non-agent commit's

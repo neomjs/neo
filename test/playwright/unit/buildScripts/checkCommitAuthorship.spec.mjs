@@ -165,7 +165,10 @@ test.describe('check-commit-authorship — the operator must not author from an 
         git(main, ['worktree', 'add', '-b', 'agent/lane', tree, 'dev', '--quiet']);
         fs.outputFileSync(path.join(tree, 'work.txt'), 'agent work\n');
         git(tree, ['add', '.']);
-        git(tree, ['-c', 'user.email=ada@neomjs.com', '-c', 'user.name=Ada',
+        // `neo-opus-4-7@` rather than `ada@`: the latter is the display-name DERIVATION that
+        // agentCoAuthorEmails.mjs documents as having produced 19 mis-credited commits, so a
+        // fixture calling it "authors correctly" quietly propagated the defect next door.
+        git(tree, ['-c', 'user.email=neo-opus-4-7@neomjs.com', '-c', 'user.name=Ada',
             'commit', '-m', 'feat: properly attributed work', '--quiet', '--no-verify']);
 
         const result = runGuard(tree, 'operator@example.com');
@@ -223,7 +226,7 @@ test.describe('check-commit-authorship — the operator must not author from an 
 
         // one bad commit in the middle: scanning only HEAD would miss it, and the real incident was
         // 38 commits deep across branches nobody re-read
-        [['ada@neomjs.com', 'feat: first'], ['operator@example.com', 'feat: the buried one'], ['ada@neomjs.com', 'feat: third']]
+        [['neo-opus-4-7@neomjs.com', 'feat: first'], ['operator@example.com', 'feat: the buried one'], ['neo-opus-4-7@neomjs.com', 'feat: third']]
             .forEach(([email, subject], index) => {
                 fs.outputFileSync(path.join(tree, `work-${index}.txt`), `${subject}\n`);
                 git(tree, ['add', '.']);
@@ -236,6 +239,109 @@ test.describe('check-commit-authorship — the operator must not author from an 
         expect(result.stderr).toContain('1 commit(s)');
         expect(result.stderr).toContain('feat: the buried one');
         expect(result.stderr).not.toContain('feat: first')
+    })
+
+    /**
+     * The co-author half of the same guard. It shares this file's discipline deliberately: the unit
+     * suite over `findUnknownCoAuthors` proves the PREDICATE, and only running the real script
+     * against a real repository proves the EXIT CODE, which is the part that actually stops a push.
+     * A predicate that returns offenders into a caller that warns is what shipped 16 mis-credited
+     * commits.
+     */
+    test.describe('co-author trailers — GitHub credits by address, so a wrong one credits a person', () => {
+        const
+            ROSTER_AUTHOR  = 'neo-opus-4-7@neomjs.com',
+            ROSTER_TRAILER = 'neo-opus-vega@neomjs.com',
+            OFF_DOMAIN     = 'real.person@example.com';
+
+        /**
+         * @summary Commits one file under an explicit author, with an optional trailer block.
+         * @param {String} cwd
+         * @param {Object} options
+         * @param {String} options.authorEmail
+         * @param {String} options.subject
+         * @param {String} [options.trailer]
+         */
+        function commitAs(cwd, {authorEmail, subject, trailer}) {
+            fs.outputFileSync(path.join(cwd, `${subject.replace(/\W+/gu, '-')}.txt`), 'x\n');
+            git(cwd, ['add', '.']);
+            git(cwd, ['commit', '-m', trailer ? `${subject}\n\n${trailer}` : subject, '--quiet', '--no-verify'], {
+                ...process.env,
+                GIT_AUTHOR_NAME    : 'Seat',
+                GIT_AUTHOR_EMAIL   : authorEmail,
+                GIT_COMMITTER_NAME : 'Seat',
+                GIT_COMMITTER_EMAIL: authorEmail
+            })
+        }
+
+        test('BLOCKS an agent-authored commit whose trailer address is off-domain', () => {
+            // The shipped defect, at the exit code rather than the predicate. Off-domain is where a
+            // real person's account lives, and the previous guard could not see it at all.
+            const main = createMainCheckout();
+
+            commitAs(main, {
+                authorEmail: ROSTER_AUTHOR,
+                subject    : 'feat: credits a person',
+                trailer    : `Co-Authored-By: Some Agent <${OFF_DOMAIN}>`
+            });
+
+            const result = runGuard(main, 'operator@example.com');
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain(OFF_DOMAIN);
+            expect(result.stderr).toContain('feat: credits a person')
+        });
+
+        test('SILENT when the same commit credits a roster address', () => {
+            // Without this control the assertion above would pass against a check that blocks
+            // every trailer.
+            const main = createMainCheckout();
+
+            commitAs(main, {
+                authorEmail: ROSTER_AUTHOR,
+                subject    : 'feat: credits a seat',
+                trailer    : `Co-Authored-By: Vega <${ROSTER_TRAILER}>`
+            });
+
+            expect(runGuard(main, 'operator@example.com').status).toBe(0)
+        });
+
+        test('does NOT block a NON-agent author carrying the very same off-domain trailer', () => {
+            // The property the domain scoping existed to protect. An outside contributor's commit is
+            // not agent-authored, so nothing about them is inspected — proved at the exit code, not
+            // inferred from the predicate.
+            const main = createMainCheckout();
+
+            commitAs(main, {
+                authorEmail: 'outsider@example.org',
+                subject    : 'feat: an outside contribution',
+                trailer    : `Co-Authored-By: Their Pair <${OFF_DOMAIN}>`
+            });
+
+            expect(runGuard(main, 'operator@example.com').status).toBe(0)
+        });
+
+        test('BLOCKS a project-domain author the map does not carry, naming the seat', () => {
+            // Neither agent nor human can be established from the commit, so the guard refuses to
+            // guess and asks for a map entry instead.
+            const main = createMainCheckout();
+
+            commitAs(main, {authorEmail: 'neo-unmapped-seat@neomjs.com', subject: 'feat: unknown seat'});
+
+            const result = runGuard(main, 'operator@example.com');
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain('neo-unmapped-seat@neomjs.com');
+            expect(result.stderr).toContain('agentCoAuthorEmails.mjs')
+        });
+
+        test('a clean agent commit with no trailer at all is silent', () => {
+            const main = createMainCheckout();
+
+            commitAs(main, {authorEmail: ROSTER_AUTHOR, subject: 'feat: nothing to credit'});
+
+            expect(runGuard(main, 'operator@example.com').status).toBe(0)
+        })
     })
 });
 

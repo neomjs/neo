@@ -142,16 +142,17 @@ export function findUnknownCoAuthors({commits = []}) {
         offenders = [];
 
     commits.forEach(({sha, subject, body, authorEmail}) => {
-        const author = (authorEmail || '').trim().toLowerCase(),
-            // The map is the precise set, but keying ONLY on it degrades silently for a seat that
-            // reaches the registry before this map catches up: an unmapped agent would fall back to
-            // the weaker domain rule and its off-domain trailers would pass. The project domain
-            // closes that, and is safe to widen to — every distinct `@neomjs.com` author across the
-            // whole history resolves to one of the ten addresses below, and the registry types the
-            // human operator as `accountType: 'human'` while deliberately carrying no address for
-            // them, so no human commits from this domain. `reconcileWithRegistry()` still reports an
-            // unmapped seat; this only stops that gap from being silent in the meantime.
-            agentAuthored = known.has(author) || author.endsWith('@neomjs.com'),
+        const
+            // Map membership ONLY. An earlier revision also treated any `@neomjs.com` author as an
+            // agent, to stop a newly seeded seat from silently falling into the weak path. @neo-gpt
+            // falsified the inference: a commit's author email is SELF-ASSERTED metadata, not an
+            // authenticated account type, so "project domain therefore agent" both admits laundering
+            // and false-positives any human who ends up on the domain — and `bootstrapWorktree` binds
+            // an authenticated account's current primary email without requiring a map entry, so such
+            // a human is reachable rather than hypothetical. The ambiguous case is not guessed in
+            // either direction now; `findUnmappedProjectAuthors()` below turns it into an explicit,
+            // actionable failure instead.
+            agentAuthored = known.has((authorEmail || '').trim().toLowerCase()),
             seen          = new Set();
         let match;
 
@@ -176,4 +177,42 @@ export function findUnknownCoAuthors({commits = []}) {
     });
 
     return offenders
+}
+
+/**
+ * @summary Finds commits authored from the project domain by an address this map does not carry.
+ *
+ * **The ambiguous case, made explicit rather than guessed.** A `@neomjs.com` author that is not in
+ * `EMAIL_BY_LOGIN` is one of two things, and nothing in the commit can tell them apart: a newly
+ * seeded agent seat the map has not caught up with, or a human bound to the project domain by
+ * `bootstrapWorktree`'s authenticated-account path, which does not require a map entry.
+ *
+ * Classifying it either way is wrong. Calling it an agent false-positives the human and blocks the
+ * outside collaborators they legitimately credit; calling it a non-agent drops it into the weak
+ * domain-scoped path, where its off-domain trailers pass unseen — this gate's own failure mode.
+ *
+ * So it is neither. It is a **named, actionable failure**: add the seat to the map, or bypass
+ * deliberately. The one-line fix is the point — an unknown seat should cost a map entry, not a
+ * silent classification.
+ *
+ * `reconcileWithRegistry()` covers the same gap from the registry side and is asserted by spec, but
+ * only for seats the registry already knows. A seat that commits before it is registered reaches
+ * this check first.
+ *
+ * @param {Object}   args
+ * @param {Object[]} args.commits `{sha, subject, authorEmail}` rows for the commits being pushed.
+ * @returns {Array<{sha: String, subject: String, authorEmail: String}>} One row per commit.
+ */
+export function findUnmappedProjectAuthors({commits = []}) {
+    const known = new Set(Object.values(EMAIL_BY_LOGIN).map(email => email.toLowerCase()));
+
+    return commits.reduce((rows, {sha, subject, authorEmail}) => {
+        const author = (authorEmail || '').trim().toLowerCase();
+
+        if (author.endsWith('@neomjs.com') && !known.has(author)) {
+            rows.push({sha, subject, authorEmail: author})
+        }
+
+        return rows
+    }, [])
 }
