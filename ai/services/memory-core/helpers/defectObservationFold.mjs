@@ -30,18 +30,23 @@ import {createHash} from 'node:crypto';
  */
 
 /**
- * Volatile tokens collapse so the same defect sighted twice fingerprints identically: digit runs
- * (counts, ports, epochs) and long hex runs (hashes, ids) carry no defect identity.
+ * Volatility is context-keyed, because identity is: a status code or a count IS the defect
+ * (`broke 404` differs from `broke 500`; `returning 0 results` differs from `returning 500
+ * results`), while an id, port, epoch, or hash is noise (`repo 12345` is `repo 678`). A digit
+ * run therefore collapses only when it is long enough to be an epoch or big id, or when it
+ * trails an id-noun; short runs stay verbatim. Long hex runs (hashes) always collapse.
  * @type {RegExp}
  */
-const VOLATILE_TOKEN_PATTERN = /[0-9a-f]{8,}|\d+/gi;
+const ID_NOUN_DIGIT_PATTERN = /\b(repo|id|pid|port|issue|pr|ticket|message|session|run|job|worker|shard|row|line|epoch)(s?\s*[:#-]?\s*)\d+/gi;
+const LONG_HEX_PATTERN      = /[0-9a-f]{8,}/gi;
+const LONG_DIGIT_PATTERN    = /\d{6,}/g;
 
 /**
  * @summary The deterministic observation identity for one defect-note line.
  *
- * Normalization is deliberately shallow: lowercase, whitespace collapse, volatile-token strip.
- * Deeper "similarity" is ranking, and ranking is a second authority — two notes merge exactly
- * when they normalize identically, which a filer can reason about at capture time.
+ * Normalization is deliberately shallow: lowercase, whitespace collapse, context-keyed volatile
+ * collapse. Deeper "similarity" is ranking, and ranking is a second authority — two notes merge
+ * exactly when they normalize identically, which a filer can reason about at capture time.
  *
  * @param {String} line The note text (with or without the `defect-note:` prefix).
  * @returns {String} 16 hex chars — stable for the same normalized line.
@@ -51,7 +56,9 @@ export function defectNoteFingerprint(line) {
         .replace(/^\s*defect-note:\s*/i, '')
         .replace(/^\s*\[recovered\]\s*/i, '')
         .toLowerCase()
-        .replace(VOLATILE_TOKEN_PATTERN, '#')
+        .replace(ID_NOUN_DIGIT_PATTERN, '$1$2#')
+        .replace(LONG_HEX_PATTERN, '#')
+        .replace(LONG_DIGIT_PATTERN, '#')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -84,15 +91,18 @@ export function parseDefectNote(line) {
 /**
  * @summary Folds `defect-note:` rows into one standing observation record per fingerprint.
  *
- * Input rows need only `{subject, body, from, sentAt}` — the note text is `body` when present,
- * else the subject (broadcasts may carry the whole sighting in the subject). Pure: no I/O, no
- * clock — `now` is passed in so aging is decidable in a spec.
+ * Input rows need only `{subject, from, sentAt}` — the note text IS the subject, deliberately:
+ * both production callers filter on `subject.startsWith('defect-note:')`, and `listMessages`
+ * returns a summary projection that carries no `body` at all. Reading `body` would couple the
+ * fold to a field no caller produces — and if the projection ever grew one, every standing
+ * fingerprint would silently re-identify. Pure: no I/O, no clock — `now` is passed in so aging
+ * is decidable in a spec.
  *
  * State machine per fingerprint: `red` (open sightings) → `recovered` (a recovery note is the
  * latest transition) → `red` again if a fresh sighting lands after recovery. `quiet` is the
  * aging overlay: no note of any kind within `quietAfterMs` of `now`, regardless of state.
  *
- * @param {Object[]} rows Message-like rows (`{subject, body, from, sentAt}`).
+ * @param {Object[]} rows Message-like rows (`{subject, from, sentAt}`).
  * @param {Object}     [options]
  * @param {Number}     [options.now=Date.now()]            Fold instant (epoch ms).
  * @param {Number}     [options.quietAfterMs=604800000]    Aging window — default 7 days.
@@ -106,7 +116,7 @@ export function foldDefectObservations(rows, {now = Date.now(), quietAfterMs = 7
     const records = new Map();
 
     for (const row of Array.isArray(rows) ? rows : []) {
-        const text = String(row?.body || row?.subject || ''),
+        const text = String(row?.subject || ''),
               at   = Date.parse(row?.sentAt);
 
         if (!text.trim() || !Number.isFinite(at)) continue;

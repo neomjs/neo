@@ -48,9 +48,9 @@ test.describe('defectObservationFold — the defect-channel read model', () => {
 
     test('the fold aggregates one record per fingerprint with count, reporters, and sighting bounds', () => {
         const records = foldDefectObservations([
-            {from: '@a', sentAt: '2026-08-15T08:00:00Z', body: NOTE},
-            {from: '@b', sentAt: '2026-08-15T09:00:00Z', body: NOTE},
-            {from: '@a', sentAt: '2026-08-15T08:30:00Z', body: 'defect-note: kbSync broke wedge on one slow file'}
+            {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: NOTE},
+            {from: '@b', sentAt: '2026-08-15T09:00:00Z', subject: NOTE},
+            {from: '@a', sentAt: '2026-08-15T08:30:00Z', subject: 'defect-note: kbSync broke wedge on one slow file'}
         ], {now: Date.parse('2026-08-15T10:00:00Z')});
 
         expect(records).toHaveLength(2);
@@ -70,10 +70,10 @@ test.describe('defectObservationFold — the defect-channel read model', () => {
     test('recovery is idempotent and a fresh sighting re-opens — newest transition wins', () => {
         const recovered = NOTE.replace('defect-note:', 'defect-note: [recovered]'),
               records   = foldDefectObservations([
-                  {from: '@a', sentAt: '2026-08-15T08:00:00Z', body: NOTE},
-                  {from: '@b', sentAt: '2026-08-15T09:00:00Z', body: recovered},
+                  {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: NOTE},
+                  {from: '@b', sentAt: '2026-08-15T09:00:00Z', subject: recovered},
                   // A duplicate recovery note changes nothing — the fold recomputes state.
-                  {from: '@b', sentAt: '2026-08-15T09:01:00Z', body: recovered}
+                  {from: '@b', sentAt: '2026-08-15T09:01:00Z', subject: recovered}
               ], {now: Date.parse('2026-08-15T10:00:00Z')});
 
         expect(records).toHaveLength(1);
@@ -81,15 +81,15 @@ test.describe('defectObservationFold — the defect-channel read model', () => {
         expect(records[0].count).toBe(3);
 
         const reopened = foldDefectObservations([
-            {from: '@a', sentAt: '2026-08-15T08:00:00Z', body: recovered},
-            {from: '@a', sentAt: '2026-08-15T09:00:00Z', body: NOTE}
+            {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: recovered},
+            {from: '@a', sentAt: '2026-08-15T09:00:00Z', subject: NOTE}
         ], {now: Date.parse('2026-08-15T10:00:00Z')});
 
         expect(reopened[0].state).toBe('red');
     });
 
     test('aging is a fold parameter: a stale record reads quiet, and quiet never mutates the trail', () => {
-        const rows    = [{from: '@a', sentAt: '2026-08-01T08:00:00Z', body: NOTE}],
+        const rows    = [{from: '@a', sentAt: '2026-08-01T08:00:00Z', subject: NOTE}],
               records = foldDefectObservations(rows, {now: Date.parse('2026-08-15T10:00:00Z'), quietAfterMs: 7 * 24 * 60 * 60 * 1000});
 
         expect(records[0].state).toBe('quiet');
@@ -106,12 +106,25 @@ test.describe('defectObservationFold — the defect-channel read model', () => {
         expect(() => foldDefectObservations([], {quietAfterMs: 0})).toThrow(/now and a positive finite quietAfterMs/);
 
         const records = foldDefectObservations([
-            {from: '@a', sentAt: 'not-a-date', body: NOTE},
-            {from: '@a', sentAt: '2026-08-15T08:00:00Z', body: '   '},
-            {from: '@a', sentAt: '2026-08-15T08:00:00Z', body: NOTE}
+            {from: '@a', sentAt: 'not-a-date', subject: NOTE},
+            {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: '   '},
+            {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: NOTE}
         ], {now: Date.parse('2026-08-15T10:00:00Z')});
 
         expect(records).toHaveLength(1);
         expect(records[0].count).toBe(1);
+    });
+
+    test('the fold reads the subject deliberately — a body never re-identifies a note', () => {
+        // Production callers filter on `subject.startsWith('defect-note:')` and the list
+        // projection carries no body at all, so identity comes from the subject by construction.
+        const records = foldDefectObservations([
+            {from: '@a', sentAt: '2026-08-15T08:00:00Z', subject: NOTE, body: 'defect-note: unrelated text entirely'},
+            {from: '@b', sentAt: '2026-08-15T09:00:00Z', subject: NOTE}
+        ], {now: Date.parse('2026-08-15T10:00:00Z')});
+
+        expect(records).toHaveLength(1);
+        expect(records[0].fingerprint).toBe(defectNoteFingerprint(NOTE));
+        expect(records[0].count).toBe(2);
     });
 });
