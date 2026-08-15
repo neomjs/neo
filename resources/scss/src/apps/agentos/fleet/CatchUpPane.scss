@@ -1,10 +1,9 @@
 /* Invoked catch-up rail pane. Source cards remain visually independent so one degraded producer
-   cannot paint the other red; all values come from the Fleet token layer. */
+   cannot paint the other red; all values come from the Fleet token layer. Mount-agnostic by the
+   drawer-shell contract: the HOST owns surface, padding, and rhythm — this root keeps only its
+   inner-body scroll ownership. */
 .fm-catch-up-pane {
-    gap       : 10px;
-    padding   : 12px;
-    background: var(--fm-rail);
-    overflow  : auto;
+    overflow: auto;
 
     .fm-catch-up-head,
     .fm-catch-up-actions,

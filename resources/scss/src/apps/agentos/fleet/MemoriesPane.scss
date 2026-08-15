@@ -1,12 +1,8 @@
 /* AgentOS.view.fleet.MemoriesPane — invoked per-agent session-summary recall in the pinned drawer.
    Head (title · authority) over the meta line, the agent chip row, the session cards, and the
-   actions rail. Cards stay visually independent (the CatchUpPane sibling idiom); every color reads
-   from the --fm-* token layer. */
+   actions rail. Mount-agnostic by the drawer-shell contract: the HOST owns surface, padding, and
+   rhythm — this root declares no frame; every color reads from the --fm-* token layer. */
 .fm-memories-pane {
-    gap       : 10px;
-    padding   : 12px;
-    background: var(--fm-rail);
-    min-height: 0;
 
     .fm-memories-head {
         gap        : 8px;

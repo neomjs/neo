@@ -1,12 +1,9 @@
 /* AgentOS.view.fleet.WakeRoutePane — the per-seat wake-route decomposition in the pinned drawer.
    Head (title · authority) over the meta line, the seat cards (identity headline + one line per
-   axis — state lives in the SENTENCE, color never carries it alone), and the actions rail. Every
-   color reads from the --fm-* token layer; the CatchUpPane sibling idiom. */
+   axis — state lives in the SENTENCE, color never carries it alone), and the actions rail.
+   Mount-agnostic by the drawer-shell contract: the HOST owns surface, padding, and rhythm — this
+   root declares no frame; every color reads from the --fm-* token layer. */
 .fm-wakeroutes-pane {
-    gap       : 10px;
-    padding   : 12px;
-    background: var(--fm-rail);
-    min-height: 0;
 
     .fm-wakeroutes-head {
         gap        : 8px;

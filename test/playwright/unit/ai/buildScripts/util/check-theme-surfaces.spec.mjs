@@ -1,8 +1,12 @@
-import {test, expect}                from '@playwright/test';
-import fs                            from 'node:fs';
-import os                            from 'node:os';
-import path                          from 'node:path';
-import {collectThemeSurfaceFailures} from '../../../../../../buildScripts/util/check-theme-surfaces.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+
+import {
+    collectShellSeamFailures,
+    collectThemeSurfaceFailures
+} from '../../../../../../buildScripts/util/check-theme-surfaces.mjs';
 
 /**
  * check-theme-surfaces.mjs — the dual-mode theme guard. These isolated fixtures drive the
@@ -246,5 +250,120 @@ test.describe('check-theme-surfaces.mjs', () => {
         });
 
         expect(failures.some(m => m.startsWith('[text-contrast]'))).toBe(false);
+    });
+
+    // check 5 — the drawer shell/pane frame seam. Every fixture below encodes a bypass or regression
+    // demonstrated on an exact head before being fixed: the logical-longhand hole, the split-line
+    // selector, the nested-rule ownership migration, and the dual-mount double frame.
+    test.describe('shell seam (check 5)', () => {
+        const SEAM = {
+            slotFile    : 'fleet/Slot.scss',
+            slotSelector: '.slot',
+            paneRoots   : [
+                ['fleet/Pane.scss', '.pane'],
+                ['fleet/Dual.scss', '.dual', {dualMount: true}]
+            ]
+        };
+
+        const CLEAN_SLOT = '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > * {\n            gap: 10px;\n        }\n    }\n}\n';
+
+        // Materialize seam fixtures under views/fleet and run the exported check-5 collector.
+        const runSeam = (files, seam = SEAM) => {
+            const viewDir = path.join(tempDir, 'views');
+
+            fs.mkdirSync(path.join(viewDir, 'fleet'), {recursive: true});
+            for (const [name, content] of Object.entries(files)) {
+                fs.writeFileSync(path.join(viewDir, name), content, 'utf8');
+            }
+
+            return collectShellSeamFailures(seam, viewDir);
+        };
+
+        test('clean seam passes: frame on the slot, pane root frame-free', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n\n    .pane-rows {\n        padding: 4px;\n    }\n}\n'
+            });
+
+            expect(failures, 'inner (nested) padding is internal semantics, not the drawer frame').toEqual([]);
+        });
+
+        test('a pane root shorthand frame property fails', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    padding: 12px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('.pane') && m.includes('padding'))).toBe(true);
+        });
+
+        test('a LOGICAL LONGHAND on the pane root fails — the exact-head bypass', () => {
+            // padding: 1px failed, padding-inline-start: 1px passed the shorthand-only list.
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    padding-inline-start: 1px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('padding-inline-start'))).toBe(true);
+        });
+
+        test('a SPLIT-LINE root selector is still recognized — the line-parser bypass', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane\n{\n    margin-block-end: 2px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('margin-block-end'))).toBe(true);
+        });
+
+        test('slot frame declarations MOVED INTO A NESTED RULE do not count as ownership', () => {
+            // background+padding live only under `> *` — the containment scan counted them as the
+            // slot's own; declaration-depth ownership does not.
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        > * {\n            background: var(--fm-rail);\n            padding   : 12px;\n        }\n    }\n}\n',
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('does not declare background'))).toBe(true);
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('does not declare padding'))).toBe(true);
+        });
+
+        test('a dual-mount pane keeping its root frame WITHOUT a reveal override fails — the double-frame regression', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('.dual') && m.includes('reveal override'))).toBe(true);
+        });
+
+        test('the same dual-mount pane WITH the slot-side reveal override passes — the ownership split', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual {\n            padding: 0;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            });
+
+            expect(failures, 'pinned/vessel keep the root frame; the reveal mount is neutralized slot-side').toEqual([]);
+        });
+
+        test('a SUBSTRING selector does not satisfy the dual-mount override — boundary-aware matching', () => {
+            // Found by this repair's own red control: renaming the override to `.dual-x` (effectively
+            // removing it) still passed, because a bare includes() matched `.dual` inside `.dual-x`.
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual-x {\n            padding: 0;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('reveal override'))).toBe(true);
+        });
+
+        test('a slot file that no longer styles the slot selector reports the frame as ownerless', () => {
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .elsewhere {\n        padding: 12px;\n    }\n}\n',
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('no longer styles'))).toBe(true);
+        });
     });
 });

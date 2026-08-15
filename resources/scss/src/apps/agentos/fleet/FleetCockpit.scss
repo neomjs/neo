@@ -161,18 +161,39 @@
         }
     }
 
-    /* the content well: panes own their scroll and their own 12px rhythm (drawer-shell contract
-       item 4 — the CatchUpPane idiom every drawer pane follows) */
+    /* the content well is the ONE frame owner (drawer-shell contract items 1 + 3): outer surface,
+       outer padding, and the section rhythm live HERE, so every hosted pane — present or future —
+       inherits a sane frame without declaring its own. Pane roots stay transparent and frame-free;
+       they own only internal composition (card gaps, inner-body scrolling). The seam is pinned by
+       check-agentos-theme check 5. */
     .neo-dashboard-dock-reveal-pane-slot {
         min-height: 0;
         overflow  : hidden;
+        background: var(--fm-rail);
+        padding   : 12px;
 
-        /* the add-agent form is a CARD in the well, not a column — natural height at the top
-           with the well's margin, instead of stretching its panel over the whole drawer */
+        /* every hosted pane root: the inherited vertical rhythm + the flex-child bound */
+        > * {
+            gap       : 10px;
+            min-height: 0;
+        }
+
+        /* the add-agent form is a CARD in the well, not a column — natural height at the top;
+           the well's padding is the frame, so the card needs no margin of its own. max-height
+           caps the layout-injected flex-grow (inline style) in a column-direction slot, so the
+           card's border ends with its content in either flex direction */
         > .fm-add-agent-form {
             align-self: flex-start;
-            margin    : 10px;
-            width     : calc(100% - 20px);
+            max-height: fit-content;
+            width     : 100%;
+        }
+
+        /* AgentDetail is DUAL-MOUNT: pinned/vessel mounts legitimately keep the root frame its own
+           skin declares, but in the transient auto-hide reveal THIS slot already provides the well —
+           without the override the two frames stack (12px slot + 10px 12px root). The ownership
+           split lives slot-side so the other mounts stay untouched; guard check 5 demands it. */
+        > .fm-agent-detail {
+            padding: 0;
         }
     }
 
