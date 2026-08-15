@@ -66,6 +66,11 @@ const REGISTRY = Object.freeze({
         source   : 'declared',
         surface  : ['ai/**/*.mjs']
     },
+    'spec-retirement-lint.yml': {
+        scriptRel: 'buildScripts/util/check-spec-retirement.mjs',
+        source   : 'declared',
+        surface  : ['test/playwright/unit/**']
+    },
     'config-template-ssot-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-config-template-ssot.mjs',
         source   : 'imported',

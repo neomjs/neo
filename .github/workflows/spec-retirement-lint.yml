@@ -1,0 +1,70 @@
+name: Spec Retirement Lint
+
+# CI mirror of the `.husky/pre-push` guard — VISIBILITY, not yet enforcement.
+#
+# Read this before citing the job as a `--no-verify` closure, because it is not one yet. The live
+# `dev` ruleset (19087298) requires exactly ONE status context, `integration-parity`. This job runs
+# on every matching PR and goes red on a violation, but a red result does not make the PR ineligible
+# to merge, and `git push --no-verify` still bypasses the only blocking hook. Verified against
+# `gh api repos/neomjs/neo/rules/branches/dev`; the branch-protection endpoint 404s, so this ruleset
+# is the whole story.
+#
+# Workflow presence plus scan-root registration is REACHABILITY. Enforcement needs either this exact
+# guard executing inside the already-required context, or its own required context added to the
+# ruleset — a repo-admin mutation, which is operator-owned and therefore outside this workflow file.
+# Until one of those exists, the honest description of this job is "a loud, non-blocking signal".
+#
+# The gap is the FAMILY's, not this job's: 19 `*-lint.yml` workflows run on `dev` PRs and none of them
+# is a required context, several claiming `--no-verify` closure in the same words this comment first
+# did. #17171 carries the decision and the spec that reads the live ruleset, so do not close it here —
+# adding only this job to the ruleset would leave eighteen false headers standing beside one true one.
+#
+# The two existing pre-push guards (check-branch-discipline, check-commit-authorship) are hook-only
+# and have no CI mirror at all, so this is still strictly more coverage than the siblings — just not
+# the gate the first draft of this comment claimed.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      - 'test/playwright/unit/**'
+      - 'buildScripts/util/check-spec-retirement.mjs'
+      - '.github/workflows/spec-retirement-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'test/playwright/unit/**'
+      - 'buildScripts/util/check-spec-retirement.mjs'
+      - '.github/workflows/spec-retirement-lint.yml'
+
+concurrency:
+  group: spec-retirement-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Load-bearing. The guard reads a commit RANGE, and the default shallow checkout has no
+          # history to range over. With `fetch-depth: 1` the range cannot resolve — and a guard that
+          # cannot see its input has the exact failure shape it exists to prevent, so it now exits
+          # non-zero there rather than passing vacuously. This line is what keeps that path unreached.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # `origin/dev` is the range boundary. Checkout creates a tracking ref for the PR head, not
+      # necessarily for the base branch, so it is fetched explicitly rather than assumed.
+      - name: Ensure the base ref is present
+        run: git fetch --no-tags origin dev:refs/remotes/origin/dev
+
+      # No stdin: the guard falls back to `origin/dev..HEAD`, which on a PR is exactly the commits
+      # under review. No npm install — the guard imports only node builtins.
+      - name: Require an account for deleted unit specs
+        run: node ./buildScripts/util/check-spec-retirement.mjs < /dev/null
