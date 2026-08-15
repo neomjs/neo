@@ -46,8 +46,49 @@ const
     NUMERIC_PATTERN        = /^\d+$/u,
     // A CLOSED prefix set, not `[a-z]*comment`. The open form matched `evilcomment-123` and handed
     // back numeric 123 — an id outside the accepted vocabulary silently becoming a valid selector.
-    // Matched at the END so a full URL reduces to this case rather than needing its own parser.
-    ANCHOR_PATTERN         = /(?:^|#)(?:issue|discussion|pullrequestreview)comment-(\d+)$/iu;
+    //
+    // Anchored at BOTH ends. A previous revision matched `(?:^|#)…$`, which closed the anchor's own
+    // prefix while leaving the whole string's prefix open: `https://example.invalid/phish#issuecomment-N`
+    // and `not-a-url#issuecomment-N` both became valid selectors, because only the suffix was checked.
+    // A URL is now a separate branch with its own host check rather than something this pattern
+    // absorbs by ignoring everything to its left.
+    BARE_ANCHOR_PATTERN    = /^(?:issue|discussion|pullrequestreview)comment-(\d+)$/iu,
+    URL_FRAGMENT_PATTERN   = /^#(?:issue|discussion|pullrequestreview)comment-(\d+)$/iu,
+    // The accepted forms name a GitHub comment URL. Without a host check, "URL" meant "any string
+    // ending in a comment anchor", so a hostile or mistyped origin resolved to a real in-thread
+    // comment — the wrong-address-answered-silently class this module exists to remove.
+    GITHUB_HOSTS           = Object.freeze(new Set(['github.com', 'www.github.com'])),
+    URL_PROTOCOLS          = Object.freeze(new Set(['http:', 'https:']));
+
+/**
+ * @summary Resolves a GitHub comment URL to its numeric id, or `null` for anything else.
+ *
+ * Parsed as a URL rather than pattern-matched, so the host is a checked field instead of text that
+ * happens to precede a `#`. A value that is not a URL at all returns `null` here and falls through
+ * to the remaining branches; a value that IS a URL must be a GitHub one with a closed comment
+ * fragment, or it is rejected outright rather than mined for a trailing number.
+ *
+ * @param {String} value Candidate id.
+ * @returns {{kind: 'numeric', databaseId: String}|null}
+ * @private
+ */
+function parseCommentUrl(value) {
+    let url;
+
+    try {
+        url = new URL(value)
+    } catch {
+        return null
+    }
+
+    if (!URL_PROTOCOLS.has(url.protocol) || !GITHUB_HOSTS.has(url.hostname.toLowerCase())) {
+        return null
+    }
+
+    const fragment = url.hash.match(URL_FRAGMENT_PATTERN);
+
+    return fragment ? {kind: 'numeric', databaseId: fragment[1]} : null
+}
 
 /**
  * @summary Whether a string is a LEGACY GitHub node ID, proven by decoding it.
@@ -109,17 +150,20 @@ export function parseCommentId(raw) {
         return {kind: 'numeric', databaseId: value}
     }
 
-    const anchor = value.match(ANCHOR_PATTERN);
+    // A bare anchor must be the WHOLE string. Anything with a prefix is a URL claim and is checked
+    // as one below, never mined for its trailing number.
+    const anchor = value.match(BARE_ANCHOR_PATTERN);
 
     if (anchor) {
         return {kind: 'numeric', databaseId: anchor[1]}
     }
 
-    // Checked last: a URL that did NOT end in a comment anchor is a link to something else (the issue
-    // itself, a commit, a file), and admitting it as an opaque node ID would turn a caller's wrong
-    // link into a silent empty result — the defect this module exists to remove.
-    if (value.includes('/') || value.includes('#')) {
-        return null
+    // Anything carrying URL syntax is decided ENTIRELY by the URL branch: a GitHub comment URL
+    // resolves, and every other URL-shaped value — foreign host, foreign scheme, a link to the issue
+    // itself, or a garbage prefix wearing a valid anchor — is rejected rather than falling through
+    // to be read as an opaque node ID.
+    if (value.includes('/') || value.includes('#') || value.includes(':')) {
+        return parseCommentUrl(value)
     }
 
     if (NODE_ID_PATTERN.test(value) || isLegacyNodeId(value)) {

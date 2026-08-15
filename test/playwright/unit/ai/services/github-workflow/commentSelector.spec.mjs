@@ -39,6 +39,31 @@ test.describe('commentSelector', () => {
             expect(parseCommentId('  issuecomment-42  ')).toEqual({kind: 'numeric', databaseId: '42'});
         });
 
+        test('a URL must be a GITHUB comment URL — host and scheme are checked, not just the suffix (#17142 RC2)', () => {
+            // An earlier revision anchored the comment pattern as `(?:^|#)…$`, which closed the
+            // anchor's own prefix and left the whole string's prefix open. Only the suffix was
+            // checked, so any origin wearing a valid anchor resolved to a real in-thread comment —
+            // the wrong-address-answered-silently class this module exists to remove.
+            expect(parseCommentId('https://example.invalid/phish#issuecomment-557007126'), 'foreign host').toBeNull();
+            expect(parseCommentId('ftp://example.invalid/#discussioncomment-18022679'),    'foreign scheme + host').toBeNull();
+            expect(parseCommentId('ftp://github.com/#issuecomment-42'),                    'foreign scheme, GitHub host').toBeNull();
+            expect(parseCommentId('not-a-url#issuecomment-557007126'),                     'garbage prefix, valid anchor').toBeNull();
+            expect(parseCommentId('https://github.com.evil.test/x#issuecomment-1'),        'lookalike host').toBeNull();
+
+            // …and the legitimate origins still resolve.
+            expect(parseCommentId('https://github.com/neomjs/neo/issues/1#issuecomment-557007126'))
+                .toEqual({kind: 'numeric', databaseId: '557007126'});
+            expect(parseCommentId('http://github.com/o/r/issues/1#issuecomment-42'), 'http is a redirect, not a foreign origin')
+                .toEqual({kind: 'numeric', databaseId: '42'});
+            expect(parseCommentId('https://www.github.com/o/r/issues/1#issuecomment-42'), 'www host')
+                .toEqual({kind: 'numeric', databaseId: '42'});
+        });
+
+        test('a bare anchor must be the WHOLE string (#17142 RC2)', () => {
+            expect(parseCommentId('issuecomment-557007126')).toEqual({kind: 'numeric', databaseId: '557007126'});
+            expect(parseCommentId('junk issuecomment-557007126'), 'prefixed bare anchor').toBeNull();
+        });
+
         test('a URL that is NOT a comment link is malformed, not an opaque node ID', () => {
             // The dangerous near-miss: admitting these as node IDs would turn a caller's wrong link
             // back into a silent empty result, which is the defect being removed.
