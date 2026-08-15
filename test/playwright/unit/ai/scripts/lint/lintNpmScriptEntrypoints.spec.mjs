@@ -27,21 +27,34 @@ function writeFixture(relPath, content) {
 }
 
 test.describe('lint-npm-script-entrypoints — the dead-published-entrypoint guard', () => {
-    test('extractEntrypoints keeps only ai:* entries executing ai/scripts files', () => {
-        const entries = extractEntrypoints({
+    test('extractEntrypoints classifies every ai/scripts path shape and reports what it cannot', () => {
+        const {entries, unclassifiable} = extractEntrypoints({
             'ai:agent'       : 'node ./ai/scripts/runners/runAgent.mjs',
             'ai:benchmark'   : 'node --expose-gc ./ai/scripts/benchmark/probe.mjs',
+            'ai:bare'        : 'node ai/scripts/maintenance/no-dot-slash.mjs',
             'ai:reseed'      : 'node ./ai/scripts/maintenance/restore.mjs --operation reseed',
             'ai:fleet-server': 'node ./ai/services/fleet/devFleetServer.mjs',
             'build'          : 'node ./buildScripts/buildAll.mjs',
-            'ai:piped'       : 'node ./buildScripts/x.mjs && node ./ai/scripts/maintenance/y.mjs'
+            'ai:piped'       : 'node ./buildScripts/x.mjs && node ./ai/scripts/maintenance/y.mjs',
+            'ai:compound'    : 'node ./ai/scripts/one.mjs && node ./ai/scripts/two.mjs',
+            'ai:mention-only': 'echo ai/scripts is the scripts home'
         });
 
+        // Every extractable shape is CLASSIFIED — bare `ai/scripts/…`, flags, trailing args,
+        // pipes, and both halves of a compound command. Nothing checkable falls out of the count.
         expect(entries).toEqual([
             {name: 'ai:agent',     entry: './ai/scripts/runners/runAgent.mjs'},
             {name: 'ai:benchmark', entry: './ai/scripts/benchmark/probe.mjs'},
+            {name: 'ai:bare',      entry: './ai/scripts/maintenance/no-dot-slash.mjs'},
             {name: 'ai:reseed',    entry: './ai/scripts/maintenance/restore.mjs'},
-            {name: 'ai:piped',     entry: './ai/scripts/maintenance/y.mjs'}
+            {name: 'ai:piped',     entry: './ai/scripts/maintenance/y.mjs'},
+            {name: 'ai:compound',  entry: './ai/scripts/one.mjs'},
+            {name: 'ai:compound',  entry: './ai/scripts/two.mjs'}
+        ]);
+
+        // A reference with no extractable entrypoint is REPORTED — the count can never shrink silently.
+        expect(unclassifiable).toEqual([
+            {name: 'ai:mention-only', command: 'echo ai/scripts is the scripts home'}
         ]);
     });
 
@@ -99,6 +112,16 @@ test.describe('lint-npm-script-entrypoints — the dead-published-entrypoint gua
         expect(bare[0]).toContain('config.mjs');
     });
 
+    test('a relative specifier resolving to a directory is rejected — ESM rejects directory imports', () => {
+        writeFixture('ai/scripts/dir/entry.mjs', 'import {x} from "./foo";');
+        fs.mkdirSync(path.join(fixtureDir, 'ai/scripts/dir/foo'), {recursive: true});
+
+        const result = collectUnresolved({entryFile: 'ai/scripts/dir/entry.mjs', rootDir: fixtureDir});
+
+        expect(result.length).toBe(1);
+        expect(result[0]).toContain('ERR_UNSUPPORTED_DIR_IMPORT');
+    });
+
     test('an unreadable entry file itself is reported', () => {
         const result = collectUnresolved({entryFile: 'ai/scripts/absent.mjs', rootDir: fixtureDir});
 
@@ -107,12 +130,15 @@ test.describe('lint-npm-script-entrypoints — the dead-published-entrypoint gua
     });
 
     test('the real package.json tree is clean — the pin that would have caught the specimen', () => {
-        const pkg        = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
-              entries    = extractEntrypoints(pkg.scripts),
-              okCache    = new Set(),
-              violations = entries.flatMap(({entry}) => collectUnresolved({entryFile: entry, rootDir: repoRoot, okCache}));
+        const pkg                       = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')),
+              {entries, unclassifiable} = extractEntrypoints(pkg.scripts),
+              okCache                   = new Set(),
+              violations                = entries.flatMap(({entry}) => collectUnresolved({entryFile: entry, rootDir: repoRoot, okCache}));
 
         expect(entries.length).toBeGreaterThan(0);
         expect(violations).toEqual([]);
+        // The truthful-coverage pin: today nothing is unclassifiable, so if a future entry
+        // escapes classification this arm fails here rather than shrinking the count silently.
+        expect(unclassifiable).toEqual([]);
     });
 });
