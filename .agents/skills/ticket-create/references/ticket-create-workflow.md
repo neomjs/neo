@@ -88,6 +88,7 @@ defect-note: <surface> broke <observed symptom>
 - **Capture ≠ admission.** Notes fold into one standing observation per surface/symptom fingerprint (read model: `ai/services/memory-core/helpers/defectObservationFold.mjs`; print it: `node ai/scripts/diagnostics/defectObservations.mjs`).
 - **Promotion runs the FULL ceremony** — an issue is created only on a production-down signal, an independent second occurrence, an operator escalation, or a triage decision, and runs this entire workflow, V-B-A included. Capture never waits for any of it.
 - **Recovery is a note too:** `defect-note: [recovered] <surface> broke <symptom>` closes the observation idempotently; a fresh sighting re-opens it. One standing record per fingerprint — never one note per sample.
+- **Promotion/dismissal are notes too:** `defect-note: [promoted #N] <same note>` (any seat) or `defect-note: [dismissed] <same note>` (operator only) — either takes a row off the orchestrator digest (`defectObservations.mjs --digest`).
 - The asymmetry is deliberate: a duplicate note costs one dedup; an unfiled defect costs what an unfiled production break costs (origin: the `query_summaries` specimen, D#17136). **A workaround without a filed defect-note is the named anti-pattern** — the workaround may stay private, the sighting may not.
 
 ## 2. Six-Stage Challenge Chain

@@ -1539,6 +1539,14 @@ class ConfigBase extends ConfigProvider {
                     dreamMs                : leaf(HOUR_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS', 'number'),
                     messageConceptHarvestMs: leaf(6 * HOUR_MS, 'NEO_ORCHESTRATOR_MESSAGE_CONCEPT_HARVEST_INTERVAL_MS', 'number'),
                     /**
+                     * Cadence of the defect-ledger digest: the observer tick that folds `defect-note:`
+                     * captures and sends at most one A2A digest for newly-qualifying observations
+                     * (open, independently corroborated, neither promoted nor dismissed, and not
+                     * already reported at this count). The digest message doubles as the re-report
+                     * suppression ledger, so a quiet ledger costs no A2A traffic. `<= 0` disables.
+                     */
+                    defectLedgerDigestMs  : leaf(6 * HOUR_MS, 'NEO_ORCHESTRATOR_DEFECT_LEDGER_DIGEST_INTERVAL_MS', 'number'),
+                    /**
                      * Fraction of `dreamMs` runtime that triggers completion-time cooldown for the
                      * next dream cycle. This is intentionally below the cycle-overflow telemetry
                      * signal: it prevents tight reacquire windows before a cycle exceeds the full

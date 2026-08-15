@@ -125,6 +125,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.dreamOverflowThreshold = config.dreamOverflowThreshold ?? 0.8;
     AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
+    AiConfig.orchestrator.intervals.defectLedgerDigestMs = config.defectLedgerDigestIntervalMs ?? Number.MAX_SAFE_INTEGER;
     if (config.pollIntervalMs !== undefined) AiConfig.orchestrator.intervals.pollMs = config.pollIntervalMs;
     if (config.deploymentMode !== undefined) AiConfig.orchestrator.deploymentMode = config.deploymentMode;
 
@@ -290,6 +291,9 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // arrayContaining is indistinguishable from never having covered them.
         expect(hostScheduled).not.toContain('kbSync');
         expect(hostScheduled).not.toContain('temporal-summary');
+        // `defect-ledger-digest` is container-plane from birth — it reads and writes the fleet
+        // mailbox, which lives plane-side. Both halves of the placement are asserted, as above.
+        expect(hostScheduled).not.toContain('defect-ledger-digest');
         expect(hostRecovery).toContain('bridgeDaemon');
         expect(hostRecovery).not.toContain('summary');
         expect(hostRecovery).not.toContain('chroma');
@@ -320,7 +324,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(containerScheduled).toEqual(expect.arrayContaining([
             'summary', 'dream', 'graphlog-compaction', 'message-concept-harvest',
             'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog',
-            'data-integrity-sweep', 'kbSync', 'temporal-summary'
+            'data-integrity-sweep', 'kbSync', 'temporal-summary', 'defect-ledger-digest'
         ]));
         expect(containerScheduled).not.toContain('primary-dev-sync');
         expect(containerScheduled).not.toContain('swarm-heartbeat');
@@ -574,7 +578,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             neuralLinkBridgeLivenessTimeoutMs: 50
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog', 'heavy-maintenance-starvation-watchdog']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'neuralLinkBridge', 'embedDaemon', 'messageDaemon', 'summary', 'memory-summary-backfill', 'kbSync', 'githubWorkflowSync', 'backup', 'graphlog-compaction', 'temporal-summary', 'defect-ledger-digest', 'chromaDefrag', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'message-concept-harvest', 'golden-path', 'swarm-heartbeat', 'embed-drain-liveness-watchdog', 'rem-consolidation-liveness-watchdog', 'heavy-maintenance-starvation-watchdog']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -2085,6 +2089,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
         // Defensive: golden-path is intentionally OUT as light maintenance.
         expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
+        // The defect-ledger digest is lightweight-signal by the same deliberate choice.
+        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('defect-ledger-digest');
     });
 
     test('defers due backup when another heavy maintenance task is already running (#11513 AC3)', () => {
