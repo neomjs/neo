@@ -87,12 +87,16 @@ jobs:
       # the corpus is emitted under the READER identity and does not consume this token at all, yet
       # an ENRICHMENT credential decided whether the whole repository published.
       #
-      # `create-github-app-token` fails outright when asked for a permission the installation lacks,
-      # so the realistic triggers are ordinary administration: a revoked permission, a rotated key,
-      # an installation removed from one repository. #17150 adds a `contents` grant to this step,
-      # which widens that surface further — the workflow line and the App grant become a pair that
-      # must move together, and this guard is what keeps a drift between them from freezing the
-      # corpus rather than merely disabling intake.
+      # The realistic triggers are ordinary administration: a rotated or expired private key, or an
+      # installation removed from a repository this step names. Both fail the mint for real.
+      #
+      # NOT a trigger, contrary to an earlier revision of this comment: requesting a permission the
+      # installation lacks. Measured (run 31877595849) — the step was asked for
+      # `permission-deployments: write`, which this installation does not hold, and it SUCCEEDED.
+      # The action does not validate requested permissions against the installation, so a permission
+      # revoked on the App degrades the CAPABILITY (and #17148's deferral absorbs that) rather than
+      # killing the mint. Worth stating because the inverse belief makes a mint success look like
+      # proof the token carries what was asked for, and it is not.
       #
       # Degrading here needs no new error path. A failed mint leaves `outputs.token` empty, the empty
       # `DATA_SYNC_INTAKE_TOKEN` reaches `assertDataSyncAccess`, which throws "No intake token was
