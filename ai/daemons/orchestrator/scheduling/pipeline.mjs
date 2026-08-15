@@ -126,6 +126,7 @@ export function buildOrchestratorSchedulingOptions({orchestrator, config, now, r
                 tenantRepoSync                         : config.orchestrator.tenantRepoSync.sweepCadenceMs,
                 dream                                  : config.orchestrator.intervals.dreamMs,
                 messageConceptHarvest                  : config.orchestrator.intervals.messageConceptHarvestMs,
+                defectLedgerDigest                     : config.orchestrator.intervals.defectLedgerDigestMs,
                 dreamOverflowThreshold                 : config.orchestrator.intervals.dreamOverflowThreshold,
                 dreamBreathingGap                      : config.orchestrator.intervals.dreamBreathingGapMs,
                 dreamIdleBacklogCadenceMultiplier      : config.orchestrator.intervals.dreamIdleBacklogCadenceMultiplier,

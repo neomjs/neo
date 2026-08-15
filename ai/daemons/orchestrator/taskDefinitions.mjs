@@ -461,6 +461,18 @@ export function buildTaskDefinitions({
             pidFileName    : 'temporal-summary.pid',
             expectedCommand: 'aggregate-temporal-summary.mjs'
         },
+        // Supervised one-shot: the orchestrator owns the cadence; each due tick spawns this child
+        // to evaluate the defect-ledger fold and send at most ONE digest broadcast, then exit.
+        // The child self-limits — nothing newly qualifying means no A2A write at all (the read
+        // side stays attention, never noise).
+        'defect-ledger-digest': {
+            label            : 'defect ledger digest',
+            command          : nodeBin,
+            args             : [path.join(scriptDir, 'diagnostics', 'defectObservations.mjs'), '--digest'],
+            pidFileName      : 'defect-ledger-digest.pid',
+            expectedCommand  : 'defectObservations.mjs',
+            captureStdoutJson: true
+        },
         // One-shot KB defrag spawned by the chroma max-runtime recycle once the
         // freshly-restarted daemon is connection-ready. Unified-store-safe (rebuilds the KB
         // collection, preserves Memory Core segment dirs). NOT a continuousTask.

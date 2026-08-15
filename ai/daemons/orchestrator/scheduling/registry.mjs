@@ -272,6 +272,30 @@ const taskRegistry = [
         }
     },
     {
+        // The defect-ledger observer: a periodic digest over the zero-ceremony defect channel's
+        // fold. Read-mostly — its one write is the digest broadcast itself, which doubles as the
+        // re-report suppression ledger (a record re-qualifies only on count growth). Lightweight:
+        // no lease, no backpressure, registry-order among the light tasks; the supervised child
+        // self-limits and exits with no A2A write when nothing newly qualifies.
+        taskName        : 'defect-ledger-digest',
+        executionKind   : 'supervised-child-process',
+        maintenanceClass: 'lightweight-signal',
+        backpressure    : 'none',
+        dependencies    : [],
+        getDueTask({state, now, intervals}) {
+            const lastRunAt  = state['defect-ledger-digest']?.lastRunAt ?? 0;
+            const intervalMs = intervals.defectLedgerDigest;
+            if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+                return {
+                    taskName: 'defect-ledger-digest',
+                    source  : 'periodic-defect-ledger-digest',
+                    reason  : `periodic-defect-ledger-digest:${intervalMs}`
+                };
+            }
+            return null;
+        }
+    },
+    {
         taskName        : 'swarm-heartbeat',
         executionKind   : 'in-process-async',
         maintenanceClass: 'lightweight-signal',
