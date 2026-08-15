@@ -779,20 +779,30 @@ not a defect — it is the two-role split working as designed:
 | Role | Runs | Owns |
 |---|---|---|
 | `container-plane` | the Compose stack you just brought up | every graph, corpus, and maintenance lane |
-| `host-edge` | a second process on the host, started separately | host/session/desktop effects — wake delivery among them |
+| `host-edge` | a second process on the host, started separately | host/session/desktop effects |
+| `wake-receiver` | a **third** process on the host, started separately | durable acceptance of signed wakes and local harness delivery |
 
 Nothing in the containerized stack announces the second half, which is exactly how
 a machine runs for hours with wake dead while everything reports healthy. If your
-deployment needs wake delivery or any host-bound effect, the host edge is a
-separate, explicit step:
+deployment needs host-bound effects, the host edge is a separate, explicit step:
 
 ```sh
 npm run ai:host-edge
 ```
 
-No installer, no plist, and it runs anywhere Node runs — the macOS LaunchAgent is
-optional supervision over that same command. Full procedure, platform matrix, and
-the signed wake-receiver setup:
+**That command does not give you wake delivery.** The host side owns wake, but the
+process that accepts it is the receiver, and `ai:host-edge` neither starts nor
+supervises it — a deployment that runs only the command above is exactly as deaf
+as the containerized stack, and just as quiet about it. Wake needs its own
+process, with a route manifest, a state directory, and a port:
+
+```sh
+npm run ai:wake-receiver -- --manifest … --state-dir … --host … --port …
+```
+
+Neither is an installer and both run anywhere Node runs — the macOS LaunchAgents
+are optional supervision over those same commands. Full procedure, platform
+matrix, the complete receiver invocation, and the signed-route setup:
 [`ai/scripts/lifecycle/local-agent-os/README.md`](../../../ai/scripts/lifecycle/local-agent-os/README.md).
 
 **A containerized-only deployment is a valid choice** — plenty of installs want
