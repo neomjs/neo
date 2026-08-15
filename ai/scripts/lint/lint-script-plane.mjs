@@ -92,6 +92,52 @@ export function taskNameFor(npmName, authorityByName = TASK_AUTHORITY_BY_NAME) {
 }
 
 /**
+ * @summary Per-folder plane tally over the npm-declared entrypoints, for the structure map.
+ *
+ * The navigational answer the map could not give before: `ai/scripts` names its folders after the
+ * VERB (`maintenance`, `diagnostics`, `runners`) and never the plane, so "can this run where there is
+ * no host shell" required opening the file. A folder carrying more than one plane is flagged `mixed`,
+ * because that is the case a reader most needs to see and the one a folder name most reliably hides.
+ *
+ * Entrypoints whose plane is unresolved are counted under `unresolved` rather than folded into a
+ * class — a folder that is half-unknown must not read as homogeneous.
+ *
+ * @param {Object} [options]
+ * @returns {Object} `{folder: {planes, mixed, entrypoints}}`, folder-keyed and sorted.
+ */
+export function buildPlaneProjection({
+    entrypoints     = readEntrypoints(),
+    authorityByName = TASK_AUTHORITY_BY_NAME,
+    projectRoot     = PROJECT_ROOT
+} = {}) {
+    const byFolder = {};
+
+    entrypoints.forEach(({name, rel}) => {
+        const
+            folder   = rel.slice(0, rel.lastIndexOf('/')),
+            closure  = walkCapabilityClosure({entrypoint: path.join(projectRoot, rel)}),
+            taskName = taskNameFor(name, authorityByName),
+            {plane}  = resolveEntrypointPlane({
+                closure,
+                authorityClass: taskName ? authorityByName[taskName] : null,
+                taskName,
+                entrypoint    : rel
+            }),
+            key      = plane ?? 'unresolved';
+
+        byFolder[folder] ??= {planes: {}, mixed: false, entrypoints: {}};
+        byFolder[folder].planes[key] = (byFolder[folder].planes[key] ?? 0) + 1;
+        byFolder[folder].entrypoints[rel.slice(folder.length + 1)] = key;
+    });
+
+    Object.values(byFolder).forEach(entry => {
+        entry.mixed = Object.keys(entry.planes).length > 1
+    });
+
+    return Object.fromEntries(Object.entries(byFolder).sort(([a], [b]) => a.localeCompare(b)))
+}
+
+/**
  * @summary Runs the lint over every npm-declared `ai/scripts` entrypoint.
  * @param {Object} [options]
  * @returns {{exitCode: Number, conflicts: Object[], unresolved: Number, planes: Object}}
