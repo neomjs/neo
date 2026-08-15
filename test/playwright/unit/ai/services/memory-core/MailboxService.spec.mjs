@@ -1259,12 +1259,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             const second = MailboxService.repairMessageGraphIntegrity({target: '@bob', box: 'inbox', limit: 1});
 
             await readEntered;
-            // The first caller is parked inside the payload read. Give the second caller several
-            // turns to reach the same id; without the load promise it opens the segment too.
+            // Overlap insurance, NOT an assertion. Caller one is parked inside the payload read, and
+            // the single-flight entry is dropped when that read RESOLVES — so a caller two that only
+            // decided after the release would legitimately miss it, open its own read, and fail the
+            // post-completion check on correct code. These turns buy the overlap that prevents that
+            // false failure; nothing is asserted here, because "one read so far" is strictly weaker
+            // than the "one read in total" checked below.
+            //
+            // Deliberately no assertion at this point: an earlier revision asserted here and the
+            // assertion was redundant. Measured — with this budget at ZERO and the single-flight
+            // disabled, the post-completion check below still fails. The detection never lived here.
             for (let turn = 0; turn < 3; turn++) {
                 await new Promise(resolve => setImmediate(resolve));
             }
-            expect(payloadReads).toBe(1);
             releasePayloadRead();
 
             const results = await Promise.all([first, second]);
@@ -1335,10 +1342,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
 
             await readEntered;
+            // Overlap insurance, NOT an assertion — see the sibling case above for the full reason.
+            // The post-completion checks below are deterministic and carry the detection; asserting
+            // here would only restate a weaker form of them while depending on this budget.
             for (let turn = 0; turn < 3; turn++) {
                 await new Promise(resolve => setImmediate(resolve));
             }
-            expect(payloadReads, 'different ids in one segment must join before either read completes').toBe(1);
             releasePayloadRead();
 
             const results = await Promise.all([globalRepair, explicitRepair]);
