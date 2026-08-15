@@ -275,17 +275,53 @@ export function collectAgentosThemeFailures({
 
 // ─────────────────────────────── CLI ───────────────────────────────
 // Only when run directly (`node …/check-agentos-theme.mjs`), not when imported by the spec.
+/**
+ * @summary The app surfaces this guard covers, each with its own paths, token namespace, contract and
+ * mode-invariant set.
+ *
+ * A surface is not just a directory — it is a **token language**. agentos speaks `--fm-*`; the
+ * workstation speaks `--workstation-*` / `--agent-dock-*`. Registering a surface without its own
+ * `tokenPattern` extracts zero tokens and every parity check then passes over an empty map, reporting
+ * a clean surface because it looked at nothing.
+ *
+ * `contractedTokens` is empty for the workstation on purpose: the closed-vocabulary check is agentos's
+ * design contract (every `--fm-*` must exist even when unconsumed), and inventing an equivalent list
+ * here would assert a contract nobody agreed. Parity, token-only and completeness apply to both.
+ * @type {Object[]}
+ */
+const SURFACES = [
+    {
+        name            : 'agentos',
+        darkPath        : DEFAULT_PATHS.darkPath,
+        lightPath       : DEFAULT_PATHS.lightPath,
+        viewDir         : DEFAULT_PATHS.viewDir,
+        tokenPattern    : FM_TOKEN_RE,
+        modeInvariant   : MODE_INVARIANT,
+        contractedTokens: CONTRACTED_FM_TOKENS
+    },
+    {
+        name            : 'workstation',
+        darkPath        : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'),
+        lightPath       : path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'),
+        viewDir         : path.join(repoRoot, 'resources/scss/src/apps/workstation'),
+        tokenPattern    : /^\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
+        modeInvariant   : new Set(['--workstation-font-mono', '--workstation-font-sans']),
+        contractedTokens: new Set()
+    }
+];
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const failures = collectAgentosThemeFailures();
+    const failures = SURFACES.flatMap(({name, ...paths}) =>
+        collectAgentosThemeFailures(paths).map(failure => `[${name}] ${failure}`));
 
     if (failures.length) {
-        console.error('✗ agentos theme guard FAILED:\n');
+        console.error('✗ theme guard FAILED:\n');
         for (const failure of failures) console.error(`    ${failure}`);
-        console.error('\n  [parity]       give each --fm-* color token a genuinely light-native value in the light skin (fonts excepted).');
+        console.error('\n  [parity]       give each color token a genuinely light-native value in the light skin (fonts and per-skin-resolving aliases excepted).');
         console.error('  [token-only]   components consume semantic tokens; var(--token, fallback) is allowed, a bare literal is not.');
-        console.error('  [completeness] every consumed --fm-* must be defined in both skins.');
+        console.error('  [completeness] every consumed token must be defined in both skins.');
         process.exit(1);
     }
 
-    console.log('✓ agentos theme guard: parity + token-only + completeness + text-safe ink all pass.');
+    console.log(`✓ theme guard: ${SURFACES.map(s => s.name).join(' + ')} — parity + token-only + completeness + text-safe ink all pass.`);
 }

@@ -24,7 +24,7 @@ test.describe('check-agentos-theme.mjs', () => {
     });
 
     // Materialize a skin/view fixture set in the temp dir and run the collector against it.
-    const run = ({dark, light, views = {}, contractedTokens = new Set()}) => {
+    const run = ({dark, light, views = {}, contractedTokens = new Set(), ...rest}) => {
         const darkPath  = path.join(tempDir, 'dark.scss'),
               lightPath = path.join(tempDir, 'light.scss'),
               viewDir   = path.join(tempDir, 'views');
@@ -36,8 +36,82 @@ test.describe('check-agentos-theme.mjs', () => {
             fs.writeFileSync(path.join(viewDir, name), content, 'utf8');
         }
 
-        return collectAgentosThemeFailures({darkPath, lightPath, viewDir, contractedTokens});
+        return collectAgentosThemeFailures({darkPath, lightPath, viewDir, contractedTokens, ...rest});
     };
+
+    // A surface is a TOKEN LANGUAGE, so these drive the collector under a foreign namespace.
+    const WS_PATTERN = /^\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
+          WS_FONTS   = new Set(['--workstation-font-mono']);
+
+    test('#17200: parity passes an ALIAS that resolves differently per skin', () => {
+        // `--agent-dock-preview-accept: var(--workstation-signal)` is byte-identical in both skins
+        // PRECISELY because the token layer works — the difference lives one hop down. Comparing the
+        // written expression reports six such tokens as violations on the real workstation surface.
+        const failures = run({
+            dark         : ':root .x {\n    --workstation-signal      : #5eead4;\n    --agent-dock-preview-accept : var(--workstation-signal);\n}\n',
+            light        : ':root .x {\n    --workstation-signal      : #0f766e;\n    --agent-dock-preview-accept : var(--workstation-signal);\n}\n',
+            views        : {'a.scss': '.a { color: var(--agent-dock-preview-accept); }\n'},
+            tokenPattern : WS_PATTERN,
+            modeInvariant: WS_FONTS
+        });
+
+        expect(failures, 'the alias is the token layer working, not a copied skin').toEqual([]);
+    });
+
+    test('#17200: an alias whose referent is IDENTICAL in both skins still fails parity', () => {
+        // The guard against the alias rule becoming a blanket escape for anything containing `var(`.
+        const failures = run({
+            dark         : ':root .x {\n    --workstation-signal      : #5eead4;\n    --agent-dock-preview-accept : var(--workstation-signal);\n}\n',
+            light        : ':root .x {\n    --workstation-signal      : #5eead4;\n    --agent-dock-preview-accept : var(--workstation-signal);\n}\n',
+            views        : {'a.scss': '.a { color: var(--agent-dock-preview-accept); }\n'},
+            tokenPattern : WS_PATTERN,
+            modeInvariant: WS_FONTS
+        });
+
+        expect(failures.some(f => f.includes('--workstation-signal') && f.includes('[parity]')),
+            'the referent itself is copied, so the light skin really does carry the dark value').toBe(true);
+    });
+
+    test('#17200: a foreign namespace extracts tokens — the vacuous-green control', () => {
+        // The failure this parameter exists to stop: run a surface under the WRONG pattern and the
+        // extractor yields zero tokens, so every parity check passes over an empty map and reports a
+        // clean surface because it looked at nothing. Same fixture, two patterns, opposite verdicts.
+        const fixture = {
+            dark : ':root .x {\n    --workstation-ink : #d6dce6;\n}\n',
+            light: ':root .x {\n    --workstation-ink : #d6dce6;\n}\n',
+            views: {}
+        };
+
+        expect(run({...fixture, tokenPattern: WS_PATTERN, modeInvariant: new Set()}).length,
+            'the right namespace SEES the copied skin').toBeGreaterThan(0);
+        expect(run({...fixture}).length,
+            'the --fm-* default extracts nothing here — a clean report over an empty map').toBe(0);
+    });
+
+    test('#17200: a bare color literal in a view fails token-only — #14618 AC-2, at the layer that owns it', () => {
+        // The seeded off-token change, proven without pixels: deterministic, no baseline, no
+        // threshold, no platform drift. Both arms, because a guard that rejects everything passes a
+        // one-sided corpus just as well as a correct one.
+        const seeded = run({
+            dark         : ':root .x {\n    --workstation-ground : #0b0e13;\n}\n',
+            light        : ':root .x {\n    --workstation-ground : #f6f8fa;\n}\n',
+            views        : {'v.scss': '.a { background: #ff0080; }\n'},
+            tokenPattern : WS_PATTERN,
+            modeInvariant: WS_FONTS
+        });
+
+        expect(seeded.some(f => f.includes('[token-only]') && f.includes('#ff0080'))).toBe(true);
+
+        const reverted = run({
+            dark         : ':root .x {\n    --workstation-ground : #0b0e13;\n}\n',
+            light        : ':root .x {\n    --workstation-ground : #f6f8fa;\n}\n',
+            views        : {'v.scss': '.a { background: var(--workstation-ground); }\n'},
+            tokenPattern : WS_PATTERN,
+            modeInvariant: WS_FONTS
+        });
+
+        expect(reverted, 'the token consumption is clean — the guard is not reject-everything').toEqual([]);
+    });
 
     const DARK  = ':root .x {\n    --fm-ink       : #d6dce6;\n    --fm-font-mono : mono;\n}\n';
     const LIGHT = ':root .x {\n    --fm-ink       : #1f2733;\n    --fm-font-mono : mono;\n}\n';
