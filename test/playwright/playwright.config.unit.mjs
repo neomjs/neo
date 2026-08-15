@@ -11,6 +11,25 @@ const repoRoot   = path.resolve(__dirname, '../..');
 
 process.env.UNIT_TEST_MODE = 'true';
 
+// Retry backoff bases resolve to 1ms for the whole unit run.
+//
+// These belong HERE rather than in the leaf. A `process.env.UNIT_TEST_MODE ? 1 : 1000` branch inside
+// `leaf(...)` bakes imperative env-resolution into the declarative config SSOT, and a per-spec write
+// to the resolved config mutates a singleton every other spec shares. The env layer is the sanctioned
+// seam: the leaf keeps one declarative default, and the test context overrides it the same way any
+// deployment would.
+// ticket-ref-ok: ADR-0019 names both shapes (A4, B4) and is the authority a reader needs to check
+// this placement against; the rule outlives any ticket.
+//
+// What this buys is coverage that was previously traded away for seconds. A retry spec asserts the
+// retry DEPTH and the terminal disposition; the sleep between attempts is not under test, so paying
+// it in real wall-clock is pure cost. The leaseYield spec had already shrunk its `maxRetries` to fit
+// a timeout — a workaround that quietly tested a shallower retry than production ships. Pinning the
+// base lets those specs assert the real depth for free.
+//
+// A spec that genuinely tests timing must not rely on these values; it sets its own and says so.
+process.env.NEO_KB_EMBEDDING_BACKOFF_BASE_MS = '1';
+
 // Brain specs retain the Chroma capability by default. Body-focused runs do not select this
 // project, so Playwright omits its setup dependency entirely instead of booting Chroma before it
 // knows what the command selected. The structural boundary is deliberately conservative: a Brain

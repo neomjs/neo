@@ -1,0 +1,55 @@
+name: Fixed Sleep Lint
+
+# CI mirror of the `.husky/pre-commit` guard, so `git commit --no-verify` cannot bypass it.
+
+on:
+  pull_request:
+    branches: [dev]
+    paths:
+      # The invariant is scanned ⊆ watched. The guard walks every unit spec, so every unit spec must
+      # re-run it; a filter narrower than the scan lets the introducing PR land ungated and turns the
+      # NEXT unrelated run red — late, misattributed enforcement.
+      - 'test/playwright/unit/**/*.mjs'
+      # The baseline is an INPUT to the verdict, so editing it must re-run the check. Otherwise a site
+      # can be blessed by editing the record of what exists, with nothing re-reading reality.
+      - 'buildScripts/util/check-fixed-sleeps-baseline.json'
+      - 'buildScripts/util/check-fixed-sleeps.mjs'
+      - '.github/workflows/fixed-sleep-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'test/playwright/unit/**/*.mjs'
+      - 'buildScripts/util/check-fixed-sleeps-baseline.json'
+      - 'buildScripts/util/check-fixed-sleeps.mjs'
+      - '.github/workflows/fixed-sleep-lint.yml'
+
+concurrency:
+  group: fixed-sleep-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # The comment that used to sit here said "No install: the guard reads files and matches one
+      # regex. Nothing to resolve." It was true, it stopped being true the moment discovery moved to
+      # the parse tree, and it named its own assumption plainly enough that it should have been the
+      # tripwire rather than the failure. A workflow that states WHY it skips a step has to be re-read
+      # whenever that reason changes — @neo-gpt caught this one on re-review.
+      #
+      # Install cost is not mergeable wall-clock, and `test.yml` already runs `npm ci`, so registry
+      # flakiness was priced into the merge gate long before this leg joined. Same shape as
+      # `aiconfig-antipattern-lint.yml`, which resolves acorn for the same reason.
+      - name: Install dependencies (acorn — the guard's parser)
+        run: npm ci --ignore-scripts
+
+      - name: Require fixed second-scale waits to name what they wait for
+        run: node ./buildScripts/util/check-fixed-sleeps.mjs

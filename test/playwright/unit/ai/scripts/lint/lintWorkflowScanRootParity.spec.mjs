@@ -4,6 +4,7 @@ import * as yaml      from 'js-yaml';
 import path           from 'node:path';
 
 import {SCAN_SURFACE as CONFIG_TEMPLATE_SURFACE} from '../../../../../../ai/scripts/lint/lint-config-template-ssot.mjs';
+import {SCAN_SURFACE as FIXED_SLEEP_SURFACE}     from '../../../../../../buildScripts/util/check-fixed-sleeps.mjs';
 import {SCAN_SURFACE as GUARD_CI_PARITY_SURFACE} from '../../../../../../ai/scripts/lint/lint-guard-ci-parity.mjs';
 import {SCAN_SURFACE as MCP_LOCATION_SURFACE}    from '../../../../../../ai/scripts/lint/lint-mcp-test-locations.mjs';
 import {SCAN_SURFACE as RETRY_BOUND_SURFACE}     from '../../../../../../ai/scripts/lint/lint-retry-bounds.mjs';
@@ -80,6 +81,11 @@ const REGISTRY = Object.freeze({
         scriptRel: 'buildScripts/util/check-content-logical-identity.mjs',
         source   : 'declared',
         surface  : ['resources/content/archive/**']
+    },
+    'fixed-sleep-lint.yml': {
+        scriptRel: 'buildScripts/util/check-fixed-sleeps.mjs',
+        source   : 'imported',
+        surface  : FIXED_SLEEP_SURFACE
     },
     'guard-ci-parity-lint.yml': {
         scriptRel: 'ai/scripts/lint/lint-guard-ci-parity.mjs',
