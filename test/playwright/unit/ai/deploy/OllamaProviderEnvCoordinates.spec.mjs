@@ -79,9 +79,10 @@ const REQUIRED = [{
 }, {
     service : 'kb-server',
     env     : 'NEO_OLLAMA_EMBEDDING_MODEL',
-    consumer: 'ai/services/knowledge-base/VectorService.mjs',
+    consumer: 'ai/embeddingProviders.mjs',
     anchors : ['? aiConfig.ollama.embeddingModel'],
-    why     : 'the ingest path names the embedding model when the provider is ollama, and the model ' +
+    why     : 'the ingest path names the embedding model when the provider is ollama — VectorService ' +
+              'and IngestionService both resolve it through this shared guard — and the model ' +
               'decides the vector dimension the corpus is written with'
 }, {
     service : 'kb-server',

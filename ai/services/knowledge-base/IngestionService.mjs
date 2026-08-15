@@ -35,6 +35,8 @@ import os              from 'os';
 import path            from 'path';
 import * as yaml       from 'js-yaml';
 import {fileURLToPath} from 'url';
+import {IMPLEMENTED_EMBEDDING_PROVIDERS, resolveEmbeddingProviderModel}
+                       from '../../embeddingProviders.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -71,7 +73,6 @@ export function resolveIdleProgressStatus(lastRunSummary) {
     return 'idle';
 }
 
-const LOCAL_EMBEDDING_PROVIDERS          = new Set(['openAiCompatible', 'ollama']);
 const MATERIALIZATION_ATTEMPT_ID_PATTERN = /^[a-f0-9]{32}$/u;
 const MATERIALIZATION_DIGEST_PATTERN     = /^[a-f0-9]{64}$/u;
 const TENANT_AWARE_CHUNK_ID_PATTERN      = /^[a-f0-9]{64}$/u;
@@ -1383,26 +1384,24 @@ class IngestionService extends Base {
     }
 
     /**
-     * @summary Resolves the local embedding input-budget guardrail for ingestion diagnostics.
-     * @returns {{enabled: Boolean, embeddingProvider: String, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
+     * @summary Resolves the embedding input-budget guardrail for ingestion diagnostics.
+     *
+     * The band is provider-independent, so the guard measures EVERY provider — `recognized`
+     * is a diagnostic flag for skip receipts, never a licence to skip the measurement.
+     * @returns {{recognized: Boolean, embeddingProvider: String, contextLimitTokens: Number, safeProcessingLimitTokens: Number, model: String}}
      * @protected
      */
     resolveEmbeddingInputGuardrail() {
         const embeddingProvider         = mcConfig.embeddingProvider;
         const contextLimitTokens        = Number(aiConfig.localModels.embedding.contextLimitTokens);
         const safeProcessingLimitTokens = Number(aiConfig.localModels.embedding.safeProcessingLimitTokens);
-        const model                     = embeddingProvider === 'ollama'
-            ? aiConfig.ollama.embeddingModel
-            : embeddingProvider === 'openAiCompatible'
-                ? aiConfig.openAiCompatible.embeddingModel
-                : embeddingProvider;
 
         return {
-            enabled: LOCAL_EMBEDDING_PROVIDERS.has(embeddingProvider),
+            recognized: IMPLEMENTED_EMBEDDING_PROVIDERS.includes(embeddingProvider),
             embeddingProvider,
             contextLimitTokens,
             safeProcessingLimitTokens,
-            model
+            model     : resolveEmbeddingProviderModel({embeddingProvider, aiConfig})
         };
     }
 
@@ -1417,11 +1416,14 @@ class IngestionService extends Base {
     }
 
     /**
-     * @summary Drops local-provider oversized chunks before writing the VectorService temp JSONL.
+     * @summary Drops oversized chunks before writing the VectorService temp JSONL — for EVERY
+     * provider, recognized or not.
      *
      * `VectorService` remains the final safety net, but doing the same bounded check here
      * gives ingestion callers and daemon diagnostics a durable skip signal even when no
-     * graph row can be written for the offending source file.
+     * graph row can be written for the offending source file. The band is provider-independent;
+     * an unrecognized provider is exactly the case where the limit is least known, so the
+     * measurement never gates on recognition.
      *
      * @param {Object} options
      * @param {Array<Object>} options.chunks Normalized parsed chunks.
@@ -1432,10 +1434,6 @@ class IngestionService extends Base {
      */
     filterEmbeddingInputBudget({chunks, tenantContext, summary}) {
         const guardrail = this.resolveEmbeddingInputGuardrail();
-
-        if (!guardrail.enabled) {
-            return chunks;
-        }
 
         const embeddable = [];
 

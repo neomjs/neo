@@ -2,6 +2,7 @@ import os                                                          from 'os';
 import path                                                        from 'path';
 import {fileURLToPath}                                             from 'url';
 import ConfigProvider, {leaf}                                      from './ConfigProvider.mjs';
+import {parseEmbeddingProviderEnv}                                 from './embeddingProviders.mjs';
 import {EMBEDDING_SAFE_PROCESSING_LIMIT_TOKENS}                    from './embeddingSafeBand.mjs';
 import {CANONICAL_PLANE_ID, parsePlaneIdEnv, resolvePlaneDataRoot} from './planeConfig.mjs';
 
@@ -716,10 +717,12 @@ class ConfigBase extends ConfigProvider {
              * @summary Deployment-wide embedding provider selector.
              *
              * Shared by Memory Core embedding consumers and Knowledge Base ingestion
-             * paths.
+             * paths. The domain is the implemented provider set: the custom parse hook
+             * throws a named diagnostic on an unknown name at config resolution, because
+             * an unrecognized provider must never boot quietly.
              * @type {String}
              */
-            embeddingProvider: leaf('openAiCompatible', 'NEO_EMBEDDING_PROVIDER', 'string'),
+            embeddingProvider: leaf('openAiCompatible', 'NEO_EMBEDDING_PROVIDER', 'string', {parse: parseEmbeddingProviderEnv}),
             /**
              * @summary Deployment-wide Ollama provider defaults.
              *
