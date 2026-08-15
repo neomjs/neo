@@ -84,6 +84,21 @@ test.describe('lint-npm-script-entrypoints — the dead-published-entrypoint gua
         expect(transitive[0]).toContain('via-middle.mjs');
     });
 
+    test('a gitignored config.mjs overlay resolves through its committed template sibling', () => {
+        // The fresh-clone condition: the overlay is absent, the template is the committed canonical.
+        writeFixture('ai/scripts/overlay/entry.mjs', 'import cfg from "./config.mjs";\nconsole.log(cfg);');
+        writeFixture('ai/scripts/overlay/config.template.mjs', 'export default {};');
+        writeFixture('ai/scripts/bare/entry.mjs', 'import cfg from "./config.mjs";\nconsole.log(cfg);');
+
+        expect(collectUnresolved({entryFile: 'ai/scripts/overlay/entry.mjs', rootDir: fixtureDir})).toEqual([]);
+
+        // A config.mjs specifier with NO template sibling stays a violation.
+        const bare = collectUnresolved({entryFile: 'ai/scripts/bare/entry.mjs', rootDir: fixtureDir});
+
+        expect(bare.length).toBe(1);
+        expect(bare[0]).toContain('config.mjs');
+    });
+
     test('an unreadable entry file itself is reported', () => {
         const result = collectUnresolved({entryFile: 'ai/scripts/absent.mjs', rootDir: fixtureDir});
 

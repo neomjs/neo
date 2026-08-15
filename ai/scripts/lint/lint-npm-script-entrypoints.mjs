@@ -21,6 +21,13 @@ import {fileURLToPath} from 'node:url';
  * `import X from './placeholder.mjs'` is documentation, not an edge — regex discovery reds on
  * exactly those (measured on `src/Neo.mjs` and the tenant-source `_export.mjs` examples).
  *
+ * The committed tree is the contract: production modules import their server `config.mjs`
+ * runtime overlay, which is gitignored and absent from a fresh clone — so an overlay specifier
+ * resolves through its committed canonical, the sibling `config.template.mjs` whose
+ * materialization produces it. A `config.mjs` import with no template sibling is still a
+ * violation. (First CI run red-ed on 937 such edges; the local tree hides them because the
+ * overlays are materialized on any box that has ever installed.)
+ *
  * Usage:
  *   node ai/scripts/lint/lint-npm-script-entrypoints.mjs [--root <repoRoot>]
  */
@@ -127,8 +134,19 @@ export function collectUnresolved({entryFile, rootDir, okCache = new Set(), read
         }
 
         for (const specifier of specifiers) {
-            const resolved  = path.resolve(path.dirname(absPath), specifier),
-                  candidate = exists(resolved) ? resolved : exists(`${resolved}.mjs`) ? `${resolved}.mjs` : null;
+            const resolved = path.resolve(path.dirname(absPath), specifier);
+
+            let candidate = exists(resolved) ? resolved : exists(`${resolved}.mjs`) ? `${resolved}.mjs` : null;
+
+            // Runtime config overlays are gitignored: `config.mjs` resolves through the
+            // committed template it is materialized from — never through the absent overlay.
+            if (!candidate && resolved.endsWith(`${path.sep}config.mjs`)) {
+                const template = resolved.replace(/config\.mjs$/, 'config.template.mjs');
+
+                if (exists(template)) {
+                    candidate = template;
+                }
+            }
 
             if (!candidate) {
                 unresolved.push(`${entryFile}: ${absPath} imports unresolvable '${specifier}'`);
