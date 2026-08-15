@@ -258,7 +258,7 @@
             "node ./buildScripts/util/check-shorthand.mjs",
             "node ./buildScripts/util/check-jsdoc-types.mjs",
             "node ./buildScripts/util/check-ticket-archaeology.mjs",
-            "node ./buildScripts/util/check-block-alignment.mjs --staged",
+            "node ./buildScripts/util/check-block-alignment.mjs --fix --staged",
             "node ./buildScripts/util/check-parse.mjs"
         ],
         "test/**/*.mjs": [

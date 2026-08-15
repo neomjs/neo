@@ -24,8 +24,10 @@ import {getStagedAddedLines} from './stagedDiff.mjs';
  * never touches an un-alignable shape and cannot false-positive. The column math is the entire point.
  *
  * Usage:
- *   node buildScripts/util/check-block-alignment.mjs <file.mjs> [...]       # check; exit 1 on drift
- *   node buildScripts/util/check-block-alignment.mjs --fix <file.mjs> [...] # rewrite to aligned form
+ *   node buildScripts/util/check-block-alignment.mjs <file.mjs> [...]                # check; exit 1 on drift
+ *   node buildScripts/util/check-block-alignment.mjs --staged <file.mjs> [...]       # check, scoped to staged-added lines
+ *   node buildScripts/util/check-block-alignment.mjs --fix <file.mjs> [...]          # rewrite whole-file (deliberate pass)
+ *   node buildScripts/util/check-block-alignment.mjs --fix --staged <file.mjs> [...] # pre-commit repair: rewrite only staged-added lines
  */
 
 // ───────────────────────────── import-`from` (v1) ─────────────────────────────
@@ -554,14 +556,24 @@ function formatViolation(file, {lineIndex, expectedColumn, kind}) {
  * @summary Checks (or, with `fix`, rewrites) one file across all three alignment groups. The
  * evaluators are chained — each sees the prior's fixed lines — which is safe because none changes the
  * line COUNT and the three line-shapes (import / property / declaration) are disjoint.
+ *
+ * Dispositions: check mode reports drift (scoped to staged-added lines under `--staged`); pure
+ * `--fix` rewrites whole-file as a deliberate pass; `--fix --staged` (the pre-commit repair)
+ * rewrites ONLY violations on the author's staged-added lines, so a grandfathered misalignment on an
+ * untouched line is never sprayed into an unrelated commit. The scoped repair fails CLOSED: without
+ * a reliable staged-line set it reports and writes nothing (`'unfixable'`).
  * @param {String}  file
  * @param {Boolean} fix
- * @returns {Boolean} whether the file had (check) or had-and-fixed (fix) drift.
+ * @param {String}  [gitRoot]   Repository root for staged-line scoping (check `--staged` and `--fix --staged`).
+ * @param {Boolean} [scopedFix] `true` only in `--fix --staged` mode — distinguishes the scoped repair
+ * from the deliberate whole-file pass, whose gitRoot is likewise null.
+ * @returns {String} `'clean' | 'reported' | 'fixed' | 'unfixable'`
  */
-function processFile(file, fix, gitRoot = null) {
+function processFile(file, fix, gitRoot = null, scopedFix = false) {
     const allViolations = [];
-    let   lines         = fs.readFileSync(file, 'utf8').split('\n');
-    const maskedLines   = computeTemplateLiteralLineMask(lines);
+    const originalLines = fs.readFileSync(file, 'utf8').split('\n');
+    const maskedLines   = computeTemplateLiteralLineMask(originalLines);
+    let   lines         = originalLines;
 
     for (const evaluate of EVALUATORS) {
         const {violations, fixedLines} = evaluate(lines, maskedLines);
@@ -569,28 +581,56 @@ function processFile(file, fix, gitRoot = null) {
         lines = fixedLines;
     }
 
-    if (allViolations.length === 0) return false;
+    if (allViolations.length === 0) return 'clean';
 
     if (fix) {
+        if (scopedFix) {
+            const added = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
+
+            // Fail CLOSED: no reliable staged-line set ⇒ report, never rewrite — a git hiccup must
+            // never silently become a whole-file reformat inside an author's commit.
+            if (!added) {
+                for (const violation of allViolations.sort((a, b) => a.lineIndex - b.lineIndex)) {
+                    console.error(formatViolation(file, violation));
+                }
+
+                return 'unfixable';
+            }
+
+            const owned = allViolations.filter(v => added.has(v.lineIndex + 1));
+
+            if (owned.length === 0) return 'clean';
+
+            // The scoped repair = the whole-file fix masked to owned lines: each violation's fixed
+            // line is exactly what a deliberate pass would write for it, applied nowhere else.
+            const applied = originalLines.slice();
+            for (const violation of owned) {
+                applied[violation.lineIndex] = lines[violation.lineIndex];
+            }
+
+            fs.writeFileSync(file, applied.join('\n'), 'utf8');
+            console.log(`Aligned ${owned.length} line(s) in ${file}` + (owned.length < allViolations.length ? ` — left ${allViolations.length - owned.length} untouched-line violation(s) as-is` : ''));
+            return 'fixed';
+        }
+
         fs.writeFileSync(file, lines.join('\n'), 'utf8');
         console.log(`Aligned ${allViolations.length} line(s) in ${file}`);
-        return true;
+        return 'fixed';
     }
 
     // Staged (pre-commit) check mode: report only drift the author introduced on staged-added lines,
     // so a grandfathered misalignment on an untouched line never blocks an unrelated commit. Fail
     // CLOSED: a null detection (git read failure) reports the whole file rather than suppressing drift.
-    // (gitRoot is set only in --staged check mode; --fix always rewrites whole-file.)
     const added    = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
     const reported = added ? allViolations.filter(v => added.has(v.lineIndex + 1)) : allViolations;
 
-    if (reported.length === 0) return false;
+    if (reported.length === 0) return 'clean';
 
     for (const violation of reported.sort((a, b) => a.lineIndex - b.lineIndex)) {
         console.error(formatViolation(file, violation));
     }
 
-    return true;
+    return 'reported';
 }
 
 const
@@ -599,11 +639,12 @@ const
     staged = args.includes('--staged'),
     files  = args.filter(arg => arg !== '--fix' && arg !== '--staged');
 
-// --staged (pre-commit) mode: resolve the repo root once so processFile can scope check-mode drift to
-// the author's staged-added lines. Fail-closed: a rev-parse failure → null gitRoot → whole-file (drift
-// is never suppressed by a git failure). Only meaningful in check mode; --fix always rewrites whole-file.
+// --staged (pre-commit) mode: resolve the repo root once so processFile can scope drift to the
+// author's staged-added lines — in check mode for the REPORT set, in `--fix --staged` mode for the
+// REWRITE set. Fail-closed: a rev-parse failure → null gitRoot → check mode reports whole-file and
+// the scoped repair refuses to write (drift is neither suppressed nor half-repaired by a git failure).
 let gitRoot = null;
-if (staged && !fix) {
+if (staged) {
     try {
         gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {encoding: 'utf8'}).trim();
     } catch (e) {
@@ -612,12 +653,15 @@ if (staged && !fix) {
 }
 
 let
-    hadDrift = false,
-    hadError = false;
+    hadDrift     = false,
+    hadError     = false,
+    hadUnfixable = false;
 
 for (const file of files) {
     try {
-        if (processFile(file, fix, gitRoot)) hadDrift = true;
+        const result = processFile(file, fix, gitRoot, staged && fix);
+        if (result === 'reported' || result === 'fixed') hadDrift = true;
+        if (result === 'unfixable') hadUnfixable = true;
     } catch (err) {
         console.error(`Error processing ${file}: ${err.message}`);
         hadError = true;
@@ -626,11 +670,17 @@ for (const file of files) {
 
 // A file that could NOT be processed (missing, unreadable, unwritable) is always a failure — including
 // under --fix, where a silent exit 0 would mask a repair that never happened. Alignment drift, by
-// contrast, fails only in check mode: --fix repairs it, so a clean repair exits 0.
+// contrast, fails only in check mode: --fix repairs it, so a clean repair exits 0. A scoped repair
+// that could not obtain a reliable staged-line set reported instead of rewriting — that fails too,
+// since the drift it found is still in the file.
 if (hadDrift && !fix) {
     console.error('\nBlock-alignment drift found. Run: node buildScripts/util/check-block-alignment.mjs --fix <files>');
 }
 
-if (hadError || (hadDrift && !fix)) {
+if (hadUnfixable) {
+    console.error('\nBlock-alignment repair skipped: staged-line detection failed. No files were rewritten — resolve the git error and retry.');
+}
+
+if (hadError || hadUnfixable || (hadDrift && !fix)) {
     process.exit(1);
 }
