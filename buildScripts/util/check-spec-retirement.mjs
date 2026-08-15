@@ -114,12 +114,28 @@ export function parseDeletedSpecs(output) {
 }
 
 /**
+ * @summary The account line: the marker at the head of its own line, followed by actual content.
+ *
+ * A substring test is not a grammar. `includes('spec-retired:')` accepted the marker with nothing
+ * after it, the marker followed only by whitespace, a passing mention inside a docs sentence, and —
+ * the one that settles it — `not-spec-retired: no account`, in which a message explicitly DENYING an
+ * account contains the marker and satisfies the guard. A rule that a denial can satisfy is costume.
+ *
+ * So: line-anchored (leading quote / list punctuation tolerated, because commit bodies get wrapped
+ * and bulleted), and a non-whitespace payload is required after the colon. The guard still never
+ * grades the prose — it cannot know whether "folded into X" is true — but it can insist that
+ * something was said.
+ * @type {RegExp}
+ */
+const RETIREMENT_ACCOUNT_PATTERN = /^[ \t>*-]*spec-retired:[ \t]*(\S.*)$/im;
+
+/**
  * @summary Whether a commit message carries a retirement account.
  * @param {String} message Full commit message (subject + body).
  * @returns {Boolean}
  */
 export function hasRetirementAccount(message) {
-    return String(message || '').toLowerCase().includes(RETIREMENT_MARKER);
+    return RETIREMENT_ACCOUNT_PATTERN.test(String(message || ''));
 }
 
 /**

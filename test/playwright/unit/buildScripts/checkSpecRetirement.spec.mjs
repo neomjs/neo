@@ -87,6 +87,30 @@ test.describe('check-spec-retirement', () => {
             expect(hasRetirementAccount(null)).toBe(false);
         });
 
+        test('the marker WITHOUT content does not satisfy the account (#17151 RC1)', () => {
+            // A substring test is not a grammar. `includes()` accepted every line below, so the
+            // guard could be satisfied by costume — including by a message that DENIES having one.
+            expect(hasRetirementAccount('spec-retired:'),        'marker alone, zero information').toBe(false);
+            expect(hasRetirementAccount('spec-retired:     '),   'marker + whitespace only').toBe(false);
+            expect(hasRetirementAccount('spec-retired:\t\t'),    'marker + tabs only').toBe(false);
+        });
+
+        test('a NEGATED or merely-mentioned marker does not satisfy the account (#17151 RC1)', () => {
+            // `not-spec-retired:` contains the marker as a substring, so a commit explicitly stating
+            // there is no account previously passed the guard. This is the arm that settles why the
+            // check had to become line-anchored rather than merely stricter about payload.
+            expect(hasRetirementAccount('not-spec-retired: no account'), 'negated mention').toBe(false);
+            expect(hasRetirementAccount('see the docs: add a spec-retired: line to account for it'),
+                'the marker mentioned mid-sentence in prose').toBe(false);
+        });
+
+        test('real accounts survive the tightening, including wrapped and bulleted bodies (#17151 RC1)', () => {
+            expect(hasRetirementAccount('refactor: fold suites\n\nspec-retired: merged into sibling.spec.mjs')).toBe(true);
+            expect(hasRetirementAccount('x\n\n- spec-retired: split into two files'), 'list-bulleted').toBe(true);
+            expect(hasRetirementAccount('x\n\n> spec-retired: quoted in a reply'),    'quote-prefixed').toBe(true);
+            expect(hasRetirementAccount('x\n\n  spec-retired: indented'),             'indented').toBe(true);
+        });
+
         test('a near-miss spelling does NOT satisfy the account', () => {
             // The marker is the machine-checkable half of the contract; a guard that accepted
             // "spec retired" or "retired spec" would accept prose that no tool can find later.
