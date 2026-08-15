@@ -19,6 +19,9 @@ export const GET_VIEWER_PERMISSION = `
     $owner: String!
     $repo: String!
   ) {
+    viewer {
+      login
+    }
     repository(owner: $owner, name: $repo) {
       viewerPermission
     }
