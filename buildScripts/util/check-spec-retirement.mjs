@@ -94,6 +94,12 @@ export function pendingRanges(stdin) {
  * `R100 old new` is a rename and never a deletion. `D path` is. A copy (`C`) leaves the source in
  * place, so it is not a deletion either. Only a leading `D` counts.
  *
+ * **Combined-diff rows parse through the same rule.** A merge renders one status letter per parent,
+ * so a resolution-deleted file arrives as `DD path` (`DDD` for an octopus) and a resolution-renamed
+ * one as `RR path` — note the single path, unlike the two-path `R100 old new` of an ordinary diff.
+ * `startsWith('D')` is what separates them, and it is doing real work rather than being incidental:
+ * were the test `status === 'D'`, every merge-resolution deletion would slip past.
+ *
  * @param {String} output Raw `--name-status` block.
  * @returns {String[]} Deleted spec paths, in encounter order.
  */
@@ -179,9 +185,13 @@ function collectViolations(ranges) {
     const violations = [];
 
     ranges.forEach(range => {
-        // `--no-merges`: a merge commit's combined diff attributes nothing, and the deletion is already
-        // carried by the commit that made it. Scanning merges would double-report a branch's own work
-        // and under-report nothing.
+        // Merges are scanned. An earlier draft passed `--no-merges` on the reasoning that a deletion
+        // is always carried by the commit that made it — false for a spec deleted while RESOLVING a
+        // merge, where neither parent deletes it and the merge is the only commit that could hold an
+        // account. Skipping merges left exactly this file's defect class reachable through a rebase.
+        //
+        // What makes including them safe is the diff rendering, not the traversal: see the combined-
+        // diff note in `collectViolations`' git show call.
         //
         // STRICT, not `tryExec`: an unresolvable range (a missing `origin/dev` in a shallow CI
         // checkout is the live case) must fail loudly. Swallowing it returns zero commits, the guard
@@ -190,7 +200,7 @@ function collectViolations(ranges) {
         let shas;
 
         try {
-            shas = exec(`git rev-list --no-merges ${range}`).split('\n').map(s => s.trim()).filter(Boolean)
+            shas = exec(`git rev-list ${range}`).split('\n').map(s => s.trim()).filter(Boolean)
         } catch {
             console.error(
                 `check-spec-retirement: cannot resolve the range \`${range}\`.\n` +
@@ -201,9 +211,24 @@ function collectViolations(ranges) {
         }
 
         shas.forEach(sha => {
+            // Two properties of this exact invocation are load-bearing.
+            //
             // `-M` forces rename detection ON regardless of the user's `diff.renames`, so a `git mv`
             // arrives as an `R` row that the parser drops. Without it, a machine with renames disabled
             // reports the move as delete-plus-add and the guard fires on a legitimate rename.
+            //
+            // On a MERGE, `git show` with no `--first-parent` renders the COMBINED diff, which lists
+            // only paths differing from EVERY parent — precisely what the merge resolution itself did.
+            // That is the correct attribution and it is why merges can be scanned at all:
+            //
+            //   - resolution deletes a spec neither parent deleted  -> `DD <path>`, caught (no other
+            //     commit could carry the account, so the merge must)
+            //   - a branch deletes a spec WITH an account and the merge merely takes it -> the
+            //     combined diff is EMPTY, silent, because the branch commit already answered for it
+            //
+            // `--first-parent` would report the second case as a deletion too, demanding an account on
+            // every merge that carries an already-accounted retirement — a false positive on exactly
+            // the workflow this guard is meant to permit.
             const specs = parseDeletedSpecs(tryExec(`git show ${sha} --name-status -M --format=`));
 
             if (specs.length === 0) {

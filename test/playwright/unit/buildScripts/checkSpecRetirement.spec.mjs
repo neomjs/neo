@@ -75,6 +75,43 @@ test.describe('check-spec-retirement', () => {
         });
     });
 
+    test.describe('parseDeletedSpecs — combined-diff rows from a merge', () => {
+        // A merge renders ONE status letter per parent. Scanning merges is what closes the
+        // resolution-deletion hole (a spec neither parent deleted, dropped while resolving), and it is
+        // only safe because these rows keep the same delete-vs-rename discrimination.
+        const SPEC = 'test/playwright/unit/buildScripts/prepare.spec.mjs';
+
+        test('a two-parent resolution deletion (`DD`) is reported', () => {
+            expect(parseDeletedSpecs(`DD\t${SPEC}`)).toEqual([SPEC]);
+        });
+
+        test('an octopus resolution deletion (`DDD`) is reported', () => {
+            expect(parseDeletedSpecs(`DDD\t${SPEC}`)).toEqual([SPEC]);
+        });
+
+        test('a resolution RENAME (`RR`) is NOT a deletion', () => {
+            // Load-bearing, and the shape differs from an ordinary diff: a combined rename row carries
+            // ONE path (the new one), not the two of `R100 old new`. So the path-count test cannot be
+            // what saves us here — only the status letter can.
+            expect(parseDeletedSpecs(`RR\t${SPEC}`)).toEqual([]);
+        });
+
+        test('resolution modifications and additions are not deletions', () => {
+            expect(parseDeletedSpecs([`MM\t${SPEC}`, `AA\t${SPEC}`, `AM\t${SPEC}`].join('\n'))).toEqual([]);
+        });
+
+        test('a mixed merge block reports only the deleted spec', () => {
+            const block = [
+                `MM\ttest/playwright/unit/buildScripts/installBrain.spec.mjs`,
+                `DD\t${SPEC}`,
+                `RR\ttest/playwright/unit/buildScripts/prepare.renamed.spec.mjs`,
+                'DD\tsrc/some/source.mjs'
+            ].join('\n');
+
+            expect(parseDeletedSpecs(block)).toEqual([SPEC]);
+        });
+    });
+
     test.describe('hasRetirementAccount', () => {
         test('accepts the marker anywhere in the message, case-insensitively', () => {
             expect(hasRetirementAccount(`refactor: fold suites\n\n${RETIREMENT_MARKER} merged into sibling.spec.mjs`)).toBe(true);
