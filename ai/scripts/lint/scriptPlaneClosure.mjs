@@ -165,6 +165,29 @@ export function handlerAborts(handler) {
 }
 
 /**
+ * @summary Whether a call site is DEFERRED — inside a function, so it runs only if something calls it.
+ *
+ * This is the second half of requirement-vs-use, and without it the transitive closure is wrong in a
+ * way that convicts an accepted ADR. Importing a module executes its MODULE SCOPE, not its function
+ * bodies. `backup.mjs` transitively reaches `spawn` inside `ConnectionService.spawnBridgeProcess()`,
+ * `execFileSync` inside a `collect` arrow in the skill-manifest lint, and `spawn` inside a promise
+ * executor in `gitMirror` — none of which run because `backup.mjs` was imported.
+ *
+ * Attributing those to the entrypoint marks it host-required, which is precisely the false positive
+ * ADR-0014 rules out — ticket-ref-ok: the ADR is the authority this predicate implements.
+ * Reachability is not invocation, and a closure that conflates them says
+ * "everything is host-edge" with great confidence.
+ *
+ * @param {Object[]} ancestors Ancestor chain, nearest parent first.
+ * @returns {Boolean}
+ */
+export function isDeferredCallSite(ancestors) {
+    return ancestors.some(node => node.type === 'FunctionDeclaration'
+        || node.type === 'FunctionExpression'
+        || node.type === 'ArrowFunctionExpression')
+}
+
+/**
  * @summary Whether a node sits inside a `try` block whose `catch` swallows the failure.
  *
  * The node must be in the try's BLOCK, not in its handler or finalizer — a call inside the catch is
@@ -284,9 +307,19 @@ export function collectModuleFacts(source) {
         const capability = hostBindings.get(root);
 
         if (capability) {
+            const deferred = isDeferredCallSite(ancestors);
+
             capabilities.push({
                 capability,
-                required: !isGracefullyDegraded(ancestors),
+                deferred,
+                // Kept separately from `required` so the entrypoint-own rule below can promote a
+                // deferred call WITHOUT promoting a gracefully-degraded one — the bundle-stamp case
+                // in the module header, where the program continues with a null instead of failing.
+                degradedInPlace: isGracefullyDegraded(ancestors),
+                // REQUIRED means: this runs, and its failure stops the program. A deferred site fails
+                // the first half (it may never be called) and a gracefully-degraded one fails the
+                // second (the program continues without it).
+                required: !deferred && !isGracefullyDegraded(ancestors),
                 line    : node.loc?.start?.line ?? null
             })
         }
@@ -360,7 +393,8 @@ export function walkCapabilityClosure({
 
         seen.add(current);
 
-        const source = readFile(current);
+        const isEntrypoint = current === entrypoint,
+              source       = readFile(current);
 
         if (source === null) {
             unresolved.push({module: current, reason: 'unreadable'});
@@ -371,8 +405,22 @@ export function walkCapabilityClosure({
 
         facts.unresolved.forEach(edge => unresolved.push({module: current, ...edge}));
 
+        // What "required" can mean here, stated because neither pure answer is usable.
+        //
+        // A static import graph cannot decide INVOCATION, and the two sound extremes are both wrong:
+        // counting every reachable call convicts `backup.mjs` against ADR-0014 — ticket-ref-ok: the
+        // ADR is the authority being satisfied — (its closure reaches
+        // `spawn` inside methods nothing calls), while counting only module-scope calls classifies
+        // the ENTIRE tree as in-plane, because real code puts its shell calls inside functions.
+        //
+        // So the rule is: a capability is required when the ENTRYPOINT'S OWN code calls it — its
+        // functions are what running the script executes — or when a reached module runs it at MODULE
+        // SCOPE, which importing alone triggers. A deferred call in a transitively reached module is
+        // recorded as `used`, never as a requirement, because nothing here proves it is reached.
         facts.capabilities.forEach(entry => {
-            (entry.required ? required : used).push({module: current, ...entry})
+            const runs = entry.required || (isEntrypoint && !entry.degradedInPlace);
+
+            (runs ? required : used).push({module: current, ...entry})
         });
 
         facts.imports.forEach(specifier => {
