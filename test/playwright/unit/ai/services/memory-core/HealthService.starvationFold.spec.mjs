@@ -283,7 +283,14 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
         // Half 2 — `ensureHealthy()` against a CONSTRUCTED healthy payload, the same way every other
         // composition in this file is constructed. Stubbing its one collaborator is what makes the
         // admission decision observable without asking the environment to be quiet.
-        const realHealthcheck = HealthService.healthcheck.bind(HealthService);
+        // `healthcheck` is a CLASS method, so it lives on the prototype and this assignment installs
+        // an own-property shadow. Restoring by assignment would leave that shadow in place forever —
+        // and capturing `.bind(HealthService)` would leave a *bound* function installed, which is not
+        // the original object. A spec that fixes an isolation defect must not create one: the shadow
+        // is deleted so the prototype method is exposed again, byte-for-byte the object it was.
+        const hadOwnHealthcheck = Object.prototype.hasOwnProperty.call(HealthService, 'healthcheck'),
+              originalOwn       = hadOwnHealthcheck ? HealthService.healthcheck : undefined,
+              prototypeMethod   = HealthService.healthcheck;
 
         try {
             HealthService.healthcheck = async () => ({status: 'healthy', details: ['All features are operational']});
@@ -294,8 +301,18 @@ test.describe('HealthService.foldHeavyMaintenanceStarvation — the consumed agg
             HealthService.healthcheck = async () => ({status: 'degraded', details: ['db slow']});
             await expect(HealthService.ensureHealthy()).rejects.toThrow(/not fully operational/);
         } finally {
-            HealthService.healthcheck = realHealthcheck;
+            if (hadOwnHealthcheck) {
+                HealthService.healthcheck = originalOwn
+            } else {
+                delete HealthService.healthcheck
+            }
         }
+
+        // Identity, not equivalence: the singleton is shared across every spec in this project, so
+        // leaving a look-alike behind is the same defect one file over.
+        expect(HealthService.healthcheck, 'the stub must not outlive this test').toBe(prototypeMethod);
+        expect(Object.prototype.hasOwnProperty.call(HealthService, 'healthcheck'),
+            'no own-property shadow may remain').toBe(hadOwnHealthcheck);
 
         HealthService.clearCache();
     });
