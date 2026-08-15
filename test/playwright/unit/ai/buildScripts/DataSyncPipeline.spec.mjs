@@ -8,6 +8,7 @@ import process        from 'node:process';
 import {CREDENTIAL_FAMILIES} from '../../../../../ai/services/fleet/redactCredentials.mjs';
 
 import {
+    aggregateDeferredFailures,
     classifyStageFailure,
     describeStageFailure,
     emitGeneratedData,
@@ -666,6 +667,166 @@ test.describe('tokenScope validation fails closed', () => {
         for (const error of codes) {
             expect(classifyStageFailure(error), error.message).toBe(STAGE_FAILURE_CLASS.authentication)
         }
+    });
+});
+
+/**
+ * An optional DevIndex enrichment read must not decide whether the corpus publishes.
+ *
+ * `DevIndex Opt-In` is stage 3 of 7 and threw straight out of the emission loop, so a GitHub-side
+ * denial on its stargazer read skipped stages 4-7 — including `content indexes and SEO`, which is
+ * what makes the corpus consumable — and the publish path below the loop was never reached. The
+ * corpus generated one stage earlier was discarded: `resources/content/**` on `dev` froze for
+ * nineteen hours while every downstream consumer (portal data, KB ingestion) read the stale mirror.
+ *
+ * The isolation must not become suppression. The run still has to exit non-zero, because a green
+ * pipeline would assert a DevIndex intake that is in fact dead — so every test below that proves the
+ * corpus published is paired with one proving the run still failed.
+ */
+test.describe('an intake denial cannot freeze corpus publication (#17148)', () => {
+    /** Fails exactly the stages whose npm script is named, so one denial can be aimed at a stage set. */
+    const failingScripts = scripts => async (_command, args) => {
+        if (args.some(arg => scripts.includes(arg))) {
+            throw new Error(`Resource not accessible by integration (${args.join(' ')})`)
+        }
+    };
+
+    test('a denied Opt-In no longer aborts emission — every later stage still runs', async () => {
+        const lines = [];
+
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : failingScripts(['devindex:optin']),
+            log      : line => lines.push(line),
+            preflight: async () => {}
+        });
+
+        // The decisive assertion: this stage runs AFTER all four intake stages and is what makes the
+        // corpus consumable. Before the deferral flag the loop threw three stages earlier.
+        expect(lines.some(line => line.includes('stage=content indexes and SEO'))).toBe(true);
+        expect(lines.some(line => line.includes('stage=DevIndex Opt-Out'))).toBe(true);
+        // Deferred, never dropped — the caller still receives the failure to rethrow after publish.
+        expect(deferredError.message).toContain('DevIndex Opt-In')
+    });
+
+    test('the corpus publishes AND the run still fails when Opt-In is denied', async () => {
+        const fixture = await createRepositoryFixture();
+
+        try {
+            await expect(runDataSyncPipeline({
+                cwd : fixture.runner,
+                emit: async ({attempt, cwd, log}) => {
+                    await write(cwd, generatedFile, 'generated:corpus-despite-denial\n');
+
+                    return emitGeneratedData({
+                        attempt,
+                        cwd,
+                        execute  : failingScripts(['devindex:optin']),
+                        log,
+                        preflight: async () => {}
+                    })
+                },
+                log: () => {}
+            })).rejects.toThrow(/DevIndex Opt-In/);
+
+            // Both halves ARE the finding, and each alone would be the wrong outcome: the corpus
+            // reached `dev` (the freeze is over) and the run still failed (the alarm is not silenced).
+            expect(readRemoteFile(fixture, generatedFile)).toBe('generated:corpus-despite-denial');
+            expect(remoteSubjects(fixture)[0]).toBe('chore(data): Hourly data sync pipeline update [skip ci]')
+        } finally {
+            await fs.rm(fixture.root, {recursive: true, force: true})
+        }
+    });
+
+    test('every deferred stage failure is named, not just the last one', async () => {
+        // One credential denial fails all four DevIndex stages, so a single `deferredError` slot
+        // reported whichever ran last and silently dropped the rest — sizing the outage wrong.
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : failingScripts(['devindex:optin', 'devindex:optout', 'devindex:update']),
+            log      : () => {},
+            preflight: async () => {}
+        });
+
+        expect(deferredError.message).toContain('DevIndex Opt-In');
+        expect(deferredError.message).toContain('DevIndex Opt-Out');
+        expect(deferredError.message).toContain('DevIndex Updater');
+        expect(deferredError.errors).toHaveLength(3)
+    });
+
+    test('a lone deferred failure is reported unwrapped, not buried under a count of one', async () => {
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : failingScripts(['devindex:spider']),
+            log      : () => {},
+            preflight: async () => {}
+        });
+
+        expect(deferredError).not.toBeInstanceOf(AggregateError);
+        expect(deferredError.message).toContain('DevIndex Spider')
+    });
+
+    test('aggregateDeferredFailures keeps the originals reachable, not just their text', () => {
+        const failures = [new Error('first cause'), new Error('second cause')];
+        const folded   = aggregateDeferredFailures(failures);
+
+        // The message carries both because a CI log tail shows the message and nothing else...
+        expect(folded.message).toContain('first cause');
+        expect(folded.message).toContain('second cause');
+        // ...while `errors` keeps them inspectable for anything reading them programmatically.
+        expect(folded.errors).toEqual(failures);
+        expect(aggregateDeferredFailures([failures[0]])).toBe(failures[0])
+    });
+
+    test('a preflight denial defers and does NOT abort the run', async () => {
+        const
+            denial   = new Error('[DataSync preflight] neomjs/devindex-opt-in DENIED (OptIn stargazer read)'),
+            executed = [];
+
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async (_command, args) => {executed.push(args.join(' '))},
+            log      : () => {},
+            preflight: async () => {throw denial}
+        });
+
+        // Rethrowing here would re-couple publication to the intake identity one layer ABOVE the
+        // stage table that just decoupled it — the corpus would stay frozen, only faster.
+        expect(deferredError).toBe(denial);
+
+        // The reader-scoped stages still run — that is what leaves a corpus worth publishing.
+        expect(executed.some(args => args.includes('--emit-only'))).toBe(true);
+        expect(executed.some(args => args.includes('--include-labels'))).toBe(true)
+    });
+
+    test('one denied capability does not stop the stages that never consume it', async () => {
+        // The decisive regression for the review finding. An earlier revision skipped every stage
+        // declaring `tokenScope: 'intake'` the moment ANY preflight probe failed — so a denied
+        // `devindex-opt-in.stargazers` read stopped Opt-Out, Spider and Updater as well. Verified
+        // against the services: Spider queries search/community endpoints and Updater reads
+        // `users/:name/orgs`, so NEITHER touches a DevIndex repository. `tokenScope` says which
+        // credential to inject, never which capability a stage consumes, and the skip made it mean
+        // both.
+        const executed = [];
+
+        const {deferredError} = await emitGeneratedData({
+            attempt  : 1,
+            cwd      : '/tmp',
+            execute  : async (_command, args) => {executed.push(args.join(' '))},
+            log      : () => {},
+            preflight: async () => {throw new Error('neomjs/devindex-opt-in DENIED (OptIn stargazer read)')}
+        });
+
+        for (const script of ['devindex:optout', 'devindex:spider', 'devindex:update']) {
+            expect(executed.some(args => args.includes(script)), `${script} must still run`).toBe(true)
+        }
+
+        // ...and the run still carries the denial to a non-zero exit after publication.
+        expect(deferredError.message).toContain('devindex-opt-in')
     });
 });
 
