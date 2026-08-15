@@ -66,13 +66,11 @@ Every score needs a concrete, non-tautological reason.
 
 Bad: "`[CONTENT_COMPLETENESS]`: 80 — documentation is thorough." Good: "`80 — 20 deducted because the template omitted §7.1/§8 coverage.`" Bad: "`[COMPLEXITY]`: 85 — deftly handles staging." Good: "`85 — five ordered stages create high reader load.`"
 
-### 3.3 Follow-Up Metrics Delta
+### 3.3 Metrics Are Scored Once
 
-Cycle 1 / cold-cache reviews score every metric explicitly in the full template. Cycle N / warm-cache follow-up reviews may use the follow-up template's **Metrics Delta** section instead:
+Round 1 scores every metric explicitly in the full template. **Round 2 does not restate them** — its disposition table carries no metrics section, because re-scoring a delta invites a reviewer to justify a new number, and a number that wants justifying wants a new finding to justify it.
 
-- If a metric changed since the prior review, write the before/after value (`80 -> 100`) and the concrete reason the score changed.
-- If a metric did not change, carry it forward by reference (`unchanged from prior review`) and name the prior review anchor.
-- Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
+The Round-1 scores stand as the PR's record. A metric only moves again on an exceptional verdict (Drop+Supersede), where the premise itself changed.
 
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
@@ -138,7 +136,7 @@ The PR cannot be approved if the implemented contract and the ticket's Contract 
 
 ## 6. Review Template Selection
 
-Before drafting your review, classify the review cycle. Template choice is a context-budget gate: Cycle 1 / cold-cache needs the full structure; Cycle N / warm-cache uses delta shape unless evidence shows the prior anchors are no longer reliable.
+Before drafting, classify the round. Round 1 is the comprehensive review and carries the full structure. Round 2 is a disposition over what Round 1 already said.
 
 Template fidelity is mandatory in both cycle shapes: copy selected-template headings, icons, order, and null-state wording; compact follow-up means delta content, not lower quality.
 
@@ -154,28 +152,23 @@ Use the full template from `.agents/skills/pr-review/assets/pr-review-template.m
 - **Major delta:** the author changed scope, touched new architectural surfaces, added new files outside the prior Required Actions, or rewrote the PR body/close-target semantics enough that prior scores are no longer reliable.
 - **Lost anchor recovery:** no usable prior review commentId, author response commentId, or last-known anchor exists.
 
-Use the full template when uncertainty is about missing context, broadened scope, or lost anchors. If prior review anchors are loaded and the author delta is narrow, uncertainty is not a reason to inflate the thread: use the follow-up template and state what stayed unchanged.
+Use the full template when uncertainty is about missing context, broadened scope, or lost anchors — not when the delta is merely narrow. Uncertainty is never a reason to inflate a round.
 
-### 6.2 Follow-Up Review Template
+### 6.2 Round 2 Is Disposition-Only
 
-Use the follow-up template from `.agents/skills/pr-review/assets/pr-review-followup-template.md` by default for **Cycle N / warm-cache delta re-reviews** where:
+Ordinary Round 2 uses `.agents/skills/pr-review/assets/pr-review-round-2-template.md`: a table over the Round-1 required actions, quoted verbatim, each marked `ADDRESSED`, `DEFENDED`, or `STILL_OPEN`. A `STILL_OPEN` item keeps the original Round-1 review authoritative; it never becomes a new action list.
 
-- You have prior-cycle context loaded, or you have grounded from the relevant prior review/author response anchors.
-- The latest author delta maps to previous Required Actions or a narrow PR-body / metadata correction.
-- The change surface is small enough that previous scores remain meaningful baselines.
+It carries no fresh premise snapshot, no new Depth Floor, no audit reruns, and no metrics restatement. Each of those invites a reviewer to find a defensible new concern, and a round that can always find one is not terminal. **Fresh findings at Round 2 are accepted risk** — a bounded cost, traded against an unbounded loop.
 
-The follow-up template is not permission to rubber-stamp. It still requires:
+Round 2 consumes the PR body, the exact delta, and the Round-1 action packet. Not the comment thread.
 
-- A delta-specific Depth Floor: either one new delta concern or a documented search over changed files, prior blockers, and metadata.
-- A Test-Evidence Audit: exact-head CI plus any author-owned non-CI receipt or named reviewer falsifier; docs/template-only and PR-body-only deltas can state no runtime evidence is required.
-- Metrics delta semantics per §3.3.
-- A2A commentId capture and hand-off per §10 after posting the follow-up review.
+Two cases keep full structure, and only two: a validated **Drop+Supersede**, and a guarded **repair-minted re-entry** whose four-field receipt was accepted. Both use `pr-review-followup-template.md`.
 
-If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
+If a commentId-scoped A2A arrives without prior-cycle context, that is a cold-cache case: ground first, then choose.
 
 ### 6.3 Budgeted Review Closure
 
-At RC2 or >24KB, load the payload. On post-cutover PRs, two submitted `CHANGES_REQUESTED` objects across heads/authors/retractions spend the ordinary budget; managed submission refuses a third. Grandfathered PRs stay judgment-only. Continue with `COMMENTED` closure, `APPROVED`, Maintainer Polish, guarded A+FU, or validated terminal D+S; size is cost, never scope.
+At RC2 or >24KB, load the payload. On post-cutover PRs the ordinary budget is **one submitted `CHANGES_REQUESTED` per canonical reviewer family**, counted across heads, authors, and retractions; managed submission refuses a second and fails closed on a reviewer it cannot classify. Another family retains its independent round. Grandfathered PRs stay judgment-only. Continue with the disposition round, `APPROVED`, Maintainer Polish, guarded A+FU, or validated terminal D+S; size is cost, never scope.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
@@ -314,9 +307,9 @@ After §3-§8, choose exactly one row:
 | **Approve** | Merge-safe; inline nits or Maintainer Polish, no return cycle. |
 | **Request Changes** | Delivered-scope correctness, safety, or code-shape defect; budgeted in-place repair. |
 | **Approve+Follow-Up** | Scope transfer only; worst normal outcome. Requires a merge-safe head, no unresolved correctness, explicit close-target AC ownership, and an independently valuable day-after-merge counterfactual. |
-| **Drop+Supersede** | Dead/stale premise at any cycle, or no merge-safe slice after RC2; terminal `CHANGES_REQUESTED`, not repair. |
+| **Drop+Supersede** | Dead/stale premise at any round, or no merge-safe slice once the family's round is spent; terminal `CHANGES_REQUESTED`, not repair. |
 
-**RC2 `COMMENTED` closure packet:** consumer sweep; falsifier/property matrix; carried-vs-new census; truth-fold; semantic-surface freeze. Afterward only the existing RA's named capability may change; property refinements within it are allowed, new semantic surfaces are not.
+The former RC2 `COMMENTED` closure packet is retired: it existed so a second ordinary round could be spent closing rather than re-opening, and there is no second ordinary round to close. Round 2 dispositions the existing actions; the semantic-surface freeze it enforced is now the disposition table's rule that a `STILL_OPEN` item keeps the original review authoritative and never mints a new action list.
 
 **D+S completeness:** source-coordinate falsifiers; salvage map; disposition-shaped successor landing pad; successor citation to the map. `Disposition`: `implementation-off` (refile implementation) | `ticket-prescription-off` (amend ticket) | `ticket-premise-dead` (close ticket). One validated terminal D+S may exceed the ordinary budget.
 

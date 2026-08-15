@@ -29,16 +29,18 @@ import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBo
                                               from './shared/commentSelector.mjs';
 import {projectConversationTrust}              from './shared/conversationTrust.mjs';
 
-const execAsync                        = promisify(exec);
-const execFileAsync                    = promisify(execFile);
-const PR_REVIEW_TEMPLATE_PATH          = '.agents/skills/pr-review/assets/pr-review-template.md';
-const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
-const ACKNOWLEDGED_RC_ADDRESSED_PREFIX = 'addressed-by-';
-const ACKNOWLEDGED_RC_EVIDENCE_PREFIX  = 'superior-evidence:';
-const REVIEW_BUDGET_MANAGED_MARKER     = '[review-budget-managed]';
-const REVIEW_BUDGET_OVERRIDE_MARKER    = '[review-budget-override]';
-const REVIEW_BUDGET_BYPASS_PATTERN     = /^\[review-budget-bypass\]\s+reason:\s*\S.*$/im;
-const REVIEW_BUDGET_AUDIT_FIELDS       = [
+const execAsync                           = promisify(exec);
+const execFileAsync                       = promisify(execFile);
+const PR_REVIEW_TEMPLATE_PATH             = '.agents/skills/pr-review/assets/pr-review-template.md';
+const PR_REVIEW_FOLLOWUP_TEMPLATE_PATH    = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+const PR_REVIEW_ROUND_2_TEMPLATE_PATH     = '.agents/skills/pr-review/assets/pr-review-round-2-template.md';
+const PR_REVIEW_MICRO_DELTA_TEMPLATE_PATH = '.agents/skills/pr-review/assets/pr-review-micro-delta-template.md';
+const ACKNOWLEDGED_RC_ADDRESSED_PREFIX    = 'addressed-by-';
+const ACKNOWLEDGED_RC_EVIDENCE_PREFIX     = 'superior-evidence:';
+const REVIEW_BUDGET_MANAGED_MARKER        = '[review-budget-managed]';
+const REVIEW_BUDGET_OVERRIDE_MARKER       = '[review-budget-override]';
+const REVIEW_BUDGET_BYPASS_PATTERN        = /^\[review-budget-bypass\]\s+reason:\s*\S.*$/im;
+const REVIEW_BUDGET_AUDIT_FIELDS          = [
     'outcome',
     'ordinary-limit',
     'activation-issue',
@@ -830,16 +832,31 @@ const FULL_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
     'Evaluation Metrics'
 ];
 
+// The EXCEPTIONAL-verdict template only: a validated Drop+Supersede or a guarded repair-minted
+// re-entry. `Delta Depth Floor` and `Metrics Delta` are gone from it deliberately — an ordinary
+// second round no longer reruns audits or re-scores metrics, so requiring those anchors here would
+// force the exceptional template back into the ordinary role the terminal-round decision removed.
 const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
-    'PR Review Follow-Up Summary',
+    'PR Review Follow-Up',
     'Patch-Blind Premise Snapshot',
     'Strategic-Fit Decision',
     'Prior Review Anchor',
     'Delta Scope',
     'Previous Required Actions Audit',
     'Delta Depth Floor',
+    'Premise Falsifiers',
     'Metrics Delta',
     'Required Actions'
+];
+
+// Ordinary Round 2. Four anchors, because the shape IS the constraint: a disposition over the
+// Round-1 actions and nothing else. Adding a fifth here would re-admit the audit rerun this
+// template exists to refuse.
+const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_LABELS = [
+    'PR Review — Round 2',
+    'Anchor',
+    'Disposition',
+    'Verdict'
 ];
 
 const FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
@@ -854,15 +871,23 @@ const FULL_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
 });
 
 const FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
-    'PR Review Follow-Up Summary'    : '# PR Review Follow-Up Summary',
+    'PR Review Follow-Up'            : '# PR Review Follow-Up',
     'Patch-Blind Premise Snapshot'   : '### 🧭 Patch-Blind Premise Snapshot',
     'Strategic-Fit Decision'         : '### 🪜 Strategic-Fit Decision',
     'Prior Review Anchor'            : '### ⚓ Prior Review Anchor',
     'Delta Scope'                    : '### 🔁 Delta Scope',
     'Previous Required Actions Audit': '### ✅ Previous Required Actions Audit',
     'Delta Depth Floor'              : '### 🔬 Delta Depth Floor',
+    'Premise Falsifiers'             : '### 🔬 Premise Falsifiers',
     'Metrics Delta'                  : '### 📊 Metrics Delta',
     'Required Actions'               : '### 📋 Required Actions'
+});
+
+const ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL = Object.freeze({
+    'PR Review — Round 2': '# PR Review — Round 2',
+    'Anchor'             : '### ⚓ Anchor',
+    'Disposition'        : '### 📋 Disposition',
+    'Verdict'            : '### 🔚 Verdict'
 });
 
 const templateHeadingAnchorCache = new Map();
@@ -1030,8 +1055,218 @@ const REQUIRED_PR_REVIEW_PREMISE_ANCHORS = [
 
 const PR_REVIEW_ORIGIN_SESSION_PATTERN = /^\s*[*-]\s+\*\*Origin Session ID:\*\*\s+[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\s*$/im;
 
+// Detects an ordinary Round 2. Kept to the H1 and its two structural sections: broadening this to
+// shared vocabulary (`Anchor`, `Verdict`) would swallow bodies that belong to other shapes, and the
+// misclassification is silent — a body validated against the wrong template reports missing anchors
+// the author never owed.
+const ROUND_2_DISPOSITIONS = Object.freeze(['ADDRESSED', 'DEFENDED', 'STILL_OPEN']);
+
+/**
+ * @summary The template path a body actually selected, for honest read-only reporting.
+ *
+ * Mirrors the dispatch order in `getPrReviewTemplateValidationFailure` rather than restating it as a
+ * second set of conditions — the two must not be able to disagree, because the whole point is telling
+ * an author which contract was applied to their body.
+ * @param {String} body
+ * @returns {String} Repo-relative asset path.
+ */
+function selectedPrReviewTemplatePath(body) {
+    if (isRound2PrReview(body))     return PR_REVIEW_ROUND_2_TEMPLATE_PATH;
+    if (isMicroDeltaPrReview(body)) return PR_REVIEW_MICRO_DELTA_TEMPLATE_PATH;
+
+    if (FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor))) {
+        return PR_REVIEW_FOLLOWUP_TEMPLATE_PATH
+    }
+
+    // Micro-review deliberately has no asset of its own — it is validated against a minimal floor and
+    // authored from the canonical structure — so the canonical path is the honest answer here rather
+    // than a file name that would 404 for whoever went looking.
+    return PR_REVIEW_TEMPLATE_PATH
+}
+
+/**
+ * @summary Validates an ordinary Round 2 against the round it claims to disposition.
+ *
+ * The body-only tier proves a document is disposition-SHAPED. It cannot prove a disposition occurred,
+ * because that is a claim about two documents — and a shaped body with a plausible review id and an
+ * invented `RA-999` passed the shape gate at review. This is the half that needs the prior round, so
+ * it runs where the prior round is already in hand rather than duplicating a fetch.
+ *
+ * **Complete, ordered, unchanged.** Each is a distinct evasion. Dropping a row retires an action by
+ * omission; reordering breaks the numbering the original review is cited by; rewording is how a
+ * demand gets softened into one the author already met. Verbatim is the only comparison that refuses
+ * all three, and it is why the template says quoted verbatim rather than summarised.
+ *
+ * **The state matrix is the other half of the contract.** `STILL_OPEN` means the Round-1 review stays
+ * authoritative, which only holds if this round adds no new verdict — so it must be `COMMENT`. An
+ * APPROVED round carrying a `STILL_OPEN` silently discharges the item it just declared unresolved,
+ * and a REQUEST_CHANGES spends a round the per-family budget does not have.
+ *
+ * @param {Object}   options
+ * @param {String}   options.body        The candidate Round-2 body.
+ * @param {Object[]} options.reviews     Prior review nodes (`{body, state, submittedAt, author}`).
+ * @param {String}   options.state       The GitHub review state being submitted.
+ * @returns {Object|null} Failure payload, or `null` when the round is a faithful disposition.
+ */
+function getRound2DispositionRelationFailure({body, reviews, state}) {
+    const prior = [...(reviews || [])]
+        .filter(review => review?.state === 'CHANGES_REQUESTED')
+        .sort((a, b) => Date.parse(b?.submittedAt || 0) - Date.parse(a?.submittedAt || 0))[0];
+
+    if (!prior) {
+        return round2RelationFailure([
+            'This body declares itself a Round 2, but the pull request carries no submitted',
+            '`CHANGES_REQUESTED` review for it to disposition. A first review uses the canonical template.'
+        ])
+    }
+
+    const
+        expected = extractRequiredActions(prior.body),
+        rows     = extractDispositionRows(body),
+        defects  = [];
+
+    if (expected.length === 0) {
+        return round2RelationFailure([
+            `The prior \`CHANGES_REQUESTED\` review (${prior.url || prior.id}) lists no Required Actions,`,
+            'so there is nothing for an ordinary Round 2 to disposition. Use the follow-up template.'
+        ])
+    }
+
+    if (rows.length !== expected.length) {
+        defects.push(`dispositions ${rows.length} action(s) against the prior round's ${expected.length} — every action gets a row, in order`)
+    }
+
+    expected.forEach((action, index) => {
+        const row = rows[index];
+
+        if (row && row.action !== action) {
+            defects.push(`row ${index + 1} reads "${row.action}" where the prior round said "${action}" — carry it verbatim`)
+        }
+    });
+
+    // A verdict is not a disposition. This catches the invented-action case even when the counts line
+    // up, because an extra row has no prior action to match against.
+    rows.slice(expected.length).forEach(row => {
+        defects.push(`"${row.action}" appears in the table but not in the prior round — an ordinary Round 2 raises nothing new`)
+    });
+
+    const stillOpen = rows.some(row => row.disposition === 'STILL_OPEN');
+
+    if (stillOpen && state !== 'COMMENT') {
+        defects.push(`carries a STILL_OPEN item but submits as ${state} — a STILL_OPEN round keeps the ORIGINAL review authoritative and must be COMMENT, which is also why it spends no budget`)
+    }
+
+    if (!stillOpen && state === 'REQUEST_CHANGES') {
+        defects.push('spends a REQUEST_CHANGES round while dispositioning every prior action — a fully discharged round is APPROVED or COMMENT')
+    }
+
+    return defects.length === 0 ? null : round2RelationFailure(defects.map(defect => `- This round ${defect}.`))
+}
+
+/**
+ * @summary Renders a Round-2 relation failure.
+ * @param {String[]} lines
+ * @returns {Object}
+ */
+function round2RelationFailure(lines) {
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'Round 2 is a disposition over the prior round, and this body does not match it.',
+            '',
+            '**Required action**: read `.agents/skills/pr-review/assets/pr-review-round-2-template.md`,',
+            'then quote each prior Required Action verbatim, in order, with its disposition.',
+            '',
+            ...lines
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
+/**
+ * @summary Extracts a review's Required Actions as ordered verbatim strings.
+ *
+ * The canonical and follow-up templates both carry actions as a `- [ ]` checklist under a Required
+ * Actions heading, so the checklist IS the action packet. Everything after the heading up to the next
+ * one is in scope, because an action's text can wrap.
+ * @param {String} body A prior review body.
+ * @returns {String[]} Action texts, in the order the round raised them.
+ */
+function extractRequiredActions(body) {
+    const section = String(body || '').split(/^#{1,6}[ \t].*Required Actions.*$/im)[1];
+
+    if (!section) return [];
+
+    return section
+        .split(/^#{1,6}[ \t]/m)[0]
+        .split('\n')
+        .filter(line => /^[ \t]*[-*][ \t]+\[[ x]\]/i.test(line))
+        .map(line => line.replace(/^[ \t]*[-*][ \t]+\[[ x]\][ \t]*/i, '').trim())
+        .filter(Boolean)
+}
+
+/**
+ * @summary Extracts a Round-2 body's disposition table as `{action, disposition}` rows, in order.
+ *
+ * Reads the SECOND-to-last cell as the verb and everything before it as the carried action, so a
+ * table with or without a trailing Evidence column parses the same way. Separator rows (`|---|`) and
+ * the header are dropped by requiring a known verb.
+ * @param {String} body
+ * @returns {Array<{action: String, disposition: String}>}
+ */
+function extractDispositionRows(body) {
+    return String(body || '').split('\n')
+        .filter(line => line.trim().startsWith('|') && ROUND_2_DISPOSITIONS.some(verb => line.includes(verb)))
+        .map(line => {
+            const cells = line.split('|').slice(1, -1).map(cell => cell.trim()),
+                  index = cells.findIndex(cell => ROUND_2_DISPOSITIONS.includes(cell));
+
+            if (index === -1) return null;
+
+            // The template's first column is `#`, carrying a label like `RA-1`. It is the row's
+            // NUMBER, not part of the carried action, and folding it into the text made every row
+            // compare as reworded against a prior round that never contained it — the verbatim check
+            // failing on the one thing that is legitimately not verbatim.
+            const carried  = cells.slice(0, index).filter(Boolean),
+                  labelled = /^(?:RA[ _-]?)?#?\d+\.?$/i.test(carried[0] || '');
+
+            return {
+                action     : carried.slice(labelled ? 1 : 0).join(' ').trim(),
+                disposition: cells[index]
+            }
+        })
+        .filter(Boolean)
+}
+
+/**
+ * @summary Whether a body DECLARES itself an ordinary Round 2 — its own H1, at line start.
+ *
+ * Selection is the first half of a format gate and it has to be exact. Matching any of the shape
+ * hints meant a canonical review that merely contained `### 🔚 Verdict` was routed to the Round-2
+ * tier and never premise-validated — a heading choice silently downgrading which rules apply, which
+ * is a wider hole than the tier's own leniency because it opens the CANONICAL path. The H1 is the
+ * format declaration; the section headings are its contents, and contents are shared vocabulary.
+ * @param {String} body
+ * @returns {Boolean}
+ */
+function isRound2PrReview(body) {
+    return /^#[ \t]+PR Review — Round 2\b/m.test(body);
+}
+
+/**
+ * @summary A disposition table row: a verdict verb in a pipe-delimited cell.
+ *
+ * The three verbs ARE the format's vocabulary, so matching them is what separates a dispositioned row
+ * from a table that happens to exist. Anchored to a cell boundary rather than searched free-text: the
+ * prose defining the verbs sits directly under the table in the template, and a substring test would
+ * read that legend as evidence of a disposition — a document explaining the verbs would satisfy the
+ * gate for using them.
+ * @type {RegExp}
+ */
+const ROUND_2_DISPOSITION_ROW_PATTERN = /\|[^|\n]*\b(ADDRESSED|DEFENDED|STILL_OPEN)\b[^|\n]*\|/g;
+
 const FOLLOWUP_PR_REVIEW_SHAPE_HINTS = [
-    '# PR Review Follow-Up Summary',
+    '# PR Review Follow-Up',
     '**Cycle:**',
     '### ⚓ Prior Review Anchor',
     '### 🔁 Delta Scope',
@@ -1059,12 +1294,18 @@ function getFullPrReviewTemplateSkeletonAnchors() {
 }
 
 function getFollowupPrReviewTemplateSkeletonAnchors() {
-    return [
-        ...getTemplateHeadingAnchorsByLabel(PR_REVIEW_FOLLOWUP_TEMPLATE_PATH, FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
-            fallbackByLabel: FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
-        }),
-        '**Cycle:**'
-    ];
+    // `**Cycle:**` is no longer required. It asked which cycle number this was, and the terminal-round
+    // decision removed cycle NUMBERING as a concept: there is Round 1, one disposition round, and two
+    // named exceptional verdicts. A field whose only answer is "the exceptional one" measures nothing.
+    return getTemplateHeadingAnchorsByLabel(PR_REVIEW_FOLLOWUP_TEMPLATE_PATH, FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+        fallbackByLabel: FOLLOWUP_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+    })
+}
+
+function getRound2PrReviewTemplateSkeletonAnchors() {
+    return getTemplateHeadingAnchorsByLabel(PR_REVIEW_ROUND_2_TEMPLATE_PATH, ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_LABELS, {
+        fallbackByLabel: ROUND_2_PR_REVIEW_TEMPLATE_SKELETON_FALLBACK_BY_LABEL
+    })
 }
 
 const MICRO_DELTA_PR_REVIEW_TEMPLATE_SKELETON_ANCHORS = [
@@ -1136,6 +1377,14 @@ function hasValidPrReviewOriginSession(body) {
  * @returns {String[]} Missing skeleton anchors, intentionally never exposed to callers.
  */
 function getPrReviewTemplateSkeletonMisses(body) {
+    // Round 2 is tested FIRST and on its own H1. It shares `### ⚓ Anchor`-adjacent vocabulary with the
+    // follow-up shape, so a hint-order that checked follow-up first would validate every disposition
+    // round against the exceptional template and demand sections it deliberately omits — the guard
+    // would then refuse exactly the shape the terminal-round decision introduced.
+    if (isRound2PrReview(body)) {
+        return getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor));
+    }
+
     const hasFollowupShape = FOLLOWUP_PR_REVIEW_SHAPE_HINTS.some(anchor => body.includes(anchor));
 
     if (hasFollowupShape) {
@@ -1214,6 +1463,90 @@ function getMicroDeltaPrReviewTemplateMisses(body) {
  * @param {String} body The candidate Micro-Delta PR review body.
  * @returns {Object|null} Validation failure payload or `null` when valid.
  */
+/**
+ * @summary Validates an ordinary Round-2 disposition review against its own minimal floor.
+ *
+ * Round 2 gets its OWN tier rather than routing through the canonical path, for the same reason
+ * Micro-Delta does: the canonical validator requires the four premise anchors on every body, and a
+ * disposition round deliberately carries no premise snapshot. Routed canonically it would be refused
+ * for omitting exactly what the terminal-round decision removed — the guard would enforce the shape
+ * the substrate replaced.
+ *
+ * The floor is the four structural anchors and nothing else. It fails SAFE toward accept, because the
+ * expensive failure here is a reviewer who cannot post a legitimate disposition and re-opens a heavy
+ * round to get past the gate.
+ *
+ * @param {String} body The candidate PR review body.
+ * @returns {Object|null} Validation failure payload, or `null` when valid.
+ */
+function getRound2PrReviewTemplateValidationFailure(body) {
+    const
+        missing  = getRound2PrReviewTemplateSkeletonAnchors().filter(anchor => !body.includes(anchor)),
+        // Heading presence was the ENTIRE gate here, and @neo-gpt falsified it at review with a body
+        // carrying the four headings, no prior round, no origin, and an invented `RA-999` — zero
+        // missing anchors, admitted. That is the anti-Goodhart failure this file already knew about:
+        // `INVISIBLE_PR_REVIEW_ANCHORS` exists precisely because a gate that names its anchors gets
+        // satisfied by writing them, and the new tier reproduced the defect one tier along.
+        //
+        // A format gate cannot prove a disposition OCCURRED — that needs the prior round, and the
+        // caller holding PR context owns it. What a body-only gate can prove is that this document
+        // is SHAPED like a disposition rather than a first review wearing its headings: it points at
+        // a real prior round, it dispositions at least one row, every disposition is a defined verb,
+        // and it mints no fresh action packet. Those are checkable here and each one is a way the
+        // falsifier passed.
+        defects  = [];
+
+    if (missing.length > 0) {
+        defects.push(`omits its structural anchors — missing: ${missing.join(', ')}`)
+    }
+
+    // The anchor must POINT somewhere. A Round 2 that cannot name the round it dispositions is a
+    // first review, and the template's bracketed placeholders must not survive into a posted body.
+    if (!/\*\*Round-1 Review ID:\*\*\s*(?!\[)\S/.test(body)) {
+        defects.push('names no Round-1 review to disposition — `**Round-1 Review ID:**` is absent, empty, or still the template placeholder')
+    }
+
+    // The SAME constant CI's Round-2 branch already used. The two copies of this contract disagreed
+    // here — CI required a valid origin line for a Round 2 and the managed service did not — so a body
+    // the service admitted could still fail the post-submit lint, which is the split that makes having
+    // two copies dangerous rather than merely redundant.
+    if (!PR_REVIEW_ORIGIN_SESSION_PATTERN.test(body)) {
+        defects.push('carries no `Origin Session ID:` line with a full Memory Core UUID on its own line')
+    }
+
+    const dispositions = [...body.matchAll(ROUND_2_DISPOSITION_ROW_PATTERN)];
+
+    if (dispositions.length === 0) {
+        defects.push('dispositions nothing — the table needs one row per Round-1 required action, each marked ADDRESSED, DEFENDED, or STILL_OPEN')
+    }
+
+    // A disposition round that opens a checkbox action list is the exact behaviour the format exists
+    // to stop: a second round restating, renumbering, or expanding the first round's demands. The
+    // carried actions live in the table; a `- [ ]` list is a NEW packet by construction.
+    if (/^[ \t]*[-*][ \t]+\[[ x]\]/im.test(body)) {
+        defects.push('mints a new action checklist — an ordinary Round 2 carries prior actions in the disposition table and never opens a fresh packet. A STILL_OPEN row keeps the original review authoritative instead')
+    }
+
+    if (defects.length === 0) return null;
+
+    return {
+        error  : 'PR Review Template Validation Failed',
+        message: [
+            'Review body selects the Round-2 disposition format but does not satisfy it.',
+            '',
+            `**Required action**: read \`.agents/skills/pr-review/assets/pr-review-round-2-template.md\` before retrying.`,
+            '',
+            'Round 2 is a disposition over the Round-1 required actions, quoted verbatim — an anchor block,',
+            'the disposition table, and a verdict. If this round needs a premise snapshot or an audit rerun,',
+            'it is not an ordinary Round 2: it is a validated Drop+Supersede or a guarded repair-minted',
+            're-entry, and both use the follow-up template.',
+            '',
+            ...defects.map(defect => `- This body ${defect}.`)
+        ].join('\n'),
+        code: 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED'
+    }
+}
+
 function getMicroDeltaPrReviewTemplateValidationFailure(body) {
     const missingMicroDelta = getMicroDeltaPrReviewTemplateMisses(body);
 
@@ -1501,6 +1834,8 @@ function getPrReviewTemplateValidationFailure(body, options) {
 
     if (isMicroReview(body)) {
         failure = getMicroReviewTemplateValidationFailure(body)
+    } else if (isRound2PrReview(body)) {
+        failure = getRound2PrReviewTemplateValidationFailure(body)
     } else {
         failure = isMicroDeltaPrReview(body)
             ? getMicroDeltaPrReviewTemplateValidationFailure(body)
@@ -2738,11 +3073,15 @@ class PullRequestService extends Base {
             };
         }
 
+        // The selected asset, not a constant. This returned `PR_REVIEW_TEMPLATE_PATH` unconditionally,
+        // so a Round-2 or micro-delta body was told it matched the canonical template — sending an
+        // author who then hit a rejection to the wrong file to find out why. A validator that
+        // misreports which contract it applied is worse than one that reports nothing.
         return {
             valid   : true,
             message : 'Review body matches the pr-review template structure.',
             skill   : '.agents/skills/pr-review/SKILL.md',
-            template: PR_REVIEW_TEMPLATE_PATH
+            template: selectedPrReviewTemplatePath(body)
         };
     }
 
@@ -2880,6 +3219,7 @@ class PullRequestService extends Base {
                     };
                 }
 
+
                 let reviewBudgetAudit;
                 let submissionBody = body;
 
@@ -2946,6 +3286,25 @@ class PullRequestService extends Base {
 
                         reviewBudgetAudit = budgetValidation.audit;
                         submissionBody    = budgetValidation.body
+                    }
+                }
+
+                // Runs for EVERY state, and after the budget path — the only placement satisfying both
+                // constraints. Ahead of budget validation, a template complaint masked the budget's
+                // fail-closed refusals. Inside the REQUEST_CHANGES branch, where the fix for that first
+                // put it, it became unreachable for every state a valid Round 2 can use — the state
+                // matrix forbids REQUEST_CHANGES for a disposition, so the guard existed only in the
+                // one state its own rule excludes. @neo-gpt caught that one round after catching the
+                // defect it was fixing.
+                if (isRound2PrReview(body)) {
+                    const relationFailure = getRound2DispositionRelationFailure({
+                        body,
+                        reviews: pullRequest?.reviews?.nodes,
+                        state
+                    });
+
+                    if (relationFailure) {
+                        return relationFailure;
                     }
                 }
 
@@ -3235,5 +3594,7 @@ class PullRequestService extends Base {
 
 const PullRequestServiceSingleton = Neo.setupClass(PullRequestService);
 
-export {buildCheckoutPullRequest};
+// Named for the spec: the relation is a pure function of (body, prior reviews, state), so it is
+// worth driving directly rather than only through a stubbed GraphQL round-trip.
+export {buildCheckoutPullRequest, getRound2DispositionRelationFailure};
 export default PullRequestServiceSingleton;

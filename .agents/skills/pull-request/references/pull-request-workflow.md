@@ -265,13 +265,14 @@ When a review lands on your PR, verify the reviewer used the correct
 template before treating the review as substantively complete:
 - **Cycle 1**: review must follow `pr-review-template.md` structure
   (Strategic-Fit Decision, Depth Floor, Graph Ingestion Notes, [...])
-- **Cycle ≥2**: review must follow `pr-review-followup-template.md`
-  (compact delta-only shape)
+- **Cycle 2 (ordinary)**: `pr-review-round-2-template.md` — dispositions
+  Cycle-1 actions verbatim; mints no new checklist
+- **Cycle ≥2 exceptional** (D+S, repair re-entry):
+  `pr-review-followup-template.md`
 
-If the review uses a custom or simplified format, A2A the reviewer
-to redo via `/pr-review` per the skill payload. Substantive content
-+ wrong shape = template-adherence Required Action; do not signal merge-eligibility
-until shape is correct.
+Substantive content + wrong shape = template-adherence Required Action:
+A2A the reviewer to redo via `/pr-review`; do not signal merge-eligibility
+until the shape is correct.
 
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
