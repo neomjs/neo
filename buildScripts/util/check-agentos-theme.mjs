@@ -34,6 +34,11 @@ import {fileURLToPath} from 'url';
 const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
       repoRoot       = path.resolve(__dirname, '../..'),
       MODE_INVARIANT = new Set(['--fm-font-mono', '--fm-font-sans']),
+      // Per-surface, because the token NAMESPACE is part of what a surface is: agentos speaks `--fm-*`
+      // and the workstation speaks `--workstation-*` / `--agent-dock-*`. Hardcoding one prefix does not
+      // merely miss the other surface — it extracts ZERO tokens there and every parity check then passes
+      // over an empty map, which reads exactly like a clean surface. That vacuous green is why this is a
+      // parameter rather than a widened literal.
       FM_TOKEN_RE    = /^\s*(--fm-[a-z0-9-]+)\s*:\s*(.+?);\s*$/,
       // Color literals: hex + every CSS color function. Named CSS colors are ALSO raw values (policy:
       // module views consume tokens, never a color keyword); `transparent`/`currentColor` are
@@ -74,11 +79,60 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
           viewDir  : path.join(repoRoot, 'resources/scss/src/apps/agentos')
       };
 
-function extractFmTokens(file) {
+/**
+ * @summary Whether a token identical in BOTH skins nonetheless resolves to different values, because
+ * it delegates to referents that themselves differ per skin.
+ *
+ * Parity's subject is the resolved VALUE, and comparing the written expression is only a proxy for it.
+ * The proxy fails on aliases: `--agent-dock-preview-accept: var(--workstation-signal)` is byte-identical
+ * in both skins **precisely because** the token layer is working — the difference lives one hop down. On
+ * the workstation surface six of eight identical tokens are that shape, so the expression comparison
+ * reports six violations on correct code.
+ *
+ * Resolution walks every `--token` referenced anywhere in the value — which covers `var()`, nested
+ * `var()` fallbacks, and `color-mix(in srgb, var(--a) 38%, var(--b))` alike — and asks whether ANY of
+ * them differs between skins. One differing referent is enough: the composed result then differs too.
+ *
+ * The walk is depth-bounded and cycle-guarded rather than trusting the input, because a token graph is
+ * author-written and a self-referential pair would otherwise hang the guard rather than fail it.
+ *
+ * A literal with no referents resolves to itself, so this returns false and the parity failure stands —
+ * which is what keeps the rule from becoming a blanket escape for anything containing `var(`.
+ *
+ * @param {Object}              options
+ * @param {Map<String,String>}  options.dark  Dark-skin token map.
+ * @param {Map<String,String>}  options.light Light-skin token map.
+ * @param {String}              options.name  The token under test (cycle guard seed).
+ * @param {String}              options.value Its identical value in both skins.
+ * @returns {Boolean} True when some referent differs across skins.
+ */
+function resolvesDifferently({dark, light, name, value, seen = new Set([name]), depth = 0}) {
+    if (depth > 8) return false;
+
+    for (const [, referent] of String(value).matchAll(/var\(\s*(--[\w-]+)|(?:^|[\s,(])(--[\w-]+)/g)) {
+        if (!referent || seen.has(referent)) continue;
+
+        const darkReferent  = dark.get(referent),
+              lightReferent = light.get(referent);
+
+        // Unknown to both skins: defined elsewhere (a shared base layer), so it cannot be the source of
+        // a per-skin difference and is not evidence either way.
+        if (darkReferent === undefined && lightReferent === undefined) continue;
+        if (darkReferent !== lightReferent) return true;
+
+        seen.add(referent);
+
+        if (resolvesDifferently({dark, light, name, value: darkReferent, seen, depth: depth + 1})) return true;
+    }
+
+    return false
+}
+
+function extractFmTokens(file, tokenPattern = FM_TOKEN_RE) {
     const tokens = new Map();
 
     for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-        const match = line.match(FM_TOKEN_RE);
+        const match = line.match(tokenPattern);
         if (match) tokens.set(match[1], match[2].trim());
     }
 
@@ -122,26 +176,32 @@ function stripVarCalls(text) {
  * @param {String} [paths.darkPath]  dark agentos Viewport skin
  * @param {String} [paths.lightPath] light agentos Viewport skin
  * @param {String} [paths.viewDir]   module-view SCSS root
+ * @param {Set}    [paths.modeInvariant]  tokens exempt from parity by contract (fonts), per surface
+ * @param {RegExp} [paths.tokenPattern] per-surface token namespace; a wrong one extracts nothing and every
+ *                                      parity check then passes over an empty map
  * @returns {String[]} failure messages (empty array = clean)
  */
 export function collectAgentosThemeFailures({
     darkPath         = DEFAULT_PATHS.darkPath,
     lightPath        = DEFAULT_PATHS.lightPath,
     viewDir          = DEFAULT_PATHS.viewDir,
-    contractedTokens = CONTRACTED_FM_TOKENS
+    contractedTokens = CONTRACTED_FM_TOKENS,
+    modeInvariant    = MODE_INVARIANT,
+    tokenPattern     = FM_TOKEN_RE
 } = {}) {
     const failures                 = [],
           consumedFmTokens         = new Set(),
           componentDefinedFmTokens = new Set(),
-          dark                     = extractFmTokens(darkPath),
-          light                    = extractFmTokens(lightPath);
+          dark                     = extractFmTokens(darkPath,  tokenPattern),
+          light                    = extractFmTokens(lightPath, tokenPattern);
 
     // check 1 — skin parity
     for (const [name, darkValue] of dark) {
         if (!light.has(name)) {
             failures.push(`[parity] ${name} present in dark skin, missing in light skin`);
-        } else if (!MODE_INVARIANT.has(name) && light.get(name) === darkValue) {
-            failures.push(`[parity] ${name} is byte-identical dark↔light (${darkValue}) — the light FM cockpit still carries the dark value`);
+        } else if (!modeInvariant.has(name) && light.get(name) === darkValue
+                && !resolvesDifferently({dark, light, name, value: darkValue})) {
+            failures.push(`[parity] ${name} is byte-identical dark↔light (${darkValue}) and resolves to the same value in both skins — the light skin still carries the dark value`);
         }
     }
     for (const name of light.keys()) {
