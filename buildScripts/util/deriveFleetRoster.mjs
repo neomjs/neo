@@ -1,6 +1,7 @@
-import fs           from 'node:fs';
-import path         from 'node:path';
-import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
+import fs                      from 'node:fs';
+import path                    from 'node:path';
+import {FLEET_COCKPIT_SOURCES} from '../../apps/agentos/config/cockpitSources.mjs';
+import {IDENTITIES}            from '../../ai/graph/identityRoots.mjs';
 
 /**
  * @summary Derives the AgentOS cockpit roster seed (`apps/agentos/resources/data/fleetRoster.json`)
@@ -17,6 +18,13 @@ import {IDENTITIES} from '../../ai/graph/identityRoots.mjs';
  *   `active → 'ok'` and any known non-active status → `'off'`, and stamps the provenance per row
  *   (`sources.roster`) plus the `_meta` block, so "this is a registry snapshot" is visible in the
  *   data itself. Live session state is the wired roster path's job (`FleetCockpit.loadRoster`).
+ *   The per-row stamp is a DECLARED-CALM source fact in the cockpit's source-health contract
+ *   (`apps/agentos/view/fleet/sourceHealth.mjs`): it names the live producer as expected-absent
+ *   (`not-wired` / `none`) and carries the static provenance in `reason`. A bare provenance string
+ *   is a present-but-malformed fact there — `invalid`, one red alarm per card on the offline
+ *   first-run; declared absence is the one present shape allowed to be calm. The producer literal
+ *   rides the Body-side vocabulary twin, which `lint-fleet-vocabulary-parity` binds to the Brain
+ *   authority, so the emitted literal tracks the contract it must satisfy.
  *
  * **Honesty invariants (the model's own contract, `apps/agentos/model/FleetAgent.mjs`):**
  * - `openLaneCount` stays `null` — the model renders NO badge for null; a derived count would be
@@ -92,7 +100,15 @@ function toRosterRow(entry) {
         laneLine           : props.statusReason ?? null,
         participationStatus: status,
         openLaneCount      : null,
-        sources            : {roster: 'identityRoots-snapshot'}
+        // declared expected-absence: the live roster producer is not wired for a static seed row,
+        // and the contract's one calm present shape keeps the provenance in `reason` (a bare
+        // string here normalizes as `invalid` — rejected evidence, one alarm per card)
+        sources            : {roster: {
+            source    : FLEET_COCKPIT_SOURCES.roster,
+            state     : 'not-wired',
+            confidence: 'none',
+            reason    : 'static roster (identityRoots snapshot) · unobserved'
+        }}
     };
 }
 

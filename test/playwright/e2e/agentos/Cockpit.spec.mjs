@@ -37,4 +37,22 @@ test.describe('AgentOS harness shell — left-rail keeper-view nav', () => {
         await page.locator('.agent-shell').getByText('Accounts', {exact: true}).click();
         await expect(page.locator('.agent-definition-form')).toBeVisible({timeout: 30000})
     });
+
+    test('offline first-run renders the calm static-roster view — zero per-card source alarms (#17210)', async ({page}) => {
+        await page.goto('/apps/agentos/index.html');
+
+        await expect(page.locator('.fm-fleet-cockpit')).toBeVisible({timeout: 60000});
+        await expect(page.locator('.fm-agent-card').first()).toBeVisible({timeout: 60000});
+
+        // the topology gate: this test's acceptance surface is the OFFLINE first-run — the sample
+        // badge must be up (no fleet server reachable), else the run is measuring the wrong topology
+        await expect(page.locator('.fm-fleet-head')).toHaveClass(/is-sample/, {timeout: 30000});
+        await expect(page.locator('.fm-fleet-stale')).toHaveText('static roster');
+
+        // the retired defect: one red "Roster not nominal · malformed source fact" strip per card.
+        // Declared absence earns zero pixels — every strip stays hidden; the badge + banner announce
+        // the condition once.
+        expect(await page.locator('.fm-agent-card').count()).toBeGreaterThan(0);
+        await expect(page.locator('.fm-card-strip:visible')).toHaveCount(0)
+    });
 });
