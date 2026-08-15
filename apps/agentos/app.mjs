@@ -189,8 +189,7 @@ export const onStart = () => {
     }
 
     Neo.app({
-        appThemeFolder: 'agentos',
-        mainView      : Viewport,
-        name          : 'AgentOS'
+        mainView: Viewport,
+        name    : 'AgentOS'
     })
 };

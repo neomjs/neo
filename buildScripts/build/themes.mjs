@@ -202,29 +202,6 @@ if (programOpts.info) {
         }
 
         /**
-         * @param {String} filePath
-         * @returns {Object}
-         */
-        function getThemeMap(filePath) {
-            let themeMapJson = path.resolve(cwd, filePath),
-                themeMap;
-
-            if (fs.existsSync(themeMapJson)) {
-                themeMap = requireJson(themeMapJson);
-            } else {
-                themeMapJson = path.resolve(neoPath, filePath);
-
-                if (fs.existsSync(themeMapJson)) {
-                    themeMap = requireJson(themeMapJson);
-                } else {
-                    themeMap = {};
-                }
-            }
-
-            return themeMap;
-        }
-
-        /**
          * @param {Array|String} names The class name string containing dots or an Array of the string parts
          * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
          * @param {Object} [scope] Set a different starting point as globalThis
@@ -335,7 +312,14 @@ if (programOpts.info) {
             }
         }
 
-        themeMap = getThemeMap(themeMapFile);
+        // Full builds REGENERATE the map from the effective SCSS tree: seeding from the previous
+        // artifact made deletions/renames permanent (insertion is create-only, so no key ever left).
+        // The only legitimate seed is the ENGINE's map in a workspace build (cwd !== neoPath), which
+        // keeps engine components resolvable (guide §8); a workspace's own previous output fossilizes
+        // identically and is not a seed either.
+        themeMap = cwd !== neoPath && fs.existsSync(path.resolve(neoPath, themeMapFile))
+            ? requireJson(path.resolve(neoPath, themeMapFile))
+            : {};
 
         // dist/development
         if (env === 'all' || env === 'dev') {

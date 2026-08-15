@@ -27,9 +27,8 @@ export const onStart = () => {
         });
 
     return Neo.app({
-        appThemeFolder: 'workstation',
-        mainView      : {module: Viewport, theme},
-        name          : 'Workstation',
+        mainView: {module: Viewport, theme},
+        name    : 'Workstation',
         windowId
     })
 };
