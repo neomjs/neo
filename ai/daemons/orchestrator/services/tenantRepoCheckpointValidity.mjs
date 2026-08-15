@@ -111,8 +111,9 @@ export function normalizeTenantRepoCheckpointState(value) {
             // A bare SHA also predates the outstanding-work observable. Null means "never measured",
             // which is the honest reading — not a corpus with nothing left to do.
             corpusOutstanding  : null,
-            // And the undeliverable census: null is "never observed", never "zero fenced".
-            undeliverableChunks: null
+            // And the fence censuses: null is "never observed", never "zero fenced".
+            undeliverableChunks: null,
+            contentPoisonChunks: null
         };
     }
 
@@ -147,24 +148,31 @@ export function normalizeTenantRepoCheckpointState(value) {
         lastErrorAt        : normalizeNonNegativeNumber(value.lastErrorAt) || null,
         embeddingRecovery  : normalizeEmbeddingRecovery(value.embeddingRecovery),
         corpusOutstanding  : normalizeCorpusOutstanding(value.corpusOutstanding),
-        undeliverableChunks: normalizeUndeliverableChunks(value.undeliverableChunks)
+        // Two fence families, two censuses, one reader. A record written before the content-poison
+        // census existed normalizes to null — "never observed", which is exactly what it is.
+        undeliverableChunks: normalizeFenceCensus(value.undeliverableChunks),
+        contentPoisonChunks: normalizeFenceCensus(value.contentPoisonChunks)
     };
 }
 
 /**
- * @summary Normalizes one persisted undeliverable census without manufacturing an observation.
+ * @summary Normalizes one persisted fence census without manufacturing an observation.
  *
- * The census carries "N chunks are fenced as undeliverable at the current geometry, these are (up
- * to a cap) their ids". Same reader discipline as `normalizeCorpusOutstanding`: a record that does
- * not cohere degrades WHOLE to `null` (unobserved), never to a smaller census — repairing a torn
- * row into a count would assert an observation nobody made. Ids are tenant-aware chunk hashes and
- * pass the same bounded gate the writer applied; the id list may be shorter than the count (the
- * writer caps enumeration) but never longer, and never contains a non-hash or a duplicate.
+ * The census carries "N chunks are fenced, these are (up to a cap) their ids". It is family-neutral
+ * by construction and is the reader for BOTH persisted censuses — undeliverable-at-geometry and
+ * proven-content-poison. The families stay separate FIELDS (a merged count would tell an operator to
+ * fix a file whose only fault is the plane's ceiling) but share this one shape and this one reader.
+ *
+ * Same reader discipline as `normalizeCorpusOutstanding`: a record that does not cohere degrades
+ * WHOLE to `null` (unobserved), never to a smaller census — repairing a torn row into a count would
+ * assert an observation nobody made. Ids are tenant-aware chunk hashes and pass the same bounded gate
+ * the writer applied; the id list may be shorter than the count (the writer caps enumeration) but
+ * never longer, and never contains a non-hash or a duplicate.
  *
  * @param {*} value Candidate persisted census.
  * @returns {{count: Number, ids: String[]}|null}
  */
-function normalizeUndeliverableChunks(value) {
+function normalizeFenceCensus(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return null;
     }

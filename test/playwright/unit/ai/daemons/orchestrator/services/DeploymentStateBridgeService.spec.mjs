@@ -1706,6 +1706,49 @@ test.describe('Neo.ai.daemons.services.DeploymentStateBridgeService', () => {
 
         expect(tornCensusSnap.repos[0].undeliverableChunks).toBeNull();
         tornCensus.destroy();
+
+        // The content-poison census is a SECOND field on the same chain, and it must be asserted on
+        // this surface rather than inferred from the sibling above: the two are separate projection
+        // lines, so a missing one fails here and nowhere else. Two fields rather than one total
+        // because they prescribe OPPOSITE operator actions — raise the plane's ceiling for an
+        // undeliverable chunk, fix the file for a proven poison — and a merged count sends the
+        // operator at the wrong one.
+        const
+            poisonId   = 'a'.repeat(64),
+            bothFenced = makeService({
+                ...baseCheckpoint,
+                undeliverableChunks: {count: 3, ids: [monsterId]},
+                contentPoisonChunks: {count: 2, ids: [poisonId]}
+            }),
+            bothSnap    = await bothFenced.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        // Both project, and each keeps its OWN ids — a swap or a merge fails here.
+        expect(bothSnap.repos[0].undeliverableChunks).toEqual({count: 3, ids: [monsterId]});
+        expect(bothSnap.repos[0].contentPoisonChunks).toEqual({count: 2, ids: [poisonId]});
+        bothFenced.destroy();
+
+        // A record written before the content-poison census existed reads as UNOBSERVED, never as a
+        // zero census — the shape of every record persisted before that field existed, which today
+        // is all of them.
+        const legacyRecord = makeService({...baseCheckpoint, undeliverableChunks: {count: 1, ids: [monsterId]}}),
+              legacySnap   = await legacyRecord.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(legacySnap.repos[0].contentPoisonChunks).toBeNull();
+        expect(legacySnap.repos[0].undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+        legacyRecord.destroy();
+
+        // …and the torn-record discipline is per FIELD: one census degrading whole must not erase the
+        // other's observation, or a half-written row would take a valid census down with it.
+        const tornPoison = makeService({
+                  ...baseCheckpoint,
+                  undeliverableChunks: {count: 2, ids: [monsterId]},
+                  contentPoisonChunks: {count: 1, ids: ['not-a-hash']}
+              }),
+              tornPoisonSnap = await tornPoison.collectTenantRepoSyncSnapshot({observedAt: OBSERVED_AT});
+
+        expect(tornPoisonSnap.repos[0].contentPoisonChunks).toBeNull();
+        expect(tornPoisonSnap.repos[0].undeliverableChunks).toEqual({count: 2, ids: [monsterId]});
+        tornPoison.destroy();
     });
 
     test('collectTenantRepoSyncSnapshot projects mixed access readiness through a deep allowlist', async () => {

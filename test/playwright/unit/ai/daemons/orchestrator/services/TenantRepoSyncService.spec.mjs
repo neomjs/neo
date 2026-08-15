@@ -418,6 +418,254 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(mixedRow.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
     });
 
+    test('a content-poison-only summary COMPLETES with its own census, and never arms recovery (#17139)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            poisonSlug       = 'org/poison-only',
+            bothSlug         = 'org/both-families',
+            poisonId         = 'a'.repeat(64),
+            monsterId        = 'b'.repeat(64),
+            startedAt        = Date.now(),
+            // The defining property of a content-poison row: it carries the ORDINARY embed-domain code
+            // it failed with. `KB_VECTOR_EMBED_TIMEOUT` is a fence row here and a LIVE failure in the
+            // next test — the code cannot tell them apart, which is the whole reason the disposition
+            // is read. It is also an `isEmbeddingRecoverySourceCode` match, so if this row ever
+            // reached cause selection it would arm a canary whose success cannot re-offer the chunk.
+            poisonRow        = {
+                code   : 'KB_VECTOR_EMBED_TIMEOUT',
+                message: 'A proven embedding poison remains fenced pending changed content, generation, or explicit replay.',
+                details: {
+                    chunkId    : poisonId,
+                    reasonCode : 'KB_VECTOR_EMBED_TIMEOUT',
+                    disposition: 'proven-content-poison'
+                }
+            },
+            geometryRow      = {
+                code   : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                message: 'A chunk remains fenced as undeliverable at the current embedding geometry.',
+                details: {
+                    chunkId    : monsterId,
+                    reasonCode : 'KB_VECTOR_EMBED_UNDELIVERABLE_AT_GEOMETRY',
+                    disposition: 'undeliverable-at-geometry'
+                }
+            };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: poisonSlug});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: bothSlug});
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: Object.fromEntries([poisonSlug, bothSlug].map(repoSlug => [`t1/${repoSlug}`, {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : startedAt - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }]))
+        });
+
+        const result = await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [poisonSlug, bothSlug].map(repoSlug => ({
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: `https://github.com/neomjs/${repoSlug.split('/')[1]}.git`
+            }))},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                summaryFactory(payload) {
+                    // One repo fenced by content poison alone; one fenced by BOTH families at once.
+                    // Both are fence-only, so both must complete — a repo does not deserve perpetual
+                    // deferral for carrying two kinds of durable fence instead of one.
+                    return payload.repoSlug === poisonSlug
+                        ? {ingested: 2, deleted: 0, embeddingsGenerated: 2, errors: [{...poisonRow}]}
+                        : {ingested: 3, deleted: 0, embeddingsGenerated: 3, errors: [{...poisonRow}, {...geometryRow}]}
+                }
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 60_000,
+            seedBootstrap    : false
+        });
+
+        const persisted   = (await fs.readJson(revisionsFile)).revisions;
+        const poisonState = persisted[`t1/${poisonSlug}`];
+        const bothState   = persisted[`t1/${bothSlug}`];
+
+        // Content-poison-only: COMPLETE. A classifier that completed only on the undeliverable code
+        // left this repo deferring on every sweep forever, re-materializing and re-parsing the same
+        // delta for a state no later sweep can change.
+        expect(poisonState.lastIngestedRev).toBe(`sha-head-${poisonSlug}`);
+        expect(poisonState.consecutiveFailures).toBe(0);
+        expect(poisonState.lastSourceErrorCode).toBeNull();
+
+        // The two families are SEPARATE censuses, never one total: a merged count would tell the
+        // operator to fix a file whose only fault is the plane's ceiling, or vice versa.
+        expect(poisonState.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(poisonState.undeliverableChunks).toBeNull();
+
+        // No canary. `KB_VECTOR_EMBED_TIMEOUT` IS a recovery-source code, so this assertion fails the
+        // moment a fence row reaches cause selection — the second-order defect, armed by construction.
+        expect(poisonState.embeddingRecovery ?? null).toBeNull();
+
+        // Both families fenced on one repo: still complete, each census populated independently.
+        expect(bothState.lastIngestedRev).toBe(`sha-head-${bothSlug}`);
+        expect(bothState.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(bothState.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+        expect(bothState.embeddingRecovery ?? null).toBeNull();
+
+        // The strict checkpoint reader admits both censuses it just round-tripped — completion is
+        // worthless if the only surviving signal cannot be read back.
+        const readBack = normalizeTenantRepoCheckpointState(bothState);
+
+        expect(readBack.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(readBack.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+
+        // Run-level projection carries both.
+        const poisonRowOut = result.details.repos.find(repo => repo.repoSlug === poisonSlug);
+        const bothRowOut   = result.details.repos.find(repo => repo.repoSlug === bothSlug);
+
+        expect(poisonRowOut.status).toBe('active');
+        expect(poisonRowOut.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(bothRowOut.status).toBe('active');
+        expect(bothRowOut.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+        expect(bothRowOut.undeliverableChunks).toEqual({count: 1, ids: [monsterId]});
+    });
+
+    test('a live row sharing a fence code still defers, and the retained cause is the LIVE one (#17139)', async () => {
+        const
+            taskStateService = createInMemoryTaskStateService(),
+            repoSlug         = 'org/live-beside-fence',
+            poisonId         = 'c'.repeat(64),
+            startedAt        = Date.now();
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug});
+        await TenantRepoSyncService.writePersistedRevisions({
+            filePath : revisionsFile,
+            revisions: {[`t1/${repoSlug}`]: {
+                lastIngestedRev                   : null,
+                lastRunAttemptAt                  : startedAt - 120_000,
+                consecutiveFailures               : 0,
+                ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+            }}
+        });
+
+        await TenantRepoSyncService.runTask({
+            reason           : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [{
+                tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/live-beside-fence.git'
+            }]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({
+                // The two rows carry DIFFERENT codes on purpose, and the fence is FIRST. Both match
+                // `EMBEDDING_RECOVERY_SOURCE_CODE_PATTERN`, and cause selection is a `.find()` over
+                // the code list in row order — so if the fence ever leaked back into `deferredCodes`,
+                // `find` would return the FENCE code and every assertion below would fail.
+                //
+                // An earlier version of this arm gave both rows the same code. That could not fail:
+                // the retained value was identical whichever row supplied it, so it proved deferral
+                // and nothing about selection. A test that cannot fail on the defect it names is not
+                // coverage, however carefully its comment describes the intent.
+                summaryFactory: () => ({ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [
+                    {
+                        code   : 'KB_VECTOR_EMBED_TIMEOUT',
+                        message: 'A proven embedding poison remains fenced.',
+                        details: {chunkId: poisonId, reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: 'proven-content-poison'}
+                    },
+                    {code: 'KB_VECTOR_EMBED_PROVIDER_TIMEOUT', message: 'one live provider-timeout attempt ended'}
+                ]})
+            }),
+            revisionsFilePath: revisionsFile,
+            globalCadenceMs  : 60_000,
+            jitterRatio      : 0,
+            backoffCapMs     : 60_000,
+            seedBootstrap    : false
+        });
+
+        const state = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+
+        // Live work present ⇒ the checkpoint holds, exactly as before.
+        expect(state.lastIngestedRev).toBeNull();
+
+        // The retained cause is the LIVE row's code, and it is NOT the fence's — the two assertions
+        // together are what make this arm discriminating rather than merely green.
+        expect(state.lastSourceErrorCode).toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
+        expect(state.lastSourceErrorCode).not.toBe('KB_VECTOR_EMBED_TIMEOUT');
+
+        // The canary-arming input is the same selection, so it carries the live cause too. This is the
+        // assertion the second-order defect actually lands on: an episode armed off a fence row probes
+        // for a health change that cannot re-offer the fenced chunk.
+        expect(state.embeddingRecovery?.causeCode).toBe('KB_VECTOR_EMBED_PROVIDER_TIMEOUT');
+
+        // The fence is still visible through the deferral.
+        expect(state.contentPoisonChunks).toEqual({count: 1, ids: [poisonId]});
+    });
+
+    test('a row failing ANY fence-gate clause is treated as LIVE work and keeps deferring (#17139)', async () => {
+        const
+            chunkId   = 'f'.repeat(64),
+            startedAt = Date.now(),
+            // Each variant breaks exactly one clause of the gate. `details` is unvalidated free shape,
+            // so every one of these is a row some other writer — or a hand-edited record — could
+            // produce, and each must fail toward LIVE. Completing on any of them would advance a
+            // checkpoint over work that never landed, and leave a census nobody can enumerate.
+            variants  = {
+                'unknown vocabulary'    : {chunkId, reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: 'probably-fine'},
+                'missing disposition'   : {chunkId, reasonCode: 'KB_VECTOR_EMBED_TIMEOUT'},
+                'non-string disposition': {chunkId, reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: true},
+                'incoherent reasonCode' : {chunkId, reasonCode: 'KB_VECTOR_EMBED_ABORTED', disposition: 'proven-content-poison'},
+                'missing reasonCode'    : {chunkId, disposition: 'proven-content-poison'},
+                'malformed chunkId'     : {chunkId: 'not-a-hash', reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: 'proven-content-poison'},
+                'missing chunkId'       : {reasonCode: 'KB_VECTOR_EMBED_TIMEOUT', disposition: 'proven-content-poison'}
+            };
+
+        for (const [label, details] of Object.entries(variants)) {
+            const
+                taskStateService = createInMemoryTaskStateService(),
+                repoSlug         = `org/gate-${label.replace(/\W+/gu, '-')}`;
+
+            await provisionMirrorDir({tenantId: 't1', repoSlug});
+            await TenantRepoSyncService.writePersistedRevisions({
+                filePath : revisionsFile,
+                revisions: {[`t1/${repoSlug}`]: {
+                    lastIngestedRev                   : null,
+                    lastRunAttemptAt                  : startedAt - 120_000,
+                    consecutiveFailures               : 0,
+                    ingestContractVersion             : TENANT_REPO_INGEST_CONTRACT_VERSION,
+                    lastAttemptedIngestContractVersion: TENANT_REPO_INGEST_CONTRACT_VERSION
+                }}
+            });
+
+            await TenantRepoSyncService.runTask({
+                reason           : 'periodic-sweep:60000',
+                taskStateService,
+                tenantReposConfig: {tenantRepos: [{
+                    tenantId: 't1', repoSlug, mirrorRoot, cloneUrl: 'https://github.com/neomjs/gate.git'
+                }]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService({
+                    summaryFactory: () => ({ingested: 1, deleted: 0, embeddingsGenerated: 1, errors: [
+                        {code: 'KB_VECTOR_EMBED_TIMEOUT', message: 'a row claiming to be a fence', details}
+                    ]})
+                }),
+                revisionsFilePath: revisionsFile,
+                globalCadenceMs  : 60_000,
+                jitterRatio      : 0,
+                backoffCapMs     : 60_000,
+                seedBootstrap    : false
+            });
+
+            const state = (await fs.readJson(revisionsFile)).revisions[`t1/${repoSlug}`];
+
+            expect(state.lastIngestedRev, `${label}: checkpoint must hold`).toBeNull();
+            expect(state.contentPoisonChunks ?? null, `${label}: must not enter the census`).toBeNull();
+        }
+    });
+
     test('the undeliverable census normalizer degrades torn records WHOLE (#17129)', () => {
         const monsterId = 'e'.repeat(64);
         const base      = {
@@ -445,6 +693,27 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(censusOf({count: 2, ids: [monsterId, monsterId]}), 'duplicate id').toBeNull();
         expect(censusOf({count: '1', ids: [monsterId]}),    'stringly count').toBeNull();
         expect(censusOf([monsterId]),                       'array shape').toBeNull();
+
+        // The content-poison census is the SAME reader over a second field, so it inherits the whole
+        // discipline rather than re-deriving it — including a record written before the field existed,
+        // which reads as "never observed" and not as "nothing fenced".
+        const poisonCensusOf = contentPoisonChunks =>
+            normalizeTenantRepoCheckpointState({...base, contentPoisonChunks}).contentPoisonChunks;
+
+        expect(poisonCensusOf({count: 3, ids: [monsterId]})).toEqual({count: 3, ids: [monsterId]});
+        expect(poisonCensusOf(undefined),                   'field absent on a pre-#17139 record').toBeNull();
+        expect(poisonCensusOf({count: 1, ids: ['not-a-hash']}), 'non-hash id').toBeNull();
+        expect(poisonCensusOf({count: 0, ids: []}),         'zero-count census').toBeNull();
+
+        // The two fields are independent: one torn census must not erase the other's observation.
+        const mixed = normalizeTenantRepoCheckpointState({
+            ...base,
+            undeliverableChunks: {count: 2, ids: [monsterId]},
+            contentPoisonChunks: {count: 1, ids: ['not-a-hash']}
+        });
+
+        expect(mixed.undeliverableChunks).toEqual({count: 2, ids: [monsterId]});
+        expect(mixed.contentPoisonChunks).toBeNull();
     });
 
     test('embedding recovery releases only the affected repo once, then rearms after a failed retry (#16692)', async () => {
