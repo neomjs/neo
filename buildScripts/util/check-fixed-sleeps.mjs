@@ -100,8 +100,8 @@ const
  * @summary Yields every `CallExpression` in an ESTree tree.
  *
  * A generic descent rather than a dependency: the walk needs one node type, and `acorn-walk` would be
- * a second package to keep in step with the parser for that. `loc` is skipped because it is metadata
- * with a `start` object that the descent would otherwise recurse into for nothing.
+ * a second package to keep in step with the parser for that. The tree carries no `loc` metadata to
+ * skip — locations are not requested, and the line is derived from `node.start` where it is needed.
  * @param {Object} node Any ESTree node, array of nodes, or leaf.
  * @yields {Object} Each `CallExpression`, in source order.
  */
@@ -116,7 +116,7 @@ function* callExpressions(node) {
     if (node.type === 'CallExpression') yield node;
 
     for (const key of Object.keys(node)) {
-        if (key !== 'loc') yield* callExpressions(node[key])
+        yield* callExpressions(node[key])
     }
 }
 
@@ -200,13 +200,35 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             source = fs.readFileSync(abs, 'utf8'),
             lines  = source.split('\n');
 
+        // `fixedWaitMs` requires an Identifier callee named `setTimeout`, so the literal token must
+        // appear in source: no token, no call, nothing a parse could find. 927 of 1,036 unit specs
+        // contain no `setTimeout` at all, and parsing them to learn that cost 7x the pre-AST guard's
+        // wall clock and got this process SIGKILLed under lint-staged's concurrent task set.
+        //
+        // This is a substring test in a guard that moved to an AST precisely because substring tests
+        // are unsound — so note what it is and is not. It never decides that a wait is ABSENT; it
+        // decides that a file cannot contain the token the matcher keys on, which is the one question
+        // a substring answers soundly. Widening `fixedWaitMs` beyond a `setTimeout` Identifier callee
+        // invalidates this filter, and the equivalence spec is what will say so.
+        //
+        // It DOES narrow one thing, and the narrowing is deliberate: a file that fails to parse is no
+        // longer reported unless it carries the token, because it is no longer parsed. The verdict is
+        // unaffected — no token, no call to miss — but this guard used to surface broken files as a
+        // side effect and now does so only for files it would actually have inspected. "Does every
+        // file parse" is `check-parse.mjs`, which runs in the same pre-commit set and owns it.
+        if (!source.includes('setTimeout')) continue;
+
         let tree;
 
         // A file the guard cannot read is reported, never skipped. Skipping is the exact failure this
         // guard exists to prevent — an unscanned file is indistinguishable from a clean one, and the
         // difference only surfaces as a wait nobody accounted for.
+        //
+        // `locations` is deliberately NOT requested: it attaches a `loc` object to every node in the
+        // tree, and the guard needs a line number only for the few nodes that match. Deriving it from
+        // `node.start` at match time is the same number for a third less memory.
         try {
-            tree = parse(source, {ecmaVersion: 'latest', locations: true, sourceType: 'module'})
+            tree = parse(source, {ecmaVersion: 'latest', sourceType: 'module'})
         } catch (cause) {
             throw new Error(`check-fixed-sleeps: cannot parse ${path.relative(rootDir, abs)}`, {cause})
         }
@@ -225,7 +247,12 @@ export function findUnjustifiedSleeps({rootDir = ROOT_DIR, files} = {}) {
             if (!Number.isFinite(ms) || ms < THRESHOLD_MS) continue;
 
             const
-                index   = node.loc.start.line - 1,
+                // Derived from the byte offset rather than read off `node.loc`, because requesting
+                // locations inflates EVERY node to spare this one lookup. Same number: the count of
+                // newlines before the call is its zero-based line, which the equivalence spec pins
+                // against a match deep in a file — a wrong derivation would silently rekey the
+                // baseline, since `line` and `text` are what a grandfathered row is matched on.
+                index   = source.slice(0, node.start).split('\n').length - 1,
                 // The site's FIRST line keys the baseline, which is what keeps existing rows matching:
                 // for a single-line call this is the same string the line-based matcher produced.
                 text    = lines[index] ?? '',

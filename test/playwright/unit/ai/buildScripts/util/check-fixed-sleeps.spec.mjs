@@ -205,6 +205,67 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         }
     });
 
+    test('#17184: the token pre-filter narrows PARSING, never the verdict', async () => {
+        // The guard parses 1,036 unit specs to inspect the 109 that contain the token at all, which
+        // cost 7x the pre-AST wall clock and got the process SIGKILLed under lint-staged. Skipping a
+        // file with no `setTimeout` token is sound because the matcher requires an Identifier callee
+        // of that exact name — but a substring test inside a guard that moved to an AST *because*
+        // substring tests are unsound needs its boundary pinned, not assumed.
+        //
+        // The third fixture is the one that matters: it CONTAINS the token, so the filter admits it,
+        // and the AST then correctly finds nothing. That is the proof the filter is not deciding —
+        // if it ever were, this file would report a false positive.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-filter-')),
+            real   = path.join(dir, 'real.spec.mjs'),
+            absent = path.join(dir, 'absent.spec.mjs'),
+            quoted = path.join(dir, 'quoted.spec.mjs');
+
+        try {
+            fs.writeFileSync(real,   'await new Promise(resolve => setTimeout(resolve, 1000));\n', 'utf8');
+            fs.writeFileSync(absent, 'const value = 1000;\nexport default value;\n', 'utf8');
+            fs.writeFileSync(quoted, '// setTimeout(resolve, 1000) named in prose, never called\n'
+                + 'const doc = "setTimeout(resolve, 1000)";\nexport default doc;\n', 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [real, absent, quoted], rootDir: dir});
+
+            expect(sites.length, 'only the real call site counts').toBe(1);
+            expect(sites[0].file, 'and it is the file that actually calls it').toBe('real.spec.mjs');
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('#17184: the reported line is derived correctly deep inside a file', async () => {
+        // `locations` is no longer requested — it attaches a `loc` object to every node to spare one
+        // lookup — so the line comes from counting newlines before `node.start`. That derivation is a
+        // CORRECTNESS surface, not a performance detail: `line` and `text` are what a grandfathered
+        // baseline row is matched on, so an off-by-one would silently rekey every site at once and
+        // read as a wall of false staleness.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-line-')),
+            fixture = path.join(dir, 'deep.spec.mjs'),
+            padding = 400;
+
+        try {
+            fs.writeFileSync(fixture, [
+                ...Array.from({length: padding}, (_, i) => `// filler line ${i + 1}`),
+                'await new Promise(resolve => setTimeout(resolve, 1000));'
+            ].join('\n'), 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites.length).toBe(1);
+            expect(sites[0].line, 'one-based, and 400 filler lines precede it').toBe(padding + 1);
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
     test('an unparseable spec is reported, never skipped', async () => {
         // A guard that swallows a parse failure reports the same OK for "nothing to find" and "could
         // not look", and those differ by exactly the thing it exists to catch.
@@ -215,10 +276,38 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
             fixture = path.join(dir, 'broken.spec.mjs');
 
         try {
-            fs.writeFileSync(fixture, 'const = ;', 'utf8');
+            // The fixture must carry the token, and that is the whole point: the
+            // pre-filter skips token-free files BEFORE parsing, so a broken file with no `setTimeout`
+            // is no longer reported by this guard. That narrowing is deliberate and sound — no token
+            // means no `setTimeout` call to find, parseable or not, so the VERDICT is unaffected —
+            // but it is a real narrowing of what this guard surfaces, and `check-parse.mjs` is the
+            // pre-commit task that owns "does every file parse". This spec pins the case that still
+            // matters: a file the guard would actually have inspected must never fail open.
+            fs.writeFileSync(fixture, 'const = ;\nsetTimeout(resolve, 1000);', 'utf8');
 
             expect(() => findUnjustifiedSleeps({files: [fixture], rootDir: dir}))
                 .toThrow(/cannot parse/)
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('#17184: a token-free file is skipped unparsed — the narrowing, stated', async () => {
+        // The mirror of the case above, present so the narrowing is a documented decision rather than
+        // a behaviour someone rediscovers. If this ever needs to throw again, the pre-filter is what
+        // has to go, and its whole value is the parsing it avoids.
+        const {findUnjustifiedSleeps} = await import(modulePath);
+
+        const
+            dir     = fs.mkdtempSync(path.join(os.tmpdir(), 'check-fixed-sleeps-skip-')),
+            fixture = path.join(dir, 'broken-but-irrelevant.spec.mjs');
+
+        try {
+            fs.writeFileSync(fixture, 'const = ;', 'utf8');
+
+            const {sites} = findUnjustifiedSleeps({files: [fixture], rootDir: dir});
+
+            expect(sites, 'unparseable, but it cannot contain the call this guard looks for').toEqual([])
         } finally {
             fs.rmSync(dir, {force: true, recursive: true})
         }
