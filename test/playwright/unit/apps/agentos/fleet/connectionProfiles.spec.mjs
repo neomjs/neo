@@ -228,4 +228,17 @@ test.describe('connectionProfiles — the pre-boot ingress retire helper', () =>
         expect(retireBearerIngressSlot({})).toBe(false);
         expect(retireBearerIngressSlot(undefined)).toBe(false)
     });
+
+    test('the CAS guard: only the exact verified value retires; a rotated value survives', () => {
+        const rotated = 'B'.repeat(43),
+              target  = {AgentOS: {fleet: {bearerToken: rotated}}};
+
+        expect(retireBearerIngressSlot(target, {expected: testBearer}), 'a mismatched slot is a different credential').toBe(false);
+        expect(target.AgentOS.fleet.bearerToken).toBe(rotated);
+
+        expect(retireBearerIngressSlot(target, {expected: rotated})).toBe(true);
+        expect('bearerToken' in target.AgentOS.fleet).toBe(false);
+
+        expect(retireBearerIngressSlot(target, {expected: rotated}), 'an empty slot retires nothing under the guard').toBe(false)
+    });
 });

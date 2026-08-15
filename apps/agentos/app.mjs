@@ -1,8 +1,8 @@
-import Viewport             from './view/Viewport.mjs';
+import Viewport                                           from './view/Viewport.mjs';
 import {createFleetProfile, retireBearerIngressSlot}      from './fleet/connectionProfiles.mjs';
 import {FLEET_LOCAL_TRANSPORT_ERRORS, installFleetBridge} from './fleet/installFleetBridge.mjs';
 import {redeemFleetBearerHandshake}                       from './fleet/redeemFleetBearerHandshake.mjs';
-import WindowManager        from '../../src/manager/Window.mjs';
+import WindowManager                                      from '../../src/manager/Window.mjs';
 
 /**
  * @summary Resolve a currently connected AgentOS window for App-Worker→main RMA. `onStart()` runs
@@ -66,26 +66,46 @@ if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !global
 }
 
 /**
- * @summary Establish session-only Fleet custody for one boot or healing pass: derive the connection
- * profile from the endpoint, install the bridge — the bearer moves into transport closures, the
- * establish phase — and on a live-bearer install retire the launcher pre-boot slot, the retire
- * phase. A throwing install leaves the slot untouched, which IS the rollback: the prior ingress
- * state survives for the next producer or retry. Exported for unit specs; the injectable
- * `installImpl`/`target` keep the runtime global and the network out of the test process.
+ * @summary Establish session-only Fleet custody for one boot or healing pass, with the full
+ * migration lifecycle made real:
+ *
+ * - **read-old / no-downgrade:** a bearer-less pass NEVER replaces an existing bridge — `onStart()`
+ *   runs for every joining SharedWorker window, and after the first join retires the launcher slot
+ *   a later join would otherwise overwrite the live capability with a fail-closed one.
+ * - **establish:** the install moves the bearer into transport closures (synchronous — the bridge
+ *   is published before this function returns).
+ * - **verify:** an authenticated `resolveViewerIdentity` round-trip through the NEW bridge — a
+ *   constructed closure is not verification; only the server's stamped answer is.
+ * - **retire:** the launcher pre-boot slot is cleared only after verify succeeds, and only while it
+ *   still holds the exact established credential (the CAS guard) — a rejected bearer, an
+ *   unreachable endpoint, and a value rotated in during verification all preserve the ingress,
+ *   which IS the rollback truth. A throwing install preserves it the same way.
+ *
  * @param {Object}   opts
  * @param {String}   opts.fleetUrl                         Raw dial endpoint; identity derives from its canonical form.
  * @param {String}   [opts.bearerToken=null]               Redeemed or launcher-placed bearer; `null` boots fail-closed.
  * @param {Function} [opts.installImpl=installFleetBridge] Injectable install for tests.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
- * @returns {Object} the installed registry bridge.
+ * @returns {Object} `{bridge, custodySettled}` — the installed (or preserved) registry bridge, and
+ *     a never-rejecting promise resolving `true` exactly when the ingress slot was verified-retired.
  */
 export function establishFleetSessionCustody({fleetUrl, bearerToken = null, installImpl = installFleetBridge, target = globalThis} = {}) {
+    const existing = target.AgentOS?.fleet?.registryBridge;
+
+    if (bearerToken === null && existing) {
+        return {bridge: existing, custodySettled: Promise.resolve(false)}
+    }
+
     const profile = createFleetProfile({custodian: 'session-only', endpoint: fleetUrl}),
           bridge  = installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target});
 
-    bearerToken && retireBearerIngressSlot(target);
+    const custodySettled = bearerToken === null
+        ? Promise.resolve(false)
+        : bridge.resolveViewerIdentity()
+            .then(() => retireBearerIngressSlot(target, {expected: bearerToken}))
+            .catch(() => false);
 
-    return bridge
+    return {bridge, custodySettled}
 }
 
 export const onStart = () => {
@@ -114,11 +134,13 @@ export const onStart = () => {
         // hand-off: the module-private handshake redemption above, or the launcher pre-boot slot
         // (Electron main, the Neural Link, a test init-script places it BEFORE app start) — read
         // here (the read-old phase), moved into transport closures by the install (establish), and
-        // the slot retired once the live bridge stands (retire). Deliberately never read from URL
-        // params — a secret in a URL persists in history, logs, and referrers, so installFleetBridge
-        // refuses credential-shaped query params outright. Without a bearer the bridge installs
-        // fail-closed: every call rejects locally, named — and the slot stays as it was, which is
-        // the rollback truth.
+        // the slot retired only after the bridge's authenticated whoami round-trip proves the
+        // credential, and only while the slot still holds that exact value (verify → CAS retire).
+        // Deliberately never read from URL params — a secret in a URL persists in history, logs,
+        // and referrers, so installFleetBridge refuses credential-shaped query params outright.
+        // Without a bearer the bridge installs fail-closed (every call rejects locally, named) —
+        // or, on a SharedWorker re-join, an existing bridge is PRESERVED rather than downgraded —
+        // and the slot stays as it was, which is the rollback truth.
         const bearerToken = redeemedBearer ?? globalThis.AgentOS?.fleet?.bearerToken ?? null;
 
         establishFleetSessionCustody({bearerToken, fleetUrl});
