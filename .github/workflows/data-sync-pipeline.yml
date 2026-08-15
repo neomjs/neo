@@ -112,11 +112,16 @@ jobs:
           # reach. The #15744 property that matters — the intake identity cannot publish to this
           # repository — is intact.
           #
-          # This line and the App grant are ONE unit. `create-github-app-token` fails the step outright
-          # when asked for a permission the installation lacks, so revoking `contents` on the App
-          # without removing this line takes the pipeline down before it can emit a corpus. Any future
-          # permission cleanup on `neomjs-devindex-intake` must leave `contents` in place or land in
-          # the same commit that removes this.
+          # This line and the App grant are ONE unit: revoking `contents` on the App while this line
+          # stays kills the stargazer read again, so any future permission cleanup on
+          # `neomjs-devindex-intake` must leave `contents` in place or land in the same commit that
+          # removes this line.
+          #
+          # It does NOT take the mint down, and an earlier revision of this comment claimed it did.
+          # Measured (run 31877595849): the step was asked for `permission-deployments: write`, which
+          # this installation does not hold, and it SUCCEEDED. So the action does not validate
+          # requested permissions against the installation — meaning a mint success proves nothing
+          # about what the token actually carries, and only a capability probe does.
           permission-contents: write
           # OptOut comments on and closes issues.
           permission-issues: write
