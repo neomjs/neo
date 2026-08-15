@@ -217,7 +217,7 @@ test.describe('planeMailboxClient: init (SDK handshake + single-viewer proof)', 
     test('identity mismatch refuses fail-closed AND tears the session down (awaited DELETE)', async () => {
         const {admission, plane} = await initializedClient({identityBySession: ['@someone-else']});
 
-        expect(admission).toEqual({ok: false, reason: 'plane identity mismatch'});
+        expect(admission).toEqual({ok: false, reason: 'plane identity mismatch', blockerCode: 'viewer-binding-unavailable'});
         expect(plane.calls.some(call => call.method === 'DELETE')).toBe(true)
     });
 
@@ -455,11 +455,25 @@ test.describe('planeMailboxClient: session loss (one bounded recovery, identity 
             toolResponder    : () => ({status: 404})
         });
 
-        await expect(client.listMessages())
-            .rejects.toThrow('plane list_messages failed: session lost and plane identity mismatch');
+        const failure = await client.listMessages().then(() => null, error => error);
+
+        expect(failure?.message).toBe('plane list_messages failed: session lost and plane identity mismatch');
+        // the binding-class stamp travels the throw: the refusal site classified, the error CARRIES
+        expect(failure?.planeBlockerCode).toBe('viewer-binding-unavailable');
 
         expect(plane.calls.filter(call => call.toolName === 'list_messages')).toHaveLength(1);
         expect(plane.calls.filter(call => call.toolName === 'list_permissions')).toHaveLength(2)
+    });
+
+    test('an ambiguous transport failure carries NO binding stamp — ambiguity never classifies', async () => {
+        const {client} = await initializedClient({
+            toolResponder: () => ({status: 500})
+        });
+
+        const failure = await client.listMessages().then(() => null, error => error);
+
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure.planeBlockerCode).toBeUndefined()
     });
 
     test('a reconnect against a dead plane throws through, not into a retry loop', async () => {

@@ -126,6 +126,16 @@ export function beaconFreshAtBound({turnPresence, boundAt = null} = {}) {
 export const PRESENCE_SOURCE_LABEL = 'fleet:presenceState'
 
 /**
+ * The closed set of typed capability reason codes this adapter will pass through — the render
+ * contract's side of the binding-signal chain. The producing client stamps `planeBlockerCode`
+ * at the refusal sites that KNOW (identity-oracle refusals); this adapter passes a RECOGNIZED
+ * stamp through verbatim and drops everything else — never message-matching, never inventing a
+ * code, the same closed-set admission every other tier gets.
+ * @type {String[]}
+ */
+export const PRESENCE_CAPABILITY_REASON_CODES = Object.freeze(['viewer-binding-unavailable'])
+
+/**
  * @summary Reads the fleet-wide presence snapshot: one band row per registered agent plus a
  * capability envelope declaring whether the presence producer answered.
  *
@@ -171,8 +181,9 @@ export async function readFleetPresenceSnapshot({
           capturedAtMs  = new Date(capturedAtIso).getTime(),
           states        = []
 
-    let byIdentity = null,
-        readReason = hasReader
+    let byIdentity     = null,
+        readReasonCode = null,
+        readReason     = hasReader
             ? null
             : 'no presence truth source exists for this mode: plane mode injects the who_is_online reader; a host presence surface has not landed'
 
@@ -203,7 +214,11 @@ export async function readFleetPresenceSnapshot({
                 }
             }
         } catch (error) {
-            readReason = redactReason(error) || 'presence read failed'
+            readReason = redactReason(error) || 'presence read failed';
+
+            if (PRESENCE_CAPABILITY_REASON_CODES.includes(error?.planeBlockerCode)) {
+                readReasonCode = error.planeBlockerCode
+            }
         }
     }
 
@@ -254,7 +269,8 @@ export async function readFleetPresenceSnapshot({
             state     : producerAnswered ? 'wired' : 'degraded',
             confidence: producerAnswered ? 'observed' : 'none',
             capturedAt: capturedAtIso,
-            reason    : producerAnswered ? null : readReason
+            reason    : producerAnswered ? null : readReason,
+            ...(readReasonCode ? {reasonCode: readReasonCode} : {})
         },
         states
     }
