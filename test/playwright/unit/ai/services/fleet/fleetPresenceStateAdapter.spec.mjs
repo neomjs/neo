@@ -292,6 +292,12 @@ test.describe('fleetPresenceStateAdapter — beacon horizons (the vouched-bound 
         // an expired observation vouches nothing, whatever its horizons or boolean claim
         expect(beaconFreshAtBound({turnPresence: {fresh: true, freshUntil: '2026-08-11T00:30:00.000Z', expiresAt: '2026-08-11T00:00:00.000Z'}, boundAt})).toBe(false)
 
+        // the veto also beats the DEGRADED-tier boolean fallback: absent or malformed freshUntil
+        // must not smuggle a fresh:true past a validly expired observation (the reviewer's
+        // exact-head falsifier pair)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true, expiresAt: '2026-08-10T23:00:00.000Z'}, boundAt})).toBe(false)
+        expect(beaconFreshAtBound({turnPresence: {fresh: true, expiresAt: '2026-08-10T23:00:00.000Z', freshUntil: 'not-a-date'}, boundAt})).toBe(false)
+
         // horizon tier absent or unparseable → the vouched boolean is the only signal
         // (tier degradation: no refinement, never a fabricated verdict)
         expect(beaconFreshAtBound({turnPresence: {fresh: true},  boundAt})).toBe(true)

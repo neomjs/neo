@@ -104,16 +104,20 @@ export function beaconFreshAtBound({turnPresence, boundAt = null} = {}) {
         return booleanFallback
     }
 
+    const expiresAt = toTime(turnPresence.expiresAt)
+
+    // the expired-observation veto precedes EVERY other signal — including the boolean
+    // fallback for degraded horizon tiers: a row whose freshUntil is absent or malformed
+    // must still lose a validly expired observation, or the fallback re-opens the exact
+    // producer-clock trust this helper exists to close
+    if (expiresAt !== null && expiresAt <= boundAt) {
+        return false
+    }
+
     const freshUntil = toTime(turnPresence.freshUntil)
 
     if (freshUntil === null) {
         return booleanFallback
-    }
-
-    const expiresAt = toTime(turnPresence.expiresAt)
-
-    if (expiresAt !== null && expiresAt <= boundAt) {
-        return false
     }
 
     return freshUntil > boundAt
