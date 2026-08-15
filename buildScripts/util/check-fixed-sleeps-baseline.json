@@ -2,7 +2,7 @@
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
         "text": "await new Promise(resolve => setTimeout(resolve, 1000));",
-        "count": 64
+        "count": 63
     },
     {
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",

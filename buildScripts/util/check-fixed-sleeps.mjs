@@ -249,10 +249,15 @@ export function reconcile({found, baseline}) {
         if (count > allowed) fresh.push({...found.find(row => key(row) === id), count: count - allowed})
     }
 
+    // `remaining` rides along because the surplus alone cannot tell a row that lost every site from one
+    // that lost some, and those take OPPOSITE remedies: the first is deleted, the second is reduced to
+    // the survivors. Deleting a partially-converted row un-accounts the sites it still legitimately
+    // grandfathers, which re-reports them as `fresh` — the guard fails from the other side, and the
+    // author reads a conversion they just made as a regression they just introduced.
     for (const [id, count] of rowed) {
         const actual = live.get(id) || 0;
 
-        if (actual < count) stale.push({...baseline.find(row => key(row) === id), count: count - actual})
+        if (actual < count) stale.push({...baseline.find(row => key(row) === id), count: count - actual, remaining: actual})
     }
 
     return {fresh, stale}
@@ -321,11 +326,15 @@ function main() {
     if (stale.length) {
         console.error(`\ncheck-fixed-sleeps: ${stale.length} baseline row(s) no longer match a live site — the baseline may only shrink:\n`);
 
-        for (const row of stale) console.error(`  ${row.file}  ${row.text}`);
+        for (const row of stale) console.error(row.remaining
+            ? `  ${row.file}  ${row.text}\n      ${row.count} of these are gone — set "count" to ${row.remaining}, do NOT delete the row.`
+            : `  ${row.file}  ${row.text}\n      every site is gone — delete the row.`);
 
         console.error(`
-    Remove these rows. A site that was converted (a sleep becoming a readiness poll) or removed leaves its
-    row behind, and a baseline permitted to outlive its sites stops describing anything.`)
+    A site that was converted (a sleep becoming a readiness poll) or removed leaves its row behind, and a
+    baseline permitted to outlive its sites stops describing anything. Reduce the count to the survivors;
+    delete only a row that has none. Deleting a row that still has live sites un-accounts them, and they
+    come straight back as NEW unaccounted waits — the conversion you just made, reported as a regression.`)
     }
 
     process.exit(1)

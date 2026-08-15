@@ -63,6 +63,30 @@ test.describe('check-fixed-sleeps.mjs — baseline reconciliation (#17124)', () 
         expect(fresh).toEqual([]);
     });
 
+    test('a stale row reports its SURVIVORS, because the surplus alone picks the wrong remedy', () => {
+        const partial = reconcile({baseline: [site(64)], found: many(21)}),
+              total   = reconcile({baseline: [site(64)], found: []});
+
+        // Both lost sites, so both are stale by `count` alone — and the two take OPPOSITE remedies.
+        expect(partial.stale[0].count, 'the surplus is what the allowance overstates by').toBe(43);
+        expect(total.stale[0].count).toBe(64);
+
+        expect(partial.stale[0].remaining, 'reduce the row to these').toBe(21);
+        expect(total.stale[0].remaining, 'nothing survives, so the row goes').toBe(0);
+    });
+
+    test('deleting a PARTIALLY converted row fails the guard from the other side', () => {
+        // The remedy the old message prescribed, executed literally: 43 of 64 converted, row removed.
+        // The 21 survivors were legitimately grandfathered and now are not, so they re-enter as NEW —
+        // a conversion reported back to its author as a regression, which is why the row must be
+        // REDUCED. This is the failure the `remaining` field exists to stop, not a hypothetical.
+        const {fresh, stale} = reconcile({baseline: [], found: many(21)});
+
+        expect(fresh.length, 'the survivors come back as unaccounted').toBe(1);
+        expect(fresh[0].count, 'all 21 of them').toBe(21);
+        expect(stale, 'and the row that would have explained them is gone').toEqual([]);
+    });
+
     test('the pattern in a COMMENT or a STRING is not a sleep — this file is the fixture', async () => {
         // This spec's own docstring and its `site()` fixture both contain the literal text the guard
         // matches, and neither sleeps. A guard that fires on prose about itself is a noise generator,
