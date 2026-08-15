@@ -55,6 +55,24 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         expect(Object.getOwnPropertyDescriptor(bridgeSelected, 'selected')).toMatchObject({enumerable: false, value: true});
     });
 
+    test('the profileId fact: null by default, stamped non-enumerable, bearer-shaped identity refused', () => {
+        const
+            identity      = 'fleet-profile:v1:http://127.0.0.1:8083/fleet',
+            targetDefault = {},
+            targetStamped = {};
+
+        const bridgeDefault = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target: targetDefault});
+        const bridgeStamped = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), profileId: identity, target: targetStamped});
+
+        expect(Object.getOwnPropertyDescriptor(bridgeDefault, 'profileId')).toMatchObject({enumerable: false, value: null});
+        expect(Object.getOwnPropertyDescriptor(bridgeStamped, 'profileId')).toMatchObject({enumerable: false, value: identity});
+
+        expect(() => installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), profileId: testBearer, target: {}}),
+            'a bearer-shaped profileId is a smuggled secret in a renderable slot').toThrow(/bearer-shaped material is refused/);
+        expect(() => installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), profileId: '  ', target: {}}))
+            .toThrow(/null or a non-empty identity string/)
+    });
+
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {
         const target = {};
         const bridge = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target});

@@ -1,3 +1,4 @@
+import {FLEET_BEARER_PATTERN} from './connectionProfiles.mjs';
 import {
     createFleetWireOffer,
     createFleetWireRequest,
@@ -5,15 +6,6 @@ import {
     FLEET_WIRE_RESPONSE_STATES,
     inspectFleetWireResponse
 } from '../config/fleetWireMethods.mjs';
-
-/**
- * Canonical shape of the Fleet process bearer: 32 random bytes as unpadded base64url (43 chars).
- * A lightweight FORMAT check only — the Node side owns generation + constant-time verification
- * (`ai/mcp/server/shared/helpers/localBearer.mjs`); this module runs in the App Worker and must
- * stay free of Node crypto imports.
- * @type {RegExp}
- */
-const FLEET_BEARER_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 /**
  * Query-param names that would smuggle credential material through a URL. The Fleet launch
@@ -72,6 +64,11 @@ export const FLEET_LOCAL_TRANSPORT_ERRORS = Object.freeze({
  * @param {Function} [opts.send=null]                      Packaged-shell intent transport; receives
  *     only `{method, params}` and is mutually exclusive with `url` / `bearerToken`.
  * @param {'worker'|'shell'} [opts.credentialIngress='worker'] Public credential-custody fact.
+ * @param {String}   [opts.profileId=null]                 The connection-profile identity this bridge
+ *     serves (`./connectionProfiles.mjs` derivation) — a renderable capability fact like
+ *     `credentialIngress`, never credential material; bearer-shaped values are refused outright.
+ *     `null` for installs whose identity lives with the custodian (the packaged shell) or predates
+ *     profile wiring.
  * @param {Boolean}  [opts.selected=false]                 Whether this install is an explicit source
  *     selection (the injector path) versus the boot default. Selected bridges render an empty
  *     registry's true zero state; unselected defaults keep the zero-setup sample.
@@ -84,6 +81,7 @@ export function installFleetBridge({
     fetchImpl = globalThis.fetch,
     send = null,
     credentialIngress = 'worker',
+    profileId = null,
     selected = false,
     target = globalThis
 } = {}) {
@@ -92,6 +90,10 @@ export function installFleetBridge({
 
     if (!['shell', 'worker'].includes(credentialIngress)) {
         throw new TypeError("installFleetBridge: credentialIngress must be 'shell' or 'worker'")
+    }
+
+    if (profileId !== null && (typeof profileId !== 'string' || !profileId.trim() || FLEET_BEARER_PATTERN.test(profileId))) {
+        throw new TypeError('installFleetBridge: profileId must be null or a non-empty identity string — bearer-shaped material is refused, the fact is pane-renderable')
     }
 
     if (send !== null) {
@@ -199,6 +201,13 @@ export function installFleetBridge({
     Object.defineProperty(registryBridge, 'credentialIngress', {
         configurable: true,
         value       : credentialIngress
+    });
+
+    // The identity twin of the custody fact above: WHICH connection profile this bridge serves,
+    // renderable by the pane without exposing anything the closure protects.
+    Object.defineProperty(registryBridge, 'profileId', {
+        configurable: true,
+        value       : profileId
     });
 
     // An explicitly wired bridge (the ViewportController injector — Neural Link, tests, dev
