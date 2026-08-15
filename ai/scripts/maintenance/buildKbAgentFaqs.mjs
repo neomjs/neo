@@ -12,7 +12,10 @@ import KBRecorderService from '../../services/knowledge-base/KBRecorderService.m
  *
  * The build is a DELETE+INSERT rebuild of `kb_query_faqs` — a write. `--dry-run` is the
  * no-side-effect probe: it boots the service and reports readiness and row counts without
- * rebuilding anything, which is also the shape CI uses to prove the entrypoint runs.
+ * rebuilding anything. It is an author/operator receipt — the exit code carries the verdict
+ * (0 only when the service actually opened its database), so automation reads the code, not
+ * stdout. CI proves the entrypoint CLASS via `lint-npm-script-entrypoints.mjs`; it does not
+ * invoke this build.
  *
  * Usage:
  *   node ai/scripts/maintenance/buildKbAgentFaqs.mjs --min-count 3 --limit 100
@@ -37,7 +40,7 @@ if (args.includes('--dry-run')) {
     } : null;
 
     console.log(JSON.stringify({ready: Boolean(KBRecorderService.db), counts}, null, 2));
-    process.exit(0);
+    process.exit(KBRecorderService.db ? 0 : 1);
 }
 
 const result = KBRecorderService.buildAgentFaqs({

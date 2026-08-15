@@ -4,6 +4,12 @@ name: Npm Script Entrypoint Lint
 # imports. A published entrypoint that cannot load fails only at invocation — and nothing invokes
 # a rotted one, so the failure has no reporter until this guard runs.
 
+# Agent PRs are same-repo branches, so the default GITHUB_TOKEN is write-capable and a checkout
+# with persisted credentials leaves it in .git/config for the diff-under-review to read. This
+# job only reads: the token is narrowed to contents:read and never persisted.
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches: [dev]
@@ -39,6 +45,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
