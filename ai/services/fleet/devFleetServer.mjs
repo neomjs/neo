@@ -54,7 +54,8 @@ import FleetManager             from './FleetManager.mjs';
 import {startFleetBridgeServer} from './fleetBridgeServer.mjs';
 import {probeExistingFleetServer, resolveFleetBearer, resolveFleetViewer,
         resolveFleetViewerClaim}                                          from './fleetLaunchContract.mjs';
-import {assertFleetPlaneAdmissionBearerClass} from './fleetServer.mjs';
+import {assertFleetPlaneAdmissionBearerClass,
+        assertFleetViewerMcAuthorizationClass}                            from './fleetServer.mjs';
 import {createPlaneMailboxClient}             from './planeMailboxClient.mjs';
 import {createPlaneWakeIdentitiesReader,
         createPlaneWakeObservationsReader}                               from './planeWakeIdentitiesReader.mjs';
@@ -370,6 +371,11 @@ async function boot() {
             // The launcher's custody decision, resolved at the use site: `npm run cockpit` arms
             // the browser bearer handshake in this child's env; a standalone boot defaults off.
             bearerHandshake: AiConfig.fleet.bearerHandshake,
+            // The viewer's class-3 MC mint, when the deployment declares one: class-asserted here
+            // (never the relay's plane or admission credential), served by the armed handshake as
+            // the pair, refused at transport startup if it aliases the process bearer. Empty is
+            // the honest not-armed default.
+            mcAuthorization: assertFleetViewerMcAuthorizationClass() || null,
             runInContext   : (context, fn) => RequestContextService.run(context, fn)
         });
 

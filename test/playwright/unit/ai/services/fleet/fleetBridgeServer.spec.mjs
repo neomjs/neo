@@ -299,6 +299,35 @@ test.describe('fleetBridgeServer — the authenticated Fleet ingress', () => {
         expect(contexts, 'a redemption never enters the context boundary').toEqual([])
     });
 
+    test('ARMED + viewer mint: the handshake serves the PAIR; unarmed-mint deployments keep the bearer-only shape', async () => {
+        await startServer({bearerHandshake: true, mcAuthorization: 'viewer-mc-mint'});
+
+        const res = await rawRequest({method: 'GET', path: '/fleet/handshake', headers: {Origin: 'http://localhost:8080'}});
+
+        expect(res.status).toBe(200);
+        expect(JSON.parse(res.body)).toEqual({ok: true, result: {bearerToken: bearer, mcAuthorization: 'viewer-mc-mint'}})
+    });
+
+    test('startup refuses a byte-identical bearer/mint pair and a malformed mint — fail-closed, never aliased', () => {
+        const identical = generateLocalBearerToken();
+
+        expect(() => startFleetBridgeServer({
+            port           : 0,
+            bearerToken    : identical,
+            mcAuthorization: identical,
+            viewerContext  : viewer,
+            runInContext   : (context, fn) => fn()
+        })).toThrow(/byte-identical to the process bearer/);
+
+        expect(() => startFleetBridgeServer({
+            port           : 0,
+            bearerToken    : generateLocalBearerToken(),
+            mcAuthorization: '   ',
+            viewerContext  : viewer,
+            runInContext   : (context, fn) => fn()
+        })).toThrow(/non-empty viewer MC mint/)
+    });
+
     test('ARMED: redemption stays available while armed — a page reload is a normal cockpit operation, not a lockout', async () => {
         await startServer({bearerHandshake: true});
 

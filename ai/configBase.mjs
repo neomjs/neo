@@ -355,6 +355,25 @@ class ConfigBase extends ConfigProvider {
                  */
                 admissionTokenFile: leaf('', 'NEO_MCP_HEALTHCHECK_TOKEN_FILE', 'string'),
                 /**
+                 * The VIEWER's class-3 MC mint for browser-direct per-viewer wake arming: when a
+                 * deployment declares it, the armed bearer handshake serves it alongside the
+                 * process bearer, the cockpit boot binds it into transport-closure custody, and
+                 * the wake stream presents it on `x-neo-mc-authorization` — a DIFFERENT MINT from
+                 * the class-1 fleet admission bearer by contract (byte-identical pairs are refused
+                 * at every seam). Empty is the honest not-armed default: the stream connects
+                 * class-1-only and the server answers `armedForViewer: false`.
+                 * @type {string}
+                 */
+                viewerMcAuthorization: leaf('', 'NEO_FLEET_VIEWER_MC_AUTHORIZATION', 'string'),
+                /**
+                 * Secret-file indirection for `viewerMcAuthorization` — the same custody split as
+                 * `planeAdmissionBearerFile`: the direct value wins when both are set, empty means
+                 * no file indirection, and the Fleet entry reads it at the use site, never at
+                 * import.
+                 * @type {string}
+                 */
+                viewerMcAuthorizationFile: leaf('', 'NEO_FLEET_VIEWER_MC_AUTHORIZATION_FILE', 'string'),
+                /**
                  * Bearer credential for the app<->fleet TRANSPORT — a different credential from
                  * `planeBearer`, which authenticates to the containerized plane. Secret-class, so
                  * the default is empty and never carries a value: `resolveFleetBearer` generates

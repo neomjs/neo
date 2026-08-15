@@ -59,10 +59,10 @@ export function resolveFleetUrl() {
 // module for its pure exports; there is no serialized boot URL there, so there is nothing to dial).
 const bootUrl = globalThis.Neo?.config?.url;
 
-let redeemedBearer = null;
+let redeemed = null;
 
 if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !globalThis.AgentOS?.fleet?.bearerToken) {
-    redeemedBearer = await redeemFleetBearerHandshake({url: resolveFleetUrl()})
+    redeemed = await redeemFleetBearerHandshake({url: resolveFleetUrl()})
 }
 
 /**
@@ -94,20 +94,21 @@ if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !global
  *
  * @param {Object}   opts
  * @param {String}   opts.fleetUrl                         Raw dial endpoint; identity derives from its canonical form.
- * @param {String}   [opts.redeemedBearer=null]            The armed-handshake redemption result, module-private
- *     in the boot path — takes precedence over the launcher slot; `null` falls back to the slot.
+ * @param {Object}   [opts.redeemed=null]                  The armed-handshake redemption PAIR
+ *     (`{bearerToken, mcAuthorization}`), module-private in the boot path — each field takes
+ *     precedence over its launcher slot; `null` falls back to the slots entirely.
  * @param {Function} [opts.installImpl=installFleetBridge] Injectable install for tests.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
  * @returns {Object} `{bridge, custodySettled}` — the bridge PUBLISHED at return time (the fresh
  *     install, or the preserved known-good one while a candidate proves itself), and a
  *     never-rejecting promise resolving `true` exactly when the bearer ingress was verified-retired.
  */
-export function establishFleetSessionCustody({fleetUrl, redeemedBearer: redeemed = null, installImpl = installFleetBridge, target = globalThis} = {}) {
+export function establishFleetSessionCustody({fleetUrl, redeemed = null, installImpl = installFleetBridge, target = globalThis} = {}) {
     const
         fleet           = target.AgentOS?.fleet,
         existing        = fleet?.registryBridge,
-        bearerToken     = redeemed ?? fleet?.bearerToken ?? null,
-        mcAuthorization = fleet?.mcAuthorization ?? null;
+        bearerToken     = redeemed?.bearerToken ?? fleet?.bearerToken ?? null,
+        mcAuthorization = redeemed?.mcAuthorization ?? fleet?.mcAuthorization ?? null;
 
     if (bearerToken === null && existing) {
         return {bridge: existing, custodySettled: Promise.resolve(false)}
@@ -169,10 +170,10 @@ export const onStart = () => {
         // params outright. Without a bearer the bridge installs fail-closed (every call rejects
         // locally, named) — or, on a SharedWorker re-join, an existing bridge is PRESERVED rather
         // than downgraded — and the slots stay as they were, which is the rollback truth.
-        const hadBearer = redeemedBearer !== null || (globalThis.AgentOS?.fleet?.bearerToken ?? null) !== null;
+        const hadBearer = redeemed !== null || (globalThis.AgentOS?.fleet?.bearerToken ?? null) !== null;
 
-        establishFleetSessionCustody({fleetUrl, redeemedBearer});
-        redeemedBearer = null;
+        establishFleetSessionCustody({fleetUrl, redeemed});
+        redeemed = null;
 
         // Late-transport healing: the module-level redemption races the fleet child's boot (plane
         // admission alone can take seconds), and on a SharedWorker topology a reload re-enters
@@ -181,8 +182,8 @@ export const onStart = () => {
         // and the pane resolves the slot per call, so the next poll goes live. Still-no-bearer
         // stays the honest fail-closed state.
         if (!hadBearer) {
-            redeemFleetBearerHandshake({url: fleetUrl}).then(token => {
-                token && establishFleetSessionCustody({fleetUrl, redeemedBearer: token})
+            redeemFleetBearerHandshake({url: fleetUrl}).then(pair => {
+                pair && establishFleetSessionCustody({fleetUrl, redeemed: pair})
             })
         }
     }

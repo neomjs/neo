@@ -23,9 +23,11 @@ import {
     armFleetWakePushLane,
     assertFleetPlaneAdmissionBearerClass,
     assertFleetPlaneBearerClass,
+    assertFleetViewerMcAuthorizationClass,
     createWakeArmingContext,
     resolveFleetPlaneAdmissionBearer,
     resolveFleetPlaneBearer,
+    resolveFleetViewerMcAuthorization,
     resolveViewerStreamKey,
     startFleetServer
 } from '../../../../../../ai/services/fleet/fleetServer.mjs';
@@ -312,6 +314,40 @@ test.describe('fleet wake arming - the service credential chain', () => {
         expect(outcome.armed).toBe(false);
         expect(outcome.reason).toContain('byte-identical');
         expect(constructions).toBe(0)
+    });
+
+    test('the viewer MC mint resolves value-over-file and its class teeth refuse every relay-credential alias', () => {
+        const fleetBase = {
+            viewerMcAuthorization    : '',
+            viewerMcAuthorizationFile: '',
+            planeBearer              : 'relay-plane-token',
+            planeBearerFile          : '',
+            planeAdmissionBearer     : 'relay-admission-token',
+            planeAdmissionBearerFile : '',
+            admissionTokenFile       : ''
+        };
+
+        // value wins over file; file trims; empty-both is the honest not-armed ''
+        expect(resolveFleetViewerMcAuthorization({
+            aiConfig: {fleet: {...fleetBase, viewerMcAuthorization: 'direct-mint', viewerMcAuthorizationFile: '/x'}},
+            readFile: () => 'file-mint'
+        })).toBe('direct-mint');
+        expect(resolveFleetViewerMcAuthorization({
+            aiConfig: {fleet: {...fleetBase, viewerMcAuthorizationFile: '/x'}},
+            readFile: () => ' file-mint\n'
+        })).toBe('file-mint');
+        expect(resolveFleetViewerMcAuthorization({aiConfig: {fleet: fleetBase}})).toBe('');
+
+        // class teeth: the viewer mint is the viewer's OWN authority — never a relay credential
+        expect(() => assertFleetViewerMcAuthorizationClass({
+            aiConfig: {fleet: {...fleetBase, viewerMcAuthorization: 'relay-plane-token'}}
+        })).toThrow(/plane-MCP bearer/);
+        expect(() => assertFleetViewerMcAuthorizationClass({
+            aiConfig: {fleet: {...fleetBase, viewerMcAuthorization: 'relay-admission-token'}}
+        })).toThrow(/admission bearer/);
+        expect(assertFleetViewerMcAuthorizationClass({
+            aiConfig: {fleet: {...fleetBase, viewerMcAuthorization: 'distinct-viewer-mint'}}
+        })).toBe('distinct-viewer-mint')
     });
 
     test('an unreadable admission file disables the comparison, never the credential', () => {

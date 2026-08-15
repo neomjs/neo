@@ -135,8 +135,8 @@ test.describe('AgentOS packaged Fleet window routing', () => {
 
             const {custodySettled} = establishFleetSessionCustody({
                 fleetUrl,
-                installImpl   : realInstall(okViewerFetch()),
-                redeemedBearer: bearer, // the redemption takes precedence; the slot holds a different credential
+                installImpl: realInstall(okViewerFetch()),
+                redeemed   : {bearerToken: bearer, mcAuthorization: null}, // the redemption takes precedence; the slot holds a different credential
                 target
             });
 
@@ -270,6 +270,27 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             await expect(refused.custodySettled).resolves.toBe(false);
             expect(preserved.AgentOS.fleet.bearerToken).toBe(bearer);
             expect(preserved.AgentOS.fleet.mcAuthorization).toBe(mcMint)
+        });
+
+        test('the REDEEMED PAIR is the production chain: both mints bind from the handshake result, no slot involved', async () => {
+            const
+                mcMint = 'C'.repeat(43),
+                seen   = [],
+                target = {};
+
+            const {custodySettled} = establishFleetSessionCustody({
+                fleetUrl,
+                installImpl: opts => {
+                    seen.push({bearer: opts.bearerToken, mc: opts.mcAuthorization});
+                    return installFleetBridge({...opts, fetchImpl: okViewerFetch()})
+                },
+                redeemed: {bearerToken: bearer, mcAuthorization: mcMint},
+                target
+            });
+
+            expect(seen, 'the pair the handshake redeemed is the pair the install binds').toEqual([{bearer, mc: mcMint}]);
+            await expect(custodySettled).resolves.toBe(false); // no launcher slots existed — nothing to retire, honestly
+            expect(target.AgentOS.fleet.registryBridge.openWakeStream, 'the armed bridge carries the wake capability').toBeDefined()
         });
 
         test('a throwing install preserves the ingress — the rollback needs no special path', async () => {

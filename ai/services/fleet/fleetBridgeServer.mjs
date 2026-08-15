@@ -59,6 +59,12 @@ import {isLocalBearerToken}      from '../../mcp/server/shared/helpers/localBear
  *     browser Origin may redeem the process bearer, which is how the one-command cockpit hands the
  *     secret to a plain page with no agent seam (see the `fleet.bearerHandshake` leaf for the
  *     custody decision). Unarmed, the path stays inside the bearer-gated 404 surface.
+ * @param {String}   [opts.mcAuthorization=null] The viewer's class-3 MC mint for per-viewer wake
+ *     arming: when present, the armed handshake serves it ALONGSIDE the process bearer so the
+ *     cockpit boot can bind both into closure custody. A DIFFERENT MINT from the class-1 process
+ *     bearer by contract — a byte-identical pair refuses startup (fail-closed), because both
+ *     surfaces can share a verifier and byte-identity is exactly how one mint silently serves two
+ *     audiences. `null`/empty is the honest not-armed state.
  * @returns {Promise<http.Server>} resolves once the server is listening.
  * @throws {TypeError} When the bearer, viewer binding, or context runner is missing/invalid — the
  *     fail-closed startup contract of the ingress trust boundary.
@@ -73,10 +79,19 @@ export function startFleetBridgeServer({
     runInContext      = null,
     allowedOrigins    = ['http://localhost:8080', 'http://127.0.0.1:8080'],
     extraAllowedHosts = [],
-    bearerHandshake   = false
+    bearerHandshake   = false,
+    mcAuthorization   = null
 } = {}) {
     if (!isLocalBearerToken(bearerToken)) {
         throw new TypeError('[fleet] startup refused: a canonical 32-byte unpadded-base64url bearerToken is required (fail-closed ingress)')
+    }
+
+    if (mcAuthorization !== null && (typeof mcAuthorization !== 'string' || !mcAuthorization.trim())) {
+        throw new TypeError('[fleet] startup refused: mcAuthorization must be null or a non-empty viewer MC mint')
+    }
+
+    if (mcAuthorization !== null && mcAuthorization === bearerToken) {
+        throw new TypeError('[fleet] startup refused: the viewer MC mint is byte-identical to the process bearer — the credential-class ledger forbids the aliasing; mint a distinct class-3 credential')
     }
 
     if (!viewerContext?.userId || !viewerContext?.agentIdentityNodeId) {
@@ -157,7 +172,12 @@ export function startFleetBridgeServer({
             console.log(`[fleet] bearer handshake redeemed by origin ${req.headers.origin} at ${new Date().toISOString()}`);
             res.setHeader('Connection', 'close');
             res.setHeader('Cache-Control', 'no-store');
-            return respond(res, 200, {ok: true, result: {bearerToken}}, decision.corsOrigin)
+            // The pair travels together when the deployment armed a viewer mint; a bearer-only
+            // response is the honest not-armed shape, never a degraded one.
+            return respond(res, 200, {
+                ok    : true,
+                result: {bearerToken, ...(mcAuthorization ? {mcAuthorization} : {})}
+            }, decision.corsOrigin)
         }
 
         // Exact-path match — a sibling path like /fleetx must fail closed, never reach dispatch.

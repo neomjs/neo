@@ -17,7 +17,7 @@ test.describe('redeemFleetBearerHandshake — the page half of the one-command h
     test('derives <fleet-origin>/fleet/handshake from the fleet URL and requests it no-store', async () => {
         const calls = [];
 
-        const token = await redeemFleetBearerHandshake({
+        const result = await redeemFleetBearerHandshake({
             url      : 'http://127.0.0.1:8083/fleet',
             fetchImpl: async (url, options) => {
                 calls.push({url, options});
@@ -25,7 +25,7 @@ test.describe('redeemFleetBearerHandshake — the page half of the one-command h
             }
         });
 
-        expect(token).toBe(validToken);
+        expect(result).toEqual({bearerToken: validToken, mcAuthorization: null});
         expect(calls).toHaveLength(1);
         expect(calls[0].url).toBe('http://127.0.0.1:8083/fleet/handshake');
         expect(calls[0].options.cache).toBe('no-store');
@@ -59,6 +59,27 @@ test.describe('redeemFleetBearerHandshake — the page half of the one-command h
 
         for (const [label, fetchImpl] of cases) {
             expect(await redeemFleetBearerHandshake({url: 'http://127.0.0.1:8083/fleet', fetchImpl}), label).toBeNull()
+        }
+    });
+
+    test('the viewer mint rides the pair when armed — and a malformed or bearer-identical mint is STRIPPED, never adopted', async () => {
+        const withMint = mint => async () => ({
+            ok  : true,
+            json: async () => ({ok: true, result: {bearerToken: validToken, mcAuthorization: mint}})
+        });
+
+        // armed: the pair travels together
+        expect(await redeemFleetBearerHandshake({url: 'http://127.0.0.1:8083/fleet', fetchImpl: withMint('viewer-mc-mint')}))
+            .toEqual({bearerToken: validToken, mcAuthorization: 'viewer-mc-mint'});
+
+        // stripped shapes: the class-1 redemption stays valid, the boot proceeds honestly not-armed
+        for (const [label, mint] of [
+            ['bearer-identical mint (never-aliased)', validToken],
+            ['empty mint', '   '],
+            ['non-string mint', 42]
+        ]) {
+            expect(await redeemFleetBearerHandshake({url: 'http://127.0.0.1:8083/fleet', fetchImpl: withMint(mint)}), label)
+                .toEqual({bearerToken: validToken, mcAuthorization: null})
         }
     });
 
