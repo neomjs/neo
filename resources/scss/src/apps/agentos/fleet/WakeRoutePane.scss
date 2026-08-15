@@ -1,0 +1,69 @@
+/* AgentOS.view.fleet.WakeRoutePane — the per-seat wake-route decomposition in the pinned drawer.
+   Head (title · authority) over the meta line, the seat cards (identity headline + one line per
+   axis — state lives in the SENTENCE, color never carries it alone), and the actions rail. Every
+   color reads from the --fm-* token layer; the CatchUpPane sibling idiom. */
+.fm-wakeroutes-pane {
+    gap       : 10px;
+    padding   : 12px;
+    background: var(--fm-rail);
+    min-height: 0;
+
+    .fm-wakeroutes-head {
+        gap        : 8px;
+        align-items: baseline;
+        flex-wrap  : wrap;
+    }
+
+    .fm-wakeroutes-title {
+        color      : var(--fm-ink);
+        font-weight: 700;
+    }
+
+    .fm-wakeroutes-authority,
+    .fm-wakeroutes-meta {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+    }
+
+    /* the seat cards own the scroll — the chrome above stays put */
+    .fm-wakeroutes-rows {
+        overflow  : auto;
+        min-height: 0;
+        gap       : 10px;
+    }
+
+    .fm-wakeroutes-card {
+        gap          : 7px;
+        padding      : 10px;
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+        background   : var(--fm-panel);
+    }
+
+    .fm-wakeroutes-card-title {
+        color      : var(--fm-ink);
+        font-weight: 650;
+        font-size  : 12.5px;
+    }
+
+    /* one line per route axis — mono fact rendering, block-per-line so a run-together can never
+       read as one broken sentence (the AgentDetail sources-axis discipline) */
+    .fm-wakeroutes-axis {
+        display    : block;
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 11px;
+        line-height: 1.4;
+    }
+
+    .fm-wakeroutes-actions {
+        gap: 8px;
+    }
+
+    /* honest quiet state — absence is not an error (drawer-shell contract item 5) */
+    .fm-wakeroutes-empty {
+        padding: 14px 4px;
+        color  : var(--fm-ink-dim);
+    }
+}

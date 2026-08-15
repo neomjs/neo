@@ -36,6 +36,13 @@ class AgentConfigCard extends Component {
          */
         baseCls: ['fm-agent-config-card'],
         /**
+         * The selector-chip primitive's skin (fleet/Chips.scss) has no view class of its own —
+         * the harness-type and target chips this card renders load it via the shared-partial
+         * mechanism, the same way the dockdemo workspaces pull 'Neo.dashboard.Container'.
+         * @member {String[]} additionalThemeFiles=['AgentOS.view.fleet.Chips']
+         */
+        additionalThemeFiles: ['AgentOS.view.fleet.Chips'],
+        /**
          * The empty-state line rendered when no record is seated. Owners override it to stay honest
          * in their own context: the keeper-view's "select an agent" differs from the detail tab's
          * "this agent has no stored definition".

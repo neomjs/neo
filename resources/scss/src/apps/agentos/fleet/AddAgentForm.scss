@@ -20,6 +20,12 @@
         }
     }
 
+    /* the inline-label fields ride the form's own 8px gap — the stock field margin would
+       double the rhythm */
+    .neo-textfield {
+        margin: 0;
+    }
+
     .fm-add-harness-row {
         gap: 6px;
     }
@@ -29,11 +35,28 @@
         margin-top : 2px;
     }
 
-    .fm-add-submit {
-        font-weight : 600;
+    /* the form's one primary action carries the signal — the fm-fleet-start idiom, never the
+       stock blue slab (button hierarchy, ledger D1) */
+    .neo-button.fm-add-submit {
+        background   : color-mix(in srgb, var(--fm-signal) 14%, var(--fm-panel-2));
+        border       : 1px solid color-mix(in srgb, var(--fm-signal) 55%, var(--fm-line));
+        border-radius: 6px;
+        box-shadow   : none;
+        color        : var(--fm-signal);
+        font-weight  : 600;
+
+        &:hover {
+            background  : color-mix(in srgb, var(--fm-signal) 24%, var(--fm-panel-2));
+            border-color: var(--fm-signal);
+        }
 
         &[disabled] {
             cursor : default;
+        }
+
+        .neo-button-glyph,
+        .neo-button-text {
+            color: inherit;
         }
     }
 

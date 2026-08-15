@@ -112,6 +112,90 @@
         border-bottom: 1px solid var(--fm-line-soft);
     }
 
+    /* ── the pinned-drawer shell (#17209 contract): the reveal overlay hosting every rail pane.
+       The shell owns the frame — surface, boundary, header row, content well — so a hosted pane
+       inherits a sane frame; panes stay transparent-rooted or carry the same rail tone. The stock
+       overlay is TRANSPARENT, which is exactly why every panel read as controls floating in black. */
+    .neo-dashboard-dock-reveal-overlay {
+        background : var(--fm-rail);
+        border-left: 1px solid var(--fm-line);
+    }
+
+    /* the shell-owned header row: pane title + the pin affordance — the pane never duplicates it */
+    .neo-dashboard-dock-reveal-header {
+        background   : var(--fm-panel);
+        border-bottom: 1px solid var(--fm-line-soft);
+        padding      : 8px 12px;
+        gap          : 8px;
+
+        .neo-dashboard-dock-reveal-title {
+            flex       : 1;
+            color      : var(--fm-ink);
+            font-size  : 12.5px;
+            font-weight: 600;
+        }
+
+        /* pinning is a secondary shell action — the quiet base of the cockpit bar's button
+           hierarchy (ledger D1), never the stock primary slab */
+        .neo-button.neo-dashboard-dock-reveal-pin {
+            background   : var(--fm-panel-2);
+            border       : 1px solid var(--fm-line);
+            border-radius: 6px;
+            box-shadow   : none;
+            color        : var(--fm-ink-dim);
+            font-weight  : 500;
+            min-width    : 0;
+            transition   : background var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft), color var(--motion-fast) var(--ease-out-soft);
+
+            &:hover,
+            &.pressed {
+                border-color: var(--fm-ink-dim);
+                background  : var(--fm-panel);
+                color       : var(--fm-ink);
+            }
+
+            .neo-button-glyph,
+            .neo-button-text {
+                color: inherit;
+            }
+        }
+    }
+
+    /* the content well: panes own their scroll and their own 12px rhythm (drawer-shell contract
+       item 4 — the CatchUpPane idiom every drawer pane follows) */
+    .neo-dashboard-dock-reveal-pane-slot {
+        min-height: 0;
+        overflow  : hidden;
+
+        /* the add-agent form is a CARD in the well, not a column — natural height at the top
+           with the well's margin, instead of stretching its panel over the whole drawer */
+        > .fm-add-agent-form {
+            align-self: flex-start;
+            margin    : 10px;
+            width     : calc(100% - 20px);
+        }
+    }
+
+    /* a pane arriving before its view leaf — the shell's own quiet state, never a bare paragraph */
+    .fm-pane-placeholder {
+        padding   : 24px 14px;
+        color     : var(--fm-ink-dim);
+        font-size : 12px;
+        text-align: center;
+    }
+
+    /* the zone splitter gains a visible affordance (the operator-reported invisible splitter):
+       a soft nut at rest, the signal under the pointer — the drag hit-zone keeps its full width */
+    .neo-dashboard-dock-splitter {
+        background: color-mix(in srgb, var(--fm-line-soft) 55%, transparent);
+        transition: background var(--motion-fast) var(--ease-out-soft);
+
+        &:hover,
+        &:active {
+            background: color-mix(in srgb, var(--fm-signal) 45%, transparent);
+        }
+    }
+
     /* Vessel-narrow mode: below the width where two zones can sit beside each other honestly
        (card floor 289 + stream usable floor + rail 34 + splitter 6 ≈ 570), the cockpit
        re-arranges instead of overflowing. Presentation-tier only — the committed dock document

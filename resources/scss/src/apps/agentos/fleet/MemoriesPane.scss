@@ -1,0 +1,101 @@
+/* AgentOS.view.fleet.MemoriesPane — invoked per-agent session-summary recall in the pinned drawer.
+   Head (title · authority) over the meta line, the agent chip row, the session cards, and the
+   actions rail. Cards stay visually independent (the CatchUpPane sibling idiom); every color reads
+   from the --fm-* token layer. */
+.fm-memories-pane {
+    gap       : 10px;
+    padding   : 12px;
+    background: var(--fm-rail);
+    min-height: 0;
+
+    .fm-memories-head {
+        gap        : 8px;
+        align-items: baseline;
+        flex-wrap  : wrap;
+    }
+
+    .fm-memories-title {
+        color      : var(--fm-ink);
+        font-weight: 700;
+    }
+
+    .fm-memories-authority,
+    .fm-memories-meta,
+    .fm-memories-card-meta,
+    .fm-memories-card-attribution {
+        color      : var(--fm-ink-dim);
+        font-family: var(--fm-font-mono);
+        font-size  : 10.5px;
+    }
+
+    /* the agent picker — a WRAPPING chip row, never a squeezed line; selection is structural
+       (border + weight + a signal wash), mirroring the .fm-chip selector idiom */
+    .fm-memories-agents {
+        flex-wrap: wrap;
+        gap      : 6px;
+    }
+
+    .neo-button.fm-memories-agent {
+        background   : none;
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        box-shadow   : none;
+        color        : var(--fm-ink-dim);
+        font-size    : 11px;
+        font-weight  : 500;
+        min-width    : 0;
+
+        &:hover {
+            color: var(--fm-ink);
+        }
+
+        &.is-active {
+            background  : color-mix(in srgb, var(--fm-signal) 16%, transparent);
+            border-color: var(--fm-signal);
+            color       : var(--fm-ink);
+            font-weight : 600;
+        }
+
+        .neo-button-text {
+            color: inherit;
+        }
+    }
+
+    /* the session cards own the scroll — the chrome above stays put */
+    .fm-memories-rows {
+        overflow  : auto;
+        min-height: 0;
+        gap       : 10px;
+    }
+
+    .fm-memories-card {
+        gap          : 7px;
+        padding      : 10px;
+        border       : 1px solid var(--fm-line-soft);
+        border-radius: 6px;
+        background   : var(--fm-panel);
+    }
+
+    .fm-memories-card-title {
+        color      : var(--fm-ink);
+        font-weight: 650;
+        font-size  : 12.5px;
+    }
+
+    .fm-memories-card-body {
+        color      : var(--fm-ink);
+        font-size  : 12.5px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+    }
+
+    .fm-memories-actions {
+        gap: 8px;
+    }
+
+    /* honest quiet state — absence is not an error (drawer-shell contract item 5) */
+    .fm-memories-empty {
+        padding: 14px 4px;
+        color  : var(--fm-ink-dim);
+    }
+}

@@ -13,6 +13,13 @@
         gap: 8px;
     }
 
+    /* the head tolerates narrow drawers: the authority line wraps under the title instead of
+       squeezing it (drawer-shell contract item 3) */
+    .fm-catch-up-head {
+        align-items: baseline;
+        flex-wrap  : wrap;
+    }
+
     .fm-catch-up-title {
         color      : var(--fm-ink);
         font-weight: 700;
@@ -28,12 +35,39 @@
         font-size  : 10.5px;
     }
 
+    /* the agent-scope row is a WRAPPING chip set, never a single squeezed line (#17209 AC — the
+       operator screenshot showed "whole fleet Ada Grace Vega…" overlapping in one clipped row) */
     .fm-catch-up-partitions {
-        overflow-x: auto;
+        flex-wrap: wrap;
+        row-gap  : 6px;
     }
 
-    .fm-catch-up-partition.is-active {
-        color: var(--fm-signal);
+    /* partition choices are selector chips (pick-one) — the .fm-chip idiom: quiet bordered pills,
+       selection structural (border + weight + a signal wash), never the stock button slab */
+    .neo-button.fm-catch-up-partition {
+        background   : none;
+        border       : 1px solid var(--fm-line);
+        border-radius: 6px;
+        box-shadow   : none;
+        color        : var(--fm-ink-dim);
+        font-size    : 11px;
+        font-weight  : 500;
+        min-width    : 0;
+
+        &:hover {
+            color: var(--fm-ink);
+        }
+
+        &.is-active {
+            background  : color-mix(in srgb, var(--fm-signal) 16%, transparent);
+            border-color: var(--fm-signal);
+            color       : var(--fm-ink);
+            font-weight : 600;
+        }
+
+        .neo-button-text {
+            color: inherit;
+        }
     }
 
     .fm-catch-up-sources {

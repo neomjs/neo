@@ -50,6 +50,13 @@ class AddAgentForm extends FormContainer {
          */
         baseCls: ['fm-add-agent-form'],
         /**
+         * The selector-chip primitive's skin (fleet/Chips.scss) has no view class of its own —
+         * the harness chips this form renders load it via the shared-partial mechanism, the same
+         * way the dockdemo workspaces pull 'Neo.dashboard.Container'.
+         * @member {String[]} additionalThemeFiles=['AgentOS.view.fleet.Chips']
+         */
+        additionalThemeFiles: ['AgentOS.view.fleet.Chips'],
+        /**
          * Optional injected Fleet-Registry-bridge resolver — the DI seam (the injected-reader
          * discipline): owners and specs pass a function returning a bridge; null falls back to the
          * global `AgentOS.fleet.registryBridge` seam. The form never constructs a bridge.
@@ -80,13 +87,18 @@ class AddAgentForm extends FormContainer {
          * actions (submit) · status line. Geometry + skin in `AddAgentForm.scss`, colors token-only.
          * @member {Object[]} items
          */
+        // every row is flex:'none': the vbox default (grow 1) would distribute a stretched host's
+        // height evenly across the anatomy — exactly the multi-hundred-px gaps the drawer showed.
+        // Rows keep their natural height; a taller mount leaves quiet well space instead.
         items: [{
             ntype: 'component',
             cls  : ['fm-add-heading'],
+            flex : 'none',
             vdom : {cn: [{tag: 'strong', text: 'Add an agent'}]}
         }, {
             module         : TextField,
             clearable      : true,
+            flex           : 'none',
             labelPosition  : 'inline',
             labelText      : 'GitHub username',
             name           : 'githubUsername',
@@ -96,6 +108,7 @@ class AddAgentForm extends FormContainer {
         }, {
             module         : PasswordField,
             clearable      : true,
+            flex           : 'none',
             labelPosition  : 'inline',
             labelText      : 'GitHub PAT',
             name           : 'credential',
@@ -107,6 +120,7 @@ class AddAgentForm extends FormContainer {
             // from the registry, labels are the registry's product language (config-card twin)
             ntype    : 'container',
             cls      : ['fm-add-harness-row'],
+            flex     : 'none',
             layout   : {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             reference: 'harness-row',
 
@@ -120,6 +134,7 @@ class AddAgentForm extends FormContainer {
         }, {
             ntype : 'container',
             cls   : ['fm-add-actions'],
+            flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
 
             items: [{
@@ -133,6 +148,7 @@ class AddAgentForm extends FormContainer {
         }, {
             ntype    : 'component',
             cls      : ['fm-add-status', 'is-idle'],
+            flex     : 'none',
             reference: 'flow-status'
         }]
     }
