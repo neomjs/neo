@@ -31,22 +31,32 @@
  * @type {Object[]}
  */
 export const REQUIRED_REPOSITORIES = [
-    {name: 'devindex-opt-in',  owner: 'neomjs', purpose: 'OptIn stargazer read'},
-    {name: 'devindex-opt-out', owner: 'neomjs', purpose: 'OptOut issue read + close'}
+    {connection: 'stargazers', name: 'devindex-opt-in',  owner: 'neomjs', purpose: 'OptIn stargazer read'},
+    {connection: 'issues',     name: 'devindex-opt-out', owner: 'neomjs', purpose: 'OptOut issue read + close'}
 ];
 
 const DENIAL_PATTERN = /resource not accessible by integration|not accessible|bad credentials|requires authentication/i;
 
 /**
- * @summary Issues one minimal, un-retried GraphQL read against a repository.
+ * @summary Issues one minimal, un-retried GraphQL read that exercises the connection this
+ * repository is actually here for.
+ *
+ * It probed `repository{id}` alone, which resolves from repository metadata — so it answered "can
+ * this identity see the repository", never "can it perform the read named in `purpose`". Those came
+ * apart in production: `devindex-opt-in reachable (OptIn stargazer read)` was logged by a run whose
+ * stargazer read was denied twelve minutes later, and the log line asserting coverage is what sent
+ * diagnosis away from the credential. Selecting the named connection closes the gap between what
+ * this probe proves and what its `purpose` claims.
  * @param {Object}   options
  * @param {String}   options.owner Repository owner.
  * @param {String}   options.name Repository name.
+ * @param {String}   options.connection Repository connection the consuming stage reads, e.g.
+ * `stargazers`. This is the field `purpose` names, so the probe and the claim cannot drift apart.
  * @param {String}   options.token Installation token to probe with.
  * @param {Function} [options.fetchFn=fetch] Injectable transport.
  * @returns {Promise<{ok: Boolean, reason: String|null}>}
  */
-export async function probeRepository({owner, name, token, fetchFn = fetch}) {
+export async function probeRepository({owner, name, connection, token, fetchFn = fetch}) {
     let response, body;
 
     // A transport failure — ECONNRESET, DNS, TLS — is the single most common transient class, and it
@@ -63,7 +73,10 @@ export async function probeRepository({owner, name, token, fetchFn = fetch}) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                query    : 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name){id}}',
+                // `first: 1` keeps this as cheap as the id-only probe it replaces: one edge proves
+                // the connection is readable, and the pipeline never uses the returned page.
+                query: 'query($owner:String!,$name:String!){repository(owner:$owner,name:$name)' +
+                    `{id ${connection}(first:1){pageInfo{hasNextPage}}}}`,
                 variables: {name, owner}
             })
         });
@@ -76,7 +89,11 @@ export async function probeRepository({owner, name, token, fetchFn = fetch}) {
     // A GraphQL denial arrives as HTTP 200 with an `errors` array, so status alone is not the test.
     const message = body?.errors?.map(error => error.message).join('; ') || '';
 
-    if (body?.data?.repository?.id) {
+    // BOTH selections, because GraphQL answers a partial denial with partial DATA: `id` resolves
+    // from repository metadata while the denied connection returns null beside an `errors` entry.
+    // Testing `id` alone would read that exact response — the one this probe exists to catch — as a
+    // success, which is how the id-only probe passed while the stargazer read was already denied.
+    if (body?.data?.repository?.id && body.data.repository[connection]) {
         return {ok: true, reason: null}
     }
 
@@ -111,7 +128,7 @@ export async function assertDataSyncAccess({
 
     const failures = [];
 
-    for (const {name, owner, purpose} of repositories) {
+    for (const {connection, name, owner, purpose} of repositories) {
         // BOUNDED, not single-shot. The timing argument this preflight rests on separates
         // mid-batch flakiness from a pre-work denial — it does NOT rule out a flaky FIRST call.
         // Declaring one denial permanently authorized because of when it happened would trade a
@@ -123,7 +140,7 @@ export async function assertDataSyncAccess({
         let ok = false, reason = null;
 
         for (let attempt = 1; attempt <= attempts; attempt++) {
-            ({ok, reason} = await probeRepository({fetchFn, name, owner, token}));
+            ({ok, reason} = await probeRepository({connection, fetchFn, name, owner, token}));
 
             if (ok) break;
 

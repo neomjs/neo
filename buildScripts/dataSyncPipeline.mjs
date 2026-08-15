@@ -85,29 +85,44 @@ const
             publishGeneratedProgressOnFailure: true,
             tokenScope                       : 'reader'
         },
+        // The four DevIndex stages below ENRICH the DevIndex product; they do not produce the corpus
+        // this repository publishes. Without the deferral flag they were fatal to publication: a
+        // denial on the very first of them threw out of the loop, so the remaining stages — including
+        // `content indexes and SEO`, which is what makes the corpus consumable — never ran and the
+        // corpus generated above was discarded unpublished. A GitHub-side denial on the opt-in
+        // stargazer read froze `resources/content/**` on `dev` for nineteen hours that way, and every
+        // downstream consumer (portal data, KB ingestion) read the frozen corpus.
+        //
+        // Deferring does NOT soften the failure: `deferredError` is rethrown after publish, so the
+        // run still exits non-zero and the standing alarm still fires. It only stops an optional
+        // enrichment read from deciding whether the corpus gets published.
         {
-            args      : ['run', 'devindex:optin'],
-            command   : 'npm',
-            label     : 'DevIndex Opt-In',
-            tokenScope: 'intake'
+            args                             : ['run', 'devindex:optin'],
+            command                          : 'npm',
+            label                            : 'DevIndex Opt-In',
+            publishGeneratedProgressOnFailure: true,
+            tokenScope                       : 'intake'
         },
         {
-            args      : ['run', 'devindex:optout'],
-            command   : 'npm',
-            label     : 'DevIndex Opt-Out',
-            tokenScope: 'intake'
+            args                             : ['run', 'devindex:optout'],
+            command                          : 'npm',
+            label                            : 'DevIndex Opt-Out',
+            publishGeneratedProgressOnFailure: true,
+            tokenScope                       : 'intake'
         },
         {
-            args      : ['run', 'devindex:spider', '--', '--strategy', 'random'],
-            command   : 'npm',
-            label     : 'DevIndex Spider',
-            tokenScope: 'intake'
+            args                             : ['run', 'devindex:spider', '--', '--strategy', 'random'],
+            command                          : 'npm',
+            label                            : 'DevIndex Spider',
+            publishGeneratedProgressOnFailure: true,
+            tokenScope                       : 'intake'
         },
         {
-            args      : ['run', 'devindex:update', '--', '--limit=200'],
-            command   : 'npm',
-            label     : 'DevIndex Updater',
-            tokenScope: 'intake'
+            args                             : ['run', 'devindex:update', '--', '--limit=200'],
+            command                          : 'npm',
+            label                            : 'DevIndex Updater',
+            publishGeneratedProgressOnFailure: true,
+            tokenScope                       : 'intake'
         },
         {
             // `--include-labels` reaches `LabelService.listLabels`, which pages this repository's
@@ -571,14 +586,43 @@ async function recoverStaleAttempt({
 }
 
 /**
+ * @summary Folds every deferred stage failure into the single error the publish path rethrows.
+ *
+ * The publish path rethrows ONE error, so a lone `deferredError` slot kept only whichever stage
+ * failed last: one denial that failed all four DevIndex stages reported one of them and dropped
+ * three, and the outage read as narrower than it was. The aggregate spells every cause into
+ * `message` — a CI log tail shows the message and nothing else — while `AggregateError#errors`
+ * keeps the originals reachable for anything inspecting them programmatically.
+ *
+ * A single failure returns unwrapped: wrapping it would bury the one message that matters behind a
+ * count of one, and every existing consumer already reads that error directly.
+ * @param {Error[]} errors Deferred failures, in the order their stages ran.
+ * @returns {Error} `errors[0]` when it is the only one, otherwise an `AggregateError` over all.
+ */
+export function aggregateDeferredFailures(errors) {
+    if (errors.length === 1) {
+        return errors[0]
+    }
+
+    return new AggregateError(
+        errors,
+        `[DataSync] ${errors.length} stages deferred a failure; all of them are reported below.\n\n` +
+        errors.map((error, index) => `(${index + 1}/${errors.length}) ${error.message}`).join('\n\n')
+    )
+}
+
+/**
  * @summary Runs the complete generated-output emission sequence for one fresh-head attempt.
  * @param {Object}   options
  * @param {Number}   options.attempt Current attempt number.
  * @param {String}   options.cwd Repository root.
  * @param {Function} options.execute Child-process executor.
  * @param {Function} options.log Telemetry sink.
- * @returns {Promise<void|{deferredError: Error}>} Deferred corpus failure whose safe generated
- * progress must be published before the original error is reported.
+ * @param {Function} [options.preflight=assertDataSyncAccess] Intake credential-topology probe. Its
+ * denial is deferred rather than thrown, so it cannot re-couple corpus publication to the intake
+ * identity that the stage table just decoupled it from.
+ * @returns {Promise<void|{deferredError: Error}>} Deferred failure — a preflight denial and/or every
+ * stage that deferred one — whose safe generated progress must be published before it is reported.
  */
 export async function emitGeneratedData({
     attempt,
@@ -591,7 +635,29 @@ export async function emitGeneratedData({
     // collection stages depend on. A denial here survives its full retry budget AND precedes all work, so
     // it is the installation answering rather than a transient read — the distinction the shared
     // message string cannot make, and the one whose absence cost sixty silent scheduled runs.
-    await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN});
+    //
+    // DEFERRED, not fatal. This probe guards exactly the `intake` identity, and every stage declaring
+    // that identity now defers its failure so an enrichment denial cannot decide whether the corpus
+    // publishes. Rethrowing here would reinstate that coupling one layer earlier — the guard becoming
+    // the single point of failure the stages below no longer are — and the corpus would stay frozen
+    // for the same reason, just faster. It still reaches the run's exit non-zero via the deferral.
+    let preflightError = null;
+
+    try {
+        await preflight({log, token: scopedStageEnv('intake').GITHUB_TOKEN})
+    } catch (error) {
+        // Preflight-only mode exists to ANSWER the credential-topology question, so there the denial
+        // is the requested result and must surface directly rather than as a deferral nothing reads.
+        if (process.env.DATA_SYNC_PREFLIGHT_ONLY === 'true') {
+            throw error
+        }
+
+        preflightError = error;
+        log(
+            `[DataSync] emit attempt=${attempt} stage=preflight result=deferred-failure ` +
+            'action=skip-intake-stages-publish-generated-progress-then-fail'
+        )
+    }
 
     // Credential-topology check with no side effects. The collection stages mutate — OptOut comments
     // on and closes real issues — so a configuration check that must run them is one nobody repeats
@@ -601,7 +667,10 @@ export async function emitGeneratedData({
         return
     }
 
-    let deferredError = null;
+    // EVERY deferred failure, not the last one. A single slot silently dropped three of the four
+    // DevIndex stages when one denial failed them all, so the run reported one cause and hid the
+    // rest — and the operator sized the outage from whichever happened to run last.
+    const deferredErrors = preflightError ? [preflightError] : [];
 
     for (const {
         args,
@@ -610,6 +679,18 @@ export async function emitGeneratedData({
         publishGeneratedProgressOnFailure = false,
         tokenScope
     } of emissionCommands) {
+        // The preflight already proved this identity cannot serve its repositories, so every stage
+        // declaring it fails the same way. Skipping them keeps ONE reported cause instead of five
+        // copies of it, and derives the skipped set from `tokenScope` — the declaration that already
+        // exists — rather than a second hand-maintained flag free to drift from it.
+        if (preflightError && tokenScope === 'intake') {
+            log(
+                `[DataSync] emit attempt=${attempt} stage=${label} result=skipped ` +
+                'reason=intake-preflight-denied'
+            );
+            continue
+        }
+
         log(`[DataSync] emit attempt=${attempt} stage=${label} credential=${tokenScope}`);
 
         try {
@@ -637,7 +718,7 @@ export async function emitGeneratedData({
                 `Declared credential scope: \`${tokenScope}\`.\n${error.message}`;
 
             if (publishGeneratedProgressOnFailure) {
-                deferredError = error;
+                deferredErrors.push(error);
                 log(
                     `[DataSync] emit attempt=${attempt} stage=${label} result=deferred-failure ` +
                     'action=publish-generated-progress-then-fail'
@@ -649,8 +730,8 @@ export async function emitGeneratedData({
         }
     }
 
-    if (deferredError) {
-        return {deferredError}
+    if (deferredErrors.length > 0) {
+        return {deferredError: aggregateDeferredFailures(deferredErrors)}
     }
 }
 
