@@ -1045,7 +1045,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getConvers
 
     const COMMENT_A = {id: 'IC_a1111', author: {login: 'alice'}, body: 'First comment',  createdAt: '2026-04-24T01:00:00Z'};
     const COMMENT_B = {id: 'IC_b2222', author: {login: 'bob'},   body: 'Second comment', createdAt: '2026-04-24T01:10:00Z'};
-    const COMMENT_C = {id: 'IC_c3333', author: {login: 'alice'}, body: 'Third comment',  createdAt: '2026-04-24T01:20:00Z'};
+    const COMMENT_C = {id: 'IC_c3333', databaseId: 5301283039, author: {login: 'alice'}, body: 'Third comment',  createdAt: '2026-04-24T01:20:00Z'};
     const COMMENT_D = {id: 'IC_d4444', author: {login: 'bob'},   body: 'Fourth comment', createdAt: '2026-04-24T01:30:00Z'};
 
     const PR_FIXTURE = {
@@ -1089,6 +1089,59 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getConvers
 
         expect(result.title).toBe('Test PR');
         expect(result.comments.nodes).toHaveLength(4);
+    });
+
+    test('comment_id accepts every spelling, and a scoped request omits the PR body (#17142)', async () => {
+        // The PR path had no service-level selector arms at all — only the pure helper and the
+        // Discussion path were covered, so this surface's wiring was asserted nowhere (@neo-gpt).
+        // `5301283039` is a real PR-comment databaseId shape; the legacy base64 form is the
+        // regression case strict equality used to accept.
+        for (const spelling of [
+            'IC_c3333',
+            '5301283039',
+            'issuecomment-5301283039',
+            'https://github.com/neomjs/neo/pull/10272#issuecomment-5301283039'
+        ]) {
+            const result = await PullRequestService.getConversation({pr_number: 10272, comment_id: spelling});
+
+            expect(result.comments.nodes.map(c => c.id), spelling).toEqual(['IC_c3333']);
+            expect(result.body,        `${spelling}: scoped body omitted`).toBeUndefined();
+            expect(result.bodyOmitted, `${spelling}: omission announced`).toBe(true);
+            expect(result.title,       `${spelling}: title survives scoping`).toBe('Test PR');
+        }
+    });
+
+    test('a malformed comment_id ERRORS; a well-formed absent one returns empty (#17142)', async () => {
+        const malformed = await PullRequestService.getConversation({pr_number: 10272, comment_id: 'not_an_id'});
+
+        expect(malformed.code).toBe('MALFORMED_COMMENT_ID');
+        expect(malformed.comments).toBeUndefined();
+
+        const absent = await PullRequestService.getConversation({pr_number: 10272, comment_id: 'IC_nope9999'});
+
+        expect(absent.code).toBeUndefined();
+        expect(absent.comments.nodes).toEqual([]);
+    });
+
+    test('an EMPTY comment_id errors instead of returning the whole unscoped thread (#17142)', async () => {
+        const result = await PullRequestService.getConversation({pr_number: 10272, comment_id: ''});
+
+        expect(result.code).toBe('MALFORMED_COMMENT_ID');
+        expect(result.body).toBeUndefined();
+    });
+
+    test('since_comment_id accepts the same spellings and is scoped too (#17142)', async () => {
+        const result = await PullRequestService.getConversation({
+            pr_number       : 10272,
+            since_comment_id: 'issuecomment-5301283039'
+        });
+
+        expect(result.comments.nodes.map(c => c.id)).toEqual(['IC_d4444']);
+        expect(result.bodyOmitted).toBe(true);
+
+        const malformed = await PullRequestService.getConversation({pr_number: 10272, since_comment_id: 'evilcomment-1'});
+
+        expect(malformed.code).toBe('MALFORMED_COMMENT_ID');
     });
 
     test('comment_id selector returns only the matching comment', async () => {

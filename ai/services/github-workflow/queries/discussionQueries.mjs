@@ -83,6 +83,7 @@ export const GET_DISCUSSION_CONVERSATION = `
         comments(first: $maxComments) {
           nodes {
             id
+            databaseId
             author {
               login
             }

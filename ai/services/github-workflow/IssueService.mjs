@@ -3,6 +3,7 @@ import Base                                                                     
 import GraphqlService                                                                                                                                                                                                                from './GraphqlService.mjs';
 import RepositoryService                                                                                                                                                                                                             from './RepositoryService.mjs';
 import logger                                                                                                                                                                                                                        from '../../mcp/server/github-workflow/logger.mjs';
+import {commentMatches, isSelectorPresent, malformedCommentIdError, omitScopedBody, parseCommentId}                                                                                                                                  from './shared/commentSelector.mjs';
 import {projectConversationTrust}                                                                                                                                                                                                    from './shared/conversationTrust.mjs';
 import {GET_ISSUE_LABEL_IDS, GET_PULL_REQUEST_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST, FETCH_ISSUES_LIST_NO_FILTER, buildIssuesListQuery} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID}                                                                                                                                                                                                         from './queries/pullRequestQueries.mjs';
@@ -67,10 +68,14 @@ class IssueService extends Base {
      *
      * @param {Object} options
      * @param {Number} options.issue_number       The issue number (required).
-     * @param {String} [options.comment_id]       Return only the matching comment; others elided. Issue title/body still returned.
-     * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt order). Unknown id → empty comments.
+     * @param {String} [options.comment_id]       Return only the matching comment. Accepts a node ID, numeric database
+     *     id, `issuecomment-N` anchor, or full comment URL; an unrecognised shape returns a `MALFORMED_COMMENT_ID`
+     *     error, a well-formed but absent id returns empty comments.
+     * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt
+     *     order). Same accepted spellings and same malformed-vs-absent distinction as `comment_id`.
      * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
-     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error. Payloads
+     * @returns {Promise<Object>} Conversation data or a structured error. A SCOPED request (any selector) omits the
+     *          parent body and sets `bodyOmitted: true`; an unscoped request is unchanged. Payloads
      *          are trust-projected: authored nodes carry `authorTrust`, untrusted-author bodies arrive
      *          defanged, and the root carries a `contentTrust` summary (see `shared/conversationTrust.mjs`).
      */
@@ -105,11 +110,29 @@ class IssueService extends Base {
             // Selector precedence: comment_id > since_comment_id > last_n > full.
             let filtered;
 
-            if (comment_id) {
-                filtered = allComments.filter(c => c.id === comment_id);
-            } else if (since_comment_id) {
-                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
-                // Anchor not found → empty result set (mirrors the PR path).
+            if (isSelectorPresent(comment_id)) {
+                // A malformed id is an ERROR, never an empty comment list. The old strict equality
+                // filtered every comment away for the two spellings a peer actually holds — a URL
+                // anchor or a bare number — and the caller's only way to learn that was to re-read
+                // the whole thread, which is the cost this parameter exists to avoid.
+                const selector = parseCommentId(comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('comment_id', comment_id);
+                }
+
+                filtered = allComments.filter(comment => commentMatches(comment, selector));
+            } else if (isSelectorPresent(since_comment_id)) {
+                const selector = parseCommentId(since_comment_id);
+
+                if (!selector) {
+                    return malformedCommentIdError('since_comment_id', since_comment_id);
+                }
+
+                const anchorIdx = allComments.findIndex(comment => commentMatches(comment, selector));
+                // Well-formed but absent from this thread → empty result set. Distinguishable from
+                // the malformed case above, which errors: "not here" and "not an id" are different
+                // answers and the caller acts differently on each.
                 filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
             } else if (typeof last_n === 'number' && last_n > 0) {
                 filtered = allComments.slice(-last_n);
@@ -118,14 +141,16 @@ class IssueService extends Base {
                 return issue;
             }
 
-            // Filtered paths preserve issue title/body/author; only comments are narrowed.
-            return {
+            // Scoped paths narrow the comments AND drop the parent body: a request for part of a
+            // thread was previously charged for all of it, so the cheapest correct usage paid the
+            // most expensive payload. Unscoped calls above still return the body untouched.
+            return omitScopedBody({
                 ...issue,
                 comments: {
                     ...issue.comments,
                     nodes: filtered
                 }
-            };
+            });
         } catch (error) {
             logger.error(`Error getting conversation for issue #${issue_number} via GraphQL:`, error);
             return {
