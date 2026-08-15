@@ -72,25 +72,39 @@ export function readRelativeSpecifiers(source, absPath) {
 }
 
 /**
- * Extracts the `ai:*` script entries whose command executes a file under `ai/scripts`.
- * Handles node flags before the path (`node --expose-gc ./ai/scripts/…`) and trailing args.
+ * Extracts the `ai:*` script entries whose command executes a file under `ai/scripts`, plus the
+ * entries it cannot classify. Extraction is global — every `ai/scripts/*.mjs` path in the
+ * command becomes an entry (a compound command's second entrypoint is checked, never silently
+ * dropped) — and tolerant of the bare `ai/scripts/…` form (no leading `./`). An `ai:*` command
+ * that references `ai/scripts` yet yields no entry is reported as unclassifiable: the guard's
+ * coverage count must never be able to shrink without saying so.
  * @param {Object<String,String>} scripts package.json `scripts`.
- * @returns {Array<{name: String, entry: String}>}
+ * @returns {{entries: Array<{name: String, entry: String}>, unclassifiable: Array<{name: String, command: String}>}}
  */
 export function extractEntrypoints(scripts) {
-    const entries = [];
+    const entries        = [];
+    const unclassifiable = [];
+    const ENTRY_PATTERN  = /(?:^|[\s;&|'"(])((?:\.\/)?ai\/scripts\/[^\s;&|'"]+\.mjs)/g;
 
     for (const [name, command] of Object.entries(scripts ?? {})) {
         if (!name.startsWith('ai:')) continue;
 
-        const match = String(command).match(/(?:^|\s)(\.\/ai\/scripts\/[^\s;&|'"]+\.mjs)/);
+        const text   = String(command),
+              before = entries.length;
 
-        if (match) {
-            entries.push({name, entry: match[1]});
+        ENTRY_PATTERN.lastIndex = 0;
+
+        let match;
+        while ((match = ENTRY_PATTERN.exec(text)) !== null) {
+            entries.push({name, entry: match[1].startsWith('./') ? match[1] : `./${match[1]}`});
+        }
+
+        if (entries.length === before && text.includes('ai/scripts')) {
+            unclassifiable.push({name, command: text});
         }
     }
 
-    return entries;
+    return {entries, unclassifiable};
 }
 
 /**
@@ -105,9 +119,10 @@ export function extractEntrypoints(scripts) {
  * @param {Set}      [options.okCache] Files whose subtree is already proven resolvable.
  * @param {Function} [options.readFile=fs.readFileSync] Injectable for specs.
  * @param {Function} [options.exists=fs.existsSync]     Injectable for specs.
+ * @param {Function} [options.stat=fs.statSync]         Injectable for specs.
  * @returns {String[]} Unresolvable edges, formatted for the report. Empty when clean.
  */
-export function collectUnresolved({entryFile, rootDir, okCache = new Set(), readFile = fs.readFileSync, exists = fs.existsSync}) {
+export function collectUnresolved({entryFile, rootDir, okCache = new Set(), readFile = fs.readFileSync, exists = fs.existsSync, stat = fs.statSync}) {
     const unresolved = [];
     const visiting   = new Set();
 
@@ -153,6 +168,13 @@ export function collectUnresolved({entryFile, rootDir, okCache = new Set(), read
                 continue;
             }
 
+            // A directory satisfies exists() but ESM rejects the import at runtime
+            // (ERR_UNSUPPORTED_DIR_IMPORT) — resolvability means a loadable file, never a dir.
+            if (stat(candidate).isDirectory()) {
+                unresolved.push(`${entryFile}: ${absPath} imports '${specifier}' — a directory, which ESM rejects (ERR_UNSUPPORTED_DIR_IMPORT)`);
+                continue;
+            }
+
             if (candidate.endsWith('.mjs')) {
                 walk(candidate);
             }
@@ -171,16 +193,23 @@ export function collectUnresolved({entryFile, rootDir, okCache = new Set(), read
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMain) {
-    const args       = process.argv.slice(2),
-          rootArg    = args.indexOf('--root'),
-          rootDir    = rootArg === -1 ? process.cwd() : path.resolve(args[rootArg + 1]),
-          pkg        = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')),
-          entries    = extractEntrypoints(pkg.scripts),
-          okCache    = new Set(),
-          violations = [];
+    const args                      = process.argv.slice(2),
+          rootArg                   = args.indexOf('--root'),
+          rootDir                   = rootArg === -1 ? process.cwd() : path.resolve(args[rootArg + 1]),
+          pkg                       = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8')),
+          {entries, unclassifiable} = extractEntrypoints(pkg.scripts),
+          okCache                   = new Set(),
+          violations                = [];
 
     for (const {entry} of entries) {
         violations.push(...collectUnresolved({entryFile: entry, rootDir, okCache}));
+    }
+
+    // Unclassifiable entries are printed, never silently excluded — and never a verdict: an
+    // `ai:*` command that references ai/scripts without running one of its files is not a
+    // broken entrypoint, but the coverage count must say what it could not classify.
+    for (const {name, command} of unclassifiable) {
+        console.warn(`[lint-npm-script-entrypoints] note — "${name}" references ai/scripts but no entrypoint was extractable; not checked: ${command}`);
     }
 
     if (violations.length > 0) {
@@ -190,5 +219,5 @@ if (isMain) {
         process.exit(1);
     }
 
-    console.log(`[lint-npm-script-entrypoints] OK — ${entries.length} ai:* entr(ies) into ai/scripts, every static relative import resolvable.`);
+    console.log(`[lint-npm-script-entrypoints] OK — ${entries.length} ai:* entr(ies) into ai/scripts, every static relative import resolvable${unclassifiable.length ? ` (${unclassifiable.length} unclassifiable, see notes)` : ''}.`);
 }
