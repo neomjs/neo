@@ -184,6 +184,33 @@ x-provider-lane-env: &provider-lane-env
   # Plane-class guidance: `-1` is what keeps a co-resident embedding model from being evicted by
   # chat traffic. A finite keep-alive on a multi-model plane reintroduces the unload retries as a
   # steady-state cost rather than an exception.
+  #
+  # MEMORY-CEILING DETECTION — not an embed clock, but the same contract: these decide whether a lane
+  # pinned AT its ceiling is REPORTED at all. A service at its ceiling thrashes on page faults, burning
+  # its CPU quota re-faulting evicted model pages instead of computing, while staying alive and
+  # answering every probe. Observed live at 48.0G of a 48.0G cap with host swap at 52.8%.
+  #
+  # The percent applies to whichever denominator the diagnosis resolves as AUTHORITATIVE: a Node
+  # service is measured against its OWN heap, never the container, because a cgroup total aggregates
+  # PID 1 plus every fork and would report a service as saturating on a child's footprint. The two are
+  # not comparable quantities, so the receipt publishes which one it used.
+  # NEO_MEMORY_SATURATION_PERCENT: "90"         # sustained memory % before a lane is saturated
+  # NEO_STORE_MEMORY_SATURATION_PERCENT: "80"   # lower for stores: they grow monotonically, so 90 is late
+  # NEO_MEMORY_SATURATION_WINDOW_MS: "30000"    # MEASURED window a saturation must persist across
+  #
+  # Plane-class guidance: the window is what licenses one memory fact to degrade a service alone — it
+  # is the corroboration a second fact would otherwise supply, so a transient spike cannot degrade a
+  # healthy lane. On a CPU-constrained plane sized close to its cap, lowering the percent buys warning
+  # time before thrash rather than after it; widening the window on a bursty ingest plane trades
+  # detection latency for fewer false degrades. A store's threshold is deliberately lower because it
+  # exits cleanly at its ceiling rather than being OOM-killed — no crash signature, no second chance.
+  #
+  # WIDENING THE WINDOW IS A PAIR CHANGE. The measured span is bounded by retention:
+  # `(NEO_DEPLOYMENT_STATE_BRIDGE_STATS_SAMPLE_WINDOW - 1) × NEO_DEPLOYMENT_STATE_BRIDGE_WRITE_INTERVAL_MS`,
+  # which is 30000ms at shipped defaults (2 samples, 30s apart). A window wider than that product is
+  # unsatisfiable on every scheduling path — the fact is never emitted, and a detector that never
+  # fires is indistinguishable from a plane that is never saturated. The orchestrator refuses to
+  # start on an unspannable pair rather than run the dead watch; raise the sample window with it.
   # ──────────────────────────────────────────────────────────────────────────────────────────────
   NEO_LOCAL_MODELS_CHAT_CONTEXT_LIMIT_TOKENS: ${NEO_PROVIDER_LANE_CHAT_CONTEXT_TOKENS:?chat context required}
   NEO_LOCAL_MODELS_CHAT_PARALLEL: "1"

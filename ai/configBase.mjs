@@ -1157,6 +1157,61 @@ class ConfigBase extends ConfigProvider {
                  * in a frozen literal.
                  * @type {Object}
                  */
+                /**
+                 * Memory-saturation thresholds for the container-health diagnosis.
+                 *
+                 * Leaves rather than module constants because they decide whether a lane at its
+                 * ceiling is reported at all: a container pinned AT its cgroup limit thrashes on page
+                 * faults, burning its CPU quota re-faulting evicted model pages instead of computing,
+                 * while staying alive and answering every probe. A deployment whose lanes are sized
+                 * differently needs to move these without patching the diagnosis service.
+                 * @type {Object}
+                 */
+                memorySaturation: {
+                    /**
+                     * Sustained memory percentage at which a transient service is reported saturated.
+                     * 90 leaves headroom to act while sitting well above ordinary working peaks.
+                     *
+                     * Applied against whichever denominator the diagnosis service resolves as
+                     * AUTHORITATIVE for the service — a Node service is measured against its own heap,
+                     * never the container, because a cgroup total aggregates PID 1 plus every fork and
+                     * would report a service as saturating on a child's footprint. Calling this
+                     * "container memory" describes only one of the two scopes it governs, and the
+                     * receipt publishes which one was used precisely because the two are not
+                     * comparable.
+                     * @type {Number}
+                     */
+                    percent: leaf(90, 'NEO_MEMORY_SATURATION_PERCENT', 'number'),
+                    /**
+                     * The store threshold, lower on purpose. Stores cross their ceiling by GROWING,
+                     * monotonically and predictably, so 90 is late for them: at sustained 90% the
+                     * remaining headroom is smaller than one ingestion batch and the store exits
+                     * cleanly rather than being OOM-killed — no crash signature, no second chance.
+                     * @type {Number}
+                     */
+                    storePercent: leaf(80, 'NEO_STORE_MEMORY_SATURATION_PERCENT', 'number'),
+                    /**
+                     * Minimum MEASURED window a saturation must persist across before it counts. This
+                     * window is what licenses a single memory fact to degrade a service on its own:
+                     * it is the corroboration a second fact would otherwise have supplied, so a
+                     * transient spike cannot degrade a healthy lane.
+                     *
+                     * MEMORY'S OWN clock, deliberately not the diagnosis service's shared
+                     * `sampleWindowMs`. Folding the two put a memory-named value in charge of the CPU
+                     * sustained window, the container cold-start gate and three provider-activity
+                     * freshness bounds at once — widening memory silently retimed provider diagnosis
+                     * from 30s to 120s.
+                     *
+                     * BOUNDED BY RETENTION: the observed span cannot exceed
+                     * `(deploymentStateBridge.statsSampleWindow - 1) × deploymentStateBridge.writeIntervalMs`,
+                     * so at shipped defaults (2 samples, 30s apart) 30000 is the widest satisfiable
+                     * window. A larger value here needs a larger `statsSampleWindow` with it;
+                     * `describeMemoryWindowReachability` validates the pair at orchestrator start
+                     * rather than letting an unspannable window ship as a detector that never fires.
+                     * @type {Number}
+                     */
+                    windowMs: leaf(30000, 'NEO_MEMORY_SATURATION_WINDOW_MS', 'number')
+                },
                 restartChurn: {
                     /**
                      * Unplanned restarts within the window, on ONE container generation, before

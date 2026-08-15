@@ -2641,7 +2641,13 @@ test.describe('DeploymentStateBridgeService — the classification projection is
             observedWindowMs      : 0,
             requiredWindowMs      : 30000,
             sampleCount           : 1,
-            stampCoverage         : 1
+            stampCoverage         : 1,
+            // Memory's own clock, and `container` here rather than `unavailable` because the
+            // BRIDGE now forwards `nodeCommand` into the projection — evidence the wiring is live,
+            // not merely that the fields exist.
+            memoryScope           : 'container',
+            memoryObservedWindowMs: 0,
+            memoryStampCoverage   : 1
         });
 
         // The transient sibling carries ITS threshold — the projection reports the class-resolved

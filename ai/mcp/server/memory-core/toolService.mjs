@@ -1,12 +1,15 @@
-import path                          from 'path';
-import {fileURLToPath}               from 'url';
-import AiConfig                      from '../../../config.mjs';
-import mcConfig                      from './config.mjs';
-import ToolService                   from '../../ToolService.mjs';
-import GraphqlService                from '../../../services/github-workflow/GraphqlService.mjs';
-import PullRequestHistoryService     from '../../../services/github-workflow/PullRequestHistoryService.mjs';
-import GraphService                  from '../../../services/memory-core/GraphService.mjs';
-import HealthService, {foldHeavyMaintenanceStarvation} from '../../../services/memory-core/HealthService.mjs';
+import path                      from 'path';
+import {fileURLToPath}           from 'url';
+import AiConfig                  from '../../../config.mjs';
+import mcConfig                  from './config.mjs';
+import ToolService               from '../../ToolService.mjs';
+import GraphqlService            from '../../../services/github-workflow/GraphqlService.mjs';
+import PullRequestHistoryService from '../../../services/github-workflow/PullRequestHistoryService.mjs';
+import GraphService              from '../../../services/memory-core/GraphService.mjs';
+import HealthService, {
+    foldHeavyMaintenanceStarvation,
+    foldServiceMemoryPressure
+}                                                      from '../../../services/memory-core/HealthService.mjs';
 import MemoryService                 from '../../../services/memory-core/MemoryService.mjs';
 import SessionService                from '../../../services/memory-core/SessionService.mjs';
 import SummaryService                from '../../../services/memory-core/SummaryService.mjs';
@@ -282,6 +285,31 @@ export function composeMemoryCoreHealthcheck({
             state  : 'fold-error',
             posture: null,
             error  : error?.message ?? String(error)
+        }
+    }
+
+    // A service AT its memory ceiling rides the SAME request-fresh inspection and folds at THIS
+    // surface, under the same boundary as starvation above: never into `HealthService`'s payload,
+    // because `ensureHealthy()` gates tool admission on that and a thrashing lane must not withdraw
+    // capabilities it does not affect. The orchestrator detected this condition and published it on
+    // the service record for a full incident while every aggregate surface still read healthy —
+    // detection without a consumer is not a diagnosis.
+    try {
+        const pressurePayload = {...composed};
+
+        foldServiceMemoryPressure({
+            payload     : pressurePayload,
+            inspection  : deploymentInspection,
+            now         : starvationNow,
+            staleAfterMs: starvationStaleAfterMs
+        });
+
+        composed = pressurePayload
+    } catch (error) {
+        composed.serviceMemoryPressure = {
+            state: 'fold-error',
+            atCap: [],
+            error: error?.message ?? String(error)
         }
     }
 

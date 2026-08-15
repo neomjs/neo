@@ -145,8 +145,8 @@ export class WakeDecisionService extends Base {
 
         const sentinelBlocks = activeReadinessSentinel?.ready === false &&
                                activeReadinessSentinel?.expiresAtMs > currentTimeMs;
-        const backoffBlocks  = activeBackoffWindow?.expiresAtMs > currentTimeMs;
-        const ready          = !sentinelBlocks && !backoffBlocks;
+        const backoffBlocks = activeBackoffWindow?.expiresAtMs > currentTimeMs;
+        const ready         = !sentinelBlocks && !backoffBlocks;
 
         if (!ready) {
             const reason = sentinelBlocks
@@ -369,7 +369,7 @@ export class WakeDecisionService extends Base {
         if (!this.backoffState) return 0;
 
         const identities = Object.keys(this.backoffState);
-        let cleared      = 0;
+        let   cleared    = 0;
 
         for (const identity of identities) {
             if (this.backoffState[identity].expiresAtMs <= currentTimeMs) {

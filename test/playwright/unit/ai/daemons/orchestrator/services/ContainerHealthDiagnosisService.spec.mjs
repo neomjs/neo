@@ -1,10 +1,10 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'node:fs';
-import path           from 'node:path';
-import process        from 'node:process';
+import {test, expect}     from '@playwright/test';
+import fs                 from 'node:fs';
+import path               from 'node:path';
+import process            from 'node:process';
 import {load as loadYaml} from 'js-yaml';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
+import Neo                from '../../../../../../../src/Neo.mjs';
+import * as core          from '../../../../../../../src/core/_export.mjs';
 // The COMMITTED declarative config, imported statically. Tests resolve committed config templates
 // rather than the overlay-resolving entrypoint: reading the roster through that entrypoint would let
 // a repo-local ignored file decide whether this totality guard passes, so a green here would describe
@@ -1973,7 +1973,15 @@ test.describe('describeClassification — the load-independent projection (#1659
             observedWindowMs      : 45000,
             requiredWindowMs      : 30000,
             sampleCount           : 2,
-            stampCoverage         : 1
+            stampCoverage         : 1,
+            // Memory's own clock, beside the Docker one. `unavailable` because no
+            // `nodeCommand` was supplied: only an explicit `false` licenses the container ratio, so
+            // an unclassifiable service yields no memory verdict — and a consumer proving a service
+            // is BELOW its ceiling must be able to see that, rather than read a container span and
+            // assume it described memory.
+            memoryScope           : 'unavailable',
+            memoryObservedWindowMs: 45000,
+            memoryStampCoverage   : 1
         });
     });
 
@@ -2006,7 +2014,10 @@ test.describe('describeClassification — the load-independent projection (#1659
             observedWindowMs      : 0,
             requiredWindowMs      : 30000,
             sampleCount           : 0,
-            stampCoverage         : null
+            stampCoverage         : null,
+            memoryScope           : 'unavailable',
+            memoryObservedWindowMs: 0,
+            memoryStampCoverage   : null
         });
     });
 
