@@ -278,7 +278,15 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
                 memoryPressure: {
                     disposition: 'at-cap',
                     reason     : null,
-                    receipt    : {serviceKey: 'embedding-model', metric: 'memory', scope: 'container', threshold: 90, minPercent: 99.8}
+                    // Carries the sample window because AC-2's receipt names the service, the cap AND
+                    // the window. This fixture omitted the window for a revision — the same omission
+                    // the fold spec's fixture had — and both passed, because the consumer validated
+                    // only the fields its sentence printed. Two fixtures written from the consumer's
+                    // side is how a contract half stays unenforced end to end.
+                    receipt    : {
+                        serviceKey: 'embedding-model', metric: 'memory', scope: 'container',
+                        threshold : 90, minPercent: 99.8, observedWindowMs: 120000, requiredWindowMs: 120000
+                    }
                 }
             },
             compose = services => toolService.composeMemoryCoreHealthcheck({

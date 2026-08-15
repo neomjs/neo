@@ -44,8 +44,16 @@ test.describe('foldServiceMemoryPressure (#17121)', () => {
             memoryPressure: {
                 disposition,
                 reason : null,
+                // The window fields are part of the receipt because AC-2 requires it — and their
+                // ABSENCE here is what hid the consumer defect for a revision: a fixture written from
+                // the consumer's side carried exactly the fields the consumer checked, so every case
+                // passed over an unenforced half of the contract. A fixture that cannot disagree with
+                // its consumer is not evidence about the consumer.
                 receipt: disposition === 'at-cap'
-                    ? {serviceKey, metric: 'memory', scope: 'container', threshold: 90, minPercent: 99.8}
+                    ? {
+                        serviceKey, metric: 'memory', scope: 'container', threshold: 90, minPercent: 99.8,
+                        observedWindowMs: 120000, requiredWindowMs: 120000
+                    }
                     : null
             }
         };
@@ -141,7 +149,7 @@ test.describe('foldServiceMemoryPressure (#17121)', () => {
             {serviceKey: 'embedding-model', metric: 'memory', scope: 'container', threshold: 90},   // no minPercent
             {serviceKey: 'embedding-model', metric: 'memory', minPercent: 99.8, threshold: 90},     // no scope
             {serviceKey: 'embedding-model', metric: 'memory', scope: 'container', minPercent: 99.8} // no threshold
-        ]) {
+        ].map(receipt => receipt && {observedWindowMs: 120000, requiredWindowMs: 120000, ...receipt})) {
             const service                = {...makeService(), memoryPressure: {disposition: 'at-cap', reason: null, receipt}};
             const {observation, payload} = fold(makeInspection({services: [service]}));
 
@@ -152,6 +160,63 @@ test.describe('foldServiceMemoryPressure (#17121)', () => {
             // to see, because it means the producer and the consumer disagree about the evidence.
             expect(observation.incompleteReceipts).toEqual(['embedding-model']);
         }
+    });
+
+    test('deleting the sample window from an otherwise-perfect receipt withdraws its authority', () => {
+        // The terminal falsifier for the completeness clause, and the one the previous validator could
+        // not fail: {scope, minPercent, threshold} is exactly the subset the detail sentence prints, so
+        // a receipt carrying only those three looked total. AC-2 requires the composed receipt to name
+        // the service, the cap, AND the sample window — the disposition is the claim, and the sustained
+        // window is the corroborating authority that makes it more than an assertion.
+        //
+        // Each case deletes ONE required field from a receipt that is otherwise complete and fresh, so
+        // a pass cannot come from any other clause: not staleness, not the disposition, not the domain
+        // rules. If any of these degrades the plane, an unmeasured claim is authoritative.
+        const base = {
+            serviceKey: 'embedding-model', metric: 'memory', scope: 'container',
+            threshold : 90, minPercent: 99.8, observedWindowMs: 120000, requiredWindowMs: 120000
+        };
+
+        for (const [label, receipt] of [
+            ['no observedWindowMs', {...base, observedWindowMs: undefined}],
+            ['no requiredWindowMs', {...base, requiredWindowMs: undefined}],
+            ['both windows gone',   {...base, observedWindowMs: undefined, requiredWindowMs: undefined}],
+            ['negative window',     {...base, observedWindowMs: -1}],
+            ['empty scope',         {...base, scope: ''}],
+            ['blank scope',         {...base, scope: '   '}],
+            ['unnamed service',     {...base, serviceKey: ''}]
+        ]) {
+            const service                = {...makeService(), memoryPressure: {disposition: 'at-cap', reason: null, receipt}};
+            const {observation, payload} = fold(makeInspection({services: [service]}));
+
+            expect(payload.status, label).toBe('healthy');
+            expect(observation.atCap, label).toEqual([]);
+            expect(observation.incompleteReceipts, label).toEqual(['embedding-model']);
+        }
+    });
+
+    test('the named service comes from the receipt, so evidence and sentence cannot name different lanes', () => {
+        // The projection read the outer record's key while the validator checked the receipt, which let
+        // a verified receipt describe one lane and the operator-visible line blame another. Divergence
+        // is the only case that can tell the two sources apart.
+        const service = {
+            ...makeService(),
+            serviceKey    : 'chat-model',
+            memoryPressure: {
+                disposition: 'at-cap',
+                reason     : null,
+                receipt    : {
+                    serviceKey: 'embedding-model', metric: 'memory', scope: 'container',
+                    threshold : 90, minPercent: 99.8, observedWindowMs: 120000, requiredWindowMs: 120000
+                }
+            }
+        };
+
+        const {observation, payload} = fold(makeInspection({services: [service]}));
+
+        expect(observation.atCap[0].serviceKey).toBe('embedding-model');
+        expect(payload.details.join(' ')).toContain('embedding-model sustained 99.8%');
+        expect(payload.details.join(' ')).not.toContain('chat-model');
     });
 
     test('a snapshot without a services array is absent, not clear', () => {

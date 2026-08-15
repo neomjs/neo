@@ -986,10 +986,28 @@ export function foldServiceMemoryPressure({payload, inspection, now, staleAfterM
             // itself the operator-visible condition, and a fold that stayed silent about it would
             // reproduce, one layer up, the exact defect this whole surface exists to close: a fact
             // computed, published, and consumed by nothing.
-            const complete = receipt => receipt !== null && typeof receipt === 'object' &&
-                typeof receipt.scope === 'string' &&
-                Number.isFinite(receipt.minPercent) &&
-                Number.isFinite(receipt.threshold);
+            // The receipt names THREE things — which service, against what cap, and for how
+            // long — so completeness is checked against all three. The earlier version validated only
+            // the fields this file interpolates into its sentence, which made the check circular: a
+            // receipt with its sample window deleted stayed authoritative because the sentence never
+            // printed a window, so nothing here could notice one was missing. A validator derived from
+            // the consumer's own output can only ever confirm the consumer.
+            //
+            // Blank strings are rejected rather than merely typed: `scope: ''` published "sustained
+            // 99.8% of its  limit", which reads as a measurement with a rendering glitch instead of the
+            // unattributed reading it actually is. A negative span is refused on the same domain
+            // discipline the threshold and retention clauses already apply — a duration below zero is
+            // not a short measurement, it is not a measurement.
+            const
+                named      = value => typeof value === 'string' && value.trim() !== '',
+                finiteSpan = value => Number.isFinite(value) && value >= 0,
+                complete   = receipt => receipt !== null && typeof receipt === 'object' &&
+                    named(receipt.serviceKey) &&
+                    named(receipt.scope) &&
+                    Number.isFinite(receipt.minPercent) &&
+                    Number.isFinite(receipt.threshold) &&
+                    finiteSpan(receipt.observedWindowMs) &&
+                    finiteSpan(receipt.requiredWindowMs);
 
             const atCap = claimed.filter(service => complete(service.memoryPressure?.receipt));
 
@@ -1000,7 +1018,11 @@ export function foldServiceMemoryPressure({payload, inspection, now, staleAfterM
             if (atCap.length > 0) {
                 observation.state = 'consumed-degraded';
                 observation.atCap = atCap.map(service => ({
-                    serviceKey: service.serviceKey ?? null,
+                    // The RECEIPT's key, not the record's: the receipt is what was validated above, so
+                    // the sentence must name the service the evidence names. Reading the outer record
+                    // here let a verified receipt describe one lane while the operator-visible line
+                    // blamed another.
+                    serviceKey: service.memoryPressure?.receipt?.serviceKey ?? null,
                     scope     : service.memoryPressure?.receipt?.scope ?? null,
                     minPercent: service.memoryPressure?.receipt?.minPercent ?? null,
                     threshold : service.memoryPressure?.receipt?.threshold ?? null
