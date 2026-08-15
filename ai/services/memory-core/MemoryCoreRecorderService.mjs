@@ -185,6 +185,11 @@ class MemoryCoreRecorderService extends Base {
 
     /**
      * Initializes the SQLite schema for Memory Core MCP tool telemetry.
+     *
+     * The database path resolves from an injected `this.dbPath` first and the
+     * `config.storagePaths.graph` leaf second: unit suites rebind this worker-shared singleton to
+     * a fixture database by construction, without reaching into the runtime config overlay.
+     * Production leaves `dbPath` unset, so the config leaf wins there.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -193,11 +198,13 @@ class MemoryCoreRecorderService extends Base {
         if (this.db) return;
 
         try {
-            const dbPath = config.storagePaths.graph;
+            const dbPath = this.dbPath || config.storagePaths.graph;
             if (!dbPath) {
                 logger.warn('[MemoryCoreRecorderService] storagePaths.graph not configured. Disabling tool telemetry.');
                 return;
             }
+
+            this.dbPath = dbPath;
 
             this.providerActivityStatusWriter = createProviderActivityStatusWriter({
                 dbPath,
@@ -728,7 +735,9 @@ class MemoryCoreRecorderService extends Base {
         let   reembedRatio = this.getReembedRatioProjection({sinceTs});
 
         const sidecarStatus = inspectProviderActivityStatus({
-            dbPath: config.storagePaths.graph,
+            // The path this service actually opened — never a re-read of the config singleton,
+            // whose cached leaves can belong to another suite's env inside a shared worker.
+            dbPath: this.dbPath || config.storagePaths.graph,
             sinceTs
         }).status;
 

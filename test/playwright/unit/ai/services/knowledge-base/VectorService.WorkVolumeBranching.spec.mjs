@@ -529,7 +529,10 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(parts.every(part => Buffer.byteLength(part, 'utf8') <= maxBytes)).toBe(true);
     });
 
-    test('does not apply local-model input caps to non-local embedding providers', async () => {
+    test('applies the band on a non-local provider too — over-band input is refused before the provider', async () => {
+        // Pre-fix this test pinned the fail-open: gemini was outside a hand-maintained local
+        // set, so the guard skipped the measurement and the provider was called with an
+        // over-band input. The guard now measures every provider.
         Memory_Config.data.embeddingProvider                            = 'gemini';
         KB_Config.data.localModels.embedding.contextLimitTokens        = 50;
         KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 1;
@@ -546,7 +549,37 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         fs.writeFileSync(fixturePath, JSON.stringify({
             hash       : 'remote-provider-large-chunk',
             type       : 'method',
-            name       : 'remote-large',
+            name       : 'x'.repeat(300),
+            className  : '',
+            description: '',
+            content    : ''
+        }), 'utf8');
+
+        const result = await KB_VectorService.embed(fixturePath);
+
+        expect(result.embedded).toBe(0);
+        expect(explicitProviders).toEqual([]); // the provider was never called
+        expect(spy.calls.upsert).toBe(0);
+    });
+
+    test('a non-local provider embeds an under-band document — measured, not exempt', async () => {
+        Memory_Config.data.embeddingProvider                            = 'gemini';
+        KB_Config.data.localModels.embedding.contextLimitTokens        = 50_000;
+        KB_Config.data.localModels.embedding.safeProcessingLimitTokens = 40_000;
+
+        const explicitProviders = [];
+        TextEmbeddingService.embedTexts = async (texts, explicitProvider) => {
+            explicitProviders.push(explicitProvider);
+            return texts.map(() => new Array(384).fill(0));
+        };
+
+        const spy = createSpyCollection({existingIds: []});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        fs.writeFileSync(fixturePath, JSON.stringify({
+            hash       : 'remote-provider-small-chunk',
+            type       : 'method',
+            name       : 'remote-small',
             className  : '',
             description: 'x'.repeat(300),
             content    : 'x'.repeat(300)
@@ -555,7 +588,6 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         const result = await KB_VectorService.embed(fixturePath);
 
         expect(result.embedded).toBe(1);
-        expect('skipped' in result).toBe(false);
         expect(explicitProviders).toEqual(['gemini']);
         expect(spy.calls.upsert).toBe(1);
     });

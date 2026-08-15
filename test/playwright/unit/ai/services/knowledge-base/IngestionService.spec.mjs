@@ -101,7 +101,7 @@ function createGraphStub() {
 
 function createEmbeddingGuardrail(overrides = {}) {
     return {
-        enabled                  : true,
+        recognized               : true,
         embeddingProvider        : 'openAiCompatible',
         contextLimitTokens       : 100,
         safeProcessingLimitTokens: 80,
@@ -1109,19 +1109,53 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         });
     });
 
-    test('does not apply local embedding caps to non-local ingestion providers', async () => {
+    test('applies the band on a non-local provider too — an over-band input is refused with a receipt, never waved through unmeasured', async () => {
+        // The pre-fix shape keyed the guard on a hand-maintained local set: gemini ingestion
+        // skipped the measurement entirely and this document sailed past the band. The guard
+        // now measures every provider; `recognized: false` is a receipt flag, not an exemption.
         Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
-            enabled                  : false,
+            recognized               : false,
             embeddingProvider        : 'gemini',
             contextLimitTokens       : 50,
             safeProcessingLimitTokens: 1,
-            model                    : 'gemini'
+            model                    : 'gemini-embedding-001'
         });
 
         const summary = await Service.ingestSourceFiles({
             tenantId: 'tenant-a',
             files   : [{parsedChunks: [validParsedChunk({
-                sourcePath: 'src/remote-large.js',
+                content   : '',
+                name      : 'x'.repeat(300),
+                sourcePath: 'src/remote-large.js'
+            })]}]
+        });
+
+        expect(summary.ingested).toBe(0);
+        expect(summary.embeddingsGenerated).toBe(0);
+        expect(summary.skippedOversized).toBe(1);
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_INGEST_INPUT_SIZE_EXCEEDED',
+            details: {
+                sourcePath       : 'src/remote-large.js',
+                embeddingProvider: 'gemini'
+            }
+        });
+        expect(vectorCalls).toHaveLength(0); // nothing over the band reaches the provider
+    });
+
+    test('an under-band document on a non-local provider passes — measured, not exempt', async () => {
+        Service.resolveEmbeddingInputGuardrail = () => createEmbeddingGuardrail({
+            recognized               : false,
+            embeddingProvider        : 'gemini',
+            contextLimitTokens       : 50_000,
+            safeProcessingLimitTokens: 40_000,
+            model                    : 'gemini-embedding-001'
+        });
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk({
+                sourcePath: 'src/remote-small.js',
                 content   : 'x'.repeat(300)
             })]}]
         });
@@ -1131,7 +1165,7 @@ test.describe('IngestionService.ingestSourceFiles', () => {
         expect(summary.skippedOversized).toBe(0);
         expect(summary.errors).toEqual([]);
         expect(vectorCalls).toHaveLength(1);
-        expect(vectorCalls[0].records[0].sourcePath).toBe('src/remote-large.js');
+        expect(vectorCalls[0].records[0].sourcePath).toBe('src/remote-small.js');
     });
 
     test('captures VectorService refusal as a summary error without losing the summary', async () => {
