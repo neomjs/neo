@@ -14,6 +14,12 @@ on:
       - 'test/playwright/unit/**'
       - 'buildScripts/util/check-spec-retirement.mjs'
       - '.github/workflows/spec-retirement-lint.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'test/playwright/unit/**'
+      - 'buildScripts/util/check-spec-retirement.mjs'
+      - '.github/workflows/spec-retirement-lint.yml'
 
 concurrency:
   group: spec-retirement-lint-${{ github.run_attempt == '1' && github.ref || github.run_id }}
