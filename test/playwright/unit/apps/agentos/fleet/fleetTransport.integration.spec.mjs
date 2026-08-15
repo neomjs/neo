@@ -317,6 +317,19 @@ test.describe('fleet transport — full-chain integration (real server + real re
         const refused         = establishFleetSessionCustody({bearerToken: wrongBearer, fleetUrl: url, target: preservedTarget});
 
         await expect(refused.custodySettled).resolves.toBe(false);
-        expect(preservedTarget.AgentOS.fleet.bearerToken).toBe(wrongBearer)
+        expect(preservedTarget.AgentOS.fleet.bearerToken).toBe(wrongBearer);
+
+        // The composed sequence over the REAL wire: the wrong bearer arrives where a VERIFIED
+        // bridge already lives — the candidate stays detached, is refused by the server, and the
+        // known-good bridge keeps answering authenticated calls throughout.
+        verifiedTarget.AgentOS.fleet.bearerToken = wrongBearer;
+
+        const retried = establishFleetSessionCustody({bearerToken: wrongBearer, fleetUrl: url, target: verifiedTarget});
+
+        expect(verifiedTarget.AgentOS.fleet.registryBridge, 'no displacement before proof').toBe(established.bridge);
+        await expect(retried.custodySettled).resolves.toBe(false);
+        expect(verifiedTarget.AgentOS.fleet.registryBridge, 'the verified bridge survives the failed live retry').toBe(established.bridge);
+        expect(verifiedTarget.AgentOS.fleet.bearerToken).toBe(wrongBearer);
+        await expect(verifiedTarget.AgentOS.fleet.registryBridge.listAgents()).resolves.toBeInstanceOf(Array)
     });
 });

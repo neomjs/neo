@@ -72,22 +72,29 @@ if (bootUrl?.href && resolveFleetTransportMode(bootUrl) === 'browser' && !global
  * - **read-old / no-downgrade:** a bearer-less pass NEVER replaces an existing bridge — `onStart()`
  *   runs for every joining SharedWorker window, and after the first join retires the launcher slot
  *   a later join would otherwise overwrite the live capability with a fail-closed one.
- * - **establish:** the install moves the bearer into transport closures (synchronous — the bridge
- *   is published before this function returns).
+ * - **establish:** the install moves the bearer into transport closures. With NO existing bridge
+ *   the install publishes synchronously (there is nothing to displace, and the pane needs the
+ *   fail-closed or live state immediately). With an existing bridge, the candidate is built
+ *   DETACHED: an unproven credential must never displace a proven capability, so the published
+ *   bridge stays the known-good one until the candidate verifies.
  * - **verify:** an authenticated `resolveViewerIdentity` round-trip through the NEW bridge — a
- *   constructed closure is not verification; only the server's stamped answer is.
+ *   constructed closure is not verification; only the server's stamped answer is. A detached
+ *   candidate is PROMOTED only after this proof, by re-installing into the real target —
+ *   `installFleetBridge` stays the slot's sole publisher.
  * - **retire:** the launcher pre-boot slot is cleared only after verify succeeds, and only while it
  *   still holds the exact established credential (the CAS guard) — a rejected bearer, an
  *   unreachable endpoint, and a value rotated in during verification all preserve the ingress,
- *   which IS the rollback truth. A throwing install preserves it the same way.
+ *   which IS the rollback truth. A throwing install preserves it the same way, and a failed
+ *   candidate leaves the known-good bridge published.
  *
  * @param {Object}   opts
  * @param {String}   opts.fleetUrl                         Raw dial endpoint; identity derives from its canonical form.
  * @param {String}   [opts.bearerToken=null]               Redeemed or launcher-placed bearer; `null` boots fail-closed.
  * @param {Function} [opts.installImpl=installFleetBridge] Injectable install for tests.
  * @param {Object}   [opts.target=globalThis]              Injectable global for tests.
- * @returns {Object} `{bridge, custodySettled}` — the installed (or preserved) registry bridge, and
- *     a never-rejecting promise resolving `true` exactly when the ingress slot was verified-retired.
+ * @returns {Object} `{bridge, custodySettled}` — the bridge PUBLISHED at return time (the fresh
+ *     install, or the preserved known-good one while a candidate proves itself), and a
+ *     never-rejecting promise resolving `true` exactly when the ingress slot was verified-retired.
  */
 export function establishFleetSessionCustody({fleetUrl, bearerToken = null, installImpl = installFleetBridge, target = globalThis} = {}) {
     const existing = target.AgentOS?.fleet?.registryBridge;
@@ -96,16 +103,21 @@ export function establishFleetSessionCustody({fleetUrl, bearerToken = null, inst
         return {bridge: existing, custodySettled: Promise.resolve(false)}
     }
 
-    const profile = createFleetProfile({custodian: 'session-only', endpoint: fleetUrl}),
-          bridge  = installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target});
+    const
+        profile    = createFleetProfile({custodian: 'session-only', endpoint: fleetUrl}),
+        publishNow = !existing,
+        bridge     = installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target: publishNow ? target : {}});
 
     const custodySettled = bearerToken === null
         ? Promise.resolve(false)
         : bridge.resolveViewerIdentity()
-            .then(() => retireBearerIngressSlot(target, {expected: bearerToken}))
+            .then(() => {
+                publishNow || installImpl({url: fleetUrl, bearerToken, profileId: profile.profileId, target});
+                return retireBearerIngressSlot(target, {expected: bearerToken})
+            })
             .catch(() => false);
 
-    return {bridge, custodySettled}
+    return {bridge: publishNow ? bridge : existing, custodySettled}
 }
 
 export const onStart = () => {

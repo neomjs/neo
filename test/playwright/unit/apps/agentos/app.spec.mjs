@@ -173,6 +173,66 @@ test.describe('AgentOS packaged Fleet window routing', () => {
             await expect(second.bridge.listAgents(), 'the surviving bridge still answers authenticated calls').resolves.toEqual({userId: 'operator'})
         });
 
+        test('the composed rotation→failed-retry sequence: the rejected candidate never displaces the verified bridge', async () => {
+            let releaseVerify;
+
+            const
+                gate       = new Promise(resolve => { releaseVerify = resolve }),
+                target     = {AgentOS: {fleet: {bearerToken: bearer}}},
+                gatedFetch = async () => {
+                    await gate;
+                    return {json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: {userId: 'operator'}})}
+                };
+
+            // Bearer A establishes (first custody — published) and verifies while B rotates in.
+            const first = establishFleetSessionCustody({bearerToken: bearer, fleetUrl, installImpl: realInstall(gatedFetch), target});
+
+            target.AgentOS.fleet.bearerToken = rotated;
+            releaseVerify();
+
+            await expect(first.custodySettled, 'CAS preserves the rotated value').resolves.toBe(false);
+            expect(target.AgentOS.fleet.bearerToken).toBe(rotated);
+
+            // The next SharedWorker pass retries with B; the server rejects it. The candidate is
+            // built DETACHED, so the known-good A bridge must remain published throughout.
+            const second = establishFleetSessionCustody({bearerToken: rotated, fleetUrl, installImpl: realInstall(refusedFetch()), target});
+
+            expect(target.AgentOS.fleet.registryBridge, 'an unproven candidate must never be published').toBe(first.bridge);
+            expect(second.bridge, 'the caller sees the bridge that is actually live').toBe(first.bridge);
+
+            await expect(second.custodySettled).resolves.toBe(false);
+            expect(target.AgentOS.fleet.registryBridge, 'the known-good bridge survives the failed retry').toBe(first.bridge);
+            expect(target.AgentOS.fleet.bearerToken, 'the rotated ingress also survives — both rollback truths hold').toBe(rotated);
+            await expect(target.AgentOS.fleet.registryBridge.listAgents(), 'the surviving bridge still answers').resolves.toEqual({userId: 'operator'})
+        });
+
+        test('a candidate that VERIFIES is promoted: the published bridge switches only after proof', async () => {
+            const
+                bearersSeen   = [],
+                recordedFetch = async (url, init) => {
+                    bearersSeen.push(init.headers.Authorization);
+                    return {json: async () => createFleetWireResponse(FLEET_WIRE_RESPONSE_STATES.ok, {result: {userId: 'operator'}})}
+                },
+                target = {AgentOS: {fleet: {bearerToken: bearer}}};
+
+            const first = establishFleetSessionCustody({bearerToken: bearer, fleetUrl, installImpl: realInstall(recordedFetch), target});
+
+            await expect(first.custodySettled).resolves.toBe(true);
+
+            // A rotated-in credential that the server ACCEPTS: detached until proven, then promoted.
+            target.AgentOS.fleet.bearerToken = rotated;
+
+            const second = establishFleetSessionCustody({bearerToken: rotated, fleetUrl, installImpl: realInstall(recordedFetch), target});
+
+            expect(target.AgentOS.fleet.registryBridge, 'no displacement before proof').toBe(first.bridge);
+            await expect(second.custodySettled).resolves.toBe(true);
+            expect(target.AgentOS.fleet.registryBridge, 'proof promotes the candidate').not.toBe(first.bridge);
+            expect('bearerToken' in target.AgentOS.fleet, 'the verified rotation retires its own ingress copy').toBe(false);
+
+            await expect(target.AgentOS.fleet.registryBridge.listAgents()).resolves.toEqual({userId: 'operator'});
+            expect(bearersSeen.at(-1), 'the promoted bridge dials with the NEW credential').toBe(`Bearer ${rotated}`)
+        });
+
         test('handshake-unavailable twice: the first fail-closed bridge is retained, never re-created', async () => {
             const target = {};
 
