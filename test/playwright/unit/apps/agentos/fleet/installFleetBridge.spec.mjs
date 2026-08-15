@@ -95,21 +95,20 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         const
             mcMint      = 'C'.repeat(43),
             headersSeen = [],
-            target      = {};
+            target      = {},
+            // ONE transport injection point, at install: the SAME fetch serves the wire and the
+            // stream — the capability pins it, so a stream-shaped answer is what this stub gives.
+            streamFetch = async (url, options) => {
+                headersSeen.push({url, class1: options.headers?.authorization, class3: options.headers?.['x-neo-mc-authorization']});
+                return {ok: false, status: 503, body: null}
+            };
 
-        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: mcMint, fetchImpl: okFetch(), target});
+        const bridge = installFleetBridge({url: fleetUrl, bearerToken: testBearer, mcAuthorization: mcMint, fetchImpl: streamFetch, target});
 
         expect(Object.getOwnPropertyDescriptor(bridge, 'openWakeStream')).toMatchObject({enumerable: false});
         expect(Object.keys(bridge).sort(), 'the capability never joins the enumerable wire surface').toEqual([...FLEET_WIRE_METHODS].sort());
 
-        const consumer = bridge.openWakeStream({
-            logger   : {warn: () => {}, error: () => {}},
-            fetchImpl: async (url, options) => {
-                headersSeen.push({url, class1: options.headers.authorization, class3: options.headers['x-neo-mc-authorization']});
-                return {ok: false, status: 503, body: null}
-            },
-            retryFloorMs: 10
-        });
+        const consumer = bridge.openWakeStream({logger: {warn: () => {}, error: () => {}}, retryFloorMs: 10});
 
         consumer.start();
         await new Promise(resolve => setTimeout(resolve, 20));
@@ -123,17 +122,18 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         });
 
         // a bearer-less bridge still opens the stream — unauthenticated, honestly refused
-        const failClosed = installFleetBridge({url: fleetUrl, fetchImpl: okFetch(), target: {}});
-        const bareSeen   = [];
+        const
+            bareSeen   = [],
+            failClosed = installFleetBridge({
+                url      : fleetUrl,
+                fetchImpl: async (url, options) => {
+                    bareSeen.push({class1: options.headers?.authorization, class3: options.headers?.['x-neo-mc-authorization']});
+                    return {ok: false, status: 401, body: null}
+                },
+                target: {}
+            });
 
-        const bareConsumer = failClosed.openWakeStream({
-            logger   : {warn: () => {}, error: () => {}},
-            fetchImpl: async (url, options) => {
-                bareSeen.push({class1: options.headers.authorization, class3: options.headers['x-neo-mc-authorization']});
-                return {ok: false, status: 401, body: null}
-            },
-            retryFloorMs: 10
-        });
+        const bareConsumer = failClosed.openWakeStream({logger: {warn: () => {}, error: () => {}}, retryFloorMs: 10});
 
         bareConsumer.start();
         await new Promise(resolve => setTimeout(resolve, 20));
@@ -146,6 +146,26 @@ test.describe('installFleetBridge — App-Worker wiring of the dev-server app<->
         const shellBridge = installFleetBridge({credentialIngress: 'shell', send: async () => null, target: {}});
 
         expect(shellBridge.openWakeStream).toBeUndefined()
+    });
+
+    test('the capability CANNOT be redirected: destination, credentials, and transport are pinned — the exfiltration falsifier', async () => {
+        const
+            attackerCalls = [],
+            attackerFetch = async (...args) => { attackerCalls.push(args); return {ok: false, status: 503, body: null} },
+            bridge        = installFleetBridge({url: fleetUrl, bearerToken: testBearer, fetchImpl: okFetch(), target: {}});
+
+        // every override attempt on a protected field fails LOUD before any consumer exists
+        for (const attempt of [
+            {eventsUrl: 'https://evil.example.test/steal'},
+            {authHeaders: () => ({authorization: 'Bearer forged'})},
+            {fetchImpl: attackerFetch},
+            {eventsUrl: 'https://evil.example.test/steal', fetchImpl: attackerFetch, retryFloorMs: 10}
+        ]) {
+            expect(() => bridge.openWakeStream(attempt), `override ${Object.keys(attempt).join('+')} must be refused`)
+                .toThrow(/capability owns destination, credentials, and transport/)
+        }
+
+        expect(attackerCalls, 'an attacker transport must never receive a single call — no header can leak').toHaveLength(0)
     });
 
     test('publishes AgentOS.fleet.registryBridge with exactly the wire operations', () => {

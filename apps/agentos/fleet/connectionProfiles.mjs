@@ -416,17 +416,20 @@ export function createCustodyMigration({fromCustodian, toCustodian, generation} 
  * holds exactly that value — the credential that PROVABLY verified into closure custody. A value a
  * producer rotated in during verification is a different credential that never verified, so it
  * survives the retire attempt; deleting it would destroy rotation truth the migration contract
- * promises to keep.
+ * promises to keep. `field` selects which ingress slot of the launch contract is being retired —
+ * the class-1 bearer by default, or the class-3 `mcAuthorization` mint, which rides the same
+ * transient-ingress discipline.
  * @param {Object} target             The global-shaped object carrying `AgentOS.fleet`.
  * @param {Object} [opts]
- * @param {String} [opts.expected]    Retire only if the slot still equals this exact value.
- * @returns {Boolean} whether a bearer was present (and matching, when guarded) and retired.
+ * @param {String} [opts.expected]              Retire only if the slot still equals this exact value.
+ * @param {String} [opts.field='bearerToken']   Which launch-contract ingress slot to retire.
+ * @returns {Boolean} whether a credential was present (and matching, when guarded) and retired.
  */
-export function retireBearerIngressSlot(target, {expected} = {}) {
+export function retireBearerIngressSlot(target, {expected, field = 'bearerToken'} = {}) {
     const fleet = target?.AgentOS?.fleet;
 
-    if (fleet && 'bearerToken' in fleet && (expected === undefined || fleet.bearerToken === expected)) {
-        delete fleet.bearerToken;
+    if (fleet && field in fleet && (expected === undefined || fleet[field] === expected)) {
+        delete fleet[field];
         return true
     }
 

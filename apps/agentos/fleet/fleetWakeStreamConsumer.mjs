@@ -202,11 +202,15 @@ export function createFleetWakeStreamConsumer({
 
         // Every connection is a catch-up moment — the trigger lives in `observeFrame`, on the
         // first frame that makes the subscription id known (the handshake `state` frame on a
-        // server that vouches it). The per-connection observation resets here so a connection
-        // that CANNOT catch up never wears the previous one's count.
+        // server that vouches it). The vouch and the handshake are CONNECTION-EPOCH state and
+        // reset here: a viewer disarmed between connections must never reuse the prior epoch's
+        // subscription, and liveness must never wear the prior epoch's handshake. Only the
+        // client-held watermark survives reconnect — it is client truth, not a server vouch.
         connected        = true;
         consecutiveDrops = 0;
         lastFrameAt      = now();
+        lastState        = null;
+        subscriptionId   = null;
         catchUpFired     = false;
         pendingAtCatchUp = null;
 
@@ -306,6 +310,14 @@ export function createFleetWakeStreamConsumer({
             }
 
             if (connected) {
+                // Transport-open is not handshake-live: an HTTP 200 with an open body and ZERO
+                // frames proves only that a socket exists. Positive liveness starts at the
+                // CURRENT epoch's `state` handshake — until it arrives, the honest answer is
+                // absence of signal, exactly like a disconnect.
+                if (lastState === null) {
+                    return {alive: 'unknown', reason: 'stream open, state handshake pending — liveness unconfirmed'}
+                }
+
                 const
                     age   = lastFrameAt === null ? null : now() - lastFrameAt,
                     stale = age !== null && age > STALE_AFTER_MS;
@@ -317,9 +329,9 @@ export function createFleetWakeStreamConsumer({
                     }
                 }
 
-                const armedNote = lastState
-                    ? (lastState.armedForViewer ? 'armed for this viewer' : `not armed for this viewer (${lastState.reason ?? 'no reason carried'})`)
-                    : 'state event pending';
+                const armedNote = lastState.armedForViewer
+                    ? 'armed for this viewer'
+                    : `not armed for this viewer (${lastState.reason ?? 'no reason carried'})`;
 
                 const pendingNote = pendingAtCatchUp ? ` · ${pendingAtCatchUp} pending caught up` : '';
 

@@ -88,11 +88,17 @@ test.describe('fleetWakeStreamConsumer — L3 live probe against the real compos
             }
         });
 
+        // BOTH mints cross the real wire — class-1 admits, the class-3 header rides its own
+        // channel (this harness runs no arming context, so the server takes the honest
+        // service-level path; the composed two-header request is what this probe pins).
         const consumer = createFleetWakeStreamConsumer({
             eventsUrl,
             retryFloorMs: 10,
             logger      : QUIET,
-            authHeaders : () => ({authorization: 'Bearer live-class-1'})
+            authHeaders : () => ({
+                authorization           : 'Bearer live-class-1',
+                'x-neo-mc-authorization': 'Bearer live-class-3-mint'
+            })
         });
 
         try {
@@ -107,7 +113,8 @@ test.describe('fleetWakeStreamConsumer — L3 live probe against the real compos
             const snapshot = consumer.describe();
 
             // The REAL fanout handshake: its `retry: 5000` hint raised the injected 10ms floor,
-            // and the real `state` frame landed as the first observation.
+            // and the real `state` frame landed as the first observation — positive liveness
+            // began exactly there, never at transport-open.
             expect(snapshot.retryFloorMs).toBe(5000);
             expect(snapshot.lastState).not.toBeNull();
             expect(snapshot.connected).toBe(true)

@@ -145,6 +145,69 @@ test.describe('fleetWakeStreamConsumer — the browser-direct wake observation',
         consumer.stop()
     });
 
+    test('the vouch is CONNECTION-EPOCH state: a disarmed reconnect never reuses the prior subscription', async () => {
+        const
+            responses = [],
+            pollCalls = [];
+
+        const nextResponse = () => {
+            const response = sseResponse();
+            responses.push(response);
+            return response
+        };
+
+        const consumer = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({authorization: 'Bearer class-1-admission'}),
+            pollDigest  : async args => { pollCalls.push(args); return {counts: {pending: 0}} },
+            fetchImpl   : async () => nextResponse()
+        });
+
+        consumer.start();
+        await wait(20);
+
+        responses[0].push('event: state\ndata: {"armed":true,"armedForViewer":true,"subscriptionId":"sub-9"}\n\n');
+        await wait(20);
+        expect(pollCalls).toHaveLength(1);
+
+        // Disarmed between connections: the new epoch's handshake vouches NO id.
+        responses[0].close();
+        await wait(60);
+        responses[1].push('event: state\ndata: {"armed":true,"armedForViewer":false,"reason":"disarmed"}\n\n');
+        await wait(20);
+
+        expect(pollCalls, 'no catch-up may fire on the PRIOR epoch\'s subscription').toHaveLength(1);
+        expect(consumer.describe().subscriptionId).toBeNull();
+        expect(consumer.resolveDeliveryLiveness().reason).toContain('not armed for this viewer (disarmed)');
+
+        consumer.stop()
+    });
+
+    test('transport-open is not handshake-live: an HTTP 200 with ZERO frames stays unknown', async () => {
+        const response = sseResponse(); // opened, never pushed to
+
+        const consumer = createFleetWakeStreamConsumer({
+            eventsUrl   : 'http://127.0.0.1:8083/fleet/events',
+            retryFloorMs: 10,
+            logger      : QUIET,
+            authHeaders : () => ({authorization: 'Bearer class-1-admission'}),
+            fetchImpl   : async () => response
+        });
+
+        consumer.start();
+        await wait(30);
+
+        expect(consumer.describe().connected, 'the transport IS open').toBe(true);
+        expect(consumer.resolveDeliveryLiveness()).toEqual({
+            alive : 'unknown',
+            reason: 'stream open, state handshake pending — liveness unconfirmed'
+        });
+
+        consumer.stop()
+    });
+
     test('the honest not-armed shape: one header only, and the server\'s own reason carried verbatim', async () => {
         const response = sseResponse();
 

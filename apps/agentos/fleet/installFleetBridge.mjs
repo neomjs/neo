@@ -236,16 +236,36 @@ export function installFleetBridge({
     // bridge still exposes it: the unauthenticated stream is refused by the server and the
     // consumer carries that as an honest observation. Packaged-shell bridges carry NO such
     // capability — main owns the push topology on its side of the boundary.
+    //
+    // A closure is not custody if its capability lets the consumer replace the destination or
+    // the transport: `eventsUrl`, `authHeaders`, and `fetchImpl` are PINNED here — the stream
+    // rides the SAME injected fetch as the wire (one transport injection point, at install), and
+    // only observational options project through. An override attempt is a misconfiguration or
+    // an exfiltration attempt; both fail loud.
     shellTransport || Object.defineProperty(registryBridge, 'openWakeStream', {
         configurable: true,
-        value       : (opts = {}) => createFleetWakeStreamConsumer({
-            eventsUrl  : new URL('/fleet/events', fleetUrl.origin).href,
-            authHeaders: () => ({
-                ...(bearerToken     ? {authorization: `Bearer ${bearerToken}`} : {}),
-                ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
-            }),
-            ...opts
-        })
+        value       : (opts = {}) => {
+            const offered = Object.keys(opts).filter(key => !['logger', 'now', 'pollDigest', 'retryFloorMs'].includes(key));
+
+            if (offered.length) {
+                throw new TypeError(`openWakeStream refuses option(s) '${offered.join("', '")}' — the capability owns destination, credentials, and transport; only observational options (pollDigest, logger, retryFloorMs, now) project through`)
+            }
+
+            const {pollDigest, logger, retryFloorMs, now} = opts;
+
+            return createFleetWakeStreamConsumer({
+                eventsUrl  : new URL('/fleet/events', fleetUrl.origin).href,
+                fetchImpl,
+                authHeaders: () => ({
+                    ...(bearerToken     ? {authorization: `Bearer ${bearerToken}`} : {}),
+                    ...(mcAuthorization ? {'x-neo-mc-authorization': `Bearer ${mcAuthorization}`} : {})
+                }),
+                ...(pollDigest   !== undefined ? {pollDigest} : {}),
+                ...(logger       !== undefined ? {logger} : {}),
+                ...(retryFloorMs !== undefined ? {retryFloorMs} : {}),
+                ...(now          !== undefined ? {now} : {})
+            })
+        }
     });
 
     // An explicitly wired bridge (the ViewportController injector — Neural Link, tests, dev
