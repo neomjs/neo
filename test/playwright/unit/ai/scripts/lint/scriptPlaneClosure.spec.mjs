@@ -5,6 +5,7 @@ import {
     HOST_CAPABILITY,
     collectModuleFacts,
     handlerAborts,
+    invocationChain,
     isGracefullyDegraded,
     normalizeSpecifier,
     parseModule,
@@ -19,8 +20,17 @@ import path from 'node:path';
 import {
     buildAuthorityByScript,
     readEntrypoints,
-    readWorkflowEntrypoints
+    readWorkflowEntrypoints,
+    runLint
 } from '../../../../../../ai/scripts/lint/lint-script-plane.mjs';
+
+/**
+ * The complete unresolved-edge population of `backup.mjs` — one edge, the config provider's
+ * runtime-path dynamic import. MEASURED against the live tree, which is what makes the substitution
+ * arm below a real falsifier rather than a fixture arguing with itself.
+ * @type {String[]}
+ */
+const KNOWN_BACKUP_EDGES = ['ai/ConfigProvider.mjs::dynamic-import'];
 
 /**
  * The subject is the DISTINCTION, not the detection.
@@ -261,7 +271,7 @@ test.describe('scriptPlaneClosure', () => {
         });
     });
 
-    test.describe('one-level call attribution — reaching is not invoking', () => {
+    test.describe('invocation-chain attribution — reaching is not invoking', () => {
         /*
          * The distinction that lets BOTH canonical fixtures pass at once, which no pure-reachability
          * rule can do:
@@ -302,9 +312,49 @@ export default {run() { return spawn('git', []); }};`;
             expect(closure.required[0].module).toBe('/svc.mjs');
         });
 
-        test('attribution is ONE level — a service the callee calls is not promoted', () => {
-            // Bounded on purpose. Promoting transitively would collapse back into pure reachability
-            // and re-break the bundle-stamp case, which is the whole reason this rule exists.
+        test('attribution follows the WHOLE proven chain, not just the first hop', () => {
+            // The arm this file used to assert the opposite of, and the correction is the content.
+            //
+            // A one-level bound read as conservatism and was a FALSE SAFE: every step of
+            // `/e -> Svc.run -> Deep.go -> spawn` is named in the source, and stopping after the first
+            // hop reported `required: []` for a chain nothing had to guess about. What protects the
+            // bundle-stamp case is MEMBER granularity, not a hop count — calling
+            // `ConnectionService.connect()` still proves nothing about `spawnBridgeProcess()`, at any
+            // depth. The two arms below hold that line while this one crosses three modules.
+            const files = {
+                '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs' : `import Deep from './deep.mjs';\nexport default {run() { return Deep.go(); }};`,
+                '/deep.mjs': `import {spawn} from 'child_process';\nexport default {go() { return spawn('git', []); }};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'two hops is still a proof').toHaveLength(1);
+            expect(closure.required[0].module).toBe('/deep.mjs');
+            expect(closure.unresolved, 'nothing about this chain is unknown').toHaveLength(0);
+        });
+
+        test('a SIBLING member of a called module is still not promoted, at any depth', () => {
+            // Member granularity is the real guard, and this is the arm that proves it survives the
+            // unbounded walk. `/e` drives `Svc.run` two modules deep; `Deep.danger` is never named by
+            // anything on that path, so its spawn stays unattributed no matter how far the walk goes.
+            const files = {
+                '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs' : `import Deep from './deep.mjs';\nexport default {run() { return Deep.safe(); }};`,
+                '/deep.mjs': `import {spawn} from 'child_process';
+export default {safe() { return 1 }, danger() { return spawn('git', []); }};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'a sibling method is not a call').toHaveLength(0);
+            expect(closure.used, 'and the evidence is still recorded').toHaveLength(1);
+        });
+
+        test('a call the walk cannot follow is UNRESOLVED, never safe', () => {
+            // The other half of the proof boundary. `Deep.go` does not exist on the module `Deep`
+            // resolves to, so the chain cannot be completed — and the answer is "I could not tell",
+            // not "nothing found". A capability sits behind that edge, which is what makes it matter.
             const files = {
                 '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
                 '/svc.mjs' : `import Deep from './deep.mjs';\nexport default {run() { return Deep.go(); }};`,
@@ -313,7 +363,159 @@ export default {run() { return spawn('git', []); }};`;
 
             const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
 
-            expect(closure.required, 'the deep spawn is two hops away and stays unattributed').toHaveLength(0);
+            expect(closure.required).toHaveLength(0);
+            expect(closure.unresolved, 'the unfollowable call is reported').toHaveLength(1);
+            expect(closure.unresolved[0].reason).toBe('unresolved-dispatch');
+            expect(closure.unresolved[0].callee).toBe('Deep.go');
+        });
+
+        test('an unfollowable call with NO capability behind it is not an edge', () => {
+            // The filter that keeps the ledger legible. `Data.map(…)` cannot be followed either, but
+            // there is no shell anywhere behind `/data.mjs`, so calling it unresolved would be true
+            // and useless. Reporting every unnameable call produced 656 edges on `backup.mjs` alone.
+            const files = {
+                '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs' : `import Data from './data.mjs';\nexport default {run() { return Data.map(); }};`,
+                '/data.mjs': `export default ['a', 'b'];`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required).toHaveLength(0);
+            expect(closure.unresolved, 'an edge that leads nowhere dangerous is not a gap').toHaveLength(0);
+        });
+
+        test('an inherited member resolves through `extends` rather than reporting a gap', () => {
+            // A subclass never mentions what it inherits, so a member-existence test that reads only
+            // the subclass is unsound by construction — the same blind spot a single-file grep has,
+            // and one that would turn every base-class seam in this tree into a false unresolved edge.
+            const files = {
+                '/e.mjs'  : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs': `import Base from './base.mjs';
+export default class Svc extends Base { run() { return this.shell() } }`,
+                '/base.mjs' : `import {spawn} from 'child_process';
+export default class Base { shell() { return spawn('git', []) } }`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'the inherited seam is reached').toHaveLength(1);
+            expect(closure.required[0].module).toBe('/base.mjs');
+            expect(closure.unresolved).toHaveLength(0);
+        });
+
+        test('a call in an object-literal VALUE belongs to the enclosing method, not to the key', () => {
+            // The defect that hid a six-deep production chain. `{adrs: await this.fetch()}` sits under
+            // a Property whose key is `adrs`, and attributing the call to a member called `adrs`
+            // ended the walk on a data key — `aggregate-temporal-summary` came back host-free with
+            // `runCycle -> … -> execCommand` fully static in front of it.
+            const files = {
+                '/e.mjs'  : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs': `import {spawn} from 'child_process';
+export default {
+    run()   { return {adrs: this.fetch()} },
+    fetch() { return spawn('git', []) }
+};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'a key name is not a member boundary').toHaveLength(1);
+        });
+
+        test('code behind the import-safe guard does NOT run for an importer', () => {
+            // 98 modules under `ai/` carry `if (process.argv[1] && … === __filename)`. Without this
+            // test the walk concludes that importing a script runs its `main()`, which promoted
+            // `lint-skill-manifest`'s git calls onto `backup.mjs`, convicting it against the
+            // bundle-stamp decision — ADR-0014, ticket-ref-ok: it is the authority contradicted.
+            const guarded = `import {spawn} from 'child_process';
+export function main() { return spawn('git', []) }
+if (process.argv[1] && process.argv[1] === 'x') { main() }`;
+
+            const asImport = walkCapabilityClosure({
+                entrypoint: '/e.mjs',
+                ...graphOf({'/e.mjs': `import {main} from './s.mjs';\nconsole.log('no call');`, '/s.mjs': guarded})
+            });
+
+            expect(asImport.required, 'importing a script does not run it').toHaveLength(0);
+
+            // The same module AS the entrypoint: the guard is true, so its `main()` does run.
+            const asEntry = walkCapabilityClosure({entrypoint: '/s.mjs', ...graphOf({'/s.mjs': guarded})});
+
+            expect(asEntry.required, 'running it as the script is the case the guard admits').toHaveLength(1);
+        });
+
+        test('a capability INSIDE the guard is dormant for an importer', () => {
+            // Distinct from the arm above, and the red-proof battery is what found the gap: there the
+            // guard holds back a CALL, here it holds back a capability site directly. A module-scope
+            // `spawn` is `required` on sight — nothing defers it — so only the guard keeps it from
+            // being attributed to everyone who imports the module.
+            const guarded = `import {spawn} from 'child_process';
+if (process.argv[1] && process.argv[1] === 'x') { spawn('git', []) }
+export default {};`;
+
+            const asImport = walkCapabilityClosure({
+                entrypoint: '/e.mjs',
+                ...graphOf({'/e.mjs': `import S from './s.mjs';\nconsole.log(S);`, '/s.mjs': guarded})
+            });
+
+            expect(asImport.required, 'importing does not take the guarded branch').toHaveLength(0);
+
+            const asEntry = walkCapabilityClosure({entrypoint: '/s.mjs', ...graphOf({'/s.mjs': guarded})});
+
+            expect(asEntry.required, 'being the script does').toHaveLength(1);
+        });
+
+        test('the hoisted spelling of the guard is recognised too', () => {
+            // `const cliEntryPath = process.argv[1] ? … : null` above, `if (cliEntryPath === modulePath)`
+            // below. Reading only the inline spelling is what let `buildScripts/docs/index/labels.mjs`
+            // report its whole CLI as running on import.
+            const files = {
+                '/e.mjs': `import Svc from './s.mjs';\nconsole.log('no call');`,
+                '/s.mjs': `import {spawn} from 'child_process';
+const cliEntryPath = process.argv[1] ? process.argv[1] : null;
+const modulePath   = 'x';
+function main() { return spawn('git', []) }
+if (cliEntryPath && cliEntryPath === modulePath) { main() }
+export default {};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'the guard is the same guard, hoisted').toHaveLength(0);
+        });
+
+        test('a re-export barrel is followed to where the value LIVES', () => {
+            // `ai/services.mjs` is 225 lines of exactly this. Stopping at the barrel reported five
+            // dispatch gaps on `backup.mjs` whose only cause was an indirection the code is explicit
+            // about, and hid whatever sits on the far side of it.
+            const files = {
+                '/e.mjs'     : `import {Svc} from './barrel.mjs';\nSvc.run();`,
+                '/barrel.mjs': `import _Svc from './svc.mjs';\nconst Svc = makeSafe(_Svc, {});\nexport {Svc};`,
+                '/svc.mjs'   : `import {spawn} from 'child_process';
+export default {run() { return spawn('git', []) }};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)});
+
+            expect(closure.required, 'the barrel is an indirection, not a boundary').toHaveLength(1);
+            expect(closure.required[0].module).toBe('/svc.mjs');
+        });
+
+        test('the chain that proved a requirement is reconstructable', () => {
+            // A conflict finding that names only a file and a line leaves the reader to find the
+            // calls that get there. This is what turns the finding into a repair instruction.
+            const files = {
+                '/e.mjs'   : `import Svc from './svc.mjs';\nSvc.run();`,
+                '/svc.mjs' : `import Deep from './deep.mjs';\nexport default {run() { return Deep.go(); }};`,
+                '/deep.mjs': `import {spawn} from 'child_process';\nexport default {go() { return spawn('git', []); }};`
+            };
+
+            const closure = walkCapabilityClosure({entrypoint: '/e.mjs', ...graphOf(files)}),
+                  site    = closure.required[0];
+
+            expect(invocationChain(closure.invokedBy, `${site.module}::${site.member}`))
+                .toEqual(['/e.mjs::<module-scope>', '/svc.mjs::run', '/deep.mjs::go']);
         });
 
         test('a called service whose shell degrades gracefully is still NOT required', () => {
@@ -537,11 +739,116 @@ test.describe('the census is the union of every invocation surface', () => {
             'ai:three': 'node ./ai/scripts/lint/dupe.mjs',
             'ai:other': 'node ./ai/scripts/lint/other.mjs'
         };
-        const entries = readEntrypoints(scripts).filter(entry => entry.via !== 'workflow');
+        const entries = readEntrypoints(scripts, {}).filter(entry => entry.via === 'npm');
 
         expect(Object.keys(scripts), 'four invocation names').toHaveLength(4);
-        expect(entries, 'naming three distinct modules').toHaveLength(2);
+        expect(entries, 'naming two distinct modules').toHaveLength(2);
         expect(entries.map(entry => entry.rel).sort())
             .toEqual(['ai/scripts/lint/dupe.mjs', 'ai/scripts/lint/other.mjs']);
+    });
+
+    test('the census includes orchestrator task roots no npm script and no workflow names', () => {
+        // The channel that was missing, pinned on the two roots the reviewer named. Both carry a
+        // declared authority class, so their absence meant the lint never checked the artifacts whose
+        // declarations are strongest — quiet exactly where it is most needed.
+        const authorityByScript = {
+            'ai/scripts/lifecycle/backfill-memory-summaries.mjs' : {
+                taskName: 'memory-summary-backfill', authorityClass: 'container-plane'
+            },
+            'ai/scripts/maintenance/aggregate-temporal-summary.mjs': {
+                taskName: 'temporal-summary', authorityClass: 'container-plane'
+            },
+            // Already reachable through npm: it must appear ONCE, credited to the channel that found
+            // it first, or the population double-counts the roots with the most invocation surface.
+            'ai/scripts/lint/dupe.mjs': {taskName: 'dupe', authorityClass: 'host-edge'}
+        };
+
+        const entries = readEntrypoints({'ai:one': 'node ./ai/scripts/lint/dupe.mjs'}, authorityByScript),
+              byRel   = entries.map(entry => entry.rel);
+
+        expect(byRel).toContain('ai/scripts/lifecycle/backfill-memory-summaries.mjs');
+        expect(byRel).toContain('ai/scripts/maintenance/aggregate-temporal-summary.mjs');
+        expect(entries.filter(entry => entry.rel === 'ai/scripts/lint/dupe.mjs'), 'no double count')
+            .toHaveLength(1);
+        expect(entries.find(entry => entry.rel === 'ai/scripts/lint/dupe.mjs').via).toBe('npm');
+    });
+
+    test('the REAL task-definition join reaches both roots the reviewer named', () => {
+        // Against the live tree rather than a fixture, because the fixture above cannot fail the way
+        // the census did: it proves the union works, not that the join finds anything.
+        const rels = readEntrypoints().map(entry => entry.rel);
+
+        expect(rels).toContain('ai/scripts/lifecycle/backfill-memory-summaries.mjs');
+        expect(rels).toContain('ai/scripts/maintenance/aggregate-temporal-summary.mjs');
+        // Positive control: a root the npm channel already supplies must still be present exactly
+        // once, so a passing assertion above cannot be read as "the union returned everything".
+        expect(rels.filter(rel => rel === 'ai/scripts/maintenance/backup.mjs')).toHaveLength(1);
+    });
+});
+
+test.describe('the unresolved ratchet holds IDENTITIES, not a count', () => {
+    const entrypoints = [{name: 'ai:probe', rel: 'ai/scripts/maintenance/backup.mjs', via: 'npm'}];
+
+    test('an edge already in the ledger passes', () => {
+        const result = runLint({entrypoints, authorityByScript: {}, ledger: KNOWN_BACKUP_EDGES});
+
+        expect(result.exitCode).toBe(0);
+        expect(result.appeared).toEqual([]);
+    });
+
+    test('a SUBSTITUTED edge fails even though the count is unchanged', () => {
+        // The property a scalar baseline cannot hold, and the reason this is a ledger. Swap one known
+        // identity for a fictional one: the total is identical, the closure is no sounder, and a
+        // count-based gate stays green through it.
+        const substituted = [...KNOWN_BACKUP_EDGES.slice(1), 'ai/invented/Module.mjs::dynamic-import'],
+              result      = runLint({entrypoints, authorityByScript: {}, ledger: substituted});
+
+        expect(substituted, 'the same number of entries').toHaveLength(KNOWN_BACKUP_EDGES.length);
+        expect(result.exitCode, 'and it must still fail').toBe(1);
+        expect(result.appeared, 'naming the edge that appeared').toEqual([KNOWN_BACKUP_EDGES[0]]);
+        expect(result.resolved, 'and the one that vanished').toEqual(['ai/invented/Module.mjs::dynamic-import']);
+    });
+
+    test('a ledger entry that no longer reproduces is reported, not silently kept', () => {
+        // The other direction. A ledger that only grows is a record; one that reports its own dead
+        // entries is a ratchet, because the next author is told exactly what to delete.
+        const result = runLint({
+            entrypoints,
+            authorityByScript: {},
+            ledger           : [...KNOWN_BACKUP_EDGES, 'ai/gone/Module.mjs::unparseable']
+        });
+
+        expect(result.exitCode, 'a stale entry is not a failure on its own').toBe(0);
+        expect(result.resolved).toEqual(['ai/gone/Module.mjs::unparseable']);
+    });
+
+    test('an unlisted authority conflict fails; a ticketed one is held and still printed', () => {
+        // `syncGithubWorkflow` genuinely requires a shell, so declaring it container-plane is the
+        // severe direction: the script breaks on the plane it is declared for. Chosen over the
+        // reverse because `authority-conflict-host` is suppressed while an unresolved edge stands,
+        // which would make this arm pass for a reason that has nothing to do with the ledger.
+        const roots       = [{name: 'x', rel: 'ai/scripts/maintenance/syncGithubWorkflow.mjs', via: 'npm'}],
+              conflicting = {
+                  'ai/scripts/maintenance/syncGithubWorkflow.mjs': {
+                      taskName: 'githubWorkflowSync', authorityClass: 'container-plane'
+                  }
+              },
+              identity    = 'ai/scripts/maintenance/syncGithubWorkflow.mjs::githubWorkflowSync::'
+                  + 'authority-conflict-in-plane';
+
+        const unlisted = runLint({entrypoints: roots, authorityByScript: conflicting, ledger: KNOWN_BACKUP_EDGES});
+
+        expect(unlisted.exitCode).toBe(1);
+        expect(unlisted.conflicts).toHaveLength(1);
+
+        const held = runLint({
+            entrypoints      : roots,
+            authorityByScript: conflicting,
+            ledger           : KNOWN_BACKUP_EDGES,
+            knownConflicts   : [identity]
+        });
+
+        expect(held.exitCode, 'a ticketed conflict is held').toBe(0);
+        expect(held.conflicts, 'and it is still surfaced, never hidden').toHaveLength(1);
     });
 });

@@ -59,24 +59,123 @@ export const SCAN_SURFACE = Object.freeze([
 ]);
 
 /**
- * @summary Highest number of unresolved edges tolerated across the entrypoint population.
+ * @summary Stable identity for one unresolved edge, deliberately WITHOUT its line number.
  *
- * MEASURED on `dev`, not chosen. Lower it when an edge is genuinely resolved; never raise it to make
- * a red build pass — that inverts the gate into a record of whatever we happen to have.
+ * A count is not an identity, and a ratchet on a count is a gate that cannot see substitution: one
+ * edge disappears, a different one appears, the total is unchanged and CI stays green while the
+ * closure got no sounder. Naming each edge is what makes the ledger below a ratchet rather than a
+ * tally.
  *
- * Re-measured at 38 when the census was corrected: the old 40 was taken over a population that
- * counted five duplicate npm aliases as separate entrypoints and omitted four workflow-invoked
- * modules. A ratchet inherited across a population change is not a ratchet.
- * @type {Number}
+ * The line is excluded on purpose. Including it would make every edge churn on any edit above it,
+ * and a ledger that churns is a ledger nobody reads — the identity has to be about the EDGE, not
+ * about where the edge currently sits.
+ *
+ * @param {Object} finding An `unresolved-edge` finding.
+ * @param {String} [projectRoot]
+ * @returns {String}
  */
-export const UNRESOLVED_EDGE_BASELINE = 38;
+export function edgeIdentity(finding, projectRoot = PROJECT_ROOT) {
+    const rel    = finding.module ? path.relative(projectRoot, finding.module) : finding.entrypoint,
+          detail = finding.specifier ? finding.specifier
+                 : finding.callee    ? `${finding.member}->${finding.callee}`
+                 : null;
+
+    return [rel, finding.reason, detail].filter(Boolean).join('::')
+}
 
 /**
- * @summary Maps an `ai:*` npm script to the `ai/scripts` module it invokes.
- * @param {Object} [scripts] `package.json` scripts block.
- * @returns {Array<{name: String, rel: String}>}
+ * @summary Every unresolved edge known to exist, by identity. The ratchet's whole surface.
+ *
+ * MEASURED, not chosen, and it may only ever SHRINK. An entry disappears when the edge is genuinely
+ * resolved; a new identity fails the build even when one of these vanishes in the same commit, which
+ * is the case a count-based baseline waves through.
+ *
+ * The dominant cause is a single site — `ai/ConfigProvider.mjs`'s `await import(absolutePath)` on a
+ * runtime-resolved overlay path. It is deliberately NOT special-cased: a dynamic import on a computed
+ * path could statically carry anything, and an exemption to make the number look better is precisely
+ * the hand-authored metadata this lane exists to remove.
+ * @type {ReadonlyArray<String>}
  */
-export function readEntrypoints(scripts = require(path.join(PROJECT_ROOT, 'package.json')).scripts) {
+export const UNRESOLVED_EDGE_LEDGER = Object.freeze([
+    // A runtime-computed overlay path. One site, and the largest single cause in the tree.
+    'ai/ConfigProvider.mjs::dynamic-import',
+    'ai/mcp/client/config.mjs::dynamic-import',
+    'ai/scripts/diagnostics/printAiConfig.mjs::dynamic-import',
+    'ai/scripts/lint/lint-config-template-ssot.mjs::dynamic-import',
+    'ai/scripts/maintenance/defragChromaDB.mjs::dynamic-import',
+    'ai/scripts/maintenance/purgeTestCollections.mjs::dynamic-import',
+
+    // A specifier pointing at a module that no longer exists there — the flat-SDK migration left it
+    // behind. Not this lane's to repair; the edge is listed so its disappearance is visible.
+    'ai/scripts/maintenance/buildKbAgentFaqs.mjs::unresolved-specifier::'
+        + '../../mcp/server/knowledge-base/services/KBRecorderService.mjs',
+
+    // Dispatch through a value the closure cannot name, with a capability behind the edge.
+    'ai/agent/AgentOrchestrator.mjs::unresolved-dispatch',
+    'ai/services/knowledge-base/DatabaseService.mjs::unresolved-dispatch'
+]);
+
+/**
+ * @summary Authority conflicts that are KNOWN, ticketed, and not this lane's to resolve.
+ *
+ * Every entry carries the ticket that will retire it, and the list may only shrink — a conflict with
+ * no ticket is not an entry, it is a silenced failure. This is the same primitive as the edge ledger
+ * above and it exists for the same reason: a gate that cannot record a known state either goes red
+ * forever, which teaches everyone to route around it, or grows a `default` branch, which is the
+ * silent-fallback shape this whole lane was built to remove.
+ *
+ * The one entry is a disagreement between two accepted things rather than a bug in either.
+ * ADR-0014 — ticket-ref-ok: the ADR is the authority whose verdict this entry defers to — deliberately
+ * classes `temporal-summary` container-plane, because the container IS the
+ * checkout, carrying `.git` at the built revision, which is exactly what
+ * `TemporalSummaryAggregationService.execCommand()` reads with `git log`. This lint's capability
+ * taxonomy maps ANY `child_process` use to `host-shell`, so it convicts a lane the ADR knowingly
+ * accepts. **The taxonomy is the part that is wrong**, and correcting it is a decision about what
+ * makes a lane host-edge, which belongs to the ADR and not to a lint that consumes it.
+ * @type {ReadonlyArray<String>}
+ */
+export const KNOWN_AUTHORITY_CONFLICTS = Object.freeze([
+    // #17217 — `child_process` is a subprocess predicate, not a plane predicate. ticket-ref-ok: the
+    // ticket IS this entry's warrant, and an entry that outlives it fails the lint's own check above.
+    'ai/scripts/maintenance/aggregate-temporal-summary.mjs::temporal-summary::authority-conflict-in-plane'
+]);
+
+/**
+ * @summary Stable identity for one authority conflict.
+ * @param {Object} finding A conflict finding.
+ * @returns {String}
+ */
+export function conflictIdentity(finding) {
+    return [finding.entrypoint, finding.taskName, finding.kind].join('::')
+}
+
+/**
+ * @summary Every production executable root, from all three channels that can start one.
+ *
+ * **A population is a claim, and this one was wrong twice in the same direction.** It began as npm
+ * scripts alone, which missed the modules a workflow runs directly — including this lint, which
+ * invokes itself from a workflow and did not score itself. Adding workflows still missed the roots the
+ * ORCHESTRATOR spawns: two `ai/scripts` modules and three daemons that appear in no npm script and no
+ * workflow, and that carry a declared authority class the lint therefore never checked. A gate whose
+ * population omits the artifacts with the strongest declarations is not conservative — it is quiet
+ * exactly where it is most needed.
+ *
+ * The third channel is `taskDefinitions`, joined the same way the authority map is: **on the script
+ * path from the definition's `args`**, never on a name.
+ *
+ * Daemons are included even though they are not under `ai/scripts`, and that is deliberate. The
+ * population is *executable roots that declare a plane*, not *files in a directory* — a
+ * directory-keyed predicate is the exact shape this lane retired, and re-introducing it as a
+ * population filter would smuggle it back in through the census.
+ *
+ * @param {Object} [scripts] `package.json` scripts block.
+ * @param {Object} [authorityByScript] Output of `buildAuthorityByScript`.
+ * @returns {Array<{name: String, rel: String, via: String}>}
+ */
+export function readEntrypoints(
+    scripts           = require(path.join(PROJECT_ROOT, 'package.json')).scripts,
+    authorityByScript = buildAuthorityByScript()
+) {
     const byRel = new Map();
 
     Object.entries(scripts).forEach(([name, command]) => {
@@ -92,6 +191,12 @@ export function readEntrypoints(scripts = require(path.join(PROJECT_ROOT, 'packa
     readWorkflowEntrypoints().forEach(rel => {
         if (!byRel.has(rel)) {
             byRel.set(rel, {name: rel, rel, via: 'workflow'})
+        }
+    });
+
+    Object.entries(authorityByScript).forEach(([rel, {taskName}]) => {
+        if (!byRel.has(rel)) {
+            byRel.set(rel, {name: taskName, rel, via: 'task'})
         }
     });
 
@@ -238,16 +343,18 @@ export function buildPlaneProjection({
  * @returns {{exitCode: Number, conflicts: Object[], unresolved: Number, planes: Object}}
  */
 export function runLint({
-    entrypoints      = readEntrypoints(),
+    entrypoints       = readEntrypoints(),
     authorityByScript = buildAuthorityByScript(),
-    baseline         = UNRESOLVED_EDGE_BASELINE,
-    projectRoot      = PROJECT_ROOT
+    ledger            = UNRESOLVED_EDGE_LEDGER,
+    knownConflicts    = KNOWN_AUTHORITY_CONFLICTS,
+    projectRoot       = PROJECT_ROOT
 } = {}) {
     const
         conflicts = [],
+        // Deduped across the population: the same edge is reached from many entrypoints, and counting
+        // it once per entrypoint measures the import graph's shape rather than the closure's soundness.
+        edges     = new Set(),
         planes    = {'host-edge': 0, 'container-plane': 0, 'shared-primitive': 0, unresolved: 0};
-
-    let unresolved = 0;
 
     entrypoints.forEach(({rel}) => {
         const
@@ -264,33 +371,55 @@ export function runLint({
 
         result.findings.forEach(finding => {
             if (finding.kind === FINDING.unresolvedEdge) {
-                unresolved++
+                edges.add(edgeIdentity(finding, projectRoot))
             } else {
                 conflicts.push(finding)
             }
         })
     });
 
-    const viaNpm      = entrypoints.filter(entry => entry.via !== 'workflow').length,
-          viaWorkflow = entrypoints.length - viaNpm;
+    const
+        known         = new Set(ledger),
+        knownConflict = new Set(knownConflicts),
+        appeared      = [...edges].filter(id => !known.has(id)).sort(),
+        resolved      = [...known].filter(id => !edges.has(id)).sort(),
+        newConflicts  = conflicts.filter(finding => !knownConflict.has(conflictIdentity(finding))),
+        heldConflicts = conflicts.filter(finding => knownConflict.has(conflictIdentity(finding))),
+        byVia         = via => entrypoints.filter(entry => entry.via === via).length;
 
-    console.log(`[lint-script-plane] ${entrypoints.length} ai/scripts entrypoint(s) — `
-        + `${viaNpm} npm-declared, ${viaWorkflow} workflow-invoked`);
+    console.log(`[lint-script-plane] ${entrypoints.length} executable root(s) — `
+        + `${byVia('npm')} npm-declared, ${byVia('workflow')} workflow-invoked, `
+        + `${byVia('task')} orchestrator-task`);
     console.log(`  host-edge ${planes['host-edge']} · container-plane ${planes['container-plane']} `
         + `· shared-primitive ${planes['shared-primitive']} · unresolved ${planes.unresolved}`);
 
-    if (conflicts.length === 0 && unresolved <= baseline) {
-        console.log(`  OK — no authority conflicts; ${unresolved} unresolved edge(s), baseline ${baseline}.`);
-        return {exitCode: 0, conflicts, unresolved, planes}
+    if (resolved.length > 0) {
+        console.log(`\n  ${resolved.length} ledger edge(s) no longer present — remove them from `
+            + 'UNRESOLVED_EDGE_LEDGER:');
+        resolved.forEach(id => console.log(`    - ${id}`))
     }
 
-    if (conflicts.length > 0) {
-        console.error(`\n[lint-script-plane] FAILED — ${conflicts.length} authority conflict(s):\n`);
+    heldConflicts.forEach(finding => {
+        console.log(`\n  KNOWN conflict, ticketed and held: ${finding.entrypoint} (${finding.taskName})`);
+        console.log(`    ${finding.message}`)
+    });
 
-        conflicts.forEach(finding => {
+    knownConflicts.filter(id => !conflicts.some(finding => conflictIdentity(finding) === id))
+        .forEach(id => console.log(`\n  KNOWN conflict no longer reproduces — remove it from `
+            + `KNOWN_AUTHORITY_CONFLICTS:\n    - ${id}`));
+
+    if (newConflicts.length === 0 && appeared.length === 0) {
+        console.log(`\n  OK — no new authority conflicts; ${edges.size} unresolved edge(s), all known.`);
+        return {exitCode: 0, conflicts, edges: [...edges], appeared, resolved, planes}
+    }
+
+    if (newConflicts.length > 0) {
+        console.error(`\n[lint-script-plane] FAILED — ${newConflicts.length} authority conflict(s):\n`);
+
+        newConflicts.forEach(finding => {
             console.error(`  ${finding.entrypoint}  (task: ${finding.taskName})`);
             console.error(`    ${finding.message}`);
-            (finding.evidence ?? []).forEach(site => console.error(`      reached: ${site}`));
+            (finding.evidence ?? []).forEach(site => console.error(`      ${site}`));
             console.error('')
         });
 
@@ -298,15 +427,16 @@ export function runLint({
         console.error('  Fix whichever is wrong — do NOT silence this by widening the taxonomy.\n')
     }
 
-    if (unresolved > baseline) {
-        console.error(`\n[lint-script-plane] FAILED — unresolved edges rose to ${unresolved} `
-            + `(baseline ${baseline}).\n`);
-        console.error('  A new dynamic import on a runtime-computed path makes an entrypoint\'s plane');
-        console.error('  underivable. Resolve the edge, or lower the baseline only when one is genuinely');
-        console.error('  removed. Raising it records drift instead of gating it.\n')
+    if (appeared.length > 0) {
+        console.error(`\n[lint-script-plane] FAILED — ${appeared.length} unresolved edge(s) not in the `
+            + 'ledger:\n');
+        appeared.forEach(id => console.error(`    + ${id}`));
+        console.error('\n  A call the closure cannot follow makes a no-host verdict unsound. Resolve the');
+        console.error('  edge, or — if it is genuinely unfollowable — add its identity to the ledger with');
+        console.error('  the reason. Never swap one identity for another to keep a total steady.\n')
     }
 
-    return {exitCode: 1, conflicts, unresolved, planes}
+    return {exitCode: 1, conflicts, edges: [...edges], appeared, resolved, planes}
 }
 
 // Import-safe, per the house pattern in `lint-guard-ci-parity.mjs`: the workflow scan-root parity
