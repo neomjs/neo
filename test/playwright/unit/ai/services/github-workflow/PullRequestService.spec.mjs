@@ -4447,10 +4447,19 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             let mutationCallCount = 0;
 
             GraphqlService.query = async queryString => {
+                if (queryString.includes('GetPullRequestId')) {
+                    return pullRequestLookup({body: 'Resolves #17214\n\nthe close target this PR declares'})
+                }
+
+                // The owner-resolution lookup this suite gained later: the positive control below
+                // cites a real open issue, so it must resolve as one or it would refuse for the
+                // wrong reason and the test would pass while proving something else.
+                if (queryString.includes('IssueStates')) {
+                    return {repository: {issue17141: {number: 17141, state: 'OPEN'}}}
+                }
+
                 if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
-                return queryString.includes('GetPullRequestId')
-                    ? pullRequestLookup({body: 'Resolves #17214\n\nthe close target this PR declares'})
-                    : {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+                return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
             };
 
             const result = await PullRequestService.managePrReview({
@@ -4483,6 +4492,121 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(owned.result.error, 'an independent owning issue is the whole point of A+FU').toBeUndefined();
         expect(owned.mutationCallCount).toBe(1)
+    });
+
+    // A citation is only ownership if it resolves. I argued this belonged in the post-submit audit
+    // rather than at admission, because admission should not make network round trips; @neo-gpt held
+    // that admission is the layer and showed why at the exact head — a CLOSED issue and a NONEXISTENT
+    // one both satisfied the lexical check and reached the mutation. The cost objection is answered
+    // rather than overruled: ONE batched request for any number of citations, issued only when the
+    // approval carries follow-up items at all.
+    const approveWithOwners = async (followUp, issueStates) => {
+        let mutationCallCount = 0,
+            issueQueryCount   = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) {
+                return pullRequestLookup({body: 'Resolves #17214'})
+            }
+
+            if (queryString.includes('IssueStates')) {
+                issueQueryCount++;
+                return {repository: Object.fromEntries(
+                    Object.entries(issueStates).map(([number, state]) => [`issue${number}`, state && {number: Number(number), state}])
+                )}
+            }
+
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
+                '- [ ] name the boundary this must not hardcode',
+                `- [ ] name the boundary this must not hardcode ${followUp}`
+            )
+        });
+
+        return {issueQueryCount, mutationCallCount, result}
+    };
+
+    test('#17214: a closed or nonexistent follow-up owner is refused', async () => {
+        // @neo-gpt's two exact specimens.
+        const closed = await approveWithOwners('— #15257', {15257: 'CLOSED'});
+
+        expect(closed.result.code).toBe('PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED');
+        expect(closed.result.message).toContain('already closed');
+        expect(closed.mutationCallCount).toBe(0);
+
+        const missing = await approveWithOwners('— #999999', {999999: null});
+
+        expect(missing.result.code).toBe('PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED');
+        expect(missing.result.message).toContain('no such issue');
+        expect(missing.mutationCallCount).toBe(0)
+    });
+
+    test('#17214: an OPEN independent owner still passes, in one batched lookup', async () => {
+        const {issueQueryCount, mutationCallCount, result} = await approveWithOwners('— #17141', {17141: 'OPEN'});
+
+        expect(result.error, 'the whole point of A+FU is that this case works').toBeUndefined();
+        expect(mutationCallCount).toBe(1);
+        expect(issueQueryCount, 'one request resolves every citation, not one per citation').toBe(1)
+    });
+
+    test('#17214: a plain APPROVE performs no owner lookup at all', async () => {
+        // The cost argument, pinned. If this ever goes to 1, the default merge-safe terminal has
+        // started paying for a feature it does not use. A plain APPROVE means NO follow-up items at
+        // all — the canonical body's "No required actions", not an item with its owner removed.
+        let mutationCallCount = 0,
+            issueQueryCount   = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId'))     return pullRequestLookup();
+            if (queryString.includes('IssueStates'))          issueQueryCount++;
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1);
+        expect(issueQueryCount).toBe(0)
+    });
+
+    test('#17214: an unreadable owner lookup admits rather than blocking the merge-safe terminal', async () => {
+        let mutationCallCount = 0;
+
+        GraphqlService.query = async queryString => {
+            if (queryString.includes('GetPullRequestId')) return pullRequestLookup({body: 'Resolves #17214'});
+            if (queryString.includes('IssueStates'))      throw new Error('network');
+            if (queryString.includes('AddPullRequestReview')) mutationCallCount++;
+            return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}}
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 17214,
+            state    : 'APPROVED',
+            body     : VALID_ORDINARY_REQUEST_CHANGES_BODY.replace(
+                '- [ ] name the boundary this must not hardcode',
+                '- [ ] name the boundary this must not hardcode — #17141'
+            )
+        });
+
+        // Deliberately the opposite direction from the budget's fail-closed refusals: blocking an
+        // approval because GitHub hiccuped denies the path this whole contract exists to make
+        // reachable, while admitting an unverifiable citation leaves work the audit can still surface.
+        expect(result.error).toBeUndefined();
+        expect(mutationCallCount).toBe(1)
     });
 
     // Plain APPROVE is the default merge-safe terminal outcome and must gain no new obligation. The

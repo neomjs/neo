@@ -15,6 +15,7 @@ import {
 }                           from '../graph/agentFamilyResolution.mjs';
 import {
     ADD_PULL_REQUEST_REVIEW,
+    buildIssueStatesQuery,
     GET_PULL_REQUEST_ID,
     GET_PULL_REQUEST_REVIEW,
     UPDATE_PULL_REQUEST_REVIEW
@@ -2172,6 +2173,70 @@ function getApproveFollowUpOwnershipFailure({body, closeTargets = [], subject}) 
 }
 
 /**
+ * @summary The issue numbers an approval's follow-up items cite as their owners.
+ * @param {String} body Review body.
+ * @returns {Number[]} Distinct cited issue numbers; empty when the approval carries no follow-up.
+ */
+function collectFollowUpOwnerNumbers(body) {
+    const numbers = new Set();
+
+    for (const item of collectDemandedActionItems(body)) {
+        const match = ACTION_PACKET_OWNER_PATTERN.exec(item);
+
+        if (match) numbers.add(Number(match[1] ?? match[2]))
+    }
+
+    return [...numbers]
+}
+
+/**
+ * @summary Refuses an approval whose cited follow-up owner does not exist, or is already closed.
+ *
+ * I defended leaving this out on the grounds that admission must not make network round trips — the
+ * budget resolves the reviewer login from a startup cache for exactly that reason. @neo-gpt held that
+ * admission is the right layer and demonstrated why at the exact head: a closed issue and a
+ * nonexistent one both satisfied the lexical check and reached the mutation. A reference that resolves
+ * to nothing is not ownership, and an approval is the last moment anyone looks.
+ *
+ * The cost objection dissolves rather than being overruled. The lookup is ONE batched request for any
+ * number of citations, and it is issued **only when the approval actually carries follow-up items** —
+ * so a plain APPROVE, the default and by far the common case, still performs zero extra work.
+ *
+ * Fails OPEN on an unreadable answer, deliberately and in the opposite direction from the budget's
+ * refusals. This gate sits on the merge-safe terminal: refusing an approval because GitHub hiccuped
+ * blocks the path the whole contract is trying to make reachable, while admitting an unverifiable
+ * citation leaves work owned-on-paper that the post-submit audit can still surface. Only a definite
+ * answer — the issue is absent, or its state is `CLOSED` — refuses.
+ *
+ * @param {Object}   options
+ * @param {String}   options.body      Incoming review body.
+ * @param {Number[]} options.numbers   Cited owner issue numbers.
+ * @param {Object}   options.states    `{[number]: 'OPEN'|'CLOSED'|null}` as resolved from GitHub.
+ * @param {String}   options.subject   PR number or review id, for the message.
+ * @returns {Object|null} Failure payload, or null when every citation resolves to an open issue.
+ */
+function getFollowUpOwnerResolutionFailure({numbers, states, subject}) {
+    const missing = numbers.filter(number => states[number] === null || states[number] === undefined),
+          closed  = numbers.filter(number => states[number] === 'CLOSED');
+
+    if (missing.length === 0 && closed.length === 0) return null;
+
+    return {
+        error  : 'PR Review Follow-Up Ownership Validation Failed',
+        message: [
+            `This APPROVE on ${subject} cites follow-up owners that do not accept work:`,
+            missing.length ? `no such issue — ${missing.map(number => `#${number}`).join(', ')}.` : '',
+            closed.length  ? `already closed — ${closed.map(number => `#${number}`).join(', ')}.` : '',
+            'A citation that resolves to nothing, or to finished work, is not ownership — it is the appearance of it,',
+            'recorded at the last moment anyone looks. File the follow-up, cite the open issue, or drop the item and',
+            'accept the risk.'
+        ].filter(Boolean).join(' '),
+        code                    : 'PR_REVIEW_FOLLOW_UP_OWNERSHIP_FAILED',
+        unresolvedFollowUpOwners: [...missing, ...closed]
+    }
+}
+
+/**
  * @summary Reads the close targets a PR body declares, so a follow-up cannot cite one as its owner.
  * @param {String} body PR body.
  * @returns {Number[]} Issue numbers named by a standalone close keyword.
@@ -3451,6 +3516,39 @@ class PullRequestService extends Base {
 
                     if (followUpOwnershipFailure) {
                         return followUpOwnershipFailure
+                    }
+
+                    // Only reached when the approval CARRIES follow-up items — a plain APPROVE never
+                    // gets here, so the default terminal outcome performs no extra request at all.
+                    const ownerNumbers = collectFollowUpOwnerNumbers(body);
+
+                    if (ownerNumbers.length > 0) {
+                        let states = null;
+
+                        try {
+                            const resolved = await GraphqlService.query(buildIssueStatesQuery(ownerNumbers), {
+                                owner: aiConfig.owner,
+                                repo : aiConfig.repo
+                            });
+
+                            states = Object.fromEntries(ownerNumbers.map(number =>
+                                [number, resolved?.repository?.[`issue${number}`]?.state ?? null]));
+                        } catch (error) {
+                            // Unreadable answer ⇒ no refusal. See the helper's note: this gate sits on
+                            // the merge-safe terminal, so a GitHub hiccup must not block the path the
+                            // contract exists to make reachable.
+                            logger.warn(`Follow-up owner resolution failed for PR #${pr_number}; admitting: ${error.message}`)
+                        }
+
+                        const ownerResolutionFailure = states && getFollowUpOwnerResolutionFailure({
+                            numbers: ownerNumbers,
+                            states,
+                            subject: `PR #${pr_number}`
+                        });
+
+                        if (ownerResolutionFailure) {
+                            return ownerResolutionFailure
+                        }
                     }
 
                     const stateValidationFailure = getPrReviewStateValidationFailure({
