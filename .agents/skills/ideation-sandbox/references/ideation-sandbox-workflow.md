@@ -31,6 +31,10 @@ Before drafting a Discussion/proposal, run [`../audits/pre-authoring-adjacency-s
 
 Before Discussion prose, read [`reference-hygiene.md`](../../../../learn/agentos/process/reference-hygiene.md): relationships stay bare; descriptive tokens use backticks.
 
+### 2.2 Provenance Signature
+
+Close Discussion bodies and substantive comments (divergence cycles, sweeps, graduation signals) with `Name (Model, Harness) · session <uuid>` — the fields GitHub does not render. Acks and one-line replies are exempt.
+
 ## 3. Author's Note Convention (The `#10119` Annotation Pattern)
 Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.
 - Use **"the `#10119` annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
