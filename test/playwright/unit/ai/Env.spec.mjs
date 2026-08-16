@@ -11,9 +11,9 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
-import Env            from '../../../../src/util/Env.mjs';
+import Env            from '../../../../ai/Env.mjs';
 
-test.describe('Neo.util.Env', () => {
+test.describe('Neo.ai.Env', () => {
     let warns;
     const captureWarn = (...args) => { warns.push(args); };
 

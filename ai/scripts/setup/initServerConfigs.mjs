@@ -337,14 +337,14 @@ export function formatStaleOverlayDriftItems(drift) {
  * The `imports` projection is two-tiered to cover both whole-import drift AND
  * same-source named-specifier drift. The latter is the dominant evolution mode
  * for the canonical config templates — adding `parseUrl` to the existing
- * `import {parsePort, parseBool} from '../../../../src/util/Env.mjs'` block
+ * `import {parsePort, parseBool} from '../../../Env.mjs'` block
  * is structural drift even though the source path is unchanged.
  *
- * - **Whole-import entries** (source-path strings, e.g. `'../../../../src/util/Env.mjs'`):
+ * - **Whole-import entries** (source-path strings, e.g. `'../../../Env.mjs'`):
  *   detect missing imports — the gitignored config doesn't import from a path
  *   the template imports from at all.
  * - **Named-specifier entries** (`<source>:<specifier>` strings, e.g.
- *   `'../../../../src/util/Env.mjs:parseUrl'`): detect missing named
+ *   `'../../../Env.mjs:parseUrl'`): detect missing named
  *   specifiers within a shared source path. Both default imports
  *   (`import x from '...'` → `<source>:default`) and namespace imports
  *   (`import * as x from '...'` → `<source>:*`) are projected. `as`-aliases

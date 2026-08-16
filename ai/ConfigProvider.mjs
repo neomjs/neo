@@ -1,10 +1,10 @@
 import fs       from 'fs/promises';
 import path     from 'path';
+import Env      from './Env.mjs';
 import Provider from '../src/state/Provider.mjs';
-import Env      from '../src/util/Env.mjs';
 
 /**
- * Maps a {@link leaf} `type` token to the name-based `Neo.util.Env` parser that decodes its env
+ * Maps a {@link leaf} `type` token to the name-based `Neo.ai.Env` parser that decodes its env
  * var. Reuses the Tier-1 Env primitive: extend the shared parser set, don't introduce a parallel
  * parser set.
  * @type {Object<String,Function>}

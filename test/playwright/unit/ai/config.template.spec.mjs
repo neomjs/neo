@@ -8,7 +8,7 @@ import '../../../../src/core/_export.mjs';
 import ConfigProvider, {createConfigProxy, leaf} from '../../../../ai/ConfigProvider.mjs';
 import RootConfigBase                            from '../../../../ai/configBase.mjs';
 import {CHROMA_TEST_DATABASE}                    from '../../../../ai/services/shared/vector/chromaTestIsolation.mjs';
-import Env                                       from '../../../../src/util/Env.mjs';
+import Env                                       from '../../../../ai/Env.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
     let Config;
