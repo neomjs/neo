@@ -625,3 +625,140 @@ test.describe('check-block-alignment.mjs --fix --staged scoped repair (#17201)',
         expect(fs.readFileSync(file, 'utf8')).toBe("import a  from 'a';\nimport bb from 'b';\n");
     });
 });
+
+/**
+ * The scoped repair's unchecked precondition: `getStagedAddedLines` speaks INDEX coordinates and the
+ * repair writes the WORKING TREE. On a partially staged file they drift by the unstaged edit's line
+ * delta, so index line N addresses a different line on disk — the repair then edits lines the author
+ * never staged and leaves the staged drift in place, reporting success for both halves.
+ */
+test.describe('check-block-alignment.mjs --fix --staged index-vs-worktree precondition (#17226)', () => {
+    let stagedDir;
+
+    const git = (...a) => execFileSync('git', a, {cwd: stagedDir, stdio: 'ignore'});
+
+    const run = (args, cwd = stagedDir) => {
+        try {
+            return {status: 0, output: execFileSync('node', [scriptPath, ...args], {cwd, encoding: 'utf8', stdio: 'pipe'})};
+        } catch (error) {
+            return {status: error.status, output: (error.stderr || '') + (error.stdout || '')};
+        }
+    };
+
+    // A file whose staged content carries alignable drift, then an unstaged edit ABOVE it that shifts
+    // every subsequent line by three — the shape that makes index and worktree coordinates disagree.
+    const seedShiftedFile = () => {
+        const file = path.join(stagedDir, 'src.mjs');
+
+        fs.writeFileSync(file, 'const zz = 1;\n', 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        fs.writeFileSync(file, 'const zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+        git('add', 'src.mjs');
+
+        fs.writeFileSync(file, '// unstaged A\n// unstaged B\n// unstaged C\nconst zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+
+        return file
+    };
+
+    test.beforeEach(() => {
+        stagedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-blockalign-coords-'));
+        git('init');
+        git('config', 'user.email', 'test@example.com');
+        git('config', 'user.name', 'Test User');
+    });
+
+    test.afterEach(() => {
+        fs.rmSync(stagedDir, {recursive: true, force: true});
+    });
+
+    test('refuses to rewrite a file whose working tree has drifted from the index (#17226)', () => {
+        const file   = seedShiftedFile(),
+              before = fs.readFileSync(file, 'utf8'),
+              result = run(['--fix', '--staged', 'src.mjs']);
+
+        // Byte-identical is the assertion that matters: before this precondition the run rewrote
+        // `const zz` — a line the author never staged — and left the staged object block unrepaired.
+        expect(fs.readFileSync(file, 'utf8')).toBe(before);
+        expect(result.status).toBe(1);
+        expect(result.output).toContain('unstaged changes');
+    });
+
+    test('names the unstaged-changes cause apart from a failed staged-line read (#17226)', () => {
+        seedShiftedFile();
+
+        // Two causes, two author actions — stash your other edits, versus fix your git state. One
+        // message for both told the author neither, which is why the reason is carried per file.
+        expect(run(['--fix', '--staged', 'src.mjs']).output).toContain('stage or stash the rest');
+    });
+
+    test('a fully staged file is unaffected — the repair still runs (#17226)', () => {
+        const file = path.join(stagedDir, 'src.mjs');
+
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        git('add', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        fs.writeFileSync(file, "import a from 'a';\nimport bb from 'b';\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n", 'utf8');
+        git('add', 'src.mjs');
+
+        // The control that keeps the new precondition from becoming a blanket refusal: with no
+        // unstaged changes the coordinates agree, so the scoped repair must behave exactly as before.
+        expect(run(['--fix', '--staged', 'src.mjs']).status).toBe(0);
+        expect(fs.readFileSync(file, 'utf8')).toContain('    id      : 1,');
+    });
+
+    test('pure --fix is unaffected by the precondition — still whole-file (#17226)', () => {
+        const file = seedShiftedFile();
+
+        // The deliberate pass has no staged-line set to misapply, so an unstaged edit is irrelevant
+        // to it; refusing here would break the documented remedy for grandfathered drift.
+        expect(run(['--fix', 'src.mjs']).status).toBe(0);
+        expect(fs.readFileSync(file, 'utf8')).toContain('const zz  = 1;');
+    });
+
+    // The usage header accepts `<file.mjs> [...]`, and a per-file refusal does NOT make the batch
+    // mutation-free: a safe file earlier in argv is already written when a later one refuses. Saying
+    // "no files were rewritten" there is the opposite of what just happened, and it sends the author
+    // away from a real repair sitting UNSTAGED in their tree. Found by @neo-gpt at the exact head.
+    test('a mixed batch reports the earlier repair instead of claiming nothing was written (#17226)', () => {
+        const safe = path.join(stagedDir, 'safe.mjs'),
+              file = path.join(stagedDir, 'src.mjs');
+
+        // Both baselines are committed in ONE commit before anything is staged. `git commit` with no
+        // pathspec commits the whole index, so seeding these files in sequence would sweep the first
+        // file's staged drift into the second file's commit and leave it with nothing staged.
+        fs.writeFileSync(safe, "import a from 'a';\nimport bb from 'b';\n", 'utf8');
+        fs.writeFileSync(file, 'const zz = 1;\n', 'utf8');
+        git('add', 'safe.mjs', 'src.mjs');
+        git('commit', '-m', 'init');
+
+        // safe.mjs: drift entirely on staged-added lines, no unstaged edit → repairable.
+        fs.writeFileSync(safe, "import a from 'a';\nimport bb from 'b';\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n", 'utf8');
+        // src.mjs: staged drift, then an unstaged edit above it that shifts the coordinates → refused.
+        fs.writeFileSync(file, 'const zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+        git('add', 'safe.mjs', 'src.mjs');
+        fs.writeFileSync(file, '// unstaged A\n// unstaged B\n// unstaged C\nconst zz = 1;\nconst obj = {\n    id: 1,\n    namelong: 2\n};\n', 'utf8');
+
+        const result = run(['--fix', '--staged', 'safe.mjs', 'src.mjs']);
+
+        // The earlier file really was rewritten...
+        expect(fs.readFileSync(safe, 'utf8')).toContain('    id      : 1,');
+        // ...so the summary must say so, and must NOT claim the batch was a no-op.
+        expect(result.output).toContain('safe.mjs was already repaired before the refusal');
+        expect(result.output).not.toContain('No files were rewritten');
+        expect(result.status).toBe(1);
+    });
+
+    // The control that keeps the truthful-summary fix from inverting: when nothing was written, the
+    // no-op claim is correct and must survive.
+    test('an all-refused batch still reports that nothing was written (#17226)', () => {
+        seedShiftedFile();
+
+        const result = run(['--fix', '--staged', 'src.mjs']);
+
+        expect(result.output).toContain('No files were rewritten');
+        expect(result.output).not.toContain('already repaired before the refusal');
+    });
+});
