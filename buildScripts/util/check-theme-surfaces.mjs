@@ -362,8 +362,8 @@ function walkScssDeclarations(source, visit) {
                 // no structural token: declarations belong to the current block; a bare selector
                 // fragment (no `;`/`:`) accumulates toward its `{` on a later line
                 if (/[;:]/.test(line)) {
-                    for (const [, property] of line.matchAll(DECLARATION_RE)) {
-                        visit({selectorStack: [...selectorStack], property: property.toLowerCase(), lineNo: index + 1});
+                    for (const [, property, value] of line.matchAll(DECLARATION_RE)) {
+                        visit({selectorStack: [...selectorStack], property: property.toLowerCase(), value, lineNo: index + 1});
                     }
                 } else {
                     pending += ' ' + line;
@@ -379,8 +379,8 @@ function walkScssDeclarations(source, visit) {
                 pending = '';
             } else {
                 // declarations in the chunk before `}` still belong to the closing block
-                for (const [, property] of chunk.matchAll(DECLARATION_RE)) {
-                    visit({selectorStack: [...selectorStack], property: property.toLowerCase(), lineNo: index + 1});
+                for (const [, property, value] of chunk.matchAll(DECLARATION_RE)) {
+                    visit({selectorStack: [...selectorStack], property: property.toLowerCase(), value, lineNo: index + 1});
                 }
                 selectorStack.pop();
                 pending = '';
@@ -418,6 +418,51 @@ function walkScssDeclarations(source, visit) {
  * @param {String} [seamViewDir] SCSS root the seam's relative files resolve against.
  * @returns {String[]} failure messages (empty array = clean)
  */
+// A value neutralizes a frame property only when every token is a zero (`0`, `0px`, `0 0`…).
+// Presence-only checking accepted `padding: 99px` as a "reveal override" on an exact-head probe.
+function isZeroValue(value = '') {
+    const tokens = value.trim().split(/\s+/).filter(Boolean);
+
+    return tokens.length > 0 && tokens.every(token => /^0(?:px|rem|em|%)?$/.test(token));
+}
+
+// Formatting-total extraction of `{… componentRef: 'x' … autoHidden: true …}` object spans: for each
+// `autoHidden: true`, walk back to the innermost enclosing `{`, forward to its match, and read the
+// componentRef from THAT span. A one-line regex required both keys on the same line, so a valid
+// MULTILINE inventory item escaped the census on an exact-head probe.
+function extractAutoHiddenRefs(text) {
+    const refs = [];
+
+    for (const match of text.matchAll(/autoHidden\s*:\s*true/g)) {
+        let depth = 0,
+            start = -1;
+
+        for (let i = match.index; i >= 0; i--) {
+            if (text[i] === '}') depth++;
+            else if (text[i] === '{' && depth-- === 0) { start = i; break; }
+        }
+
+        if (start === -1) continue;
+
+        let end = -1;
+
+        depth = 0;
+
+        for (let i = start; i < text.length; i++) {
+            if (text[i] === '{') depth++;
+            else if (text[i] === '}' && --depth === 0) { end = i; break; }
+        }
+
+        if (end === -1) continue;
+
+        const ref = text.slice(start, end + 1).match(/componentRef\s*:\s*'([^']+)'/);
+
+        if (ref) refs.push(ref[1]);
+    }
+
+    return refs;
+}
+
 export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewDir) {
     const failures = [],
           slotPath = path.join(seamViewDir, seam.slotFile),
@@ -430,7 +475,13 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
     for (const [relFile, rootSelector, {dualMount = false} = {}] of seam.paneRoots) {
         const file = path.join(seamViewDir, relFile);
 
-        if (!fs.existsSync(file)) continue; // isolated-spec fixture trees may omit panes
+        if (!fs.existsSync(file)) {
+            // fail closed: a LISTED pane root is a contract row — its skin file going missing means
+            // that pane renders unskinned, not that the row stopped applying. An exact-head probe
+            // deleted a configured pane file and the guard exited 0.
+            failures.push(`[shell-seam] ${relFile} is missing — listed pane root ${rootSelector} has no skin file`);
+            continue;
+        }
 
         const rootFrameHits = [];
 
@@ -445,19 +496,22 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
                 failures.push(`[shell-seam] ${relFile}:${lineNo} pane root ${rootSelector} re-owns the drawer frame (${property}) — the reveal slot is the one frame owner; roots keep internal semantics only`);
             }
         } else if (rootFrameHits.length && fs.existsSync(slotPath)) {
-            // dual-mount: the root frame is legitimate for pinned/vessel — demand the reveal override
+            // dual-mount: the root frame is legitimate for pinned/vessel — demand the reveal
+            // override, and demand it NEUTRALIZES: presence alone passed `padding: 99px` on an
+            // exact-head probe, which frames the reveal mount twice while satisfying the check
             let overridden = false;
 
-            walkScssDeclarations(stripBlockComments(fs.readFileSync(slotPath, 'utf8')), ({selectorStack, property}) => {
+            walkScssDeclarations(stripBlockComments(fs.readFileSync(slotPath, 'utf8')), ({selectorStack, property, value}) => {
                 const inSlot = selectorStack.some(sel => matchesSelector(sel, seam.slotSelector));
 
-                if (inSlot && matchesSelector(selectorStack.at(-1), rootSelector) && property.startsWith('padding')) {
+                if (inSlot && matchesSelector(selectorStack.at(-1), rootSelector)
+                    && property.startsWith('padding') && isZeroValue(value)) {
                     overridden = true;
                 }
             });
 
             if (!overridden) {
-                failures.push(`[shell-seam] ${relFile} pane root ${rootSelector} keeps its dual-mount frame but ${seam.slotFile} carries NO reveal override (a nested "${seam.slotSelector} … ${rootSelector}" rule declaring padding) — the transient reveal mount double-frames`);
+                failures.push(`[shell-seam] ${relFile} pane root ${rootSelector} keeps its dual-mount frame but ${seam.slotFile} carries NO ZERO reveal override (a nested "${seam.slotSelector} … ${rootSelector}" rule declaring padding: 0) — the transient reveal mount double-frames`);
             }
         }
     }
@@ -505,7 +559,7 @@ export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewD
             failures.push(`[shell-seam] pane inventory source ${seam.inventory.file} is missing — the census cannot be verified`);
         } else {
             const inventoryText = stripBlockComments(fs.readFileSync(inventoryPath, 'utf8')),
-                  refs          = [...inventoryText.matchAll(/componentRef\s*:\s*'([^']+)'[^\n]*autoHidden\s*:\s*true/g)].map(match => match[1]),
+                  refs          = extractAutoHiddenRefs(inventoryText),
                   rootSelectors = new Set(seam.paneRoots.map(([, selector]) => selector));
 
             if (refs.length === 0) {

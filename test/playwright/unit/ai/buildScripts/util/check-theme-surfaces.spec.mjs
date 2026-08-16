@@ -256,11 +256,20 @@ test.describe('check-theme-surfaces.mjs', () => {
     // demonstrated on an exact head before being fixed: the logical-longhand hole, the split-line
     // selector, the nested-rule ownership migration, and the dual-mount double frame.
     test.describe('shell seam (check 5)', () => {
+        // Listed pane files are MANDATORY (fail closed), so the base seam lists only the pane every
+        // fixture writes; dual-mount cases carry their own seam.
         const SEAM = {
             slotFile    : 'fleet/Slot.scss',
             slotSelector: '.slot',
             paneRoots   : [
-                ['fleet/Pane.scss', '.pane'],
+                ['fleet/Pane.scss', '.pane']
+            ]
+        };
+
+        const DUAL_SEAM = {
+            slotFile    : 'fleet/Slot.scss',
+            slotSelector: '.slot',
+            paneRoots   : [
                 ['fleet/Dual.scss', '.dual', {dualMount: true}]
             ]
         };
@@ -332,7 +341,7 @@ test.describe('check-theme-surfaces.mjs', () => {
             const failures = runSeam({
                 'fleet/Slot.scss': CLEAN_SLOT,
                 'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
-            });
+            }, DUAL_SEAM);
 
             expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('.dual') && m.includes('reveal override'))).toBe(true);
         });
@@ -341,7 +350,7 @@ test.describe('check-theme-surfaces.mjs', () => {
             const failures = runSeam({
                 'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual {\n            padding: 0;\n        }\n    }\n}\n',
                 'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
-            });
+            }, DUAL_SEAM);
 
             expect(failures, 'pinned/vessel keep the root frame; the reveal mount is neutralized slot-side').toEqual([]);
         });
@@ -352,7 +361,7 @@ test.describe('check-theme-surfaces.mjs', () => {
             const failures = runSeam({
                 'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual-x {\n            padding: 0;\n        }\n    }\n}\n',
                 'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
-            });
+            }, DUAL_SEAM);
 
             expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('reveal override'))).toBe(true);
         });
@@ -376,6 +385,26 @@ test.describe('check-theme-surfaces.mjs', () => {
             expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('is missing'))).toBe(true);
         });
 
+        test('a MISSING listed pane skin file fails closed — the exact-head omission probe (round 4)', () => {
+            // Omitting a configured pane file exited 0: the row silently stopped applying while the
+            // pane it governs renders unskinned. A listed root is a contract row; absence fails.
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT
+            });
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('fleet/Pane.scss') && m.includes('no skin file'))).toBe(true);
+        });
+
+        test('a NON-ZERO reveal override does not satisfy the dual-mount demand — neutralization, not presence (round 4)', () => {
+            // `padding: 99px` satisfied a presence-only check while double-framing the reveal mount.
+            const failures = runSeam({
+                'fleet/Slot.scss': '.host {\n    .slot {\n        background: var(--fm-rail);\n        padding   : 12px;\n\n        > .dual {\n            padding: 99px;\n        }\n    }\n}\n',
+                'fleet/Dual.scss': '.dual {\n    padding: 10px 12px;\n}\n'
+            }, DUAL_SEAM);
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes('NO ZERO reveal override'))).toBe(true);
+        });
+
         // census cross-check — the paneRoots list must not be hand-closed (the future-pane clause)
         const INVENTORY = (rows) => `export const doc = {\n    items: {\n${rows}\n    }\n};\n`;
 
@@ -392,6 +421,29 @@ test.describe('check-theme-surfaces.mjs', () => {
             fs.writeFileSync(inv, INVENTORY(
                 "        known : {componentRef: 'known-pane',  title: 'Known',  kind: 'tool', autoHidden: true},\n" +
                 "        future: {componentRef: 'future-pane', title: 'Future', kind: 'tool', autoHidden: true}"
+            ), 'utf8');
+
+            const failures = runSeam({
+                'fleet/Slot.scss': CLEAN_SLOT,
+                'fleet/Pane.scss': '.pane {\n    gap: 10px;\n}\n'
+            }, seamWithInventory(inv));
+
+            expect(failures.some(m => m.startsWith('[shell-seam]') && m.includes("'future-pane'") && m.includes('UNCLASSIFIED'))).toBe(true);
+        });
+
+        test('a MULTILINE autoHidden inventory item is still extracted — formatting-total census (round 4)', () => {
+            // A valid multiline item escaped a one-line regex that required componentRef before
+            // autoHidden on the same line. Extraction now walks the innermost object span.
+            const inv = path.join(tempDir, 'dockDocument.mjs');
+
+            fs.writeFileSync(inv, INVENTORY(
+                "        known : {componentRef: 'known-pane', title: 'Known', kind: 'tool', autoHidden: true},\n" +
+                "        future: {\n" +
+                "            componentRef: 'future-pane',\n" +
+                "            title       : 'Future',\n" +
+                "            kind        : 'tool',\n" +
+                "            autoHidden  : true\n" +
+                "        }"
             ), 'utf8');
 
             const failures = runSeam({
