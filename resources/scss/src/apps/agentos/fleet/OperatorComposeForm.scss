@@ -3,14 +3,7 @@
    colors, no CSS-in-JS — the fields inherit the theme's form-field styling). Sibling of
    AgentDetail.scss (the read-half mailbox pane); same token vocabulary so the cockpit speaks one
    language across read and write. */
-.fm-operator-mailbox {
-    // The auto-hide reveal slot is height-bounded. Let this flex item shrink to that bound and own
-    // the vertical overflow; otherwise the outcome rows render below the viewport with no scroll
-    // owner, making the send verdicts present in DOM truth but unreachable to the operator.
-    min-height: 0;
-    overflow-y: auto;
-}
-
+/* the parent pane's root frame lives in OperatorMailbox.scss (#17209) — this file owns the form only */
 .fm-operator-compose-form {
     gap    : 10px;
     padding: 12px;

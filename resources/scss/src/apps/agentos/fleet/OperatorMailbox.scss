@@ -1,0 +1,25 @@
+/* AgentOS.view.fleet.OperatorMailbox — the operator's own inbox over the compose surface, hosted
+   in the pinned drawer. Mount-agnostic by the drawer-shell contract: the HOST owns surface,
+   padding, and rhythm — this root declares no frame (its former frame block moved to the
+   FleetCockpit reveal slot). Every color reads from the --fm-* token layer. */
+.fm-operator-mailbox {
+    /* inner-body semantics only: the height-bounded well makes THIS surface the vertical
+       overflow owner, otherwise the compose outcome rows render below the viewport unreachable */
+    overflow-y: auto;
+
+    /* the composed inbox pane: mount-agnostic by contract (no padding/surface of its own — see
+       MailboxPane.scss). The floor keeps the read half visible when the compose form's natural
+       height exceeds the drawer well — the form shrinks and scrolls, the inbox never hits 0px. */
+    > .fm-mailbox-pane {
+        min-height: 96px;
+    }
+
+    /* the compose form sits under a soft divider — the read half above, the write half below;
+       when squeezed it owns its vertical overflow instead of starving the inbox */
+    > .fm-operator-compose-form {
+        border-top : 1px solid var(--fm-line-soft);
+        padding-top: 10px;
+        min-height : 0;
+        overflow-y : auto;
+    }
+}

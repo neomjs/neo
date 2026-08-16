@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-theme-surfaces
- * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Four checks
+ * @summary Mechanical guard for the agentos module's dual-mode (light + dark) theme system. Five checks
  * an eyeball review misses:
  *
  *   1. Skin parity — every `--fm-*` Fleet-Manager-cockpit COLOR token must carry a genuinely different
@@ -24,8 +24,15 @@
  *      which four new text sites re-adopted it unnoticed. This check makes the contract mechanical —
  *      the token stays legal for `background`/`border-color`, and is rejected in a `color:` fill.
  *
- * `collectThemeSurfaceFailures` is a pure-over-the-filesystem function (injectable paths, no exit/log)
- * so the CLI wrapper and the isolated spec both drive it. Both mechanical, not discipline.
+ *   5. Drawer shell/pane frame seam (agentos only) — the FleetCockpit reveal slot is the ONE owner of
+ *      the drawer frame; hosted pane skin roots stay frame-free (full longhand families), the slot
+ *      must own `background`+`padding` at its own depth, dual-mount panes carry a slot-side reveal
+ *      override, absence fails closed, and the census cross-checks the cockpit dock document's
+ *      `autoHidden` inventory so a future pane cannot escape a stale hand-list.
+ *
+ * `collectThemeSurfaceFailures` and `collectShellSeamFailures` are pure-over-the-filesystem functions
+ * (injectable paths, no exit/log) so the CLI wrapper and the isolated spec both drive them. All
+ * mechanical, not discipline.
  */
 import fs              from 'fs';
 import path            from 'path';
@@ -77,6 +84,55 @@ const __dirname      = path.dirname(fileURLToPath(import.meta.url)),
           darkPath : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/agentos/Viewport.scss'),
           lightPath: path.join(repoRoot, 'resources/scss/theme-neo-light/apps/agentos/Viewport.scss'),
           viewDir  : path.join(repoRoot, 'resources/scss/src/apps/agentos')
+      },
+      // check 5 — the drawer shell/pane frame seam. Frame properties are the reveal SLOT's to own; a
+      // pane skin ROOT re-declaring one re-creates the every-author-must-remember defect the shell
+      // contract exists to remove. The FULL logical + physical longhand families are listed: a single
+      // omitted longhand (`padding-inline-start`) is a silent bypass of the shorthand ban.
+      FRAME_PROPERTIES = new Set([
+          'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+          'padding-inline', 'padding-inline-start', 'padding-inline-end',
+          'padding-block', 'padding-block-start', 'padding-block-end',
+          'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+          'margin-inline', 'margin-inline-start', 'margin-inline-end',
+          'margin-block', 'margin-block-start', 'margin-block-end',
+          'background', 'background-color'
+      ]),
+      // The agentos drawer seam: the reveal slot + every pane the cockpit's autoHidden composition
+      // mounts into it (cockpitDockDocument seeds them secondary/autoHidden; DockRail resolves each
+      // into revealOverlay.paneSlot). AgentDetail is DUAL-MOUNT: its root frame is legitimate for the
+      // pinned/vessel mounts, so instead of a bare frame-free root the seam demands the slot-side
+      // reveal override that neutralizes it in the transient mount. AddAgentForm is deliberately
+      // absent: the card-in-the-well exception (its panel surface + padding are card identity).
+      AGENTOS_SHELL_SEAM = {
+          slotFile    : 'fleet/FleetCockpit.scss',
+          slotSelector: '.neo-dashboard-dock-reveal-pane-slot',
+          paneRoots   : [
+              ['fleet/CatchUpPane.scss',     '.fm-catch-up-pane'],
+              ['fleet/MemoriesPane.scss',    '.fm-memories-pane'],
+              ['fleet/WakeRoutePane.scss',   '.fm-wakeroutes-pane'],
+              ['fleet/OperatorMailbox.scss', '.fm-operator-mailbox'],
+              ['fleet/MailboxPane.scss',     '.fm-mailbox-pane'],
+              ['fleet/AgentDetail.scss',     '.fm-agent-detail', {dualMount: true}]
+          ],
+          // The census is NOT hand-closed: every autoHidden pane the cockpit dock document declares
+          // must be classified here — either mapped to its skin root above, or exempt with a reason.
+          // A future pane lands in the inventory first (that is how it becomes a drawer pane at
+          // all), so the guard fails on it mechanically instead of waiting for a reviewer.
+          inventory: {
+              file     : 'apps/agentos/view/fleet/cockpitDockDocument.mjs',
+              refToRoot: {
+                  'agent-detail'    : '.fm-agent-detail',
+                  'catch-up'        : '.fm-catch-up-pane',
+                  'memories'        : '.fm-memories-pane',
+                  'wakeRoutes'      : '.fm-wakeroutes-pane',
+                  'operator-mailbox': '.fm-operator-mailbox'
+              },
+              exempt: {
+                  'define-agent': 'the card-in-the-well exception — panel surface + padding are card identity',
+                  'perspectives': 'placeholder leaf — renders the shell-owned fm-pane-placeholder until its view lands'
+              }
+          }
       };
 
 /**
@@ -303,6 +359,287 @@ export function collectThemeSurfaceFailures({
     return failures;
 }
 
+/**
+ * @summary Walk an SCSS source into blocks, brace-tolerantly: selectors may span lines, `{` may sit on
+ * its own line, and multiple declarations may share one. The visitor receives every DECLARATION with
+ * the selector STACK it lives under and its 1-based line number.
+ *
+ * This replaces a line parser that required selector and `{` on one line and could not tell root-level
+ * declarations from nested ones — both shapes were demonstrated as guard bypasses on an exact head
+ * (a split-line selector, and slot frame declarations moved into a nested child rule).
+ *
+ * @param {String} source SCSS text (block comments already stripped).
+ * @param {Function} visit ({selectorStack: String[], property: String, lineNo: Number}) per declaration.
+ */
+function walkScssDeclarations(source, visit) {
+    const selectorStack = [];
+
+    let pending = ''; // selector text accumulated across lines until its `{`
+
+    source.split('\n').forEach((rawLine, index) => {
+        let line = rawLine.replace(/\/\/.*$/, '');
+
+        while (line.length) {
+            const brace = line.search(/[{}]/);
+
+            if (brace === -1) {
+                // no structural token: declarations belong to the current block; a bare selector
+                // fragment (no `;`/`:`) accumulates toward its `{` on a later line
+                if (/[;:]/.test(line)) {
+                    for (const [, property, value] of line.matchAll(DECLARATION_RE)) {
+                        visit({selectorStack: [...selectorStack], property: property.toLowerCase(), value, lineNo: index + 1});
+                    }
+                } else {
+                    pending += ' ' + line;
+                }
+                break;
+            }
+
+            const chunk = line.slice(0, brace),
+                  token = line[brace];
+
+            if (token === '{') {
+                selectorStack.push((pending + ' ' + chunk).trim());
+                pending = '';
+            } else {
+                // declarations in the chunk before `}` still belong to the closing block
+                for (const [, property, value] of chunk.matchAll(DECLARATION_RE)) {
+                    visit({selectorStack: [...selectorStack], property: property.toLowerCase(), value, lineNo: index + 1});
+                }
+                selectorStack.pop();
+                pending = '';
+            }
+
+            line = line.slice(brace + 1);
+        }
+    });
+}
+
+/**
+ * @summary check 5 — the drawer shell/pane frame seam, exported for fixture-driven specs.
+ *
+ * Five assertions, each demonstrated as a real bypass or regression before being encoded:
+ *
+ *   1. Hosted pane skin ROOTS declare no frame property (full logical + physical longhand families —
+ *      `padding-inline-start` passed a shorthand-only list). "Root" means declaration depth 1 inside
+ *      the pane's root selector block, resolved by the brace-tolerant walk (split-line selectors
+ *      passed a line parser).
+ *   2. The reveal SLOT block itself declares `background` AND `padding` at ITS OWN depth — nested
+ *      child rules do not count (moving the frame into `> *` passed a containment scan), so the
+ *      ownership cannot silently migrate downward.
+ *   3. A `dualMount` pane (AgentDetail: pinned/vessel mounts legitimately keep their root frame) must
+ *      instead have a slot-side reveal override — a nested rule inside the slot block naming the
+ *      pane's root selector and declaring `padding` — so the transient reveal mount renders
+ *      frame-free without stripping the other mounts.
+ *   4. FAIL CLOSED on absence: a missing slot file (or a missing/empty-yield inventory source) is a
+ *      failure, never a skip — an exact-head probe deleted the slot file and the guard stayed green.
+ *   5. The census is not hand-closed: every `autoHidden` pane in the cockpit dock document must be
+ *      classified (mapped to a skin root in `paneRoots`, or exempt with a recorded reason). A future
+ *      pane enters the inventory first, so it fails mechanically instead of escaping a stale list —
+ *      an exact-head probe added an unlisted pane skin and the closed list never looked at it.
+ *
+ * @param {Object} seam AGENTOS_SHELL_SEAM-shaped: `{slotFile, slotSelector, paneRoots, inventory?}`.
+ * @param {String} [seamViewDir] SCSS root the seam's relative files resolve against.
+ * @returns {String[]} failure messages (empty array = clean)
+ */
+// A value neutralizes a frame property only when every token is a zero (`0`, `0px`, `0 0`…).
+// Presence-only checking accepted `padding: 99px` as a "reveal override" on an exact-head probe.
+function isZeroValue(value = '') {
+    const tokens = value.trim().split(/\s+/).filter(Boolean);
+
+    return tokens.length > 0 && tokens.every(token => /^0(?:px|rem|em|%)?$/.test(token));
+}
+
+// Which box sides a zero padding declaration neutralizes. A SINGLE zero longhand satisfied the
+// override demand on an exact-head probe (`padding-top: 0`) while three sides kept double-framing —
+// neutralization is complete only when all four sides are covered.
+const PADDING_SIDES = {
+    'padding'             : ['top', 'right', 'bottom', 'left'],
+    'padding-top'         : ['top'],
+    'padding-right'       : ['right'],
+    'padding-bottom'      : ['bottom'],
+    'padding-left'        : ['left'],
+    'padding-block'       : ['top', 'bottom'],
+    'padding-block-start' : ['top'],
+    'padding-block-end'   : ['bottom'],
+    'padding-inline'      : ['left', 'right'],
+    'padding-inline-start': ['left'],
+    'padding-inline-end'  : ['right']
+};
+
+// The final selector must target the pane ROOT ITSELF — a descendant rule
+// (`> .fm-agent-detail .fm-detail-header { padding: 0 }`) neutralizes a child while the root keeps
+// its full frame, and it satisfied a contains-the-token check on an exact-head probe. The root token
+// must be the selector's LAST compound (optionally followed by pseudo-classes/-elements only).
+function targetsRootDirectly(selector, rootSelector) {
+    const escaped = rootSelector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    return new RegExp(`${escaped}(?::{1,2}[\\w-]+(?:\\([^)]*\\))?)*\\s*$`).test(selector.trim());
+}
+
+// Formatting-total extraction of `{… componentRef: 'x' … autoHidden: true …}` object spans: for each
+// `autoHidden: true`, walk back to the innermost enclosing `{`, forward to its match, and read the
+// componentRef from THAT span. A one-line regex required both keys on the same line, so a valid
+// MULTILINE inventory item escaped the census on an exact-head probe.
+function extractAutoHiddenRefs(text) {
+    const refs = [];
+
+    for (const match of text.matchAll(/autoHidden\s*:\s*true/g)) {
+        let depth = 0,
+            start = -1;
+
+        for (let i = match.index; i >= 0; i--) {
+            if (text[i] === '}') depth++;
+            else if (text[i] === '{' && depth-- === 0) { start = i; break; }
+        }
+
+        if (start === -1) continue;
+
+        let end = -1;
+
+        depth = 0;
+
+        for (let i = start; i < text.length; i++) {
+            if (text[i] === '{') depth++;
+            else if (text[i] === '}' && --depth === 0) { end = i; break; }
+        }
+
+        if (end === -1) continue;
+
+        // All three JS string spellings — a syntax-valid double-quoted row escaped a single-quote
+        // pattern on an exact-head probe, while the seven existing refs kept the ZERO fallback quiet
+        const ref = text.slice(start, end + 1).match(/componentRef\s*:\s*(['"`])([^'"`]+)\1/);
+
+        if (ref) refs.push(ref[2]);
+    }
+
+    return refs;
+}
+
+export function collectShellSeamFailures(seam, seamViewDir = DEFAULT_PATHS.viewDir) {
+    const failures = [],
+          slotPath = path.join(seamViewDir, seam.slotFile),
+          // Boundary-aware selector match: `.fm-agent-detail` must NOT match `.fm-agent-detail-x` —
+          // a bare includes() let a renamed (= effectively removed) override still satisfy the
+          // dual-mount demand, which the red-control caught before it shipped.
+          matchesSelector = (text, selector) =>
+              new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])').test(text);
+
+    for (const [relFile, rootSelector, {dualMount = false} = {}] of seam.paneRoots) {
+        const file = path.join(seamViewDir, relFile);
+
+        if (!fs.existsSync(file)) {
+            // fail closed: a LISTED pane root is a contract row — its skin file going missing means
+            // that pane renders unskinned, not that the row stopped applying. An exact-head probe
+            // deleted a configured pane file and the guard exited 0.
+            failures.push(`[shell-seam] ${relFile} is missing — listed pane root ${rootSelector} has no skin file`);
+            continue;
+        }
+
+        const rootFrameHits = [];
+
+        walkScssDeclarations(stripBlockComments(fs.readFileSync(file, 'utf8')), ({selectorStack, property, lineNo}) => {
+            if (selectorStack.length === 1 && matchesSelector(selectorStack[0], rootSelector) && FRAME_PROPERTIES.has(property)) {
+                rootFrameHits.push({property, lineNo});
+            }
+        });
+
+        if (!dualMount) {
+            for (const {property, lineNo} of rootFrameHits) {
+                failures.push(`[shell-seam] ${relFile}:${lineNo} pane root ${rootSelector} re-owns the drawer frame (${property}) — the reveal slot is the one frame owner; roots keep internal semantics only`);
+            }
+        } else if (rootFrameHits.length && fs.existsSync(slotPath)) {
+            // dual-mount: the root frame is legitimate for pinned/vessel — demand the reveal
+            // override, and demand it FULLY NEUTRALIZES: presence passed `padding: 99px`, a single
+            // zero longhand passed `padding-top: 0` (three sides still framing), and a descendant
+            // rule passed a contains-the-token match — three exact-head probes, three demands:
+            // the rule targets the ROOT itself, with zero values, covering ALL FOUR sides.
+            const coveredSides = new Set();
+
+            walkScssDeclarations(stripBlockComments(fs.readFileSync(slotPath, 'utf8')), ({selectorStack, property, value}) => {
+                const inSlot = selectorStack.some(sel => matchesSelector(sel, seam.slotSelector));
+
+                if (inSlot && targetsRootDirectly(selectorStack.at(-1), rootSelector)
+                    && PADDING_SIDES[property] && isZeroValue(value)) {
+                    for (const side of PADDING_SIDES[property]) coveredSides.add(side);
+                }
+            });
+
+            if (coveredSides.size !== 4) {
+                failures.push(`[shell-seam] ${relFile} pane root ${rootSelector} keeps its dual-mount frame but ${seam.slotFile} carries NO FULL ZERO reveal override (a nested "${seam.slotSelector} … ${rootSelector}" rule — targeting the root itself — must zero ALL four padding sides; covered: ${[...coveredSides].join('+') || 'none'}) — the transient reveal mount double-frames`);
+            }
+        }
+    }
+
+    if (!fs.existsSync(slotPath)) {
+        // fail closed: a missing owner file is the frame having NO owner, not a surface to skip —
+        // an exact-head probe deleted the configured slot file and the guard stayed green
+        failures.push(`[shell-seam] ${seam.slotFile} is missing — the drawer frame has no owner`);
+    } else {
+        const slotOwnProps = new Set();
+
+        let slotSeen = false;
+
+        walkScssDeclarations(stripBlockComments(fs.readFileSync(slotPath, 'utf8')), ({selectorStack, property}) => {
+            const slotIdx = selectorStack.findIndex(sel => matchesSelector(sel, seam.slotSelector));
+
+            if (slotIdx !== -1) slotSeen = true;
+
+            // ownership counts ONLY at the slot block's own depth — a frame declaration inside a
+            // nested child rule (`> *`, a reveal override) is not the slot owning the frame
+            if (slotIdx !== -1 && slotIdx === selectorStack.length - 1) slotOwnProps.add(property);
+        });
+
+        if (!slotSeen) {
+            failures.push(`[shell-seam] ${seam.slotFile} no longer styles ${seam.slotSelector} — the drawer frame has no owner`);
+        } else {
+            for (const required of ['background', 'padding']) {
+                if (!slotOwnProps.has(required)) {
+                    failures.push(`[shell-seam] ${seam.slotFile} slot block ${seam.slotSelector} does not declare ${required} at its own depth — the shell must own the drawer frame itself`);
+                }
+            }
+        }
+    }
+
+    // The census cross-check: the paneRoots list must not be hand-closed. Every autoHidden pane the
+    // cockpit dock document declares must be CLASSIFIED — mapped to a skin root in paneRoots, or
+    // exempt with a recorded reason. A future pane enters the inventory first, so it fails here
+    // mechanically instead of silently escaping a stale list.
+    if (seam.inventory) {
+        const inventoryPath = path.isAbsolute(seam.inventory.file)
+            ? seam.inventory.file
+            : path.join(repoRoot, seam.inventory.file);
+
+        if (!fs.existsSync(inventoryPath)) {
+            failures.push(`[shell-seam] pane inventory source ${seam.inventory.file} is missing — the census cannot be verified`);
+        } else {
+            const inventoryText = stripBlockComments(fs.readFileSync(inventoryPath, 'utf8')),
+                  refs          = extractAutoHiddenRefs(inventoryText),
+                  rootSelectors = new Set(seam.paneRoots.map(([, selector]) => selector));
+
+            if (refs.length === 0) {
+                // fail closed on an empty extraction: a refactor of the inventory shape would
+                // otherwise turn the census check into a vacuous green
+                failures.push(`[shell-seam] pane inventory source ${seam.inventory.file} yielded ZERO autoHidden refs — extraction pattern or inventory shape changed; the census cannot be verified`);
+            }
+
+            for (const ref of refs) {
+                if (seam.inventory.exempt?.[ref]) continue;
+
+                const mappedRoot = seam.inventory.refToRoot?.[ref];
+
+                if (!mappedRoot) {
+                    failures.push(`[shell-seam] autoHidden pane '${ref}' (cockpit dock document) is UNCLASSIFIED — map it to its skin root in the seam census, or record it exempt with a reason`);
+                } else if (!rootSelectors.has(mappedRoot)) {
+                    failures.push(`[shell-seam] autoHidden pane '${ref}' maps to ${mappedRoot} but that selector is not in paneRoots — the census row is dangling`);
+                }
+            }
+        }
+    }
+
+    return failures;
+}
+
 // ─────────────────────────────── CLI ───────────────────────────────
 // Only when run directly (`node …/check-theme-surfaces.mjs`), not when imported by the spec.
 /**
@@ -327,7 +664,9 @@ const SURFACES = [
         viewDir         : DEFAULT_PATHS.viewDir,
         tokenPattern    : FM_TOKEN_RE,
         modeInvariant   : MODE_INVARIANT,
-        contractedTokens: CONTRACTED_FM_TOKENS
+        contractedTokens: CONTRACTED_FM_TOKENS,
+        // check 5 applies to agentos only: the drawer shell/pane seam is the FM cockpit's contract
+        shellSeam       : AGENTOS_SHELL_SEAM
     },
     {
         name            : 'workstation',
@@ -341,8 +680,10 @@ const SURFACES = [
 ];
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-    const failures = SURFACES.flatMap(({name, ...paths}) =>
-        collectThemeSurfaceFailures(paths).map(failure => `[${name}] ${failure}`));
+    const failures = SURFACES.flatMap(({name, shellSeam, ...paths}) => [
+        ...collectThemeSurfaceFailures(paths).map(failure => `[${name}] ${failure}`),
+        ...(shellSeam ? collectShellSeamFailures(shellSeam, paths.viewDir).map(failure => `[${name}] ${failure}`) : [])
+    ]);
 
     if (failures.length) {
         console.error('✗ theme guard FAILED:\n');
@@ -350,8 +691,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         console.error('\n  [parity]       give each color token a genuinely light-native value in the light skin (fonts and per-skin-resolving aliases excepted).');
         console.error('  [token-only]   components consume semantic tokens; var(--token, fallback) is allowed, a bare literal is not.');
         console.error('  [completeness] every consumed token must be defined in both skins.');
+        console.error('  [shell-seam]   the reveal slot owns the drawer frame; pane roots never re-declare padding/margin/background (dual-mount panes carry a slot-side reveal override instead).');
         process.exit(1);
     }
 
-    console.log(`✓ theme guard: ${SURFACES.map(s => s.name).join(' + ')} — parity + token-only + completeness + text-safe ink all pass.`);
+    console.log(`✓ theme guard: ${SURFACES.map(s => s.name).join(' + ')} — parity + token-only + completeness + text-safe ink + shell-seam all pass.`);
 }
