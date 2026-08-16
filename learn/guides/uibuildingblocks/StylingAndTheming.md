@@ -196,26 +196,6 @@ Applications follow a similar rule, but with one important exception: the `view`
 
 Notice how `view/` is not present in the SCSS path. The engine's build tools and runtime loader are specifically coded to handle this convention. Adhering to it is essential for your application's styles to be loaded correctly.
 
-## 4. SCSS File & Namespace Mapping
-
-For the automatic lazy-loading of theme files to work, it is **critical** that the path of an SCSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
-
-### Engine Components
-
-For standard engine components, the mapping is direct. The path within `resources/scss/src` (or a theme folder) matches the class path after `Neo.`.
-
--   **JS Class:** `src/button/Base.mjs` (which defines `Neo.button.Base`)
--   **Maps to SCSS:** `resources/scss/src/button/Base.scss`
-
-### Application Components (The `view` rule)
-
-Applications follow a similar rule, but with one important exception: the `view` folder in the JavaScript path is **omitted** from the SCSS path. It is a mandatory convention that only components inside an application's `view` folder should have associated SCSS files.
-
--   **JS Class:** `apps/portal/view/Viewport.mjs` (defines `Portal.view.Viewport`)
--   **Maps to SCSS:** `resources/scss/src/apps/portal/Viewport.scss`
-
-Notice how `view/` is not present in the SCSS path. The engine's build tools and runtime loader are specifically coded to handle this convention. Adhering to it is essential for your application's styles to be loaded correctly.
-
 ## 5. Theme Inheritance
 
 The theming engine uses a powerful and automatic inheritance model. You **do not** need to manually `@import` base styles into your theme's SCSS files. The engine handles this for you at runtime.
@@ -376,6 +356,8 @@ The `npm run build-themes` command is the main script for a full theme build. It
 
 The `theme-map.json` file creates a mapping between every class name and the themes that have custom styles for it. This file is the key to the lazy loading mechanism.
 
+A full build **regenerates** the map from the effective SCSS tree on every run — it does not merge the previous map, so deleting or renaming an SCSS file removes its key on the next build. The one merge that remains is the workspace overlay (§8): a workspace build seeds from the *engine's* map so engine components stay resolvable, then overlays the workspace's own scan.
+
 ### `watch-themes`
 
 For development, you can use `npm run watch-themes`. Existing non-partial files stay on the fast path: the watcher recompiles only the file whose content changed.
@@ -384,7 +366,7 @@ Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher.
 
 Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective framework-plus-workspace SCSS tree. A partial change rebuilds its owning `src` or theme root (shared mixins rebuild all roots), so a broken importer produces a visible error instead of silently retaining stale CSS.
 
-## 9. Lazy Loading in Action
+## 10. Lazy Loading in Action
 
 You do not need to manually include any theme CSS files in your application's `index.html`. The engine handles it automatically.
 
