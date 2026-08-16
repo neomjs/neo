@@ -730,14 +730,16 @@ class WakeSubscriptionService extends Base {
      * availability verdict: a long turn (the definition of working) is structurally
      * indistinguishable from absence on this signal, and a fresh write says a turn ENDED recently,
      * not that the seat is free. The payload says so itself: every return carries an `axes`
-     * surface in the Fleet's capability-envelope grammar (`{capability: {source, plane, state,
-     * confidence, capturedAt, reason}}`), where `presence` declares its proxy plane and the
-     * host-originated composed axes (`throttle`, `lifecycle`, `liveness`) are served as
-     * `degraded/none` envelopes until the fleet publishes its observations into the plane — each
-     * verbose row carries those axes as `unknown`. An `unknown` axis never ranks a seat top and
-     * never renders as fine. The presence state vocabulary itself is imported from the Fleet's
-     * taxonomy (`PRESENCE_STATES`, whose one exporting home is `fleetPresenceStateAdapter`), so
-     * the cockpit's downstream mapping can never drift from this tool's words.
+     * surface. Terse holds the `presence` envelope (wired/observed, proxy declared) plus a compact
+     * `unobserved` marker naming the host-originated axes (`throttle`, `lifecycle`, `liveness`);
+     * verbose serves each host axis as its full `degraded/none` envelope until the fleet publishes
+     * its observations into the plane, and each verbose row carries those axes as `unknown`. The
+     * envelope shape is a declared superset of the Fleet Manager's capability-envelope grammar —
+     * see {@link WakeSubscriptionService#_composedAxesEnvelope} for the two added fields. An
+     * `unknown` axis never ranks a seat top and never renders as fine. The presence state
+     * vocabulary itself is imported from the Fleet's taxonomy (`PRESENCE_STATES`, whose one
+     * exporting home is `fleetPresenceStateAdapter`), so the cockpit's downstream mapping can never
+     * drift from this tool's words.
      *
      * @param {Object} [opts]
      * @param {String} [opts.family] Optional model-family filter (e.g. `'claude'`, `'gpt'`).
@@ -753,20 +755,18 @@ class WakeSubscriptionService extends Base {
      *   now), `idle` (stale but inside the idle cutoff), `dark` (stale beyond it), `neverConnected`
      *   (rostered but never observed on THIS deployment), `benched` (participationStatus gate).
      *   `windows` carries the resolved `{activityFreshMs, idleCutoffMs}` so the counts are
-     *   interpretable without reading source. `axes` carries the capability envelopes above —
-     *   `presence` wired/observed with its plane declaration, the host-originated axes
-     *   degraded/none. Verbose: `{generatedAt, axes, signalStatus, agents}` where each agent is
+     *   interpretable without reading source. Terse `axes` carries ONLY what the default answer
+     *   needs (the tool is terse-by-default — diagnostics live behind `verbose`, never bloat the
+     *   context window): the full `presence` capability envelope with its plane declaration, and a
+     *   compact `unobserved` marker naming the host-originated axes — declared, never fabricated.
+     *   Verbose: `{generatedAt, axes, signalStatus, agents}` — `axes` serves every host-originated
+     *   axis as its full `degraded/none` envelope, and each agent row is
      *   `{identity, name, family, participationStatus, online, state, reason, signals, axes}` —
      *   the per-row `axes` holds every host-originated axis as `unknown` until the fleet publishes.
      */
     async whoIsOnline({family, verbose = false, now = new Date()} = {}) {
-        const nowMs = this._coerceDate(now).getTime(),
-              // Every projected row carries the unobservable composed axes as `unknown` — the
-              // tool never fabricates a host-originated verdict from its container-side primitive.
-              agents      = this._listAgentIdentityNodes(family).map(node => ({
-                  ...this._projectAgentLiveness(node, nowMs),
-                  axes: this._unobservedComposedAxes()
-              })),
+        const nowMs       = this._coerceDate(now).getTime(),
+              projected   = this._listAgentIdentityNodes(family).map(node => this._projectAgentLiveness(node, nowMs)),
               generatedAt = new Date(nowMs).toISOString(),
               axes        = this._composedAxesEnvelope(generatedAt);
 
@@ -780,7 +780,10 @@ class WakeSubscriptionService extends Base {
                               'add_memory-recency, the deployment-agnostic fallback where no beacon is emitted, ' +
                               'roster-scoped and graph-backed (survives an embed-drain). Advisory, not a hard ' +
                               'routing gate.',
-                agents
+                // Per-row `unknown` axes are verbose diagnostics — allocated only on this path, so
+                // the default answer never pays for objects its buckets discard. The tool never
+                // fabricates a host-originated verdict from its container-side primitive.
+                agents: projected.map(row => ({...row, axes: this._unobservedComposedAxes()}))
             };
         }
 
@@ -789,7 +792,7 @@ class WakeSubscriptionService extends Base {
         // proportional to the question. Buckets are keyed off the projected state so the wire shape
         // and the per-agent verdict can never disagree, and they are DERIVED from the Fleet's
         // exported taxonomy — the tool's state vocabulary is imported, never re-declared.
-        const inState = state => agents.filter(agent => agent.state === state).map(agent => agent.identity),
+        const inState = state => projected.filter(agent => agent.state === state).map(agent => agent.identity),
               buckets = Object.fromEntries(PRESENCE_STATES.map(state => [state, inState(state)])),
               windows = {
                   activityFreshMs: AiConfig.whoIsOnline.activityFreshMs,
@@ -798,12 +801,19 @@ class WakeSubscriptionService extends Base {
 
         return {
             generatedAt,
-            axes,
+            // The presence envelope is the default answer's honesty (the plane declaration), so it
+            // stays terse-side; the three host-originated envelopes would repeat byte-identical
+            // "nothing published" on every call — diagnostics by definition — so terse DECLARES
+            // their axes unobserved and verbose serves the full envelopes.
+            axes: {presence: axes.presence, unobserved: [...COMPOSED_HOST_AXES]},
             // The summary states the windows it applied: the same counts mean different things under
             // a 15-minute and a 4-hour window, so a bare number is not interpretable without them.
-            summary: `${buckets.online.length} online · ${buckets.idle.length} idle · ${buckets.dark.length} dark · ` +
-                     `${buckets.neverConnected.length} never-connected · ${buckets.benched.length} benched ` +
-                     `(online ≤ ${formatWindow(windows.activityFreshMs)}, idle ≤ ${formatWindow(windows.idleCutoffMs)})`,
+            // Counts and labels derive from the same imported taxonomy as the buckets — a rename at
+            // the vocabulary's exporting home renames both, never a cross-module TypeError here.
+            summary: PRESENCE_STATES.map(state =>
+                         `${buckets[state].length} ${state === 'neverConnected' ? 'never-connected' : state}`
+                     ).join(' · ') +
+                     ` (online ≤ ${formatWindow(windows.activityFreshMs)}, idle ≤ ${formatWindow(windows.idleCutoffMs)})`,
             windows,
             ...buckets
         };
@@ -812,14 +822,22 @@ class WakeSubscriptionService extends Base {
     /**
      * @summary Builds the composed-axes honesty surface both `who_is_online` return shapes carry.
      *
-     * The grammar is the Fleet Manager's capability envelope — `{source, plane, state, confidence,
-     * capturedAt, reason}` — served UN-FLATTENED per axis, so a degraded source can never paint a
-     * healthy one. `presence` is the axis this tool owns: `wired/observed`, and its `reason` is the
-     * plane declaration (a container-side `add_memory`-recency proxy, not an availability verdict).
-     * The host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named
-     * reason until the fleet publishes its observations into the plane — the envelope's
-     * `capturedAt` echoes the projection's own observation bound (`generatedAt`), never a
-     * re-stamped clock.
+     * The shape is a DECLARED SUPERSET of the Fleet Manager's capability-envelope grammar
+     * (`{source, state, confidence, capturedAt, reason}`, per `fleetThrottleStateAdapter.mjs`) with
+     * exactly two added fields, named rather than smuggled: `plane` — which plane the axis's truth
+     * lives on — and `signal` — the owning axis's signal name. The Fleet's envelopes never carry
+     * `plane` because they are emitted by the adapter that OWNS the axis; this tool serves axes it
+     * cannot own, so the plane must travel on the envelope (that IS the tool's plane declaration).
+     * `signal` appears only on `presence`, the one axis with a live signal to name. `source: null`
+     * on the host-originated axes is equally deliberate: the FM's adapters stamp their own source
+     * label because they ARE the producer — an axis nothing has published has no producer to name.
+     *
+     * Envelopes are served UN-FLATTENED per axis, so a degraded source can never paint a healthy
+     * one. `presence` is the axis this tool owns: `wired/observed`, and its `reason` is the plane
+     * declaration (a container-side `add_memory`-recency proxy, not an availability verdict). The
+     * host-originated axes ({@link COMPOSED_HOST_AXES}) report `degraded/none` with a named reason
+     * until the fleet publishes its observations into the plane — the envelope's `capturedAt` echoes
+     * the projection's own observation bound (`generatedAt`), never a re-stamped clock.
      * @param {String} capturedAt The projection's observation bound (ISO).
      * @returns {Object} `{presence, throttle, lifecycle, liveness}` capability envelopes.
      * @protected

@@ -3119,20 +3119,33 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(verbose.axes.presence.capability).toEqual(presence);
         });
 
-        test('#17225 AC3 — unobservable axes are FM-grammar degraded/none envelopes: unknown never ranks top, never renders as fine', async () => {
+        test('#17225 AC3 — unobservable axes: declared in terse, served as degraded/none envelopes in verbose', async () => {
+            // The terse-by-default contract (diagnostics behind the optional param, never bloat the
+            // context window) bounds WHAT the default answer pays for: the presence envelope is the
+            // answer's honesty and stays; three byte-identical "nothing published" envelopes on
+            // every call would be diagnostics in the default path. So terse DECLARES the host axes
+            // unobserved, and verbose serves the full FM-grammar envelopes.
             seedAgent('@neo-ac3');
             seedActivity('@neo-ac3', {timestamp: iso(T0ms - 2 * 60 * 1000)});
 
             const terse = await WakeSubscriptionService.whoIsOnline({now: new Date(T0)});
 
+            expect(terse.axes.unobserved).toEqual(['throttle', 'lifecycle', 'liveness']);
+            expect(terse.axes.throttle, 'diagnostics stay out of the default answer').toBeUndefined();
+            expect(terse.axes.lifecycle).toBeUndefined();
+            expect(terse.axes.liveness).toBeUndefined();
+            expect(terse.axes.presence?.capability?.state).toBe('wired');
+
+            const verbose = await WakeSubscriptionService.whoIsOnline({verbose: true, now: new Date(T0)});
+
             for (const axis of ['throttle', 'lifecycle', 'liveness']) {
-                const capability = terse.axes?.[axis]?.capability;
+                const capability = verbose.axes?.[axis]?.capability;
 
                 expect(capability, `${axis} envelope`).toBeTruthy();
                 expect(capability.state).toBe('degraded');        // absence of truth is declared, never hidden
                 expect(capability.confidence).toBe('none');       // never rendered as fine
                 expect(typeof capability.reason).toBe('string');  // the hole names itself
-                expect(capability.capturedAt).toBe(terse.generatedAt);
+                expect(capability.capturedAt).toBe(verbose.generatedAt);
             }
         });
 
@@ -3144,16 +3157,44 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             // exporting home, so the FM's downstream mapping can never drift from the tool's words.
             expect(serviceSrc).toContain("from '../fleet/fleetPresenceStateAdapter.mjs'");
 
-            // The grep control: no second literal list of the presence states anywhere in the MC
-            // services tree — one exporting home, every consumer imports.
-            const dir         = path.resolve(process.cwd(), 'ai/services/memory-core');
-            const listPattern = /\[[^\]]*'online'[^\]]*'idle'[^\]]*'dark'[^\]]*\]/;
+            // The grep control, positive-controlled first: an absence-assertion never shown capable
+            // of presence is indistinguishable from a test that does nothing. The detector flags any
+            // 150-char window holding >= 3 DISTINCT vocabulary words as quoted literals — the shape a
+            // re-declared list takes in any spelling (array, reordered, double-quoted, switch/case
+            // cluster) — while scattered single uses stay silent.
+            const VOCAB    = ['online', 'idle', 'dark', 'benched', 'neverConnected'],
+                  detector = src => {
+                      const hits = [...src.matchAll(/(['"])(online|idle|dark|benched|neverConnected)\1/g)];
 
-            for (const file of await fs.readdir(dir)) {
-                if (!file.endsWith('.mjs')) continue;
+                      for (let i = 0; i < hits.length; i++) {
+                          const windowed = hits.filter(h => h.index >= hits[i].index && h.index < hits[i].index + 150);
 
-                const src = await fs.readFile(path.join(dir, file), 'utf8');
-                expect(listPattern.test(src), `${file} re-declares the presence state list`).toBe(false);
+                          if (new Set(windowed.map(h => h[2])).size >= 3) return true;
+                      }
+
+                      return false;
+                  };
+
+            // The positive controls — each spelling a re-declaration could take, including the four
+            // evasions a naive ordered single-quote pattern misses.
+            expect(detector(`const S = ['online', 'idle', 'dark', 'benched', 'neverConnected']`)).toBe(true);
+            expect(detector(`const S = ['neverConnected', 'dark', 'online']`)).toBe(true);
+            expect(detector('const S = ["online", "idle", "dark"]')).toBe(true);
+            expect(detector(`switch (s) { case 'online': case 'idle': case 'dark': return s; }`)).toBe(true);
+            // and the negative control: one scattered use is a usage, not a vocabulary.
+            expect(detector(`row.state = 'online';`)).toBe(false);
+
+            // The sweep itself: recursive — subdirectories are exactly where a second copy would hide.
+            const root = path.resolve(process.cwd(), 'ai/services/memory-core'),
+                  walk = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
+                      const abs = path.join(dir, entry.name);
+
+                      return entry.isDirectory() ? walk(abs) : (entry.name.endsWith('.mjs') ? [abs] : []);
+                  });
+
+            for (const file of walk(root)) {
+                const src = await fs.readFile(file, 'utf8');
+                expect(detector(src), `${path.relative(root, file)} re-declares the presence vocabulary`).toBe(false);
             }
         });
     });
