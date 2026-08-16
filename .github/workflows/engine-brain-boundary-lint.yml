@@ -35,10 +35,19 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
 
-      # No `npm ci`: the guard reads `git ls-files` plus source text and imports nothing from the
-      # tree it scans. Keeping it dependency-free is deliberate — a boundary guard that needed an
-      # install would be the first thing dropped when the install broke, which is exactly when a
-      # boundary is most likely to be crossed.
+      # The guard parses with acorn rather than matching text: `../ai/Client.mjs` resolves to the
+      # Brain from buildScripts/ and to `src/ai/` from src/worker/, and a dynamic import carries no
+      # `from` keyword — neither distinction survives a line scan. Hence the install.
+      # --ignore-scripts skips the heavy prepare lifecycle (Husky + generated local configs).
+      #
+      # An earlier revision skipped the install and claimed the guard was dependency-free. That was
+      # true of the regex draft and stopped being true at the acorn rewrite; the comment outlived the
+      # change, the same shape as the module JSDoc that kept asserting a census its own code had
+      # already disproved. CI caught it.
+      - name: Install dependencies (acorn — the import-declaration parser)
+        run: npm ci --ignore-scripts
+
       - name: Check engine does not import the Brain
         run: node ./buildScripts/util/check-engine-brain-boundary.mjs
