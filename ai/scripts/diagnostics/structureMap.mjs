@@ -20,6 +20,7 @@ import {fileURLToPath} from 'node:url';
 
 const DEFAULT_ROOT = 'ai';
 
+
 /**
  * Converts platform-specific path separators to POSIX separators for stable JSON output.
  * @param {string} value
@@ -55,7 +56,11 @@ export function createProgram() {
         .description('Emit deterministic JSON describing an Agent OS folder structure.')
         .option('-r, --root <path>', 'Root directory to inspect.', DEFAULT_ROOT)
         .option('--files', 'Include sorted file names per folder.')
-        .option('--loc', 'Include code LOC per file, excluding blank lines and common comment forms.');
+        .option('--loc', 'Include code LOC per file, excluding blank lines and common comment forms.')
+        // Opt-in, and the reason is measured rather than stylistic: the plane projection walks every
+        // npm-declared entrypoint's import closure, which takes ~2.2s against this command's ~160ms.
+        // Making a navigation tool 14x slower by default is how it stops being reached for.
+        .option('--planes', 'Annotate ai/scripts folders with their derived execution-plane tally.');
 }
 
 /**
@@ -202,8 +207,10 @@ function buildFileList(folderPath, files, {includeFiles, includeLoc}) {
 export function buildStructureMap({
     root         = DEFAULT_ROOT,
     cwd          = process.cwd(),
-    includeFiles = false,
-    includeLoc   = false
+    includeFiles  = false,
+    includeLoc    = false,
+    includePlanes = false,
+    planeProjection = null
 } = {}) {
     const rootPath = path.resolve(cwd, root),
           stat     = fs.statSync(rootPath);
@@ -240,6 +247,33 @@ export function buildStructureMap({
 
     folders.sort((a, b) => a.path.localeCompare(b.path));
 
+    if (includePlanes) {
+        // The projection is INJECTED, never defaulted. `buildStructureMap` is synchronous and the
+        // projection lives behind a dynamic import (so the fast path carries neither the parser
+        // dependency nor the ~2.2s closure walk), so the async CLI resolves it and passes it down.
+        //
+        // A missing projection throws rather than rendering folders with no tally: an empty plane
+        // annotation is indistinguishable from "this folder has no entrypoints", which is exactly the
+        // silent-default shape this whole lane exists to remove.
+        if (!planeProjection) {
+            throw new Error('buildStructureMap: includePlanes requires an injected planeProjection');
+        }
+
+        const projection = planeProjection;
+
+        folders.forEach(folder => {
+            const entry = projection[folder.path];
+
+            if (entry) {
+                folder.planes = entry.planes;
+                // `mixed` is the load-bearing field: a folder named after its VERB can hold three
+                // different planes, and that is precisely what a directory-keyed predicate gets wrong.
+                folder.planesMixed = entry.mixed;
+                folder.entrypointPlanes = entry.entrypoints
+            }
+        })
+    }
+
     return {
         root   : formatOutputPath(rootPath, cwd),
         folders: folders
@@ -259,10 +293,12 @@ function writeStructureMap(options, {
     stdout = process.stdout
 } = {}) {
     const map = buildStructureMap({
-        root        : options.root,
+        root           : options.root,
         cwd,
-        includeFiles: options.files,
-        includeLoc  : options.loc
+        includePlanes  : options.planes,
+        planeProjection: options.planeProjection,
+        includeFiles   : options.files,
+        includeLoc     : options.loc
     });
 
     stdout.write(`${JSON.stringify(map, null, 2)}\n`);
@@ -279,20 +315,28 @@ function writeStructureMap(options, {
  * @returns {Promise<{root:string, folders:Array}>}
  */
 export async function main(argv=process.argv.slice(2), io={}) {
-    return writeStructureMap(parseArgs(argv), io);
+    const options = parseArgs(argv);
+
+    if (options.planes) {
+        const {buildPlaneProjection} = await import('../lint/lint-script-plane.mjs');
+
+        options.planeProjection = buildPlaneProjection()
+    }
+
+    return writeStructureMap(options, io);
 }
 
 const isDirectCli = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
 if (isDirectCli) {
-    Promise.resolve().then(() => {
-        const program = createProgram();
-
-        program.parse(process.argv);
-
-        return writeStructureMap(program.opts());
-    }).catch(error => {
-        console.error(error.message);
-        process.exit(1);
-    });
+    // Routed through `main()` rather than calling `writeStructureMap` directly: `main` is where the
+    // async plane projection is resolved, and a second entry path that skips it would make `--planes`
+    // work under test and fail from the shell — the two-entry-point divergence that makes a flag look
+    // implemented while nobody can use it.
+    Promise.resolve()
+        .then(() => main(process.argv.slice(2)))
+        .catch(error => {
+            console.error(error.message);
+            process.exit(1);
+        });
 }

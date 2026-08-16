@@ -145,3 +145,56 @@ test.describe('ai/scripts/diagnostics/structureMap (#14307)', () => {
         ].join('\n'), 'fixture.yaml')).toBe(4);
     });
 });
+
+test.describe('--planes projection (#16929)', () => {
+    /*
+     * `ai/scripts` names its folders after the VERB — `maintenance`, `diagnostics`, `lint` — and never
+     * the execution plane, which is why "can this run where there is no host shell" used to mean
+     * opening the file. Five of the seven folders carry more than one plane, so `planesMixed` is the
+     * field that earns this projection: a folder name cannot tell you, and now the map can.
+     */
+    const projection = {
+        'ai/scripts/maintenance': {
+            planes     : {'host-edge': 4, 'container-plane': 2, unresolved: 18},
+            mixed      : true,
+            entrypoints: {'backup.mjs': 'container-plane'}
+        },
+        'ai/scripts/migrations': {
+            planes     : {'host-edge': 3},
+            mixed      : false,
+            entrypoints: {}
+        }
+    };
+
+    test('annotates folders with their tally and flags the mixed ones', () => {
+        const map    = buildStructureMap({root: 'ai/scripts', includePlanes: true, planeProjection: projection}),
+              byPath = Object.fromEntries(map.folders.map(folder => [folder.path, folder]));
+
+        expect(byPath['ai/scripts/maintenance'].planes).toEqual(projection['ai/scripts/maintenance'].planes);
+        expect(byPath['ai/scripts/maintenance'].planesMixed, 'a verb-named folder holding three planes is the case worth seeing').toBe(true);
+        expect(byPath['ai/scripts/migrations'].planesMixed).toBe(false);
+    });
+
+    test('a folder outside the projection is left untouched, not zero-filled', () => {
+        const map    = buildStructureMap({root: 'ai/scripts', includePlanes: true, planeProjection: projection}),
+              absent = map.folders.find(folder => !(folder.path in projection));
+
+        // Zero-filling would make "no entrypoints here" and "no plane could be derived" look identical.
+        expect(absent).toBeTruthy();
+        expect(absent.planes).toBeUndefined();
+    });
+
+    test('includePlanes WITHOUT a projection throws rather than rendering empty tallies', () => {
+        // The load-bearing arm. An empty annotation reads as "this folder has no entrypoints", which
+        // is the silent-default shape this whole lane exists to remove — so it must fail loudly.
+        expect(() => buildStructureMap({root: 'ai/scripts', includePlanes: true}))
+            .toThrow(/requires an injected planeProjection/);
+    });
+
+    test('the default path carries no plane keys at all', () => {
+        // Opt-in is measured, not stylistic: the projection walks every entrypoint's import closure.
+        const map = buildStructureMap({root: 'ai/scripts'});
+
+        expect(map.folders.every(folder => folder.planes === undefined)).toBe(true);
+    });
+});
