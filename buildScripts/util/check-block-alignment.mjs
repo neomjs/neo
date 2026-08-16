@@ -1,6 +1,6 @@
-import fs                    from 'fs';
-import {execFileSync}        from 'node:child_process';
-import {getStagedAddedLines} from './stagedDiff.mjs';
+import fs                                           from 'fs';
+import {execFileSync}                               from 'node:child_process';
+import {getStagedAddedLines, isWorkingTreeCleanFor} from './stagedDiff.mjs';
 
 /**
  * @module buildScripts/util/check-block-alignment
@@ -569,6 +569,14 @@ function formatViolation(file, {lineIndex, expectedColumn, kind}) {
  * from the deliberate whole-file pass, whose gitRoot is likewise null.
  * @returns {String} `'clean' | 'reported' | 'fixed' | 'unfixable'`
  */
+/**
+ * Why each scoped repair was refused, keyed by file. Two different causes need two different author
+ * actions — stash your unstaged edits, versus fix your git state — so the driver reports them apart
+ * instead of collapsing both into one message that fits neither.
+ * @type {Map<String,String>}
+ */
+const unfixableReasons = new Map();
+
 function processFile(file, fix, gitRoot = null, scopedFix = false) {
     const allViolations = [];
     const originalLines = fs.readFileSync(file, 'utf8').split('\n');
@@ -587,12 +595,25 @@ function processFile(file, fix, gitRoot = null, scopedFix = false) {
         if (scopedFix) {
             const added = gitRoot ? getStagedAddedLines(file, gitRoot) : null;
 
-            // Fail CLOSED: no reliable staged-line set ⇒ report, never rewrite — a git hiccup must
-            // never silently become a whole-file reformat inside an author's commit.
-            if (!added) {
+            // The staged-line set is expressed in INDEX coordinates, and this function rewrites the
+            // WORKING TREE. They agree only while the file has no unstaged changes; on a partially
+            // staged file they drift by the unstaged edit's line delta, and the scoped repair then
+            // writes lines the author never staged while leaving the staged drift in place. Both
+            // halves of that go out reported as success.
+            //
+            // So the precondition is checked rather than assumed, and it fails the same CLOSED way a
+            // missing staged-line set does: report, never rewrite — a git hiccup, or a half-staged
+            // file, must not silently become an edit to somebody's unstaged work.
+            const coordinatesAgree = Boolean(added) && isWorkingTreeCleanFor(file, gitRoot);
+
+            if (!coordinatesAgree) {
                 for (const violation of allViolations.sort((a, b) => a.lineIndex - b.lineIndex)) {
                     console.error(formatViolation(file, violation));
                 }
+
+                // Distinguished so the author can tell "stage or stash your other edits" from "git is
+                // broken" — the two need different actions, and one message for both taught neither.
+                unfixableReasons.set(file, added ? 'unstaged-changes' : 'no-staged-line-set');
 
                 return 'unfixable';
             }
@@ -678,7 +699,13 @@ if (hadDrift && !fix) {
 }
 
 if (hadUnfixable) {
-    console.error('\nBlock-alignment repair skipped: staged-line detection failed. No files were rewritten — resolve the git error and retry.');
+    const unstaged = [...unfixableReasons].filter(([, reason]) => reason === 'unstaged-changes').map(([file]) => file);
+
+    console.error(
+        unstaged.length === unfixableReasons.size
+            ? `\nBlock-alignment repair skipped: ${unstaged.join(', ')} has unstaged changes, so the staged line numbers do not address the file on disk. No files were rewritten — stage or stash the rest, then retry.`
+            : '\nBlock-alignment repair skipped: the staged line numbers could not be trusted for every file (unstaged changes, or a failed staged-line read). No files were rewritten — resolve that, then retry.'
+    );
 }
 
 if (hadError || hadUnfixable || (hadDrift && !fix)) {
