@@ -43,5 +43,35 @@
         "file": "test/playwright/unit/ai/daemons/wake/daemon.spec.mjs",
         "text": "await new Promise(resolve => setTimeout(resolve, 2600));",
         "count": 1
+    },
+    {
+        "file": "test/playwright/unit/ai/daemons/kb-alerting/KbAlertingService.spec.mjs",
+        "text": "KbAlertingService.scheduleNext = function () { this.pollHandle = setTimeout(() => {}, 60_000) };",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/unit/ai/daemons/kb-gc/KbGarbageCollectionService.spec.mjs",
+        "text": "KbGarbageCollectionService.scheduleNext = function () { this.pollHandle = setTimeout(() => {}, 60_000) };",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/unit/ai/daemons/kb-reconciliation/KbReconciliationService.spec.mjs",
+        "text": "KbReconciliationService.scheduleNext = function () { this.pollHandle = setTimeout(() => {}, 60_000) };",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/unit/manager/DragCoordinator.spec.mjs",
+        "text": "timeoutId     : setTimeout(() => { sourceTimerCleared = false }, 60_000)",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/unit/manager/DragCoordinator.spec.mjs",
+        "text": "timeoutId     : setTimeout(() => { targetTimerCleared = false }, 60_000)",
+        "count": 1
+    },
+    {
+        "file": "test/playwright/unit/manager/DragCoordinator.spec.mjs",
+        "text": "timeoutId     : setTimeout(() => {}, 60_000)",
+        "count": 1
     }
 ]

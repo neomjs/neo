@@ -42,6 +42,13 @@
  * `out-waits:` is the one that pays forward — it names a leaf candidate, and a constant named here is a
  * constant somebody can make injectable.
  *
+ * Two forms are exempt without a marker, because both already name what the rule asks named. A
+ * named-constant delay is injectable by construction, so the wait's name travels with it. And a
+ * self-naming failure deadline — `setTimeout(() => reject(new Error('…')), N)` — is not a wait at
+ * all: it costs nothing on a green run, fires only to fail a wedged one, and its error text is the
+ * naming. The exemption is shape-checked conservatively (`isSelfNamingDeadline`); a form it cannot
+ * prove is simply counted.
+ *
  * ## The baseline is annotation debt. It is NOT a wall-clock metric.
  *
  * This guard reports two numbers with opposite meanings, and conflating them would defeat it.
@@ -137,24 +144,62 @@ function* callExpressions(node) {
  *
  * A named constant is an `Identifier`, not a `Literal`, so it yields `NaN` and is skipped — the wait
  * names what it waits for, which is exactly what this guard asks of it.
+ *
+ * The FIRST argument is deliberately free: this guard's subject is the WAIT, not the callback's
+ * spelling — an inline `setTimeout(() => {…}, 8000)` blocks the wall clock exactly as long as the
+ * Identifier form and names nothing either. The Identifier restriction lived here only because the
+ * pre-AST matcher's `[A-Za-z_$][\w$]*` capture group could express nothing else; it was never argued
+ * on the merits. What is REFUSED is unchanged: only the delay-literal contract decides that, and a
+ * named-constant delay stays out on either arm.
+ *
+ * One callback form is exempt on the same self-naming principle as the named-constant delay, and
+ * {@link isSelfNamingDeadline} owns it: `() => reject(new Error('…'))` is a failure deadline, not a
+ * wait — it costs nothing on a green run, fires only to fail a wedged one, and names what it waits
+ * for in the error it carries. That is more naming than a marker comment holds, so policing it here
+ * would be ceremony, not accounting.
  * @param {Object} node A `CallExpression` node.
  * @returns {Number} Milliseconds, or `NaN` when this is not a fixed-delay `setTimeout`.
  */
 function fixedWaitMs(node) {
     if (node.callee?.type !== 'Identifier' || node.callee.name !== 'setTimeout') return NaN;
 
-    // The callback arm stays an IDENTIFIER, which is the contract the previous matcher enforced through
-    // its `[A-Za-z_$][\w$]*` group. Dropping the restriction is defensible on the merits — an inline
-    // `setTimeout(() => {…}, 8000)` waits just as long — but it is a widening of SCOPE, not the
-    // formatting-independence this change is for, and it is not free: measured against the tree at this
-    // head, the unrestricted walk surfaces 63 further unaccounted sites. Baselining 63 rows inside a fix
-    // for three parse forms would make one diff argue two different cases. Deferred with its number
-    // taken, so the successor starts from evidence instead of re-measuring.
-    if (node.arguments[0]?.type !== 'Identifier') return NaN;
+    if (isSelfNamingDeadline(node.arguments[0])) return NaN;
 
     const delay = node.arguments[1];
 
     return delay?.type === 'Literal' && typeof delay.value === 'number' ? delay.value : NaN
+}
+
+/**
+ * @summary Whether a `setTimeout` callback is a self-naming failure deadline: the single-expression
+ * form `() => reject(new Error('…'))`.
+ *
+ * The exemption is deliberately narrow, because every widening of what this guard SKIPS must fail
+ * safe — a form it cannot prove self-naming is simply counted, never waved through:
+ *
+ * - expression-body arrows only. A block body (`() => { reject(…) }`) is not inspected, because a
+ *   block can run anything before the reject; the uniform in-tree idiom is the single-expression
+ *   form, and anything else stays visible as a counted site.
+ * - the callee must be the bare identifier `reject` — the Promise-executor convention — called with
+ * - `new Error('<a string literal>')`: the deadline's name must be statically visible. A variable
+ *   message (`reject(new Error(msg))`) or a message-free `reject()` names nothing this guard can
+ *   read, so both are still counted.
+ * @param {Object} callback The `setTimeout` call's first argument.
+ * @returns {Boolean}
+ */
+function isSelfNamingDeadline(callback) {
+    if (callback?.type !== 'ArrowFunctionExpression' && callback?.type !== 'FunctionExpression') return false;
+
+    const body = callback.body;
+
+    return body?.type === 'CallExpression'
+        && body.callee?.type === 'Identifier'
+        && body.callee.name === 'reject'
+        && body.arguments?.[0]?.type === 'NewExpression'
+        && body.arguments[0].callee?.type === 'Identifier'
+        && body.arguments[0].callee.name === 'Error'
+        && body.arguments[0].arguments?.[0]?.type === 'Literal'
+        && typeof body.arguments[0].arguments[0].value === 'string'
 }
 
 // The workflow-parity SSOT: every glob this guard READS, so the sibling scanned-subset-of-watched

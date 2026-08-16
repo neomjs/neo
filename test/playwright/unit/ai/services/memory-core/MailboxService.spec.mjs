@@ -327,6 +327,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                         subject: 'durable receipt boundary',
                         body   : 'graph projection is deliberately paused'
                     }).then(receipt => ({receipt})),
+                    // wall-clock-under-test: the durable receipt must beat this 1s deadline arm —
+                    // the race bound is the latency assertion
                     new Promise(resolve => setTimeout(() => resolve({deadline: true}), 1000))
                 ])
             });

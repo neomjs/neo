@@ -138,6 +138,8 @@ test.describe('providerActivityStatusStore', () => {
         });
 
         await new Promise((resolve, reject) => {
+            // wall-clock-under-test: the write must stay pending through this live-contention
+            // window (25ms retry against a fresh foreign owner) before the contender is removed
             setTimeout(async () => {
                 try {
                     await fs.unlink(ownerPath);
@@ -184,6 +186,8 @@ test.describe('providerActivityStatusStore', () => {
 
         writer.publishSuccess(300);
         await new Promise((resolve, reject) => {
+            // wall-clock-under-test: the write must stay pending through this live-contention
+            // window (25ms retry against a fresh foreign owner) before the contender is removed
             setTimeout(async () => {
                 try {
                     await fs.unlink(ownerPath);
